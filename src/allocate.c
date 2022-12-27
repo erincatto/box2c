@@ -3,7 +3,7 @@
 
 #include "box2d/allocate.h"
 
-#include <malloc.h>
+#include <stdlib.h>
 
 b2AllocFcn* b2_allocFcn = NULL;
 b2FreeFcn* b2_freeFcn = NULL;
