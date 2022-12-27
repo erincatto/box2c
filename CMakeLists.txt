@@ -8,6 +8,7 @@ project(box2d LANGUAGES C CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+add_subdirectory(test)
 add_subdirectory(src)
 
 # https://stackoverflow.com/questions/72635402/how-to-set-working-directory-in-cmake-visual-studio-2022

@@ -3,7 +3,7 @@
   "configurePresets": [
     {
       "name": "ninja",
-      "displayName": "Ninja",
+      "displayName": "ninja",
       "description": "CMake with builtin cross-platform Ninja generator",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "generator": "Ninja Multi-Config",
@@ -19,14 +19,14 @@
     {
       "name": "debug",
       "configurePreset": "ninja",
-      "displayName": "Debug",
+      "displayName": "debug",
       "description": "Build ninja-multi-vcpkg Debug configuration",
       "configuration": "Debug"
     },
     {
       "name": "release",
       "configurePreset": "ninja",
-      "displayName": "Release",
+      "displayName": "release",
       "description": "Build ninja-multi-vcpkg Release configuration",
       "configuration": "RelWithDebInfo"
     }
