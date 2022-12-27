@@ -1,0 +1,37 @@
+set(BOX2D_SOURCE_FILES
+	allocate.c
+	block_allocator.c
+	block_allocator.h
+	math.c
+)
+
+set(BOX2D_HEADER_FILES
+	../include/box2d/allocate.h
+	../include/box2d/constants.h
+	../include/box2d/math.h
+	../include/box2d/types.h
+)
+
+add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_HEADER_FILES})
+target_include_directories(box2d
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+set_target_properties(box2d PROPERTIES
+	CMAKE_COMPILE_WARNING_AS_ERROR ON
+	C_STANDARD 11
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS NO
+)
+
+if(MSVC)
+	target_compile_options(box2d PRIVATE /W4 /WX)
+else()
+	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+# source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
+# source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})

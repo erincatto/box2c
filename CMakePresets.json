@@ -1,0 +1,34 @@
+﻿{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "ninja",
+      "displayName": "Ninja",
+      "description": "CMake with builtin cross-platform Ninja generator",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "generator": "Ninja Multi-Config",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "type": "FILEPATH",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        }
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "ninja",
+      "displayName": "Debug",
+      "description": "Build ninja-multi-vcpkg Debug configuration",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "ninja",
+      "displayName": "Release",
+      "description": "Build ninja-multi-vcpkg Release configuration",
+      "configuration": "RelWithDebInfo"
+    }
+  ]
+}

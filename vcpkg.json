@@ -1,0 +1,12 @@
+{
+  "name": "box2d",
+  "version-string": "latest",
+  "dependencies": [
+    "glfw3",
+    {
+      "name": "imgui",
+      "features": [ "opengl3-binding", "glfw-binding" ]
+    },
+    "glad"
+  ]
+}
