@@ -40,7 +40,7 @@ jobs:
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.  
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ./bin/test
+      run: ./test/${{env.BUILD_TYPE}}/test
       
   build-macos:
     name: macos
@@ -57,7 +57,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ./bin/test
+      run: ./test/${{env.BUILD_TYPE}}/test
       
   build-windows:
     name: windows
@@ -74,5 +74,5 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ./bin/${{env.BUILD_TYPE}}/test
+      run: ./test/${{env.BUILD_TYPE}}/test
       
