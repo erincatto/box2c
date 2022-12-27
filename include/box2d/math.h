@@ -10,7 +10,7 @@
 static const b2Vec2 b2Vec2_Zero = { 0.0f, 0.0f };
 
 /// Convert this vector into a unit vector. Returns the length.
-static b2Vec2 b2Normalize(b2Vec2 v);
+b2Vec2 b2Normalize(b2Vec2 v);
 
 /// Get the length of this vector (the norm).
 static inline float b2Length(b2Vec2 v)
