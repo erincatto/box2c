@@ -7,7 +7,7 @@
 
 #include "constants.h"
 #include "types.h"
-#include "math.h"
+#include "vec_math.h"
 
 /// @file
 /// Structures and functions used for computing contact points, distance

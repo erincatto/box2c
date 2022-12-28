@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/collision.h"
-#include "box2d/math.h"
+#include "box2d/vec_math.h"
 #include "test_macros.h"
 
 int AABBTest()

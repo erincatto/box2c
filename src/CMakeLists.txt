@@ -3,14 +3,14 @@ set(BOX2D_SOURCE_FILES
 	block_allocator.c
 	block_allocator.h
 	collision.c
-	math.c
+	vec_math.c
 )
 
 set(BOX2D_HEADER_FILES
 	../include/box2d/allocate.h
 	../include/box2d/collision.h
 	../include/box2d/constants.h
-	../include/box2d/math.h
+	../include/box2d/vec_math.h
 	../include/box2d/types.h
 )
 
