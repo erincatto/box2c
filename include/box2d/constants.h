@@ -42,6 +42,10 @@ extern float b2_lengthUnitsPerMeter;
 /// TODO eliminate this
 #define b2_polygonRadius (2.0f * b2_linearSlop)
 
+/// The maximum number of vertices on a convex polygon. You cannot increase
+/// this too much because b2BlockAllocator has a maximum object size.
+#define b2_maxPolygonVertices 8
+
 /// Maximum number of sub-steps per contact in continuous physics simulation.
 #define b2_maxSubSteps 8
 
@@ -86,13 +90,13 @@ extern float b2_lengthUnitsPerMeter;
 typedef struct b2Version
 {
 	///< significant changes
-	int32 major;
+	int major;
 
 	///< incremental changes
-	int32 minor;
+	int minor;
 
 	///< bug fixes
-	int32 revision;
+	int revision;
 } b2Version;
 
 /// Current version.

@@ -2,13 +2,15 @@ set(BOX2D_SOURCE_FILES
 	allocate.c
 	block_allocator.c
 	block_allocator.h
-	math.c
+	collision.c
+	vec_math.c
 )
 
 set(BOX2D_HEADER_FILES
 	../include/box2d/allocate.h
+	../include/box2d/collision.h
 	../include/box2d/constants.h
-	../include/box2d/math.h
+	../include/box2d/vec_math.h
 	../include/box2d/types.h
 )
 
@@ -31,6 +33,11 @@ if(MSVC)
 	target_compile_options(box2d PRIVATE /W4 /WX)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
+find_library(MATH_LIBRARY m)
+if(MATH_LIBRARY)
+    target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
 endif()
 
 # source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})

@@ -3,10 +3,12 @@
 
 #include "test_macros.h"
 
-extern bool MathTest();
+extern int MathTest();
+extern int CollisionTest();
 
 int main(void)
 {
 	RUN_TEST(MathTest);
+	RUN_TEST(CollisionTest);
 	return 0;
 }
