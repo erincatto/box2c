@@ -35,5 +35,10 @@ else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+find_library(MATH_LIBRARY m)
+if(MATH_LIBRARY)
+    target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
+endif()
+
 # source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
 # source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})

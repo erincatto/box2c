@@ -4,9 +4,4 @@ add_executable(test
     math_test.c
 )
 
-find_library(MATH_LIBRARY m)
-if(MATH_LIBRARY)
-    target_link_libraries(test PUBLIC ${MATH_LIBRARY})
-endif()
-
 target_link_libraries(test PUBLIC box2d)
