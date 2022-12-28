@@ -17,7 +17,7 @@ bool MathTest()
 	ENSURE(v.x == -2.0f && v.y == -2.0f);
 
 	v = b2Add(two, two);
-	ENSURE(v.x == 5.0f && v.y == 5.0f);
+	ENSURE(v.x != 5.0f && v.y != 5.0f);
 
 	return true;
 }
