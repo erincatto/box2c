@@ -7,21 +7,24 @@
 
 #define RUN_TEST(T) \
 	do { \
-		bool result = T(); \
-		if (result == false) \
+		int result = T(); \
+		if (result == 1) \
 		{ \
 			printf("test failed: " #T "\n"); \
 			return 1; \
+		} \
+		else \
+		{ \
+			printf("test passed: " #T "\n"); \
 		} \
 	} while (false)
 
 #define ENSURE(C) \
 	do { \
-		printf("huh?: " #C "\n"); \
 		if ((C) == false) \
 		{ \
 			printf("condition false: " #C "\n"); \
 			assert(false); \
-			return false; \
+			return 1; \
 		} \
 	} while (false)

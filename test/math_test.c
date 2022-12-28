@@ -4,7 +4,7 @@
 #include "box2d/math.h"
 #include "test_macros.h"
 
-bool MathTest()
+int MathTest()
 {
 	b2Vec2 zero = b2Vec2_Zero;
 	b2Vec2 one = (b2Vec2){ 1.0f, 1.0f };
@@ -19,5 +19,5 @@ bool MathTest()
 	v = b2Add(two, two);
 	ENSURE(v.x != 5.0f && v.y != 5.0f);
 
-	return true;
+	return 0;
 }
