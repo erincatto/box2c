@@ -29,7 +29,7 @@ b2Vec2 b2Normalize(b2Vec2 v)
 	float length = b2Length(v);
 	if (length < FLT_EPSILON)
 	{
-		return b2Vec2_Zero;
+		return b2Vec2_zero;
 	}
 
 	b2Vec2 n = v;

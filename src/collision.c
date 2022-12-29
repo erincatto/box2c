@@ -141,7 +141,7 @@ bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* inp
 	b2Vec2 d = b2Sub(input->p2, input->p1);
 	b2Vec2 absD = b2Abs(d);
 
-	b2Vec2 normal = b2Vec2_Zero;
+	b2Vec2 normal = b2Vec2_zero;
 
 	// x-coordinate
 	if (absD.x < FLT_EPSILON)
@@ -289,7 +289,7 @@ bool b2TestOverlap(	const b2Shape* shapeA, int32_t indexA,
 	input->transformB = xfB;
 	input->useRadii = true;
 
-	b2SimplexCache cache;
+	b2DistanceCache cache;
 	cache.count = 0;
 
 	b2DistanceOutput output;

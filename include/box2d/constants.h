@@ -36,12 +36,6 @@ extern float b2_lengthUnitsPerMeter;
 /// chosen to be numerically significant, but visually insignificant.
 #define b2_angularSlop (2.0f / 180.0f * b2_pi)
 
-/// The radius of the polygon/edge shape skin. This should not be modified. Making
-/// this smaller means polygons will have an insufficient buffer for continuous collision.
-/// Making it larger may create artifacts for vertex collision.
-/// TODO eliminate this
-#define b2_polygonRadius (2.0f * b2_linearSlop)
-
 /// The maximum number of vertices on a convex polygon. You cannot increase
 /// this too much because b2BlockAllocator has a maximum object size.
 #define b2_maxPolygonVertices 8

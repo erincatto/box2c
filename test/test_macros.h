@@ -28,3 +28,13 @@
 			return 1; \
 		} \
 	} while (false)
+
+#define ENSURE_SMALL(C, tol) \
+	do { \
+		if ((C) < -(tol) || (tol) < (C)) \
+		{ \
+			printf("condition false: abs(" #C ") < %g\n", tol); \
+			assert(false); \
+			return 1; \
+		} \
+	} while (false)

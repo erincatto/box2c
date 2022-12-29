@@ -6,7 +6,7 @@
 
 int MathTest()
 {
-	b2Vec2 zero = b2Vec2_Zero;
+	b2Vec2 zero = b2Vec2_zero;
 	b2Vec2 one = (b2Vec2){ 1.0f, 1.0f };
 	b2Vec2 two = (b2Vec2){ 2.0f, 2.0f };
 
