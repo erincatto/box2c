@@ -38,23 +38,6 @@ static int32_t b2GetSupportIndex(const b2DistanceProxy* proxy, b2Vec2 direction)
 	return bestIndex;
 }
 
-static b2Vec2 b2GetSupportVertex(const b2DistanceProxy* proxy, b2Vec2 direction)
-{
-	int32_t bestIndex = 0;
-	float bestValue = b2Dot(proxy->vertices[0], direction);
-	for (int32_t i = 1; i < proxy->count; ++i)
-	{
-		float value = b2Dot(proxy->vertices[i], direction);
-		if (value > bestValue)
-		{
-			bestIndex = i;
-			bestValue = value;
-		}
-	}
-
-	return proxy->vertices[bestIndex];
-}
-
 #if 0
 void b2DistanceProxy::Set(const b2Shape* shape, int32_t index)
 {
