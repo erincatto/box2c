@@ -5,10 +5,12 @@
 
 extern int MathTest();
 extern int CollisionTest();
+extern int DistanceTest();
 
 int main(void)
 {
 	RUN_TEST(MathTest);
 	RUN_TEST(CollisionTest);
+	RUN_TEST(DistanceTest);
 	return 0;
 }
