@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/constants.h"
 #include "box2d/distance.h"
 #include "box2d/vec_math.h"
 #include "test_macros.h"
@@ -65,7 +66,7 @@ int ShapeCastTest()
 	bool hit = b2ShapeCast(&output, &input);
 
 	ENSURE(hit);
-	ENSURE_SMALL(output.lambda - 0.5f, FLT_EPSILON);
+	ENSURE_SMALL(output.lambda - 0.5f, b2_linearSlop);
 
 	return 0;
 }

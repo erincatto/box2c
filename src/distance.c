@@ -18,7 +18,7 @@ static b2Vec2 b2Weight2(float a1, b2Vec2 w1, float a2, b2Vec2 w2)
 
 static b2Vec2 b2Weight3(float a1, b2Vec2 w1, float a2, b2Vec2 w2, float a3, b2Vec2 w3)
 {
-	return (b2Vec2) { a1* w1.x + a2 * w2.x + a3 * w3.x, a1 * w1.y + a2 * w2.y + a3 * w3.y };
+	return (b2Vec2) { a1* w1.x + a2 * w2.x + a3 * w3.x, a1* w1.y + a2 * w2.y + a3 * w3.y };
 }
 
 static int32_t b2GetSupportIndex(const b2DistanceProxy* proxy, b2Vec2 direction)
@@ -61,52 +61,52 @@ void b2DistanceProxy::Set(const b2Shape* shape, int32_t index)
 	switch (shape->GetType())
 	{
 	case b2Shape::e_circle:
-		{
-			const b2CircleShape* circle = static_cast<const b2CircleShape*>(shape);
-			m_vertices = &circle->m_p;
-			m_count = 1;
-			m_radius = circle->m_radius;
-		}
-		break;
+	{
+		const b2CircleShape* circle = static_cast<const b2CircleShape*>(shape);
+		m_vertices = &circle->m_p;
+		m_count = 1;
+		m_radius = circle->m_radius;
+	}
+	break;
 
 	case b2Shape::e_polygon:
-		{
-			const b2PolygonShape* polygon = static_cast<const b2PolygonShape*>(shape);
-			m_vertices = polygon->m_vertices;
-			m_count = polygon->m_count;
-			m_radius = polygon->m_radius;
-		}
-		break;
+	{
+		const b2PolygonShape* polygon = static_cast<const b2PolygonShape*>(shape);
+		m_vertices = polygon->m_vertices;
+		m_count = polygon->m_count;
+		m_radius = polygon->m_radius;
+	}
+	break;
 
 	case b2Shape::e_chain:
+	{
+		const b2ChainShape* chain = static_cast<const b2ChainShape*>(shape);
+		assert(0 <= index && index < chain->m_count);
+
+		m_buffer[0] = chain->m_vertices[index];
+		if (index + 1 < chain->m_count)
 		{
-			const b2ChainShape* chain = static_cast<const b2ChainShape*>(shape);
-			assert(0 <= index && index < chain->m_count);
-
-			m_buffer[0] = chain->m_vertices[index];
-			if (index + 1 < chain->m_count)
-			{
-				m_buffer[1] = chain->m_vertices[index + 1];
-			}
-			else
-			{
-				m_buffer[1] = chain->m_vertices[0];
-			}
-
-			m_vertices = m_buffer;
-			m_count = 2;
-			m_radius = chain->m_radius;
+			m_buffer[1] = chain->m_vertices[index + 1];
 		}
-		break;
+		else
+		{
+			m_buffer[1] = chain->m_vertices[0];
+		}
+
+		m_vertices = m_buffer;
+		m_count = 2;
+		m_radius = chain->m_radius;
+	}
+	break;
 
 	case b2Shape::e_edge:
-		{
-			const b2EdgeShape* edge = static_cast<const b2EdgeShape*>(shape);
-			m_vertices = &edge->m_vertex1;
-			m_count = 2;
-			m_radius = edge->m_radius;
-		}
-		break;
+	{
+		const b2EdgeShape* edge = static_cast<const b2EdgeShape*>(shape);
+		m_vertices = &edge->m_vertex1;
+		m_count = 2;
+		m_radius = edge->m_radius;
+	}
+	break;
 
 	default:
 		assert(false);
@@ -397,7 +397,7 @@ void b2Simplex_Solve3(b2Simplex* s)
 	float w3e23 = b2Dot(w3, e23);
 	float d23_1 = w3e23;
 	float d23_2 = -w2e23;
-	
+
 	// Triangle123
 	float n123 = b2Cross(e12, e13);
 
@@ -545,9 +545,9 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 
 		// Compute a tentative new simplex vertex using support points.
 		b2SimplexVertex* vertex = vertices[simplex.count];
-		vertex->indexA = b2GetSupportIndex( proxyA, b2InvRotVec(transformA.q, b2Neg(d)));
+		vertex->indexA = b2GetSupportIndex(proxyA, b2InvRotVec(transformA.q, b2Neg(d)));
 		vertex->wA = b2TransformPoint(transformA, proxyA->vertices[vertex->indexA]);
-		vertex->indexB = b2GetSupportIndex( proxyB, b2InvRotVec(transformB.q, d));
+		vertex->indexB = b2GetSupportIndex(proxyB, b2InvRotVec(transformB.q, d));
 		vertex->wB = b2TransformPoint(transformB, proxyB->vertices[vertex->indexB]);
 		vertex->w = b2Sub(vertex->wB, vertex->wA);
 
@@ -619,17 +619,15 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
 bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 {
-    output->iterations = 0;
-    output->lambda = 1.0f;
-    output->normal = b2Vec2_zero;
-    output->point = b2Vec2_zero;
+	output->iterations = 0;
+	output->lambda = 1.0f;
+	output->normal = b2Vec2_zero;
+	output->point = b2Vec2_zero;
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;
 
-    float radiusA = B2_MAX(proxyA->radius, b2_polygonRadius);
-    float radiusB = B2_MAX(proxyB->radius, b2_polygonRadius);
-    float radius = radiusA + radiusB;
+	float radius = proxyA->radius + proxyB->radius;
 
 	b2Transform xfA = input->transformA;
 	b2Transform xfB = input->transformB;
@@ -650,20 +648,19 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	b2Vec2 wA = b2TransformPoint(xfA, proxyA->vertices[indexA]);
 	int32_t indexB = b2GetSupportIndex(proxyB, b2InvRotVec(xfB.q, r));
 	b2Vec2 wB = b2TransformPoint(xfB, proxyB->vertices[indexB]);
-    b2Vec2 v = b2Sub(wA, wB);
+	b2Vec2 v = b2Sub(wA, wB);
 
-    // Sigma is the target distance between proxies
-    float sigma = B2_MAX(b2_polygonRadius, radius - b2_polygonRadius);
-	const float tolerance = 0.5f * b2_linearSlop;
+	// Sigma is the target distance between proxies
+	const float sigma = B2_MAX(b2_linearSlop, radius - b2_linearSlop);
 
 	// Main iteration loop.
 	const int32_t k_maxIters = 20;
 	int32_t iter = 0;
-	while (iter < k_maxIters && b2Length(v) - sigma > tolerance)
+	while (iter < k_maxIters && b2Length(v) > sigma)
 	{
 		assert(simplex.count < 3);
 
-        output->iterations += 1;
+		output->iterations += 1;
 
 		// Support in direction -v (A - B)
 		indexA = b2GetSupportIndex(proxyA, b2InvRotVec(xfA.q, b2Neg(v)));
@@ -672,12 +669,12 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		wB = b2TransformPoint(xfB, proxyB->vertices[indexB]);
 		b2Vec2 p = b2Sub(wA, wB);
 
-        // -v is a normal at p
-        v = b2Normalize(v);
+		// -v is a normal at p
+		v = b2Normalize(v);
 
-        // Intersect ray with plane
+		// Intersect ray with plane
 		float vp = b2Dot(v, p);
-        float vr = b2Dot(v, r);
+		float vr = b2Dot(v, r);
 		if (vp - sigma > lambda * vr)
 		{
 			if (vr <= 0.0f)
@@ -691,14 +688,14 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 				return false;
 			}
 
-			n = (b2Vec2) { -v.x, -v.y };
-            simplex.count = 0;
+			n = (b2Vec2){ -v.x, -v.y };
+			simplex.count = 0;
 		}
 
-        // Reverse simplex since it works with B - A.
-        // Shift by lambda * r because we want the closest point to the current clip point.
-        // Note that the support point p is not shifted because we want the plane equation
-        // to be formed in unshifted space.
+		// Reverse simplex since it works with B - A.
+		// Shift by lambda * r because we want the closest point to the current clip point.
+		// Note that the support point p is not shifted because we want the plane equation
+		// to be formed in unshifted space.
 		b2SimplexVertex* vertex = vertices[simplex.count];
 		vertex->indexA = indexB;
 		vertex->wA = (b2Vec2){ wB.x + lambda * r.x, wB.y + lambda * r.y };
@@ -724,7 +721,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		default:
 			assert(false);
 		}
-		
+
 		// If we have 3 points, then the origin is in the corresponding triangle.
 		if (simplex.count == 3)
 		{
@@ -751,9 +748,10 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 
 	if (b2Dot(v, v) > 0.0f)
 	{
-        n = b2Normalize(b2Neg(v));
+		n = b2Normalize(b2Neg(v));
 	}
 
+	float radiusA = proxyA->radius;
 	output->point = (b2Vec2){ pointA.x + radiusA * n.x, pointA.y + radiusA * n.y };
 	output->normal = n;
 	output->lambda = lambda;
