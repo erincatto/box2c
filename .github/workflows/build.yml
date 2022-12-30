@@ -1,4 +1,4 @@
-name: CMake
+name: CI Build
 
 on:
   push:
@@ -16,7 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-
+    - uses: lukka/run-vcpkg@v10
+    
     - name: Install dependencies
       run: |
           sudo apt update
