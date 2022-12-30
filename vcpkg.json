@@ -7,6 +7,7 @@
       "name": "imgui",
       "features": [ "opengl3-binding", "glfw-binding" ]
     },
-    "glad"
+    "glad",
+    "sajson"
   ]
 }

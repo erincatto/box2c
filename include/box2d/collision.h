@@ -152,13 +152,6 @@ typedef struct b2RayCastOutput
 	float fraction;
 } b2RayCastOutput;
 
-/// An axis aligned bounding box.
-typedef struct b2AABB
-{
-	b2Vec2 lowerBound;	///< the lower vertex
-	b2Vec2 upperBound;	///< the upper vertex
-} b2AABB;
-
 /// Verify that the bounds are sorted.
 bool b2AABB_IsValid(b2AABB a);
 
