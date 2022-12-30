@@ -56,6 +56,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: vcpkg build
+      id: vcpkg
+      uses: johnwason/vcpkg-action@v4
+      with:
+        manifest-dir: ${{ github.workspace }}
+        triplet: x64-windows-release
+        token: ${{ github.token }}
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
