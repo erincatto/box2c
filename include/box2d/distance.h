@@ -5,6 +5,10 @@
 
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// A distance proxy is used by the GJK algorithm.
 /// It encapsulates any shape.
 typedef struct b2DistanceProxy
@@ -73,8 +77,11 @@ typedef struct b2ShapeCastOutput
 /// @returns true if hit, false if there is no hit or an initial overlap
 bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input);
 
-
 static inline b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
 {
 	return B2_LITERAL(b2DistanceProxy) { vertices, count, radius };
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -28,8 +28,22 @@ typedef struct b2Rot
 	float s, c;
 } b2Rot;
 
+/// A 2D rigid transform
 typedef struct b2Transform
 {
 	b2Vec2 p;
 	b2Rot q;
 } b2Transform;
+
+/// Axis-aligned bounding box
+typedef struct b2AABB
+{
+	b2Vec2 lowerBound;
+	b2Vec2 upperBound;
+} b2AABB;
+
+/// Color for debug drawing. Each value has the range [0,1].
+typedef struct b2Color
+{
+	float r, g, b, a;
+} b2Color;

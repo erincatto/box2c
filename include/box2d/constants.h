@@ -3,6 +3,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// @file
 /// Constants used by box2d.
 /// box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless
@@ -95,3 +99,7 @@ typedef struct b2Version
 
 /// Current version.
 extern b2Version b2_version;
+
+#ifdef __cplusplus
+}
+#endif

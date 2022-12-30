@@ -7,9 +7,11 @@
 
 #include <math.h>
 
+
 #define B2_MIN(A,B) (A) < (B) ? (A) : (B)
 #define B2_MAX(A,B) (A) > (B) ? (A) : (B)
 #define B2_ABS(A) (A) > 0.0f ? (A) : -(A)
+#define B2_CLAMP(A,B,C) B2_MIN(B2_MAX(A, B), C)
 
 static const b2Vec2 b2Vec2_zero = { 0.0f, 0.0f };
 static const b2Rot b2Rot_identity = { 0.0f, 1.0f };
@@ -73,11 +75,16 @@ static inline b2Vec2 b2Mul(b2Vec2 a, b2Vec2 b)
 	return B2_LITERAL(b2Vec2) { a.x * b.x, a.y * b.y };
 }
 
-/// Perform the cross product on a scalar and a vector. In 2D this produces
-/// a vector.
+/// Multiply a scalar and vector
 static inline b2Vec2 b2MulSV(float s, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2) { s * v.y, s * v.x };
+}
+
+/// a + s * b
+static inline b2Vec2 b2MulAdd(b2Vec2 a, float s, b2Vec2 b)
+{
+	return B2_LITERAL(b2Vec2) { a.x + s * b.x, a.y + s * b.y };
 }
 
 /// Component-wise absolute vector
