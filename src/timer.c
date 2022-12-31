@@ -59,6 +59,8 @@ void b2SleepMilliseconds(float milliseconds)
 
 #elif defined(__linux__) || defined (__APPLE__)
 
+#define _XOPEN_SOURCE 500
+
 #include <sys/time.h>
 #include <unistd.h>
 
