@@ -28,7 +28,7 @@ target_include_directories(box2d
 
 set_target_properties(box2d PROPERTIES
 	CMAKE_COMPILE_WARNING_AS_ERROR ON
-	C_STANDARD 11
+	C_STANDARD 17
     C_STANDARD_REQUIRED YES
     C_EXTENSIONS NO
 )
