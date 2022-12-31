@@ -60,6 +60,7 @@ void b2SleepMilliseconds(float milliseconds)
 #elif defined(__linux__) || defined (__APPLE__)
 
 #include <sys/time.h>
+#include <unistd.h>
 
 b2Timer b2CreateTimer()
 {
