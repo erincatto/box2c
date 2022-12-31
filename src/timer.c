@@ -59,7 +59,7 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 b2Timer b2CreateTimer()
 {
 	b2Timer timer;
-	timeval t;
+	struct timeval t;
 	gettimeofday(&t, 0);
 	timer.start_sec = t.tv_sec;
 	timer.start_usec = t.tv_usec;
@@ -68,7 +68,7 @@ b2Timer b2CreateTimer()
 
 float b2GetMilliseconds(const b2Timer* timer)
 {
-	timeval t;
+	struct timeval t;
 	gettimeofday(&t, 0);
 	time_t start_sec = timer->start_sec;
 	suseconds_t start_usec = timer->start_usec;
@@ -92,7 +92,7 @@ float b2GetMilliseconds(const b2Timer* timer)
 
 float b2GetMillisecondsAndReset(b2Timer* timer)
 {
-	timeval t;
+	struct timeval t;
 	gettimeofday(&t, 0);
 	time_t start_sec = timer->start_sec;
 	suseconds_t start_usec = timer->start_usec;
