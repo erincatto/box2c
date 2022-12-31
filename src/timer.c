@@ -112,8 +112,8 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 		start_sec -= nsec;
 	}
 	
-	timer.start_sec = t.tv_sec;
-	timer.start_usec = t.tv_usec;
+	timer->start_sec = t.tv_sec;
+	timer->start_usec = t.tv_usec;
 
 	return 1000.0f * (t.tv_sec - start_sec) + 0.001f * (t.tv_usec - start_usec);
 }
