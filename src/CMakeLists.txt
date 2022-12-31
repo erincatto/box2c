@@ -10,9 +10,14 @@ set(BOX2D_SOURCE_FILES
 
 set(BOX2D_HEADER_FILES
 	../include/box2d/allocate.h
+	../include/box2d/chain_shape.h
+	../include/box2d/circle_shape.h
 	../include/box2d/collision.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
+	../include/box2d/edge_shape.h
+	../include/box2d/polygon_shape.h
+	../include/box2d/shape.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 	../include/box2d/vec_math.h
