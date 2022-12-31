@@ -123,7 +123,7 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 	return 1000.0f * (t.tv_sec - start_sec) + 0.001f * (t.tv_usec - start_usec);
 }
 
-void b2SleepMilliseconds(float)
+void b2SleepMilliseconds(float milliseconds)
 {
 	// TODO couldn't get this to compile on gcc
 	// usleep((uint32_t)(1000.0f * milliseconds + 0.5f));
