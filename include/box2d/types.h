@@ -14,6 +14,7 @@
 #endif
 
 #define B2_ARRAY_COUNT(A) (sizeof(A) / sizeof(A[0]))
+#define B2_NOT_USED(x) ((void)(x))
 
 /// 2D vector
 typedef struct b2Vec2
