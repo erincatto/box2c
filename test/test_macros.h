@@ -19,6 +19,20 @@
 		} \
 	} while (false)
 
+#define RUN_SUBTEST(T) \
+	do { \
+		int result = T(); \
+		if (result == 1) \
+		{ \
+			printf("  subtest failed: " #T "\n"); \
+			return 1; \
+		} \
+		else \
+		{ \
+			printf("  subtest passed: " #T "\n"); \
+		} \
+	} while (false)
+
 #define ENSURE(C) \
 	do { \
 		if ((C) == false) \

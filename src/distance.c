@@ -3,6 +3,7 @@
 
 #include "box2d/constants.h"
 #include "box2d/distance.h"
+#include "box2d/timer.h"
 #include "box2d/vec_math.h"
 
 #include <assert.h>
@@ -10,6 +11,8 @@
 
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
 int32_t b2_gjkCalls, b2_gjkIters, b2_gjkMaxIters;
+
+b2DistanceCache b2_emptyDistanceCache = {0.0f, 0, {0, 0, 0}, {0, 0, 0}};
 
 static b2Vec2 b2Weight2(float a1, b2Vec2 w1, float a2, b2Vec2 w2)
 {
@@ -21,7 +24,7 @@ static b2Vec2 b2Weight3(float a1, b2Vec2 w1, float a2, b2Vec2 w2, float a3, b2Ve
 	return (b2Vec2) { a1* w1.x + a2 * w2.x + a3 * w3.x, a1* w1.y + a2 * w2.y + a3 * w3.y };
 }
 
-static int32_t b2GetSupportIndex(const b2DistanceProxy* proxy, b2Vec2 direction)
+static int32_t b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
 {
 	int32_t bestIndex = 0;
 	float bestValue = b2Dot(proxy->vertices[0], direction);
@@ -528,9 +531,9 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 
 		// Compute a tentative new simplex vertex using support points.
 		b2SimplexVertex* vertex = vertices[simplex.count];
-		vertex->indexA = b2GetSupportIndex(proxyA, b2InvRotVec(transformA.q, b2Neg(d)));
+		vertex->indexA = b2FindSupport(proxyA, b2InvRotateVector(transformA.q, b2Neg(d)));
 		vertex->wA = b2TransformPoint(transformA, proxyA->vertices[vertex->indexA]);
-		vertex->indexB = b2GetSupportIndex(proxyB, b2InvRotVec(transformB.q, d));
+		vertex->indexB = b2FindSupport(proxyB, b2InvRotateVector(transformB.q, d));
 		vertex->wB = b2TransformPoint(transformB, proxyB->vertices[vertex->indexB]);
 		vertex->w = b2Sub(vertex->wB, vertex->wA);
 
@@ -627,9 +630,9 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	b2SimplexVertex* vertices[] = { &simplex.v1, &simplex.v2, &simplex.v3 };
 
 	// Get support point in -r direction
-	int32_t indexA = b2GetSupportIndex(proxyA, b2InvRotVec(xfA.q, b2Neg(r)));
+	int32_t indexA = b2FindSupport(proxyA, b2InvRotateVector(xfA.q, b2Neg(r)));
 	b2Vec2 wA = b2TransformPoint(xfA, proxyA->vertices[indexA]);
-	int32_t indexB = b2GetSupportIndex(proxyB, b2InvRotVec(xfB.q, r));
+	int32_t indexB = b2FindSupport(proxyB, b2InvRotateVector(xfB.q, r));
 	b2Vec2 wB = b2TransformPoint(xfB, proxyB->vertices[indexB]);
 	b2Vec2 v = b2Sub(wA, wB);
 
@@ -646,9 +649,9 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		output->iterations += 1;
 
 		// Support in direction -v (A - B)
-		indexA = b2GetSupportIndex(proxyA, b2InvRotVec(xfA.q, b2Neg(v)));
+		indexA = b2FindSupport(proxyA, b2InvRotateVector(xfA.q, b2Neg(v)));
 		wA = b2TransformPoint(xfA, proxyA->vertices[indexA]);
-		indexB = b2GetSupportIndex(proxyB, b2InvRotVec(xfB.q, v));
+		indexB = b2FindSupport(proxyB, b2InvRotateVector(xfB.q, v));
 		wB = b2TransformPoint(xfB, proxyB->vertices[indexB]);
 		b2Vec2 p = b2Sub(wA, wB);
 
@@ -740,4 +743,464 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	output->lambda = lambda;
 	output->iterations = iter;
 	return true;
+}
+
+float b2_toiTime, b2_toiMaxTime;
+int32_t b2_toiCalls, b2_toiIters, b2_toiMaxIters;
+int32_t b2_toiRootIters, b2_toiMaxRootIters;
+
+typedef enum b2SeparationType
+{
+	b2_pointsType,
+	b2_faceAType,
+	b2_faceBType
+} b2SeparationType;
+
+typedef struct b2SeparationFunction
+{
+	const b2DistanceProxy* proxyA;
+	const b2DistanceProxy* proxyB;
+	b2Sweep sweepA, sweepB;
+	b2Vec2 localPoint;
+	b2Vec2 axis;
+	b2SeparationType type;
+} b2SeparationFunction;
+
+b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache,
+	const b2DistanceProxy* proxyA, const b2Sweep* sweepA,
+	const b2DistanceProxy* proxyB, const b2Sweep* sweepB,
+	float t1)
+{
+	b2SeparationFunction f;
+
+	f.proxyA = proxyA;
+	f.proxyB = proxyB;
+	int32_t count = cache->count;
+	assert(0 < count && count < 3);
+
+	f.sweepA = *sweepA;
+	f.sweepB = *sweepB;
+
+	b2Transform xfA = b2GetSweepTransform(sweepA, t1);
+	b2Transform xfB = b2GetSweepTransform(sweepB, t1);
+
+	if (count == 1)
+	{
+		f.type = b2_pointsType;
+		b2Vec2 localPointA = proxyA->vertices[cache->indexA[0]];
+		b2Vec2 localPointB = proxyB->vertices[cache->indexB[0]];
+		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
+		b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
+		f.axis = b2Normalize(b2Sub(pointB, pointA));
+		f.localPoint = b2Vec2_zero;
+		return f;
+	}
+
+	if (cache->indexA[0] == cache->indexA[1])
+	{
+		// Two points on B and one on A.
+		f.type = b2_faceBType;
+		b2Vec2 localPointB1 = proxyB->vertices[cache->indexB[0]];
+		b2Vec2 localPointB2 = proxyB->vertices[cache->indexB[1]];
+
+		f.axis = b2CrossVS(b2Sub(localPointB2, localPointB1), 1.0f);
+		f.axis = b2Normalize(f.axis);
+		b2Vec2 normal = b2RotateVector(xfB.q, f.axis);
+
+		f.localPoint = (b2Vec2){ 0.5f * (localPointB1.x + localPointB2.x),
+								0.5f * (localPointB1.y + localPointB2.y) };
+		b2Vec2 pointB = b2TransformPoint(xfB, f.localPoint);
+
+		b2Vec2 localPointA = proxyA->vertices[cache->indexA[0]];
+		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
+
+		float s = b2Dot(b2Sub(pointA, pointB), normal);
+		if (s < 0.0f)
+		{
+			f.axis = b2Neg(f.axis);
+		}
+		return f;
+	}
+
+	// Two points on A and one or two points on B.
+	f.type = b2_faceAType;
+	b2Vec2 localPointA1 = proxyA->vertices[cache->indexA[0]];
+	b2Vec2 localPointA2 = proxyA->vertices[cache->indexA[1]];
+
+	f.axis = b2CrossVS(b2Sub(localPointA2, localPointA1), 1.0f);
+	f.axis = b2Normalize(f.axis);
+	b2Vec2 normal = b2RotateVector(xfA.q, f.axis);
+
+	f.localPoint = (b2Vec2){ 0.5f * (localPointA1.x + localPointA2.x),
+							0.5f * (localPointA1.y + localPointA2.y) };
+	b2Vec2 pointA = b2TransformPoint(xfA, f.localPoint);
+
+	b2Vec2 localPointB = proxyB->vertices[cache->indexB[0]];
+	b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
+
+	float s = b2Dot(b2Sub(pointB, pointA), normal);
+	if (s < 0.0f)
+	{
+		f.axis = b2Neg(f.axis);
+	}
+	return f;
+}
+
+float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_t* indexB, float t)
+{
+	b2Transform xfA = b2GetSweepTransform(&f->sweepA, t);
+	b2Transform xfB = b2GetSweepTransform(&f->sweepB, t);
+
+	switch (f->type)
+	{
+	case b2_pointsType:
+	{
+		b2Vec2 axisA = b2InvRotateVector(xfA.q, f->axis);
+		b2Vec2 axisB = b2InvRotateVector(xfB.q, b2Neg(f->axis));
+
+		*indexA = b2FindSupport(f->proxyA, axisA);
+		*indexB = b2FindSupport(f->proxyB, axisB);
+
+		b2Vec2 localPointA = f->proxyA->vertices[*indexA];
+		b2Vec2 localPointB = f->proxyB->vertices[*indexB];
+
+		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
+		b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
+
+		float separation = b2Dot(b2Sub(pointB, pointA), f->axis);
+		return separation;
+	}
+
+	case b2_faceAType:
+	{
+		b2Vec2 normal = b2RotateVector(xfA.q, f->axis);
+		b2Vec2 pointA = b2TransformPoint(xfA, f->localPoint);
+
+		b2Vec2 axisB = b2InvRotateVector(xfB.q, b2Neg(normal));
+
+		*indexA = -1;
+		*indexB = b2FindSupport(f->proxyB, axisB);
+
+		b2Vec2 localPointB = f->proxyB->vertices[*indexB];
+		b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
+
+		float separation = b2Dot(b2Sub(pointB, pointA), normal);
+		return separation;
+	}
+
+	case b2_faceBType:
+	{
+		b2Vec2 normal = b2RotateVector(xfB.q, f->axis);
+		b2Vec2 pointB = b2TransformPoint(xfB, f->localPoint);
+
+		b2Vec2 axisA = b2InvRotateVector(xfA.q, b2Neg(normal));
+
+		*indexB = -1;
+		*indexA = b2FindSupport(f->proxyA, axisA);
+
+		b2Vec2 localPointA = f->proxyA->vertices[*indexA];
+		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
+
+		float separation = b2Dot(b2Sub(pointA, pointB), normal);
+		return separation;
+	}
+
+	default:
+		assert(false);
+		*indexA = -1;
+		*indexB = -1;
+		return 0.0f;
+	}
+}
+
+//
+float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_t indexB, float t)
+{
+	b2Transform xfA = b2GetSweepTransform(&f->sweepA, t);
+	b2Transform xfB = b2GetSweepTransform(&f->sweepB, t);
+
+	switch (f->type)
+	{
+	case b2_pointsType:
+	{
+		b2Vec2 localPointA = f->proxyA->vertices[indexA];
+		b2Vec2 localPointB = f->proxyB->vertices[indexB];
+
+		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
+		b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
+
+		float separation = b2Dot(b2Sub(pointB, pointA), f->axis);
+		return separation;
+	}
+
+	case b2_faceAType:
+	{
+		b2Vec2 normal = b2RotateVector(xfA.q, f->axis);
+		b2Vec2 pointA = b2TransformPoint(xfA, f->localPoint);
+
+		b2Vec2 localPointB = f->proxyB->vertices[indexB];
+		b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
+
+		float separation = b2Dot(b2Sub(pointB, pointA), normal);
+		return separation;
+	}
+
+	case b2_faceBType:
+	{
+		b2Vec2 normal = b2RotateVector(xfB.q, f->axis);
+		b2Vec2 pointB = b2TransformPoint(xfB, f->localPoint);
+
+		b2Vec2 localPointA = f->proxyA->vertices[indexA];
+		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
+
+		float separation = b2Dot(b2Sub(pointA, pointB), normal);
+		return separation;
+	}
+
+	default:
+		assert(false);
+		return 0.0f;
+	}
+}
+
+// CCD via the local separating axis method. This seeks progression
+// by computing the largest time at which separation is maintained.
+void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
+{
+	b2Timer timer;
+
+	++b2_toiCalls;
+
+	output->state = b2_toiStateUnknown;
+	output->t = input->tMax;
+
+	const b2DistanceProxy* proxyA = &input->proxyA;
+	const b2DistanceProxy* proxyB = &input->proxyB;
+
+	b2Sweep sweepA = input->sweepA;
+	b2Sweep sweepB = input->sweepB;
+
+	// Large rotations can make the root finder fail, so normalize the sweep angles.
+	float twoPi = 2.0f * b2_pi;
+	{
+		float d = twoPi * floorf(sweepA.a1 / twoPi);
+		sweepA.a1 -= d;
+		sweepA.a2 -= d;
+	}
+	{
+		float d = twoPi * floorf(sweepB.a1 / twoPi);
+		sweepB.a1 -= d;
+		sweepB.a2 -= d;
+	}
+
+	float tMax = input->tMax;
+
+	float totalRadius = proxyA->radius + proxyB->radius;
+	float target = B2_MAX(b2_linearSlop, totalRadius + b2_linearSlop);
+	float tolerance = 0.25f * b2_linearSlop;
+	assert(target > tolerance);
+
+	float t1 = 0.0f;
+	const int32_t k_maxIterations = 20;
+	int32_t iter = 0;
+
+	// Prepare input for distance query.
+	b2DistanceCache cache;
+	cache.count = 0;
+	b2DistanceInput distanceInput;
+	distanceInput.proxyA = input->proxyA;
+	distanceInput.proxyB = input->proxyB;
+	distanceInput.useRadii = false;
+
+	// The outer loop progressively attempts to compute new separating axes.
+	// This loop terminates when an axis is repeated (no progress is made).
+	for (;;)
+	{
+		b2Transform xfA = b2GetSweepTransform(&sweepA, t1);
+		b2Transform xfB = b2GetSweepTransform(&sweepB, t1);
+
+		// Get the distance between shapes. We can also use the results
+		// to get a separating axis.
+		distanceInput.transformA = xfA;
+		distanceInput.transformB = xfB;
+		b2DistanceOutput distanceOutput;
+		b2ShapeDistance(&distanceOutput, &cache, &distanceInput);
+
+		// If the shapes are overlapped, we give up on continuous collision.
+		if (distanceOutput.distance <= 0.0f)
+		{
+			// Failure!
+			output->state = b2_toiStateOverlapped;
+			output->t = 0.0f;
+			break;
+		}
+
+		if (distanceOutput.distance < target + tolerance)
+		{
+			// Victory!
+			output->state = b2_toiStateHit;
+			output->t = t1;
+			break;
+		}
+
+		// Initialize the separating axis.
+		b2SeparationFunction fcn = b2MakeSeparationFunction(&cache, proxyA, &sweepA, proxyB, &sweepB, t1);
+#if 0
+		// Dump the curve seen by the root finder
+		{
+			const int32_t N = 100;
+			float dx = 1.0f / N;
+			float xs[N + 1];
+			float fs[N + 1];
+
+			float x = 0.0f;
+
+			for (int32_t i = 0; i <= N; ++i)
+			{
+				sweepA.GetTransform(&xfA, x);
+				sweepB.GetTransform(&xfB, x);
+				float f = fcn.Evaluate(xfA, xfB) - target;
+
+				printf("%g %g\n", x, f);
+
+				xs[i] = x;
+				fs[i] = f;
+
+				x += dx;
+			}
+		}
+#endif
+
+		// Compute the TOI on the separating axis. We do this by successively
+		// resolving the deepest point. This loop is bounded by the number of vertices.
+		bool done = false;
+		float t2 = tMax;
+		int32_t pushBackIter = 0;
+		for (;;)
+		{
+			// Find the deepest point at t2. Store the witness point indices.
+			int32_t indexA, indexB;
+			float s2 = b2FindMinSeparation(&fcn, &indexA, &indexB, t2);
+
+			// Is the final configuration separated?
+			if (s2 > target + tolerance)
+			{
+				// Victory!
+				output->state = b2_toiStateSeparated;
+				output->t = tMax;
+				done = true;
+				break;
+			}
+
+			// Has the separation reached tolerance?
+			if (s2 > target - tolerance)
+			{
+				// Advance the sweeps
+				t1 = t2;
+				break;
+			}
+
+			// Compute the initial separation of the witness points.
+			float s1 = b2EvaluateSeparation(&fcn, indexA, indexB, t1);
+
+			// Check for initial overlap. This might happen if the root finder
+			// runs out of iterations.
+			if (s1 < target - tolerance)
+			{
+				output->state = b2_toiStateFailed;
+				output->t = t1;
+				done = true;
+				break;
+			}
+
+			// Check for touching
+			if (s1 <= target + tolerance)
+			{
+				// Victory! t1 should hold the TOI (could be 0.0).
+				output->state = b2_toiStateHit;
+				output->t = t1;
+				done = true;
+				break;
+			}
+
+			// Compute 1D root of: f(x) - target = 0
+			int32_t rootIterCount = 0;
+			float a1 = t1, a2 = t2;
+			for (;;)
+			{
+				// Use a mix of the secant rule and bisection.
+				float t;
+				if (rootIterCount & 1)
+				{
+					// Secant rule to improve convergence.
+					t = a1 + (target - s1) * (a2 - a1) / (s2 - s1);
+				}
+				else
+				{
+					// Bisection to guarantee progress.
+					t = 0.5f * (a1 + a2);
+				}
+
+				++rootIterCount;
+				++b2_toiRootIters;
+
+				float s = b2EvaluateSeparation(&fcn, indexA, indexB, t);
+
+				if (B2_ABS(s - target) < tolerance)
+				{
+					// t2 holds a tentative value for t1
+					t2 = t;
+					break;
+				}
+
+				// Ensure we continue to bracket the root.
+				if (s > target)
+				{
+					a1 = t;
+					s1 = s;
+				}
+				else
+				{
+					a2 = t;
+					s2 = s;
+				}
+
+				if (rootIterCount == 50)
+				{
+					break;
+				}
+			}
+
+			b2_toiMaxRootIters = B2_MAX(b2_toiMaxRootIters, rootIterCount);
+
+			++pushBackIter;
+
+			if (pushBackIter == b2_maxPolygonVertices)
+			{
+				break;
+			}
+		}
+
+		++iter;
+		++b2_toiIters;
+
+		if (done)
+		{
+			break;
+		}
+
+		if (iter == k_maxIterations)
+		{
+			// Root finder got stuck. Semi-victory.
+			output->state = b2_toiStateFailed;
+			output->t = t1;
+			break;
+		}
+	}
+
+	b2_toiMaxIters = B2_MAX(b2_toiMaxIters, iter);
+
+	float time = b2GetMilliseconds(&timer);
+	b2_toiMaxTime = B2_MAX(b2_toiMaxTime, time);
+	b2_toiTime += time;
 }

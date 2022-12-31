@@ -7,10 +7,13 @@
 
 #include <math.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#define B2_MIN(A,B) (A) < (B) ? (A) : (B)
-#define B2_MAX(A,B) (A) > (B) ? (A) : (B)
-#define B2_ABS(A) (A) > 0.0f ? (A) : -(A)
+#define B2_MIN(A,B) ((A) < (B) ? (A) : (B))
+#define B2_MAX(A,B) ((A) > (B) ? (A) : (B))
+#define B2_ABS(A) ((A) > 0.0f ? (A) : -(A))
 #define B2_CLAMP(A,B,C) B2_MIN(B2_MAX(A, B), C)
 
 static const b2Vec2 b2Vec2_zero = { 0.0f, 0.0f };
@@ -78,7 +81,7 @@ static inline b2Vec2 b2Mul(b2Vec2 a, b2Vec2 b)
 /// Multiply a scalar and vector
 static inline b2Vec2 b2MulSV(float s, b2Vec2 v)
 {
-	return B2_LITERAL(b2Vec2) { s * v.y, s * v.x };
+	return B2_LITERAL(b2Vec2) { s * v.x, s * v.y };
 }
 
 /// a + s * b
@@ -165,13 +168,13 @@ static inline b2Vec2 b2Rot_GetYAxis(b2Rot q)
 }
 
 /// Rotate a vector
-static inline b2Vec2 b2RotVec(b2Rot q, b2Vec2 v)
+static inline b2Vec2 b2RotateVector(b2Rot q, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2) { q.c* v.x - q.s * v.y, q.s* v.x + q.c * v.y };
 }
 
 /// Inverse rotate a vector
-static inline b2Vec2 b2InvRotVec(b2Rot q, b2Vec2 v)
+static inline b2Vec2 b2InvRotateVector(b2Rot q, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2) { q.c* v.x + q.s * v.y, -q.s * v.x + q.c * v.y };
 }
@@ -183,3 +186,9 @@ static inline b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
 
 	return B2_LITERAL(b2Vec2) { x, y };
 }
+
+b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
+
+#ifdef __cplusplus
+}
+#endif

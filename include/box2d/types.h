@@ -35,6 +35,22 @@ typedef struct b2Transform
 	b2Rot q;
 } b2Transform;
 
+/// This describes the motion of a body/shape for TOI computation.
+/// Shapes are defined with respect to the body origin, which may
+/// not coincide with the center of mass. However, to support dynamics
+/// we must interpolate the center of mass position.
+typedef struct b2Sweep
+{
+	/// local center of mass position
+	b2Vec2 localCenter;
+
+	/// center world positions
+	b2Vec2 c1, c2;
+
+	/// world angles
+	float a1, a2;
+} b2Sweep;
+
 /// Axis-aligned bounding box
 typedef struct b2AABB
 {
