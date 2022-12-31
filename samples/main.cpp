@@ -483,6 +483,9 @@ int main(int, char**)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+	// MSAA
+	glfwWindowHint(GLFW_SAMPLES, 4);
+
 	sprintf(buffer, "Box2D Version %d.%d.%d", b2_version.major, b2_version.minor, b2_version.revision);
 
 	bool fullscreen = false;

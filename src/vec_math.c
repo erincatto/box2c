@@ -40,3 +40,15 @@ b2Vec2 b2Normalize(b2Vec2 v)
 	return n;
 }
 
+b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
+{
+	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
+	b2Transform xf;
+	xf.p = b2Add(b2MulSV(1.0f - time, sweep->c1), b2MulSV(time, sweep->c2));
+	float angle = (1.0f - time) * sweep->a1 + time * sweep->a2;
+	xf.q = b2Rot_Set(angle);
+
+	// Shift to origin
+	xf.p = b2Sub(xf.p, b2RotateVector(xf.q, sweep->localCenter));
+	return xf;
+}

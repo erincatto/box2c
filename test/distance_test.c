@@ -11,15 +11,14 @@
 int ShapeDistanceTest()
 {
 	b2Vec2 vas[] = {
-		(b2Vec2) { -1.0f, -1.0f },
-		(b2Vec2) { 1.0f, -1.0f },
-		(b2Vec2) { 1.0f, 1.0f },
-		(b2Vec2) { -1.0f, 1.0f }
-	};
+		(b2Vec2){-1.0f, -1.0f},
+		(b2Vec2){1.0f, -1.0f},
+		(b2Vec2){1.0f, 1.0f},
+		(b2Vec2){-1.0f, 1.0f}};
 
 	b2Vec2 vbs[] = {
-		(b2Vec2) { 2.0f, -1.0f },
-		(b2Vec2) { 2.0f, 1.0f },
+		(b2Vec2){2.0f, -1.0f},
+		(b2Vec2){2.0f, 1.0f},
 	};
 
 	b2DistanceInput input;
@@ -43,15 +42,14 @@ int ShapeDistanceTest()
 int ShapeCastTest()
 {
 	b2Vec2 vas[] = {
-		(b2Vec2) { -1.0f, -1.0f },
-		(b2Vec2) { 1.0f, -1.0f },
-		(b2Vec2) { 1.0f, 1.0f },
-		(b2Vec2) { -1.0f, 1.0f }
-	};
+		(b2Vec2){-1.0f, -1.0f},
+		(b2Vec2){1.0f, -1.0f},
+		(b2Vec2){1.0f, 1.0f},
+		(b2Vec2){-1.0f, 1.0f}};
 
 	b2Vec2 vbs[] = {
-		(b2Vec2) { 2.0f, -1.0f },
-		(b2Vec2) { 2.0f, 1.0f },
+		(b2Vec2){2.0f, -1.0f},
+		(b2Vec2){2.0f, 1.0f},
 	};
 
 	b2ShapeCastInput input;
@@ -59,7 +57,7 @@ int ShapeCastTest()
 	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
 	input.transformA = b2Transform_identity;
 	input.transformB = b2Transform_identity;
-	input.translationB = (b2Vec2){ -2.0f, 0.0f };
+	input.translationB = (b2Vec2){-2.0f, 0.0f};
 
 	b2ShapeCastOutput output;
 
@@ -71,10 +69,41 @@ int ShapeCastTest()
 	return 0;
 }
 
+int TimeOfImpactTest()
+{
+	b2Vec2 vas[] = {
+		(b2Vec2){-1.0f, -1.0f},
+		(b2Vec2){1.0f, -1.0f},
+		(b2Vec2){1.0f, 1.0f},
+		(b2Vec2){-1.0f, 1.0f}};
+
+	b2Vec2 vbs[] = {
+		(b2Vec2){2.0f, -1.0f},
+		(b2Vec2){2.0f, 1.0f},
+	};
+
+	b2TOIInput input;
+	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
+	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
+	input.sweepA = (b2Sweep){b2Vec2_zero, b2Vec2_zero, b2Vec2_zero, 0.0f, 0.0f};
+	input.sweepB = (b2Sweep){b2Vec2_zero, b2Vec2_zero, (b2Vec2){-2.0f, 0.0f}, 0.0f, 0.0f};
+	input.tMax = 1.0f;
+
+	b2TOIOutput output;
+
+	b2TimeOfImpact(&output, &input);
+
+	ENSURE(output.state = b2_toiStateHit);
+	ENSURE_SMALL(output.t - 0.5f, b2_linearSlop);
+
+	return 0;
+}
+
 int DistanceTest()
 {
-	RUN_TEST(ShapeDistanceTest);
-	RUN_TEST(ShapeCastTest);
+	RUN_SUBTEST(ShapeDistanceTest);
+	RUN_SUBTEST(ShapeCastTest);
+	RUN_SUBTEST(TimeOfImpactTest);
 
 	return 0;
 }

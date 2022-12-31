@@ -4,6 +4,7 @@ set(BOX2D_SOURCE_FILES
 	block_allocator.h
 	collision.c
 	distance.c
+	timer.c
 	vec_math.c
 )
 
@@ -12,8 +13,9 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/collision.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
-	../include/box2d/vec_math.h
+	../include/box2d/timer.h
 	../include/box2d/types.h
+	../include/box2d/vec_math.h
 )
 
 add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_HEADER_FILES})

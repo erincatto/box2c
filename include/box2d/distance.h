@@ -28,6 +28,8 @@ typedef struct b2DistanceCache
 	uint8_t indexB[3];	///< vertices on shape B
 } b2DistanceCache;
 
+extern b2DistanceCache b2_emptyDistanceCache;
+
 /// Input for b2Distance.
 /// You have to option to use the shape radii
 /// in the computation. Even
@@ -81,6 +83,40 @@ static inline b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count,
 {
 	return B2_LITERAL(b2DistanceProxy) { vertices, count, radius };
 }
+
+/// Input parameters for b2TimeOfImpact
+typedef struct b2TOIInput
+{
+	b2DistanceProxy proxyA;
+	b2DistanceProxy proxyB;
+	b2Sweep sweepA;
+	b2Sweep sweepB;
+
+	// defines sweep interval [0, tMax]
+	float tMax;
+} b2TOIInput;
+
+typedef enum b2TOIState
+{
+	b2_toiStateUnknown,
+	b2_toiStateFailed,
+	b2_toiStateOverlapped,
+	b2_toiStateHit,
+	b2_toiStateSeparated
+} b2TOIState;
+
+/// Output parameters for b2TimeOfImpact.
+typedef struct b2TOIOutput
+{
+	b2TOIState state;
+	float t;
+} b2TOIOutput;
+
+/// Compute the upper bound on time before two shapes penetrate. Time is represented as
+/// a fraction between [0,tMax]. This uses a swept separating axis and may miss some intermediate,
+/// non-tunneling collisions. If you change the time interval, you should call this function
+/// again.
+void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input);
 
 #ifdef __cplusplus
 }

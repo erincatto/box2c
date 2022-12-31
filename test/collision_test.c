@@ -35,7 +35,7 @@ int AABBTest()
 
 int CollisionTest()
 {
-	RUN_TEST(AABBTest);
+	RUN_SUBTEST(AABBTest);
 
 	return 0;
 }
