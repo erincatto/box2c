@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "types.h"
-#include "vec_math.h"
-#include "collision.h"
+#include "box2d/types.h"
+#include "box2d/vec_math.h"
+#include "box2d/collision.h"
 
 /// This holds the mass data computed for a shape.
 typedef struct b2MassData
@@ -20,6 +20,7 @@ typedef struct b2MassData
 	float I;
 } b2MassData;
 
+#if 0
 /// A shape is used for collision detection. You can create a shape however you like.
 /// Shapes used for simulation in b2World are created automatically when a b2Fixture
 /// is created. Shapes may encapsulate a one or more child shapes.
@@ -90,3 +91,53 @@ inline b2Shape::Type b2Shape::GetType() const
 }
 
 #endif
+
+/// A solid circle
+typedef struct b2CircleShape
+{
+	b2Vec2 point;
+	float radius;
+} b2CircleShape;
+
+/// A solid capsule shape
+typedef struct b2CapsuleShape
+{
+	b2Vec2 point1, point2;
+	float radius;
+} b2CapsuleShape;
+
+/// A solid convex polygon. It is assumed that the interior of the polygon is to
+/// the left of each edge.
+/// Polygons have a maximum number of vertices equal to b2_maxPolygonVertices.
+/// In most cases you should not need many vertices for a convex polygon.
+typedef struct b2PolygonShape
+{
+	b2Vec2 vertices[b2_maxPolygonVertices];
+	b2Vec2 normals[b2_maxPolygonVertices];
+	int32_t m_count;
+} b2PolygonShape;
+
+typedef struct b2SegmentShape
+{
+	b2Vec2 point1, point2;
+} b2SegmentShape;
+
+/// A chain shape is a free form sequence of line segments.
+/// The chain has one-sided collision, with the surface normal pointing to the right of the edge.
+/// This provides a counter-clockwise winding like the polygon shape.
+/// @warning the chain will not collide properly if there are self-intersections.
+typedef struct b2ChainShape
+{
+	b2Vec2* m_vertices;
+	int32_t m_count;
+} b2ChainShape;
+
+b2MassData b2ComputeCircleMass(const b2CircleShape* shape);
+b2MassData b2ComputerCapsuleMass(const b2CapsuleShape* shape);
+b2MassData b2ComputerPolygonMass(const b2PolygonShape* shape);
+
+
+bool b2RayCastCircle(b2RayCastOutput* output, const b2RayCastInput* input, b2CircleShape* shape, b2Transform transform);
+bool b2RayCastCapsule(b2RayCastOutput* output, const b2RayCastInput* input, b2CapsuleShape* shape, b2Transform transform);
+bool b2RayCastSegment(b2RayCastOutput* output, const b2RayCastInput* input, b2SegmentShape* shape, b2Transform transform);
+bool b2RayCastPolygon(b2RayCastOutput* output, const b2RayCastInput* input, b2PolygonShape* shape, b2Transform transform);

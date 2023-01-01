@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "constants.h"
 #include "types.h"
 
 #ifdef __cplusplus
@@ -13,7 +14,7 @@ extern "C" {
 /// It encapsulates any shape.
 typedef struct b2DistanceProxy
 {
-	const b2Vec2* vertices;
+	b2Vec2 vertices[b2_maxPolygonVertices];
 	int32_t count;
 	float radius;
 } b2DistanceProxy;
