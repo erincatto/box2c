@@ -13,6 +13,7 @@ add_executable(samples
 	settings.h
 	settings.cpp
 
+	collection/convex_hull.cpp
 	collection/shape_cast.cpp
 	collection/time_of_impact.cpp
 )

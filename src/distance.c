@@ -14,6 +14,19 @@ int32_t b2_gjkCalls, b2_gjkIters, b2_gjkMaxIters;
 
 b2DistanceCache b2_emptyDistanceCache = {0.0f, 0, {0, 0, 0}, {0, 0, 0}};
 
+b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
+{
+	count = B2_MIN(count, b2_maxPolygonVertices);
+	b2DistanceProxy proxy;
+	for (int32_t i = 0; i < count; ++i)
+	{
+		proxy.vertices[i] = vertices[i];
+	}
+	proxy.count = count;
+	proxy.radius = radius;
+	return proxy;
+}
+
 static b2Vec2 b2Weight2(float a1, b2Vec2 w1, float a2, b2Vec2 w2)
 {
 	return (b2Vec2) { a1* w1.x + a2 * w2.x, a1* w1.y + a2 * w2.y };

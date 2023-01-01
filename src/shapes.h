@@ -4,8 +4,11 @@
 #pragma once
 
 #include "box2d/types.h"
-#include "box2d/vec_math.h"
-#include "box2d/collision.h"
+#include "box2d/constants.h"
+
+typedef struct b2Hull b2Hull;
+typedef struct b2RayCastOutput b2RayCastOutput;
+typedef struct b2RayCastInput b2RayCastInput;
 
 /// This holds the mass data computed for a shape.
 typedef struct b2MassData
@@ -114,7 +117,7 @@ typedef struct b2PolygonShape
 {
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
-	int32_t m_count;
+	int32_t count;
 } b2PolygonShape;
 
 typedef struct b2SegmentShape
@@ -132,10 +135,22 @@ typedef struct b2ChainShape
 	int32_t m_count;
 } b2ChainShape;
 
-b2MassData b2ComputeCircleMass(const b2CircleShape* shape);
-b2MassData b2ComputerCapsuleMass(const b2CapsuleShape* shape);
-b2MassData b2ComputerPolygonMass(const b2PolygonShape* shape);
 
+b2PolygonShape b2MakePolygon(const b2Hull* hull);
+b2PolygonShape b2MakeBox(float hx, float hy, b2Vec2 center, float angle);
+
+b2MassData b2ComputeCircleMass(const b2CircleShape* shape);
+b2MassData b2ComputeCapsuleMass(const b2CapsuleShape* shape);
+b2MassData b2ComputePolygonMass(const b2PolygonShape* shape);
+
+b2AABB b2ComputeCircleAABB(const b2CircleShape* shape, b2Transform transform);
+b2AABB b2ComputeCapsuleAABB(const b2CapsuleShape* shape, b2Transform transform);
+b2AABB b2ComputePolygonAABB(const b2PolygonShape* shape, b2Transform transform);
+b2AABB b2ComputeSegmentAABB(const b2SegmentShape* shape, b2Transform transform);
+
+bool b2PointTestCircle(b2Vec2 point, b2CircleShape* shape, b2Transform transform);
+bool b2PointTestCapsule(b2Vec2 point, b2CapsuleShape* shape, b2Transform transform);
+bool b2PointTestPolygon(b2Vec2 point, b2PolygonShape* shape, b2Transform transform);
 
 bool b2RayCastCircle(b2RayCastOutput* output, const b2RayCastInput* input, b2CircleShape* shape, b2Transform transform);
 bool b2RayCastCapsule(b2RayCastOutput* output, const b2RayCastInput* input, b2CapsuleShape* shape, b2Transform transform);

@@ -18,10 +18,6 @@ extern float b2_lengthUnitsPerMeter;
 
 #define b2_pi 3.14159265359f
 
-/// The maximum number of contact points between two convex shapes. Do
-/// not change this value.
-#define b2_maxManifoldPoints 2
-
 /// This is used to fatten AABBs in the dynamic tree. This allows proxies
 /// to move by a small amount without triggering a tree adjustment.
 /// This is in meters.

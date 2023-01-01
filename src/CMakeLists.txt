@@ -4,7 +4,11 @@ set(BOX2D_SOURCE_FILES
 	block_allocator.h
 	collision.c
 	distance.c
-	shape.h
+	hull.c
+	manifold.c
+	manifold.h
+	shapes.c
+	shapes.h
 	timer.c
 	vec_math.c
 )
@@ -14,6 +18,7 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/collision.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
+	../include/box2d/hull.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 	../include/box2d/vec_math.h
@@ -45,5 +50,5 @@ if(MATH_LIBRARY)
     target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
 endif()
 
-# source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
-# source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})

@@ -117,6 +117,15 @@ static inline b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
+/// Component-wise clamp vector so v into the range [a, b]
+static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
+{
+	b2Vec2 c;
+	c.x = B2_CLAMP(v.x, a.x, b.x);
+	c.y = B2_CLAMP(v.y, a.y, b.y);
+	return c;
+}
+
 /// Convert this vector into a unit vector
 b2Vec2 b2Normalize(b2Vec2 v);
 
