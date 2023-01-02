@@ -3,7 +3,7 @@
 
 #include "box2d/collision.h"
 #include "box2d/hull.h"
-#include "box2d/vec_math.h"
+#include "box2d/math.h"
 
 #include <assert.h>
 #include <float.h>

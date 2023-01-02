@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/constants.h"
-#include "box2d/vec_math.h"
+#include "box2d/math.h"
 
 #include <float.h>
 

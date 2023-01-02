@@ -3,7 +3,7 @@
 
 #include "manifold.h"
 
-#include "box2d/vec_math.h"
+#include "box2d/math.h"
 
 #include <assert.h>
 #include <float.h>

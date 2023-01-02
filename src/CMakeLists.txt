@@ -10,7 +10,7 @@ set(BOX2D_SOURCE_FILES
 	manifold.h
 	shapes.c
 	timer.c
-	vec_math.c
+	math.c
 )
 
 set(BOX2D_HEADER_FILES
@@ -22,7 +22,7 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/shapes.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
-	../include/box2d/vec_math.h
+	../include/box2d/math.h
 )
 
 add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_HEADER_FILES})
