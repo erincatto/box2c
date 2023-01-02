@@ -2,13 +2,13 @@ set(BOX2D_SOURCE_FILES
 	allocate.c
 	block_allocator.c
 	block_allocator.h
+	chain_shape.h
 	collision.c
 	distance.c
 	hull.c
 	manifold.c
 	manifold.h
 	shapes.c
-	shapes.h
 	timer.c
 	vec_math.c
 )
@@ -19,6 +19,7 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/constants.h
 	../include/box2d/distance.h
 	../include/box2d/hull.h
+	../include/box2d/shapes.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 	../include/box2d/vec_math.h
