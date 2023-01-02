@@ -3,7 +3,7 @@
 
 #include "sample.h"
 #include "box2d/hull.h"
-#include "box2d/vec_math.h"
+#include "box2d/math.h"
 
 #include <GLFW/glfw3.h>
 

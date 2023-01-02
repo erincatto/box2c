@@ -18,7 +18,7 @@
 
 #include "box2d/constants.h"
 #include "box2d/timer.h"
-#include "box2d/vec_math.h"
+#include "box2d/math.h"
 
 #include <stdio.h>
 #include <stdlib.h>

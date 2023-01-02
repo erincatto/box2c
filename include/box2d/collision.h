@@ -4,7 +4,7 @@
 #pragma once
 
 #include "types.h"
-#include "vec_math.h"
+#include "math.h"
 
 #ifdef __cplusplus
 extern "C"
