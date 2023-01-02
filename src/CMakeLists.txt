@@ -2,8 +2,13 @@ set(BOX2D_SOURCE_FILES
 	allocate.c
 	block_allocator.c
 	block_allocator.h
+	chain_shape.h
 	collision.c
 	distance.c
+	hull.c
+	manifold.c
+	manifold.h
+	shapes.c
 	timer.c
 	vec_math.c
 )
@@ -13,6 +18,8 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/collision.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
+	../include/box2d/hull.h
+	../include/box2d/shapes.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 	../include/box2d/vec_math.h
@@ -28,7 +35,7 @@ target_include_directories(box2d
 
 set_target_properties(box2d PROPERTIES
 	CMAKE_COMPILE_WARNING_AS_ERROR ON
-	C_STANDARD 11
+	C_STANDARD 17
     C_STANDARD_REQUIRED YES
     C_EXTENSIONS NO
 )
@@ -44,5 +51,5 @@ if(MATH_LIBRARY)
     target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
 endif()
 
-# source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
-# source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})

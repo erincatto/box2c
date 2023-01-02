@@ -14,6 +14,7 @@
 #endif
 
 #define B2_ARRAY_COUNT(A) (sizeof(A) / sizeof(A[0]))
+#define B2_NOT_USED(x) ((void)(x))
 
 /// 2D vector
 typedef struct b2Vec2
@@ -63,3 +64,19 @@ typedef struct b2Color
 {
 	float r, g, b, a;
 } b2Color;
+
+/// Ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
+typedef struct b2RayCastInput
+{
+	b2Vec2 p1, p2;
+	float maxFraction;
+} b2RayCastInput;
+
+/// Ray-cast output data. The ray hits at p1 + fraction * (p2 - p1), where p1 and p2
+/// come from b2RayCastInput.
+typedef struct b2RayCastOutput
+{
+	b2Vec2 normal;
+	float fraction;
+	bool hit;
+} b2RayCastOutput;

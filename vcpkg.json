@@ -8,6 +8,6 @@
       "features": [ "opengl3-binding", "glfw-binding" ]
     },
     "glad",
-    "sajson"
+    "jsmn"
   ]
 }

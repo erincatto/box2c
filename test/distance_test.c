@@ -8,7 +8,7 @@
 
 #include <float.h>
 
-int ShapeDistanceTest()
+static int ShapeDistanceTest()
 {
 	b2Vec2 vas[] = {
 		(b2Vec2){-1.0f, -1.0f},
@@ -39,7 +39,7 @@ int ShapeDistanceTest()
 	return 0;
 }
 
-int ShapeCastTest()
+static int ShapeCastTest()
 {
 	b2Vec2 vas[] = {
 		(b2Vec2){-1.0f, -1.0f},
@@ -69,7 +69,7 @@ int ShapeCastTest()
 	return 0;
 }
 
-int TimeOfImpactTest()
+static int TimeOfImpactTest()
 {
 	b2Vec2 vas[] = {
 		(b2Vec2){-1.0f, -1.0f},

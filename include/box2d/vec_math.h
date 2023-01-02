@@ -117,8 +117,19 @@ static inline b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
+/// Component-wise clamp vector so v into the range [a, b]
+static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
+{
+	b2Vec2 c;
+	c.x = B2_CLAMP(v.x, a.x, b.x);
+	c.y = B2_CLAMP(v.y, a.y, b.y);
+	return c;
+}
+
 /// Convert this vector into a unit vector
 b2Vec2 b2Normalize(b2Vec2 v);
+
+b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
 
 /// Get the length of this vector (the norm).
 static inline float b2Length(b2Vec2 v)
@@ -179,12 +190,21 @@ static inline b2Vec2 b2InvRotateVector(b2Rot q, b2Vec2 v)
 	return B2_LITERAL(b2Vec2) { q.c* v.x + q.s * v.y, -q.s * v.x + q.c * v.y };
 }
 
+/// Transform a point (e.g. local space to world space)
 static inline b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
 {
 	float x = (xf.q.c * p.x - xf.q.s * p.y) + xf.p.x;
 	float y = (xf.q.s * p.x + xf.q.c * p.y) + xf.p.y;
 
 	return B2_LITERAL(b2Vec2) { x, y };
+}
+
+// Inverse transform a point (e.g. world space to local space)
+static inline b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
+{
+	float vx = p.x - xf.p.x;
+	float vy = p.y - xf.p.y;
+	return B2_LITERAL(b2Vec2) { xf.q.c * vx + xf.q.s * vy, -xf.q.s * vx + xf.q.c * vy };
 }
 
 b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);

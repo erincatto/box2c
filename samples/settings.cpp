@@ -3,13 +3,18 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #include "settings.h"
-#include <sajson.h>
+
+#include <jsmn.h>
+
+#include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static const char* fileName = "settings.ini";
 
 // Load a file. You must free the character array.
-static bool sReadFile(char*& data, int& size, const char* filename)
+static bool ReadFile(char*& data, int& size, const char* filename)
 {
 	FILE* file = fopen(filename, "rb");
 	if (file == nullptr)
@@ -38,7 +43,7 @@ void Settings::Save()
 {
 	FILE* file = fopen(fileName, "w");
 	fprintf(file, "{\n");
-	fprintf(file, "  \"testIndex\": %d,\n", m_sampleIndex);
+	fprintf(file, "  \"sampleIndex\": %d,\n", m_sampleIndex);
 	fprintf(file, "  \"drawShapes\": %s,\n", m_drawShapes ? "true" : "false");
 	fprintf(file, "  \"drawJoints\": %s,\n", m_drawJoints ? "true" : "false");
 	fprintf(file, "  \"drawAABBs\": %s,\n", m_drawAABBs ? "true" : "false");
@@ -56,49 +61,60 @@ void Settings::Save()
 	fclose(file);
 }
 
+static int jsoneq(const char* json, jsmntok_t* tok, const char* s)
+{
+	if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start && strncmp(json + tok->start, s, tok->end - tok->start) == 0)
+	{
+		return 0;
+	}
+	return -1;
+}
+
+#define MAX_TOKENS 32
+
 void Settings::Load()
 {
 	char* data = nullptr;
 	int size = 0;
-	bool found = sReadFile(data, size, fileName);
+	bool found = ReadFile(data, size, fileName);
 	if (found ==  false)
 	{
 		return;
 	}
 
-	const sajson::document& document = sajson::parse(sajson::dynamic_allocation(), sajson::mutable_string_view(size, data));
-	if (document.is_valid() == false)
-	{
-		return;
-	}
+	jsmn_parser parser;
+	jsmntok_t tokens[MAX_TOKENS];
 
-	sajson::value root = document.get_root();
-	int fieldCount = int(root.get_length());
-	for (int i = 0; i < fieldCount; ++i)
-	{
-		sajson::string fieldName = root.get_object_key(i);
-		sajson::value fieldValue = root.get_object_value(i);
+	jsmn_init(&parser);
 
-		if (strncmp(fieldName.data(), "testIndex", fieldName.length()) == 0)
+	// js - pointer to JSON string
+	// tokens - an array of tokens available
+	// 10 - number of tokens available
+	int tokenCount = jsmn_parse(&parser, data, size, tokens, MAX_TOKENS);
+	char buffer[32];
+
+	for (int i = 0; i < tokenCount; ++i)
+	{
+		if (jsoneq(data, &tokens[i], "sampleIndex") == 0)
 		{
-			if (fieldValue.get_type() == sajson::TYPE_INTEGER)
-			{
-				m_sampleIndex = fieldValue.get_integer_value();
-			}
-			continue;
+			int count = tokens[i + 1].end - tokens[i + 1].start;
+			assert(count < 32);
+			const char* s = data + tokens[i + 1].start;
+			strncpy_s(buffer, 32, s, count);
+			char* dummy;
+			m_sampleIndex = strtol(buffer, &dummy, 10);
 		}
-
-		if (strncmp(fieldName.data(), "drawShapes", fieldName.length()) == 0)
+		else if (jsoneq(data, &tokens[i], "drawShapes") == 0)
 		{
-			if (fieldValue.get_type() == sajson::TYPE_FALSE)
-			{
-				m_drawShapes = false;
-			}
-			else if (fieldValue.get_type() == sajson::TYPE_TRUE)
+			const char* s = data + tokens[i + 1].start;
+			if (strncmp(s, "true", 4) == 0)
 			{
 				m_drawShapes = true;
 			}
-			continue;
+			else if (strncmp(s, "false", 5) == 0)
+			{
+				m_drawShapes = false;
+			}
 		}
 	}
 

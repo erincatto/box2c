@@ -29,8 +29,8 @@ public:
 		b2Sweep sweepB = {b2Vec2_zero, {2.0f, 4.0f}, {2.0f, 4.0f}, 0.0f, -0.25f * b2_pi};
 
 		b2TOIInput input;
-		input.proxyA = {m_verticesA, m_countA, 0.0f};
-		input.proxyB = {m_verticesB, m_countB, 0.0f};
+		input.proxyA = b2MakeProxy(m_verticesA, m_countA, 0.0f);
+		input.proxyB = b2MakeProxy(m_verticesB, m_countB, 0.0f);
 		input.sweepA = sweepA;
 		input.sweepB = sweepB;
 		input.tMax = 1.0f;

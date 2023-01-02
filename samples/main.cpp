@@ -5,22 +5,23 @@
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS 1
 
 #include <glad/glad.h>
+
 #include <GLFW/glfw3.h>
+
 #include <imgui.h>
-#include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 #include "draw.h"
-#include "settings.h"
 #include "sample.h"
+#include "settings.h"
 
 #include "box2d/constants.h"
+#include "box2d/timer.h"
 #include "box2d/vec_math.h"
 
-#include <algorithm>
 #include <stdio.h>
-#include <thread>
-#include <chrono>
+#include <stdlib.h>
 
 #if defined(_WIN32)
 #include <crtdbg.h>
@@ -39,20 +40,23 @@ void glfwErrorCallback(int error, const char* description)
 	fprintf(stderr, "GLFW error occured. Code: %d. Description: %s\n", error, description);
 }
 
-static inline bool CompareSamples(const SampleEntry& a, const SampleEntry& b)
+static inline int CompareSamples(const void* a, const void* b)
 {
-	int result = strcmp(a.category, b.category);
+	SampleEntry* sa = (SampleEntry*)a;
+	SampleEntry* sb = (SampleEntry*)b;
+
+	int result = strcmp(sa->category, sb->category);
 	if (result == 0)
 	{
-		result = strcmp(a.name, b.name);
+		result = strcmp(sa->name, sb->name);
 	}
 
-	return result < 0;
+	return result;
 }
 
 static void SortTests()
 {
-	std::sort(g_sampleEntries, g_sampleEntries + g_sampleCount, CompareSamples);
+	qsort(g_sampleEntries, g_sampleCount, sizeof(SampleEntry), CompareSamples);
 }
 
 static void RestartTest()
@@ -92,7 +96,7 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		fontPath = fontPath1;
 		fclose(file1);
 	}
-	
+
 	if (file2)
 	{
 		fontPath = fontPath2;
@@ -134,7 +138,7 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			// Pan left
 			if (mods == GLFW_MOD_CONTROL)
 			{
-				b2Vec2 newOrigin = { 2.0f, 0.0f };
+				b2Vec2 newOrigin = {2.0f, 0.0f};
 				s_sample->ShiftOrigin(newOrigin);
 			}
 			else
@@ -147,7 +151,7 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			// Pan right
 			if (mods == GLFW_MOD_CONTROL)
 			{
-				b2Vec2 newOrigin = { -2.0f, 0.0f };
+				b2Vec2 newOrigin = {-2.0f, 0.0f};
 				s_sample->ShiftOrigin(newOrigin);
 			}
 			else
@@ -160,7 +164,7 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			// Pan down
 			if (mods == GLFW_MOD_CONTROL)
 			{
-				b2Vec2 newOrigin = { 0.0f, 2.0f };
+				b2Vec2 newOrigin = {0.0f, 2.0f};
 				s_sample->ShiftOrigin(newOrigin);
 			}
 			else
@@ -173,7 +177,7 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			// Pan up
 			if (mods == GLFW_MOD_CONTROL)
 			{
-				b2Vec2 newOrigin = { 0.0f, -2.0f };
+				b2Vec2 newOrigin = {0.0f, -2.0f};
 				s_sample->ShiftOrigin(newOrigin);
 			}
 			else
@@ -254,13 +258,13 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 
 	double xd, yd;
 	glfwGetCursorPos(g_mainWindow, &xd, &yd);
-	b2Vec2 ps = { (float)xd, (float)yd };
+	b2Vec2 ps = {(float)xd, (float)yd};
 
 	// Use the mouse to move things around.
 	if (button == GLFW_MOUSE_BUTTON_1)
 	{
-        //<##>
-        //ps.Set(0, 0);
+		//<##>
+		// ps.Set(0, 0);
 		b2Vec2 pw = g_camera.ConvertScreenToWorld(ps);
 		if (action == GLFW_PRESS)
 		{
@@ -273,7 +277,7 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 				s_sample->MouseDown(pw);
 			}
 		}
-		
+
 		if (action == GLFW_RELEASE)
 		{
 			s_sample->MouseUp(pw);
@@ -282,7 +286,7 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 	else if (button == GLFW_MOUSE_BUTTON_2)
 	{
 		if (action == GLFW_PRESS)
-		{	
+		{
 			s_clickPointWS = g_camera.ConvertScreenToWorld(ps);
 			s_rightMouseDown = true;
 		}
@@ -296,11 +300,11 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 
 static void MouseMotionCallback(GLFWwindow*, double xd, double yd)
 {
-	b2Vec2 ps = { (float)xd, (float)yd };
+	b2Vec2 ps = {(float)xd, (float)yd};
 
 	b2Vec2 pw = g_camera.ConvertScreenToWorld(ps);
 	s_sample->MouseMove(pw);
-	
+
 	if (s_rightMouseDown)
 	{
 		b2Vec2 diff = b2Sub(pw, s_clickPointWS);
@@ -345,7 +349,7 @@ static void UpdateUI()
 				ImGui::SliderInt("Vel Iters", &s_settings.m_velocityIterations, 0, 50);
 				ImGui::SliderInt("Pos Iters", &s_settings.m_positionIterations, 0, 50);
 				ImGui::SliderFloat("Hertz", &s_settings.m_hertz, 5.0f, 120.0f, "%.0f hz");
-				
+
 				ImGui::Separator();
 
 				ImGui::Checkbox("Sleep", &s_settings.m_enableSleep);
@@ -473,9 +477,9 @@ int main(int, char**)
 	}
 
 #if __APPLE__
-    const char* glslVersion = "#version 150";
+	const char* glslVersion = "#version 150";
 #else
-    const char* glslVersion = NULL;
+	const char* glslVersion = NULL;
 #endif
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -535,23 +539,21 @@ int main(int, char**)
 	s_selection = s_settings.m_sampleIndex;
 	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn();
 
-	// Control the frame rate. One draw per monitor refresh.
-	//glfwSwapInterval(1);
-
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
-	std::chrono::duration<double> frameTime(0.0);
-	std::chrono::duration<double> sleepAdjust(0.0);
+	float frameTime = 0.0;
+
+	int32_t frame = 0;
 
 	while (!glfwWindowShouldClose(g_mainWindow))
 	{
-		std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+		double time1 = glfwGetTime();
 
 		glfwGetWindowSize(g_mainWindow, &g_camera.m_width, &g_camera.m_height);
-        
-        int bufferWidth, bufferHeight;
-        glfwGetFramebufferSize(g_mainWindow, &bufferWidth, &bufferHeight);
-        glViewport(0, 0, bufferWidth, bufferHeight);
+
+		int bufferWidth, bufferHeight;
+		glfwGetFramebufferSize(g_mainWindow, &bufferWidth, &bufferHeight);
+		glViewport(0, 0, bufferWidth, bufferHeight);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -565,7 +567,9 @@ int main(int, char**)
 			ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
 			ImGui::SetNextWindowSize(ImVec2(float(g_camera.m_width), float(g_camera.m_height)));
 			ImGui::SetNextWindowBgAlpha(0.0f);
-			ImGui::Begin("Overlay", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+			ImGui::Begin("Overlay", nullptr,
+			             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+			                 ImGuiWindowFlags_NoScrollbar);
 			ImGui::End();
 
 			const SampleEntry& entry = g_sampleEntries[s_settings.m_sampleIndex];
@@ -578,10 +582,10 @@ int main(int, char**)
 		UpdateUI();
 
 		// ImGui::ShowDemoWindow();
-			
+
 		if (g_debugDraw.m_showUI)
 		{
-			sprintf(buffer, "%.1f ms", 1000.0 * frameTime.count());
+			sprintf(buffer, "%.1f ms", 1000.0f * frameTime);
 			g_debugDraw.DrawString(5, g_camera.m_height - 20, buffer);
 		}
 
@@ -600,22 +604,23 @@ int main(int, char**)
 
 		glfwPollEvents();
 
-		// Throttle to cap at 60Hz. This adaptive using a sleep adjustment. This could be improved by
-		// using mm_pause or equivalent for the last millisecond.
-		std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-		std::chrono::duration<double> target(1.0 / 60.0);
-		std::chrono::duration<double> timeUsed = t2 - t1;
-		std::chrono::duration<double> sleepTime = target - timeUsed + sleepAdjust;
-		if (sleepTime > std::chrono::duration<double>(0))
+		// Limit frame rate to 60Hz
+		double time2 = glfwGetTime();
+		double targetTime = time1 + 1.0f / 60.0f;
+		int loopCount = 0;
+		while (time2 < targetTime)
 		{
-			std::this_thread::sleep_for(sleepTime);
+			b2SleepMilliseconds(0.0f);
+			time2 = glfwGetTime();
+			++loopCount;
 		}
 
-		std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-		frameTime = t3 - t1;
-
-		// Compute the sleep adjustment using a low pass filter
-		sleepAdjust = 0.9 * sleepAdjust + 0.1 * (target - frameTime);
+		frameTime = (float)(time2 - time1);
+		//if (frame % 17 == 0)
+		//{
+		//	printf("loop count = %d, frame time = %.1f\n", loopCount, 1000.0f * frameTime);
+		//}
+		++frame;
 	}
 
 	delete s_sample;

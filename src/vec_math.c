@@ -32,11 +32,21 @@ b2Vec2 b2Normalize(b2Vec2 v)
 		return b2Vec2_zero;
 	}
 
-	b2Vec2 n = v;
 	float invLength = 1.0f / length;
-	n.x *= invLength;
-	n.y *= invLength;
+	b2Vec2 n = {invLength * v.x, invLength * v.y};
+	return n;
+}
 
+b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v)
+{
+	*length = b2Length(v);
+	if (*length < FLT_EPSILON)
+	{
+		return b2Vec2_zero;
+	}
+
+	float invLength = 1.0f / *length;
+	b2Vec2 n = {invLength * v.x, invLength * v.y};
 	return n;
 }
 

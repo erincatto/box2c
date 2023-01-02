@@ -24,6 +24,7 @@ typedef struct b2Timer
 b2Timer b2CreateTimer();
 float b2GetMilliseconds(const b2Timer* timer);
 float b2GetMillisecondsAndReset(b2Timer* timer);
+void b2SleepMilliseconds(float milliseconds);
 
 #ifdef __cplusplus
 }

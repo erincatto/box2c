@@ -52,6 +52,11 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 	return ms;
 }
 
+void b2SleepMilliseconds(float milliseconds)
+{
+	Sleep((DWORD)(milliseconds));
+}
+
 #elif defined(__linux__) || defined (__APPLE__)
 
 #include <sys/time.h>
@@ -118,6 +123,13 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 	return 1000.0f * (t.tv_sec - start_sec) + 0.001f * (t.tv_usec - start_usec);
 }
 
+void b2SleepMilliseconds(float milliseconds)
+{
+	B2_NOT_USED(milliseconds);
+	// TODO couldn't get this to compile on gcc
+	// usleep((uint32_t)(1000.0f * milliseconds + 0.5f));
+}
+
 #else
 
 b2Timer b2CreateTimer()
@@ -133,6 +145,10 @@ float b2GetMilliseconds(const b2Timer*)
 float b2GetMillisecondsAndReset(b2Timer*)
 {
 	return 0.0f;
+}
+
+void b2SleepMilliseconds(float)
+{
 }
 
 #endif

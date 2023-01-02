@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "constants.h"
 #include "types.h"
 
 #ifdef __cplusplus
@@ -13,7 +14,7 @@ extern "C" {
 /// It encapsulates any shape.
 typedef struct b2DistanceProxy
 {
-	const b2Vec2* vertices;
+	b2Vec2 vertices[b2_maxPolygonVertices];
 	int32_t count;
 	float radius;
 } b2DistanceProxy;
@@ -79,10 +80,7 @@ typedef struct b2ShapeCastOutput
 /// @returns true if hit, false if there is no hit or an initial overlap
 bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input);
 
-static inline b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
-{
-	return B2_LITERAL(b2DistanceProxy) { vertices, count, radius };
-}
+b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);
 
 /// Input parameters for b2TimeOfImpact
 typedef struct b2TOIInput
