@@ -220,10 +220,18 @@ bool b2PointInPolygon(b2Vec2 point, const b2PolygonShape* shape, b2Transform xf)
 b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape* shape, b2Transform xf)
 {
 	b2Vec2 p = b2TransformPoint(xf, shape->point);
+
+	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
 	
 	// Shift ray so circle center is the origin
 	b2Vec2 s = b2Sub(input->p1, p);
-	b2Vec2 d = b2Normalize(b2Sub(input->p2, input->p1));
+	float length;
+	b2Vec2 d = b2GetLengthAndNormalize(&length, b2Sub(input->p2, input->p1));
+	if (length == 0.0f)
+	{
+		// zero length ray
+		return output;
+	}
 
 	// Find closest point on ray to origin
 
@@ -236,7 +244,6 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape
 	float cc = b2Dot(c, c);
 	float rr = shape->radius * shape->radius;
 
-	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
 	if (cc > rr)
 	{
 		// closest point is outside the circle
@@ -248,7 +255,7 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape
 
 	float fraction = t - h;
 
-	if (fraction < 0.0f || input->maxFraction < fraction)
+	if (fraction < 0.0f || input->maxFraction * length < fraction)
 	{
 		// outside the range of the ray segment
 		return output;
@@ -256,7 +263,7 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape
 
 	b2Vec2 hitPoint = b2MulAdd(s, fraction, d);
 
-	output.fraction = fraction;
+	output.fraction = fraction / length;
 	output.normal = b2Normalize(hitPoint);
 	output.hit = true;
 

@@ -129,6 +129,8 @@ static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 /// Convert this vector into a unit vector
 b2Vec2 b2Normalize(b2Vec2 v);
 
+b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
+
 /// Get the length of this vector (the norm).
 static inline float b2Length(b2Vec2 v)
 {

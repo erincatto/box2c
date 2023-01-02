@@ -11,22 +11,6 @@ extern "C"
 {
 #endif
 
-/// Ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
-typedef struct b2RayCastInput
-{
-	b2Vec2 p1, p2;
-	float maxFraction;
-} b2RayCastInput;
-
-/// Ray-cast output data. The ray hits at p1 + fraction * (p2 - p1), where p1 and p2
-/// come from b2RayCastInput.
-typedef struct b2RayCastOutput
-{
-	b2Vec2 normal;
-	float fraction;
-	bool hit;
-} b2RayCastOutput;
-
 /// Verify that the bounds are sorted.
 bool b2AABB_IsValid(b2AABB a);
 

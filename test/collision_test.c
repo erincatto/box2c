@@ -5,7 +5,7 @@
 #include "box2d/vec_math.h"
 #include "test_macros.h"
 
-int AABBTest()
+static int AABBTest()
 {
 	b2AABB a;
 	a.lowerBound = (b2Vec2){ -1.0f, -1.0f };
