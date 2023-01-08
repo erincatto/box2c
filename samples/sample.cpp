@@ -5,6 +5,8 @@
 #include "settings.h"
 #include <stdio.h>
 
+#include <GLFW/glfw3.h>
+
 #if 0
 void DestructionListener::SayGoodbye(b2Joint* joint)
 {
@@ -124,55 +126,50 @@ public:
 };
 #endif
 
-void Sample::MouseDown(b2Vec2 p)
+void Sample::MouseDown(b2Vec2 p, int button, int mod)
 {
-	m_mouseWorld = p;
-	
 	if (m_mouseJoint != nullptr)
 	{
 		return;
 	}
 
-#if 0
-	// Make a small box.
-	b2AABB aabb;
-	b2Vec2 d;
-	d.Set(0.001f, 0.001f);
-	aabb.lowerBound = p - d;
-	aabb.upperBound = p + d;
-
-	// Query the world for overlapping shapes.
-	QueryCallback callback(p);
-	m_world->QueryAABB(&callback, aabb);
-
-	if (callback.m_fixture)
+	if (button == GLFW_MOUSE_BUTTON_1)
 	{
-		float frequencyHz = 5.0f;
-		float dampingRatio = 0.7f;
+	#if 0
+		// Make a small box.
+		b2AABB aabb;
+		b2Vec2 d;
+		d.Set(0.001f, 0.001f);
+		aabb.lowerBound = p - d;
+		aabb.upperBound = p + d;
 
-		b2Body* body = callback.m_fixture->GetBody();
-		b2MouseJointDef jd;
-		jd.bodyA = m_groundBody;
-		jd.bodyB = body;
-		jd.target = p;
-		jd.maxForce = 1000.0f * body->GetMass();
-		b2LinearStiffness(jd.stiffness, jd.damping, frequencyHz, dampingRatio, jd.bodyA, jd.bodyB);
+		// Query the world for overlapping shapes.
+		QueryCallback callback(p);
+		m_world->QueryAABB(&callback, aabb);
 
-		m_mouseJoint = (b2MouseJoint*)m_world->CreateJoint(&jd);
-		body->SetAwake(true);
+		if (callback.m_fixture)
+		{
+			float frequencyHz = 5.0f;
+			float dampingRatio = 0.7f;
+
+			b2Body* body = callback.m_fixture->GetBody();
+			b2MouseJointDef jd;
+			jd.bodyA = m_groundBody;
+			jd.bodyB = body;
+			jd.target = p;
+			jd.maxForce = 1000.0f * body->GetMass();
+			b2LinearStiffness(jd.stiffness, jd.damping, frequencyHz, dampingRatio, jd.bodyA, jd.bodyB);
+
+			m_mouseJoint = (b2MouseJoint*)m_world->CreateJoint(&jd);
+			body->SetAwake(true);
+		}
+	#endif
 	}
-#endif
 }
 
-
-void Sample::ShiftMouseDown(b2Vec2 p)
+void Sample::MouseUp(b2Vec2 p, int button)
 {
-	m_mouseWorld = p;
-}
-
-void Sample::MouseUp(b2Vec2 p)
-{
-	if (m_mouseJoint)
+	if (m_mouseJoint && button == GLFW_MOUSE_BUTTON_1)
 	{
 		//m_world->DestroyJoint(m_mouseJoint);
 		m_mouseJoint = nullptr;
@@ -181,8 +178,6 @@ void Sample::MouseUp(b2Vec2 p)
 
 void Sample::MouseMove(b2Vec2 p)
 {
-	m_mouseWorld = p;
-	
 	if (m_mouseJoint)
 	{
 		//m_mouseJoint->SetTarget(p);
@@ -222,7 +217,6 @@ void Sample::Step(Settings& settings)
 	//m_world->Step(timeStep, settings.m_velocityIterations, settings.m_positionIterations);
 
 	//m_world->DebugDraw();
-    g_debugDraw.Flush();
 
 	if (timeStep > 0.0f)
 	{

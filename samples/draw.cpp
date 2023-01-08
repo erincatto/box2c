@@ -8,7 +8,15 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+
+#if defined(_WIN32)
+#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
+#include <crtdbg.h>
+#else
+#include <stdlib.h>
+#endif
+
 #include <imgui.h>
 #include <glad/glad.h>
 
@@ -871,4 +879,5 @@ void DebugDraw::Flush()
 	m_triangles->Flush();
 	m_lines->Flush();
 	m_points->Flush();
+	sCheckGLError();
 }

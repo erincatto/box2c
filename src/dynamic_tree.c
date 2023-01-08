@@ -68,7 +68,7 @@ b2DynamicTree b2DynamicTree_Create()
 void b2DynamicTree_Destroy(b2DynamicTree* tree)
 {
 	b2Free(tree->nodes);
-	tree->nodes = NULL;
+	memset(tree, 0, sizeof(b2DynamicTree));
 }
 
 // Allocate a node from the pool. Grow the pool if necessary.
@@ -483,6 +483,11 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 // the node pool.
 int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData)
 {
+	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+
 	int32_t proxyId = b2AllocateNode(tree);
 	b2TreeNode* node = tree->nodes + proxyId;
 
@@ -511,6 +516,11 @@ void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId)
 
 bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 {
+	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	assert(b2IsLeaf(tree->nodes + proxyId));
 
@@ -575,7 +585,7 @@ float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree)
 	for (int32_t i = 0; i < tree->nodeCapacity; ++i)
 	{
 		const b2TreeNode* node = tree->nodes + i;
-		if (node->height < 0)
+		if (node->height < 0 || b2IsLeaf(node) || i == tree->root)
 		{
 			// Free node in pool
 			continue;
@@ -609,6 +619,7 @@ int32_t b2DynamicTree_ComputeHeight(const b2DynamicTree* tree)
 	return height;
 }
 
+#if defined(_DEBUG)
 static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 {
 	if (index == b2_nullNode)
@@ -644,7 +655,7 @@ static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 	b2ValidateStructure(tree, child2);
 }
 
-void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
+static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 {
 	if (index == b2_nullNode)
 	{
@@ -686,6 +697,7 @@ void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 	b2ValidateMetrics(tree, child1);
 	b2ValidateMetrics(tree, child2);
 }
+#endif
 
 void b2DynamicTree_Validate(const b2DynamicTree* tree)
 {
@@ -707,6 +719,8 @@ void b2DynamicTree_Validate(const b2DynamicTree* tree)
 	assert(height == computedHeight);
 
 	assert(tree->nodeCount + freeCount == tree->nodeCapacity);
+#else
+	B2_NOT_USED(tree);
 #endif
 }
 
@@ -823,7 +837,8 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 
 #define b2_treeStackSize 256
 
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2QueryCallbackFcn* callback, void* context)
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2QueryCallbackFcn* callback,
+                         void* context)
 {
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
@@ -844,7 +859,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBi
 			if (b2IsLeaf(node))
 			{
 				// callback to user code with proxy id
-				bool proceed = callback(nodeId, context);
+				bool proceed = callback(nodeId, node->userData, context);
 				if (proceed == false)
 				{
 					return;
@@ -865,8 +880,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBi
 	}
 }
 
-void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2RayCastCallbackFcn* callback,
-                           void* context)
+void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2RayCastCallbackFcn* callback, void* context)
 {
 	b2Vec2 p1 = input->p1;
 	b2Vec2 p2 = input->p2;
@@ -913,8 +927,9 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		// |dot(v, p1 - c)| > dot(|v|, h)
 		b2Vec2 c = b2AABB_Center(node->aabb);
 		b2Vec2 h = b2AABB_Extents(node->aabb);
-		float separation = B2_ABS(b2Dot(v, b2Sub(p1, c))) - b2Dot(abs_v, h);
-		if (separation > 0.0f)
+		float term1 = B2_ABS(b2Dot(v, b2Sub(p1, c)));
+		float term2 = b2Dot(abs_v, h);
+		if (term2 < term1)
 		{
 			continue;
 		}
@@ -926,7 +941,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 			subInput.p2 = input->p2;
 			subInput.maxFraction = maxFraction;
 
-			float value = callback(&subInput, nodeId, context);
+			float value = callback(&subInput, nodeId, node->userData, context);
 
 			if (value == 0.0f)
 			{

@@ -8,6 +8,9 @@
 
 #include <assert.h>
 
+#define b2_defaultCategoryBits (0x00000001)
+#define b2_defaultMaskBits (0xFFFFFFFF)
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -51,7 +54,7 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb1)
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
-typedef bool b2QueryCallbackFcn(int32_t proxyId, void* context);
+typedef bool b2QueryCallbackFcn(int32_t proxyId, void* userData, void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
@@ -63,7 +66,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBi
 /// - return a value of 0 to terminate the ray cast
 /// - return a value less than input->maxFraction to clip the ray
 /// - return a value of input->maxFraction to continue the ray cast without clipping
-typedef float b2RayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, void* context);
+typedef float b2RayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
 
 /// Ray-cast against the proxies in the tree. This relies on the callback
 /// to perform a exact ray-cast in the case were the proxy contains a shape.

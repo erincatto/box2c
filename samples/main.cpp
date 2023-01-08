@@ -256,6 +256,11 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 {
 	ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
 
+	if (ImGui::GetIO().WantCaptureMouse)
+	{
+		return;
+	}
+
 	double xd, yd;
 	glfwGetCursorPos(g_mainWindow, &xd, &yd);
 	b2Vec2 ps = {(float)xd, (float)yd};
@@ -263,24 +268,15 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 	// Use the mouse to move things around.
 	if (button == GLFW_MOUSE_BUTTON_1)
 	{
-		//<##>
-		// ps.Set(0, 0);
 		b2Vec2 pw = g_camera.ConvertScreenToWorld(ps);
 		if (action == GLFW_PRESS)
 		{
-			if (mods == GLFW_MOD_SHIFT)
-			{
-				s_sample->ShiftMouseDown(pw);
-			}
-			else
-			{
-				s_sample->MouseDown(pw);
-			}
+			s_sample->MouseDown(pw, button, mods);
 		}
 
 		if (action == GLFW_RELEASE)
 		{
-			s_sample->MouseUp(pw);
+			s_sample->MouseUp(pw, button);
 		}
 	}
 	else if (button == GLFW_MOUSE_BUTTON_2)
@@ -578,6 +574,8 @@ int main(int, char**)
 		}
 
 		s_sample->Step(s_settings);
+
+		g_debugDraw.Flush();
 
 		UpdateUI();
 
