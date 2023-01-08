@@ -3,7 +3,13 @@
 
 #include "box2d/allocate.h"
 
+#if defined(_WIN32)
+#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
+#include <crtdbg.h>
+#else
+#include <stdlib.h>
+#endif
 
 b2AllocFcn* b2_allocFcn = NULL;
 b2FreeFcn* b2_freeFcn = NULL;

@@ -14,6 +14,7 @@ add_executable(samples
 	settings.cpp
 
 	collection/convex_hull.cpp
+	collection/dynamic_tree.cpp
 	collection/shape_cast.cpp
 	collection/time_of_impact.cpp
 )
@@ -37,4 +38,4 @@ add_custom_command(
                 ${CMAKE_CURRENT_SOURCE_DIR}/data/
                 ${CMAKE_CURRENT_BINARY_DIR}/data/)
 
-# source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TESTBED_SOURCE_FILES})
+# source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SAMPLES_SOURCE_FILES})

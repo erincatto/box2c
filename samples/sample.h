@@ -76,9 +76,8 @@ public:
 	virtual void UpdateUI() {}
 	virtual void Keyboard(int) { }
 	virtual void KeyboardUp(int) { }
-	void ShiftMouseDown(b2Vec2 p);
-	virtual void MouseDown(b2Vec2 p);
-	virtual void MouseUp(b2Vec2 p);
+	virtual void MouseDown(b2Vec2 p, int button, int mod);
+	virtual void MouseUp(b2Vec2 p, int button);
 	virtual void MouseMove(b2Vec2 p);
 
 	void ShiftOrigin(b2Vec2 newOrigin);
@@ -96,7 +95,6 @@ protected:
 	int32_t m_textLine;
 	b2World* m_world;
 	b2MouseJoint* m_mouseJoint;
-	b2Vec2 m_mouseWorld;
 	int32_t m_stepCount;
 	int32_t m_textIncrement;
 	//b2Profile m_maxProfile;

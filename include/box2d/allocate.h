@@ -7,6 +7,11 @@
 typedef void* b2AllocFcn(int32_t size);
 typedef void b2FreeFcn(void* mem);
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /// Default allocation functions
 void b2SetAlloc(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
@@ -15,3 +20,7 @@ void* b2Alloc(int32_t size);
 
 /// If you implement b2Alloc, you should also implement this function.
 void b2Free(void* mem);
+
+#ifdef __cplusplus
+}
+#endif

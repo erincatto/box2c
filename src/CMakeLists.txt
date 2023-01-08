@@ -5,12 +5,13 @@ set(BOX2D_SOURCE_FILES
 	chain_shape.h
 	collision.c
 	distance.c
+	dynamic_tree.c
 	hull.c
 	manifold.c
 	manifold.h
+	math.c
 	shapes.c
 	timer.c
-	math.c
 )
 
 set(BOX2D_HEADER_FILES
@@ -18,26 +19,25 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/collision.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
+	../include/box2d/dynamic_tree.h
 	../include/box2d/hull.h
+	../include/box2d/math.h
 	../include/box2d/shapes.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
-	../include/box2d/math.h
 )
 
 add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_HEADER_FILES})
 target_include_directories(box2d
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
+	PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 set_target_properties(box2d PROPERTIES
 	CMAKE_COMPILE_WARNING_AS_ERROR ON
 	C_STANDARD 17
-    C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
+	C_STANDARD_REQUIRED YES
+	C_EXTENSIONS NO
 )
 
 if(MSVC)
@@ -48,7 +48,7 @@ endif()
 
 find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)
-    target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
+	target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
 endif()
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})

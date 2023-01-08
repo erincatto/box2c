@@ -27,7 +27,7 @@ static inline b2Vec2 b2AABB_Center(b2AABB a)
 /// Get the extents of the AABB (half-widths).
 static inline b2Vec2 b2AABB_Extents(b2AABB a)
 {
-	b2Vec2 b = {0.5f * (a.upperBound.x - a.lowerBound.x), 0.5f * (a.upperBound.y + a.lowerBound.y)};
+	b2Vec2 b = {0.5f * (a.upperBound.x - a.lowerBound.x), 0.5f * (a.upperBound.y - a.lowerBound.y)};
 	return b;
 }
 

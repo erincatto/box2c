@@ -79,6 +79,10 @@ extern float b2_lengthUnitsPerMeter;
 /// A body cannot sleep if its angular velocity is above this tolerance.
 #define b2_angularSleepTolerance (2.0f / 180.0f * b2_pi)
 
+/// Used to detect bad values. Positions greater than about 16km will have precision
+/// problems, so 100km as a limit should be fine in all cases.
+#define b2_huge (100000.0f * b2_lengthUnitsPerMeter)
+
 /// Version numbering scheme.
 /// See http://en.wikipedia.org/wiki/Software_versioning
 typedef struct b2Version
