@@ -206,7 +206,7 @@ StatementMacros:
   - QT_REQUIRE_VERSION
 TabWidth:        4
 UseCRLF:         false
-UseTab: AlignWithSpaces
+UseTab: Always
 WhitespaceSensitiveMacros:
   - STRINGIZE
   - PP_STRINGIZE

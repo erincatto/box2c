@@ -3,12 +3,11 @@ set(BOX2D_SOURCE_FILES
 	block_allocator.c
 	block_allocator.h
 	chain_shape.h
-	collision.c
+	aabb.c
 	distance.c
 	dynamic_tree.c
 	hull.c
 	manifold.c
-	manifold.h
 	math.c
 	shapes.c
 	timer.c
@@ -16,11 +15,12 @@ set(BOX2D_SOURCE_FILES
 
 set(BOX2D_HEADER_FILES
 	../include/box2d/allocate.h
-	../include/box2d/collision.h
+	../include/box2d/aabb.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
 	../include/box2d/dynamic_tree.h
 	../include/box2d/hull.h
+	../include/box2d/manifold.h
 	../include/box2d/math.h
 	../include/box2d/shapes.h
 	../include/box2d/timer.h

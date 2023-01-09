@@ -178,6 +178,32 @@ static inline b2Vec2 b2Rot_GetYAxis(b2Rot q)
 	return v;
 }
 
+/// Multiply two rotations: q * r
+static inline b2Rot b2MulRot(b2Rot q, b2Rot r)
+{
+	// [qc -qs] * [rc -rs] = [qc*rc-qs*rs -qc*rs-qs*rc]
+	// [qs  qc]   [rs  rc]   [qs*rc+qc*rs -qs*rs+qc*rc]
+	// s = qs * rc + qc * rs
+	// c = qc * rc - qs * rs
+	b2Rot qr;
+	qr.s = q.s * r.c + q.c * r.s;
+	qr.c = q.c * r.c - q.s * r.s;
+	return qr;
+}
+
+/// Transpose multiply two rotations: qT * r
+static inline b2Rot b2InvMulRot(b2Rot q, b2Rot r)
+{
+	// [ qc qs] * [rc -rs] = [qc*rc+qs*rs -qc*rs+qs*rc]
+	// [-qs qc]   [rs  rc]   [-qs*rc+qc*rs qs*rs+qc*rc]
+	// s = qc * rs - qs * rc
+	// c = qc * rc + qs * rs
+	b2Rot qr;
+	qr.s = q.c * r.s - q.s * r.c;
+	qr.c = q.c * r.c + q.s * r.s;
+	return qr;
+}
+
 /// Rotate a vector
 static inline b2Vec2 b2RotateVector(b2Rot q, b2Vec2 v)
 {
@@ -205,6 +231,26 @@ static inline b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
 	float vx = p.x - xf.p.x;
 	float vy = p.y - xf.p.y;
 	return B2_LITERAL(b2Vec2) { xf.q.c * vx + xf.q.s * vy, -xf.q.s * vx + xf.q.c * vy };
+}
+
+// v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p
+//    = (A.q * B.q).Rot(v1) + A.q.Rot(B.p) + A.p
+static inline b2Transform b2MulTransforms(b2Transform A, b2Transform B)
+{
+	b2Transform C;
+	C.q = b2MulRot(A.q, B.q);
+	C.p = b2Add(b2RotateVector(A.q, B.p), A.p);
+	return C;
+}
+
+// v2 = A.q' * (B.q * v1 + B.p - A.p)
+//    = A.q' * B.q * v1 + A.q' * (B.p - A.p)
+static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
+{
+	b2Transform C;
+	C.q = b2InvMulRot(A.q, B.q);
+	C.p = b2InvRotateVector(A.q, b2Sub(B.p, A.p));
+	return C;
 }
 
 b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);

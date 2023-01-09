@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/collision.h"
+#include "box2d/aabb.h"
 #include "box2d/math.h"
 #include "test_macros.h"
 

@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/shapes.h"
-#include "box2d/collision.h"
+#include "box2d/aabb.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
+#include "box2d/shapes.h"
 
 #include <assert.h>
 #include <float.h>
@@ -32,6 +32,10 @@ b2PolygonShape b2MakePolygon(const b2Hull* hull)
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
 
+	// this is a bit wasteful and the centroid is only needed for smooth collision
+	b2MassData massData = b2ComputePolygonMass(&shape, 1.0f);
+	shape.centroid = massData.center;
+
 	return shape;
 }
 
@@ -51,6 +55,7 @@ b2PolygonShape b2MakeBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[1] = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
 	shape.normals[2] = b2RotateVector(xf.q, (b2Vec2){0.0f, 1.0f});
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
+	shape.centroid = center;
 
 	return shape;
 }
@@ -107,11 +112,11 @@ b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
 	// Use the first vertex to reduce round-off errors.
 	b2Vec2 r = shape->vertices[0];
 
-	const float k_inv3 = 1.0f / 3.0f;
+	const float inv3 = 1.0f / 3.0f;
 
 	for (int32_t i = 1; i < shape->count - 1; ++i)
 	{
-		// Triangle vertices.
+		// Triangle edges
 		b2Vec2 e1 = b2Sub(shape->vertices[i], r);
 		b2Vec2 e2 = b2Sub(shape->vertices[i + 1], r);
 
@@ -120,8 +125,8 @@ b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
 		float triangleArea = 0.5f * D;
 		area += triangleArea;
 
-		// Area weighted centroid
-		center = b2MulAdd(center, triangleArea * k_inv3, b2Add(e1, e2));
+		// Area weighted centroid, r at origin
+		center = b2MulAdd(center, triangleArea * inv3, b2Add(e1, e2));
 
 		float ex1 = e1.x, ey1 = e1.y;
 		float ex2 = e2.x, ey2 = e2.y;
@@ -129,7 +134,7 @@ b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
 		float intx2 = ex1 * ex1 + ex2 * ex1 + ex2 * ex2;
 		float inty2 = ey1 * ey1 + ey2 * ey1 + ey2 * ey2;
 
-		I += (0.25f * k_inv3 * D) * (intx2 + inty2);
+		I += (0.25f * inv3 * D) * (intx2 + inty2);
 	}
 
 	b2MassData massData;
@@ -137,10 +142,9 @@ b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
 	// Total mass
 	massData.mass = density * area;
 
-	// Center of mass
+	// Center of mass, shift back from origin at r
 	assert(area > FLT_EPSILON);
-	center = (b2Vec2){center.x / area, center.y / area};
-	massData.center = b2Add(center, r);
+	massData.center = b2MulAdd(r, 1.0f / area, center);
 
 	// Inertia tensor relative to the local origin (point s).
 	massData.I = density * I;

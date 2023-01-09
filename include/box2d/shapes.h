@@ -45,15 +45,37 @@ typedef struct b2PolygonShape
 {
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
+	b2Vec2 centroid;
 	int32_t count;
 } b2PolygonShape;
 
-/// A line segment.
+/// A line segment with two-sided collision.
 typedef struct b2SegmentShape
 {
 	b2Vec2 point1, point2;
 } b2SegmentShape;
 
+/// A smooth line segment with one-sided collision. Only collides on the right side.
+/// Normally these are generated from a chain shape.
+/// ghost1 -> point1 -> point2 -> ghost2
+/// This is only relevant for contact manifolds, otherwise use a regular segment.
+typedef struct b2SmoothSegmentShape
+{
+	/// The tail ghost vertex
+	b2Vec2 ghost1;
+
+	/// The line segment
+	b2Vec2 point1, point2;
+	
+	/// The head ghost vertex
+	b2Vec2 ghost2;
+} b2SmoothSegmentShape;
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 b2PolygonShape b2MakePolygon(const b2Hull* hull);
 b2PolygonShape b2MakeBox(float hx, float hy, b2Vec2 center, float angle);
@@ -76,3 +98,7 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape
 b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2CapsuleShape* shape, b2Transform xf);
 b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentShape* shape, b2Transform xf);
 b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2PolygonShape* shape, b2Transform xf);
+
+#ifdef __cplusplus
+}
+#endif
