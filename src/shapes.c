@@ -74,7 +74,16 @@ b2MassData b2ComputeCircleMass(const b2CircleShape* shape, float density)
 	return massData;
 }
 
-//b2MassData b2ComputeCapsuleMass(const b2CapsuleShape* shape);
+b2MassData b2ComputeCapsuleMass(const b2CapsuleShape* shape, float density)
+{
+	float rr = shape->radius * shape->radius;
+	float radius = shape->radius;
+	float length = b2Length(b2Sub(shape->point2, shape->point1));
+
+	b2MassData massData;
+	massData.mass = density * (b2_pi * radius + 2.0f * length) * radius;
+	massData.center = 
+}
 
 b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
 {
