@@ -656,21 +656,21 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegmentShape* segmentA,
 	return manifold;
 }
 
-// This structure is used to keep track of the best separating axis.
-typedef enum b2EPType
+// Separating axis between segment and polygon
+typedef enum b2SPType
 {
-	b2_ep_unknown,
-	b2_ep_edgeA,
-	b2_ep_edgeB
-} b2EPType;
+	b2_sp_unknown,
+	b2_sp_segmentA,
+	b2_sp_polygonB
+} b2SPType;
 
-typedef struct b2EPAxis
+typedef struct b2SPAxis
 {
 	b2Vec2 normal;
-	b2EPType type;
+	b2SPType type;
 	int32_t index;
 	float separation;
-} b2EPAxis;
+} b2SPAxis;
 
 // This holds polygon B expressed in frame A.
 typedef struct b2TempPolygon
@@ -694,10 +694,10 @@ typedef struct b2ReferenceFace
 	float sideOffset2;
 } b2ReferenceFace;
 
-static b2EPAxis b2ComputeEdgeSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 normal1)
+static b2SPAxis b2ComputeEdgeSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 normal1)
 {
-	b2EPAxis axis;
-	axis.type = b2_ep_edgeA;
+	b2SPAxis axis;
+	axis.type = b2_sp_segmentA;
 	axis.index = -1;
 	axis.separation = -FLT_MAX;
 	axis.normal = b2Vec2_zero;
@@ -730,10 +730,10 @@ static b2EPAxis b2ComputeEdgeSeparation(const b2TempPolygon* polygonB, b2Vec2 v1
 	return axis;
 }
 
-static b2EPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 v2)
+static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 v2)
 {
-	b2EPAxis axis;
-	axis.type = b2_ep_unknown;
+	b2SPAxis axis;
+	axis.type = b2_sp_unknown;
 	axis.index = -1;
 	axis.separation = -FLT_MAX;
 	axis.normal = b2Vec2_zero;
@@ -748,7 +748,7 @@ static b2EPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2
 
 		if (s > axis.separation)
 		{
-			axis.type = b2_ep_edgeB;
+			axis.type = b2_sp_polygonB;
 			axis.index = i;
 			axis.separation = s;
 			axis.normal = n;
@@ -758,18 +758,13 @@ static b2EPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2
 	return axis;
 }
 
-//b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transform xfA, const b2PolygonShape* polygonB,
-//									  b2Transform xfB);
-
-b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
-									  const b2PolygonShape* polygonB, b2Transform xfB)
+b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transform xfA, const b2PolygonShape* polygonB,
+									  b2Transform xfB)
 {
 	b2Manifold manifold;
 	manifold.pointCount = 0;
 
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
-
-	b2Vec2 centroidB = b2TransformPoint(xf, polygonB->centroid);
 
 	b2Vec2 v1 = segmentA->point1;
 	b2Vec2 v2 = segmentA->point2;
@@ -778,11 +773,6 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA
 
 	// Normal points to the right for a CCW winding
 	b2Vec2 normal1 = {edge1.y, -edge1.x};
-	float offset = b2Dot(normal1, b2Sub(centroidB, v1));
-	if (offset < 0.0f)
-	{
-		return manifold;
-	}
 
 	// Get polygonB in frameA
 	b2TempPolygon tempPolygonB;
@@ -793,14 +783,14 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA
 		tempPolygonB.normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
 	}
 
-	b2EPAxis edgeAxis = b2ComputeEdgeSeparation(&tempPolygonB, v1, normal1);
-	b2EPAxis polygonAxis = b2ComputePolygonSeparation(&tempPolygonB, v1, v2);
+	b2SPAxis edgeAxis = b2ComputeEdgeSeparation(&tempPolygonB, v1, normal1);
+	b2SPAxis polygonAxis = b2ComputePolygonSeparation(&tempPolygonB, v1, v2);
 
 	// Use hysteresis for jitter reduction.
 	const float k_relativeTol = 0.98f;
 	const float k_absoluteTol = 0.001f;
 
-	b2EPAxis primaryAxis;
+	b2SPAxis primaryAxis;
 	if (polygonAxis.separation > k_relativeTol * edgeAxis.separation + k_absoluteTol)
 	{
 		primaryAxis = polygonAxis;
@@ -810,62 +800,9 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA
 		primaryAxis = edgeAxis;
 	}
 
-
-	// Smooth collision
-	// See https://box2d.org/posts/2020/06/ghost-collisions/
-
-	b2Vec2 edge0 = b2Normalize(b2Sub(v1, segmentA->ghost1));
-	b2Vec2 normal0 = {edge0.y, -edge0.x};
-	bool convex1 = b2Cross(edge0, edge1) >= 0.0f;
-
-	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, v2));
-	b2Vec2 normal2 = {edge2.y, -edge2.x};
-	bool convex2 = b2Cross(edge1, edge2) >= 0.0f;
-
-	const float sinTol = 0.1f;
-	bool side1 = b2Dot(primaryAxis.normal, edge1) <= 0.0f;
-
-	// Check Gauss Map
-	if (side1)
-	{
-		if (convex1)
-		{
-			if (b2Cross(primaryAxis.normal, normal0) > sinTol)
-			{
-				// Skip region
-				return manifold;
-			}
-
-			// Admit region
-		}
-		else
-		{
-			// Snap region
-			primaryAxis = edgeAxis;
-		}
-	}
-	else
-	{
-		if (convex2)
-		{
-			if (b2Cross(normal2, primaryAxis.normal) > sinTol)
-			{
-				// Skip region
-				return manifold;
-			}
-
-			// Admit region
-		}
-		else
-		{
-			// Snap region
-			primaryAxis = edgeAxis;
-		}
-	}
-
 	b2ClipVertex clipPoints[2];
 	b2ReferenceFace ref;
-	if (primaryAxis.type == b2_ep_edgeA)
+	if (primaryAxis.type == b2_sp_segmentA)
 	{
 		manifold.type = b2_manifoldFaceA;
 
@@ -957,7 +894,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA
 	}
 
 	// Now clipPoints2 contains the clipped points.
-	if (primaryAxis.type == b2_ep_edgeA)
+	if (primaryAxis.type == b2_sp_segmentA)
 	{
 		manifold.localNormal = ref.normal;
 		manifold.localPoint = ref.v1;
@@ -972,7 +909,236 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA
 	{
 		b2ManifoldPoint* cp = manifold.points + i;
 
-		if (primaryAxis.type == b2_ep_edgeA)
+		if (primaryAxis.type == b2_sp_segmentA)
+		{
+			cp->localPoint = b2InvTransformPoint(xf, clipPoints2[i].v);
+			cp->id = clipPoints2[i].id;
+		}
+		else
+		{
+			cp->localPoint = clipPoints2[i].v;
+			cp->id.cf.typeA = clipPoints2[i].id.cf.typeB;
+			cp->id.cf.typeB = clipPoints2[i].id.cf.typeA;
+			cp->id.cf.indexA = clipPoints2[i].id.cf.indexB;
+			cp->id.cf.indexB = clipPoints2[i].id.cf.indexA;
+		}
+	}
+
+	manifold.pointCount = b2_maxManifoldPoints;
+	return manifold;
+}
+
+b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
+											const b2PolygonShape* polygonB, b2Transform xfB)
+{
+	b2Manifold manifold;
+	manifold.pointCount = 0;
+
+	b2Transform xf = b2InvMulTransforms(xfA, xfB);
+
+	b2Vec2 centroidB = b2TransformPoint(xf, polygonB->centroid);
+
+	b2Vec2 v1 = segmentA->point1;
+	b2Vec2 v2 = segmentA->point2;
+
+	b2Vec2 edge1 = b2Normalize(b2Sub(v2, v1));
+
+	// Normal points to the right for a CCW winding
+	b2Vec2 normal1 = {edge1.y, -edge1.x};
+	float offset = b2Dot(normal1, b2Sub(centroidB, v1));
+	if (offset < 0.0f)
+	{
+		return manifold;
+	}
+
+	// Get polygonB in frameA
+	b2TempPolygon tempPolygonB;
+	tempPolygonB.count = polygonB->count;
+	for (int32_t i = 0; i < polygonB->count; ++i)
+	{
+		tempPolygonB.vertices[i] = b2TransformPoint(xf, polygonB->vertices[i]);
+		tempPolygonB.normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
+	}
+
+	b2SPAxis edgeAxis = b2ComputeEdgeSeparation(&tempPolygonB, v1, normal1);
+	b2SPAxis polygonAxis = b2ComputePolygonSeparation(&tempPolygonB, v1, v2);
+
+	// Use hysteresis for jitter reduction.
+	const float k_relativeTol = 0.98f;
+	const float k_absoluteTol = 0.001f;
+
+	b2SPAxis primaryAxis;
+	if (polygonAxis.separation > k_relativeTol * edgeAxis.separation + k_absoluteTol)
+	{
+		primaryAxis = polygonAxis;
+	}
+	else
+	{
+		primaryAxis = edgeAxis;
+	}
+
+	// Smooth collision
+	// See https://box2d.org/posts/2020/06/ghost-collisions/
+
+	b2Vec2 edge0 = b2Normalize(b2Sub(v1, segmentA->ghost1));
+	b2Vec2 normal0 = {edge0.y, -edge0.x};
+	bool convex1 = b2Cross(edge0, edge1) >= 0.0f;
+
+	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, v2));
+	b2Vec2 normal2 = {edge2.y, -edge2.x};
+	bool convex2 = b2Cross(edge1, edge2) >= 0.0f;
+
+	const float sinTol = 0.1f;
+	bool side1 = b2Dot(primaryAxis.normal, edge1) <= 0.0f;
+
+	// Check Gauss Map
+	if (side1)
+	{
+		if (convex1)
+		{
+			if (b2Cross(primaryAxis.normal, normal0) > sinTol)
+			{
+				// Skip region
+				return manifold;
+			}
+
+			// Admit region
+		}
+		else
+		{
+			// Snap region
+			primaryAxis = edgeAxis;
+		}
+	}
+	else
+	{
+		if (convex2)
+		{
+			if (b2Cross(normal2, primaryAxis.normal) > sinTol)
+			{
+				// Skip region
+				return manifold;
+			}
+
+			// Admit region
+		}
+		else
+		{
+			// Snap region
+			primaryAxis = edgeAxis;
+		}
+	}
+
+	b2ClipVertex clipPoints[2];
+	b2ReferenceFace ref;
+	if (primaryAxis.type == b2_sp_segmentA)
+	{
+		manifold.type = b2_manifoldFaceA;
+
+		// Search for the polygon normal that is most anti-parallel to the edge normal.
+		int32_t bestIndex = 0;
+		float bestValue = b2Dot(primaryAxis.normal, tempPolygonB.normals[0]);
+		for (int32_t i = 1; i < tempPolygonB.count; ++i)
+		{
+			float value = b2Dot(primaryAxis.normal, tempPolygonB.normals[i]);
+			if (value < bestValue)
+			{
+				bestValue = value;
+				bestIndex = i;
+			}
+		}
+
+		int32_t i1 = bestIndex;
+		int32_t i2 = i1 + 1 < tempPolygonB.count ? i1 + 1 : 0;
+
+		clipPoints[0].v = tempPolygonB.vertices[i1];
+		clipPoints[0].id.cf.indexA = 0;
+		clipPoints[0].id.cf.indexB = (uint8_t)i1;
+		clipPoints[0].id.cf.typeA = b2_faceFeature;
+		clipPoints[0].id.cf.typeB = b2_vertexFeature;
+
+		clipPoints[1].v = tempPolygonB.vertices[i2];
+		clipPoints[1].id.cf.indexA = 0;
+		clipPoints[1].id.cf.indexB = (uint8_t)i2;
+		clipPoints[1].id.cf.typeA = b2_faceFeature;
+		clipPoints[1].id.cf.typeB = b2_vertexFeature;
+
+		ref.i1 = 0;
+		ref.i2 = 1;
+		ref.v1 = v1;
+		ref.v2 = v2;
+		ref.normal = primaryAxis.normal;
+		ref.sideNormal1 = b2Neg(edge1);
+		ref.sideNormal2 = edge1;
+	}
+	else
+	{
+		manifold.type = b2_manifoldFaceB;
+
+		clipPoints[0].v = v2;
+		clipPoints[0].id.cf.indexA = 1;
+		clipPoints[0].id.cf.indexB = (uint8_t)primaryAxis.index;
+		clipPoints[0].id.cf.typeA = b2_vertexFeature;
+		clipPoints[0].id.cf.typeB = b2_faceFeature;
+
+		clipPoints[1].v = v1;
+		clipPoints[1].id.cf.indexA = 0;
+		clipPoints[1].id.cf.indexB = (uint8_t)primaryAxis.index;
+		clipPoints[1].id.cf.typeA = b2_vertexFeature;
+		clipPoints[1].id.cf.typeB = b2_faceFeature;
+
+		ref.i1 = primaryAxis.index;
+		ref.i2 = ref.i1 + 1 < tempPolygonB.count ? ref.i1 + 1 : 0;
+		ref.v1 = tempPolygonB.vertices[ref.i1];
+		ref.v2 = tempPolygonB.vertices[ref.i2];
+		ref.normal = tempPolygonB.normals[ref.i1];
+
+		// CCW winding
+		ref.sideNormal1 = (b2Vec2){ref.normal.y, -ref.normal.x};
+		ref.sideNormal2 = b2Neg(ref.sideNormal1);
+	}
+
+	ref.sideOffset1 = b2Dot(ref.sideNormal1, ref.v1);
+	ref.sideOffset2 = b2Dot(ref.sideNormal2, ref.v2);
+
+	// Clip incident edge against reference face side planes
+	b2ClipVertex clipPoints1[2];
+	b2ClipVertex clipPoints2[2];
+	int32_t np;
+
+	// Clip to side 1
+	np = b2ClipSegmentToLine(clipPoints1, clipPoints, ref.sideNormal1, ref.sideOffset1, ref.i1);
+
+	if (np < b2_maxManifoldPoints)
+	{
+		return manifold;
+	}
+
+	// Clip to side 2
+	np = b2ClipSegmentToLine(clipPoints2, clipPoints1, ref.sideNormal2, ref.sideOffset2, ref.i2);
+
+	if (np < b2_maxManifoldPoints)
+	{
+		return manifold;
+	}
+
+	// Now clipPoints2 contains the clipped points.
+	if (primaryAxis.type == b2_sp_segmentA)
+	{
+		manifold.localNormal = ref.normal;
+		manifold.localPoint = ref.v1;
+	}
+	else
+	{
+		manifold.localNormal = polygonB->normals[ref.i1];
+		manifold.localPoint = polygonB->vertices[ref.i1];
+	}
+
+	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
+	{
+		b2ManifoldPoint* cp = manifold.points + i;
+
+		if (primaryAxis.type == b2_sp_segmentA)
 		{
 			cp->localPoint = b2InvTransformPoint(xf, clipPoints2[i].v);
 			cp->id = clipPoints2[i].id;

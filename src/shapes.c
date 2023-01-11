@@ -220,6 +220,7 @@ bool b2PointInPolygon(b2Vec2 point, const b2PolygonShape* shape, b2Transform xf)
 	return true;
 }
 
+// Precision Improvements for Ray / Sphere Intersection - Ray Tracing Gems 2019
 // http://www.codercorner.com/blog/?p=321
 b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape* shape, b2Transform xf)
 {

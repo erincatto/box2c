@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "sample.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/shapes.h"
+#include "sample.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -32,12 +32,13 @@ public:
 		m_dragging = false;
 		m_rotating = false;
 		m_showIds = false;
+		m_showSeparation = false;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(230.0f, 190.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 210.0f));
 		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
@@ -54,6 +55,10 @@ public:
 		}
 
 		if (ImGui::Checkbox("show ids", &m_showIds))
+		{
+		}
+
+		if (ImGui::Checkbox("show separation", &m_showSeparation))
 		{
 		}
 
@@ -128,8 +133,14 @@ public:
 
 			if (m_showIds)
 			{
-				p1.x += 0.05f;
-				g_debugDraw.DrawString(p1, "%x", m->points[i].id.key);
+				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
+				g_debugDraw.DrawString(p, "%x", m->points[i].id.key);
+			}
+
+			if (m_showSeparation)
+			{
+				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
+				g_debugDraw.DrawString(p, "%.3f", wm->separations[i]);
 			}
 		}
 	}
@@ -142,14 +153,14 @@ public:
 		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
 		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
+
 		// circle-circle
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m = b2CollideCircles(&m_circle1, &m_circle2);
-			b2WorldManifold wm =
-				b2ComputeWorldManifold(&m, xf1, m_circle1.radius, xf2, m_circle2.radius);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, m_circle1.radius, xf2, m_circle2.radius);
 
 			b2Vec2 c1 = b2TransformPoint(xf1, m_circle1.point);
 			b2Vec2 c2 = b2TransformPoint(xf2, m_circle2.point);
@@ -169,8 +180,7 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m = b2CollidePolygonAndCircle(&m_box, xf1, &m_circle1, xf2);
-			b2WorldManifold wm =
-				b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, m_circle1.radius);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, m_circle1.radius);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < m_box.count; ++i)
@@ -264,6 +274,30 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
+		// segment-box
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSegmentAndPolygon(&m_segment, xf1, &m_box, xf2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, 0.0f);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, m_segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, m_segment.point2);
+			g_debugDraw.DrawSegment(p1, p2, color1);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
+			}
+			g_debugDraw.DrawPolygon(vertices, m_box.count, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+
 		// smooth segment-box
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};
@@ -318,6 +352,7 @@ public:
 	bool m_dragging;
 	bool m_rotating;
 	bool m_showIds;
+	bool m_showSeparation;
 };
 
 static int sampleIndex = RegisterSample("Collision", "Manifold", Manifold::Create);
