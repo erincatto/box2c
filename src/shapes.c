@@ -76,13 +76,26 @@ b2MassData b2ComputeCircleMass(const b2CircleShape* shape, float density)
 
 b2MassData b2ComputeCapsuleMass(const b2CapsuleShape* shape, float density)
 {
-	float rr = shape->radius * shape->radius;
 	float radius = shape->radius;
-	float length = b2Length(b2Sub(shape->point2, shape->point1));
+	float rr = radius * radius;
+	b2Vec2 p1 = shape->point1;
+	b2Vec2 p2 = shape->point2;
+	float length = b2Length(b2Sub(p2, p1));
+	float ll = length * length;
 
 	b2MassData massData;
 	massData.mass = density * (b2_pi * radius + 2.0f * length) * radius;
-	massData.center = 
+	massData.center.x = 0.5f * (p1.x + p2.x);
+	massData.center.y = 0.5f * (p1.y + p2.y);
+
+	// two offset half circles, both halves add up to full circle and each half is offset by half length
+	// half circles = 2 * (1/4 * radius*radius + 1/4 * length*length)
+	// rectangle = (width*width * length*length)/12
+	float circleInertia = 0.5f * (rr + ll);
+	float boxInertia = (4.0f * rr + ll) / 12.0f;
+	massData.I = massData.mass * (circleInertia + boxInertia);
+
+	return massData;
 }
 
 b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
@@ -173,7 +186,18 @@ b2AABB b2ComputeCircleAABB(const b2CircleShape* shape, b2Transform xf)
 	return aabb;
 }
 
-//b2AABB b2ComputeCapsuleAABB(const b2CapsuleShape* shape, b2Transform xf);
+b2AABB b2ComputeCapsuleAABB(const b2CapsuleShape* shape, b2Transform xf)
+{
+	b2Vec2 v1 = b2TransformPoint(xf, shape->point1);
+	b2Vec2 v2 = b2TransformPoint(xf, shape->point2);
+
+	b2Vec2 r = {shape->radius, shape->radius};
+	b2Vec2 lower = b2Sub(b2Min(v1, v2), r);
+	b2Vec2 upper = b2Add(b2Max(v1, v2), r);
+
+	b2AABB aabb = {lower, upper};
+	return aabb;
+}
 
 b2AABB b2ComputePolygonAABB(const b2PolygonShape* shape, b2Transform xf)
 {
@@ -207,11 +231,36 @@ b2AABB b2ComputeSegmentAABB(const b2SegmentShape* shape, b2Transform xf)
 bool b2PointInCircle(b2Vec2 point, const b2CircleShape* shape, b2Transform xf)
 {
 	b2Vec2 center = b2TransformPoint(xf, shape->point);
-	b2Vec2 d = b2Sub(point, center);
-	return b2Dot(d, d) <= shape->radius * shape->radius;
+	return b2DistanceSquared(point, center) <= shape->radius * shape->radius;
 }
 
-//bool b2PointInCapsule(b2Vec2 point, const b2CapsuleShape* shape, b2Transform xf);
+bool b2PointInCapsule(b2Vec2 point, const b2CapsuleShape* shape, b2Transform xf)
+{
+	float rr = shape->radius * shape->radius;
+	b2Vec2 localPoint = b2InvTransformPoint(xf, point);
+	b2Vec2 p1 = shape->point1;
+	b2Vec2 p2 = shape->point2;
+
+	b2Vec2 d = b2Sub(p2, p1);
+	float dd = b2Dot(d, d);
+	if (dd == 0.0f)
+	{
+		// Capsule is really a circle
+		return b2DistanceSquared(localPoint, p1) <= rr;
+	}
+
+	// Get closest point on capsule segment
+	// c = p1 + t * d
+	// dot(point - c, d) = 0
+	// dot(point - p1 - t * d, d) = 0
+	// t = dot(point - p1, d) / dot(d, d)
+	float t = b2Dot(b2Sub(localPoint, p1), d) / dd;
+	t = B2_CLAMP(t, 0.0f, 1.0f);
+	b2Vec2 c = b2MulAdd(p1, t, d);
+
+	// Is query point within radius around closest point?
+	return b2DistanceSquared(localPoint, c) <= rr;
+}
 
 bool b2PointInPolygon(b2Vec2 point, const b2PolygonShape* shape, b2Transform xf)
 {
@@ -284,7 +333,19 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2CircleShape
 	return output;
 }
 
-//b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2CapsuleShape* shape, b2Transform xf);
+b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2CapsuleShape* shape, b2Transform xf)
+{
+	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
+
+	// ray vs circle1
+	// ray vs circle2
+
+	// ray vs rectangle
+	// build basis for rectangle
+	// convert ray to basis
+	// ray vs AABB
+	return output;
+}
 
 // Ray vs line segment, ignores back-side collision (from the left).
 //  p = p1 + t * d
