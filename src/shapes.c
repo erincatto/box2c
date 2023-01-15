@@ -337,14 +337,126 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2CapsuleSha
 {
 	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
 
-	// ray vs circle1
-	// ray vs circle2
+	b2Vec2 v1 = shape->point1;
+	b2Vec2 v2 = shape->point2;
 
-	// ray vs rectangle
-	// build basis for rectangle
-	// convert ray to basis
-	// ray vs AABB
-	return output;
+	b2Vec2 e = b2Sub(v2, v1);
+
+	float capsuleLength;
+	b2Vec2 a = b2GetLengthAndNormalize(&capsuleLength, e);
+
+	if (capsuleLength < FLT_EPSILON)
+	{
+		// Capsule is really a circle
+		b2CircleShape circle = {v1, shape->radius};
+		return b2RayCastCircle(input, &circle, xf);
+	}
+
+	b2Vec2 p1 = b2InvTransformPoint(xf, input->p1);
+	b2Vec2 p2 = b2InvTransformPoint(xf, input->p2);
+
+	// Ray from capsule start to ray start
+	b2Vec2 q = b2Sub(p1, v1);
+	float qa = b2Dot(q, a);
+
+	// Vector to ray start that is perpendicular to capsule axis
+	b2Vec2 qp = b2MulAdd(q, -qa, a);
+
+	// Does the ray start within the infinite length capsule?
+	if (b2Dot(qp, qp) < shape->radius * shape->radius)
+	{
+		if (qa < 0.0f)
+		{
+			// start point behind capsule segment
+			b2CircleShape circle = {v1, shape->radius};
+			return b2RayCastCircle(input, &circle, xf);
+		}
+
+		if (qa > 1.0f)
+		{
+			// start point ahead of capsule segment
+			b2CircleShape circle = {v2, shape->radius};
+			return b2RayCastCircle(input, &circle, xf);
+		}
+
+		// ray starts inside capsule -> no hit
+		return output;
+	}
+
+	// Perpendicular to capsule axis, pointing right
+	b2Vec2 n = {a.y, -a.x};
+
+	float rayLength;
+	b2Vec2 u = b2GetLengthAndNormalize(&rayLength, b2Sub(p2, p1));
+
+	// Intersect ray with infinite length capsule
+	// v1 + radius * n + s1 * a = p1 + s2 * u
+	// v1 - radius * n + s1 * a = p1 + s2 * u
+
+	// s1 * a - s2 * u = b
+	// b = q - radius * ap
+	// or
+	// b = q + radius * ap
+
+	// Cramer's rule [a -u]
+	float den = -a.x * u.y + u.x * a.y;
+	if (-FLT_EPSILON < den && den < FLT_EPSILON)
+	{
+		// Ray is parallel to capsule and outside infinite length capsule
+		return output;
+	}
+
+	b2Vec2 b1 = b2MulAdd(q, -shape->radius, n);
+	b2Vec2 b2 = b2MulAdd(q, shape->radius, n);
+
+	// Cramer's rule [a b1]
+	float s21 = (a.x * b1.y - b1.x * a.y) / den;
+
+	// Cramer's rule [a b2]
+	float s22 = (a.x * b2.y - b2.x * a.y) / den;
+
+	float s2;
+	b2Vec2 b;
+	if (s21 < s22)
+	{
+		s2 = s21;
+		b = b1;
+	}
+	else
+	{
+		s2 = s22;
+		b = b2;
+		n = b2Neg(n);
+	}
+
+	if (s2 < 0.0f || input->maxFraction * rayLength < s2)
+	{
+		return output;
+	}
+
+	// Cramer's rule [b -u]
+	float s1 = (- b.x * u.y + u.x * b.y) / den;
+
+	if (s1 < 0.0f)
+	{
+		// ray passes behind capsule segment
+		b2CircleShape circle = {v1, shape->radius};
+		return b2RayCastCircle(input, &circle, xf);
+	}
+	else if (capsuleLength < s1)
+	{
+		// ray passes ahead of capsule segment
+		b2CircleShape circle = {v2, shape->radius};
+		return b2RayCastCircle(input, &circle, xf);
+	}
+	else
+	{
+		// ray hits capsule side
+		output.fraction = s2 / rayLength;
+		output.normal = b2RotateVector(xf.q, n);
+		output.hit = true;
+		return output;
+	}
 }
 
 // Ray vs line segment, ignores back-side collision (from the left).
@@ -352,6 +464,7 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2CapsuleSha
 //  v = v1 + s * e
 //  p1 + t * d = v1 + s * e
 //  s * e - t * d = p1 - v1
+// TODO why not solve 2x2?
 b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentShape* shape, b2Transform xf)
 {
 	// Put the ray into the edge's frame of reference.
@@ -368,16 +481,11 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentSha
 
 	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
 
-	// q = p1 + t * d
-	// dot(normal, q - v1) = 0
+	// Closest point on infinite segment to ray start
+	// p = p1 + t * d
+	// dot(normal, p - v1) = 0
 	// dot(normal, p1 - v1) + t * dot(normal, d) = 0
 	float numerator = b2Dot(normal, b2Sub(v1, p1));
-	if (numerator > 0.0f)
-	{
-		// back-side
-		return output;
-	}
-
 	float denominator = b2Dot(normal, d);
 
 	if (denominator == 0.0f)
@@ -393,23 +501,27 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentSha
 		return output;
 	}
 
-	b2Vec2 q = b2MulAdd(p1, t, d);
+	b2Vec2 p = b2MulAdd(p1, t, d);
 
-	// q = v1 + s * r
-	// s = dot(q - v1, r) / dot(r, r)
-	b2Vec2 r = b2Sub(v2, v1);
-	float rr = b2Dot(r, r);
-	if (rr == 0.0f)
+	// v = v1 + s * e
+	// s = dot(p - v1, e) / dot(e, e)
+	float ee = b2Dot(e, e);
+	if (ee == 0.0f)
 	{
 		// zero length segment
 		return output;
 	}
 
-	float s = b2Dot(b2Sub(q, v1), r) / rr;
+	float s = b2Dot(b2Sub(p, v1), e) / ee;
 	if (s < 0.0f || 1.0f < s)
 	{
 		// out of segment range
 		return output;
+	}
+
+	if (numerator > 0.0f)
+	{
+		normal = b2Neg(normal);
 	}
 
 	output.fraction = t;
