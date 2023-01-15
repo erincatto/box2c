@@ -459,12 +459,7 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2CapsuleSha
 	}
 }
 
-// Ray vs line segment, ignores back-side collision (from the left).
-//  p = p1 + t * d
-//  v = v1 + s * e
-//  p1 + t * d = v1 + s * e
-//  s * e - t * d = p1 - v1
-// TODO why not solve 2x2?
+// Ray vs line segment
 b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentShape* shape, b2Transform xf)
 {
 	// Put the ray into the edge's frame of reference.
@@ -476,12 +471,20 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentSha
 	b2Vec2 v2 = shape->point2;
 	b2Vec2 e = b2Sub(v2, v1);
 
-	// Normal points to the right, looking from v1 at v2
-	b2Vec2 normal = b2Normalize((b2Vec2){e.y, -e.x});
-
 	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
 
-	// Closest point on infinite segment to ray start
+	float length;
+	b2Vec2 eUnit = b2GetLengthAndNormalize(&length, e);
+	if (length == 0.0f)
+	{
+		return output;
+	}
+
+	// Normal points to the right, looking from v1 towards v2
+	b2Vec2 normal = {eUnit.y, -eUnit.x};
+
+	// Intersect ray with infinite segment using normal
+	// Similar to intersecting a ray with an infinite plane
 	// p = p1 + t * d
 	// dot(normal, p - v1) = 0
 	// dot(normal, p1 - v1) + t * dot(normal, d) = 0
@@ -501,19 +504,15 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2SegmentSha
 		return output;
 	}
 
+	// Intersection point on infinite segment
 	b2Vec2 p = b2MulAdd(p1, t, d);
 
-	// v = v1 + s * e
+	// Compute position of p along segment
+	// p = v1 + s * e
 	// s = dot(p - v1, e) / dot(e, e)
-	float ee = b2Dot(e, e);
-	if (ee == 0.0f)
-	{
-		// zero length segment
-		return output;
-	}
 
-	float s = b2Dot(b2Sub(p, v1), e) / ee;
-	if (s < 0.0f || 1.0f < s)
+	float s = b2Dot(b2Sub(p, v1), eUnit);
+	if (s < 0.0f || length < s)
 	{
 		// out of segment range
 		return output;
