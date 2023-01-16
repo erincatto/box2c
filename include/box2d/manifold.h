@@ -22,6 +22,8 @@ enum
 
 /// The features that intersect to form the contact point
 /// This must be 4 bytes or less.
+/// TODO eliminate this generic solution. Instead
+/// use a key that makes sense for each shape pair.
 typedef struct b2ContactFeature
 {
 	uint8_t indexA; ///< Feature index on shapeA
@@ -31,7 +33,8 @@ typedef struct b2ContactFeature
 } b2ContactFeature;
 
 /// Contact ids to facilitate warm starting.
-/// Used to quickly compare contact ids via type punning
+/// Used to quickly compare contact ids via type punning.
+/// TODO No need for this type punning. Just build the key during manifold generation
 typedef union b2ContactID {
 	b2ContactFeature cf;
 	uint32_t key;
@@ -61,7 +64,7 @@ typedef enum
 	b2_manifoldCircles,
 	b2_manifoldFaceA,
 	b2_manifoldFaceB
-} b2Manifold_Type;
+} b2ManifoldType;
 
 /// A local manifold for two touching convex shapes.
 /// Box2D supports multiple types of contact:
@@ -80,7 +83,7 @@ typedef struct b2Manifold
 	b2ManifoldPoint points[b2_maxManifoldPoints];
 	b2Vec2 localNormal;
 	b2Vec2 localPoint;
-	b2Manifold_Type type;
+	b2ManifoldType type;
 	int32_t pointCount;
 } b2Manifold;
 
@@ -119,25 +122,45 @@ void b2GetPointStates(b2PointState state1[b2_maxManifoldPoints], b2PointState st
 /// Compute the collision manifold between two circles.
 b2Manifold b2CollideCircles(const b2CircleShape* circleA, const b2CircleShape* circleB);
 
+/// Compute the collision manifold between a capulse and circle
+b2Manifold b2CollideCapsuleAndCircle(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CircleShape* circleB,
+									 b2Transform xfB);
+
+/// Compute the collision manifold between an segment and a circle.
+b2Manifold b2CollideSegmentAndCircle(const b2SegmentShape* segmentA, b2Transform xfA, const b2CircleShape* circleB,
+									 b2Transform xfB);
+
+/// Compute the collision manifold between a smooth segment and a circle.
+b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
+										   const b2CircleShape* circleB, b2Transform xfB);
+
 /// Compute the collision manifold between a polygon and a circle.
 b2Manifold b2CollidePolygonAndCircle(const b2PolygonShape* polygonA, b2Transform xfA, const b2CircleShape* circleB,
+									 b2Transform xfB);
+
+/// Compute the collision manifold between a capulse and circle
+b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+									 b2Transform xfB);
+
+/// Compute the collision manifold between an segment and a capsule.
+b2Manifold b2CollideSegmentAndCapsule(const b2SegmentShape* segmentA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+									 b2Transform xfB);
+
+/// Compute the collision manifold between a smooth segment and a capsule.
+b2Manifold b2CollideSmoothSegmentAndCapsule(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
+										   const b2CircleShape* capsuleB, b2Transform xfB);
+
+/// Compute the collision manifold between a polygon and capsule
+b2Manifold b2CollidePolygonAndCapsule(const b2PolygonShape* polygonA, b2Transform xfA, const b2CapsuleShape* capsuleB,
 									 b2Transform xfB);
 
 /// Compute the collision manifold between two polygons.
 b2Manifold b2CollidePolygons(const b2PolygonShape* polygonA, b2Transform xfA, const b2PolygonShape* polygonB,
 							 b2Transform xfB);
 
-/// Compute the collision manifold between an segment and a circle.
-b2Manifold b2CollideSegmentAndCircle(const b2SegmentShape* segmentA, b2Transform xfA, const b2CircleShape* circleB,
-									 b2Transform xfB);
-
 /// Compute the collision manifold between an segment and a polygon.
 b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transform xfA, const b2PolygonShape* polygonB,
 									  b2Transform xfB);
-
-/// Compute the collision manifold between a smooth segment and a circle.
-b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
-										   const b2CircleShape* circleB, b2Transform xfB);
 
 /// Compute the collision manifold between a smooth segment and a polygon.
 b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA, b2Transform xfA,

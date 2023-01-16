@@ -7,6 +7,14 @@
 
 #include <assert.h>
 #include <float.h>
+#include <string.h>
+
+static inline b2Manifold b2EmptyManifold()
+{
+	b2Manifold m;
+	memset(&m, 0, sizeof(b2Manifold));
+	return m;
+}
 
 b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform xfA, float radiusA, b2Transform xfB,
 									   float radiusB)
@@ -128,6 +136,7 @@ typedef struct b2ClipVertex
 } b2ClipVertex;
 
 // Sutherland-Hodgman clipping.
+// TODO clip both sides in one function
 int32_t b2ClipSegmentToLine(b2ClipVertex vOut[2], const b2ClipVertex vIn[2], b2Vec2 normal, float offset,
 							int32_t vertexIndexA)
 {
@@ -189,8 +198,7 @@ bool b2TestOverlap(	const b2Shape* shapeA, int32_t indexA,
 
 b2Manifold b2CollideCircles(const b2CircleShape* circleA, const b2CircleShape* circleB)
 {
-	b2Manifold manifold;
-	manifold.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 	manifold.type = b2_manifoldCircles;
 	manifold.localPoint = circleA->point;
 	manifold.localNormal = (b2Vec2){0.0f, 0.0f};
@@ -201,11 +209,69 @@ b2Manifold b2CollideCircles(const b2CircleShape* circleA, const b2CircleShape* c
 	return manifold;
 }
 
+/// Compute the collision manifold between a capulse and circle
+b2Manifold b2CollideCapsuleAndCircle(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CircleShape* circleB,
+									 b2Transform xfB)
+{
+	b2Manifold manifold = b2EmptyManifold();
+
+	manifold.pointCount = 1;
+	manifold.points[0].localPoint = circleB->point;
+	manifold.points[0].id.key = 0;
+
+	// Compute circle position in the frame of the capsule.
+	b2Vec2 p = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
+
+	// Compute closest point
+	b2Vec2 v1 = capsuleA->point1;
+	b2Vec2 v2 = capsuleA->point2;
+
+	float length;
+	b2Vec2 eUnit = b2GetLengthAndNormalize(&length, b2Sub(v2, v1));
+
+	// dot(p - closest, eUnit) = 0
+	// dot(p - (v1 + s * eUnit), eUnit) = 0
+	// s = dot(p - v1, eUnit)
+	float s = b2Dot(b2Sub(p, v1), eUnit);
+	if (s < 0.0f)
+	{
+		// Circle colliding with v1
+		manifold.type = b2_manifoldCircles;
+		manifold.localPoint = v1;
+		manifold.localNormal = (b2Vec2){0.0f, 0.0f};
+	}
+	else if (s > length)
+	{
+		// Circle colliding with v2
+		manifold.type = b2_manifoldCircles;
+		manifold.localPoint = v2;
+		manifold.localNormal = (b2Vec2){0.0f, 0.0f};
+	}
+	else
+	{
+		// Circle colliding with segment interior
+		b2Vec2 closest = b2MulAdd(v1, s, eUnit);
+
+		// normal points right of v1->v2
+		b2Vec2 normal = {eUnit.y, -eUnit.x};
+		float side = b2Dot(b2Sub(p, closest), normal);
+		if (side < 0.0f)
+		{
+			normal = b2Neg(normal);
+		}
+
+		manifold.type = b2_manifoldFaceA;
+		manifold.localPoint = closest;
+		manifold.localNormal = normal;
+	}
+
+	return manifold;
+}
+
 b2Manifold b2CollidePolygonAndCircle(const b2PolygonShape* polygonA, b2Transform xfA, const b2CircleShape* circleB,
 									 b2Transform xfB)
 {
-	b2Manifold manifold;
-	manifold.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 
 	// Compute circle position in the frame of the polygon.
 	b2Vec2 c = b2TransformPoint(xfB, circleB->point);
@@ -280,7 +346,733 @@ b2Manifold b2CollidePolygonAndCircle(const b2PolygonShape* polygonA, b2Transform
 	return manifold;
 }
 
-// TODO try O(n) algorithm in de Berg p. 279
+/// Compute the collision manifold between a capulse and circle
+/// Follows Ericson 5.1.9 Closest Points of Two Line Segments
+/// Algorithm:
+/// - find closest points between segments
+/// 
+#if 0
+b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+							 b2Transform xfB)
+{
+	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
+	b2Vec2 qA = b2TransformPoint(xfA, capsuleA->point2);
+	b2Vec2 dA = b2Sub(qA, pA);
+	float a = b2Dot(dA, dA);
+
+	b2Vec2 pB = b2TransformPoint(xfB, capsuleB->point1);
+	b2Vec2 qB = b2TransformPoint(xfB, capsuleB->point2);
+	b2Vec2 dB = b2Sub(qB, pB);
+	float e = b2Dot(dB, dB);
+
+	const float epsSqr = FLT_EPSILON * FLT_EPSILON;
+	assert(a > epsSqr && e > epsSqr);
+
+	b2Manifold manifold = b2EmptyManifold();
+	if (a < epsSqr || e < epsSqr)
+	{
+		// degenerate capsule
+		// todo handle this
+		return manifold;
+	}
+
+	// Compute closest point between segments
+	b2Vec2 r = b2Sub(pA, pB);
+	float f = b2Dot(dB, r);
+	float b = b2Dot(dA, dB);
+	float c = b2Dot(dA, r);
+
+	float denom = a * e - b * b;
+	float s = 0.5f;
+	if (denom > epsSqr)
+	{
+		// Fraction on segment A
+		s = B2_CLAMP((b * f - c * e) / denom, 0.0f, 1.0f);
+	}
+	
+	// Compute point on segment B closest to pA + s * dA
+	float t = (b * s + f) / e;
+
+	if (t < 0.0f)
+	{
+		t = 0.0f;
+		s = B2_CLAMP(-c / a, 0.0f, 1.0f);
+	}
+	else if (t > 1.0f)
+	{
+		t = 1.0f;
+		s = B2_CLAMP((b - c) / a, 0.0f, 1.0f);
+	}
+
+	// reference edge
+	b2Vec2 pR, qR;
+
+	// incident edge
+	b2Vec2 pI, qI;
+
+	int32_t key1, key2;
+
+	b2Transform xfR, xfI;
+
+	const b2CapsuleShape* capsuleR;
+	const b2CapsuleShape* capsuleI;
+
+	if (0.0f < s && s < 1.0f)
+	{
+		capsuleR = capsuleA;
+		capsuleI = capsuleB;
+
+		// segment A is the reference face
+		manifold.type = b2_manifoldFaceA;
+
+		key1 = 0;
+		key2 = 1;
+
+		pR = pA;
+		qR = qA;
+		pI = pB;
+		qI = qB;
+		xfR = xfA;
+		xfI = xfB;
+	}
+	else if (0.0f < t && t < 1.0f)
+	{
+		capsuleR = capsuleB;
+		capsuleI = capsuleA;
+
+		// segment B is the reference face
+		manifold.type = b2_manifoldFaceB;
+
+		pR = pB;
+		qR = qB;
+		pI = pA;
+		qI = qA;
+
+		key1 = 2;
+		key2 = 3;
+
+		xfR = xfB;
+		xfI = xfA;
+	}
+	else
+	{
+		manifold.type = b2_manifoldCircles;
+		manifold.localNormal = b2Vec2_zero;
+		manifold.pointCount = 1;
+
+		if (s == 0.0f)
+		{
+			manifold.localPoint = capsuleA->point1;
+			manifold.points[0].id.key = 0;
+			if (t == 0.0f)
+			{
+				manifold.points[0].localPoint = capsuleB->point1;
+			}
+			else
+			{
+				manifold.points[0].localPoint = capsuleB->point2;
+			}
+		}
+		else
+		{
+			manifold.localPoint = capsuleA->point2;
+			manifold.points[0].id.key = 1;
+			if (t == 0.0f)
+			{
+				manifold.points[0].localPoint = capsuleB->point1;
+			}
+			else
+			{
+				manifold.points[0].localPoint = capsuleB->point2;
+			}
+		}
+
+		return manifold;
+	}
+
+	b2ClipVertex incidentEdge[2];
+	incidentEdge[0].id.key = key1;
+	incidentEdge[0].v = pI;
+	incidentEdge[1].id.key = key2;
+	incidentEdge[1].v = qI;
+
+	float length;
+	b2Vec2 localAxis = b2GetLengthAndNormalize(&length, b2Sub(capsuleR->point2, capsuleR->point1));
+	b2Vec2 localNormal = {localAxis.y, -localAxis.x};
+	b2Vec2 axis = b2RotateVector(xfR.q, localAxis);
+
+	b2Vec2 centerI = b2Lerp(pI, qI, 0.5f);
+	float side = b2Cross(b2Sub(centerI, pR), axis);
+	if (side < 0.0f)
+	{
+		localNormal = b2Neg(localNormal);
+	}
+
+	// Side offsets for clipping
+	float sideOffset1 = -b2Dot(axis, pR);
+	float sideOffset2 = b2Dot(axis, qR);
+
+	// Clip incident edge against extruded edge1 side edges.
+	b2ClipVertex clipPoints1[2];
+	b2ClipVertex clipPoints2[2];
+	int32_t np;
+
+	// First side edge
+	np = b2ClipSegmentToLine(clipPoints1, incidentEdge, b2Neg(axis), sideOffset1, 0);
+
+	if (np < 2)
+	{
+		return manifold;
+	}
+
+	// Second side edge
+	np = b2ClipSegmentToLine(clipPoints2, clipPoints1, axis, sideOffset2, 1);
+
+	if (np < 2)
+	{
+		return manifold;
+	}
+
+	// Now clipPoints2 contains the clipped points.
+	manifold.localNormal = localNormal;
+	manifold.localPoint = capsuleR->point1;
+
+	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
+	{
+		b2ManifoldPoint* cp = manifold.points + i;
+		cp->localPoint = b2InvTransformPoint(xfI, clipPoints2[i].v);
+		cp->id = clipPoints2[i].id;
+	}
+
+	manifold.pointCount = b2_maxManifoldPoints;
+
+	return manifold;
+
+	#if 0
+		float t1 = 0.0f, t2 = 1.0f;
+
+		float distanceP = b2Dot(b2Sub(pB, pA), axis);
+		float distanceQ = b2Dot(b2Sub(qB, pA), axis);
+
+
+		if (distanceP < 0.0f)
+		{
+			if (0.0f < distanceQ && distanceQ < length)
+			{
+				// Find intersection point of edge and plane
+				float interp = distanceP / (distanceP - distanceQ);
+
+				manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, interp);
+				manifold.points[0].id.key = 0;
+
+				manifold.points[1].localPoint = capsuleB->point2;
+				manifold.points[1].id.key = 1;
+
+				manifold.pointCount = 2;
+			}
+			else if (length < distanceQ)
+			{
+				float interp1 = -distanceQ / (distanceP - distanceQ);
+				float interp2 = (length - distanceQ) / (distanceP - distanceQ);
+
+				manifold.points[0].localPoint = b2Lerp(capsuleB->point2, capsuleB->point1, interp1);
+				manifold.points[0].id.key = 0;
+
+				manifold.points[1].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, interp2);
+				manifold.points[1].id.key = 1;
+
+				manifold.pointCount = 2;
+			}
+		}
+		else if (0.0f <= distanceP && distanceP <= length)
+		{
+			if (distanceQ < 0.0f)
+			{
+				// Find intersection point of edge and plane
+				float interp = distanceQ / (distanceQ - distanceP);
+
+				manifold.points[0].localPoint = b2Lerp(capsuleB->point2, capsuleB->point1, interp);
+				manifold.points[0].id.key = 0;
+
+				manifold.points[1].localPoint = capsuleB->point1;
+				manifold.points[1].id.key = 1;
+
+				manifold.pointCount = 2;
+			}
+			else if (0.0f <= distanceQ && distanceQ <= length)
+			{
+				if (distanceQ > distanceP)
+				{
+
+					manifold.points[1].localPoint = capsuleB->point2;
+					manifold.points[1].id.key = 1;
+
+					manifold.pointCount = 2;
+				}
+				else
+				{
+					manifold.points[0].localPoint = capsuleB->point2;
+					manifold.points[0].id.key = 0;
+
+					manifold.points[1].localPoint = capsuleB->point1;
+					manifold.points[1].id.key = 1;
+
+					manifold.pointCount = 2;
+				}			
+			}
+			else
+			{
+				// distanceQ > length
+				float interp = (length - distanceP) / (distanceQ - distanceP);
+
+				manifold.points[0].localPoint = capsuleB->point1;
+				manifold.points[0].id.key = 0;
+
+				manifold.points[1].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, interp);
+				manifold.points[1].id.key = 1;
+
+				manifold.pointCount = 2;
+			}
+		}
+		else
+		{
+			// distanceP > length
+			if (distanceQ < 0.0f)
+			{
+				float interp1 = -distanceQ / (distanceP - distanceQ);
+				float interp2 = (length - distanceQ) / (distanceP - distanceQ);
+
+				manifold.points[0].localPoint = b2Lerp(capsuleB->point2, capsuleB->point1, interp1);
+				manifold.points[0].id.key = 0;
+
+				manifold.points[1].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, interp2);
+				manifold.points[1].id.key = 1;
+
+				manifold.pointCount = 2;
+			}
+		}
+
+		manifold.localNormal = normal;
+	}
+	else if (0.0f < t && t < 1.0f)
+	{
+		manifold.type = b2_manifoldFaceB;
+	}
+
+	{
+		manifold.type = b2_manifoldCircles;
+	}
+
+	if (-FLT_EPSILON < den && den < FLT_EPSILON)
+	{
+		// parallel, check bounds
+		float lowerA = 0.0f;
+		float upperA = lengthA;
+
+		float dot_pB = b2Dot(b2Sub(pB, pA), dA);
+		float dot_qB = b2Dot(b2Sub(qB, pA), dA);
+
+		if (dot_qB > dot_pB)
+		{
+			float lowerB = dot_pB;
+			float upperB = dot_qB;
+
+			if (upperB < lowerA)
+			{
+				manifold.type = b2_manifoldCircles;
+				manifold.localPoint = capsuleA->point1;
+				manifold.localNormal = b2Vec2_zero;
+				manifold.pointCount = 1;
+				manifold.points[0].localPoint = capsuleB->point2;
+				manifold.points[0].id.key = 0;
+				return manifold;
+			}
+
+			if (upperA < lowerB)
+			{
+				manifold.type = b2_manifoldCircles;
+				manifold.localPoint = capsuleA->point2;
+				manifold.localNormal = b2Vec2_zero;
+				manifold.pointCount = 1;
+				manifold.points[0].localPoint = capsuleB->point1;
+				manifold.points[0].id.key = 1;
+				return manifold;
+			}
+
+			// intervals overlap
+			float lower = B2_MAX(lowerA, lowerB);
+			float upper = B2_MIN(upperA, upperB);
+
+			b2Vec2 normal = {dA.y, -dA.x};
+			b2Vec2 centerB = b2MulSV(0.5f, b2Add(pB, qB));
+			float side = b2Dot(b2Sub(centerB, pA), normal);
+			if (side < 0.0f)
+			{
+				normal = b2Neg(normal);
+			}
+
+			b2Vec2 dBLocal = b2Normalize(b2Sub(capsuleB->point2, capsuleB->point1));
+			manifold.type = b2_manifoldFaceA;
+			manifold.localPoint = capsuleA->point1;
+			manifold.localNormal = normal;
+			manifold.pointCount = 2;
+			manifold.points[0].localPoint = b2MulAdd(capsuleB->point1, lower - lowerB, dBLocal);
+			manifold.points[0].id.key = 0;
+			manifold.points[1].localPoint = b2MulAdd(capsuleB->point1, upper - lowerB, dBLocal);
+			manifold.points[1].id.key = 1;
+
+			return manifold;
+		}
+		else
+		{
+			float lowerB = dot_qB;
+			float upperB = dot_pB;
+
+			if (upperB < lowerA)
+			{
+				manifold.type = b2_manifoldCircles;
+				manifold.localPoint = capsuleA->point1;
+				manifold.localNormal = b2Vec2_zero;
+				manifold.pointCount = 1;
+				manifold.points[0].localPoint = capsuleB->point1;
+				manifold.points[0].id.key = 0;
+				return manifold;
+			}
+
+			if (upperA < lowerB)
+			{
+				manifold.type = b2_manifoldCircles;
+				manifold.localPoint = capsuleA->point2;
+				manifold.localNormal = b2Vec2_zero;
+				manifold.pointCount = 1;
+				manifold.points[0].localPoint = capsuleB->point2;
+				manifold.points[0].id.key = 0;
+				return manifold;
+			}
+
+			// intervals overlap
+			float lower = B2_MAX(lowerA, lowerB);
+			float upper = B2_MIN(upperA, upperB);
+
+			b2Vec2 normal = {dA.y, -dA.x};
+			b2Vec2 centerB = b2MulSV(0.5f, b2Add(pB, qB));
+			float side = b2Dot(b2Sub(centerB, pA), normal);
+			if (side < 0.0f)
+			{
+				normal = b2Neg(normal);
+			}
+
+			b2Vec2 dBLocal = b2Normalize(b2Sub(capsuleB->point1, capsuleB->point2));
+			manifold.type = b2_manifoldFaceA;
+			manifold.localPoint = capsuleA->point1;
+			manifold.localNormal = normal;
+			manifold.pointCount = 1;
+			manifold.points[0].localPoint = b2MulAdd(capsuleB->point2, lower - lowerB, dBLocal);
+			manifold.points[0].id.key = 0;
+			manifold.points[1].localPoint = b2MulAdd(capsuleB->point2, upper - lowerB, dBLocal);
+			manifold.points[1].id.key = 1;
+		}
+	}
+
+	b2Vec2 rhs = b2Sub(pB, pA);
+
+	// Cramer's rule [rhs -dB]
+	float a = (-rhs.x * dB.y + dB.x * rhs.y) / den;
+
+	// Cramer's rule [dA rhs]
+	float b = (dA.x * rhs.y - rhs.x * dA.y) / den;
+
+	if (0.0f < a && a < lengthA)
+	{
+		// face A contact?
+	}
+	else if (0.0f < b && b < lengthB)
+	{
+		// face B contact?
+	}
+	else
+	{
+		// vertex contact
+	}
+	#endif
+}
+#endif
+
+// Algorithm
+// - find best edge separating axis
+// - clip incident edge
+// - if there are no points, then find best vertex-vertex
+b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+							 b2Transform xfB)
+{
+	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
+	b2Vec2 qA = b2TransformPoint(xfA, capsuleA->point2);
+	b2Vec2 dA = b2Sub(qA, pA);
+
+	b2Vec2 pB = b2TransformPoint(xfB, capsuleB->point1);
+	b2Vec2 qB = b2TransformPoint(xfB, capsuleB->point2);
+	b2Vec2 dB = b2Sub(qB, pB);
+
+	b2Vec2 tangentA = b2Normalize(dA);
+	b2Vec2 normalA = {tangentA.y, -tangentA.x};
+	b2Vec2 tangentB = b2Normalize(dB);
+	b2Vec2 normalB = {tangentB.y, -tangentB.x};
+
+	// face A
+	float sepA;
+	int32_t signA;
+	{
+		float sepP = b2Dot(b2Sub(pB, pA), normalA);
+		float sepQ = b2Dot(b2Sub(qB, pA), normalA);
+		float sepPos = B2_MIN(sepP, sepQ);
+		float sepNeg = B2_MIN(-sepP, -sepQ);
+		if (sepNeg > sepPos)
+		{
+			sepA = sepNeg;
+			normalA = b2Neg(normalA);
+			signA = -1;
+		}
+		else
+		{
+			sepA = sepPos;
+			signA = 1;
+		}
+	}
+
+	// face B
+	float sepB;
+	int32_t signB;
+	{
+		float sepP = b2Dot(b2Sub(pA, pB), normalB);
+		float sepQ = b2Dot(b2Sub(qA, pB), normalB);
+		float sepPos = B2_MIN(sepP, sepQ);
+		float sepNeg = B2_MIN(-sepP, -sepQ);
+		if (sepNeg > sepPos)
+		{
+			sepB = sepNeg;
+			normalB = b2Neg(normalB);
+			signB = -1;
+		}
+		else
+		{
+			sepB = sepPos;
+			signB = 1;
+		}
+	}
+
+	const float k_faceTol = 0.1f * b2_linearSlop;
+
+	b2Manifold manifold = b2EmptyManifold();
+
+	// reference edge
+	b2Vec2 pR, qR;
+
+	// incident edge
+	b2Vec2 pI, qI;
+
+	int32_t key1, key2;
+
+	b2Transform xfR, xfI;
+
+	const b2CapsuleShape* capsuleR;
+	const b2CapsuleShape* capsuleI;
+
+	if (sepB > sepA + k_faceTol)
+	{
+		capsuleR = capsuleB;
+		capsuleI = capsuleA;
+
+		// segment B is the reference face
+		manifold.type = b2_manifoldFaceB;
+
+		pR = pB;
+		qR = qB;
+		pI = pA;
+		qI = qA;
+
+		key1 = 2;
+		key2 = 3;
+
+		xfR = xfB;
+		xfI = xfA;
+	}
+	else
+	{
+		capsuleR = capsuleA;
+		capsuleI = capsuleB;
+
+		// segment A is the reference face
+		manifold.type = b2_manifoldFaceA;
+
+		key1 = 0;
+		key2 = 1;
+
+		pR = pA;
+		qR = qA;
+		pI = pB;
+		qI = qB;
+		xfR = xfA;
+		xfI = xfB;
+	}
+
+	b2ClipVertex incidentEdge[2];
+	incidentEdge[0].id.key = key1;
+	incidentEdge[0].v = pI;
+	incidentEdge[1].id.key = key2;
+	incidentEdge[1].v = qI;
+
+	float length;
+	b2Vec2 localAxis = b2GetLengthAndNormalize(&length, b2Sub(capsuleR->point2, capsuleR->point1));
+	b2Vec2 localNormal = {localAxis.y, -localAxis.x};
+	b2Vec2 axis = b2RotateVector(xfR.q, localAxis);
+
+	b2Vec2 centerI = b2Lerp(pI, qI, 0.5f);
+	float side = b2Cross(b2Sub(centerI, pR), axis);
+	if (side < 0.0f)
+	{
+		localNormal = b2Neg(localNormal);
+	}
+
+	// Side offsets for clipping
+	float sideOffset1 = -b2Dot(axis, pR);
+	float sideOffset2 = b2Dot(axis, qR);
+
+	// Clip incident edge against extruded edge1 side edges.
+	b2ClipVertex clipPoints1[2];
+	b2ClipVertex clipPoints2[2];
+	int32_t np;
+
+	static_assert(b2_maxManifoldPoints == 2, "b2_maxManifoldPoints != 2");
+
+	// First side edge
+	np = b2ClipSegmentToLine(clipPoints1, incidentEdge, b2Neg(axis), sideOffset1, 0);
+
+	if (np == 2)
+	{
+		// Second side edge
+		np = b2ClipSegmentToLine(clipPoints2, clipPoints1, axis, sideOffset2, 1);
+	}
+
+	if (np == 2)
+	{
+		// Now clipPoints2 contains the clipped points.
+		manifold.localNormal = localNormal;
+		manifold.localPoint = capsuleR->point1;
+
+		for (int32_t i = 0; i < 2; ++i)
+		{
+			b2ManifoldPoint* cp = manifold.points + i;
+			cp->localPoint = b2InvTransformPoint(xfI, clipPoints2[i].v);
+			cp->id = clipPoints2[i].id;
+		}
+
+		manifold.pointCount = 2;
+		return manifold;
+	}
+
+	manifold.type = b2_manifoldCircles;
+	manifold.localNormal = b2Vec2_zero;
+	manifold.pointCount = 1;
+
+	float distPP = b2DistanceSquared(pB, pA);
+	float minDist = distPP;
+	manifold.localPoint = capsuleA->point1;
+	manifold.points[0].localPoint = capsuleB->point1;
+
+	float distPQ = b2DistanceSquared(qB, pA);
+	if (distPQ < minDist)
+	{
+		minDist = distPQ;
+		manifold.localPoint = capsuleA->point1;
+		manifold.points[0].localPoint = capsuleB->point2;
+	}
+
+	float distQP = b2DistanceSquared(pB, qA);
+	if (distQP < minDist)
+	{
+		minDist = distQP;
+		manifold.localPoint = capsuleA->point2;
+		manifold.points[0].localPoint = capsuleB->point1;
+	}
+
+	float distQQ = b2DistanceSquared(qB, qA);
+	if (distQQ < minDist)
+	{
+		minDist = distQQ;
+		manifold.localPoint = capsuleA->point2;
+		manifold.points[0].localPoint = capsuleB->point2;
+	}
+
+	return manifold;
+
+	#if 0
+	int32_t typeVertex = -1;
+
+	// vertex P-P
+	float lengthPP;
+	b2Vec2 normalPP = b2GetLengthAndNormalize(&lengthPP, b2Sub(pB, pA));
+	if (lengthPP > FLT_EPSILON)
+	{
+		// The other endpoints must point away
+		float checkA = b2Dot(b2Sub(qA, pA), normalPP);
+		float checkB = b2Dot(b2Sub(qB, pB), normalPP);
+		if (checkA < 0.0f && checkB > 0.0f)
+		{
+			sepVertex = lengthPP;
+			typeVertex = 0;
+		}
+	}
+
+	// vertex P-Q
+	float lengthPQ;
+	b2Vec2 normalPQ = b2GetLengthAndNormalize(&lengthPQ, b2Sub(qB, pA));
+	if (lengthPQ > FLT_EPSILON && lengthPQ < sepVertex)
+	{
+		// The other endpoints must point away
+		float checkA = b2Dot(b2Sub(qA, pA), normalPQ);
+		float checkB = b2Dot(b2Sub(pB, qB), normalPQ);
+		if (checkA < 0.0f && checkB > 0.0f)
+		{
+			sepVertex = lengthPQ;
+			typeVertex = 1;
+		}
+	}
+
+	// vertex Q-P
+	float lengthQP;
+	b2Vec2 normalQP = b2GetLengthAndNormalize(&lengthQP, b2Sub(pB, qA));
+	if (lengthQP > FLT_EPSILON && lengthQP < sepVertex)
+	{
+		// The other endpoints must point away
+		float checkA = b2Dot(b2Sub(pA, qA), normalQP);
+		float checkB = b2Dot(b2Sub(qB, pB), normalQP);
+		if (checkA < 0.0f && checkB > 0.0f)
+		{
+			sepVertex = lengthQP;
+			typeVertex = 2;
+		}
+	}
+
+	float lengthQQ;
+	b2Vec2 normalQQ = b2GetLengthAndNormalize(&lengthQQ, b2Sub(qB, qA));
+	if (lengthQQ > FLT_EPSILON && lengthQQ < sepVertex)
+	{
+		// The other endpoints must point away
+		float checkA = b2Dot(b2Sub(qA, qA), normalQQ);
+		float checkB = b2Dot(b2Sub(qB, qB), normalQQ);
+		if (checkA < 0.0f && checkB > 0.0f)
+		{
+			sepVertex = lengthQQ;
+			typeVertex = 3;
+		}
+	}
+
+	return b2EmptyManifold();
+	#endif
+}
+
+
+	// TODO try O(n) algorithm in de Berg p. 279
 
 // Find the max separation between poly1 and poly2 using edge normals from poly1.
 static float b2FindMaxSeparation(int32_t* edgeIndex, const b2PolygonShape* poly1, b2Transform xf1,
@@ -373,14 +1165,13 @@ static void b2FindIncidentEdge(b2ClipVertex c[2], const b2PolygonShape* poly1, b
 // Find incident edge
 // Clip
 
-// The normal points from 1 to 2
+// The normal points from A to B
 b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const b2PolygonShape* polyB, b2Transform xfB)
 {
-	b2Manifold m;
-	m.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 
-	int32_t segmentA = 0;
-	float separationA = b2FindMaxSeparation(&segmentA, polyA, xfA, polyB, xfB);
+	int32_t edgeA = 0;
+	float separationA = b2FindMaxSeparation(&edgeA, polyA, xfA, polyB, xfB);
 
 	int32_t edgeB = 0;
 	float separationB = b2FindMaxSeparation(&edgeB, polyB, xfB, polyA, xfA);
@@ -399,7 +1190,7 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 		xf1 = xfB;
 		xf2 = xfA;
 		edge1 = edgeB;
-		m.type = b2_manifoldFaceB;
+		manifold.type = b2_manifoldFaceB;
 		flip = 1;
 	}
 	else
@@ -408,8 +1199,8 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 		poly2 = polyB;
 		xf1 = xfA;
 		xf2 = xfB;
-		edge1 = segmentA;
-		m.type = b2_manifoldFaceA;
+		edge1 = edgeA;
+		manifold.type = b2_manifoldFaceA;
 		flip = 0;
 	}
 
@@ -435,7 +1226,7 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 	v11 = b2TransformPoint(xf1, v11);
 	v12 = b2TransformPoint(xf1, v12);
 
-	// Side offsets, extended by polytope skin thickness.
+	// Side offsets for clipping
 	float sideOffset1 = -b2Dot(tangent, v11);
 	float sideOffset2 = b2Dot(tangent, v12);
 
@@ -451,7 +1242,7 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 
 	if (np < 2)
 	{
-		return m;
+		return manifold;
 	}
 
 	// Second side edge
@@ -459,16 +1250,16 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 
 	if (np < 2)
 	{
-		return m;
+		return manifold;
 	}
 
 	// Now clipPoints2 contains the clipped points.
-	m.localNormal = localNormal;
-	m.localPoint = planePoint;
+	manifold.localNormal = localNormal;
+	manifold.localPoint = planePoint;
 
 	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
 	{
-		b2ManifoldPoint* cp = m.points + i;
+		b2ManifoldPoint* cp = manifold.points + i;
 		cp->localPoint = b2InvTransformPoint(xf2, clipPoints2[i].v);
 		cp->id = clipPoints2[i].id;
 		if (flip)
@@ -482,16 +1273,15 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 		}
 	}
 
-	m.pointCount = b2_maxManifoldPoints;
+	manifold.pointCount = b2_maxManifoldPoints;
 
-	return m;
+	return manifold;
 }
 
 b2Manifold b2CollideSegmentAndCircle(const b2SegmentShape* segmentA, b2Transform xfA, const b2CircleShape* circleB,
 									 b2Transform xfB)
 {
-	b2Manifold manifold;
-	manifold.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 
 	// Compute circle in frame of edge
 	b2Vec2 Q = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
@@ -564,8 +1354,7 @@ b2Manifold b2CollideSegmentAndCircle(const b2SegmentShape* segmentA, b2Transform
 b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
 										   const b2CircleShape* circleB, b2Transform xfB)
 {
-	b2Manifold manifold;
-	manifold.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 
 	// Compute circle in frame of segment
 	b2Vec2 Q = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
@@ -761,8 +1550,7 @@ static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2
 b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transform xfA, const b2PolygonShape* polygonB,
 									  b2Transform xfB)
 {
-	b2Manifold manifold;
-	manifold.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
@@ -931,8 +1719,7 @@ b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transfor
 b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
 											const b2PolygonShape* polygonB, b2Transform xfB)
 {
-	b2Manifold manifold;
-	manifold.pointCount = 0;
+	b2Manifold manifold = b2EmptyManifold();
 
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 

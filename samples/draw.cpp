@@ -846,6 +846,9 @@ void DebugDraw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 
 	m_lines->Vertex(b, color);
 	m_lines->Vertex(c, color);
+
+	m_lines->Vertex(p1, color);
+	m_lines->Vertex(p2, color);
 }
 
 void DebugDraw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
@@ -943,6 +946,9 @@ void DebugDraw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color col
 
 	m_lines->Vertex(b, color);
 	m_lines->Vertex(c, color);
+
+	m_lines->Vertex(p1, color);
+	m_lines->Vertex(p2, color);
 }
 
 //
