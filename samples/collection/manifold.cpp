@@ -34,12 +34,13 @@ public:
 		m_rotating = false;
 		m_showIds = false;
 		m_showSeparation = false;
+		m_localManifolds = false;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(230.0f, 210.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 230.0f));
 		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
@@ -60,6 +61,10 @@ public:
 		}
 
 		if (ImGui::Checkbox("show separation", &m_showSeparation))
+		{
+		}
+
+		if (ImGui::Checkbox("local manifolds", &m_localManifolds))
 		{
 		}
 
@@ -120,28 +125,86 @@ public:
 		}
 	}
 
-	void DrawManifold(const b2Manifold* m, const b2WorldManifold* wm)
+	void DrawManifold(const b2Manifold* m, const b2WorldManifold* wm, b2Transform xf1, b2Transform xf2)
 	{
 		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
 		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
 
-		for (int i = 0; i < m->pointCount; ++i)
+		if (m_localManifolds && m->pointCount > 0)
 		{
-			b2Vec2 p1 = wm->points[i];
-			b2Vec2 p2 = b2MulAdd(p1, 0.5f, wm->normal);
-			g_debugDraw.DrawSegment(p1, p2, white);
-			g_debugDraw.DrawPoint(p1, 5.0f, green);
-
-			if (m_showIds)
+			switch (m->type)
 			{
-				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
-				g_debugDraw.DrawString(p, "%x", m->points[i].id.key);
+				case b2_manifoldCircles:
+				{
+					b2Vec2 p1 = b2TransformPoint(xf1, m->localPoint);
+					g_debugDraw.DrawPoint(p1, 5.0f, green);
+
+					b2Vec2 p2 = b2TransformPoint(xf2, m->points[0].localPoint);
+					g_debugDraw.DrawPoint(p2, 5.0f, green);
+				}
+				break;
+
+				case b2_manifoldFaceA:
+				{
+					assert(m->pointCount == 2);
+					b2Vec2 p1 = b2TransformPoint(xf1, m->localPoint);
+					g_debugDraw.DrawPoint(p1, 5.0f, green);
+
+					b2Vec2 n = b2RotateVector(xf1.q, m->localNormal);
+					b2Vec2 pn = b2MulAdd(p1, 0.5f, n);
+					g_debugDraw.DrawSegment(p1, pn, white);
+
+					b2Vec2 p2 = b2TransformPoint(xf2, m->points[0].localPoint);
+					g_debugDraw.DrawPoint(p2, 5.0f, green);
+
+					b2Vec2 p3 = b2TransformPoint(xf2, m->points[1].localPoint);
+					g_debugDraw.DrawPoint(p3, 5.0f, green);
+				}
+				break;
+
+				case b2_manifoldFaceB:
+				{
+					assert(m->pointCount == 2);
+					b2Vec2 p1 = b2TransformPoint(xf2, m->localPoint);
+					g_debugDraw.DrawPoint(p1, 5.0f, green);
+
+					b2Vec2 n = b2RotateVector(xf2.q, m->localNormal);
+					b2Vec2 pn = b2MulAdd(p1, 0.5f, n);
+					g_debugDraw.DrawSegment(p1, pn, white);
+
+					b2Vec2 p2 = b2TransformPoint(xf1, m->points[0].localPoint);
+					g_debugDraw.DrawPoint(p2, 5.0f, green);
+
+					b2Vec2 p3 = b2TransformPoint(xf1, m->points[1].localPoint);
+					g_debugDraw.DrawPoint(p3, 5.0f, green);
+				}
+				break;
+
+				default:
+					assert(false);
+					break;
 			}
-
-			if (m_showSeparation)
+		}
+		else
+		{
+			for (int i = 0; i < m->pointCount; ++i)
 			{
-				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
-				g_debugDraw.DrawString(p, "%.3f", wm->separations[i]);
+				b2Vec2 p1 = wm->points[i];
+				b2Vec2 p2 = b2MulAdd(p1, 0.5f, wm->normal);
+				g_debugDraw.DrawSegment(p1, p2, white);
+				g_debugDraw.DrawPoint(p1, 5.0f, green);
+
+				if (m_showIds)
+				{
+					b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
+					g_debugDraw.DrawString(p, "%x", m->points[i].id.key);
+				}
+
+				if (m_showSeparation)
+				{
+					b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
+					g_debugDraw.DrawString(p, "%.3f", wm->separations[i]);
+				}
 			}
 		}
 	}
@@ -256,7 +319,7 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideCapsules(&m_capsule, xf1, &m_capsule, xf2);
+			b2Manifold m = b2CollideCapsules2(&m_capsule, xf1, &m_capsule, xf2);
 			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, m_capsule.radius, xf2, m_capsule.radius);
 
 			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);
@@ -267,7 +330,7 @@ public:
 			v2 = b2TransformPoint(xf2, m_capsule.point2);
 			g_debugDraw.DrawSolidCapsule(v1, v2, m_capsule.radius, color2);
 
-			DrawManifold(&m, &wm);
+			DrawManifold(&m, &wm, xf1, xf2);
 
 			offset = b2Add(offset, increment);
 		}
@@ -404,6 +467,7 @@ public:
 	bool m_rotating;
 	bool m_showIds;
 	bool m_showSeparation;
+	bool m_localManifolds;
 };
 
 static int sampleIndex = RegisterSample("Collision", "Manifold", Manifold::Create);

@@ -142,7 +142,11 @@ b2Manifold b2CollidePolygonAndCircle(const b2PolygonShape* polygonA, b2Transform
 b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
 									 b2Transform xfB);
 
-/// Compute the collision manifold between an segment and a capsule.
+// TODO temp
+b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+							  b2Transform xfB);
+
+	/// Compute the collision manifold between an segment and a capsule.
 b2Manifold b2CollideSegmentAndCapsule(const b2SegmentShape* segmentA, b2Transform xfA, const b2CapsuleShape* capsuleB,
 									 b2Transform xfB);
 
