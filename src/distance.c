@@ -9,6 +9,82 @@
 #include <assert.h>
 #include <float.h>
 
+/// Follows Ericson 5.1.9 Closest Points of Two Line Segments
+b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2)
+{
+	b2SegmentDistanceResult result = {0.0f, 0.0f, 0.0f};
+
+	b2Vec2 d1 = b2Sub(q1, p1);
+	b2Vec2 d2 = b2Sub(q2, p2);
+	b2Vec2 r = b2Sub(p1, p2);
+	float dd1 = b2Dot(d1, d1);
+	float dd2 = b2Dot(d2, d2);
+	float rd2 = b2Dot(r, d2);
+	float rd1 = b2Dot(r, d1);
+
+	const float epsSqr = FLT_EPSILON * FLT_EPSILON;
+
+	if (dd1 < epsSqr || dd2 < epsSqr)
+	{
+		// Handle all degeneracies
+		if (dd1 >= epsSqr)
+		{
+			// Segment 2 is degenerate
+			result.fraction1 = B2_CLAMP(-rd1 / dd1, 0.0f, 1.0f);
+			result.fraction2 = 0.0f;
+		}
+		else if (dd2 >= epsSqr)
+		{
+			// Segment 1 is degenerate
+			result.fraction1 = 0.0f;
+			result.fraction2 = B2_CLAMP(rd2 / dd2, 0.0f, 1.0f);
+		}
+		else
+		{
+			result.fraction1 = 0.0f;
+			result.fraction2 = 0.0f;
+		}
+	}
+	else
+	{
+		// Non-degenerate segments
+		float d12 = b2Dot(d1, d2);
+
+		float denom = dd1 * dd2 - d12 * d12;
+
+		// Fraction on segment 1
+		float f1 = 0.0f;
+		if (denom != 0.0f)
+		{
+			// not parallel
+			f1 = B2_CLAMP((d12 * rd2 - rd1 * dd2) / denom, 0.0f, 1.0f);
+		}
+
+		// Compute point on segment 2 closest to p1 + f1 * d1
+		float f2 = (d12 * f1 + rd2) / dd2;
+
+		// Clamping of segment 2 requires a do over on segment 1
+		if (f2 < 0.0f)
+		{
+			f2 = 0.0f;
+			f1 = B2_CLAMP(-rd1 / dd1, 0.0f, 1.0f);
+		}
+		else if (f2 > 1.0f)
+		{
+			f2 = 1.0f;
+			f1 = B2_CLAMP((d12 - rd1) / dd1, 0.0f, 1.0f);
+		}
+
+		result.fraction1 = f1;
+		result.fraction2 = f2;
+	}
+
+	result.closest1 = b2MulAdd(p1, result.fraction1, d1);
+	result.closest2 = b2MulAdd(p2, result.fraction2, d2);
+	result.distanceSquared = b2DistanceSquared(result.closest1, result.closest2);
+	return result;
+}
+
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
 int32_t b2_gjkCalls, b2_gjkIters, b2_gjkMaxIters;
 

@@ -14,7 +14,7 @@
 b2AllocFcn* b2_allocFcn = NULL;
 b2FreeFcn* b2_freeFcn = NULL;
 
-void b2SetAlloc(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
+void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
 	b2_allocFcn = allocFcn;
 	b2_freeFcn = freeFcn;

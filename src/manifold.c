@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/distance.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/shapes.h"
@@ -608,13 +609,45 @@ b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 	b2Vec2 tangentB = b2GetLengthAndNormalize(&lengthB, dB);
 	b2Vec2 normalB = {tangentB.y, -tangentB.x};
 
-	const float cosTol = 0.7071067811865475f;
-	float cosAngle = B2_ABS(b2Dot(tangentA, tangentB));
-	bool tryClip = (cosAngle < -cosTol || cosTol < cosAngle);
+	//const float cosTol = 0.7071067811865475f;
+	//float cosAngle = B2_ABS(b2Dot(tangentA, tangentB));
+	//bool canClip = (cosAngle < -cosTol || cosTol < cosAngle);
 
-	if (tryClip == false)
+	// compute closest points
+	b2SegmentDistanceResult result = b2SegmentDistance(pA, qA, pB, qB);
+	if (result.distanceSquared > b2_linearSlop * b2_linearSlop)
 	{
-		// compute closest points
+
+		b2Vec2 localA = b2Lerp(capsuleA->point1, capsuleA->point2, result.fraction1);
+		b2Vec2 localB = b2Lerp(capsuleB->point1, capsuleB->point2, result.fraction2);
+		b2Manifold manifold = b2EmptyManifold();
+		manifold.pointCount = 1;
+
+		if (result.fraction1 == 0.0f || result.fraction1 == 1.0f)
+		{
+			if (result.fraction2 == 0.0f || result.fraction2 == 1.0f)
+			{
+				manifold.type == b2_manifoldCircles;
+				manifold.localPoint = localA;
+				manifold.points[0].localPoint = localB;
+				manifold.points[0].id.key = result.fraction1 < 0.5f ? 0 : 1;
+			}
+			else
+			{
+				b2Vec2 localNormal = b2InvRotateVector(xfB.q, normalB);
+
+				if (b2Dot(normalB, b2Sub(result.closest2, result.closest1)) < 0.0f)
+				{
+					localNormal = b2Neg(localNormal);
+				}
+
+				manifold.type == b2_manifoldFaceB;
+				manifold.localPoint = localB;
+				manifold.localNormal = 
+				manifold.points[0].localPoint = localA;
+				manifold.points[0].id.key = result.fraction1 < 0.5f ? 0 : 1;
+			}
+		}
 	}
 
 	// face A separation
@@ -734,18 +767,56 @@ b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 				fraction2 = (upper - bound_pA) * denA;
 			}
 
-			manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction1);
-			manifold.points[1].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction2);
-
-			if (fraction1 < fraction2)
+			if (tryClip == false)
 			{
-				manifold.points[0].id.key = 0;
-				manifold.points[1].id.key = 1;
+				b2Vec2 a1 = b2MulAdd(pA, fraction1, tangentA);
+				b2Vec2 a2 = b2MulAdd(pA, fraction2, tangentA);
+
+				float sep1 = b2Dot(b2Sub(a1, pB), normalB);
+				float sep2 = b2Dot(b2Sub(a2, pB), normalB);
+
+				if (sep1 < sep2)
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction1);
+
+					if (fraction1 < fraction2)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
+				else
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction2);
+
+					if (fraction2 < fraction1)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
 			}
 			else
 			{
-				manifold.points[0].id.key = 1;
-				manifold.points[1].id.key = 0;
+				manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction1);
+				manifold.points[1].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction2);
+
+				if (fraction1 < fraction2)
+				{
+					manifold.points[0].id.key = 0;
+					manifold.points[1].id.key = 1;
+				}
+				else
+				{
+					manifold.points[0].id.key = 1;
+					manifold.points[1].id.key = 0;
+				}
 			}
 		}
 		else
@@ -764,28 +835,416 @@ b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 				fraction2 = (upper - bound_pB) * denB;
 			}
 
-			manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction1);
-			manifold.points[1].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction2);
+			b2Vec2 b1 = b2Lerp(pB, qB, fraction1);
+			b2Vec2 b2 = b2Lerp(pB, qB, fraction2);
 
-			b2Vec2 p1 = b2Lerp(pB, qB, fraction1);
-			b2Vec2 p2 = b2Lerp(pB, qB, fraction2);
+			float dist1 = b2DistanceSquared(b1, pA);
+			float dist2 = b2DistanceSquared(b2, pA);
 
-			float dist1 = b2DistanceSquared(p1, pA);
-			float dist2 = b2DistanceSquared(p2, pA);
-
-			if (dist1 < dist2)
+			if (tryClip == false)
 			{
-				manifold.points[0].id.key = 0;
-				manifold.points[1].id.key = 1;
+				float sep1 = b2Dot(b2Sub(b1, pA), normalA);
+				float sep2 = b2Dot(b2Sub(b2, pA), normalA);
+
+				if (sep1 < sep2)
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction1);
+
+					if (dist1 < dist2)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
+				else
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction2);
+
+					if (dist2 < dist1)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
 			}
 			else
 			{
-				manifold.points[0].id.key = 1;
-				manifold.points[1].id.key = 0;
+				manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction1);
+				manifold.points[1].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction2);
+
+				if (dist1 < dist2)
+				{
+					manifold.points[0].id.key = 0;
+					manifold.points[1].id.key = 1;
+				}
+				else
+				{
+					manifold.points[0].id.key = 1;
+					manifold.points[1].id.key = 0;
+				}
 			}
 		}
 
-		manifold.pointCount = 2;
+		manifold.pointCount = tryClip ? 2 : 1;
+		return manifold;
+	}
+
+	// All points clipped away, so use vertex-vertex contact
+
+	manifold = b2EmptyManifold();
+	manifold.type = b2_manifoldCircles;
+	manifold.localNormal = b2Vec2_zero;
+	manifold.pointCount = 1;
+
+	// Find closest vertex pair
+
+	float distPP = b2DistanceSquared(pB, pA);
+	float minDist = distPP;
+	manifold.localPoint = capsuleA->point1;
+	manifold.points[0].localPoint = capsuleB->point1;
+	manifold.points[0].id.key = 0;
+
+	float distPQ = b2DistanceSquared(qB, pA);
+	if (distPQ < minDist)
+	{
+		minDist = distPQ;
+		manifold.localPoint = capsuleA->point1;
+		manifold.points[0].localPoint = capsuleB->point2;
+		manifold.points[0].id.key = 0;
+	}
+
+	float distQP = b2DistanceSquared(pB, qA);
+	if (distQP < minDist)
+	{
+		minDist = distQP;
+		manifold.localPoint = capsuleA->point2;
+		manifold.points[0].localPoint = capsuleB->point1;
+		manifold.points[0].id.key = 1;
+	}
+
+	float distQQ = b2DistanceSquared(qB, qA);
+	if (distQQ < minDist)
+	{
+		minDist = distQQ;
+		manifold.localPoint = capsuleA->point2;
+		manifold.points[0].localPoint = capsuleB->point2;
+		manifold.points[0].id.key = 1;
+	}
+
+	return manifold;
+}
+
+b2Manifold b2CollideCapsules3(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+							  b2Transform xfB)
+{
+	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
+	b2Vec2 qA = b2TransformPoint(xfA, capsuleA->point2);
+	b2Vec2 dA = b2Sub(qA, pA);
+
+	b2Vec2 pB = b2TransformPoint(xfB, capsuleB->point1);
+	b2Vec2 qB = b2TransformPoint(xfB, capsuleB->point2);
+	b2Vec2 dB = b2Sub(qB, pB);
+
+	float lengthA;
+	b2Vec2 tangentA = b2GetLengthAndNormalize(&lengthA, dA);
+	b2Vec2 normalA = {tangentA.y, -tangentA.x};
+
+	float lengthB;
+	b2Vec2 tangentB = b2GetLengthAndNormalize(&lengthB, dB);
+	b2Vec2 normalB = {tangentB.y, -tangentB.x};
+
+	// const float cosTol = 0.7071067811865475f;
+	// float cosAngle = B2_ABS(b2Dot(tangentA, tangentB));
+	// bool canClip = (cosAngle < -cosTol || cosTol < cosAngle);
+
+	// compute closest points
+	b2SegmentDistanceResult result = b2SegmentDistance(pA, qA, pB, qB);
+	if (result.distanceSquared > b2_linearSlop * b2_linearSlop)
+	{
+		b2Vec2 normal = b2Normalize(b2Sub(result.closest2, result.closest1));
+
+		float cosA = B2_ABS(b2Dot(normalA, normal));
+		float cosB = B2_ABS(b2Dot(normalB, normal));
+
+		b2Vec2 localA = b2Lerp(capsuleA->point1, capsuleA->point2, result.fraction1);
+		b2Vec2 localB = b2Lerp(capsuleB->point1, capsuleB->point2, result.fraction2);
+		b2Manifold manifold = b2EmptyManifold();
+		manifold.pointCount = 1;
+
+		if (result.fraction1 == 0.0f || result.fraction1 == 1.0f)
+		{
+			if (result.fraction2 == 0.0f || result.fraction2 == 1.0f)
+			{
+				manifold.type == b2_manifoldCircles;
+				manifold.localPoint = localA;
+				manifold.points[0].localPoint = localB;
+				manifold.points[0].id.key = result.fraction1 < 0.5f ? 0 : 1;
+			}
+			else
+			{
+				b2Vec2 localNormal = b2InvRotateVector(xfB.q, normalB);
+
+				if (b2Dot(normalB, b2Sub(result.closest2, result.closest1)) < 0.0f)
+				{
+					localNormal = b2Neg(localNormal);
+				}
+
+				manifold.type == b2_manifoldFaceB;
+				manifold.localPoint = localB;
+				manifold.localNormal = manifold.points[0].localPoint = localA;
+				manifold.points[0].id.key = result.fraction1 < 0.5f ? 0 : 1;
+			}
+		}
+	}
+
+	// face A separation
+	float sepA;
+	{
+		float sepP = b2Dot(b2Sub(pB, pA), normalA);
+		float sepQ = b2Dot(b2Sub(qB, pA), normalA);
+		float sepPos = B2_MIN(sepP, sepQ);
+		float sepNeg = B2_MIN(-sepP, -sepQ);
+		if (sepNeg > sepPos)
+		{
+			sepA = sepNeg;
+			normalA = b2Neg(normalA);
+		}
+		else
+		{
+			sepA = sepPos;
+		}
+	}
+
+	// face B separation
+	float sepB;
+	{
+		float sepP = b2Dot(b2Sub(pA, pB), normalB);
+		float sepQ = b2Dot(b2Sub(qA, pB), normalB);
+		float sepPos = B2_MIN(sepP, sepQ);
+		float sepNeg = B2_MIN(-sepP, -sepQ);
+		if (sepNeg > sepPos)
+		{
+			sepB = sepNeg;
+			normalB = b2Neg(normalB);
+		}
+		else
+		{
+			sepB = sepPos;
+		}
+	}
+
+	b2Manifold manifold = b2EmptyManifold();
+
+	float bound_pA, bound_qA;
+	float bound_pB, bound_qB;
+	float lowerA, upperA;
+	float lowerB, upperB;
+
+	// Find reference face (edge)
+	// Tolerance to stabilize contact points during stacking scenarios
+	const float k_faceTol = 0.5f * b2_linearSlop;
+	if (sepB > sepA + k_faceTol)
+	{
+		// segment B is the reference face
+		manifold.type = b2_manifoldFaceB;
+		manifold.localPoint = capsuleB->point1;
+		manifold.localNormal = b2InvRotateVector(xfB.q, normalB);
+
+		bound_pA = b2Dot(b2Sub(pA, pB), tangentB);
+		bound_qA = b2Dot(b2Sub(qA, pB), tangentB);
+
+		if (bound_pA < bound_qA)
+		{
+			lowerA = bound_pA;
+			upperA = bound_qA;
+		}
+		else
+		{
+			lowerA = bound_qA;
+			upperA = bound_pA;
+		}
+
+		lowerB = bound_pB = 0.0f;
+		upperB = bound_qB = lengthB;
+	}
+	else
+	{
+		// segment A is the reference face
+		manifold.type = b2_manifoldFaceA;
+		manifold.localPoint = capsuleA->point1;
+		manifold.localNormal = b2InvRotateVector(xfA.q, normalA);
+
+		lowerA = bound_pA = 0.0f;
+		upperA = bound_qA = lengthA;
+
+		bound_pB = b2Dot(b2Sub(pB, pA), tangentA);
+		bound_qB = b2Dot(b2Sub(qB, pA), tangentA);
+
+		if (bound_pB < bound_qB)
+		{
+			lowerB = bound_pB;
+			upperB = bound_qB;
+		}
+		else
+		{
+			lowerB = bound_qB;
+			upperB = bound_pB;
+		}
+	}
+
+	// Do intervals overlap?
+	if (upperB >= lowerA && upperA >= lowerB)
+	{
+		float lower = B2_MAX(lowerA, lowerB);
+		float upper = B2_MIN(upperA, upperB);
+
+		if (manifold.type == b2_manifoldFaceB)
+		{
+			float fraction1, fraction2;
+			float denA = bound_qA - bound_pA;
+			if (-FLT_EPSILON < denA && denA < FLT_EPSILON)
+			{
+				fraction1 = 0.0f;
+				fraction2 = 1.0f;
+			}
+			else
+			{
+				denA = 1.0f / denA;
+				fraction1 = (lower - bound_pA) * denA;
+				fraction2 = (upper - bound_pA) * denA;
+			}
+
+			if (tryClip == false)
+			{
+				b2Vec2 a1 = b2MulAdd(pA, fraction1, tangentA);
+				b2Vec2 a2 = b2MulAdd(pA, fraction2, tangentA);
+
+				float sep1 = b2Dot(b2Sub(a1, pB), normalB);
+				float sep2 = b2Dot(b2Sub(a2, pB), normalB);
+
+				if (sep1 < sep2)
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction1);
+
+					if (fraction1 < fraction2)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
+				else
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction2);
+
+					if (fraction2 < fraction1)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
+			}
+			else
+			{
+				manifold.points[0].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction1);
+				manifold.points[1].localPoint = b2Lerp(capsuleA->point1, capsuleA->point2, fraction2);
+
+				if (fraction1 < fraction2)
+				{
+					manifold.points[0].id.key = 0;
+					manifold.points[1].id.key = 1;
+				}
+				else
+				{
+					manifold.points[0].id.key = 1;
+					manifold.points[1].id.key = 0;
+				}
+			}
+		}
+		else
+		{
+			float fraction1, fraction2;
+			float denB = bound_qB - bound_pB;
+			if (-FLT_EPSILON < denB && denB < FLT_EPSILON)
+			{
+				fraction1 = 0.0f;
+				fraction2 = 1.0f;
+			}
+			else
+			{
+				denB = 1.0f / denB;
+				fraction1 = (lower - bound_pB) * denB;
+				fraction2 = (upper - bound_pB) * denB;
+			}
+
+			b2Vec2 b1 = b2Lerp(pB, qB, fraction1);
+			b2Vec2 b2 = b2Lerp(pB, qB, fraction2);
+
+			float dist1 = b2DistanceSquared(b1, pA);
+			float dist2 = b2DistanceSquared(b2, pA);
+
+			if (tryClip == false)
+			{
+				float sep1 = b2Dot(b2Sub(b1, pA), normalA);
+				float sep2 = b2Dot(b2Sub(b2, pA), normalA);
+
+				if (sep1 < sep2)
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction1);
+
+					if (dist1 < dist2)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
+				else
+				{
+					manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction2);
+
+					if (dist2 < dist1)
+					{
+						manifold.points[0].id.key = 0;
+					}
+					else
+					{
+						manifold.points[0].id.key = 1;
+					}
+				}
+			}
+			else
+			{
+				manifold.points[0].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction1);
+				manifold.points[1].localPoint = b2Lerp(capsuleB->point1, capsuleB->point2, fraction2);
+
+				if (dist1 < dist2)
+				{
+					manifold.points[0].id.key = 0;
+					manifold.points[1].id.key = 1;
+				}
+				else
+				{
+					manifold.points[0].id.key = 1;
+					manifold.points[1].id.key = 0;
+				}
+			}
+		}
+
+		manifold.pointCount = tryClip ? 2 : 1;
 		return manifold;
 	}
 

@@ -8,6 +8,26 @@
 
 #include <float.h>
 
+static int SegmentDistanceTest()
+{
+	b2Vec2 p1 = {-1.0f, -1.0f};
+	b2Vec2 q1 = {-1.0f, 1.0f};
+	b2Vec2 p2 = {2.0f, 0.0f};
+	b2Vec2 q2 = {1.0f, 0.0f};
+
+	b2SegmentDistanceResult result = b2SegmentDistance(p1, q1, p2, q2);
+
+	ENSURE_SMALL(result.fraction1 - 0.5f, FLT_EPSILON);
+	ENSURE_SMALL(result.fraction2 - 1.0f, FLT_EPSILON);
+	ENSURE_SMALL(result.closest1.x + 1.0f, FLT_EPSILON);
+	ENSURE_SMALL(result.closest1.y, FLT_EPSILON);
+	ENSURE_SMALL(result.closest2.x - 1.0f, FLT_EPSILON);
+	ENSURE_SMALL(result.closest2.y, FLT_EPSILON);
+	ENSURE_SMALL(result.distanceSquared - 4.0f, FLT_EPSILON);
+
+	return 0;
+}
+
 static int ShapeDistanceTest()
 {
 	b2Vec2 vas[] = {
@@ -101,6 +121,7 @@ static int TimeOfImpactTest()
 
 int DistanceTest()
 {
+	RUN_SUBTEST(SegmentDistanceTest);
 	RUN_SUBTEST(ShapeDistanceTest);
 	RUN_SUBTEST(ShapeCastTest);
 	RUN_SUBTEST(TimeOfImpactTest);

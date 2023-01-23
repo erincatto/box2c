@@ -13,7 +13,7 @@ extern "C"
 #endif
 
 /// Default allocation functions
-void b2SetAlloc(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
+void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
 /// Implement this function to use your own memory allocator.
 void* b2Alloc(int32_t size);

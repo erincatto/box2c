@@ -83,31 +83,31 @@ b2Vec2 Camera::ConvertWorldToScreen(b2Vec2 pw)
 // http://www.songho.ca/opengl/gl_projectionmatrix.html
 void Camera::BuildProjectionMatrix(float* m, float zBias)
 {
-	float w = float(m_width);
-	float h = float(m_height);
-	float ratio = w / h;
+	float ratio = float(m_width) / float(m_height);
 	b2Vec2 extents = { m_zoom * ratio * 25.0f, m_zoom * 25.0f };
 
 	b2Vec2 lower = b2Sub(m_center, extents);
 	b2Vec2 upper = b2Add(m_center, extents);
+	float w = upper.x - lower.x;
+	float h = upper.y - lower.y;
 
-	m[0] = 2.0f / (upper.x - lower.x);
+	m[0] = 2.0f / w;
 	m[1] = 0.0f;
 	m[2] = 0.0f;
 	m[3] = 0.0f;
 
 	m[4] = 0.0f;
-	m[5] = 2.0f / (upper.y - lower.y);
+	m[5] = 2.0f / h;
 	m[6] = 0.0f;
 	m[7] = 0.0f;
 
 	m[8] = 0.0f;
 	m[9] = 0.0f;
-	m[10] = 1.0f;
+	m[10] = -1.0f;
 	m[11] = 0.0f;
 
-	m[12] = -(upper.x + lower.x) / (upper.x - lower.x);
-	m[13] = -(upper.y + lower.y) / (upper.y - lower.y);
+	m[12] = -2.0f * m_center.x / w;
+	m[13] = -2.0f * m_center.y / h;
 	m[14] = zBias;
 	m[15] = 1.0f;
 }

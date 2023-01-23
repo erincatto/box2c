@@ -53,7 +53,7 @@ public:
 
 		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
 		{
-			m_transform.q = b2Rot_Set(m_angle);
+			m_transform.q = b2MakeRot(m_angle);
 		}
 
 		if (ImGui::Checkbox("show ids", &m_showIds))
@@ -121,7 +121,7 @@ public:
 		{
 			float dx = p.x - m_startPoint.x;
 			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
-			m_transform.q = b2Rot_Set(m_angle);
+			m_transform.q = b2MakeRot(m_angle);
 		}
 	}
 

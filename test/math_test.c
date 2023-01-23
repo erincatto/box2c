@@ -21,8 +21,8 @@ int MathTest()
 	v = b2Add(two, two);
 	ENSURE(v.x != 5.0f && v.y != 5.0f);
 
-	b2Transform xf1 = {{-2.0f, 3.0f}, b2Rot_Set(1.0f)};
-	b2Transform xf2 = {{1.0f, 0.0f}, b2Rot_Set(-2.0f)};
+	b2Transform xf1 = {{-2.0f, 3.0f}, b2MakeRot(1.0f)};
+	b2Transform xf2 = {{1.0f, 0.0f}, b2MakeRot(-2.0f)};
 
 	b2Transform xf = b2MulTransforms(xf2, xf1);
 

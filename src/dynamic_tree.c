@@ -720,7 +720,7 @@ void b2DynamicTree_Validate(const b2DynamicTree* tree)
 
 	assert(tree->nodeCount + freeCount == tree->nodeCapacity);
 #else
-	B2_NOT_USED(tree);
+	B2_MAYBE_UNUSED(tree);
 #endif
 }
 

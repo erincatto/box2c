@@ -38,7 +38,7 @@ inline float RandomFloat(float lo, float hi)
 class DestructionListener : public b2DestructionListener
 {
 public:
-	void SayGoodbye(b2Fixture* fixture) override { B2_NOT_USED(fixture); }
+	void SayGoodbye(b2Fixture* fixture) override { B2_MAYBE_UNUSED(fixture); }
 	void SayGoodbye(b2Joint* joint) override;
 
 	Test* test;

@@ -468,7 +468,7 @@ int main(int, char**)
 #endif
 
 	// Install memory hooks
-	b2SetAlloc(AllocFcn, FreeFcn);
+	b2SetAllocator(AllocFcn, FreeFcn);
 
 	char buffer[128];
 

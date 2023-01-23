@@ -10,6 +10,18 @@
 extern "C" {
 #endif
 
+typedef struct b2SegmentDistanceResult
+{
+	b2Vec2 closest1;
+	b2Vec2 closest2;
+	float fraction1;
+	float fraction2;
+	float distanceSquared;
+} b2SegmentDistanceResult;
+
+/// Compute the distance between two line segments, clamping at the end points if needed.
+b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2);
+
 /// A distance proxy is used by the GJK algorithm.
 /// It encapsulates any shape.
 typedef struct b2DistanceProxy

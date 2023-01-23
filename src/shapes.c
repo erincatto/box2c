@@ -43,7 +43,7 @@ b2PolygonShape b2MakeBox(float hx, float hy, b2Vec2 center, float angle)
 {
 	b2Transform xf;
 	xf.p = center;
-	xf.q = b2Rot_Set(angle);
+	xf.q = b2MakeRot(angle);
 
 	b2PolygonShape shape;
 	shape.count = 4;
@@ -166,7 +166,10 @@ b2MassData b2ComputePolygonMass(const b2PolygonShape* shape, float density)
 
 	// Center of mass, shift back from origin at r
 	assert(area > FLT_EPSILON);
-	massData.center = b2MulAdd(r, 1.0f / area, center);
+	float invArea = 1.0f / area;
+	center.x *= invArea;
+	center.y *= invArea;
+	massData.center = b2Add(r, center);
 
 	// Inertia tensor relative to the local origin (point s).
 	massData.I = density * I;
