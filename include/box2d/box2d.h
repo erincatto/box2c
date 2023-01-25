@@ -11,8 +11,20 @@ extern "C"
 {
 #endif
 
+/// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
 b2WorldId b2CreateWorld(const b2WorldDef* def);
+
+/// Destroy a world.
 void b2DestroyWorld(b2WorldId id);
+
+/// Create a rigid body given a definition. No reference to the definition is retained.
+/// @warning This function is locked during callbacks.
+b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
+
+/// Destroy a rigid body given an id.
+/// @warning This function is locked during callbacks.
+void b2World_DestroyBody(b2BodyId bodyId);
+
 
 #if 0
 	/// Register a destruction listener. The listener is owned by you and must
@@ -32,17 +44,6 @@ void SetContactListener(b2ContactListener* listener);
 /// inside with b2World::DebugDraw method. The debug draw object is owned
 /// by you and must remain in scope.
 void SetDebugDraw(b2Draw* debugDraw);
-
-/// Create a rigid body given a definition. No reference to the definition
-/// is retained.
-/// @warning This function is locked during callbacks.
-b2Body* CreateBody(const b2BodyDef* def);
-
-/// Destroy a rigid body given a definition. No reference to the definition
-/// is retained. This function is locked during callbacks.
-/// @warning This automatically deletes all associated shapes and joints.
-/// @warning This function is locked during callbacks.
-void DestroyBody(b2Body* body);
 
 /// Create a joint to constrain bodies together. No reference to the definition
 /// is retained. This may cause the connected bodies to cease colliding.

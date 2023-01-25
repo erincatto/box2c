@@ -319,7 +319,7 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideCapsules2(&m_capsule, xf1, &m_capsule, xf2);
+			b2Manifold m = b2CollideCapsules(&m_capsule, xf1, &m_capsule, xf2);
 			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, m_capsule.radius, xf2, m_capsule.radius);
 
 			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);

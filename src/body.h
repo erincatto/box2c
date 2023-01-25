@@ -278,21 +278,33 @@ typedef struct b2Body
 	void Advance(float t);
 #endif
 
+	int32_t index;
+	int32_t next;
+
 	b2BodyType type;
 
 	int32_t islandIndex;
 
-	b2Transform transform;		// the body origin transform
-	b2Sweep sweep;		// the swept motion for CCD
+	// the body origin transform
+	b2Transform transform;
+	
+	// center of mass position
+	b2Vec2 position;
+
+	// rotation in radians
+	float angle;
+
+	// location of center of mass relative to the body origin
+	b2Vec2 localCenter;
+
+	b2Vec2 speculativePosition;
+	float speculativeAngle;
 
 	b2Vec2 linearVelocity;
 	float angularVelocity;
 
 	b2Vec2 force;
 	float torque;
-
-	int32_t world;
-	int32_t next;
 
 	int32_t shapeIndex;
 	int32_t jointIndex;
@@ -309,13 +321,15 @@ typedef struct b2Body
 	float sleepTime;
 
 	void* userData;
+	int16_t world;
+	uint16_t revision;
 
 	bool islandFlag;
 	bool awakeFlag;
 	bool canSleep;
 	bool fixedRotation;
 	bool enabled;
-};
+} b2Body;
 
 #if 0
 inline void b2Body::SetLinearVelocity(const b2Vec2& v)
@@ -516,4 +530,7 @@ inline void b2Body::Advance(float alpha)
 	m_xf.q.Set(m_sweep.a);
 	m_xf.p = m_sweep.c - b2Mul(m_xf.q, m_sweep.localCenter);
 }
+
+void b2Body_Dump(b2Body* b);
+
 #endif

@@ -52,27 +52,28 @@ typedef struct b2World
 
 	//b2ContactManager contactManager;
 
-	struct b2Body* m_bodyList;
-	int32_t m_bodyCount;
-	int32_t m_bodyCapacity;
-	int32_t m_bodyFreeList;
-
+	struct b2Body* bodies;
+	int32_t bodyCount;
+	int32_t bodyCapacity;
+	int32_t bodyFreeList;
 
 	//b2Joint* m_jointList;
 	//int32_t m_jointCount;
 
-	b2Vec2 m_gravity;
-	bool m_allowSleep;
+	b2Vec2 gravity;
 
 	//b2DestructionListener* m_destructionListener;
 	//b2Draw* m_debugDraw;
 
 	// This is used to compute the time step ratio to support a variable time step.
-	float m_inv_dt0;
+	float inv_dt0;
 
-	bool m_newContacts;
-	bool m_locked;
-	bool m_warmStarting;
+	uint16_t revision;
+
+	bool canSleep;
+	bool newContacts;
+	bool locked;
+	bool warmStarting;
 } b2World;
 
 //void b2Solve(b2World* world, const b2TimeStep* step);

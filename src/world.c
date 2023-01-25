@@ -4,83 +4,236 @@
 //#include "contact_solver.h"
 //#include "island.h"
 
+#include "box2d/allocate.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
+
+#include "body.h"
 #include "world.h"
+
+#include <assert.h>
+#include <string.h>
 
 b2World g_worlds[b2_maxWorlds];
 
-b2WorldId b2CreateWorld()
+static b2World* b2GetWorld(b2WorldId id)
 {
+	assert(0 <= id.index && id.index < b2_maxWorlds);
+	b2World* w = g_worlds + id.index;
+	assert(id.revision == w->revision);
+	return w;
+}
 
+static b2World* b2GetWorldFromIndex(int16_t index)
+{
+	assert(0 <= index && index < b2_maxWorlds);
+	b2World* w = g_worlds + index;
+	assert(w->blockAllocator != NULL);
+	return w;
+}
+
+b2WorldId b2CreateWorld(const b2WorldDef* def)
+{
+	b2WorldId id = b2_nullWorldId;
+	for (int16_t i = 0; i < b2_maxWorlds; ++i)
+	{
+		if (g_worlds[i].blockAllocator == NULL)
+		{
+			id.index = i;
+			break;
+		}
+	}
+
+	if (id.index == b2_nullWorldId.index)
+	{
+		return id;
+	}
+
+	b2World* w = g_worlds + id.index;
+	w->blockAllocator = b2CreateBlockAllocator();
+	w->gravity = def->gravity;
+	
+	w->bodyCapacity = B2_MAX(def->bodyCapacity, 1);
+	w->bodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
+	w->bodyCount = 0;
+	w->bodyFreeList = 0;
+	for (int32_t i = 0; i < w->bodyCapacity - 1; ++i)
+	{
+		w->bodies[i].index = i;
+		w->bodies[i].next = i + 1;
+		w->bodies[i].revision = 0;
+	}
+	w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
+	w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
+	w->bodies[w->bodyCapacity - 1].revision = 0;
+
+	// Globals start at 0. It should be fine for this to roll over.
+	w->revision = w->revision + 1;
+
+	w->inv_dt0 = 0.0f;
+	w->canSleep = true;
+	w->newContacts = false;
+	w->locked = false;
+	w->warmStarting = false;
+
+	id.revision = w->revision;
+
+	return id;
+}
+
+void b2DestroyWorld(b2WorldId id)
+{
+	b2World* w = b2GetWorld(id);
+
+	b2DestroyBlockAllocator(w->blockAllocator);
+	w->blockAllocator = NULL;
+	
+	b2Free(w->bodies);
+	w->bodies = NULL;
+}
+
+b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
+{
+	b2World* w = b2GetWorld(worldId);
+	assert(w->locked == false);
+
+	if (w->locked)
+	{
+		return b2_nullBodyId;
+	}
+	
+	b2Body* b = NULL;
+	if (w->bodyFreeList != B2_NULL_INDEX)
+	{
+		b = w->bodies + w->bodyFreeList;
+		b->index = w->bodyFreeList;
+		b->revision += 1;
+		w->bodyFreeList = b->next;
+	}
+	else
+	{
+		int32_t oldCapacity = w->bodyCapacity;
+		w->bodyCapacity = B2_MAX(w->bodyCapacity + w->bodyCapacity / 2, 2);
+		b2Body* newBodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
+		memcpy(newBodies, w->bodies, oldCapacity * sizeof(b2Body));
+		b2Free(w->bodies);
+		w->bodies = newBodies;
+	
+		b = w->bodies + oldCapacity;
+		b->index = oldCapacity;
+		b->revision = 0;
+
+		w->bodyFreeList = oldCapacity + 1;
+		for (int32_t i = oldCapacity + 1; i < w->bodyCapacity - 1; ++i)
+		{
+			w->bodies[i].index = i;
+			w->bodies[i].next = i + 1;
+			w->bodies[i].revision = 0;
+		}
+		w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
+		w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
+		w->bodies[w->bodyCapacity - 1].revision = 0;
+	}
+
+	w->bodyCount += 1;
+
+	b->next = B2_NULL_INDEX;
+	b->type = def->type;
+	b->islandIndex = B2_NULL_INDEX;
+	b->transform.p = def->position;
+	b->transform.q = b2MakeRot(def->angle);
+	b->position = def->position;
+	b->angle = def->angle;
+	b->localCenter = b2Vec2_zero;
+	b->speculativePosition = def->position;
+	b->speculativeAngle = def->angle;
+	b->linearVelocity = def->linearVelocity;
+	b->angularVelocity = def->angularVelocity;
+	b->force = b2Vec2_zero;
+	b->torque = 0.0f;
+	b->shapeIndex = B2_NULL_INDEX;
+	b->jointIndex = B2_NULL_INDEX;
+	b->mass = 0.0f;
+	b->invMass = 0.0f;
+	b->I = 0.0f;
+	b->invI = 0.0f;
+	b->linearDamping = def->linearDamping;
+	b->angularDamping = def->angularDamping;
+	b->gravityScale = def->gravityScale;
+	b->sleepTime = 0.0f;
+	b->userData = def->userData;
+	b->world = worldId.index;
+	b->islandFlag = false;
+	b->awakeFlag = def->awake;
+	b->canSleep = def->canSleep;
+	b->fixedRotation = def->fixedRotation;
+	b->enabled = def->enabled;
+
+	b2BodyId id = {b->index, worldId.index, b->revision};
+	return id;
+}
+
+void b2World_DestroyBody(b2BodyId bodyId)
+{
+	b2World* w = b2GetWorldFromIndex(bodyId.world);
+	assert(w->locked == false);
+
+	if (w->locked)
+	{
+		return;
+	}
+
+	assert(w->bodyCount > 0);
+
+	#if 0
+	// Delete the attached joints.
+	b2JointEdge* je = b->m_jointList;
+	while (je)
+	{
+		b2JointEdge* je0 = je;
+		je = je->next;
+
+		if (m_destructionListener)
+		{
+			m_destructionListener->SayGoodbye(je0->joint);
+		}
+
+		DestroyJoint(je0->joint);
+
+		b->m_jointList = je;
+	}
+	b->m_jointList = nullptr;
+
+	// Delete the attached fixtures. This destroys broad-phase proxies.
+	b2Fixture* f = b->m_fixtureList;
+	while (f)
+	{
+		b2Fixture* f0 = f;
+		f = f->m_next;
+
+		if (m_destructionListener)
+		{
+			m_destructionListener->SayGoodbye(f0);
+		}
+
+		f0->DestroyProxies(&m_contactManager.m_broadPhase);
+		f0->Destroy(&m_blockAllocator);
+		f0->~b2Fixture();
+		m_blockAllocator.Free(f0, sizeof(b2Fixture));
+
+		b->m_fixtureList = f;
+		b->m_fixtureCount -= 1;
+	}
+	b->m_fixtureList = nullptr;
+	b->m_fixtureCount = 0;
+	#endif
+
+	w->bodies[bodyId.index].next = w->bodyFreeList;
+	w->bodyFreeList = bodyId.index;
+	w->bodyCount -= 1;
 }
 
 #if 0
-b2World::b2World(const b2Vec2& gravity)
-{
-	m_destructionListener = nullptr;
-	m_debugDraw = nullptr;
-
-	m_bodyList = nullptr;
-	m_jointList = nullptr;
-
-	m_bodyCount = 0;
-	m_jointCount = 0;
-
-	m_warmStarting = true;
-	m_continuousPhysics = true;
-	m_subStepping = false;
-
-	m_stepComplete = true;
-
-	m_allowSleep = true;
-	m_gravity = gravity;
-
-	m_newContacts = false;
-	m_locked = false;
-	m_clearForces = true;
-
-	m_inv_dt0 = 0.0f;
-
-	m_contactManager.m_allocator = &m_blockAllocator;
-
-}
-
-b2World::~b2World()
-{
-	// Some shapes allocate using b2Alloc.
-	b2Body* b = m_bodyList;
-	while (b)
-	{
-		b2Body* bNext = b->m_next;
-
-		b2Fixture* f = b->m_fixtureList;
-		while (f)
-		{
-			b2Fixture* fNext = f->m_next;
-			f->m_proxyCount = 0;
-			f->Destroy(&m_blockAllocator);
-			f = fNext;
-		}
-
-		b = bNext;
-	}
-}
-
-void b2World::SetDestructionListener(b2DestructionListener* listener)
-{
-	m_destructionListener = listener;
-}
-
-void b2World::SetContactFilter(b2ContactFilter* filter)
-{
-	m_contactManager.m_contactFilter = filter;
-}
-
-void b2World::SetContactListener(b2ContactListener* listener)
-{
-	m_contactManager.m_contactListener = listener;
-}
 
 void b2World::SetDebugDraw(b2Draw* debugDraw)
 {

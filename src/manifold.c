@@ -590,6 +590,7 @@ b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, co
 	return manifold;
 }
 
+#if 0
 b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
 							 b2Transform xfB)
 {
@@ -1292,6 +1293,7 @@ b2Manifold b2CollideCapsules3(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 
 	return manifold;
 }
+#endif
 
 #if 0
 // This doesn't work well when capsules are perpendicular.

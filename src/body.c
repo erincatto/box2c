@@ -1,113 +1,10 @@
-// MIT License
+// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-License-Identifier: MIT
 
-// Copyright (c) 2019 Erin Catto
+#include "body.h"
+#include "world.h"
 
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-#include "box2d/b2_body.h"
-#include "box2d/b2_contact.h"
-#include "box2d/b2_fixture.h"
-#include "box2d/b2_joint.h"
-#include "box2d/b2_world.h"
-
-#include <new>
-
-b2Body::b2Body(const b2BodyDef* bd, b2World* world)
-{
-	b2Assert(bd->position.IsValid());
-	b2Assert(bd->linearVelocity.IsValid());
-	b2Assert(b2IsValid(bd->angle));
-	b2Assert(b2IsValid(bd->angularVelocity));
-	b2Assert(b2IsValid(bd->angularDamping) && bd->angularDamping >= 0.0f);
-	b2Assert(b2IsValid(bd->linearDamping) && bd->linearDamping >= 0.0f);
-
-	m_flags = 0;
-
-	if (bd->bullet)
-	{
-		m_flags |= e_bulletFlag;
-	}
-	if (bd->fixedRotation)
-	{
-		m_flags |= e_fixedRotationFlag;
-	}
-	if (bd->allowSleep)
-	{
-		m_flags |= e_autoSleepFlag;
-	}
-	if (bd->awake && bd->type != b2_staticBody)
-	{
-		m_flags |= e_awakeFlag;
-	}
-	if (bd->enabled)
-	{
-		m_flags |= e_enabledFlag;
-	}
-
-	m_world = world;
-
-	m_xf.p = bd->position;
-	m_xf.q.Set(bd->angle);
-
-	m_sweep.localCenter.SetZero();
-	m_sweep.c0 = m_xf.p;
-	m_sweep.c = m_xf.p;
-	m_sweep.a0 = bd->angle;
-	m_sweep.a = bd->angle;
-	m_sweep.alpha0 = 0.0f;
-
-	m_jointList = nullptr;
-	m_contactList = nullptr;
-	m_prev = nullptr;
-	m_next = nullptr;
-
-	m_linearVelocity = bd->linearVelocity;
-	m_angularVelocity = bd->angularVelocity;
-
-	m_linearDamping = bd->linearDamping;
-	m_angularDamping = bd->angularDamping;
-	m_gravityScale = bd->gravityScale;
-
-	m_force.SetZero();
-	m_torque = 0.0f;
-
-	m_sleepTime = 0.0f;
-
-	m_type = bd->type;
-
-	m_mass = 0.0f;
-	m_invMass = 0.0f;
-
-	m_I = 0.0f;
-	m_invI = 0.0f;
-
-	m_userData = bd->userData;
-
-	m_fixtureList = nullptr;
-	m_fixtureCount = 0;
-}
-
-b2Body::~b2Body()
-{
-	// shapes and joints are destroyed in b2World::Destroy
-}
-
+#if 0
 void b2Body::SetType(b2BodyType type)
 {
 	b2Assert(m_world->IsLocked() == false);
@@ -536,16 +433,16 @@ void b2Body::SetFixedRotation(bool flag)
 	ResetMassData();
 }
 
-void b2Body::Dump()
+void b2Body_Dump(b2Body* b)
 {
-	int32 bodyIndex = m_islandIndex;
+	int32_t bodyIndex = b->islandIndex;
 
 	// %.9g is sufficient to save and load the same value using text
 	// FLT_DECIMAL_DIG == 9
 
 	b2Dump("{\n");
 	b2Dump("  b2BodyDef bd;\n");
-	b2Dump("  bd.type = b2BodyType(%d);\n", m_type);
+	b2Dump("  bd.type = b2BodyType(%d);\n", b->type);
 	b2Dump("  bd.position.Set(%.9g, %.9g);\n", m_xf.p.x, m_xf.p.y);
 	b2Dump("  bd.angle = %.9g;\n", m_sweep.a);
 	b2Dump("  bd.linearVelocity.Set(%.9g, %.9g);\n", m_linearVelocity.x, m_linearVelocity.y);
@@ -568,3 +465,4 @@ void b2Body::Dump()
 	}
 	b2Dump("}\n");
 }
+#endif

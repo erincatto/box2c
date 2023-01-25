@@ -38,26 +38,7 @@ typedef struct b2JointId
 	uint16_t revision;
 } b2JointId;
 
-static inline b2WorldId b2NullWorldId()
-{
-	b2WorldId nullId = {-1, 0};
-	return nullId
-}
-
-static inline b2BodyId b2NullBodyId()
-{
-	b2BodyId nullId = {-1, -1, 0};
-	return nullId
-}
-
-static inline b2ShapeId b2NullShapeId()
-{
-	b2ShapeId nullId = {-1, -1, 0};
-	return nullId
-}
-
-static inline b2JointId b2NullJointId()
-{
-	b2JointId nullId = {-1, -1, 0};
-	return nullId
-}
+static const b2WorldId b2_nullWorldId = {-1, 0};
+static const b2BodyId b2_nullBodyId = {-1, -1, 0};
+static const b2ShapeId b2_nullShapeId = {-1, -1, 0};
+static const b2JointId b2_nullJointId = {-1, -1, 0};
