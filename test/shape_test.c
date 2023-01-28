@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/shapes.h"
+#include "box2d/geometry.h"
 #include "box2d/math.h"
 #include "test_macros.h"
 
 #include <float.h>
 
-static b2CapsuleShape capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 1.0f};
-static b2CircleShape circle = {{1.0f, 0.0f}, 1.0f};
-static b2PolygonShape box;
-static b2SegmentShape segment = {{0.0f, 1.0f}, {0.0f, -1.0f}};
+static b2Capsule capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 1.0f};
+static b2Circle circle = {{1.0f, 0.0f}, 1.0f};
+static b2Polygon box;
+static b2Segment segment = {{0.0f, 1.0f}, {0.0f, -1.0f}};
 
 static int ShapeMassTest()
 {

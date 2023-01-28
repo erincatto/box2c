@@ -15,7 +15,7 @@ extern "C"
 b2WorldId b2CreateWorld(const b2WorldDef* def);
 
 /// Destroy a world.
-void b2DestroyWorld(b2WorldId id);
+void b2DestroyWorld(b2WorldId worldId);
 
 /// Create a rigid body given a definition. No reference to the definition is retained.
 /// @warning This function is locked during callbacks.
@@ -24,6 +24,10 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// Destroy a rigid body given an id.
 /// @warning This function is locked during callbacks.
 void b2World_DestroyBody(b2BodyId bodyId);
+
+/// Create a shape and attach it to a body. Contacts are not created until the next time step.
+/// @warning This function is locked during callbacks.
+b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon);
 
 
 #if 0

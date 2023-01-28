@@ -1,8 +1,96 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/id.h"
+
 #include "body.h"
 #include "world.h"
+#include "shape.h"
+
+static b2Shape* b2AllocShape(b2World* w)
+{
+}
+
+b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon)
+{
+	b2World* w = b2GetWorldFromIndex(bodyId.world);
+	assert(w->locked == false);
+	if (w->locked)
+	{
+		return b2_nullShapeId;
+	}
+
+	
+	b2Body* b = NULL;
+	if (w->bodyFreeList != B2_NULL_INDEX)
+	{
+		b = w->bodies + w->bodyFreeList;
+		b->index = w->bodyFreeList;
+		b->revision += 1;
+		w->bodyFreeList = b->next;
+	}
+	else
+	{
+		int32_t oldCapacity = w->bodyCapacity;
+		w->bodyCapacity = B2_MAX(w->bodyCapacity + w->bodyCapacity / 2, 2);
+		b2Body* newBodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
+		memcpy(newBodies, w->bodies, oldCapacity * sizeof(b2Body));
+		b2Free(w->bodies);
+		w->bodies = newBodies;
+
+		b = w->bodies + oldCapacity;
+		b->index = oldCapacity;
+		b->revision = 0;
+
+		w->bodyFreeList = oldCapacity + 1;
+		for (int32_t i = oldCapacity + 1; i < w->bodyCapacity - 1; ++i)
+		{
+			w->bodies[i].index = i;
+			w->bodies[i].next = i + 1;
+			w->bodies[i].revision = 0;
+		}
+		w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
+		w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
+		w->bodies[w->bodyCapacity - 1].revision = 0;
+	}
+
+	w->bodyCount += 1;
+
+	b->next = B2_NULL_INDEX;
+	b->type = def->type;
+	b->islandIndex = B2_NULL_INDEX;
+	b->transform.p = def->position;
+	b->transform.q = b2MakeRot(def->angle);
+	b->position = def->position;
+	b->angle = def->angle;
+	b->localCenter = b2Vec2_zero;
+	b->speculativePosition = def->position;
+	b->speculativeAngle = def->angle;
+	b->linearVelocity = def->linearVelocity;
+	b->angularVelocity = def->angularVelocity;
+	b->force = b2Vec2_zero;
+	b->torque = 0.0f;
+	b->shapeIndex = B2_NULL_INDEX;
+	b->jointIndex = B2_NULL_INDEX;
+	b->mass = 0.0f;
+	b->invMass = 0.0f;
+	b->I = 0.0f;
+	b->invI = 0.0f;
+	b->linearDamping = def->linearDamping;
+	b->angularDamping = def->angularDamping;
+	b->gravityScale = def->gravityScale;
+	b->sleepTime = 0.0f;
+	b->userData = def->userData;
+	b->world = worldId.index;
+	b->islandFlag = false;
+	b->awakeFlag = def->awake;
+	b->canSleep = def->canSleep;
+	b->fixedRotation = def->fixedRotation;
+	b->enabled = def->enabled;
+
+	b2BodyId id = {b->index, worldId.index, b->revision};
+	return id;
+}
 
 #if 0
 void b2Body::SetType(b2BodyType type)

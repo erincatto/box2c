@@ -57,6 +57,11 @@ typedef struct b2World
 	int32_t bodyCapacity;
 	int32_t bodyFreeList;
 
+	struct b2Shape* shapes;
+	int32_t shapeCount;
+	int32_t shapeCapacity;
+	int32_t shapeFreeList;
+
 	//b2Joint* m_jointList;
 	//int32_t m_jointCount;
 
@@ -76,6 +81,9 @@ typedef struct b2World
 	bool warmStarting;
 } b2World;
 
-//void b2Solve(b2World* world, const b2TimeStep* step);
+b2World* b2GetWorldFromId(b2WorldId id);
+b2World* b2GetWorldFromIndex(int16_t index);
+
+	//void b2Solve(b2World* world, const b2TimeStep* step);
 
 //void b2DrawShape(b2World* world, b2Shape* shape, const b2Transform& xf, const b2Color& color);

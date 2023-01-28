@@ -37,10 +37,9 @@ typedef struct b2Transform
 	b2Rot q;
 } b2Transform;
 
-/// This describes the motion of a body/shape for TOI computation.
-/// Shapes are defined with respect to the body origin, which may
-/// not coincide with the center of mass. However, to support dynamics
-/// we must interpolate the center of mass position.
+/// This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
+/// which may not coincide with the center of mass. However, to support dynamics we must interpolate the center of mass
+/// position.
 typedef struct b2Sweep
 {
 	/// local center of mass position
@@ -73,8 +72,7 @@ typedef struct b2RayCastInput
 	float maxFraction;
 } b2RayCastInput;
 
-/// Ray-cast output data. The ray hits at p1 + fraction * (p2 - p1), where p1 and p2
-/// come from b2RayCastInput.
+/// Ray-cast output data. The ray hits at p1 + fraction * (p2 - p1), where p1 and p2 come from b2RayCastInput.
 typedef struct b2RayCastOutput
 {
 	b2Vec2 normal;
@@ -90,23 +88,20 @@ typedef struct b2WorldDef
 	/// initial capacity for bodies
 	int32_t bodyCapacity;
 
-	/// initial capcity for circles
-	int32_t circleCapacity;
-
-	/// initial capacity for polygons
-	int32_t polygonCapacity;
+	/// initial capacity for shapes
+	int32_t shapeCapacity;
 } b2WorldDef;
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved
 /// kinematic: zero mass, non-zero velocity set by user, moved by solver
 /// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
-typedef enum b2BodyType
+enum b2BodyType
 {
 	b2_staticBody = 0,
 	b2_kinematicBody,
 	b2_dynamicBody
-} b2BodyType;
+};
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
@@ -114,7 +109,7 @@ typedef struct b2BodyDef
 {
 	/// The body type: static, kinematic, or dynamic.
 	/// Note: if a dynamic body would have zero mass, the mass is set to one.
-	b2BodyType type;
+	enum b2BodyType type;
 
 	/// The world position of the body. Avoid creating bodies at the origin
 	/// since this can lead to many overlapping shapes.
@@ -159,13 +154,55 @@ typedef struct b2BodyDef
 	bool enabled;
 } b2BodyDef;
 
+/// This holds contact filtering data.
+typedef struct b2Filter
+{
+	/// The collision category bits. Normally you would just set one bit.
+	uint16_t categoryBits;
+
+	/// The collision mask bits. This states the categories that this
+	/// shape would accept for collision.
+	uint16_t maskBits;
+
+	/// Collision groups allow a certain group of objects to never collide (negative)
+	/// or always collide (positive). Zero means no collision group. Non-zero group
+	/// filtering always wins against the mask bits.
+	int16_t groupIndex;
+} b2Filter;
+
+/// Used to create a shape
+typedef struct b2ShapeDef
+{
+	/// Use this to store application specific fixture data.
+	void* userData;
+
+	/// The friction coefficient, usually in the range [0,1].
+	float friction;
+
+	/// The restitution (elasticity) usually in the range [0,1].
+	float restitution;
+
+	/// The density, usually in kg/m^2.
+	float density;
+
+	/// Contact filtering data.
+	b2Filter filter;
+	
+	/// A sensor shape collects contact information but never generates a collision
+	/// response.
+	bool isSensor;
+
+} b2ShapeDef;
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
+const static b2Filter b2_defaultFilter = {0x0001, 0xFFFF, 0};
+
 /// Make a world definition with default values.
-static inline b2WorldDef b2EmptyWorldDef()
+static inline b2WorldDef b2DefaultWorldDef()
 {
 	b2WorldDef def;
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
@@ -176,7 +213,7 @@ static inline b2WorldDef b2EmptyWorldDef()
 }
 
 /// Make a body definition with default values.
-static inline b2BodyDef b2EmptyBodyDef()
+static inline b2BodyDef b2DefaultBodyDef()
 {
 	b2BodyDef def;
 	def.type = b2_staticBody;
@@ -192,6 +229,17 @@ static inline b2BodyDef b2EmptyBodyDef()
 	def.awake = true;
 	def.fixedRotation = false;
 	def.enabled = true;
+	return def;
+}
+
+static inline struct b2ShapeDef b2DefaultShapeDef()
+{
+	b2ShapeDef def;
+	def.friction = 0.6f;
+	def.restitution = 0.0f;
+	def.density = 0.0f;
+	def.filter = b2_defaultFilter;
+	def.isSensor = false;
 	return def;
 }
 

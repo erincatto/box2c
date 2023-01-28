@@ -6,7 +6,7 @@
 #include "box2d/allocate.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
-#include "box2d/shapes.h"
+#include "box2d/geometry.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -286,11 +286,11 @@ public:
 		return new RayCast;
 	}
 
-	b2PolygonShape m_box;
-	b2PolygonShape m_triangle;
-	b2CircleShape m_circle;
-	b2CapsuleShape m_capsule;
-	b2SegmentShape m_segment;
+	b2Polygon m_box;
+	b2Polygon m_triangle;
+	b2Circle m_circle;
+	b2Capsule m_capsule;
+	b2Segment m_segment;
 
 	b2Transform m_transform;
 	float m_angle;

@@ -281,7 +281,7 @@ typedef struct b2Body
 	int32_t index;
 	int32_t next;
 
-	b2BodyType type;
+	enum b2BodyType type;
 
 	int32_t islandIndex;
 

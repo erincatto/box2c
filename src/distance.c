@@ -137,7 +137,7 @@ void b2DistanceProxy::Set(const b2Shape* shape, int32_t index)
 	{
 	case b2Shape::e_circle:
 	{
-		const b2CircleShape* circle = static_cast<const b2CircleShape*>(shape);
+		const b2Circle* circle = static_cast<const b2Circle*>(shape);
 		m_vertices = &circle->m_p;
 		m_count = 1;
 		m_radius = circle->m_radius;
@@ -146,7 +146,7 @@ void b2DistanceProxy::Set(const b2Shape* shape, int32_t index)
 
 	case b2Shape::e_polygon:
 	{
-		const b2PolygonShape* polygon = static_cast<const b2PolygonShape*>(shape);
+		const b2Polygon* polygon = static_cast<const b2Polygon*>(shape);
 		m_vertices = polygon->m_vertices;
 		m_count = polygon->m_count;
 		m_radius = polygon->m_radius;

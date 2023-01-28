@@ -4,7 +4,7 @@
 #include "box2d/distance.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
-#include "box2d/shapes.h"
+#include "box2d/geometry.h"
 
 #include <assert.h>
 #include <float.h>
@@ -232,7 +232,7 @@ bool b2TestOverlap(	const b2Shape* shapeA, int32_t indexA,
 }
 #endif
 
-b2Manifold b2CollideCircles(const b2CircleShape* circleA, const b2CircleShape* circleB)
+b2Manifold b2CollideCircles(const b2Circle* circleA, const b2Circle* circleB)
 {
 	b2Manifold manifold = b2EmptyManifold();
 	manifold.type = b2_manifoldCircles;
@@ -246,7 +246,7 @@ b2Manifold b2CollideCircles(const b2CircleShape* circleA, const b2CircleShape* c
 }
 
 /// Compute the collision manifold between a capulse and circle
-b2Manifold b2CollideCapsuleAndCircle(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CircleShape* circleB,
+b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA, const b2Circle* circleB,
 									 b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
@@ -304,7 +304,7 @@ b2Manifold b2CollideCapsuleAndCircle(const b2CapsuleShape* capsuleA, b2Transform
 	return manifold;
 }
 
-b2Manifold b2CollidePolygonAndCircle(const b2PolygonShape* polygonA, b2Transform xfA, const b2CircleShape* circleB,
+b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB,
 									 b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
@@ -388,7 +388,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2PolygonShape* polygonA, b2Transform
 // - if there are no points, then find best vertex-vertex
 // Ideas
 // - clip to the average axis to avoid normal pops
-b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB,
 							 b2Transform xfB)
 {
 	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
@@ -450,8 +450,8 @@ b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, co
 
 	b2Transform xfR, xfI;
 
-	const b2CapsuleShape* capsuleR;
-	const b2CapsuleShape* capsuleI;
+	const b2Capsule* capsuleR;
+	const b2Capsule* capsuleI;
 
 	// Tolerance to stabilize contact points during stacking scenarios
 	const float k_faceTol = 0.5f * b2_linearSlop;
@@ -591,7 +591,7 @@ b2Manifold b2CollideCapsules(const b2CapsuleShape* capsuleA, b2Transform xfA, co
 }
 
 #if 0
-b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+b2Manifold b2CollideCapsules2(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB,
 							 b2Transform xfB)
 {
 	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
@@ -941,7 +941,7 @@ b2Manifold b2CollideCapsules2(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 	return manifold;
 }
 
-b2Manifold b2CollideCapsules3(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+b2Manifold b2CollideCapsules3(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB,
 							  b2Transform xfB)
 {
 	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
@@ -1298,7 +1298,7 @@ b2Manifold b2CollideCapsules3(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 #if 0
 // This doesn't work well when capsules are perpendicular.
 // But it does have some simple clipping
-b2Manifold b2CollideCapsules3(const b2CapsuleShape* capsuleA, b2Transform xfA, const b2CapsuleShape* capsuleB,
+b2Manifold b2CollideCapsules3(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB,
 							 b2Transform xfB)
 {
 	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
@@ -1473,8 +1473,8 @@ b2Manifold b2CollideCapsules3(const b2CapsuleShape* capsuleA, b2Transform xfA, c
 
 // TODO try O(n) algorithm in de Berg p. 279
 // Find the max separation between poly1 and poly2 using edge normals from poly1.
-static float b2FindMaxSeparation(int32_t* edgeIndex, const b2PolygonShape* poly1, b2Transform xf1,
-								 const b2PolygonShape* poly2, b2Transform xf2)
+static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, b2Transform xf1,
+								 const b2Polygon* poly2, b2Transform xf2)
 {
 	int32_t count1 = poly1->count;
 	int32_t count2 = poly2->count;
@@ -1513,8 +1513,8 @@ static float b2FindMaxSeparation(int32_t* edgeIndex, const b2PolygonShape* poly1
 	return maxSeparation;
 }
 
-static void b2FindIncidentEdge(b2ClipVertex c[2], const b2PolygonShape* poly1, b2Transform xf1, int32_t edge1,
-							   const b2PolygonShape* poly2, b2Transform xf2)
+static void b2FindIncidentEdge(b2ClipVertex c[2], const b2Polygon* poly1, b2Transform xf1, int32_t edge1,
+							   const b2Polygon* poly2, b2Transform xf2)
 {
 	const b2Vec2* normals1 = poly1->normals;
 
@@ -1564,7 +1564,7 @@ static void b2FindIncidentEdge(b2ClipVertex c[2], const b2PolygonShape* poly1, b
 // Clip
 
 // The normal points from A to B
-b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const b2PolygonShape* polyB, b2Transform xfB)
+b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
 
@@ -1574,8 +1574,8 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 	int32_t edgeB = 0;
 	float separationB = b2FindMaxSeparation(&edgeB, polyB, xfB, polyA, xfA);
 
-	const b2PolygonShape* poly1; // reference polygon
-	const b2PolygonShape* poly2; // incident polygon
+	const b2Polygon* poly1; // reference polygon
+	const b2Polygon* poly2; // incident polygon
 	b2Transform xf1, xf2;
 	int32_t edge1; // reference edge
 	uint8_t flip;
@@ -1676,7 +1676,7 @@ b2Manifold b2CollidePolygons(const b2PolygonShape* polyA, b2Transform xfA, const
 	return manifold;
 }
 
-b2Manifold b2CollideSegmentAndCircle(const b2SegmentShape* segmentA, b2Transform xfA, const b2CircleShape* circleB,
+b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA, const b2Circle* circleB,
 									 b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
@@ -1749,8 +1749,8 @@ b2Manifold b2CollideSegmentAndCircle(const b2SegmentShape* segmentA, b2Transform
 	return manifold;
 }
 
-b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
-										   const b2CircleShape* circleB, b2Transform xfB)
+b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Transform xfA,
+										   const b2Circle* circleB, b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
 
@@ -1945,7 +1945,7 @@ static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2
 	return axis;
 }
 
-b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transform xfA, const b2PolygonShape* polygonB,
+b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
 									  b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
@@ -2114,8 +2114,8 @@ b2Manifold b2CollideSegmentAndPolygon(const b2SegmentShape* segmentA, b2Transfor
 	return manifold;
 }
 
-b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegmentShape* segmentA, b2Transform xfA,
-											const b2PolygonShape* polygonB, b2Transform xfB)
+b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2Transform xfA,
+											const b2Polygon* polygonB, b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
 

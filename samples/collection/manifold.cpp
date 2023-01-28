@@ -3,7 +3,7 @@
 
 #include "box2d/manifold.h"
 #include "box2d/math.h"
-#include "box2d/shapes.h"
+#include "box2d/geometry.h"
 #include "sample.h"
 
 #include <GLFW/glfw3.h>
@@ -449,12 +449,12 @@ public:
 		return new Manifold;
 	}
 
-	b2PolygonShape m_box;
-	b2CircleShape m_circle1;
-	b2CircleShape m_circle2;
-	b2CapsuleShape m_capsule;
-	b2SegmentShape m_segment;
-	b2SmoothSegmentShape m_smoothSegment;
+	b2Polygon m_box;
+	b2Circle m_circle1;
+	b2Circle m_circle2;
+	b2Capsule m_capsule;
+	b2Segment m_segment;
+	b2SmoothSegment m_smoothSegment;
 
 	b2Transform m_transform;
 	float m_angle;

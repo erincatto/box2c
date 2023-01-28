@@ -9,6 +9,7 @@
 #include "box2d/constants.h"
 
 #include "body.h"
+#include "shape.h"
 #include "world.h"
 
 #include <assert.h>
@@ -16,7 +17,7 @@
 
 b2World g_worlds[b2_maxWorlds];
 
-static b2World* b2GetWorld(b2WorldId id)
+b2World* b2GetWorldFromId(b2WorldId id)
 {
 	assert(0 <= id.index && id.index < b2_maxWorlds);
 	b2World* w = g_worlds + id.index;
@@ -24,7 +25,7 @@ static b2World* b2GetWorld(b2WorldId id)
 	return w;
 }
 
-static b2World* b2GetWorldFromIndex(int16_t index)
+b2World* b2GetWorldFromIndex(int16_t index)
 {
 	assert(0 <= index && index < b2_maxWorlds);
 	b2World* w = g_worlds + index;
@@ -53,6 +54,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	w->blockAllocator = b2CreateBlockAllocator();
 	w->gravity = def->gravity;
 	
+	// body pool
 	w->bodyCapacity = B2_MAX(def->bodyCapacity, 1);
 	w->bodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
 	w->bodyCount = 0;
@@ -66,6 +68,21 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
 	w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
 	w->bodies[w->bodyCapacity - 1].revision = 0;
+
+	// shape pool
+	w->shapeCapacity = B2_MAX(def->shapeCapacity, 1);
+	w->shapes = (b2Shape*)b2Alloc(w->shapeCapacity * sizeof(b2Shape));
+	w->shapeCount = 0;
+	w->shapeFreeList = 0;
+	for (int32_t i = 0; i < w->shapeCapacity - 1; ++i)
+	{
+		w->shapes[i].index = i;
+		w->shapes[i].next = i + 1;
+		w->shapes[i].revision = 0;
+	}
+	w->bodies[w->shapeCapacity - 1].index = w->shapeCapacity - 1;
+	w->bodies[w->shapeCapacity - 1].next = B2_NULL_INDEX;
+	w->bodies[w->shapeCapacity - 1].revision = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
 	w->revision = w->revision + 1;
@@ -90,6 +107,9 @@ void b2DestroyWorld(b2WorldId id)
 	
 	b2Free(w->bodies);
 	w->bodies = NULL;
+
+	b2Free(w->shapes);
+	w->shapes = NULL;
 }
 
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
@@ -232,6 +252,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	w->bodyFreeList = bodyId.index;
 	w->bodyCount -= 1;
 }
+
 
 #if 0
 
@@ -1170,7 +1191,7 @@ void b2World::DrawShape(b2Fixture* fixture, const b2Transform& xf, const b2Color
 	{
 	case b2Shape::e_circle:
 		{
-			b2CircleShape* circle = (b2CircleShape*)fixture->GetShape();
+			b2Circle* circle = (b2Circle*)fixture->GetShape();
 
 			b2Vec2 center = b2Mul(xf, circle->m_p);
 			float radius = circle->m_radius;
@@ -1213,7 +1234,7 @@ void b2World::DrawShape(b2Fixture* fixture, const b2Transform& xf, const b2Color
 
 	case b2Shape::e_polygon:
 		{
-			b2PolygonShape* poly = (b2PolygonShape*)fixture->GetShape();
+			b2Polygon* poly = (b2Polygon*)fixture->GetShape();
 			int32 vertexCount = poly->m_count;
 			b2Assert(vertexCount <= b2_maxPolygonVertices);
 			b2Vec2 vertices[b2_maxPolygonVertices];
