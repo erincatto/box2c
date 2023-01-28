@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
-#include "types.h"
+#include <stdint.h>
 
 typedef void* b2AllocFcn(int32_t size);
 typedef void b2FreeFcn(void* mem);

@@ -4,6 +4,8 @@
 #pragma once
 
 #include "block_allocator.h"
+#include "pool.h"
+
 //#include "contact_manager.h"
 #include "box2d/math.h"
 //#include "b2_stack_allocator.h"
@@ -52,15 +54,11 @@ typedef struct b2World
 
 	//b2ContactManager contactManager;
 
-	struct b2Body* bodies;
-	int32_t bodyCount;
-	int32_t bodyCapacity;
-	int32_t bodyFreeList;
+	b2Pool bodyPool;
+	b2Pool shapePool;
 
+	struct b2Body* bodies;
 	struct b2Shape* shapes;
-	int32_t shapeCount;
-	int32_t shapeCapacity;
-	int32_t shapeFreeList;
 
 	//b2Joint* m_jointList;
 	//int32_t m_jointCount;

@@ -6,6 +6,8 @@
 #include "id.h"
 #include "types.h"
 
+typedef struct b2Polygon b2Polygon;
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -27,7 +29,7 @@ void b2World_DestroyBody(b2BodyId bodyId);
 
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon);
+b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
 
 #if 0

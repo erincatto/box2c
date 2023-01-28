@@ -7,9 +7,7 @@
 #include "world.h"
 #include "shape.h"
 
-static b2Shape* b2AllocShape(b2World* w)
-{
-}
+#include <assert.h>
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon)
 {
@@ -20,75 +18,35 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 		return b2_nullShapeId;
 	}
 
+	assert(0 <= bodyId.index && bodyId.index < w->bodyPool.count);
 	
-	b2Body* b = NULL;
-	if (w->bodyFreeList != B2_NULL_INDEX)
-	{
-		b = w->bodies + w->bodyFreeList;
-		b->index = w->bodyFreeList;
-		b->revision += 1;
-		w->bodyFreeList = b->next;
-	}
-	else
-	{
-		int32_t oldCapacity = w->bodyCapacity;
-		w->bodyCapacity = B2_MAX(w->bodyCapacity + w->bodyCapacity / 2, 2);
-		b2Body* newBodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
-		memcpy(newBodies, w->bodies, oldCapacity * sizeof(b2Body));
-		b2Free(w->bodies);
-		w->bodies = newBodies;
+	b2Body* body = w->bodies + bodyId.index;
 
-		b = w->bodies + oldCapacity;
-		b->index = oldCapacity;
-		b->revision = 0;
+	b2Shape* shape = (b2Shape*)b2AllocPoolObject(&w->shapePool);
+	w->shapes = (b2Shape*)w->shapePool.memory;
 
-		w->bodyFreeList = oldCapacity + 1;
-		for (int32_t i = oldCapacity + 1; i < w->bodyCapacity - 1; ++i)
-		{
-			w->bodies[i].index = i;
-			w->bodies[i].next = i + 1;
-			w->bodies[i].revision = 0;
-		}
-		w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
-		w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
-		w->bodies[w->bodyCapacity - 1].revision = 0;
+	shape->bodyIndex = body->object.index;
+	shape->type = b2_polygonShape;
+	shape->density = def->density;
+	shape->friction = def->friction;
+	shape->restitution = def->restitution;
+	shape->filter = def->filter;
+	shape->userData = def->userData;
+	shape->isSensor = def->isSensor;
+	shape->polygon = *polygon;
+
+	shape->proxyId = B2_NULL_INDEX;
+	if (body->enabled)
+	{
+		shape->proxyId = 1;
 	}
 
-	w->bodyCount += 1;
+	//	b2FixtureProxy* m_proxies;
+	//	int32 m_proxyCount;
 
-	b->next = B2_NULL_INDEX;
-	b->type = def->type;
-	b->islandIndex = B2_NULL_INDEX;
-	b->transform.p = def->position;
-	b->transform.q = b2MakeRot(def->angle);
-	b->position = def->position;
-	b->angle = def->angle;
-	b->localCenter = b2Vec2_zero;
-	b->speculativePosition = def->position;
-	b->speculativeAngle = def->angle;
-	b->linearVelocity = def->linearVelocity;
-	b->angularVelocity = def->angularVelocity;
-	b->force = b2Vec2_zero;
-	b->torque = 0.0f;
-	b->shapeIndex = B2_NULL_INDEX;
-	b->jointIndex = B2_NULL_INDEX;
-	b->mass = 0.0f;
-	b->invMass = 0.0f;
-	b->I = 0.0f;
-	b->invI = 0.0f;
-	b->linearDamping = def->linearDamping;
-	b->angularDamping = def->angularDamping;
-	b->gravityScale = def->gravityScale;
-	b->sleepTime = 0.0f;
-	b->userData = def->userData;
-	b->world = worldId.index;
-	b->islandFlag = false;
-	b->awakeFlag = def->awake;
-	b->canSleep = def->canSleep;
-	b->fixedRotation = def->fixedRotation;
-	b->enabled = def->enabled;
+	w->newContacts = true;
 
-	b2BodyId id = {b->index, worldId.index, b->revision};
+	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
 	return id;
 }
 

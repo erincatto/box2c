@@ -9,6 +9,7 @@
 #include "box2d/constants.h"
 
 #include "body.h"
+#include "pool.h"
 #include "shape.h"
 #include "world.h"
 
@@ -54,35 +55,12 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	w->blockAllocator = b2CreateBlockAllocator();
 	w->gravity = def->gravity;
 	
-	// body pool
-	w->bodyCapacity = B2_MAX(def->bodyCapacity, 1);
-	w->bodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
-	w->bodyCount = 0;
-	w->bodyFreeList = 0;
-	for (int32_t i = 0; i < w->bodyCapacity - 1; ++i)
-	{
-		w->bodies[i].index = i;
-		w->bodies[i].next = i + 1;
-		w->bodies[i].revision = 0;
-	}
-	w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
-	w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
-	w->bodies[w->bodyCapacity - 1].revision = 0;
+	// pools
+	w->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
+	w->bodies = (b2Body*)w->bodyPool.memory;
 
-	// shape pool
-	w->shapeCapacity = B2_MAX(def->shapeCapacity, 1);
-	w->shapes = (b2Shape*)b2Alloc(w->shapeCapacity * sizeof(b2Shape));
-	w->shapeCount = 0;
-	w->shapeFreeList = 0;
-	for (int32_t i = 0; i < w->shapeCapacity - 1; ++i)
-	{
-		w->shapes[i].index = i;
-		w->shapes[i].next = i + 1;
-		w->shapes[i].revision = 0;
-	}
-	w->bodies[w->shapeCapacity - 1].index = w->shapeCapacity - 1;
-	w->bodies[w->shapeCapacity - 1].next = B2_NULL_INDEX;
-	w->bodies[w->shapeCapacity - 1].revision = 0;
+	w->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
+	w->shapes = (b2Shape*)w->shapePool.memory;
 
 	// Globals start at 0. It should be fine for this to roll over.
 	w->revision = w->revision + 1;
@@ -100,7 +78,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 void b2DestroyWorld(b2WorldId id)
 {
-	b2World* w = b2GetWorld(id);
+	b2World* w = b2GetWorldFromId(id);
 
 	b2DestroyBlockAllocator(w->blockAllocator);
 	w->blockAllocator = NULL;
@@ -114,7 +92,7 @@ void b2DestroyWorld(b2WorldId id)
 
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
-	b2World* w = b2GetWorld(worldId);
+	b2World* w = b2GetWorldFromId(worldId);
 	assert(w->locked == false);
 
 	if (w->locked)
@@ -122,42 +100,9 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		return b2_nullBodyId;
 	}
 	
-	b2Body* b = NULL;
-	if (w->bodyFreeList != B2_NULL_INDEX)
-	{
-		b = w->bodies + w->bodyFreeList;
-		b->index = w->bodyFreeList;
-		b->revision += 1;
-		w->bodyFreeList = b->next;
-	}
-	else
-	{
-		int32_t oldCapacity = w->bodyCapacity;
-		w->bodyCapacity = B2_MAX(w->bodyCapacity + w->bodyCapacity / 2, 2);
-		b2Body* newBodies = (b2Body*)b2Alloc(w->bodyCapacity * sizeof(b2Body));
-		memcpy(newBodies, w->bodies, oldCapacity * sizeof(b2Body));
-		b2Free(w->bodies);
-		w->bodies = newBodies;
-	
-		b = w->bodies + oldCapacity;
-		b->index = oldCapacity;
-		b->revision = 0;
+	b2Body* b = (b2Body*)b2AllocPoolObject(&w->bodyPool);
+	w->bodies = (b2Body*)w->bodyPool.memory;
 
-		w->bodyFreeList = oldCapacity + 1;
-		for (int32_t i = oldCapacity + 1; i < w->bodyCapacity - 1; ++i)
-		{
-			w->bodies[i].index = i;
-			w->bodies[i].next = i + 1;
-			w->bodies[i].revision = 0;
-		}
-		w->bodies[w->bodyCapacity - 1].index = w->bodyCapacity - 1;
-		w->bodies[w->bodyCapacity - 1].next = B2_NULL_INDEX;
-		w->bodies[w->bodyCapacity - 1].revision = 0;
-	}
-
-	w->bodyCount += 1;
-
-	b->next = B2_NULL_INDEX;
 	b->type = def->type;
 	b->islandIndex = B2_NULL_INDEX;
 	b->transform.p = def->position;
@@ -189,7 +134,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->fixedRotation = def->fixedRotation;
 	b->enabled = def->enabled;
 
-	b2BodyId id = {b->index, worldId.index, b->revision};
+	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
 	return id;
 }
 
@@ -203,7 +148,9 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		return;
 	}
 
-	assert(w->bodyCount > 0);
+	assert(0 <= bodyId.index && bodyId.index < w->bodyPool.count);
+
+	b2Body* body = w->bodies + bodyId.index;
 
 	#if 0
 	// Delete the attached joints.
@@ -248,9 +195,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b->m_fixtureCount = 0;
 	#endif
 
-	w->bodies[bodyId.index].next = w->bodyFreeList;
-	w->bodyFreeList = bodyId.index;
-	w->bodyCount -= 1;
+	b2FreePoolObject(&w->bodyPool, &body->object);
 }
 
 

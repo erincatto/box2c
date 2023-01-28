@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 /// These ids serve as handles to internal Box2D objects. These should be considered opaque data and passed by value.
+/// Include this header if you need the id definitions and not the whole Box2D API.
 
 /// References a world instance
 typedef struct b2WorldId

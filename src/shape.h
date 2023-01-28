@@ -13,41 +13,21 @@ enum b2ShapeType
 	b2_polygonShape
 };
 
-struct b2PooledObject
-{
-	int32_t index;
-	int32_t next;
-	uint16_t revision;
-};
-
-/// A chain shape is a free form sequence of line segments.
-/// The chain has one-sided collision, with the surface normal pointing to the right of the edge.
-/// This provides a counter-clockwise winding like the polygon shape.
-/// @warning the chain will not collide properly if there are self-intersections.
 typedef struct b2Shape
 {
-
-	int32_t index;
-	int32_t next;
+	b2Object object;
 	int32_t bodyIndex;
-	uint16_t revision;
-
 	enum b2ShapeType type;
+	float density;
+	float friction;
+	float restitution;
 
-	float m_density;
+	int32_t proxyId;
 
-	float m_friction;
-	float m_restitution;
-	float m_restitutionThreshold;
-
-	//	b2FixtureProxy* m_proxies;
-	//	int32 m_proxyCount;
-
-	// b2Filter m_filter;
+	b2Filter filter;
+	void* userData;
 
 	bool isSensor;
-
-	void* userData;
 
 	union
 	{

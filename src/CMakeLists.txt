@@ -13,6 +13,7 @@ set(BOX2D_SOURCE_FILES
 	math.c
 	geometry.c
 	polygon_shape.h
+	pool.c
 	pool.h
 	shape.h
 	timer.c

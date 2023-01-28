@@ -4,12 +4,12 @@
 #pragma once
 
 #include "box2d/math.h"
-//#include "shape.h"
-
+#include "pool.h"
 
 // A rigid body
 typedef struct b2Body
 {
+	b2Object object;
 #if 0
 	/// Creates a fixture and attach it to this body. Use this function if you need
 	/// to set some fixture parameters, like friction. Otherwise you can create the
@@ -278,9 +278,6 @@ typedef struct b2Body
 	void Advance(float t);
 #endif
 
-	int32_t index;
-	int32_t next;
-
 	enum b2BodyType type;
 
 	int32_t islandIndex;
@@ -322,7 +319,6 @@ typedef struct b2Body
 
 	void* userData;
 	int16_t world;
-	uint16_t revision;
 
 	bool islandFlag;
 	bool awakeFlag;

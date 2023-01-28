@@ -207,8 +207,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	b2WorldDef def;
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
 	def.bodyCapacity = 8;
-	def.circleCapacity = 8;
-	def.polygonCapacity = 4;
+	def.shapeCapacity = 8;
 	return def;
 }
 
