@@ -4,7 +4,11 @@ set(BOX2D_SOURCE_FILES
 	block_allocator.h
 	body.c
 	body.h
+	broad_phase.c
+	broad_phase.h
 	chain_shape.h
+	contact.c
+	contact.h
 	aabb.c
 	distance.c
 	dynamic_tree.c
@@ -22,7 +26,7 @@ set(BOX2D_SOURCE_FILES
 	world.h
 )
 
-set(BOX2D_HEADER_FILES
+set(BOX2D_API_FILES
 	../include/box2d/allocate.h
 	../include/box2d/aabb.h
 	../include/box2d/box2d.h
@@ -38,7 +42,7 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/types.h
 )
 
-add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_HEADER_FILES})
+add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
 target_include_directories(box2d
 	PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -63,4 +67,4 @@ if(MATH_LIBRARY)
 endif()
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_API_FILES})

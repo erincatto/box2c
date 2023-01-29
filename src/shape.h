@@ -7,10 +7,13 @@
 #include "box2d/geometry.h"
 #include "box2d/types.h"
 
+#include "pool.h"
+
 enum b2ShapeType
 {
 	b2_circleShape,
-	b2_polygonShape
+	b2_polygonShape,
+	b2_shapeTypeCount
 };
 
 typedef struct b2Shape
