@@ -14,7 +14,7 @@
 /// A node in the dynamic tree. The client does not interact with this directly.
 typedef struct b2TreeNode
 {
-	void* userData;
+	uint64_t userData;
 
 	/// Enlarged AABB
 	b2AABB aabb;
@@ -107,7 +107,7 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 	node->child2 = b2_nullNode;
 	node->categoryBits = 0;
 	node->height = 0;
-	node->userData = NULL;
+	node->userData = 0;
 	node->moved = false;
 	++tree->nodeCount;
 	return nodeId;
@@ -364,7 +364,7 @@ static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf)
 	int32_t oldParent = tree->nodes[sibling].parent;
 	int32_t newParent = b2AllocateNode(tree);
 	tree->nodes[newParent].parent = oldParent;
-	tree->nodes[newParent].userData = NULL;
+	tree->nodes[newParent].userData = 0;
 	tree->nodes[newParent].aabb = b2AABB_Union(leafAABB, tree->nodes[sibling].aabb);
 	tree->nodes[newParent].categoryBits = tree->nodes[leaf].categoryBits | tree->nodes[sibling].categoryBits;
 	tree->nodes[newParent].height = tree->nodes[sibling].height + 1;
@@ -481,7 +481,7 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 // Create a proxy in the tree as a leaf node. We return the index
 // of the node instead of a pointer so that we can grow
 // the node pool.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData)
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, uint64_t userData)
 {
 	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
 	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
@@ -837,8 +837,8 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 
 #define b2_treeStackSize 256
 
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2QueryCallbackFcn* callback,
-                         void* context)
+void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
+								 b2QueryCallbackFcn* callback, void* context)
 {
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
@@ -855,6 +855,48 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBi
 		const b2TreeNode* node = tree->nodes + nodeId;
 
 		if (b2AABB_Overlaps(node->aabb, aabb) && (node->categoryBits & maskBits) != 0)
+		{
+			if (b2IsLeaf(node))
+			{
+				// callback to user code with proxy id
+				bool proceed = callback(nodeId, node->userData, context);
+				if (proceed == false)
+				{
+					return;
+				}
+			}
+			else
+			{
+				assert(stackCount <= b2_treeStackSize - 2);
+				// TODO log this?
+
+				if (stackCount <= b2_treeStackSize - 2)
+				{
+					stack[stackCount++] = node->child1;
+					stack[stackCount++] = node->child2;
+				}
+			}
+		}
+	}
+}
+
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallbackFcn* callback, void* context)
+{
+	int32_t stack[b2_treeStackSize];
+	int32_t stackCount = 0;
+	stack[stackCount++] = tree->root;
+
+	while (stackCount > 0)
+	{
+		int32_t nodeId = stack[--stackCount];
+		if (nodeId == b2_nullNode)
+		{
+			continue;
+		}
+
+		const b2TreeNode* node = tree->nodes + nodeId;
+
+		if (b2AABB_Overlaps(node->aabb, aabb))
 		{
 			if (b2IsLeaf(node))
 			{
@@ -972,26 +1014,37 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 	}
 }
 
-void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
+// TODO_ERIN test this as inlined
+uint64_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 {
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].userData;
 }
 
+// TODO_ERIN test this as inlined
 bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId)
 {
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].moved;
 }
 
+// TODO_ERIN test this as inlined
 void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId)
 {
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	tree->nodes[proxyId].moved = false;
 }
 
+// TODO_ERIN test this as inlined
 b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)
 {
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].aabb;
+}
+
+// TODO_ERIN test this as inlined
+uint32_t b2DynamicTree_GetCategoryBits(const b2DynamicTree* tree, int32_t proxyId)
+{
+	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	return tree->nodes[proxyId].categoryBits;
 }

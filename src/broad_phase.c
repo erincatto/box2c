@@ -1,162 +1,182 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/aabb.h"
+#include "box2d/allocate.h"
+
 #include "broad_phase.h"
 #include <string.h>
 
-#if 0
-b2BroadPhase::b2BroadPhase()
+void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 {
-	m_proxyCount = 0;
+	bp->proxyCount = 0;
 
-	m_pairCapacity = 16;
-	m_pairCount = 0;
-	m_pairBuffer = (b2Pair*)b2Alloc(m_pairCapacity * sizeof(b2Pair));
+	// TODO_ERIN maybe specify initial size in b2WorldDef?
+	bp->moveCapacity = 16;
+	bp->moveCount = 0;
+	bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
 
-	m_moveCapacity = 16;
-	m_moveCount = 0;
-	m_moveBuffer = (int32*)b2Alloc(m_moveCapacity * sizeof(int32));
-}
+	bp->addPairFcn = fcn;
+	bp->fcnContext = fcnContext;
 
-b2BroadPhase::~b2BroadPhase()
-{
-	b2Free(m_moveBuffer);
-	b2Free(m_pairBuffer);
-}
-#endif
+	bp->queryProxyId = B2_NULL_INDEX;
+	bp->queryTree = B2_NULL_INDEX;
 
-int32_t b2BroadPhase_CreateProxy(const b2AABB& aabb, void* userData)
-{
-	int32 proxyId = m_tree.CreateProxy(aabb, userData);
-	++m_proxyCount;
-	BufferMove(proxyId);
-	return proxyId;
-}
-
-void b2BroadPhase_DestroyProxy(int32 proxyId)
-{
-	UnBufferMove(proxyId);
-	--m_proxyCount;
-	m_tree.DestroyProxy(proxyId);
-}
-
-void b2BroadPhase_MoveProxy(int32 proxyId, const b2AABB& aabb)
-{
-	bool buffer = m_tree.MoveProxy(proxyId, aabb);
-	if (buffer)
+	for (int32_t i = 0; i < b2_treeCount; ++i)
 	{
-		BufferMove(proxyId);
+		bp->trees[i] = b2DynamicTree_Create();
 	}
 }
 
-void b2BroadPhase_TouchProxy(int32 proxyId)
+void b2BroadPhase_Destroy(b2BroadPhase* bp)
 {
-	BufferMove(proxyId);
+	b2Free(bp->moveBuffer);
+	memset(bp, 0, sizeof(b2BroadPhase));
 }
 
-void b2BroadPhase_BufferMove(int32 proxyId)
+static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 {
-	if (m_moveCount == m_moveCapacity)
+	if (bp->moveCount == bp->moveCapacity)
 	{
-		int32* oldBuffer = m_moveBuffer;
-		m_moveCapacity *= 2;
-		m_moveBuffer = (int32*)b2Alloc(m_moveCapacity * sizeof(int32));
-		memcpy(m_moveBuffer, oldBuffer, m_moveCount * sizeof(int32));
+		int32_t* oldBuffer = bp->moveBuffer;
+		bp->moveCapacity += bp->moveCapacity >> 1;
+		bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
+		memcpy(bp->moveBuffer, oldBuffer, bp->moveCount * sizeof(int32_t));
 		b2Free(oldBuffer);
 	}
 
-	m_moveBuffer[m_moveCount] = proxyId;
-	++m_moveCount;
+	bp->moveBuffer[bp->moveCount] = proxyKey;
+	++bp->moveCount;
 }
 
-void b2BroadPhase::UnBufferMove(int32 proxyId)
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2TreeType treeType, b2AABB aabb, uint32_t categoryBits,
+								 uint64_t userData)
 {
-	for (int32 i = 0; i < m_moveCount; ++i)
+	assert(0 <= treeType && treeType < b2_treeCount);
+	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + treeType, aabb, categoryBits, userData);
+	int32_t proxyKey = B2_PROXY_KEY(proxyId, treeType);
+	b2BufferMove(bp, proxyKey);
+	return proxyKey;
+}
+
+void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
+{
+	// Purge from move buffer. Linear search.
+	for (int32_t i = 0; i < bp->moveCount; ++i)
 	{
-		if (m_moveBuffer[i] == proxyId)
+		if (bp->moveBuffer[i] == proxyKey)
 		{
-			m_moveBuffer[i] = e_nullProxy;
+			bp->moveBuffer[i] = B2_NULL_INDEX;
+			break;
 		}
+	}
+
+	--bp->proxyCount;
+
+	int32_t treeIndex = B2_PROXY_TREE(proxyKey);
+	int32_t proxyId = B2_PROXY_ID(proxyKey);
+
+	assert(0 <= treeIndex && treeIndex <= b2_treeCount);
+	b2DynamicTree_DestroyProxy(bp->trees + treeIndex, proxyId);
+}
+
+void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+{
+	int32_t treeIndex = B2_PROXY_TREE(proxyKey);
+	int32_t proxyId = B2_PROXY_ID(proxyKey);
+
+	assert(0 <= treeIndex && treeIndex <= b2_treeCount);
+
+	bool buffer = b2DynamicTree_MoveProxy(bp->trees + treeIndex, proxyId, aabb);
+	if (buffer)
+	{
+		b2BufferMove(bp, proxyKey);
 	}
 }
 
-// This is called from b2DynamicTree::Query when we are gathering pairs.
-bool b2BroadPhase_QueryCallback(int32 proxyId)
+void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey)
 {
+	b2BufferMove(bp, proxyKey);
+}
+
+// This is called from b2DynamicTree::Query when we are gathering pairs.
+static bool b2QueryCallback(int32_t proxyId, uint64_t userData, void* context)
+{
+	b2BroadPhase* bp = (b2BroadPhase*)context;
+
 	// A proxy cannot form a pair with itself.
-	if (proxyId == m_queryProxyId)
+	if (proxyId == bp->queryProxyId)
 	{
 		return true;
 	}
 
-	const bool moved = m_tree.WasMoved(proxyId);
-	if (moved && proxyId > m_queryProxyId)
+	bool moved = b2DynamicTree_WasMoved(bp->trees + bp->queryTree, proxyId);
+	if (moved && proxyId > bp->queryProxyId)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.
 		return true;
 	}
 
-	// Grow the pair buffer as needed.
-	if (m_pairCount == m_pairCapacity)
+	uint64_t userDataA, userDataB;
+	if (proxyId < bp->queryProxyId)
 	{
-		b2Pair* oldBuffer = m_pairBuffer;
-		m_pairCapacity = m_pairCapacity + (m_pairCapacity >> 1);
-		m_pairBuffer = (b2Pair*)b2Alloc(m_pairCapacity * sizeof(b2Pair));
-		memcpy(m_pairBuffer, oldBuffer, m_pairCount * sizeof(b2Pair));
-		b2Free(oldBuffer);
+		userDataA = userData;
+		userDataB = bp->queryUserData;
+	}
+	else
+	{
+		userDataA = bp->queryUserData;
+		userDataB = proxyId;
 	}
 
-	m_pairBuffer[m_pairCount].proxyIdA = b2Min(proxyId, m_queryProxyId);
-	m_pairBuffer[m_pairCount].proxyIdB = b2Max(proxyId, m_queryProxyId);
-	++m_pairCount;
+	bp->addPairFcn(userDataA, userDataB, bp->fcnContext);
 
+	// continue the query
 	return true;
 }
 
-template <typename T> void b2BroadPhase_UpdatePairs(T* callback)
+void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 {
-	// Reset pair buffer
-	m_pairCount = 0;
-
-	// Perform tree queries for all moving proxies.
-	for (int32 i = 0; i < m_moveCount; ++i)
+	// Perform tree queries for all moving proxies. This fills the pair buffer.
+	for (int32_t i = 0; i < bp->moveCount; ++i)
 	{
-		m_queryProxyId = m_moveBuffer[i];
-		if (m_queryProxyId == e_nullProxy)
+		int32_t proxyKey = bp->moveBuffer[i];
+		if (proxyKey == B2_NULL_INDEX)
 		{
+			// proxy was destroyed after it moved
 			continue;
 		}
 
+		bp->queryTree = B2_PROXY_TREE(proxyKey);
+		bp->queryProxyId = B2_PROXY_ID(proxyKey);
+
+		const b2DynamicTree* tree = bp->trees + bp->queryTree;
+
 		// We have to query the tree with the fat AABB so that
-		// we don't fail to create a pair that may touch later.
-		const b2AABB& fatAABB = m_tree.GetFatAABB(m_queryProxyId);
+		// we don't fail to create a contact that may touch later.
+		b2AABB fatAABB = b2DynamicTree_GetFatAABB(tree, bp->queryProxyId);
+		bp->queryUserData = b2DynamicTree_GetUserData(tree, bp->queryProxyId);
 
-		// Query tree, create pairs and add them pair buffer.
-		m_tree.Query(this, fatAABB);
-	}
-
-	// Send pairs to caller
-	for (int32 i = 0; i < m_pairCount; ++i)
-	{
-		b2Pair* primaryPair = m_pairBuffer + i;
-		void* userDataA = m_tree.GetUserData(primaryPair->proxyIdA);
-		void* userDataB = m_tree.GetUserData(primaryPair->proxyIdB);
-
-		callback->AddPair(userDataA, userDataB);
+		// Query tree and invoke b2AddPairFcn callback. A callback inside a callback.
+		// TODO_ERIN test with filtering
+		b2DynamicTree_Query(tree, fatAABB, b2QueryCallback, bp);
 	}
 
 	// Clear move flags
-	for (int32 i = 0; i < m_moveCount; ++i)
+	for (int32_t i = 0; i < bp->moveCount; ++i)
 	{
-		int32 proxyId = m_moveBuffer[i];
-		if (proxyId == e_nullProxy)
+		int32_t proxyKey = bp->moveBuffer[i];
+		if (proxyKey == B2_NULL_INDEX)
 		{
 			continue;
 		}
 
-		m_tree.ClearMoved(proxyId);
+		int32_t treeIndex = B2_PROXY_TREE(proxyKey);
+		int32_t proxyId = B2_PROXY_ID(proxyKey);
+
+		b2DynamicTree_ClearMoved(bp->trees + treeIndex, proxyId);
 	}
 
 	// Reset move buffer
-	m_moveCount = 0;
+	bp->moveCount = 0;
 }

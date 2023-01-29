@@ -5,28 +5,33 @@
 
 #include "box2d/dynamic_tree.h"
 
-struct b2Pair
+typedef struct b2Pair
 {
-	int32_t proxyIdA;
-	int32_t proxyIdB;
-};
+	uint64_t userDataA;
+	uint64_t userDataB;
+} b2Pair;
 
-enum b2TreeIndex
+typedef enum b2TreeType
 {
 	b2_staticTree = 0,
 	b2_kinematicTree = 1,
 	b2_dynamicTree = 2,
 	b2_treeCount
-};
+} b2TreeType;
+
+typedef void b2AddPairFcn(uint64_t userDataA, uint64_t userDataB, void* context);
+
+// Store the proxy tree in the lower 4 bits of the proxy key. This leaves 28 bits for the id.
+#define B2_PROXY_TREE(KEY) ((KEY)&0xF)
+#define B2_PROXY_ID(KEY) ((KEY) >> 4)
+#define B2_PROXY_KEY(ID, TREE) (((ID) << 4) | (TREE))
 
 /// The broad-phase is used for computing pairs and performing volume queries and ray casts.
 /// This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
 /// It is up to the client to consume the new pairs and to track subsequent overlap.
-struct b2BroadPhase
+typedef struct b2BroadPhase
 {
-public:
-
-	#if 0
+#if 0
 	enum
 	{
 		e_nullProxy = -1
@@ -109,12 +114,24 @@ public:
 	int32_t moveCapacity;
 	int32_t moveCount;
 
-	b2Pair* pairBuffer;
-	int32_t pairCapacity;
-	int32_t pairCount;
+	b2AddPairFcn* addPairFcn;
+	void* fcnContext;
 
+	int32_t queryTree;
 	int32_t queryProxyId;
-};
+	uint64_t queryUserData;
+} b2BroadPhase;
+
+void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext);
+void b2BroadPhase_Destroy(b2BroadPhase* bp);
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2TreeType treeType, b2AABB aabb, uint32_t categoryBits,
+								 uint64_t userData);
+void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey);
+void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
+void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey);
+
+
+void b2BroadPhase_UpdatePairs(b2BroadPhase* bp);
 
 #if 0
 inline void* b2BroadPhase::GetUserData(int32 proxyId) const
@@ -153,11 +170,7 @@ inline float b2BroadPhase::GetTreeQuality() const
 {
 	return m_tree.GetAreaRatio();
 }
-#endif
 
-
-
-#if 0
 template <typename T>
 inline void b2BroadPhase::Query(T* callback, const b2AABB& aabb) const
 {
