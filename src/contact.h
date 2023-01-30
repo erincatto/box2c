@@ -11,13 +11,13 @@
 // is an edge. A contact edge belongs to a doubly linked list
 // maintained in each attached body. Each contact has two contact
 // nodes, one for each attached body.
-struct b2ContactEdge
+typedef struct b2ContactEdge
 {
-	int32_t otherBodyIndex;
+	int32_t otherShapeIndex;
 	struct b2Contact* contact;
 	struct b2ContactEdge* prev;
 	struct b2ContactEdge* next;
-};
+} b2ContactEdge;
 
 // Flags stored in b2Contact::flags
 enum b2ContactFlags
@@ -148,16 +148,9 @@ protected:
 
 	uint32_t flags;
 
-	// World pool and list pointers.
-	struct b2Contact* prev;
-	struct b2Contact* next;
-
-	// Edges for connecting bodies (nodes in the body-contact graph)
-	struct b2ContactEdge edgeA;
-	struct b2ContactEdge edgeB;
-
-	int32_t shapeIndexA;
-	int32_t shapeIndexB;
+	// Edges for connecting shapes (and thus bodies). These are the edges in the body-contact graph.
+	b2ContactEdge edgeA;
+	b2ContactEdge edgeB;
 
 	b2Manifold manifold;
 

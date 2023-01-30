@@ -19,6 +19,7 @@ set(BOX2D_SOURCE_FILES
 	polygon_shape.h
 	pool.c
 	pool.h
+	shape.c
 	shape.h
 	timer.c
 	types.c
@@ -29,6 +30,7 @@ set(BOX2D_SOURCE_FILES
 set(BOX2D_API_FILES
 	../include/box2d/allocate.h
 	../include/box2d/aabb.h
+	../include/box2d/api.h
 	../include/box2d/box2d.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h

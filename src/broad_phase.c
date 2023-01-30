@@ -20,9 +20,9 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	bp->fcnContext = fcnContext;
 
 	bp->queryProxyId = B2_NULL_INDEX;
-	bp->queryTree = B2_NULL_INDEX;
+	bp->queryProxyType = B2_NULL_INDEX;
 
-	for (int32_t i = 0; i < b2_treeCount; ++i)
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		bp->trees[i] = b2DynamicTree_Create();
 	}
@@ -49,12 +49,12 @@ static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 	++bp->moveCount;
 }
 
-int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2TreeType treeType, b2AABB aabb, uint32_t categoryBits,
-								 uint64_t userData)
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits,
+								 void* userData)
 {
-	assert(0 <= treeType && treeType < b2_treeCount);
-	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + treeType, aabb, categoryBits, userData);
-	int32_t proxyKey = B2_PROXY_KEY(proxyId, treeType);
+	assert(0 <= bodyType && bodyType < b2_treeCount);
+	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, userData);
+	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
 	b2BufferMove(bp, proxyKey);
 	return proxyKey;
 }
@@ -73,21 +73,21 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
 
 	--bp->proxyCount;
 
-	int32_t treeIndex = B2_PROXY_TREE(proxyKey);
+	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(0 <= treeIndex && treeIndex <= b2_treeCount);
-	b2DynamicTree_DestroyProxy(bp->trees + treeIndex, proxyId);
+	assert(0 <= typeIndex && typeIndex <= b2_treeCount);
+	b2DynamicTree_DestroyProxy(bp->trees + typeIndex, proxyId);
 }
 
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
-	int32_t treeIndex = B2_PROXY_TREE(proxyKey);
+	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(0 <= treeIndex && treeIndex <= b2_treeCount);
+	assert(0 <= typeIndex && typeIndex <= b2_treeCount);
 
-	bool buffer = b2DynamicTree_MoveProxy(bp->trees + treeIndex, proxyId, aabb);
+	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)
 	{
 		b2BufferMove(bp, proxyKey);
@@ -100,7 +100,7 @@ void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey)
 }
 
 // This is called from b2DynamicTree::Query when we are gathering pairs.
-static bool b2QueryCallback(int32_t proxyId, uint64_t userData, void* context)
+static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 {
 	b2BroadPhase* bp = (b2BroadPhase*)context;
 
@@ -110,14 +110,15 @@ static bool b2QueryCallback(int32_t proxyId, uint64_t userData, void* context)
 		return true;
 	}
 
-	bool moved = b2DynamicTree_WasMoved(bp->trees + bp->queryTree, proxyId);
+	bool moved = b2DynamicTree_WasMoved(bp->trees + bp->queryProxyType, proxyId);
 	if (moved && proxyId > bp->queryProxyId)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.
 		return true;
 	}
 
-	uint64_t userDataA, userDataB;
+	void* userDataA;
+	void* userDataB;
 	if (proxyId < bp->queryProxyId)
 	{
 		userDataA = userData;
@@ -126,7 +127,7 @@ static bool b2QueryCallback(int32_t proxyId, uint64_t userData, void* context)
 	else
 	{
 		userDataA = bp->queryUserData;
-		userDataB = proxyId;
+		userDataB = userData;
 	}
 
 	bp->addPairFcn(userDataA, userDataB, bp->fcnContext);
@@ -147,10 +148,10 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 			continue;
 		}
 
-		bp->queryTree = B2_PROXY_TREE(proxyKey);
+		bp->queryProxyType = B2_PROXY_TYPE(proxyKey);
 		bp->queryProxyId = B2_PROXY_ID(proxyKey);
 
-		const b2DynamicTree* tree = bp->trees + bp->queryTree;
+		const b2DynamicTree* tree = bp->trees + bp->queryProxyType;
 
 		// We have to query the tree with the fat AABB so that
 		// we don't fail to create a contact that may touch later.
@@ -171,10 +172,10 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 			continue;
 		}
 
-		int32_t treeIndex = B2_PROXY_TREE(proxyKey);
+		int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 		int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-		b2DynamicTree_ClearMoved(bp->trees + treeIndex, proxyId);
+		b2DynamicTree_ClearMoved(bp->trees + typeIndex, proxyId);
 	}
 
 	// Reset move buffer

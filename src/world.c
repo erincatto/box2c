@@ -34,6 +34,13 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	return w;
 }
 
+static void b2AddPair(void* userDataA, void* userDataB, void* context)
+{
+	b2World* w = (b2World*)context;
+
+	// TODO_ERIN
+}
+
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	b2WorldId id = b2_nullWorldId;
@@ -53,7 +60,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	b2World* w = g_worlds + id.index;
 	w->blockAllocator = b2CreateBlockAllocator();
-	w->gravity = def->gravity;
+
+	b2BroadPhase_Create(&w->broadPhase, b2AddPair, w);
 	
 	// pools
 	w->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -63,8 +71,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	w->shapes = (b2Shape*)w->shapePool.memory;
 
 	// Globals start at 0. It should be fine for this to roll over.
-	w->revision = w->revision + 1;
+	w->revision += 1;
 
+	w->gravity = def->gravity;
 	w->inv_dt0 = 0.0f;
 	w->canSleep = true;
 	w->newContacts = false;
@@ -72,7 +81,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	w->warmStarting = false;
 
 	id.revision = w->revision;
-
 	return id;
 }
 
@@ -80,14 +88,16 @@ void b2DestroyWorld(b2WorldId id)
 {
 	b2World* w = b2GetWorldFromId(id);
 
-	b2DestroyBlockAllocator(w->blockAllocator);
-	w->blockAllocator = NULL;
+	b2Free(w->shapes);
+	w->shapes = NULL;
 	
 	b2Free(w->bodies);
 	w->bodies = NULL;
 
-	b2Free(w->shapes);
-	w->shapes = NULL;
+	b2BroadPhase_Destroy(&w->broadPhase);
+
+	b2DestroyBlockAllocator(w->blockAllocator);
+	w->blockAllocator = NULL;
 }
 
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
@@ -140,17 +150,17 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 void b2World_DestroyBody(b2BodyId bodyId)
 {
-	b2World* w = b2GetWorldFromIndex(bodyId.world);
-	assert(w->locked == false);
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(world->locked == false);
 
-	if (w->locked)
+	if (world->locked)
 	{
 		return;
 	}
 
-	assert(0 <= bodyId.index && bodyId.index < w->bodyPool.count);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
 
-	b2Body* body = w->bodies + bodyId.index;
+	b2Body* body = world->bodies + bodyId.index;
 
 	#if 0
 	// Delete the attached joints.
@@ -170,32 +180,35 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b->m_jointList = je;
 	}
 	b->m_jointList = nullptr;
-
-	// Delete the attached fixtures. This destroys broad-phase proxies.
-	b2Fixture* f = b->m_fixtureList;
-	while (f)
-	{
-		b2Fixture* f0 = f;
-		f = f->m_next;
-
-		if (m_destructionListener)
-		{
-			m_destructionListener->SayGoodbye(f0);
-		}
-
-		f0->DestroyProxies(&m_contactManager.m_broadPhase);
-		f0->Destroy(&m_blockAllocator);
-		f0->~b2Fixture();
-		m_blockAllocator.Free(f0, sizeof(b2Fixture));
-
-		b->m_fixtureList = f;
-		b->m_fixtureCount -= 1;
-	}
-	b->m_fixtureList = nullptr;
-	b->m_fixtureCount = 0;
 	#endif
 
-	b2FreePoolObject(&w->bodyPool, &body->object);
+	// Delete the attached fixtures. This destroys broad-phase proxies.
+	int32_t shapeIndex = body->shapeIndex;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		b2Shape* shape = world->shapes + shapeIndex;
+		shapeIndex = shape->nextShapeIndex;
+
+		//if (m_destructionListener)
+		//{
+		//	m_destructionListener->SayGoodbye(f0);
+		//}
+
+		if (body->enabled)
+		{
+			b2Shape_DestroyProxies(shape, &world->broadPhase);
+		}
+
+		b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
+
+		// TODO_ERIN destroy contacts
+
+		b2FreeObject(&world->shapePool, shape);
+		world->shapes = (b2Shape*)world->shapePool.memory;
+	}
+
+	b2FreeObject(&world->bodyPool, &body->object);
+	world->bodies = (b2Body*)world->bodyPool.memory;
 }
 
 

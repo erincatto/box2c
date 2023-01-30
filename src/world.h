@@ -6,20 +6,9 @@
 #include "block_allocator.h"
 #include "pool.h"
 
-//#include "contact_manager.h"
 #include "box2d/math.h"
-//#include "b2_stack_allocator.h"
-//#include "b2_time_step.h"
-//#include "b2_world_callbacks.h"
 
-//struct b2AABB;
-//struct b2BodyDef;
-//struct b2Color;
-//struct b2JointDef;
-//class b2Body;
-//class b2Draw;
-//class b2Fixture;
-//class b2Joint;
+#include "broad_phase.h"
 
 /// This is an internal structure.
 typedef struct b2TimeStep
@@ -52,7 +41,7 @@ typedef struct b2World
 	b2BlockAllocator* blockAllocator;
 	//b2StackAllocator* stackAllocator;
 
-	//b2ContactManager contactManager;
+	b2BroadPhase broadPhase;
 
 	b2Pool bodyPool;
 	b2Pool shapePool;

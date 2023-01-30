@@ -116,7 +116,7 @@ void b2DestroyBlockAllocator(b2BlockAllocator* allocator)
 	b2Free(allocator->chunks);
 }
 
-void* b2BlockAllocate(b2BlockAllocator* allocator, int32_t size)
+void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
 {
 	if (size == 0)
 	{
@@ -176,7 +176,7 @@ void* b2BlockAllocate(b2BlockAllocator* allocator, int32_t size)
 	}
 }
 
-void b2BlockFree(b2BlockAllocator* allocator, void* p, int32_t size)
+void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 {
 	if (size == 0)
 	{

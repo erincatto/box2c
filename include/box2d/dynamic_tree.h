@@ -41,7 +41,7 @@ b2DynamicTree b2DynamicTree_Create();
 void b2DynamicTree_Destroy(b2DynamicTree* tree);
 
 /// Create a proxy. Provide a tight fitting AABB and a userData value.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, uint64_t userData);
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData);
 
 /// Destroy a proxy. This asserts if the id is invalid.
 void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
@@ -54,7 +54,7 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb1)
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
-typedef bool b2QueryCallbackFcn(int32_t proxyId, uint64_t userData, void* context);
+typedef bool b2QueryCallbackFcn(int32_t proxyId, void* userData, void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
@@ -71,7 +71,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallback
 /// - return a value of 0 to terminate the ray cast
 /// - return a value less than input->maxFraction to clip the ray
 /// - return a value of input->maxFraction to continue the ray cast without clipping
-typedef float b2RayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, uint64_t userData, void* context);
+typedef float b2RayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
 
 /// Ray-cast against the proxies in the tree. This relies on the callback
 /// to perform a exact ray-cast in the case were the proxy contains a shape.
@@ -107,7 +107,7 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
 /// Get proxy user data.
 /// @return the proxy user data or 0 if the id is invalid.
-uint64_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId);
+void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId);
 
 bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId);
 

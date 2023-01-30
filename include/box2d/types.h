@@ -96,12 +96,13 @@ typedef struct b2WorldDef
 /// static: zero mass, zero velocity, may be manually moved
 /// kinematic: zero mass, non-zero velocity set by user, moved by solver
 /// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
-enum b2BodyType
+typedef enum b2BodyType
 {
 	b2_staticBody = 0,
-	b2_kinematicBody,
-	b2_dynamicBody
-};
+	b2_kinematicBody = 1,
+	b2_dynamicBody = 2,
+	b2_bodyTypeCount
+} b2BodyType;
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.

@@ -14,7 +14,7 @@
 /// A node in the dynamic tree. The client does not interact with this directly.
 typedef struct b2TreeNode
 {
-	uint64_t userData;
+	void* userData;
 
 	/// Enlarged AABB
 	b2AABB aabb;
@@ -481,7 +481,7 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 // Create a proxy in the tree as a leaf node. We return the index
 // of the node instead of a pointer so that we can grow
 // the node pool.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, uint64_t userData)
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData)
 {
 	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
 	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
@@ -1015,7 +1015,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 }
 
 // TODO_ERIN test this as inlined
-uint64_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
+void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 {
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].userData;

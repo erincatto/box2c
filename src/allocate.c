@@ -14,6 +14,8 @@
 b2AllocFcn* b2_allocFcn = NULL;
 b2FreeFcn* b2_freeFcn = NULL;
 
+int32_t b2_byteCount;
+
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
 	b2_allocFcn = allocFcn;
@@ -22,6 +24,9 @@ void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 
 void* b2Alloc(int32_t size)
 {
+	// TODO_ERIN atomic
+	b2_byteCount += size;
+
 	if (b2_allocFcn != NULL)
 	{
 		return b2_allocFcn(size);
@@ -40,4 +45,7 @@ void b2Free(void* mem)
 	{
 		free(mem);
 	}
+
+	// TODO_ERIN atomic
+	--b2_byteCount;
 }

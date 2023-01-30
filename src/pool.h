@@ -25,5 +25,5 @@ typedef struct b2Pool
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity);
 void b2DestroyPool(b2Pool* pool);
 
-b2Object* b2AllocPoolObject(b2Pool* pool);
-void b2FreePoolObject(b2Pool* pool, b2Object* object);
+b2Object* b2AllocObject(b2Pool* pool);
+void b2FreeObject(b2Pool* pool, b2Object* object);

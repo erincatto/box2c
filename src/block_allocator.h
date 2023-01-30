@@ -15,7 +15,7 @@ b2BlockAllocator* b2CreateBlockAllocator();
 void b2DestroyBlockAllocator(b2BlockAllocator* allocator);
 
 /// Allocate memory. This will use b2Alloc if the size is larger than b2_maxBlockSize.
-void* b2BlockAllocate(b2BlockAllocator* allocator, int32_t size);
+void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size);
 
 /// Free memory. This will use b2Free if the size is larger than b2_maxBlockSize.
-void b2BlockFree(b2BlockAllocator* allocator,void* p, int32_t size);
+void b2FreeBlock(b2BlockAllocator* allocator,void* p, int32_t size);

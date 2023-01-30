@@ -49,7 +49,7 @@ void b2DestroyPool(b2Pool* pool)
 	pool->objectSize = 0;
 }
 
-b2Object* b2AllocPoolObject(b2Pool* pool)
+b2Object* b2AllocObject(b2Pool* pool)
 {
 	b2Object* newObject = NULL;
 	if (pool->freeList != B2_NULL_INDEX)
@@ -99,7 +99,7 @@ b2Object* b2AllocPoolObject(b2Pool* pool)
 	return newObject;
 }
 
-void b2FreePoolObject(b2Pool* pool, b2Object* object)
+void b2FreeObject(b2Pool* pool, b2Object* object)
 {
 	assert(pool->memory <= (char*)object && (char*)object < pool->memory + pool->capacity * pool->objectSize);
 	assert(object->index == object->next);

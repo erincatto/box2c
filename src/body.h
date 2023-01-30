@@ -530,3 +530,6 @@ inline void b2Body::Advance(float alpha)
 void b2Body_Dump(b2Body* b);
 
 #endif
+
+b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon);
+void b2Body_DestroyShape(b2ShapeId shapeId);

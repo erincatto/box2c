@@ -21,6 +21,9 @@ void* b2Alloc(int32_t size);
 /// If you implement b2Alloc, you should also implement this function.
 void b2Free(void* mem);
 
+/// Total bytes allocated by Box2D
+extern int32_t b2_byteCount;
+
 #ifdef __cplusplus
 }
 #endif

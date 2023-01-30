@@ -3,11 +3,80 @@
 
 #include "box2d/id.h"
 
+#include "block_allocator.h"
 #include "body.h"
 #include "world.h"
 #include "shape.h"
 
 #include <assert.h>
+
+static void b2ComputeMass(b2World* w, b2Body* b)
+{
+	// Compute mass data from shapes. Each shape has its own density.
+	b->mass = 0.0f;
+	b->invMass = 0.0f;
+	b->I = 0.0f;
+	b->invI = 0.0f;
+	b->localCenter = b2Vec2_zero;
+
+	// Static and kinematic bodies have zero mass.
+	if (b->type == b2_staticBody || b->type == b2_kinematicBody)
+	{
+		b->position = b->transform.p;
+		return;
+	}
+
+	assert(b->type == b2_dynamicBody);
+
+	// Accumulate mass over all fixtures.
+	b2Vec2 localCenter = b2Vec2_zero;
+	int32_t shapeIndex = b->shapeIndex;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		const b2Shape* s = w->shapes + shapeIndex;
+		shapeIndex = s->nextShapeIndex;
+
+		if (s->density == 0.0f)
+		{
+			continue;
+		}
+
+		b2MassData massData = b2Shape_ComputeMass(s);
+
+		b->mass += massData.mass;
+		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
+		b->I += massData.I;
+	}
+
+	// Compute center of mass.
+	if (b->mass > 0.0f)
+	{
+		b->invMass = 1.0f / b->mass;
+		localCenter = b2MulSV(b->invMass, localCenter);
+	}
+
+	if (b->I > 0.0f && b->fixedRotation == false)
+	{
+		// Center the inertia about the center of mass.
+		b->I -= b->mass * b2Dot(localCenter, localCenter);
+		assert(b->I > 0.0f);
+		b->invI = 1.0f / b->I;
+	}
+	else
+	{
+		b->I = 0.0f;
+		b->invI = 0.0f;
+	}
+
+	// Move center of mass.
+	b2Vec2 oldCenter = b->position;
+	b->localCenter = localCenter;
+	b->position = b2TransformPoint(b->transform, b->localCenter);
+
+	// Update center of mass velocity.
+	b2Vec2 deltaLinear = b2CrossSV(b->angularVelocity, b2Sub(b->position, oldCenter));
+	b->linearVelocity = b2Add(b->linearVelocity, deltaLinear);
+}
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon)
 {
@@ -35,19 +104,106 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	shape->isSensor = def->isSensor;
 	shape->polygon = *polygon;
 
-	shape->proxyId = B2_NULL_INDEX;
+	shape->proxyCount = 1;
+	shape->proxies = (b2ShapeProxy*)b2BlockAllocate(w->blockAllocator, sizeof(b2ShapeProxy));
+	shape->proxies[0].aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
+	shape->proxies[0].childIndex = 0;
+	shape->proxies[0].proxyKey = B2_NULL_INDEX;
+	shape->proxies[0].shapeIndex = shape->object.index;
+
 	if (body->enabled)
 	{
-		shape->proxyId = 1;
+		b2Shape_CreateProxies(shape, &w->broadPhase, body->type, body->transform);
 	}
 
-	//	b2FixtureProxy* m_proxies;
-	//	int32 m_proxyCount;
+	// Add to shape linked list
+	shape->nextShapeIndex = body->shapeIndex;
+	body->shapeIndex = shape->object.index;
+
+	if (shape->density)
+	{
+		b2ComputeMass(w, body);
+	}
 
 	w->newContacts = true;
 
 	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
 	return id;
+}
+
+// Destroy a shape on a body. This doesn't need to be called when destroying a body.
+void b2Body_DestroyShape(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return b2_nullShapeId;
+	}
+
+	assert(0 <= shapeId.index && shapeId.index < world->shapePool.count);
+
+	b2Shape* shape = world->shapes + shapeId.index;
+	assert(shape->object.revision == shapeId.revision);
+	assert(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.count);
+
+	b2Body* body = world->bodies + shape->bodyIndex;
+
+	// Remove the fixture from the body's singly linked list.
+	int32_t* shapeIndex = &body->shapeIndex;
+	bool found = false;
+	while (*shapeIndex != B2_NULL_INDEX)
+	{
+		if (*shapeIndex == shapeId.index)
+		{
+			shapeIndex = shape->nextShapeIndex;
+			found = true;
+			break;
+		}
+
+		shapeIndex = &(world->shapes[*shapeIndex].nextShapeIndex);
+	}
+
+	assert(found);
+	if (found == false)
+	{
+		return;
+	}
+
+	const float density = shape->density;
+
+	// Destroy any contacts associated with the fixture.
+	//b2ContactEdge* edge = m_contactList;
+	//while (edge)
+	//{
+	//	b2Contact* c = edge->contact;
+	//	edge = edge->next;
+
+	//	b2Fixture* fixtureA = c->GetFixtureA();
+	//	b2Fixture* fixtureB = c->GetFixtureB();
+
+	//	if (fixture == fixtureA || fixture == fixtureB)
+	//	{
+	//		// This destroys the contact and removes it from
+	//		// this body's contact list.
+	//		m_world->m_contactManager.Destroy(c);
+	//	}
+	//}
+
+	if (body->enabled)
+	{
+		b2Shape_DestroyProxies(shape, &world->broadPhase);
+	}
+
+	b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
+
+	b2FreeObject(&world->shapePool, shape);
+
+	// Reset the mass data
+	if (density > 0.0f)
+	{
+		b2ComputeMass(world, body);
+	}
 }
 
 #if 0
@@ -153,82 +309,7 @@ b2Fixture* b2Body::CreateFixture(const b2Shape* shape, float density)
 	return CreateFixture(&def);
 }
 
-void b2Body::DestroyFixture(b2Fixture* fixture)
-{
-	if (fixture == NULL)
-	{
-		return;
-	}
 
-	b2Assert(m_world->IsLocked() == false);
-	if (m_world->IsLocked() == true)
-	{
-		return;
-	}
-
-	b2Assert(fixture->m_body == this);
-
-	// Remove the fixture from this body's singly linked list.
-	b2Assert(m_fixtureCount > 0);
-	b2Fixture** node = &m_fixtureList;
-	bool found = false;
-	while (*node != nullptr)
-	{
-		if (*node == fixture)
-		{
-			*node = fixture->m_next;
-			found = true;
-			break;
-		}
-
-		node = &(*node)->m_next;
-	}
-
-	// You tried to remove a shape that is not attached to this body.
-	b2Assert(found);
-
-	const float density = fixture->m_density;
-
-	// Destroy any contacts associated with the fixture.
-	b2ContactEdge* edge = m_contactList;
-	while (edge)
-	{
-		b2Contact* c = edge->contact;
-		edge = edge->next;
-
-		b2Fixture* fixtureA = c->GetFixtureA();
-		b2Fixture* fixtureB = c->GetFixtureB();
-
-		if (fixture == fixtureA || fixture == fixtureB)
-		{
-			// This destroys the contact and removes it from
-			// this body's contact list.
-			m_world->m_contactManager.Destroy(c);
-		}
-	}
-
-	b2BlockAllocator* allocator = &m_world->m_blockAllocator;
-
-	if (m_flags & e_enabledFlag)
-	{
-		b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
-		fixture->DestroyProxies(broadPhase);
-	}
-
-	fixture->m_body = nullptr;
-	fixture->m_next = nullptr;
-	fixture->Destroy(allocator);
-	fixture->~b2Fixture();
-	allocator->Free(fixture, sizeof(b2Fixture));
-
-	--m_fixtureCount;
-
-	// Reset the mass data
-	if (density > 0.0f)
-	{
-		ResetMassData();
-	}
-}
 
 void b2Body::ResetMassData()
 {

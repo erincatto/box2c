@@ -7,24 +7,16 @@
 
 typedef struct b2Pair
 {
-	uint64_t userDataA;
-	uint64_t userDataB;
+	void* userDataA;
+	void* userDataB;
 } b2Pair;
 
-typedef enum b2TreeType
-{
-	b2_staticTree = 0,
-	b2_kinematicTree = 1,
-	b2_dynamicTree = 2,
-	b2_treeCount
-} b2TreeType;
+typedef void b2AddPairFcn(void* userDataA, void* userDataB, void* context);
 
-typedef void b2AddPairFcn(uint64_t userDataA, uint64_t userDataB, void* context);
-
-// Store the proxy tree in the lower 4 bits of the proxy key. This leaves 28 bits for the id.
-#define B2_PROXY_TREE(KEY) ((KEY)&0xF)
+// Store the proxy type in the lower 4 bits of the proxy key. This leaves 28 bits for the id.
+#define B2_PROXY_TYPE(KEY) ((KEY)&0xF)
 #define B2_PROXY_ID(KEY) ((KEY) >> 4)
-#define B2_PROXY_KEY(ID, TREE) (((ID) << 4) | (TREE))
+#define B2_PROXY_KEY(ID, TYPE) (((ID) << 4) | (TYPE))
 
 /// The broad-phase is used for computing pairs and performing volume queries and ray casts.
 /// This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
@@ -106,7 +98,7 @@ typedef struct b2BroadPhase
 	bool QueryCallback(int32 proxyId);
 #endif
 
-	b2DynamicTree trees[b2_treeCount];
+	b2DynamicTree trees[b2_bodyTypeCount];
 
 	int32_t proxyCount;
 
@@ -117,15 +109,15 @@ typedef struct b2BroadPhase
 	b2AddPairFcn* addPairFcn;
 	void* fcnContext;
 
-	int32_t queryTree;
+	int32_t queryProxyType;
 	int32_t queryProxyId;
-	uint64_t queryUserData;
+	void* queryUserData;
 } b2BroadPhase;
 
 void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext);
 void b2BroadPhase_Destroy(b2BroadPhase* bp);
-int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2TreeType treeType, b2AABB aabb, uint32_t categoryBits,
-								 uint64_t userData);
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits,
+								 void* userData);
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey);
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
 void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey);
