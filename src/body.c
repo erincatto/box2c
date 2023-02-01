@@ -91,7 +91,7 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	
 	b2Body* body = w->bodies + bodyId.index;
 
-	b2Shape* shape = (b2Shape*)b2AllocPoolObject(&w->shapePool);
+	b2Shape* shape = (b2Shape*)b2AllocObject(&w->shapePool);
 	w->shapes = (b2Shape*)w->shapePool.memory;
 
 	shape->bodyIndex = body->object.index;
@@ -105,7 +105,7 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	shape->polygon = *polygon;
 
 	shape->proxyCount = 1;
-	shape->proxies = (b2ShapeProxy*)b2BlockAllocate(w->blockAllocator, sizeof(b2ShapeProxy));
+	shape->proxies = (b2ShapeProxy*)b2AllocBlock(w->blockAllocator, sizeof(b2ShapeProxy));
 	shape->proxies[0].aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
 	shape->proxies[0].childIndex = 0;
 	shape->proxies[0].proxyKey = B2_NULL_INDEX;
@@ -138,7 +138,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	assert(world->locked == false);
 	if (world->locked)
 	{
-		return b2_nullShapeId;
+		return;
 	}
 
 	assert(0 <= shapeId.index && shapeId.index < world->shapePool.count);
@@ -156,7 +156,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	{
 		if (*shapeIndex == shapeId.index)
 		{
-			shapeIndex = shape->nextShapeIndex;
+			*shapeIndex = shape->nextShapeIndex;
 			found = true;
 			break;
 		}
@@ -197,7 +197,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 
 	b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
 
-	b2FreeObject(&world->shapePool, shape);
+	b2FreeObject(&world->shapePool, &shape->object);
 
 	// Reset the mass data
 	if (density > 0.0f)

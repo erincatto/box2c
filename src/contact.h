@@ -6,6 +6,9 @@
 #include "box2d/types.h"
 #include "box2d/manifold.h"
 
+typedef struct b2Shape b2Shape;
+typedef struct b2World b2World;
+
 // A contact edge is used to connect bodies and contacts together
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list
@@ -148,9 +151,18 @@ protected:
 
 	uint32_t flags;
 
+	struct b2Contact* prev;
+	struct b2Contact* next;
+
 	// Edges for connecting shapes (and thus bodies). These are the edges in the body-contact graph.
 	b2ContactEdge edgeA;
 	b2ContactEdge edgeB;
+
+	int32_t shapeIndexA;
+	int32_t shapeIndexB;
+
+	int32_t childA;
+	int32_t childB;
 
 	b2Manifold manifold;
 
@@ -162,19 +174,7 @@ protected:
 	float tangentSpeed;
 } b2Contact;
 
-// Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
-// For example, anything slides on ice.
-static inline float b2MixFriction(float friction1, float friction2)
-{
-	return sqrtf(friction1 * friction2);
-}
-
-// Restitution mixing law. The idea is allow for anything to bounce off an inelastic surface.
-// For example, a superball bounces on anything.
-static inline float b2MixRestitution(float restitution1, float restitution2)
-{
-	return restitution1 > restitution2 ? restitution1 : restitution2;
-}
+void b2Contact_Create(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
 
 #if 0
 static inline void b2WorldManifold b2Contact_GetWorldManifold(b2Contact* contact)

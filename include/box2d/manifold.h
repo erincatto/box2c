@@ -109,6 +109,12 @@ extern "C"
 {
 #endif
 
+static inline b2Manifold b2EmptyManifold(void)
+{
+	b2Manifold m = {0};
+	return m;
+}
+
 /// Evaluate the manifold with supplied transforms. This assumes small motion from the original state. This does not
 /// change the point count, impulses, etc. The radii must come from the shapes that generated the manifold.
 b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform xfA, float radiusA, b2Transform xfB,

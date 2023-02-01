@@ -1,12 +1,30 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/manifold.h"
+
 #include "block_allocator.h"
+#include "body.h"
 #include "contact.h"
 #include "shape.h"
+#include "world.h"
 
+#include <assert.h>
+#include <math.h>
 
+// Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
+// For example, anything slides on ice.
+static inline float b2MixFriction(float friction1, float friction2)
+{
+	return sqrtf(friction1 * friction2);
+}
 
+// Restitution mixing law. The idea is allow for anything to bounce off an inelastic surface.
+// For example, a superball bounces on anything.
+static inline float b2MixRestitution(float restitution1, float restitution2)
+{
+	return restitution1 > restitution2 ? restitution1 : restitution2;
+}
 
 typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB);
 
@@ -25,7 +43,7 @@ b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, b2Trans
 	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB);
 }
 
-static void b2Contact_AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
+static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
 {
 	assert(0 <= type1 && type1 < b2_shapeTypeCount);
 	assert(0 <= type2 && type2 < b2_shapeTypeCount);
@@ -40,134 +58,199 @@ static void b2Contact_AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b
 	}
 }
 
-static void b2Contact_InitializeRegisters()
+static void b2InitializeRegisters()
 {
-	AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
+	b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
 }
 
-
-b2Contact* b2Contact::Create(b2Fixture* fixtureA, int32 indexA, b2Fixture* fixtureB, int32 indexB, b2BlockAllocator* allocator)
+void b2Contact_Create(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
 {
 	if (s_initialized == false)
 	{
-		InitializeRegisters();
+		b2InitializeRegisters();
 		s_initialized = true;
 	}
 
-	b2Shape::Type type1 = fixtureA->GetType();
-	b2Shape::Type type2 = fixtureB->GetType();
+	b2ShapeType type1 = shapeA->type;
+	b2ShapeType type2 = shapeB->type;
 
-	b2Assert(0 <= type1 && type1 < b2Shape::e_typeCount);
-	b2Assert(0 <= type2 && type2 < b2Shape::e_typeCount);
-	
-	b2ContactCreateFcn* createFcn = s_registers[type1][type2].createFcn;
-	if (createFcn)
+	assert(0 <= type1 && type1 < b2_shapeTypeCount);
+	assert(0 <= type2 && type2 < b2_shapeTypeCount);
+
+	if (s_registers[type1][type2].fcn == NULL)
 	{
-		if (s_registers[type1][type2].primary)
-		{
-			return createFcn(fixtureA, indexA, fixtureB, indexB, allocator);
-		}
-		else
-		{
-			return createFcn(fixtureB, indexB, fixtureA, indexA, allocator);
-		}
+		return;
 	}
-	else
+
+	if (s_registers[type1][type2].primary == false)
 	{
-		return nullptr;
+		b2Contact_Create(world, shapeB, childB, shapeA, childA);
+		return;
 	}
+
+	b2Contact* c = (b2Contact*)b2AllocBlock(world->blockAllocator, sizeof(b2Contact));
+
+	c->flags = b2_contactEnabledFlag;
+	c->shapeIndexA = shapeA->object.index;
+	c->shapeIndexB = shapeB->object.index;
+	c->childA = childA;
+	c->childB = childB;
+
+	c->manifold = b2EmptyManifold();
+	c->childA = childA;
+	c->childB = childB;
+
+	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
+	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
+	c->tangentSpeed = 0.0f;
+
+	// Insert into the world
+	c->prev = NULL;
+	c->next = world->contacts;
+	if (world->contacts != NULL)
+	{
+		world->contacts->prev = c;
+	}
+	world->contacts = c;
+	world->contactCount += 1;
+
+	// Connect to island graph
+	c->edgeA = (b2ContactEdge){shapeB->object.index, c, NULL, NULL};
+	c->edgeB = (b2ContactEdge){shapeA->object.index, c, NULL, NULL};
+
+	// Connect to body A
+	c->edgeA.contact = c;
+	c->edgeA.otherShapeIndex = c->shapeIndexB;
+
+	c->edgeA.prev = NULL;
+	c->edgeA.next = shapeA->contacts;
+	if (shapeA->contacts != NULL)
+	{
+		shapeA->contacts->prev = &c->edgeA;
+	}
+	shapeA->contacts = &c->edgeA;
+	shapeA->contactCount += 1;
+
+	// Connect to body B
+	c->edgeB.contact = c;
+	c->edgeB.otherShapeIndex = c->shapeIndexA;
+
+	c->edgeB.prev = NULL;
+	c->edgeB.next = shapeB->contacts;
+	if (shapeB->contacts != NULL)
+	{
+		shapeB->contacts->prev = &c->edgeB;
+	}
+	shapeB->contacts = &c->edgeB;
+	shapeB->contactCount += 1;
 }
 
-void b2Contact::Destroy(b2Contact* contact, b2BlockAllocator* allocator)
+void b2Contact_Destroy(b2World* world, b2Contact* c)
 {
-	b2Assert(s_initialized == true);
+	b2Shape* shapeA = world->shapes + c->shapeIndexA;
+	b2Shape* shapeB = world->shapes + c->shapeIndexB;
 
-	b2Fixture* fixtureA = contact->m_fixtureA;
-	b2Fixture* fixtureB = contact->m_fixtureB;
-
-	if (contact->m_manifold.pointCount > 0 &&
-		fixtureA->IsSensor() == false &&
-		fixtureB->IsSensor() == false)
+	if (c->manifold.pointCount > 0 &&
+		shapeA->isSensor == false &&
+		shapeB->isSensor == false)
 	{
-		fixtureA->GetBody()->SetAwake(true);
-		fixtureB->GetBody()->SetAwake(true);
+		b2Body_SetAwake(world->bodies + shapeA->bodyIndex, true);
+		b2Body_SetAwake(world->bodies + shapeB->bodyIndex, true);
 	}
 
-	b2Shape::Type typeA = fixtureA->GetType();
-	b2Shape::Type typeB = fixtureB->GetType();
+	//if (contactListener && c->IsTouching())
+	//{
+	//	contactListener->EndContact(c);
+	//}
 
-	b2Assert(0 <= typeA && typeA < b2Shape::e_typeCount);
-	b2Assert(0 <= typeB && typeB < b2Shape::e_typeCount);
+	// Remove from the world.
+	if (c->prev)
+	{
+		c->prev->next = c->next;
+	}
 
-	b2ContactDestroyFcn* destroyFcn = s_registers[typeA][typeB].destroyFcn;
-	destroyFcn(contact, allocator);
+	if (c->next)
+	{
+		c->next->prev = c->prev;
+	}
+
+	if (c == world->contacts)
+	{
+		world->contacts = c->next;
+	}
+
+	// Remove from body A
+	if (c->edgeA.prev)
+	{
+		c->edgeA.prev->next = c->edgeA.next;
+	}
+
+	if (c->edgeA.next)
+	{
+		c->edgeA.next->prev = c->edgeA.prev;
+	}
+
+	if (&c->edgeA == shapeA->contacts)
+	{
+		shapeA->contacts = c->edgeA.next;
+	}
+
+	shapeA->contactCount -= 1;
+
+	// Remove from body B
+	if (c->edgeB.prev)
+	{
+		c->edgeB.prev->next = c->edgeB.next;
+	}
+
+	if (c->edgeB.next)
+	{
+		c->edgeB.next->prev = c->edgeB.prev;
+	}
+
+	if (&c->edgeB == shapeB->contacts)
+	{
+		shapeB->contacts = c->edgeB.next;
+	}
+
+	b2FreeBlock(world->blockAllocator, c, sizeof(b2Contact));
+
+	world->contactCount -= 1;
+	assert(world->contactCount >= 0);
 }
 
-b2Contact_(b2Fixture* fA, int32 indexA, b2Fixture* fB, int32 indexB)
-{
-	m_flags = e_enabledFlag;
-
-	m_fixtureA = fA;
-	m_fixtureB = fB;
-
-	m_indexA = indexA;
-	m_indexB = indexB;
-
-	m_manifold.pointCount = 0;
-
-	m_prev = nullptr;
-	m_next = nullptr;
-
-	m_nodeA.contact = nullptr;
-	m_nodeA.prev = nullptr;
-	m_nodeA.next = nullptr;
-	m_nodeA.other = nullptr;
-
-	m_nodeB.contact = nullptr;
-	m_nodeB.prev = nullptr;
-	m_nodeB.next = nullptr;
-	m_nodeB.other = nullptr;
-
-	m_toiCount = 0;
-
-	m_friction = b2MixFriction(m_fixtureA->m_friction, m_fixtureB->m_friction);
-	m_restitution = b2MixRestitution(m_fixtureA->m_restitution, m_fixtureB->m_restitution);
-	m_restitutionThreshold = b2MixRestitutionThreshold(m_fixtureA->m_restitutionThreshold, m_fixtureB->m_restitutionThreshold);
-
-	m_tangentSpeed = 0.0f;
-}
-
+#if 0
 // Update the contact manifold and touching status.
 // Note: do not assume the fixture AABBs are overlapping or are valid.
 void b2Contact::Update(b2ContactListener* listener)
 {
-	b2Manifold oldManifold = m_manifold;
+	b2Manifold oldManifold = manifold;
 
 	// Re-enable this contact.
-	m_flags |= e_enabledFlag;
+	flags |= e_enabledFlag;
 
 	bool touching = false;
-	m_manifold.pointCount = 0;
+	manifold.pointCount = 0;
 
-	bool wasTouching = (m_flags & e_touchingFlag) == e_touchingFlag;
+	bool wasTouching = (flags & e_touchingFlag) == e_touchingFlag;
 
-	bool sensorA = m_fixtureA->IsSensor();
-	bool sensorB = m_fixtureB->IsSensor();
+	bool sensorA = fixtureA->IsSensor();
+	bool sensorB = fixtureB->IsSensor();
 	bool sensor = sensorA || sensorB;
 
-	b2Body* bodyA = m_fixtureA->GetBody();
-	b2Body* bodyB = m_fixtureB->GetBody();
-	const b2Shape* shapeA = m_fixtureA->GetShape();
-	const b2Shape* shapeB = m_fixtureB->GetShape();
+	b2Body* bodyA = fixtureA->GetBody();
+	b2Body* bodyB = fixtureB->GetBody();
+	const b2Shape* shapeA = fixtureA->GetShape();
+	const b2Shape* shapeB = fixtureB->GetShape();
 
-	bool noStatic = bodyA->m_type != b2_staticBody && bodyB->m_type != b2_staticBody;
+	bool noStatic = bodyA->type != b2_staticBody && bodyB->type != b2_staticBody;
 
 	// Is this contact a sensor?
 	if (sensor)
 	{
 		const b2Transform& xfA = bodyA->GetTransform();
 		const b2Transform& xfB = bodyB->GetTransform();
-		touching = b2TestOverlap(shapeA, m_indexA, shapeB, m_indexB, xfA, xfB);
+		touching = b2TestOverlap(shapeA, indexA, shapeB, indexB, xfA, xfB);
 
 		// Sensors don't generate manifolds.
 	}
@@ -175,8 +258,8 @@ void b2Contact::Update(b2ContactListener* listener)
 	{
 		// Compute TOI
 		b2TOIInput input;
-		input.proxyA.Set(shapeA, m_indexA);
-		input.proxyB.Set(shapeB, m_indexB);
+		input.proxyA.Set(shapeA, indexA);
+		input.proxyB.Set(shapeB, indexB);
 		input.sweepA = bodyA->GetSweep();
 		input.sweepB = bodyB->GetSweep();
 		input.tMax = 1.0f;
@@ -190,15 +273,15 @@ void b2Contact::Update(b2ContactListener* listener)
 			input.sweepA.GetTransform(&xfA, output.t);
 			input.sweepB.GetTransform(&xfB, output.t);
 
-			Evaluate(&m_manifold, xfA, xfB);
+			Evaluate(&manifold, xfA, xfB);
 
-			touching = m_manifold.pointCount > 0;
+			touching = manifold.pointCount > 0;
 
 			// Match old contact ids to new contact ids and copy the
 			// stored impulses to warm start the solver.
-			for (int32 i = 0; i < m_manifold.pointCount; ++i)
+			for (int32 i = 0; i < manifold.pointCount; ++i)
 			{
-				b2ManifoldPoint* mp2 = m_manifold.points + i;
+				b2ManifoldPoint* mp2 = manifold.points + i;
 				mp2->normalImpulse = 0.0f;
 				mp2->tangentImpulse = 0.0f;
 				mp2->persisted = false;
@@ -218,7 +301,7 @@ void b2Contact::Update(b2ContactListener* listener)
 				}
 
 				// For debugging ids
-				//if (mp2->persisted == false && m_manifold.pointCount == oldManifold.pointCount)
+				//if (mp2->persisted == false && manifold.pointCount == oldManifold.pointCount)
 				//{
 				//	i += 0;
 				//}
@@ -228,11 +311,11 @@ void b2Contact::Update(b2ContactListener* listener)
 
 	if (touching)
 	{
-		m_flags |= e_touchingFlag;
+		flags |= e_touchingFlag;
 	}
 	else
 	{
-		m_flags &= ~e_touchingFlag;
+		flags &= ~e_touchingFlag;
 	}
 
 	if (wasTouching == false && touching == true && listener)
@@ -250,3 +333,4 @@ void b2Contact::Update(b2ContactListener* listener)
 		listener->PreSolve(this, &oldManifold);
 	}
 }
+#endif

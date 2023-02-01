@@ -48,9 +48,11 @@ typedef struct b2World
 
 	struct b2Body* bodies;
 	struct b2Shape* shapes;
-
 	//b2Joint* m_jointList;
 	//int32_t m_jointCount;
+
+	struct b2Contact* contacts;
+	int32_t contactCount;
 
 	b2Vec2 gravity;
 

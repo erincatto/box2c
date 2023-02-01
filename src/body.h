@@ -3,8 +3,11 @@
 
 #pragma once
 
+#include "box2d/id.h"
 #include "box2d/math.h"
 #include "pool.h"
+
+typedef struct b2Polygon b2Polygon;
 
 // A rigid body
 typedef struct b2Body
@@ -327,6 +330,29 @@ typedef struct b2Body
 	bool enabled;
 } b2Body;
 
+static inline void b2Body_SetAwake(b2Body* body, bool flag)
+{
+	if (body->type == b2_staticBody)
+	{
+		return;
+	}
+
+	body->awakeFlag = flag;
+
+	if (flag)
+	{
+		body->sleepTime = 0.0f;
+	}
+	else
+	{
+		body->sleepTime = 0.0f;
+		body->linearVelocity = b2Vec2_zero;
+		body->angularVelocity = 0.0f;
+		body->force = b2Vec2_zero;
+		body->torque = 0.0f;
+	}
+}
+
 #if 0
 inline void b2Body::SetLinearVelocity(const b2Vec2& v)
 {
@@ -357,29 +383,6 @@ inline void b2Body::SetAngularVelocity(float w)
 	}
 
 	m_angularVelocity = w;
-}
-
-inline void b2Body::SetAwake(bool flag)
-{
-	if (m_type == b2_staticBody)
-	{
-		return;
-	}
-
-	if (flag)
-	{
-		m_flags |= e_awakeFlag;
-		m_sleepTime = 0.0f;
-	}
-	else
-	{
-		m_flags &= ~e_awakeFlag;
-		m_sleepTime = 0.0f;
-		m_linearVelocity.SetZero();
-		m_angularVelocity = 0.0f;
-		m_force.SetZero();
-		m_torque = 0.0f;
-	}
 }
 
 inline void b2Body::SetCanSleep(bool flag)
@@ -531,5 +534,5 @@ void b2Body_Dump(b2Body* b);
 
 #endif
 
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon);
+b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 void b2Body_DestroyShape(b2ShapeId shapeId);

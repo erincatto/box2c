@@ -1,21 +1,14 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/distance.h"
 #include "box2d/manifold.h"
-#include "box2d/math.h"
+#include "box2d/distance.h"
 #include "box2d/geometry.h"
+#include "box2d/math.h"
 
 #include <assert.h>
 #include <float.h>
 #include <string.h>
-
-static inline b2Manifold b2EmptyManifold()
-{
-	b2Manifold m;
-	memset(&m, 0, sizeof(b2Manifold));
-	return m;
-}
 
 b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform xfA, float radiusA, b2Transform xfB,
 									   float radiusB)
@@ -208,7 +201,6 @@ int32_t b2ClipSegmentToLine2(b2Vec2 vOut[2], b2Vec2 vIn[2], b2Vec2 normal, float
 	return count;
 }
 
-
 #if 0
 bool b2TestOverlap(	const b2Shape* shapeA, int32_t indexA,
 					const b2Shape* shapeB, int32_t indexB,
@@ -388,8 +380,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 // - if there are no points, then find best vertex-vertex
 // Ideas
 // - clip to the average axis to avoid normal pops
-b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB,
-							 b2Transform xfB)
+b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB)
 {
 	b2Vec2 pA = b2TransformPoint(xfA, capsuleA->point1);
 	b2Vec2 qA = b2TransformPoint(xfA, capsuleA->point2);
@@ -1473,8 +1464,8 @@ b2Manifold b2CollideCapsules3(const b2Capsule* capsuleA, b2Transform xfA, const 
 
 // TODO try O(n) algorithm in de Berg p. 279
 // Find the max separation between poly1 and poly2 using edge normals from poly1.
-static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, b2Transform xf1,
-								 const b2Polygon* poly2, b2Transform xf2)
+static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, b2Transform xf1, const b2Polygon* poly2,
+								 b2Transform xf2)
 {
 	int32_t count1 = poly1->count;
 	int32_t count2 = poly2->count;
@@ -1749,8 +1740,8 @@ b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA,
 	return manifold;
 }
 
-b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Transform xfA,
-										   const b2Circle* circleB, b2Transform xfB)
+b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Circle* circleB,
+										   b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
 
@@ -2114,8 +2105,8 @@ b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA
 	return manifold;
 }
 
-b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2Transform xfA,
-											const b2Polygon* polygonB, b2Transform xfB)
+b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
+											b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
 

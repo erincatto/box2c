@@ -9,6 +9,7 @@
 #include "box2d/constants.h"
 
 #include "body.h"
+#include "contact.h"
 #include "pool.h"
 #include "shape.h"
 #include "world.h"
@@ -36,9 +37,131 @@ b2World* b2GetWorldFromIndex(int16_t index)
 
 static void b2AddPair(void* userDataA, void* userDataB, void* context)
 {
-	b2World* w = (b2World*)context;
+	b2World* world = (b2World*)context;
 
-	// TODO_ERIN
+	b2ShapeProxy* proxyA = (b2ShapeProxy*)userDataA;
+	b2ShapeProxy* proxyB = (b2ShapeProxy*)userDataB;
+
+	int32_t shapeIndexA = proxyA->shapeIndex;
+	int32_t shapeIndexB = proxyB->shapeIndex;
+
+	b2Shape* shapeA = world->shapes + shapeIndexA;
+	b2Shape* shapeB = world->shapes + shapeIndexB;
+
+	// Are the fixtures on the same body?
+	if (shapeA->bodyIndex == shapeB->bodyIndex)
+	{
+		return;
+	}
+
+	// Search contacts on shape with the fewest contacts.
+	b2ContactEdge* edge;
+	int32_t otherShapeIndex;
+	if (shapeA->contactCount < shapeB->constactCount)
+	{
+		edge = shapeA->contactList;
+		otherShapeIndex = shapeIndexB;
+	}
+	else
+	{
+		edge = shapeB->contactList;
+		otherShapeIndex = shapeIndexA;
+	}
+
+	int32_t childA = proxyA->childIndex;
+	int32_t childB = proxyB->childIndex;
+
+	while (edge)
+	{
+		if (edge->otherShapeIndex == otherShapeIndex)
+		{
+			int32_t sA = edge->contact->shapeIndexA;
+			int32_t sB = edge->contact->shapeIndexB;
+			int32_t cA = edge->contact->childIndexA;
+			int32_t cB = edge->contact->childIndexB;
+
+			if (sA == shapeIndexA && sB == shapeIndexB && cA == childA && cB == childB)
+			{
+				// A contact already exists.
+				return;
+			}
+
+			if (sA == shapeIndexB && sB == shapeIndexB && cA == childB && cB == childA)
+			{
+				// A contact already exists.
+				return;
+			}
+		}
+
+		edge = edge->next;
+	}
+
+	//b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+	//b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+
+	// Does a joint override collision? Is at least one body dynamic?
+	//if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
+	//{
+	//	return;
+	//}
+
+	// Check user filtering.
+	//if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
+	//{
+	//	return;
+	//}
+
+	// Call the factory.
+	b2Contact* c = b2Contact_Create(shapeA, childA, shapeB, childB, world);
+	if (c == NULL)
+	{
+		return;
+	}
+
+	// Contact creation may swap fixtures.
+	fixtureA = c->GetFixtureA();
+	fixtureB = c->GetFixtureB();
+	indexA = c->GetChildIndexA();
+	indexB = c->GetChildIndexB();
+	bodyA = fixtureA->GetBody();
+	bodyB = fixtureB->GetBody();
+
+	// Insert into the world.
+	c->m_prev = nullptr;
+	c->m_next = m_contactList;
+	if (m_contactList != nullptr)
+	{
+		m_contactList->m_prev = c;
+	}
+	m_contactList = c;
+
+	// Connect to island graph.
+
+	// Connect to body A
+	c->m_nodeA.contact = c;
+	c->m_nodeA.other = bodyB;
+
+	c->m_nodeA.prev = nullptr;
+	c->m_nodeA.next = bodyA->m_contactList;
+	if (bodyA->m_contactList != nullptr)
+	{
+		bodyA->m_contactList->prev = &c->m_nodeA;
+	}
+	bodyA->m_contactList = &c->m_nodeA;
+
+	// Connect to body B
+	c->m_nodeB.contact = c;
+	c->m_nodeB.other = bodyA;
+
+	c->m_nodeB.prev = nullptr;
+	c->m_nodeB.next = bodyB->m_contactList;
+	if (bodyB->m_contactList != nullptr)
+	{
+		bodyB->m_contactList->prev = &c->m_nodeB;
+	}
+	bodyB->m_contactList = &c->m_nodeB;
+
+	++m_contactCount;
 }
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
@@ -110,7 +233,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		return b2_nullBodyId;
 	}
 	
-	b2Body* b = (b2Body*)b2AllocPoolObject(&w->bodyPool);
+	b2Body* b = (b2Body*)b2AllocObject(&w->bodyPool);
 	w->bodies = (b2Body*)w->bodyPool.memory;
 
 	b->type = def->type;

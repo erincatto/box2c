@@ -43,6 +43,9 @@ typedef struct b2Shape
 	b2Filter filter;
 	void* userData;
 
+	struct b2ContactEdge* contacts;
+	int32_t contactCount;
+
 	bool isSensor;
 	bool reportContacts;
 
