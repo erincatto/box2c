@@ -9,8 +9,7 @@
 typedef struct b2Polygon b2Polygon;
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
@@ -27,10 +26,19 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// @warning This function is locked during callbacks.
 void b2World_DestroyBody(b2BodyId bodyId);
 
+/// Take a time step. This performs collision detection, integration,
+/// and constraint solution.
+/// @param timeStep the amount of time to simulate, this should not vary.
+/// @param velocityIterations for the velocity constraint solver.
+/// @param positionIterations for the position constraint solver.
+void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations);
+
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
+b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
+float b2Body_GetAngle(b2BodyId bodyId);
 
 #if 0
 	/// Register a destruction listener. The listener is owned by you and must

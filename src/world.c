@@ -7,6 +7,7 @@
 #include "box2d/allocate.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
+#include "box2d/timer.h"
 
 #include "body.h"
 #include "contact.h"
@@ -22,17 +23,17 @@ b2World g_worlds[b2_maxWorlds];
 b2World* b2GetWorldFromId(b2WorldId id)
 {
 	assert(0 <= id.index && id.index < b2_maxWorlds);
-	b2World* w = g_worlds + id.index;
-	assert(id.revision == w->revision);
-	return w;
+	b2World* world = g_worlds + id.index;
+	assert(id.revision == world->revision);
+	return world;
 }
 
 b2World* b2GetWorldFromIndex(int16_t index)
 {
 	assert(0 <= index && index < b2_maxWorlds);
-	b2World* w = g_worlds + index;
-	assert(w->blockAllocator != NULL);
-	return w;
+	b2World* world = g_worlds + index;
+	assert(world->blockAllocator != NULL);
+	return world;
 }
 
 static void b2AddPair(void* userDataA, void* userDataB, void* context)
@@ -57,14 +58,14 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	// Search contacts on shape with the fewest contacts.
 	b2ContactEdge* edge;
 	int32_t otherShapeIndex;
-	if (shapeA->contactCount < shapeB->constactCount)
+	if (shapeA->contactCount < shapeB->contactCount)
 	{
-		edge = shapeA->contactList;
+		edge = shapeA->contacts;
 		otherShapeIndex = shapeIndexB;
 	}
 	else
 	{
-		edge = shapeB->contactList;
+		edge = shapeB->contacts;
 		otherShapeIndex = shapeIndexA;
 	}
 
@@ -77,8 +78,8 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		{
 			int32_t sA = edge->contact->shapeIndexA;
 			int32_t sB = edge->contact->shapeIndexB;
-			int32_t cA = edge->contact->childIndexA;
-			int32_t cB = edge->contact->childIndexB;
+			int32_t cA = edge->contact->childA;
+			int32_t cB = edge->contact->childB;
 
 			if (sA == shapeIndexA && sB == shapeIndexB && cA == childA && cB == childB)
 			{
@@ -111,57 +112,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	//	return;
 	//}
 
-	// Call the factory.
-	b2Contact* c = b2Contact_Create(shapeA, childA, shapeB, childB, world);
-	if (c == NULL)
-	{
-		return;
-	}
-
-	// Contact creation may swap fixtures.
-	fixtureA = c->GetFixtureA();
-	fixtureB = c->GetFixtureB();
-	indexA = c->GetChildIndexA();
-	indexB = c->GetChildIndexB();
-	bodyA = fixtureA->GetBody();
-	bodyB = fixtureB->GetBody();
-
-	// Insert into the world.
-	c->m_prev = nullptr;
-	c->m_next = m_contactList;
-	if (m_contactList != nullptr)
-	{
-		m_contactList->m_prev = c;
-	}
-	m_contactList = c;
-
-	// Connect to island graph.
-
-	// Connect to body A
-	c->m_nodeA.contact = c;
-	c->m_nodeA.other = bodyB;
-
-	c->m_nodeA.prev = nullptr;
-	c->m_nodeA.next = bodyA->m_contactList;
-	if (bodyA->m_contactList != nullptr)
-	{
-		bodyA->m_contactList->prev = &c->m_nodeA;
-	}
-	bodyA->m_contactList = &c->m_nodeA;
-
-	// Connect to body B
-	c->m_nodeB.contact = c;
-	c->m_nodeB.other = bodyA;
-
-	c->m_nodeB.prev = nullptr;
-	c->m_nodeB.next = bodyB->m_contactList;
-	if (bodyB->m_contactList != nullptr)
-	{
-		bodyB->m_contactList->prev = &c->m_nodeB;
-	}
-	bodyB->m_contactList = &c->m_nodeB;
-
-	++m_contactCount;
+	b2Contact_Create(world, shapeA, childA, shapeB, childB);
 }
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
@@ -181,60 +132,63 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		return id;
 	}
 
-	b2World* w = g_worlds + id.index;
-	w->blockAllocator = b2CreateBlockAllocator();
+	b2World* world = g_worlds + id.index;
+	world->blockAllocator = b2CreateBlockAllocator();
 
-	b2BroadPhase_Create(&w->broadPhase, b2AddPair, w);
+	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
 	
 	// pools
-	w->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
-	w->bodies = (b2Body*)w->bodyPool.memory;
+	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
+	world->bodies = (b2Body*)world->bodyPool.memory;
 
-	w->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
-	w->shapes = (b2Shape*)w->shapePool.memory;
+	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
+	world->shapes = (b2Shape*)world->shapePool.memory;
 
 	// Globals start at 0. It should be fine for this to roll over.
-	w->revision += 1;
+	world->revision += 1;
 
-	w->gravity = def->gravity;
-	w->inv_dt0 = 0.0f;
-	w->canSleep = true;
-	w->newContacts = false;
-	w->locked = false;
-	w->warmStarting = false;
+	world->gravity = def->gravity;
+	world->inv_dt0 = 0.0f;
+	world->canSleep = true;
+	world->newContacts = false;
+	world->locked = false;
+	world->warmStarting = false;
 
-	id.revision = w->revision;
+	b2Profile profile = {0};
+	world->profile = profile;
+
+	id.revision = world->revision;
 	return id;
 }
 
 void b2DestroyWorld(b2WorldId id)
 {
-	b2World* w = b2GetWorldFromId(id);
+	b2World* world = b2GetWorldFromId(id);
 
-	b2Free(w->shapes);
-	w->shapes = NULL;
+	b2Free(world->shapes);
+	world->shapes = NULL;
 	
-	b2Free(w->bodies);
-	w->bodies = NULL;
+	b2Free(world->bodies);
+	world->bodies = NULL;
 
-	b2BroadPhase_Destroy(&w->broadPhase);
+	b2BroadPhase_Destroy(&world->broadPhase);
 
-	b2DestroyBlockAllocator(w->blockAllocator);
-	w->blockAllocator = NULL;
+	b2DestroyBlockAllocator(world->blockAllocator);
+	world->blockAllocator = NULL;
 }
 
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
-	b2World* w = b2GetWorldFromId(worldId);
-	assert(w->locked == false);
+	b2World* world = b2GetWorldFromId(worldId);
+	assert(world->locked == false);
 
-	if (w->locked)
+	if (world->locked)
 	{
 		return b2_nullBodyId;
 	}
 	
-	b2Body* b = (b2Body*)b2AllocObject(&w->bodyPool);
-	w->bodies = (b2Body*)w->bodyPool.memory;
+	b2Body* b = (b2Body*)b2AllocObject(&world->bodyPool);
+	world->bodies = (b2Body*)world->bodyPool.memory;
 
 	b->type = def->type;
 	b->islandIndex = B2_NULL_INDEX;
@@ -326,7 +280,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 		// TODO_ERIN destroy contacts
 
-		b2FreeObject(&world->shapePool, shape);
+		b2FreeObject(&world->shapePool, &shape->object);
 		world->shapes = (b2Shape*)world->shapePool.memory;
 	}
 
@@ -334,117 +288,158 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	world->bodies = (b2Body*)world->bodyPool.memory;
 }
 
+static void b2Collide(b2World* world)
+{
+	// Update awake contacts.
+	b2Contact* contact = world->contacts;
+
+	while (contact)
+	{
+		b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+		b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+		b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+		b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+
+		// Is this contact flagged for filtering?
+		if (contact->flags & b2_contactFilterFlag)
+		{
+			// Should these bodies collide?
+			if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
+			{
+				b2Contact* cNuke = contact;
+				contact = cNuke->next;
+				b2DestroyContact(cNuke);
+				continue;
+			}
+
+			// Check user filtering.
+			b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
+			if (world->contactFilter && world->contactFilter(, fixtureB) == false)
+			{
+				b2Contact* cNuke = c;
+				c = cNuke->GetNext();
+				Destroy(cNuke);
+				continue;
+			}
+
+			// Clear the filtering flag.
+			contact->m_flags &= ~b2Contact::e_filterFlag;
+		}
+
+		bool activeA = bodyA->IsAwake() && bodyA->m_type != b2_staticBody;
+		bool activeB = bodyB->IsAwake() && bodyB->m_type != b2_staticBody;
+
+		// At least one body must be awake and it must be dynamic or kinematic.
+		if (activeA == false && activeB == false)
+		{
+			c = contact->GetNext();
+			continue;
+		}
+
+		int32 proxyIdA = fixtureA->m_proxies[indexA].proxyId;
+		int32 proxyIdB = fixtureB->m_proxies[indexB].proxyId;
+		bool overlap = m_broadPhase.TestOverlap(proxyIdA, proxyIdB);
+
+		// Here we destroy contacts that cease to overlap in the broad-phase.
+		if (overlap == false)
+		{
+			b2Contact* cNuke = c;
+			c = cNuke->GetNext();
+			Destroy(cNuke);
+			continue;
+		}
+
+		// The contact persists.
+		contact->Update(m_contactListener);
+		c = contact->GetNext();
+	}
+	}
+
+static void b2ClearForces(b2World* world)
+{
+	// TODO_ERIN slow
+	int32_t count = world->bodyPool.capacity;
+	for (int32_t i = 0; i < count; ++i)
+	{
+		world->bodies[i].force = b2Vec2_zero;
+		world->bodies[i].torque = 0.0f;
+	}
+}
+
+void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Timer stepTimer;
+
+	// If new fixtures were added, we need to find the new contacts.
+	if (world->newContacts)
+	{
+		b2BroadPhase_UpdatePairs(&world->broadPhase);
+		world->newContacts = false;
+	}
+
+	// TODO_ERIN atomic
+	world->locked = true;
+
+	b2TimeStep step;
+	step.dt = timeStep;
+	step.velocityIterations = velocityIterations;
+	step.positionIterations = positionIterations;
+	if (timeStep > 0.0f)
+	{
+		step.inv_dt = 1.0f / timeStep;
+	}
+	else
+	{
+		step.inv_dt = 0.0f;
+	}
+
+	step.dtRatio = world->inv_dt0 * timeStep;
+
+	step.warmStarting = world->warmStarting;
+
+	// Update contacts. This is where some contacts are destroyed.
+	{
+		b2Timer timer;
+		b2Collide(world);
+		world->profile.collide = b2GetMillisecondsAndReset(&timer);
+	}
+
+	// Integrate velocities, solve velocity constraints, and integrate positions.
+	if (step.dt > 0.0f)
+	{
+		b2Timer timer;
+		b2Solve(world, step);
+		world->profile.solve = b2GetMillisecondsAndReset(&timer);
+	}
+
+	if (step.dt > 0.0f)
+	{
+		world->inv_dt0 = step.inv_dt;
+	}
+
+	// TODO_ERIN clear forces in island solver on last sub-step
+	//if (m_clearForces)
+	//{
+	//	ClearForces();
+	//}
+
+	world->locked = false;
+
+	world->profile.step = b2GetMilliseconds(&stepTimer);
+}
 
 #if 0
 
 void b2World::SetDebugDraw(b2Draw* debugDraw)
 {
 	m_debugDraw = debugDraw;
-}
-
-b2Body* b2World::CreateBody(const b2BodyDef* def)
-{
-	b2Assert(IsLocked() == false);
-	if (IsLocked())
-	{
-		return nullptr;
-	}
-
-	void* mem = m_blockAllocator.Allocate(sizeof(b2Body));
-	b2Body* b = new (mem) b2Body(def, this);
-
-	// Add to world doubly linked list.
-	b->m_prev = nullptr;
-	b->m_next = m_bodyList;
-	if (m_bodyList)
-	{
-		m_bodyList->m_prev = b;
-	}
-	m_bodyList = b;
-	++m_bodyCount;
-
-	return b;
-}
-
-void b2World::DestroyBody(b2Body* b)
-{
-	b2Assert(m_bodyCount > 0);
-	b2Assert(IsLocked() == false);
-	if (IsLocked())
-	{
-		return;
-	}
-
-	// Delete the attached joints.
-	b2JointEdge* je = b->m_jointList;
-	while (je)
-	{
-		b2JointEdge* je0 = je;
-		je = je->next;
-
-		if (m_destructionListener)
-		{
-			m_destructionListener->SayGoodbye(je0->joint);
-		}
-
-		DestroyJoint(je0->joint);
-
-		b->m_jointList = je;
-	}
-	b->m_jointList = nullptr;
-
-	// Delete the attached contacts.
-	b2ContactEdge* ce = b->m_contactList;
-	while (ce)
-	{
-		b2ContactEdge* ce0 = ce;
-		ce = ce->next;
-		m_contactManager.Destroy(ce0->contact);
-	}
-	b->m_contactList = nullptr;
-
-	// Delete the attached fixtures. This destroys broad-phase proxies.
-	b2Fixture* f = b->m_fixtureList;
-	while (f)
-	{
-		b2Fixture* f0 = f;
-		f = f->m_next;
-
-		if (m_destructionListener)
-		{
-			m_destructionListener->SayGoodbye(f0);
-		}
-
-		f0->DestroyProxies(&m_contactManager.m_broadPhase);
-		f0->Destroy(&m_blockAllocator);
-		f0->~b2Fixture();
-		m_blockAllocator.Free(f0, sizeof(b2Fixture));
-
-		b->m_fixtureList = f;
-		b->m_fixtureCount -= 1;
-	}
-	b->m_fixtureList = nullptr;
-	b->m_fixtureCount = 0;
-
-	// Remove world body list.
-	if (b->m_prev)
-	{
-		b->m_prev->m_next = b->m_next;
-	}
-
-	if (b->m_next)
-	{
-		b->m_next->m_prev = b->m_prev;
-	}
-
-	if (b == m_bodyList)
-	{
-		m_bodyList = b->m_next;
-	}
-
-	--m_bodyCount;
-	b->~b2Body();
-	m_blockAllocator.Free(b, sizeof(b2Body));
 }
 
 b2Joint* b2World::CreateJoint(const b2JointDef* def)

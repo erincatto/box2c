@@ -35,7 +35,7 @@ enum b2ContactFlags
 	b2_contactEnabledFlag = 0x0004,
 
 	// This contact needs filtering because a fixture filter was changed.
-	e_filterFlag = 0x0008,
+	b2_contactFilterFlag = 0x0008,
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
@@ -174,7 +174,8 @@ protected:
 	float tangentSpeed;
 } b2Contact;
 
-void b2Contact_Create(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
+void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
+void b2DestroyContact(b2World* world, b2Contact* contact);
 
 #if 0
 static inline void b2WorldManifold b2Contact_GetWorldManifold(b2Contact* contact)

@@ -1,6 +1,7 @@
 set(BOX2D_TESTS
     collision_test.c
     distance_test.c
+    hello_world.c
     main.c
     math_test.c
     shape_test.c

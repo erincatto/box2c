@@ -38,6 +38,8 @@ typedef struct b2TimeStep
 /// management facilities.
 typedef struct b2World
 {
+	int32_t index;
+
 	b2BlockAllocator* blockAllocator;
 	//b2StackAllocator* stackAllocator;
 
@@ -63,6 +65,8 @@ typedef struct b2World
 	float inv_dt0;
 
 	uint16_t revision;
+
+	b2Profile profile;
 
 	bool canSleep;
 	bool newContacts;

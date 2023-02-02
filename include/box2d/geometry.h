@@ -78,7 +78,8 @@ extern "C"
 #endif
 
 b2Polygon b2MakePolygon(const b2Hull* hull);
-b2Polygon b2MakeBox(float hx, float hy, b2Vec2 center, float angle);
+b2Polygon b2MakeBox(float hx, float hy);
+b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
 
 b2MassData b2ComputeCircleMass(const b2Circle* shape, float density);
 b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density);

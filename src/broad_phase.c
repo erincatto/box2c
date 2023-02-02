@@ -52,7 +52,7 @@ static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits,
 								 void* userData)
 {
-	assert(0 <= bodyType && bodyType < b2_treeCount);
+	assert(0 <= bodyType && bodyType < b2_bodyTypeCount);
 	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, userData);
 	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
 	b2BufferMove(bp, proxyKey);
@@ -76,7 +76,7 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(0 <= typeIndex && typeIndex <= b2_treeCount);
+	assert(0 <= typeIndex && typeIndex <= b2_bodyTypeCount);
 	b2DynamicTree_DestroyProxy(bp->trees + typeIndex, proxyId);
 }
 
@@ -85,7 +85,7 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(0 <= typeIndex && typeIndex <= b2_treeCount);
+	assert(0 <= typeIndex && typeIndex <= b2_bodyTypeCount);
 
 	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)

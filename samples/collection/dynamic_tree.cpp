@@ -177,7 +177,7 @@ public:
 		if (m_queryDrag)
 		{
 			b2AABB box = {b2Min(m_startPoint, m_endPoint), b2Max(m_startPoint, m_endPoint)};
-			b2DynamicTree_Query(&m_tree, box, b2_defaultMaskBits, QueryCallback, this);
+			b2DynamicTree_QueryFiltered(&m_tree, box, b2_defaultMaskBits, QueryCallback, this);
 
 			g_debugDraw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
 		}

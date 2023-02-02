@@ -63,7 +63,7 @@ static void b2InitializeRegisters()
 	b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
 }
 
-void b2Contact_Create(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
+void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
 {
 	if (s_initialized == false)
 	{
@@ -84,7 +84,7 @@ void b2Contact_Create(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* 
 
 	if (s_registers[type1][type2].primary == false)
 	{
-		b2Contact_Create(world, shapeB, childB, shapeA, childA);
+		b2CreateContact(world, shapeB, childB, shapeA, childA);
 		return;
 	}
 
@@ -145,12 +145,12 @@ void b2Contact_Create(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* 
 	shapeB->contactCount += 1;
 }
 
-void b2Contact_Destroy(b2World* world, b2Contact* c)
+void b2DestroyContact(b2World* world, b2Contact* contact)
 {
-	b2Shape* shapeA = world->shapes + c->shapeIndexA;
-	b2Shape* shapeB = world->shapes + c->shapeIndexB;
+	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+	b2Shape* shapeB = world->shapes + contact->shapeIndexB;
 
-	if (c->manifold.pointCount > 0 &&
+	if (contact->manifold.pointCount > 0 &&
 		shapeA->isSensor == false &&
 		shapeB->isSensor == false)
 	{
@@ -158,62 +158,62 @@ void b2Contact_Destroy(b2World* world, b2Contact* c)
 		b2Body_SetAwake(world->bodies + shapeB->bodyIndex, true);
 	}
 
-	//if (contactListener && c->IsTouching())
+	//if (contactListener && contact->IsTouching())
 	//{
-	//	contactListener->EndContact(c);
+	//	contactListener->EndContact(contact);
 	//}
 
 	// Remove from the world.
-	if (c->prev)
+	if (contact->prev)
 	{
-		c->prev->next = c->next;
+		contact->prev->next = contact->next;
 	}
 
-	if (c->next)
+	if (contact->next)
 	{
-		c->next->prev = c->prev;
+		contact->next->prev = contact->prev;
 	}
 
-	if (c == world->contacts)
+	if (contact == world->contacts)
 	{
-		world->contacts = c->next;
+		world->contacts = contact->next;
 	}
 
 	// Remove from body A
-	if (c->edgeA.prev)
+	if (contact->edgeA.prev)
 	{
-		c->edgeA.prev->next = c->edgeA.next;
+		contact->edgeA.prev->next = contact->edgeA.next;
 	}
 
-	if (c->edgeA.next)
+	if (contact->edgeA.next)
 	{
-		c->edgeA.next->prev = c->edgeA.prev;
+		contact->edgeA.next->prev = contact->edgeA.prev;
 	}
 
-	if (&c->edgeA == shapeA->contacts)
+	if (&contact->edgeA == shapeA->contacts)
 	{
-		shapeA->contacts = c->edgeA.next;
+		shapeA->contacts = contact->edgeA.next;
 	}
 
 	shapeA->contactCount -= 1;
 
 	// Remove from body B
-	if (c->edgeB.prev)
+	if (contact->edgeB.prev)
 	{
-		c->edgeB.prev->next = c->edgeB.next;
+		contact->edgeB.prev->next = contact->edgeB.next;
 	}
 
-	if (c->edgeB.next)
+	if (contact->edgeB.next)
 	{
-		c->edgeB.next->prev = c->edgeB.prev;
+		contact->edgeB.next->prev = contact->edgeB.prev;
 	}
 
-	if (&c->edgeB == shapeB->contacts)
+	if (&contact->edgeB == shapeB->contacts)
 	{
-		shapeB->contacts = c->edgeB.next;
+		shapeB->contacts = contact->edgeB.next;
 	}
 
-	b2FreeBlock(world->blockAllocator, c, sizeof(b2Contact));
+	b2FreeBlock(world->blockAllocator, contact, sizeof(b2Contact));
 
 	world->contactCount -= 1;
 	assert(world->contactCount >= 0);

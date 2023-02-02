@@ -353,6 +353,14 @@ static inline void b2Body_SetAwake(b2Body* body, bool flag)
 	}
 }
 
+static inline bool b2ShouldBodiesCollide(b2Body* bodyA, b2Body* bodyB)
+{
+	bodyA;
+	bodyB;
+	// TODO_ERIN filter on joints
+	return true;
+}
+
 #if 0
 inline void b2Body::SetLinearVelocity(const b2Vec2& v)
 {

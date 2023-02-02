@@ -5,9 +5,18 @@
 
 #include "types.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/// Profiling data. Times are in milliseconds.
+typedef struct b2Profile
+{
+	float step;
+	float collide;
+	float solve;
+	float solveInit;
+	float solveVelocity;
+	float solvePosition;
+	float broadphase;
+	float solveTOI;
+} b2Profile;
 
 /// Timer for profiling. This has platform specific code and may
 /// not work on every platform.
@@ -20,6 +29,11 @@ typedef struct b2Timer
 	unsigned long long start_usec;
 #endif
 } b2Timer;
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 b2Timer b2CreateTimer();
 float b2GetMilliseconds(const b2Timer* timer);

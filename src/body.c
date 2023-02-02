@@ -206,6 +206,20 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	}
 }
 
+b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
+	return world->bodies[bodyId.index].transform.p;
+}
+
+float b2Body_GetAngle(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
+	return world->bodies[bodyId.index].angle;
+}
+
 #if 0
 void b2Body::SetType(b2BodyType type)
 {

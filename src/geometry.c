@@ -39,7 +39,23 @@ b2Polygon b2MakePolygon(const b2Hull* hull)
 	return shape;
 }
 
-b2Polygon b2MakeBox(float hx, float hy, b2Vec2 center, float angle)
+b2Polygon b2MakeBox(float hx, float hy, b2Vec2 center, float angl)
+{
+	b2Polygon shape;
+	shape.count = 4;
+	shape.vertices[0] = (b2Vec2){-hx, -hy};
+	shape.vertices[1] = (b2Vec2){hx, -hy};
+	shape.vertices[2] = (b2Vec2){hx, hy};
+	shape.vertices[3] = (b2Vec2){-hx, hy};
+	shape.normals[0] = (b2Vec2){0.0f, -1.0f};
+	shape.normals[1] = (b2Vec2){1.0f, 0.0f};
+	shape.normals[2] = (b2Vec2){0.0f, 1.0f};
+	shape.normals[3] = (b2Vec2){-1.0f, 0.0f};
+	shape.centroid = (b2Vec2){0.0f, 0.0f};
+	return shape;
+}
+
+b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 {
 	b2Transform xf;
 	xf.p = center;
@@ -56,7 +72,6 @@ b2Polygon b2MakeBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[2] = b2RotateVector(xf.q, (b2Vec2){0.0f, 1.0f});
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
 	shape.centroid = center;
-
 	return shape;
 }
 
