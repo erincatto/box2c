@@ -88,8 +88,6 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
 int32_t b2_gjkCalls, b2_gjkIters, b2_gjkMaxIters;
 
-b2DistanceCache b2_emptyDistanceCache = {0.0f, 0, {0, 0, 0}, {0, 0, 0}};
-
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
 {
 	count = B2_MIN(count, b2_maxPolygonVertices);

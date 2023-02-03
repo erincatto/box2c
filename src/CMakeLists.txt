@@ -32,6 +32,7 @@ set(BOX2D_API_FILES
 	../include/box2d/aabb.h
 	../include/box2d/api.h
 	../include/box2d/box2d.h
+	../include/box2d/callbacks.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
 	../include/box2d/dynamic_tree.h

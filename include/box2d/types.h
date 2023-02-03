@@ -205,7 +205,7 @@ const static b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef()
 {
-	b2WorldDef def;
+	b2WorldDef def = {0};
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
 	def.bodyCapacity = 8;
 	def.shapeCapacity = 8;
@@ -215,7 +215,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 /// Make a body definition with default values.
 static inline b2BodyDef b2DefaultBodyDef()
 {
-	b2BodyDef def;
+	b2BodyDef def = {0};
 	def.type = b2_staticBody;
 	def.position = B2_LITERAL(b2Vec2){0.0f, 0.0f};
 	def.angle = 0.0f;
@@ -234,7 +234,7 @@ static inline b2BodyDef b2DefaultBodyDef()
 
 static inline struct b2ShapeDef b2DefaultShapeDef()
 {
-	b2ShapeDef def;
+	b2ShapeDef def = {0};
 	def.friction = 0.6f;
 	def.restitution = 0.0f;
 	def.density = 0.0f;

@@ -201,29 +201,6 @@ int32_t b2ClipSegmentToLine2(b2Vec2 vOut[2], b2Vec2 vIn[2], b2Vec2 normal, float
 	return count;
 }
 
-#if 0
-bool b2TestOverlap(	const b2Shape* shapeA, int32_t indexA,
-					const b2Shape* shapeB, int32_t indexB,
-					b2Transform xfA, b2Transform xfB)
-{
-	b2DistanceInput input;
-	input->proxyA.Set(shapeA, indexA);
-	input->proxyB.Set(shapeB, indexB);
-	input->transformA = xfA;
-	input->transformB = xfB;
-	input->useRadii = true;
-
-	b2DistanceCache cache;
-	cache.count = 0;
-
-	b2DistanceOutput output;
-
-	b2Distance(&output, &cache, &input);
-
-	return output.distance < 10.0f * b2_epsilon;
-}
-#endif
-
 b2Manifold b2CollideCircles(const b2Circle* circleA, const b2Circle* circleB)
 {
 	b2Manifold manifold = b2EmptyManifold();

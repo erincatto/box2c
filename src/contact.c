@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/distance.h"
 #include "box2d/manifold.h"
 
 #include "block_allocator.h"
@@ -10,6 +11,7 @@
 #include "world.h"
 
 #include <assert.h>
+#include <float.h>
 #include <math.h>
 
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
@@ -219,38 +221,63 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	assert(world->contactCount >= 0);
 }
 
-#if 0
+bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
+{
+	if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
+	{
+		return filterA.groupIndex > 0;
+	}
+
+	bool collide = (filterA.maskBits & filterB.categoryBits) != 0 && (filterA.categoryBits & filterB.maskBits) != 0;
+	return collide;
+}
+
+static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transform xfA,
+	const b2Shape* shapeB, int32_t childB, b2Transform xfB)
+{
+	b2DistanceInput input;
+	input.proxyA = b2Shape_MakeDistanceProxy(shapeA, childA);
+	input.proxyB = b2Shape_MakeDistanceProxy(shapeB, childB);
+	input.transformA = xfA;
+	input.transformB = xfB;
+	input.useRadii = true;
+
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output;
+
+	b2ShapeDistance(&output, &cache, &input);
+
+	return output.distance < 10.0f * FLT_EPSILON;
+}
+
 // Update the contact manifold and touching status.
 // Note: do not assume the fixture AABBs are overlapping or are valid.
-void b2Contact::Update(b2ContactListener* listener)
+void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Shape* shapeB, b2Body* bodyA,
+					  b2Body* bodyB)
 {
-	b2Manifold oldManifold = manifold;
+	b2Manifold oldManifold = contact->manifold;
 
 	// Re-enable this contact.
-	flags |= e_enabledFlag;
+	contact->flags |= b2_contactEnabledFlag;
 
 	bool touching = false;
-	manifold.pointCount = 0;
+	contact->manifold.pointCount = 0;
 
-	bool wasTouching = (flags & e_touchingFlag) == e_touchingFlag;
+	bool wasTouching = (contact->flags & b2_contactTouchingFlag) == b2_contactTouchingFlag;
 
-	bool sensorA = fixtureA->IsSensor();
-	bool sensorB = fixtureB->IsSensor();
+	bool sensorA = shapeA->isSensor;
+	bool sensorB = shapeB->isSensor;
 	bool sensor = sensorA || sensorB;
 
-	b2Body* bodyA = fixtureA->GetBody();
-	b2Body* bodyB = fixtureB->GetBody();
-	const b2Shape* shapeA = fixtureA->GetShape();
-	const b2Shape* shapeB = fixtureB->GetShape();
-
 	bool noStatic = bodyA->type != b2_staticBody && bodyB->type != b2_staticBody;
+
+	int32_t childA = contact->childA;
+	int32_t childB = contact->childB;
 
 	// Is this contact a sensor?
 	if (sensor)
 	{
-		const b2Transform& xfA = bodyA->GetTransform();
-		const b2Transform& xfB = bodyB->GetTransform();
-		touching = b2TestOverlap(shapeA, indexA, shapeB, indexB, xfA, xfB);
+		touching = b2TestShapeOverlap(shapeA, childA, bodyA->transform, shapeB, childB, bodyB->transform);
 
 		// Sensors don't generate manifolds.
 	}
@@ -258,36 +285,38 @@ void b2Contact::Update(b2ContactListener* listener)
 	{
 		// Compute TOI
 		b2TOIInput input;
-		input.proxyA.Set(shapeA, indexA);
-		input.proxyB.Set(shapeB, indexB);
-		input.sweepA = bodyA->GetSweep();
-		input.sweepB = bodyB->GetSweep();
+		input.proxyA = b2Shape_MakeDistanceProxy(shapeA, childA);
+		input.proxyB = b2Shape_MakeDistanceProxy(shapeB, childB);
+		input.sweepA = b2Body_GetSweep(bodyA);
+		input.sweepB = b2Body_GetSweep(bodyB);
 		input.tMax = 1.0f;
 
 		b2TOIOutput output;
 		b2TimeOfImpact(&output, &input);
 
-		if (output.state != b2TOIOutput::e_separated || noStatic)
+		if (output.state != b2_toiStateSeparated || noStatic)
 		{
-			b2Transform xfA, xfB;
-			input.sweepA.GetTransform(&xfA, output.t);
-			input.sweepB.GetTransform(&xfB, output.t);
+			b2Transform xfA = b2GetSweepTransform(&input.sweepA, output.t);
+			b2Transform xfB = b2GetSweepTransform(&input.sweepB, output.t);
 
-			Evaluate(&manifold, xfA, xfB);
+			b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-			touching = manifold.pointCount > 0;
+			contact->manifold = fcn(shapeA, childA, xfA, shapeB, xfB);
+
+			// TODO_ERIN not with speculation
+			touching = contact->manifold.pointCount > 0;
 
 			// Match old contact ids to new contact ids and copy the
 			// stored impulses to warm start the solver.
-			for (int32 i = 0; i < manifold.pointCount; ++i)
+			for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
 			{
-				b2ManifoldPoint* mp2 = manifold.points + i;
+				b2ManifoldPoint* mp2 = contact->manifold.points + i;
 				mp2->normalImpulse = 0.0f;
 				mp2->tangentImpulse = 0.0f;
 				mp2->persisted = false;
 				b2ContactID id2 = mp2->id;
 
-				for (int32 j = 0; j < oldManifold.pointCount; ++j)
+				for (int32_t j = 0; j < oldManifold.pointCount; ++j)
 				{
 					b2ManifoldPoint* mp1 = oldManifold.points + j;
 
@@ -311,16 +340,16 @@ void b2Contact::Update(b2ContactListener* listener)
 
 	if (touching)
 	{
-		flags |= e_touchingFlag;
+		contact->flags |= b2_contactTouchingFlag;
 	}
 	else
 	{
-		flags &= ~e_touchingFlag;
+		contact->flags &= ~b2_contactTouchingFlag;
 	}
 
-	if (wasTouching == false && touching == true && listener)
+	if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
 	{
-		listener->BeginContact(this);
+		world->callbacks.beginContactFcn();
 	}
 
 	if (wasTouching == true && touching == false && listener)
@@ -333,4 +362,3 @@ void b2Contact::Update(b2ContactListener* listener)
 		listener->PreSolve(this, &oldManifold);
 	}
 }
-#endif

@@ -6,6 +6,7 @@
 #include "block_allocator.h"
 #include "pool.h"
 
+#include "box2d/callbacks.h"
 #include "box2d/math.h"
 
 #include "broad_phase.h"
@@ -66,6 +67,7 @@ typedef struct b2World
 
 	uint16_t revision;
 
+	b2WorldCallbacks callbacks;
 	b2Profile profile;
 
 	bool canSleep;

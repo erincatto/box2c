@@ -177,6 +177,11 @@ protected:
 void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
 
+bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);
+
+void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Shape* shapeB,
+	b2Body* bodyA, b2Body* bodyB);
+
 #if 0
 static inline void b2WorldManifold b2Contact_GetWorldManifold(b2Contact* contact)
 {

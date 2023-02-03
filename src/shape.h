@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "box2d/distance.h"
 #include "box2d/geometry.h"
 #include "box2d/types.h"
 
@@ -62,3 +63,5 @@ b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf, int32_t childIn
 
 void b2Shape_CreateProxies(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
 void b2Shape_DestroyProxies(b2Shape* shape, b2BroadPhase* bp);
+
+b2DistanceProxy b2Shape_MakeDistanceProxy(b2Shape* shape, int32_t child);

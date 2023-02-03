@@ -324,7 +324,7 @@ typedef struct b2Body
 	int16_t world;
 
 	bool islandFlag;
-	bool awakeFlag;
+	bool isAwake;
 	bool canSleep;
 	bool fixedRotation;
 	bool enabled;
@@ -337,7 +337,7 @@ static inline void b2Body_SetAwake(b2Body* body, bool flag)
 		return;
 	}
 
-	body->awakeFlag = flag;
+	body->isAwake = flag;
 
 	if (flag)
 	{
@@ -544,3 +544,25 @@ void b2Body_Dump(b2Body* b);
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 void b2Body_DestroyShape(b2ShapeId shapeId);
+
+static inline b2Sweep b2Body_GetSweep(const b2Body* body)
+{
+	b2Sweep s;
+	if (body->type == b2_staticBody)
+	{
+		s.c1 = body->position;
+		s.c2 = body->position;
+		s.a1 = body->angle;
+		s.a2 = body->angle;
+	}
+	else
+	{
+		s.c1 = body->position;
+		s.c2 = body->speculativePosition;
+		s.a1 = body->angle;
+		s.a2 = body->speculativeAngle;
+	}
+
+	s.localCenter = body->localCenter;
+	return s;
+}

@@ -181,3 +181,15 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 	// Reset move buffer
 	bp->moveCount = 0;
 }
+
+bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB)
+{
+	int32_t typeIndexA = B2_PROXY_TYPE(proxyKeyA);
+	int32_t proxyIdA = B2_PROXY_ID(proxyKeyA);
+	int32_t typeIndexB = B2_PROXY_TYPE(proxyKeyB);
+	int32_t proxyIdB = B2_PROXY_ID(proxyKeyB);
+
+	b2AABB aabbA = b2DynamicTree_GetFatAABB(bp->trees + typeIndexA, proxyIdA);
+	b2AABB aabbB = b2DynamicTree_GetFatAABB(bp->trees + typeIndexB, proxyIdB);
+	return b2AABB_Overlaps(aabbA, aabbB);
+}

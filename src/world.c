@@ -112,7 +112,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	//	return;
 	//}
 
-	b2Contact_Create(world, shapeA, childA, shapeB, childB);
+	b2CreateContact(world, shapeA, childA, shapeB, childB);
 }
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
@@ -133,6 +133,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	}
 
 	b2World* world = g_worlds + id.index;
+	world->index = id.index;
 	world->blockAllocator = b2CreateBlockAllocator();
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
@@ -156,6 +157,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	b2Profile profile = {0};
 	world->profile = profile;
+	world->callbacks = b2DefaultWorldCallbacks();
 
 	id.revision = world->revision;
 	return id;
@@ -216,7 +218,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->userData = def->userData;
 	b->world = worldId.index;
 	b->islandFlag = false;
-	b->awakeFlag = def->awake;
+	b->isAwake = def->awake;
 	b->canSleep = def->canSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->enabled = def->enabled;
@@ -308,50 +310,59 @@ static void b2Collide(b2World* world)
 			{
 				b2Contact* cNuke = contact;
 				contact = cNuke->next;
-				b2DestroyContact(cNuke);
+				b2DestroyContact(world, cNuke);
 				continue;
 			}
 
+			if (b2ShouldCollide(shapeA->filter, shapeB->filter))
+			{
+				b2Contact* cNuke = contact;
+				contact = cNuke->next;
+				b2DestroyContact(world, cNuke);
+				continue;
+			}
 			// Check user filtering.
 			b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
-			if (world->contactFilter && world->contactFilter(, fixtureB) == false)
+			b2ShapeId shapeIdB = {shapeA->object.index, world->index, shapeA->object.revision};
+			if (world->callbacks.shouldCollideFcn &&
+				world->callbacks.shouldCollideFcn(shapeIdA, shapeIdB) == false)
 			{
-				b2Contact* cNuke = c;
-				c = cNuke->GetNext();
-				Destroy(cNuke);
+				b2Contact* cNuke = contact;
+				contact = cNuke->next;
+				b2DestroyContact(world, cNuke);
 				continue;
 			}
 
 			// Clear the filtering flag.
-			contact->m_flags &= ~b2Contact::e_filterFlag;
+			contact->flags &= ~b2_contactFilterFlag;
 		}
 
-		bool activeA = bodyA->IsAwake() && bodyA->m_type != b2_staticBody;
-		bool activeB = bodyB->IsAwake() && bodyB->m_type != b2_staticBody;
+		bool awakeA = bodyA->isAwake && bodyA->type != b2_staticBody;
+		bool awakeB = bodyB->isAwake && bodyB->type != b2_staticBody;
 
 		// At least one body must be awake and it must be dynamic or kinematic.
-		if (activeA == false && activeB == false)
+		if (awakeA == false && awakeB == false)
 		{
-			c = contact->GetNext();
+			contact = contact->next;
 			continue;
 		}
 
-		int32 proxyIdA = fixtureA->m_proxies[indexA].proxyId;
-		int32 proxyIdB = fixtureB->m_proxies[indexB].proxyId;
-		bool overlap = m_broadPhase.TestOverlap(proxyIdA, proxyIdB);
+		int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
+		int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
+		bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
 
 		// Here we destroy contacts that cease to overlap in the broad-phase.
 		if (overlap == false)
 		{
-			b2Contact* cNuke = c;
-			c = cNuke->GetNext();
-			Destroy(cNuke);
+			b2Contact* cNuke = contact;
+			contact = cNuke->next;
+			b2DestroyContact(world, cNuke);
 			continue;
 		}
 
 		// The contact persists.
-		contact->Update(m_contactListener);
-		c = contact->GetNext();
+		b2Contact_Update(world, contact, shapeA, shapeB, bodyA, bodyB);
+		contact = contact->next;
 	}
 	}
 

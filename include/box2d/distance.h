@@ -41,8 +41,6 @@ typedef struct b2DistanceCache
 	uint8_t indexB[3];	///< vertices on shape B
 } b2DistanceCache;
 
-extern b2DistanceCache b2_emptyDistanceCache;
-
 /// Input for b2Distance.
 /// You have to option to use the shape radii
 /// in the computation. Even

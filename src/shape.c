@@ -64,3 +64,22 @@ void b2Shape_DestroyProxies(b2Shape* shape, b2BroadPhase* bp)
 		proxy->proxyKey = B2_NULL_INDEX;
 	}
 }
+
+b2DistanceProxy b2Shape_MakeDistanceProxy(b2Shape* shape, int32_t child)
+{
+	B2_MAYBE_UNUSED(child);
+
+	switch (shape->type)
+	{
+		case b2_circleShape:
+			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
+		case b2_polygonShape:
+			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, 0.0f);
+		default:
+		{
+			assert(false);
+			b2DistanceProxy empty = {0};
+			return empty;
+		}
+	}
+}

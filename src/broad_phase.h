@@ -122,8 +122,8 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey);
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
 void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey);
 
-
 void b2BroadPhase_UpdatePairs(b2BroadPhase* bp);
+bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB);
 
 #if 0
 inline void* b2BroadPhase::GetUserData(int32 proxyId) const
