@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "box2d/aabb.h"
@@ -39,7 +39,7 @@ b2Polygon b2MakePolygon(const b2Hull* hull)
 	return shape;
 }
 
-b2Polygon b2MakeBox(float hx, float hy, b2Vec2 center, float angl)
+b2Polygon b2MakeBox(float hx, float hy)
 {
 	b2Polygon shape;
 	shape.count = 4;

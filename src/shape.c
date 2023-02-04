@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -65,7 +65,7 @@ void b2Shape_DestroyProxies(b2Shape* shape, b2BroadPhase* bp)
 	}
 }
 
-b2DistanceProxy b2Shape_MakeDistanceProxy(b2Shape* shape, int32_t child)
+b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child)
 {
 	B2_MAYBE_UNUSED(child);
 

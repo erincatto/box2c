@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,6 +7,7 @@
 #include "box2d/types.h"
 
 typedef struct b2Manifold b2Manifold;
+typedef struct b2ContactImpulse b2ContactImpulse;
 
 /// Joints and shapes are destroyed when their associated
 /// body is destroyed. Implement this listener so that you
@@ -55,7 +56,7 @@ typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
 /// Note: if you set the number of contact points to zero, you will not
 /// get an EndContact callback. However, you may get a BeginContact callback
 /// the next step.
-typedef void b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* oldManifold);
+typedef void b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, const b2Manifold* oldManifold);
 
 /// This lets you inspect a contact after the solver is finished. This is useful
 /// for inspecting impulses.

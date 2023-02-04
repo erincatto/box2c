@@ -1,48 +1,28 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "block_allocator.h"
 #include "pool.h"
+#include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/math.h"
+#include "box2d/timer.h"
 
 #include "broad_phase.h"
-
-/// This is an internal structure.
-typedef struct b2TimeStep
-{
-	// time step
-	float dt;
-
-	 // inverse time step (0 if dt == 0).
-	float inv_dt;
-
-	// ratio between current and previous time step (dt * inv_dt0)
-	float dtRatio;
-
-	// Velocity iterations for constraint solver. Controls the accuracy of internal forces.
-	int32_t velocityIterations;
-
-	// Position iterations for constraint solver. Controls the accuracy of shape overlap and joint alignment.
-	int32_t positionIterations;
-
-	// For testing
-	bool warmStarting;
-} b2TimeStep;
-
 
 /// The world class manages all physics entities, dynamic simulation,
 /// and asynchronous queries. The world also contains efficient memory
 /// management facilities.
 typedef struct b2World
 {
-	int32_t index;
+	int16_t index;
 
+	// TODO_ERIN make this embedded
 	b2BlockAllocator* blockAllocator;
-	//b2StackAllocator* stackAllocator;
+	b2StackAllocator stackAllocator;
 
 	b2BroadPhase broadPhase;
 

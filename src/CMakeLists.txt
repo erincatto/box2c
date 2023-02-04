@@ -13,6 +13,8 @@ set(BOX2D_SOURCE_FILES
 	distance.c
 	dynamic_tree.c
 	hull.c
+	island.c
+	island.h
 	manifold.c
 	math.c
 	geometry.c
@@ -21,6 +23,9 @@ set(BOX2D_SOURCE_FILES
 	pool.h
 	shape.c
 	shape.h
+	stack_allocator.c
+	stack_allocator.h
+	solver_data.h
 	timer.c
 	types.c
 	world.c

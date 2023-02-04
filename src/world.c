@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 //#include "contact_solver.h"
@@ -134,7 +134,13 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	b2World* world = g_worlds + id.index;
 	world->index = id.index;
+
 	world->blockAllocator = b2CreateBlockAllocator();
+
+	world->stackAllocator.allocation = 0;
+	world->stackAllocator.maxAllocation = 0;
+	world->stackAllocator.entryCount = 0;
+	world->stackAllocator.index = 0;
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
 	
@@ -361,7 +367,7 @@ static void b2Collide(b2World* world)
 		}
 
 		// The contact persists.
-		b2Contact_Update(world, contact, shapeA, shapeB, bodyA, bodyB);
+		b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 		contact = contact->next;
 	}
 	}
@@ -374,6 +380,202 @@ static void b2ClearForces(b2World* world)
 	{
 		world->bodies[i].force = b2Vec2_zero;
 		world->bodies[i].torque = 0.0f;
+	}
+}
+
+
+// Find islands, integrate and solve constraints, solve position constraints
+static b2Solve(b2World* world, b2TimeStep step)
+{
+	world->profile.solveInit = 0.0f;
+	world->profile.solveVelocity = 0.0f;
+	world->profile.solvePosition = 0.0f;
+
+	// Size the island for the worst case.
+	b2Island island(m_bodyCount, m_contactManager.m_contactCount, m_jointCount, &m_stackAllocator,
+					m_contactManager.m_contactListener);
+
+	// Clear all the island flags.
+	for (b2Body* b = m_bodyList; b; b = b->m_next)
+	{
+		b->m_flags &= ~b2Body::e_islandFlag;
+	}
+	for (b2Contact* c = world->contacts; c; c = c->m_next)
+	{
+		c->m_flags &= ~b2Contact::e_islandFlag;
+	}
+	for (b2Joint* j = m_jointList; j; j = j->m_next)
+	{
+		j->m_islandFlag = false;
+	}
+
+	// Build and simulate all awake islands.
+	int32_t bodyCapacity = world->bodyPool.capacity;
+	int32_t bodyCount = world->bodyPool.count;
+	b2Body** stack = (b2Body**)b2AllocateStackItem(&world->stackAllocator, bodyCount * sizeof(b2Body*));
+
+	for (int32_t i = 0; i < bodyCapacity; ++i)
+	{
+		b2Body* seed = world->bodies + i;
+		if (seed->object.next != i)
+		{
+			continue;
+		}
+
+		if (seed->m_flags & b2Body::e_islandFlag)
+		{
+			continue;
+		}
+
+		if (seed->IsAwake() == false || seed->IsEnabled() == false)
+		{
+			continue;
+		}
+
+		// The seed can be dynamic or kinematic.
+		if (seed->GetType() == b2_staticBody)
+		{
+			continue;
+		}
+
+		// Reset island and stack.
+		island.Clear();
+		int32 stackCount = 0;
+		stack[stackCount++] = seed;
+		seed->m_flags |= b2Body::e_islandFlag;
+
+		// Perform a depth first search (DFS) on the constraint graph.
+		while (stackCount > 0)
+		{
+			// Grab the next body off the stack and add it to the island.
+			b2Body* b = stack[--stackCount];
+			b2Assert(b->IsEnabled() == true);
+			island.Add(b);
+
+			// To keep islands as small as possible, we don't
+			// propagate islands across static bodies.
+			if (b->GetType() == b2_staticBody)
+			{
+				continue;
+			}
+
+			// Make sure the body is awake (without resetting sleep timer).
+			b->m_flags |= b2Body::e_awakeFlag;
+
+			// Search all contacts connected to this body.
+			for (b2ContactEdge* ce = b->m_contactList; ce; ce = ce->next)
+			{
+				b2Contact* contact = ce->contact;
+
+				// Has this contact already been added to an island?
+				if (contact->m_flags & b2Contact::e_islandFlag)
+				{
+					continue;
+				}
+
+				// Is this contact solid and touching?
+				if (contact->IsEnabled() == false || contact->IsTouching() == false)
+				{
+					continue;
+				}
+
+				// Skip sensors.
+				bool sensorA = contact->m_fixtureA->m_isSensor;
+				bool sensorB = contact->m_fixtureB->m_isSensor;
+				if (sensorA || sensorB)
+				{
+					continue;
+				}
+
+				island.Add(contact);
+				contact->m_flags |= b2Contact::e_islandFlag;
+
+				b2Body* other = ce->other;
+
+				// Was the other body already added to this island?
+				if (other->m_flags & b2Body::e_islandFlag)
+				{
+					continue;
+				}
+
+				b2Assert(stackCount < stackSize);
+				stack[stackCount++] = other;
+				other->m_flags |= b2Body::e_islandFlag;
+			}
+
+			// Search all joints connect to this body.
+			for (b2JointEdge* je = b->m_jointList; je; je = je->next)
+			{
+				if (je->joint->m_islandFlag == true)
+				{
+					continue;
+				}
+
+				b2Body* other = je->other;
+
+				// Don't simulate joints connected to disabled bodies.
+				if (other->IsEnabled() == false)
+				{
+					continue;
+				}
+
+				island.Add(je->joint);
+				je->joint->m_islandFlag = true;
+
+				if (other->m_flags & b2Body::e_islandFlag)
+				{
+					continue;
+				}
+
+				b2Assert(stackCount < stackSize);
+				stack[stackCount++] = other;
+				other->m_flags |= b2Body::e_islandFlag;
+			}
+		}
+
+		b2Profile profile;
+		island.Solve(&profile, step, m_gravity, m_allowSleep);
+		m_profile.solveInit += profile.solveInit;
+		m_profile.solveVelocity += profile.solveVelocity;
+		m_profile.solvePosition += profile.solvePosition;
+
+		// Post solve cleanup.
+		for (int32 i = 0; i < island.m_bodyCount; ++i)
+		{
+			// Allow static bodies to participate in other islands.
+			b2Body* b = island.m_bodies[i];
+			if (b->GetType() == b2_staticBody)
+			{
+				b->m_flags &= ~b2Body::e_islandFlag;
+			}
+		}
+	}
+
+	m_stackAllocator.Free(stack);
+
+	{
+		b2Timer timer;
+		// Synchronize fixtures, check for out of range bodies.
+		for (b2Body* b = m_bodyList; b; b = b->GetNext())
+		{
+			// If a body was not in an island then it did not move.
+			if ((b->m_flags & b2Body::e_islandFlag) == 0)
+			{
+				continue;
+			}
+
+			if (b->GetType() == b2_staticBody)
+			{
+				continue;
+			}
+
+			// Update fixtures (for broad-phase).
+			b->SynchronizeFixtures();
+		}
+
+		// Look for new contacts.
+		m_contactManager.FindNewContacts();
+		m_profile.broadphase = timer.GetMilliseconds();
 	}
 }
 
@@ -623,197 +825,6 @@ void b2World::SetAllowSleeping(bool flag)
 		{
 			b->SetAwake(true);
 		}
-	}
-}
-
-// Find islands, integrate and solve constraints, solve position constraints
-void b2World::Solve(const b2TimeStep& step)
-{
-	m_profile.solveInit = 0.0f;
-	m_profile.solveVelocity = 0.0f;
-	m_profile.solvePosition = 0.0f;
-
-	// Size the island for the worst case.
-	b2Island island(m_bodyCount,
-					m_contactManager.m_contactCount,
-					m_jointCount,
-					&m_stackAllocator,
-					m_contactManager.m_contactListener);
-
-	// Clear all the island flags.
-	for (b2Body* b = m_bodyList; b; b = b->m_next)
-	{
-		b->m_flags &= ~b2Body::e_islandFlag;
-	}
-	for (b2Contact* c = m_contactManager.m_contactList; c; c = c->m_next)
-	{
-		c->m_flags &= ~b2Contact::e_islandFlag;
-	}
-	for (b2Joint* j = m_jointList; j; j = j->m_next)
-	{
-		j->m_islandFlag = false;
-	}
-
-	// Build and simulate all awake islands.
-	int32 stackSize = m_bodyCount;
-	b2Body** stack = (b2Body**)m_stackAllocator.Allocate(stackSize * sizeof(b2Body*));
-	for (b2Body* seed = m_bodyList; seed; seed = seed->m_next)
-	{
-		if (seed->m_flags & b2Body::e_islandFlag)
-		{
-			continue;
-		}
-
-		if (seed->IsAwake() == false || seed->IsEnabled() == false)
-		{
-			continue;
-		}
-
-		// The seed can be dynamic or kinematic.
-		if (seed->GetType() == b2_staticBody)
-		{
-			continue;
-		}
-
-		// Reset island and stack.
-		island.Clear();
-		int32 stackCount = 0;
-		stack[stackCount++] = seed;
-		seed->m_flags |= b2Body::e_islandFlag;
-
-		// Perform a depth first search (DFS) on the constraint graph.
-		while (stackCount > 0)
-		{
-			// Grab the next body off the stack and add it to the island.
-			b2Body* b = stack[--stackCount];
-			b2Assert(b->IsEnabled() == true);
-			island.Add(b);
-
-			// To keep islands as small as possible, we don't
-			// propagate islands across static bodies.
-			if (b->GetType() == b2_staticBody)
-			{
-				continue;
-			}
-
-			// Make sure the body is awake (without resetting sleep timer).
-			b->m_flags |= b2Body::e_awakeFlag;
-
-			// Search all contacts connected to this body.
-			for (b2ContactEdge* ce = b->m_contactList; ce; ce = ce->next)
-			{
-				b2Contact* contact = ce->contact;
-
-				// Has this contact already been added to an island?
-				if (contact->m_flags & b2Contact::e_islandFlag)
-				{
-					continue;
-				}
-
-				// Is this contact solid and touching?
-				if (contact->IsEnabled() == false ||
-					contact->IsTouching() == false)
-				{
-					continue;
-				}
-
-				// Skip sensors.
-				bool sensorA = contact->m_fixtureA->m_isSensor;
-				bool sensorB = contact->m_fixtureB->m_isSensor;
-				if (sensorA || sensorB)
-				{
-					continue;
-				}
-
-				island.Add(contact);
-				contact->m_flags |= b2Contact::e_islandFlag;
-
-				b2Body* other = ce->other;
-
-				// Was the other body already added to this island?
-				if (other->m_flags & b2Body::e_islandFlag)
-				{
-					continue;
-				}
-
-				b2Assert(stackCount < stackSize);
-				stack[stackCount++] = other;
-				other->m_flags |= b2Body::e_islandFlag;
-			}
-
-			// Search all joints connect to this body.
-			for (b2JointEdge* je = b->m_jointList; je; je = je->next)
-			{
-				if (je->joint->m_islandFlag == true)
-				{
-					continue;
-				}
-
-				b2Body* other = je->other;
-
-				// Don't simulate joints connected to disabled bodies.
-				if (other->IsEnabled() == false)
-				{
-					continue;
-				}
-
-				island.Add(je->joint);
-				je->joint->m_islandFlag = true;
-
-				if (other->m_flags & b2Body::e_islandFlag)
-				{
-					continue;
-				}
-
-				b2Assert(stackCount < stackSize);
-				stack[stackCount++] = other;
-				other->m_flags |= b2Body::e_islandFlag;
-			}
-		}
-
-		b2Profile profile;
-		island.Solve(&profile, step, m_gravity, m_allowSleep);
-		m_profile.solveInit += profile.solveInit;
-		m_profile.solveVelocity += profile.solveVelocity;
-		m_profile.solvePosition += profile.solvePosition;
-
-		// Post solve cleanup.
-		for (int32 i = 0; i < island.m_bodyCount; ++i)
-		{
-			// Allow static bodies to participate in other islands.
-			b2Body* b = island.m_bodies[i];
-			if (b->GetType() == b2_staticBody)
-			{
-				b->m_flags &= ~b2Body::e_islandFlag;
-			}
-		}
-	}
-
-	m_stackAllocator.Free(stack);
-
-	{
-		b2Timer timer;
-		// Synchronize fixtures, check for out of range bodies.
-		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-		{
-			// If a body was not in an island then it did not move.
-			if ((b->m_flags & b2Body::e_islandFlag) == 0)
-			{
-				continue;
-			}
-
-			if (b->GetType() == b2_staticBody)
-			{
-				continue;
-			}
-
-			// Update fixtures (for broad-phase).
-			b->SynchronizeFixtures();
-		}
-
-		// Look for new contacts.
-		m_contactManager.FindNewContacts();
-		m_profile.broadphase = timer.GetMilliseconds();
 	}
 }
 

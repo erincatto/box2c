@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -29,6 +29,7 @@ enum b2ContactFlags
 	b2_contactIslandFlag = 0x0001,
 
 	// Set when the shapes are touching.
+	// TODO_ERIN sensor only? Overlap?
 	b2_contactTouchingFlag = 0x0002,
 
 	// This contact can be disabled (by user)
@@ -179,8 +180,8 @@ void b2DestroyContact(b2World* world, b2Contact* contact);
 
 bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);
 
-void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Shape* shapeB,
-	b2Body* bodyA, b2Body* bodyB);
+void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
+	b2Body* bodyB);
 
 #if 0
 static inline void b2WorldManifold b2Contact_GetWorldManifold(b2Contact* contact)

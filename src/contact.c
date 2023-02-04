@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "box2d/distance.h"
@@ -252,7 +252,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transfor
 
 // Update the contact manifold and touching status.
 // Note: do not assume the fixture AABBs are overlapping or are valid.
-void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Shape* shapeB, b2Body* bodyA,
+void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB, 
 					  b2Body* bodyB)
 {
 	b2Manifold oldManifold = contact->manifold;
@@ -347,18 +347,21 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Sha
 		contact->flags &= ~b2_contactTouchingFlag;
 	}
 
+	b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
+	b2ShapeId shapeIdB = {shapeB->object.index, world->index, shapeB->object.revision};
+
 	if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
 	{
-		world->callbacks.beginContactFcn();
+		world->callbacks.beginContactFcn(shapeIdA, shapeIdB);
 	}
 
-	if (wasTouching == true && touching == false && listener)
+	if (wasTouching == true && touching == false && world->callbacks.endContactFcn)
 	{
-		listener->EndContact(this);
+		world->callbacks.endContactFcn(shapeIdA, shapeIdB);
 	}
 
-	if (sensor == false && touching && listener)
+	if (sensor == false && touching && world->callbacks.preSolveFcn)
 	{
-		listener->PreSolve(this, &oldManifold);
+		world->callbacks.preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, &oldManifold);
 	}
 }
