@@ -374,17 +374,6 @@ static void b2Collide(b2World* world)
 	}
 }
 
-static void b2ClearForces(b2World* world)
-{
-	// TODO_ERIN slow
-	int32_t count = world->bodyPool.capacity;
-	for (int32_t i = 0; i < count; ++i)
-	{
-		world->bodies[i].force = b2Vec2_zero;
-		world->bodies[i].torque = 0.0f;
-	}
-}
-
 // Find islands, integrate and solve constraints, solve position constraints
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
@@ -682,7 +671,12 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// TODO_ERIN clear forces in island solver on last sub-step
 	// if (m_clearForces)
 	//{
-	//	ClearForces();
+		int32_t count = world->bodyPool.capacity;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			world->bodies[i].force = b2Vec2_zero;
+			world->bodies[i].torque = 0.0f;
+		}
 	//}
 
 	world->locked = false;
@@ -1188,83 +1182,6 @@ void b2World::SolveTOI(const b2TimeStep& step)
 			m_stepComplete = false;
 			break;
 		}
-	}
-}
-
-void b2World::Step(float dt, int32 velocityIterations, int32 positionIterations)
-{
-	b2Timer stepTimer;
-
-	// If new fixtures were added, we need to find the new contacts.
-	if (m_newContacts)
-	{
-		m_contactManager.FindNewContacts();
-		m_newContacts = false;
-	}
-
-	m_locked = true;
-
-	b2TimeStep step;
-	step.dt = dt;
-	step.velocityIterations	= velocityIterations;
-	step.positionIterations = positionIterations;
-	if (dt > 0.0f)
-	{
-		step.inv_dt = 1.0f / dt;
-	}
-	else
-	{
-		step.inv_dt = 0.0f;
-	}
-
-	step.dtRatio = m_inv_dt0 * dt;
-
-	step.warmStarting = m_warmStarting;
-	
-	// Update contacts. This is where some contacts are destroyed.
-	{
-		b2Timer timer;
-		m_contactManager.Collide();
-		m_profile.collide = timer.GetMilliseconds();
-	}
-
-	// Integrate velocities, solve velocity constraints, and integrate positions.
-	if (m_stepComplete && step.dt > 0.0f)
-	{
-		b2Timer timer;
-		Solve(step);
-		m_profile.solve = timer.GetMilliseconds();
-	}
-
-	// Handle TOI events.
-	if (m_continuousPhysics && step.dt > 0.0f)
-	{
-		b2Timer timer;
-		SolveTOI(step);
-		m_profile.solveTOI = timer.GetMilliseconds();
-	}
-
-	if (step.dt > 0.0f)
-	{
-		m_inv_dt0 = step.inv_dt;
-	}
-
-	if (m_clearForces)
-	{
-		ClearForces();
-	}
-
-	m_locked = false;
-
-	m_profile.step = stepTimer.GetMilliseconds();
-}
-
-void b2World::ClearForces()
-{
-	for (b2Body* body = m_bodyList; body; body = body->GetNext())
-	{
-		body->m_force.SetZero();
-		body->m_torque = 0.0f;
 	}
 }
 
