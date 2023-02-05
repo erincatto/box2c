@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#pragma once
-
 #include "shape.h"
 #include "broad_phase.h"
 
