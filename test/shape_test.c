@@ -118,7 +118,7 @@ static int RayCastShapeTest()
 
 int ShapeTest()
 {
-	box = b2MakeBox(1.0f, 1.0f, b2Vec2_zero, 0.0f);
+	box = b2MakeBox(1.0f, 1.0f);
 
 	RUN_SUBTEST(ShapeMassTest);
 	RUN_SUBTEST(ShapeAABBTest);

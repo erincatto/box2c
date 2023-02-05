@@ -213,7 +213,7 @@ extern "C"
 {
 #endif
 
-const static b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
+static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef()
