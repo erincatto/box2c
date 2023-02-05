@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-//#include "contact_solver.h"
-//#include "island.h"
+// #include "contact_solver.h"
+// #include "island.h"
 
 #include "box2d/allocate.h"
 #include "box2d/box2d.h"
@@ -11,8 +11,10 @@
 
 #include "body.h"
 #include "contact.h"
+#include "island.h"
 #include "pool.h"
 #include "shape.h"
+#include "solver_data.h"
 #include "world.h"
 
 #include <assert.h>
@@ -97,17 +99,17 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		edge = edge->next;
 	}
 
-	//b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-	//b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+	// b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+	// b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 
 	// Does a joint override collision? Is at least one body dynamic?
-	//if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
+	// if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
 	//{
 	//	return;
 	//}
 
 	// Check user filtering.
-	//if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
+	// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
 	//{
 	//	return;
 	//}
@@ -143,7 +145,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator.index = 0;
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
-	
+
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
 	world->bodies = (b2Body*)world->bodyPool.memory;
@@ -160,7 +162,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->canSleep = true;
 	world->newContacts = false;
 	world->locked = false;
-	world->warmStarting = false;
+	world->warmStarting = true;
 
 	b2Profile profile = {0};
 	world->profile = profile;
@@ -176,7 +178,7 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2Free(world->shapes);
 	world->shapes = NULL;
-	
+
 	b2Free(world->bodies);
 	world->bodies = NULL;
 
@@ -195,7 +197,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	{
 		return b2_nullBodyId;
 	}
-	
+
 	b2Body* b = (b2Body*)b2AllocObject(&world->bodyPool);
 	world->bodies = (b2Body*)world->bodyPool.memory;
 
@@ -225,10 +227,10 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->userData = def->userData;
 	b->world = worldId.index;
 	b->islandFlag = false;
-	b->isAwake = def->awake;
+	b->isAwake = def->isAwake;
 	b->canSleep = def->canSleep;
 	b->fixedRotation = def->fixedRotation;
-	b->enabled = def->enabled;
+	b->isEnabled = def->isEnabled;
 
 	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
 	return id;
@@ -248,7 +250,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 	b2Body* body = world->bodies + bodyId.index;
 
-	#if 0
+#if 0
 	// Delete the attached joints.
 	b2JointEdge* je = b->m_jointList;
 	while (je)
@@ -266,7 +268,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b->m_jointList = je;
 	}
 	b->m_jointList = nullptr;
-	#endif
+#endif
 
 	// Delete the attached fixtures. This destroys broad-phase proxies.
 	int32_t shapeIndex = body->shapeIndex;
@@ -275,12 +277,12 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
 
-		//if (m_destructionListener)
+		// if (m_destructionListener)
 		//{
 		//	m_destructionListener->SayGoodbye(f0);
-		//}
+		// }
 
-		if (body->enabled)
+		if (body->isEnabled)
 		{
 			b2Shape_DestroyProxies(shape, &world->broadPhase);
 		}
@@ -331,8 +333,7 @@ static void b2Collide(b2World* world)
 			// Check user filtering.
 			b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
 			b2ShapeId shapeIdB = {shapeA->object.index, world->index, shapeA->object.revision};
-			if (world->callbacks.shouldCollideFcn &&
-				world->callbacks.shouldCollideFcn(shapeIdA, shapeIdB) == false)
+			if (world->callbacks.shouldCollideFcn && world->callbacks.shouldCollideFcn(shapeIdA, shapeIdB) == false)
 			{
 				b2Contact* cNuke = contact;
 				contact = cNuke->next;
@@ -371,7 +372,7 @@ static void b2Collide(b2World* world)
 		b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 		contact = contact->next;
 	}
-	}
+}
 
 static void b2ClearForces(b2World* world)
 {
@@ -384,35 +385,37 @@ static void b2ClearForces(b2World* world)
 	}
 }
 
-
 // Find islands, integrate and solve constraints, solve position constraints
-static b2Solve(b2World* world, b2TimeStep step)
+static void b2Solve(b2World* world, const b2TimeStep* step)
 {
 	world->profile.solveInit = 0.0f;
 	world->profile.solveVelocity = 0.0f;
 	world->profile.solvePosition = 0.0f;
 
-	// Size the island for the worst case.
-	b2Island island(m_bodyCount, m_contactManager.m_contactCount, m_jointCount, &m_stackAllocator,
-					m_contactManager.m_contactListener);
-
-	// Clear all the island flags.
-	for (b2Body* b = m_bodyList; b; b = b->m_next)
-	{
-		b->m_flags &= ~b2Body::e_islandFlag;
-	}
-	for (b2Contact* c = world->contacts; c; c = c->m_next)
-	{
-		c->m_flags &= ~b2Contact::e_islandFlag;
-	}
-	for (b2Joint* j = m_jointList; j; j = j->m_next)
-	{
-		j->m_islandFlag = false;
-	}
-
-	// Build and simulate all awake islands.
 	int32_t bodyCapacity = world->bodyPool.capacity;
 	int32_t bodyCount = world->bodyPool.count;
+
+	// Size the island for the worst case.
+	b2Island island = b2CreateIsland(bodyCount, world->contactCount, 0, world);
+
+	// Clear all the island flags.
+	for (int32_t i = 0; i < bodyCapacity; ++i)
+	{
+		b2Body* b = world->bodies + i;
+		b->islandFlag = false;
+	}
+
+	for (b2Contact* c = world->contacts; c; c = c->next)
+	{
+		c->flags &= ~b2_contactIslandFlag;
+	}
+
+	// for (b2Joint* j = m_jointList; j; j = j->m_next)
+	//{
+	//	j->m_islandFlag = false;
+	// }
+
+	// Build and simulate all awake islands.
 	b2Body** stack = (b2Body**)b2AllocateStackItem(&world->stackAllocator, bodyCount * sizeof(b2Body*));
 
 	for (int32_t i = 0; i < bodyCapacity; ++i)
@@ -420,90 +423,104 @@ static b2Solve(b2World* world, b2TimeStep step)
 		b2Body* seed = world->bodies + i;
 		if (seed->object.next != i)
 		{
+			// body is in free list
 			continue;
 		}
 
-		if (seed->m_flags & b2Body::e_islandFlag)
+		if (seed->islandFlag)
 		{
 			continue;
 		}
 
-		if (seed->IsAwake() == false || seed->IsEnabled() == false)
+		if (seed->isAwake == false || seed->isEnabled == false)
 		{
 			continue;
 		}
 
 		// The seed can be dynamic or kinematic.
-		if (seed->GetType() == b2_staticBody)
+		if (seed->type == b2_staticBody)
 		{
 			continue;
 		}
 
 		// Reset island and stack.
-		island.Clear();
-		int32 stackCount = 0;
+		b2ClearIsland(&island);
+		int32_t stackCount = 0;
 		stack[stackCount++] = seed;
-		seed->m_flags |= b2Body::e_islandFlag;
+		seed->islandFlag = true;
 
 		// Perform a depth first search (DFS) on the constraint graph.
 		while (stackCount > 0)
 		{
 			// Grab the next body off the stack and add it to the island.
 			b2Body* b = stack[--stackCount];
-			b2Assert(b->IsEnabled() == true);
-			island.Add(b);
+			assert(b->isEnabled == true);
+			b2Island_AddBody(&island, b);
 
 			// To keep islands as small as possible, we don't
 			// propagate islands across static bodies.
-			if (b->GetType() == b2_staticBody)
+			if (b->type == b2_staticBody)
 			{
 				continue;
 			}
 
 			// Make sure the body is awake (without resetting sleep timer).
-			b->m_flags |= b2Body::e_awakeFlag;
+			b->isAwake = true;
 
 			// Search all contacts connected to this body.
-			for (b2ContactEdge* ce = b->m_contactList; ce; ce = ce->next)
+			int32_t shapeIndex = b->shapeIndex;
+			while (shapeIndex != B2_NULL_INDEX)
 			{
-				b2Contact* contact = ce->contact;
+				b2Shape* shape = world->shapes + shapeIndex;
+				assert(shape->object.index == shapeIndex);
+				shapeIndex = shape->nextShapeIndex;
 
-				// Has this contact already been added to an island?
-				if (contact->m_flags & b2Contact::e_islandFlag)
+				if (shape->isSensor)
 				{
 					continue;
 				}
 
-				// Is this contact solid and touching?
-				if (contact->IsEnabled() == false || contact->IsTouching() == false)
+				for (b2ContactEdge* ce = shape->contacts; ce; ce = ce->next)
 				{
-					continue;
+					b2Contact* contact = ce->contact;
+
+					// Has this contact already been added to an island?
+					if (contact->flags & b2_contactIslandFlag)
+					{
+						continue;
+					}
+
+					// Is this contact solid and touching?
+					if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
+					{
+						continue;
+					}
+
+					// Skip sensors.
+					b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
+					if (otherShape->isSensor)
+					{
+						continue;
+					}
+
+					b2Island_AddContact(&island, contact);
+					contact->flags |= b2_contactIslandFlag;
+
+					b2Body* otherBody = world->bodies + otherShape->bodyIndex;
+
+					// Was the other body already added to this island?
+					if (otherBody->islandFlag)
+					{
+						continue;
+					}
+
+					assert(stackCount < bodyCount);
+					stack[stackCount++] = otherBody;
+					otherBody->islandFlag = true;
 				}
-
-				// Skip sensors.
-				bool sensorA = contact->m_fixtureA->m_isSensor;
-				bool sensorB = contact->m_fixtureB->m_isSensor;
-				if (sensorA || sensorB)
-				{
-					continue;
-				}
-
-				island.Add(contact);
-				contact->m_flags |= b2Contact::e_islandFlag;
-
-				b2Body* other = ce->other;
-
-				// Was the other body already added to this island?
-				if (other->m_flags & b2Body::e_islandFlag)
-				{
-					continue;
-				}
-
-				b2Assert(stackCount < stackSize);
-				stack[stackCount++] = other;
-				other->m_flags |= b2Body::e_islandFlag;
 			}
 
+#if 0
 			// Search all joints connect to this body.
 			for (b2JointEdge* je = b->m_jointList; je; je = je->next)
 			{
@@ -528,56 +545,80 @@ static b2Solve(b2World* world, b2TimeStep step)
 					continue;
 				}
 
-				b2Assert(stackCount < stackSize);
+				assert(stackCount < stackSize);
 				stack[stackCount++] = other;
 				other->m_flags |= b2Body::e_islandFlag;
 			}
+#endif
 		}
 
 		b2Profile profile;
-		island.Solve(&profile, step, m_gravity, m_allowSleep);
-		m_profile.solveInit += profile.solveInit;
-		m_profile.solveVelocity += profile.solveVelocity;
-		m_profile.solvePosition += profile.solvePosition;
+		b2SolveIsland(&island, &profile, step, world->gravity, world->canSleep);
+
+		world->profile.solveInit += profile.solveInit;
+		world->profile.solveVelocity += profile.solveVelocity;
+		world->profile.solvePosition += profile.solvePosition;
 
 		// Post solve cleanup.
-		for (int32 i = 0; i < island.m_bodyCount; ++i)
+		for (int32_t j = 0; j < island.bodyCount; ++j)
 		{
 			// Allow static bodies to participate in other islands.
-			b2Body* b = island.m_bodies[i];
-			if (b->GetType() == b2_staticBody)
+			b2Body* b = island.bodies[j];
+			if (b->type == b2_staticBody)
 			{
-				b->m_flags &= ~b2Body::e_islandFlag;
+				b->islandFlag = false;
 			}
 		}
 	}
 
-	m_stackAllocator.Free(stack);
+	b2FreeStackItem(&world->stackAllocator, stack);
 
+	b2Timer timer;
+
+	// Synchronize fixtures, check for out of range bodies.
+	for (int32_t i = 0; i < bodyCapacity; ++i)
 	{
-		b2Timer timer;
-		// Synchronize fixtures, check for out of range bodies.
-		for (b2Body* b = m_bodyList; b; b = b->GetNext())
+		b2Body* b = world->bodies + i;
+		if (b->object.next != i)
 		{
-			// If a body was not in an island then it did not move.
-			if ((b->m_flags & b2Body::e_islandFlag) == 0)
-			{
-				continue;
-			}
-
-			if (b->GetType() == b2_staticBody)
-			{
-				continue;
-			}
-
-			// Update fixtures (for broad-phase).
-			b->SynchronizeFixtures();
+			// body is in free list
+			continue;
 		}
 
-		// Look for new contacts.
-		m_contactManager.FindNewContacts();
-		m_profile.broadphase = timer.GetMilliseconds();
+		// If a body was not in an island then it did not move.
+		if (b->islandFlag == false)
+		{
+			continue;
+		}
+
+		if (b->type == b2_staticBody)
+		{
+			continue;
+		}
+
+		// Update shapes (for broad-phase).
+		int32_t shapeIndex = b->shapeIndex;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+			for (int32_t j = 0; j < shape->proxyCount; ++j)
+			{
+				b2ShapeProxy* proxy = shape->proxies + j;
+
+				proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
+
+				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
 	}
+
+	// Look for new contacts.
+	b2BroadPhase_UpdatePairs(&world->broadPhase);
+	world->profile.broadphase = b2GetMilliseconds(&timer);
+
+	b2DestroyIsland(&island);
 }
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
@@ -629,7 +670,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	if (step.dt > 0.0f)
 	{
 		b2Timer timer;
-		b2Solve(world, step);
+		b2Solve(world, &step);
 		world->profile.solve = b2GetMillisecondsAndReset(&timer);
 	}
 
@@ -639,7 +680,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	}
 
 	// TODO_ERIN clear forces in island solver on last sub-step
-	//if (m_clearForces)
+	// if (m_clearForces)
 	//{
 	//	ClearForces();
 	//}
@@ -658,7 +699,7 @@ void b2World::SetDebugDraw(b2Draw* debugDraw)
 
 b2Joint* b2World::CreateJoint(const b2JointDef* def)
 {
-	b2Assert(IsLocked() == false);
+	assert(IsLocked() == false);
 	if (IsLocked())
 	{
 		return nullptr;
@@ -718,7 +759,7 @@ b2Joint* b2World::CreateJoint(const b2JointDef* def)
 
 void b2World::DestroyJoint(b2Joint* j)
 {
-	b2Assert(IsLocked() == false);
+	assert(IsLocked() == false);
 	if (IsLocked())
 	{
 		return;
@@ -790,7 +831,7 @@ void b2World::DestroyJoint(b2Joint* j)
 
 	b2Joint::Destroy(j, &m_blockAllocator);
 
-	b2Assert(m_jointCount > 0);
+	assert(m_jointCount > 0);
 	--m_jointCount;
 
 	// If the joint prevents collisions, then flag any contacts for filtering.
@@ -894,7 +935,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 
 				b2BodyType typeA = bA->m_type;
 				b2BodyType typeB = bB->m_type;
-				b2Assert(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
+				assert(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
 
 				bool activeA = bA->IsAwake() && typeA != b2_staticBody;
 				bool activeB = bB->IsAwake() && typeB != b2_staticBody;
@@ -929,7 +970,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 					bB->m_sweep.Advance(alpha0);
 				}
 
-				b2Assert(alpha0 < 1.0f);
+				assert(alpha0 < 1.0f);
 
 				int32 indexA = c->GetChildIndexA();
 				int32 indexB = c->GetChildIndexB();
@@ -1335,7 +1376,7 @@ void b2World::DrawShape(b2Fixture* fixture, const b2Transform& xf, const b2Color
 		{
 			b2Polygon* poly = (b2Polygon*)fixture->GetShape();
 			int32 vertexCount = poly->m_count;
-			b2Assert(vertexCount <= b2_maxPolygonVertices);
+			assert(vertexCount <= b2_maxPolygonVertices);
 			b2Vec2 vertices[b2_maxPolygonVertices];
 
 			for (int32 i = 0; i < vertexCount; ++i)
@@ -1484,7 +1525,7 @@ float b2World::GetTreeQuality() const
 
 void b2World::ShiftOrigin(const b2Vec2& newOrigin)
 {
-	b2Assert(m_locked == false);
+	assert(m_locked == false);
 	if (m_locked)
 	{
 		return;

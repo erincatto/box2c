@@ -55,8 +55,6 @@ b2Object* b2AllocObject(b2Pool* pool)
 	if (pool->freeList != B2_NULL_INDEX)
 	{
 		newObject = (b2Object*)(pool->memory + pool->freeList * pool->objectSize);
-		memset(newObject, 0, pool->objectSize);
-
 		newObject->index = pool->freeList;
 		newObject->revision += 1;
 		pool->freeList = newObject->next;
@@ -74,8 +72,6 @@ b2Object* b2AllocObject(b2Pool* pool)
 		pool->memory = newMemory;
 
 		newObject = (b2Object*)(pool->memory + oldCapacity * pool->objectSize);
-		memset(newObject, 0, pool->objectSize);
-
 		newObject->index = oldCapacity;
 		newObject->revision = 0;
 		newObject->next = newObject->index;

@@ -88,7 +88,7 @@ public:
 			dinput.transformA = b2GetSweepTransform(&sweepA, output.t);
 			dinput.transformB = b2GetSweepTransform(&sweepB, output.t);
 			dinput.useRadii = false;
-			b2DistanceCache cache = b2_emptyDistanceCache;
+			b2DistanceCache cache = {0};
 			b2DistanceOutput doutput;
 			b2ShapeDistance(&doutput, &cache, &dinput);
 			g_debugDraw.DrawString(5, m_textLine, "distance = %g", doutput.distance);

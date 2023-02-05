@@ -323,11 +323,12 @@ typedef struct b2Body
 	void* userData;
 	int16_t world;
 
+	// TODO_ERIN islandMarker
 	bool islandFlag;
 	bool isAwake;
 	bool canSleep;
 	bool fixedRotation;
-	bool enabled;
+	bool isEnabled;
 } b2Body;
 
 static inline void b2Body_SetAwake(b2Body* body, bool flag)

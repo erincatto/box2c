@@ -10,8 +10,7 @@ typedef struct b2TimeStep b2TimeStep;
 
 typedef struct b2Island
 {
-	struct b2StackAllocator* allocator;
-	struct b2WorldCallbacks* callbacks;
+	struct b2World* world;
 
 	struct b2Body** bodies;
 	struct b2Contact** contacts;
@@ -36,8 +35,7 @@ static inline void b2ClearIsland(b2Island* island)
 	island->jointCount = 0;
 }
 
-b2Island b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2StackAllocator* allocator,
-		 struct b2WorldCallbacks* callbacks);
+b2Island b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world);
 
 void b2DestroyIsland(b2Island* island);
 

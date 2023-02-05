@@ -103,6 +103,9 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	shape->userData = def->userData;
 	shape->isSensor = def->isSensor;
 	shape->polygon = *polygon;
+	shape->contacts = NULL;
+	shape->contactCount = 0;
+	shape->reportContacts = false;
 
 	shape->proxyCount = 1;
 	shape->proxies = (b2ShapeProxy*)b2AllocBlock(w->blockAllocator, sizeof(b2ShapeProxy));
@@ -111,7 +114,7 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	shape->proxies[0].proxyKey = B2_NULL_INDEX;
 	shape->proxies[0].shapeIndex = shape->object.index;
 
-	if (body->enabled)
+	if (body->isEnabled)
 	{
 		b2Shape_CreateProxies(shape, &w->broadPhase, body->type, body->transform);
 	}
@@ -190,7 +193,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	//	}
 	//}
 
-	if (body->enabled)
+	if (body->isEnabled)
 	{
 		b2Shape_DestroyProxies(shape, &world->broadPhase);
 	}

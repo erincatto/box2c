@@ -19,7 +19,7 @@ public:
 	{
 		m_circle = {{0.0f, 0.0f}, 2.0f};
 		m_capsule = {{-1.0f, 1.0f}, {1.0f, -1.0f}, 1.5f};
-		m_box = b2MakeBox(2.0f, 2.0f, {0.0f, 0.0f}, 0.0f);
+		m_box = b2MakeBox(2.0f, 2.0f);
 
 		b2Vec2 vertices[3] = {{-2.0f, 0.0f}, {2.0f, 0.0f}, {2.0f, 3.0f}};
 		b2Hull hull = b2ComputeHull(vertices, 3);

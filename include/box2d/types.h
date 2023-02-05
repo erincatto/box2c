@@ -159,13 +159,13 @@ typedef struct b2BodyDef
 	bool canSleep;
 
 	/// Is this body initially awake or sleeping?
-	bool awake;
+	bool isAwake;
 
 	/// Should this body be prevented from rotating? Useful for characters.
 	bool fixedRotation;
 
 	/// Does this body start out enabled?
-	bool enabled;
+	bool isEnabled;
 } b2BodyDef;
 
 /// This holds contact filtering data.
@@ -240,9 +240,9 @@ static inline b2BodyDef b2DefaultBodyDef()
 	def.gravityScale = 1.0f;
 	def.userData = NULL;
 	def.canSleep = true;
-	def.awake = true;
+	def.isAwake = true;
 	def.fixedRotation = false;
-	def.enabled = true;
+	def.isEnabled = true;
 	return def;
 }
 

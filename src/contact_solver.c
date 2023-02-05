@@ -14,6 +14,35 @@
 
 static bool g_blockSolve = true;
 
+typedef struct b2VelocityConstraintPoint
+{
+	b2Vec2 rA;
+	b2Vec2 rB;
+	float normalImpulse;
+	float tangentImpulse;
+	float normalMass;
+	float tangentMass;
+	float velocityBias;
+	float relativeVelocity;
+} b2VelocityConstraintPoint;
+
+typedef struct b2ContactVelocityConstraint
+{
+	b2VelocityConstraintPoint points[2];
+	b2Vec2 normal;
+	b2Mat22 normalMass;
+	b2Mat22 K;
+	int32_t indexA;
+	int32_t indexB;
+	float invMassA, invMassB;
+	float invIA, invIB;
+	float friction;
+	float restitution;
+	float tangentSpeed;
+	int32_t pointCount;
+	int32_t contactIndex;
+} b2ContactVelocityConstraint;
+
 typedef struct b2ContactPositionConstraint
 {
 	b2Vec2 localPoints[b2_maxManifoldPoints];
@@ -820,4 +849,18 @@ bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
 	// We can't expect minSpeparation >= -b2_linearSlop because we don't
 	// push the separation above -b2_linearSlop.
 	return minSeparation >= -3.0f * b2_linearSlop;
+}
+
+b2ContactImpulse b2ContactSolver_GetImpulse(b2ContactSolver* solver, int32_t index)
+{
+	const b2ContactVelocityConstraint* vc = solver->velocityConstraints + index;
+
+	b2ContactImpulse impulse;
+	impulse.count = vc->pointCount;
+	for (int32_t i = 0; i < vc->pointCount; ++i)
+	{
+		impulse.normalImpulses[i] = vc->points[i].normalImpulse;
+		impulse.tangentImpulses[i] = vc->points[i].tangentImpulse;
+	}
+	return impulse;
 }
