@@ -20,6 +20,7 @@ extern "C"
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {0.0f, 1.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
+static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
 bool b2Vec2_IsValid(b2Vec2 v);
 
@@ -95,6 +96,12 @@ static inline b2Vec2 b2MulSV(float s, b2Vec2 v)
 static inline b2Vec2 b2MulAdd(b2Vec2 a, float s, b2Vec2 b)
 {
 	return B2_LITERAL(b2Vec2){a.x + s * b.x, a.y + s * b.y};
+}
+
+/// a - s * b
+static inline b2Vec2 b2MulSub(b2Vec2 a, float s, b2Vec2 b)
+{
+	return B2_LITERAL(b2Vec2){a.x - s * b.x, a.y - s * b.y};
 }
 
 /// Component-wise absolute vector
@@ -258,6 +265,30 @@ static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
 	C.q = b2InvMulRot(A.q, B.q);
 	C.p = b2InvRotateVector(A.q, b2Sub(B.p, A.p));
 	return C;
+}
+
+static inline b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
+{
+	b2Vec2 u = {
+		A.cx.x * v.x + A.cy.x * v.y,
+		A.cx.y * v.x + A.cy.y * v.y};
+	return u;
+}
+
+static inline b2Mat22 b2GetInverse22(b2Mat22 A)
+{
+	float a = A.cx.x, b = A.cy.x, c = A.cx.y, d = A.cy.y;
+	b2Mat22 B;
+	float det = a * d - b * c;
+	if (det != 0.0f)
+	{
+		det = 1.0f / det;
+	}
+	B.cx.x = det * d;
+	B.cy.x = -det * b;
+	B.cx.y = -det * c;
+	B.cy.y = det * a;
+	return B;
 }
 
 b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);

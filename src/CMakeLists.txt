@@ -9,6 +9,8 @@ set(BOX2D_SOURCE_FILES
 	chain_shape.h
 	contact.c
 	contact.h
+	contact_solver.c
+	contact_solver.h
 	aabb.c
 	distance.c
 	dynamic_tree.c

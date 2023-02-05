@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "box2d/constants.h"
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,6 +38,13 @@ typedef struct b2Transform
 	b2Vec2 p;
 	b2Rot q;
 } b2Transform;
+
+/// A 2-by-2 Matrix
+typedef struct b2Mat22
+{
+	/// columns
+	b2Vec2 cx, cy;
+} b2Mat22;
 
 /// This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
 /// which may not coincide with the center of mass. However, to support dynamics we must interpolate the center of mass
@@ -84,6 +93,10 @@ typedef struct b2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
 	b2Vec2 gravity;
+
+	/// Restitution velocity threshold, usually in m/s. Collisions above this
+	/// speed have restitution applied (will bounce).
+	float restitutionThreshold;
 
 	/// initial capacity for bodies
 	int32_t bodyCapacity;
@@ -207,6 +220,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 {
 	b2WorldDef def = {0};
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
+	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.bodyCapacity = 8;
 	def.shapeCapacity = 8;
 	return def;

@@ -83,3 +83,14 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child)
 		}
 	}
 }
+
+float b2Shape_GetRadius(const b2Shape* shape)
+{
+	switch (shape->type)
+	{
+		case b2_circleShape:
+			return shape->circle.radius;
+		default:
+			return 0.0f;
+	}
+}

@@ -65,3 +65,5 @@ void b2Shape_CreateProxies(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2
 void b2Shape_DestroyProxies(b2Shape* shape, b2BroadPhase* bp);
 
 b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child);
+
+float b2Shape_GetRadius(const b2Shape* shape);

@@ -38,6 +38,7 @@ typedef struct b2World
 	int32_t contactCount;
 
 	b2Vec2 gravity;
+	float restitutionThreshold;
 
 	//b2DestructionListener* m_destructionListener;
 	//b2Draw* m_debugDraw;

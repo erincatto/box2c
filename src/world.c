@@ -155,6 +155,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->revision += 1;
 
 	world->gravity = def->gravity;
+	world->restitutionThreshold = def->restitutionThreshold;
 	world->inv_dt0 = 0.0f;
 	world->canSleep = true;
 	world->newContacts = false;

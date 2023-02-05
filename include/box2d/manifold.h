@@ -84,6 +84,7 @@ typedef struct b2Manifold
 	b2Vec2 localNormal;
 	b2Vec2 localPoint;
 	b2ManifoldType type;
+	float radiusA, radiusB;
 	int32_t pointCount;
 } b2Manifold;
 
