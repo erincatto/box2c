@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -16,6 +16,7 @@
 #include "sample.h"
 #include "settings.h"
 
+#include "box2d/allocate.h"
 #include "box2d/constants.h"
 #include "box2d/timer.h"
 #include "box2d/math.h"
@@ -34,6 +35,16 @@ static Settings s_settings;
 static bool s_rightMouseDown = false;
 static b2Vec2 s_clickPointWS = b2Vec2_zero;
 static float s_displayScale = 1.0f;
+
+void* AllocFcn(int32_t size)
+{
+	return malloc(size);
+}
+
+void FreeFcn(void* mem)
+{
+	free(mem);
+}
 
 void glfwErrorCallback(int error, const char* description)
 {
@@ -455,6 +466,9 @@ int main(int, char**)
 	// Enable memory-leak reports
 	_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
 #endif
+
+	// Install memory hooks
+	b2SetAllocator(AllocFcn, FreeFcn);
 
 	char buffer[128];
 

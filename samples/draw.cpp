@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "box2d/constants.h"
@@ -83,31 +83,31 @@ b2Vec2 Camera::ConvertWorldToScreen(b2Vec2 pw)
 // http://www.songho.ca/opengl/gl_projectionmatrix.html
 void Camera::BuildProjectionMatrix(float* m, float zBias)
 {
-	float w = float(m_width);
-	float h = float(m_height);
-	float ratio = w / h;
+	float ratio = float(m_width) / float(m_height);
 	b2Vec2 extents = { m_zoom * ratio * 25.0f, m_zoom * 25.0f };
 
 	b2Vec2 lower = b2Sub(m_center, extents);
 	b2Vec2 upper = b2Add(m_center, extents);
+	float w = upper.x - lower.x;
+	float h = upper.y - lower.y;
 
-	m[0] = 2.0f / (upper.x - lower.x);
+	m[0] = 2.0f / w;
 	m[1] = 0.0f;
 	m[2] = 0.0f;
 	m[3] = 0.0f;
 
 	m[4] = 0.0f;
-	m[5] = 2.0f / (upper.y - lower.y);
+	m[5] = 2.0f / h;
 	m[6] = 0.0f;
 	m[7] = 0.0f;
 
 	m[8] = 0.0f;
 	m[9] = 0.0f;
-	m[10] = 1.0f;
+	m[10] = -1.0f;
 	m[11] = 0.0f;
 
-	m[12] = -(upper.x + lower.x) / (upper.x - lower.x);
-	m[13] = -(upper.y + lower.y) / (upper.y - lower.y);
+	m[12] = -2.0f * m_center.x / w;
+	m[13] = -2.0f * m_center.y / h;
 	m[14] = zBias;
 	m[15] = 1.0f;
 }
@@ -726,7 +726,7 @@ void DebugDraw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2
 //
 void DebugDraw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 {
-	const float k_segments = 16.0f;
+	const float k_segments = 32.0f;
 	const float k_increment = 2.0f * b2_pi / k_segments;
 	float sinInc = sinf(k_increment);
 	float cosInc = cosf(k_increment);
@@ -749,14 +749,15 @@ void DebugDraw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 //
 void DebugDraw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color)
 {
-	const float k_segments = 16.0f;
+	b2Color fillColor = { 0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f };
+	const float k_segments = 32.0f;
 	const float k_increment = 2.0f * b2_pi / k_segments;
 	float sinInc = sinf(k_increment);
 	float cosInc = cosf(k_increment);
+
 	b2Vec2 v0 = center;
 	b2Vec2 r1{ cosInc, sinInc };
 	b2Vec2 v1 = b2MulAdd(center, radius, r1);
-	b2Color fillColor = { 0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f };
 	for (int32_t i = 0; i < k_segments; ++i)
 	{
 		// Perform rotation to avoid additional trigonometry.
@@ -789,6 +790,165 @@ void DebugDraw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Colo
 	b2Vec2 p = b2MulAdd(center, radius, axis);
 	m_lines->Vertex(center, color);
 	m_lines->Vertex(p, color);
+}
+
+void DebugDraw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
+{
+	float length;
+	b2Vec2 axis = b2GetLengthAndNormalize(&length, b2Sub(p2, p1));
+
+	if (length == 0.0f)
+	{
+		DrawCircle(p1, radius, color);
+	}
+
+	const float k_segments = 16.0f;
+	const float k_increment = b2_pi / k_segments;
+	float sinInc = sinf(k_increment);
+	float cosInc = cosf(k_increment);
+
+	b2Vec2 r1 = {-axis.y, axis.x};
+	b2Vec2 v1 = b2MulAdd(p1, radius, r1);
+	b2Vec2 a = v1;
+	for (int32_t i = 0; i < k_segments; ++i)
+	{
+		// Perform rotation to avoid additional trigonometry.
+		b2Vec2 r2;
+		r2.x = cosInc * r1.x - sinInc * r1.y;
+		r2.y = sinInc * r1.x + cosInc * r1.y;
+		b2Vec2 v2 = b2MulAdd(p1, radius, r2);
+		m_lines->Vertex(v1, color);
+		m_lines->Vertex(v2, color);
+		r1 = r2;
+		v1 = v2;
+	}
+	b2Vec2 b = v1;
+
+	r1 = {axis.y, -axis.x};
+	v1 = b2MulAdd(p2, radius, r1);
+	b2Vec2 c = v1;
+	for (int32_t i = 0; i < k_segments; ++i)
+	{
+		// Perform rotation to avoid additional trigonometry.
+		b2Vec2 r2;
+		r2.x = cosInc * r1.x - sinInc * r1.y;
+		r2.y = sinInc * r1.x + cosInc * r1.y;
+		b2Vec2 v2 = b2MulAdd(p2, radius, r2);
+		m_lines->Vertex(v1, color);
+		m_lines->Vertex(v2, color);
+		r1 = r2;
+		v1 = v2;
+	}
+	b2Vec2 d = v1;
+
+	m_lines->Vertex(a, color);
+	m_lines->Vertex(d, color);
+
+	m_lines->Vertex(b, color);
+	m_lines->Vertex(c, color);
+
+	m_lines->Vertex(p1, color);
+	m_lines->Vertex(p2, color);
+}
+
+void DebugDraw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
+{
+	float length;
+	b2Vec2 axis = b2GetLengthAndNormalize(&length, b2Sub(p2, p1));
+
+	if (length == 0.0f)
+	{
+		DrawSolidCircle(p1, radius, {1.0f, 0.0f}, color);
+	}
+
+	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
+	const float k_segments = 16.0f;
+	const float k_increment = b2_pi / k_segments;
+	float sinInc = sinf(k_increment);
+	float cosInc = cosf(k_increment);
+
+	b2Vec2 r1 = {-axis.y, axis.x};
+	b2Vec2 v1 = b2MulAdd(p1, radius, r1);
+	b2Vec2 a = v1;
+	for (int32_t i = 0; i < k_segments; ++i)
+	{
+		// Perform rotation to avoid additional trigonometry.
+		b2Vec2 r2;
+		r2.x = cosInc * r1.x - sinInc * r1.y;
+		r2.y = sinInc * r1.x + cosInc * r1.y;
+		b2Vec2 v2 = b2MulAdd(p1, radius, r2);
+		m_triangles->Vertex(p1, fillColor);
+		m_triangles->Vertex(v1, fillColor);
+		m_triangles->Vertex(v2, fillColor);
+		r1 = r2;
+		v1 = v2;
+	}
+	b2Vec2 b = v1;
+
+	r1 = {axis.y, -axis.x};
+	v1 = b2MulAdd(p2, radius, r1);
+	b2Vec2 c = v1;
+	for (int32_t i = 0; i < k_segments; ++i)
+	{
+		// Perform rotation to avoid additional trigonometry.
+		b2Vec2 r2;
+		r2.x = cosInc * r1.x - sinInc * r1.y;
+		r2.y = sinInc * r1.x + cosInc * r1.y;
+		b2Vec2 v2 = b2MulAdd(p2, radius, r2);
+		m_triangles->Vertex(p2, fillColor);
+		m_triangles->Vertex(v1, fillColor);
+		m_triangles->Vertex(v2, fillColor);
+		r1 = r2;
+		v1 = v2;
+	}
+	b2Vec2 d = v1;
+
+	m_triangles->Vertex(a, fillColor);
+	m_triangles->Vertex(b, fillColor);
+	m_triangles->Vertex(c, fillColor);
+
+	m_triangles->Vertex(c, fillColor);
+	m_triangles->Vertex(d, fillColor);
+	m_triangles->Vertex(a, fillColor);
+
+	r1 = {-axis.y, axis.x};
+	v1 = b2MulAdd(p1, radius, r1);
+	for (int32_t i = 0; i < k_segments; ++i)
+	{
+		// Perform rotation to avoid additional trigonometry.
+		b2Vec2 r2;
+		r2.x = cosInc * r1.x - sinInc * r1.y;
+		r2.y = sinInc * r1.x + cosInc * r1.y;
+		b2Vec2 v2 = b2MulAdd(p1, radius, r2);
+		m_lines->Vertex(v1, color);
+		m_lines->Vertex(v2, color);
+		r1 = r2;
+		v1 = v2;
+	}
+
+	r1 = {axis.y, -axis.x};
+	v1 = b2MulAdd(p2, radius, r1);
+	for (int32_t i = 0; i < k_segments; ++i)
+	{
+		// Perform rotation to avoid additional trigonometry.
+		b2Vec2 r2;
+		r2.x = cosInc * r1.x - sinInc * r1.y;
+		r2.y = sinInc * r1.x + cosInc * r1.y;
+		b2Vec2 v2 = b2MulAdd(p2, radius, r2);
+		m_lines->Vertex(v1, color);
+		m_lines->Vertex(v2, color);
+		r1 = r2;
+		v1 = v2;
+	}
+
+	m_lines->Vertex(a, color);
+	m_lines->Vertex(d, color);
+
+	m_lines->Vertex(b, color);
+	m_lines->Vertex(c, color);
+
+	m_lines->Vertex(p1, color);
+	m_lines->Vertex(p2, color);
 }
 
 //

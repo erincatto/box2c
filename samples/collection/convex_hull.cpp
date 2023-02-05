@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
@@ -39,7 +39,7 @@ public:
 #else
 
 		float angle = b2_pi * RandomFloat();
-		b2Rot r = b2Rot_Set(angle);
+		b2Rot r = b2MakeRot(angle);
 
 		b2Vec2 lowerBound = {-4.0f, -4.0f};
 		b2Vec2 upperBound = {4.0f, 4.0f};

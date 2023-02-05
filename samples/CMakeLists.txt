@@ -15,6 +15,8 @@ add_executable(samples
 
 	collection/convex_hull.cpp
 	collection/dynamic_tree.cpp
+	collection/manifold.cpp
+	collection/ray_cast.cpp
 	collection/shape_cast.cpp
 	collection/time_of_impact.cpp
 )

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -45,6 +45,9 @@ extern float b2_lengthUnitsPerMeter;
 
 /// Maximum number of contacts to be handled to solve a TOI impact.
 #define b2_maxTOIContacts 32
+
+/// Maximum number of simultaneouos worlds that can be allocated
+#define b2_maxWorlds 32
 
 /// The maximum linear position correction used when solving constraints. This helps to
 /// prevent overshoot. Meters.

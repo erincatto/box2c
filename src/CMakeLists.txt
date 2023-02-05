@@ -2,32 +2,57 @@ set(BOX2D_SOURCE_FILES
 	allocate.c
 	block_allocator.c
 	block_allocator.h
+	body.c
+	body.h
+	broad_phase.c
+	broad_phase.h
 	chain_shape.h
-	collision.c
+	contact.c
+	contact.h
+	contact_solver.c
+	contact_solver.h
+	aabb.c
 	distance.c
 	dynamic_tree.c
 	hull.c
+	island.c
+	island.h
 	manifold.c
-	manifold.h
 	math.c
-	shapes.c
+	geometry.c
+	polygon_shape.h
+	pool.c
+	pool.h
+	shape.c
+	shape.h
+	stack_allocator.c
+	stack_allocator.h
+	solver_data.h
 	timer.c
+	types.c
+	world.c
+	world.h
 )
 
-set(BOX2D_HEADER_FILES
+set(BOX2D_API_FILES
 	../include/box2d/allocate.h
-	../include/box2d/collision.h
+	../include/box2d/aabb.h
+	../include/box2d/api.h
+	../include/box2d/box2d.h
+	../include/box2d/callbacks.h
 	../include/box2d/constants.h
 	../include/box2d/distance.h
 	../include/box2d/dynamic_tree.h
 	../include/box2d/hull.h
+	../include/box2d/id.h
+	../include/box2d/manifold.h
 	../include/box2d/math.h
-	../include/box2d/shapes.h
+	../include/box2d/geometry.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 )
 
-add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_HEADER_FILES})
+add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
 target_include_directories(box2d
 	PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -52,4 +77,4 @@ if(MATH_LIBRARY)
 endif()
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_HEADER_FILES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_API_FILES})

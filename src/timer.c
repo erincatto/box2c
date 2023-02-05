@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "box2d/timer.h"
@@ -125,7 +125,7 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 
 void b2SleepMilliseconds(float milliseconds)
 {
-	B2_NOT_USED(milliseconds);
+	B2_MAYBE_UNUSED(milliseconds);
 	// TODO couldn't get this to compile on gcc
 	// usleep((uint32_t)(1000.0f * milliseconds + 0.5f));
 }

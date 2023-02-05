@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -39,6 +39,10 @@ public:
 	void DrawCircle(b2Vec2 center, float radius, b2Color color);
 
 	void DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color);
+
+	void DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
+
+	void DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
 
 	void DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color);
 

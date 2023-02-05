@@ -53,13 +53,13 @@ BraceWrapping:
   AfterCaseLabel:  true
   AfterClass:      true
   AfterControlStatement: Always
-  AfterEnum:       true
+  AfterEnum:       true #
   AfterFunction:   true
   AfterNamespace:  true
   AfterObjCDeclaration: true
   AfterStruct:     true
-  AfterUnion:      false
-  AfterExternBlock: true
+  AfterUnion:      true
+  AfterExternBlock: false #
   BeforeCatch:     true
   BeforeElse:      true
   BeforeLambdaBody: false
@@ -70,7 +70,7 @@ BraceWrapping:
   SplitEmptyNamespace: true
 BreakBeforeBinaryOperators: None
 BreakBeforeConceptDeclarations: Always
-BreakBeforeBraces: Custom
+BreakBeforeBraces: Custom #
 BreakBeforeInheritanceComma: false
 BreakInheritanceList: BeforeColon
 BreakBeforeTernaryOperators: true
@@ -206,7 +206,7 @@ StatementMacros:
   - QT_REQUIRE_VERSION
 TabWidth:        4
 UseCRLF:         false
-UseTab: AlignWithSpaces
+UseTab: Always
 WhitespaceSensitiveMacros:
   - STRINGIZE
   - PP_STRINGIZE

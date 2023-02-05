@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-#include "constants.h"
-#include "types.h"
+#include "box2d/constants.h"
+#include "box2d/types.h"
 
 #include <assert.h>
 
@@ -40,7 +40,7 @@ b2DynamicTree b2DynamicTree_Create();
 /// Destroy the tree, freeing the node pool.
 void b2DynamicTree_Destroy(b2DynamicTree* tree);
 
-/// Create a proxy. Provide a tight fitting AABB and a userData pointer.
+/// Create a proxy. Provide a tight fitting AABB and a userData value.
 int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData);
 
 /// Destroy a proxy. This asserts if the id is invalid.
@@ -58,7 +58,12 @@ typedef bool b2QueryCallbackFcn(int32_t proxyId, void* userData, void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2QueryCallbackFcn* callback,
+void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2QueryCallbackFcn* callback,
+                         void* context);
+
+/// Query an AABB for overlapping proxies. The callback class
+/// is called for each proxy that overlaps the supplied AABB.
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallbackFcn* callback,
                          void* context);
 
 /// This function receives clipped raycast input for a proxy. The function
@@ -108,7 +113,7 @@ bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId);
 
 void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId);
 
-/// Get the fat AABB for a proxy.
+/// Get the enlarged (fat) AABB for a proxy.
 b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId);
 
 #ifdef __cplusplus

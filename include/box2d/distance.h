@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,6 +9,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct b2SegmentDistanceResult
+{
+	b2Vec2 closest1;
+	b2Vec2 closest2;
+	float fraction1;
+	float fraction2;
+	float distanceSquared;
+} b2SegmentDistanceResult;
+
+/// Compute the distance between two line segments, clamping at the end points if needed.
+b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2);
 
 /// A distance proxy is used by the GJK algorithm.
 /// It encapsulates any shape.
@@ -28,8 +40,6 @@ typedef struct b2DistanceCache
 	uint8_t indexA[3];	///< vertices on shape A
 	uint8_t indexB[3];	///< vertices on shape B
 } b2DistanceCache;
-
-extern b2DistanceCache b2_emptyDistanceCache;
 
 /// Input for b2Distance.
 /// You have to option to use the shape radii
@@ -53,7 +63,7 @@ typedef struct b2DistanceOutput
 } b2DistanceOutput;
 
 /// Compute the closest points between two shapes. Supports any combination of:
-/// b2CircleShape, b2PolygonShape, b2EdgeShape. The simplex cache is input/output.
+/// b2Circle, b2Polygon, b2EdgeShape. The simplex cache is input/output.
 /// On the first call set b2SimplexCache.count to zero.
 void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2DistanceInput* input);
 

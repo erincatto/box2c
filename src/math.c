@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Erin Catto
+// SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
 #include "box2d/constants.h"
@@ -56,7 +56,7 @@ b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
 	b2Transform xf;
 	xf.p = b2Add(b2MulSV(1.0f - time, sweep->c1), b2MulSV(time, sweep->c2));
 	float angle = (1.0f - time) * sweep->a1 + time * sweep->a2;
-	xf.q = b2Rot_Set(angle);
+	xf.q = b2MakeRot(angle);
 
 	// Shift to origin
 	xf.p = b2Sub(xf.p, b2RotateVector(xf.q, sweep->localCenter));
