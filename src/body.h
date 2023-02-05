@@ -354,11 +354,11 @@ static inline void b2Body_SetAwake(b2Body* body, bool flag)
 	}
 }
 
+// TODO_ERIN filter on joints
 static inline bool b2ShouldBodiesCollide(b2Body* bodyA, b2Body* bodyB)
 {
-	bodyA;
-	bodyB;
-	// TODO_ERIN filter on joints
+	B2_MAYBE_UNUSED(bodyA);
+	B2_MAYBE_UNUSED(bodyB);
 	return true;
 }
 
