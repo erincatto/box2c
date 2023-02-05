@@ -233,10 +233,11 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	b2Timer timer = b2CreateTimer();
 
 	// Solver data
-	b2SolverData solverData;
-	solverData.step = *step;
-	solverData.positions = island->positions;
-	solverData.velocities = island->velocities;
+	// TODO_ERIN for joints
+	//b2SolverData solverData;
+	//solverData.step = *step;
+	//solverData.positions = island->positions;
+	//solverData.velocities = island->velocities;
 
 	// Initialize velocity constraints.
 	b2ContactSolverDef contactSolverDef;
