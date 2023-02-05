@@ -1,15 +1,16 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "contact_solver.h"
 #include "body.h"
 #include "contact.h"
-#include "contact_solver.h"
 #include "shape.h"
 #include "world.h"
 
 #include <assert.h>
 
-// Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned effective mass matrix.
+// Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned
+// effective mass matrix.
 #define B2_DEBUG_SOLVER 0
 
 static bool g_blockSolve = true;
@@ -66,8 +67,10 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 	solver.step = def->step;
 	solver.world = def->world;
 	solver.count = def->count;
-	solver.positionConstraints = (b2ContactPositionConstraint*)b2AllocateStackItem(alloc, solver.count * sizeof(b2ContactPositionConstraint));
-	solver.velocityConstraints = (b2ContactVelocityConstraint*)b2AllocateStackItem(alloc, solver.count * sizeof(b2ContactVelocityConstraint));
+	solver.positionConstraints =
+		(b2ContactPositionConstraint*)b2AllocateStackItem(alloc, solver.count * sizeof(b2ContactPositionConstraint));
+	solver.velocityConstraints =
+		(b2ContactVelocityConstraint*)b2AllocateStackItem(alloc, solver.count * sizeof(b2ContactVelocityConstraint));
 	solver.positions = def->positions;
 	solver.velocities = def->velocities;
 	solver.contacts = def->contacts;
@@ -113,7 +116,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 		pc->localNormal = manifold->localNormal;
 		pc->localPoint = manifold->localPoint;
 		pc->pointCount = pointCount;
-		pc->radiusA =  b2Shape_GetRadius(shapeA);
+		pc->radiusA = b2Shape_GetRadius(shapeA);
 		pc->radiusB = b2Shape_GetRadius(shapeB);
 		pc->type = manifold->type;
 
@@ -121,7 +124,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 		{
 			b2ManifoldPoint* cp = manifold->points + j;
 			b2VelocityConstraintPoint* vcp = vc->points + j;
-	
+
 			if (solver.step.warmStarting)
 			{
 				vcp->normalImpulse = solver.step.dtRatio * cp->normalImpulse;
@@ -221,7 +224,7 @@ void b2ContactSolver_InitializeVelocityConstraints(b2ContactSolver* solver)
 
 			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
 
-			vcp->tangentMass = kTangent > 0.0f ? 1.0f /  kTangent : 0.0f;
+			vcp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
 			// Velocity bias for speculative collision
 			vcp->velocityBias = -B2_MAX(0.0f, worldManifold.separations[j] * solver->step.inv_dt);
@@ -406,21 +409,22 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 			// A = J * W * JT and J = ( -n, -r1 x n, n, r2 x n )
 			// b = vn0 - velocityBias
 			//
-			// The system is solved using the "Total enumeration method" (s. Murty). The complementary constraint vn_i * x_i
-			// implies that we must have in any solution either vn_i = 0 or x_i = 0. So for the 2D contact problem the cases
-			// vn1 = 0 and vn2 = 0, x1 = 0 and x2 = 0, x1 = 0 and vn2 = 0, x2 = 0 and vn1 = 0 need to be tested. The first valid
-			// solution that satisfies the problem is chosen.
-			// 
-			// In order to account of the accumulated impulse 'a' (because of the iterative nature of the solver which only requires
-			// that the accumulated impulse is clamped and not the incremental impulse) we change the impulse variable (x_i).
+			// The system is solved using the "Total enumeration method" (s. Murty). The complementary constraint vn_i *
+			// x_i implies that we must have in any solution either vn_i = 0 or x_i = 0. So for the 2D contact problem
+			// the cases vn1 = 0 and vn2 = 0, x1 = 0 and x2 = 0, x1 = 0 and vn2 = 0, x2 = 0 and vn1 = 0 need to be
+			// tested. The first valid solution that satisfies the problem is chosen.
+			//
+			// In order to account of the accumulated impulse 'a' (because of the iterative nature of the solver which
+			// only requires that the accumulated impulse is clamped and not the incremental impulse) we change the
+			// impulse variable (x_i).
 			//
 			// Substitute:
-			// 
+			//
 			// x = a + d
-			// 
+			//
 			// a := old total impulse
 			// x := new total impulse
-			// d := incremental impulse 
+			// d := incremental impulse
 			//
 			// For the current iteration we extend the formula for the incremental impulse
 			// to compute the new total impulse:
@@ -507,10 +511,10 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 				//
 				// Case 2: vn1 = 0 and x2 = 0
 				//
-				//   0 = a11 * x1 + a12 * 0 + b1' 
+				//   0 = a11 * x1 + a12 * 0 + b1'
 				// vn2 = a21 * x1 + a22 * 0 + b2'
 				//
-				x.x = - cp1->normalMass * b.x;
+				x.x = -cp1->normalMass * b.x;
 				x.y = 0.0f;
 				vn1 = 0.0f;
 				vn2 = vc->K.cx.y * x.x + b.y;
@@ -545,15 +549,14 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 					break;
 				}
 
-
 				//
 				// Case 3: vn2 = 0 and x1 = 0
 				//
-				// vn1 = a11 * 0 + a12 * x2 + b1' 
+				// vn1 = a11 * 0 + a12 * x2 + b1'
 				//   0 = a21 * 0 + a22 * x2 + b2'
 				//
 				x.x = 0.0f;
-				x.y = - cp2->normalMass * b.y;
+				x.y = -cp2->normalMass * b.y;
 				vn1 = vc->K.cy.x * x.y + b.x;
 				vn2 = 0.0f;
 
@@ -590,7 +593,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 
 				//
 				// Case 4: x1 = 0 and x2 = 0
-				// 
+				//
 				// vn1 = b1
 				// vn2 = b2;
 				x.x = 0.0f;
@@ -598,7 +601,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 				vn1 = b.x;
 				vn2 = b.y;
 
-				if (vn1 >= 0.0f && vn2 >= 0.0f )
+				if (vn1 >= 0.0f && vn2 >= 0.0f)
 				{
 					// Resubstitute for the incremental impulse
 					b2Vec2 d = b2Sub(x, a);
@@ -687,7 +690,6 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 
 			vB = b2MulAdd(vB, mB, P);
 			wB += iB * b2Cross(vcp->rB, P);
-
 		}
 
 		solver->velocities[indexA].v = vA;
@@ -721,8 +723,8 @@ typedef struct b2PositionSolverManifold
 	float separation;
 } b2PositionSolverManifold;
 
-b2PositionSolverManifold b2CreatePositionSolverManifold(b2ContactPositionConstraint* pc, b2Transform xfA, b2Transform xfB,
-									int32_t index)
+b2PositionSolverManifold b2CreatePositionSolverManifold(b2ContactPositionConstraint* pc, b2Transform xfA,
+														b2Transform xfB, int32_t index)
 {
 	assert(pc->pointCount > 0);
 
@@ -829,7 +831,7 @@ bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
 			float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
 			// Compute normal impulse
-			float impulse = K > 0.0f ? - C / K : 0.0f;
+			float impulse = K > 0.0f ? -C / K : 0.0f;
 
 			b2Vec2 P = b2MulSV(impulse, normal);
 

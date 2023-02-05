@@ -419,14 +419,12 @@ b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b
 	b2Transform xfR, xfI;
 
 	const b2Capsule* capsuleR;
-	const b2Capsule* capsuleI;
 
 	// Tolerance to stabilize contact points during stacking scenarios
 	const float k_faceTol = 0.5f * b2_linearSlop;
 	if (sepB > sepA + k_faceTol)
 	{
 		capsuleR = capsuleB;
-		capsuleI = capsuleA;
 
 		// segment B is the reference face
 		manifold.type = b2_manifoldFaceB;
@@ -441,7 +439,6 @@ b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b
 	else
 	{
 		capsuleR = capsuleA;
-		capsuleI = capsuleB;
 
 		// segment A is the reference face
 		manifold.type = b2_manifoldFaceA;
