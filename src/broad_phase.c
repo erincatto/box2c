@@ -19,8 +19,9 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	bp->addPairFcn = fcn;
 	bp->fcnContext = fcnContext;
 
-	bp->queryProxyId = B2_NULL_INDEX;
-	bp->queryProxyType = B2_NULL_INDEX;
+	bp->queryProxyKey = B2_NULL_INDEX;
+	bp->queryTreeType = b2_dynamicBody;
+	bp->queryUserData = NULL;
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
@@ -104,14 +105,16 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 {
 	b2BroadPhase* bp = (b2BroadPhase*)context;
 
+	int32_t proxyKey = B2_PROXY_KEY(proxyId, bp->queryTreeType);
+
 	// A proxy cannot form a pair with itself.
-	if (proxyId == bp->queryProxyId)
+	if (proxyKey == bp->queryProxyKey)
 	{
 		return true;
 	}
 
-	bool moved = b2DynamicTree_WasMoved(bp->trees + bp->queryProxyType, proxyId);
-	if (moved && proxyId > bp->queryProxyId)
+	bool moved = b2DynamicTree_WasMoved(bp->trees + bp->queryTreeType, proxyId);
+	if (moved && proxyKey > bp->queryProxyKey)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.
 		return true;
@@ -119,7 +122,7 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 
 	void* userDataA;
 	void* userDataB;
-	if (proxyId < bp->queryProxyId)
+	if (proxyKey < bp->queryProxyKey)
 	{
 		userDataA = userData;
 		userDataB = bp->queryUserData;
@@ -148,19 +151,33 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 			continue;
 		}
 
-		bp->queryProxyType = B2_PROXY_TYPE(proxyKey);
-		bp->queryProxyId = B2_PROXY_ID(proxyKey);
+		int32_t proxyType = B2_PROXY_TYPE(proxyKey);
+		int32_t proxyId = B2_PROXY_ID(proxyKey);
+		bp->queryProxyKey = proxyKey;
 
-		const b2DynamicTree* tree = bp->trees + bp->queryProxyType;
+		const b2DynamicTree* baseTree = bp->trees + proxyType;
 
 		// We have to query the tree with the fat AABB so that
 		// we don't fail to create a contact that may touch later.
-		b2AABB fatAABB = b2DynamicTree_GetFatAABB(tree, bp->queryProxyId);
-		bp->queryUserData = b2DynamicTree_GetUserData(tree, bp->queryProxyId);
+		b2AABB fatAABB = b2DynamicTree_GetFatAABB(baseTree, proxyId);
+		bp->queryUserData = b2DynamicTree_GetUserData(baseTree, proxyId);
 
 		// Query tree and invoke b2AddPairFcn callback. A callback inside a callback.
 		// TODO_ERIN test with filtering
-		b2DynamicTree_Query(tree, fatAABB, b2QueryCallback, bp);
+		if (proxyType == b2_dynamicBody)
+		{
+			bp->queryTreeType = b2_dynamicBody;
+			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2QueryCallback, bp);
+			bp->queryTreeType = b2_kinematicBody;
+			b2DynamicTree_Query(bp->trees + b2_kinematicBody, fatAABB, b2QueryCallback, bp);
+			bp->queryTreeType = b2_staticBody;
+			b2DynamicTree_Query(bp->trees + b2_staticBody, fatAABB, b2QueryCallback, bp);
+		}
+		else if (proxyType == b2_kinematicBody)
+		{
+			bp->queryTreeType = b2_dynamicBody;
+			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2QueryCallback, bp);
+		}
 	}
 
 	// Clear move flags

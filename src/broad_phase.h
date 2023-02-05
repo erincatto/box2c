@@ -14,7 +14,7 @@ typedef struct b2Pair
 typedef void b2AddPairFcn(void* userDataA, void* userDataB, void* context);
 
 // Store the proxy type in the lower 4 bits of the proxy key. This leaves 28 bits for the id.
-#define B2_PROXY_TYPE(KEY) ((KEY)&0xF)
+#define B2_PROXY_TYPE(KEY) ((b2BodyType)((KEY)&0xF))
 #define B2_PROXY_ID(KEY) ((KEY) >> 4)
 #define B2_PROXY_KEY(ID, TYPE) (((ID) << 4) | (TYPE))
 
@@ -109,8 +109,8 @@ typedef struct b2BroadPhase
 	b2AddPairFcn* addPairFcn;
 	void* fcnContext;
 
-	int32_t queryProxyType;
-	int32_t queryProxyId;
+	b2BodyType queryTreeType;
+	int32_t queryProxyKey;
 	void* queryUserData;
 } b2BroadPhase;
 

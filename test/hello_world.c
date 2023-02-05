@@ -80,7 +80,7 @@ int HelloWorld()
 		position = b2Body_GetPosition(bodyId);
 		angle = b2Body_GetAngle(bodyId);
 
-		printf("%4.2f %4.2f %4.2f\n", position.x, position.y, angle);
+		//printf("%4.2f %4.2f %4.2f\n", position.x, position.y, angle);
 	}
 
 	// When the world destructor is called, all bodies and joints are freed. This can

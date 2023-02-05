@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "constants.h"
-#include "types.h"
+#include "box2d/constants.h"
+#include "box2d/types.h"
 
 #include <assert.h>
 
