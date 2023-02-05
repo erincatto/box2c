@@ -12,7 +12,7 @@
 /// Follows Ericson 5.1.9 Closest Points of Two Line Segments
 b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2)
 {
-	b2SegmentDistanceResult result = {0.0f, 0.0f, 0.0f};
+	b2SegmentDistanceResult result = {0};
 
 	b2Vec2 d1 = b2Sub(q1, p1);
 	b2Vec2 d2 = b2Sub(q2, p2);
