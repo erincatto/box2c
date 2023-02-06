@@ -87,12 +87,16 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 		return b2_nullShapeId;
 	}
 
-	assert(0 <= bodyId.index && bodyId.index < w->bodyPool.count);
+	assert(0 <= bodyId.index && bodyId.index < w->bodyPool.capacity);
 	
 	b2Body* body = w->bodies + bodyId.index;
 
 	b2Shape* shape = (b2Shape*)b2AllocObject(&w->shapePool);
 	w->shapes = (b2Shape*)w->shapePool.memory;
+
+	assert(b2IsValid(def->density) && def->density >= 0.0f);
+	assert(b2IsValid(def->friction) && def->friction >= 0.0f);
+	assert(b2IsValid(def->restitution) && def->restitution >= 0.0f);
 
 	shape->bodyIndex = body->object.index;
 	shape->type = b2_polygonShape;

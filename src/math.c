@@ -9,6 +9,21 @@
 float b2_lengthUnitsPerMeter = 1.0f;
 b2Version b2_version = { 3, 0, 0 };
 
+bool b2IsValid(float a)
+{
+	if (isnan(a))
+	{
+		return false;
+	}
+
+	if (isinf(a))
+	{
+		return false;
+	}
+
+	return true;
+}
+
 bool b2Vec2_IsValid(b2Vec2 v)
 {
 	if (isnan(v.x) || isnan(v.y))

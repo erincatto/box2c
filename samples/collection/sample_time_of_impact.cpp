@@ -39,10 +39,10 @@ public:
 
 		b2TimeOfImpact(&output, &input);
 
-		g_debugDraw.DrawString(5, m_textLine, "toi = %g", output.t);
+		g_draw.DrawString(5, m_textLine, "toi = %g", output.t);
 		m_textLine += m_textIncrement;
 
-		g_debugDraw.DrawString(5, m_textLine, "max toi iters = %d, max root iters = %d", b2_toiMaxIters,
+		g_draw.DrawString(5, m_textLine, "max toi iters = %d, max root iters = %d", b2_toiMaxIters,
 		                       b2_toiMaxRootIters);
 		m_textLine += m_textIncrement;
 
@@ -54,7 +54,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformA, m_verticesA[i]);
 		}
-		g_debugDraw.DrawPolygon(vertices, m_countA, {0.9f, 0.9f, 0.9f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countA, {0.9f, 0.9f, 0.9f, 1.0f});
 
 		// Draw B at t = 0
 		b2Transform transformB = b2GetSweepTransform(&sweepB, 0.0f);
@@ -62,7 +62,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_debugDraw.DrawPolygon(vertices, m_countB, {0.5f, 0.9f, 0.5f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.9f, 0.5f, 1.0f});
 
 		// Draw B at t = hit_time
 		transformB = b2GetSweepTransform(&sweepB, output.t);
@@ -70,7 +70,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_debugDraw.DrawPolygon(vertices, m_countB, {0.5f, 0.7f, 0.9f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.7f, 0.9f, 1.0f});
 
 		// Draw B at t = 1
 		transformB = b2GetSweepTransform(&sweepB, 1.0f);
@@ -78,7 +78,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_debugDraw.DrawPolygon(vertices, m_countB, {0.9f, 0.5f, 0.5f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countB, {0.9f, 0.5f, 0.5f, 1.0f});
 
 		if (output.state == b2_toiStateHit)
 		{
@@ -91,7 +91,7 @@ public:
 			b2DistanceCache cache = {0};
 			b2DistanceOutput doutput;
 			b2ShapeDistance(&doutput, &cache, &dinput);
-			g_debugDraw.DrawString(5, m_textLine, "distance = %g", doutput.distance);
+			g_draw.DrawString(5, m_textLine, "distance = %g", doutput.distance);
 			m_textLine += m_textIncrement;
 		}
 
@@ -103,7 +103,7 @@ public:
 			{
 				vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 			}
-			g_debugDraw.DrawPolygon(vertices, m_countB, {0.3f, 0.3f, 0.3f});
+			g_draw.DrawPolygon(vertices, m_countB, {0.3f, 0.3f, 0.3f});
 		}
 #endif
 	}

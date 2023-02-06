@@ -3,42 +3,47 @@
 
 #pragma once
 
-#include "id.h"
-#include "types.h"
+#include "box2d/api.h"
+#include "box2d/id.h"
+#include "box2d/types.h"
 
 typedef struct b2Polygon b2Polygon;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+typedef struct b2DebugDraw b2DebugDraw;
+typedef struct b2DebugDraw b2DebugDraw;
 
 /// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
-b2WorldId b2CreateWorld(const b2WorldDef* def);
+BOX2D_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 
 /// Destroy a world.
-void b2DestroyWorld(b2WorldId worldId);
+BOX2D_API void b2DestroyWorld(b2WorldId worldId);
 
 /// Create a rigid body given a definition. No reference to the definition is retained.
 /// @warning This function is locked during callbacks.
-b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
+BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 
 /// Destroy a rigid body given an id.
 /// @warning This function is locked during callbacks.
-void b2World_DestroyBody(b2BodyId bodyId);
+BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
 /// Take a time step. This performs collision detection, integration,
 /// and constraint solution.
 /// @param timeStep the amount of time to simulate, this should not vary.
 /// @param velocityIterations for the velocity constraint solver.
 /// @param positionIterations for the position constraint solver.
-void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations);
+BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations);
+
+/// Call this to draw shapes and other debug draw data. This is intentionally non-const.
+BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
+BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
-b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
-float b2Body_GetAngle(b2BodyId bodyId);
+BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
+BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
+
+/// Get the current profile.
+BOX2D_API struct b2Profile* b2World_GetProfile(b2WorldId worldId);
 
 #if 0
 	/// Register a destruction listener. The listener is owned by you and must
@@ -54,11 +59,6 @@ void SetContactFilter(b2ContactFilter* filter);
 /// remain in scope.
 void SetContactListener(b2ContactListener* listener);
 
-/// Register a routine for debug drawing. The debug draw functions are called
-/// inside with b2World::DebugDraw method. The debug draw object is owned
-/// by you and must remain in scope.
-void SetDebugDraw(b2Draw* debugDraw);
-
 /// Create a joint to constrain bodies together. No reference to the definition
 /// is retained. This may cause the connected bodies to cease colliding.
 /// @warning This function is locked during callbacks.
@@ -68,13 +68,6 @@ b2Joint* CreateJoint(const b2JointDef* def);
 /// @warning This function is locked during callbacks.
 void DestroyJoint(b2Joint* joint);
 
-/// Take a time step. This performs collision detection, integration,
-/// and constraint solution.
-/// @param timeStep the amount of time to simulate, this should not vary.
-/// @param velocityIterations for the velocity constraint solver.
-/// @param positionIterations for the position constraint solver.
-void Step(float timeStep, int32 velocityIterations, int32 positionIterations);
-
 /// Manually clear the force buffer on all bodies. By default, forces are cleared automatically
 /// after each call to Step. The default behavior is modified by calling SetAutoClearForces.
 /// The purpose of this function is to support sub-stepping. Sub-stepping is often used to maintain
@@ -83,9 +76,6 @@ void Step(float timeStep, int32 velocityIterations, int32 positionIterations);
 /// ClearForces after all sub-steps are complete in one pass of your game loop.
 /// @see SetAutoClearForces
 void ClearForces();
-
-/// Call this to draw shapes and other debug draw data. This is intentionally non-const.
-void DebugDraw();
 
 /// Query the world for all fixtures that potentially overlap the
 /// provided AABB.
@@ -183,14 +173,8 @@ bool GetWarmStarting() const
 	/// Get the contact manager for testing.
 	const b2ContactManager& GetContactManager() const;
 
-	/// Get the current profile.
-	const b2Profile& GetProfile() const;
 
 	/// Dump the world into the log file.
 	/// @warning this should be called outside of a time step.
 	void Dump();
-#endif
-
-#ifdef __cplusplus
-}
 #endif

@@ -13,12 +13,13 @@ add_executable(samples
 	settings.h
 	settings.cpp
 
-	collection/convex_hull.cpp
-	collection/dynamic_tree.cpp
-	collection/manifold.cpp
-	collection/ray_cast.cpp
-	collection/shape_cast.cpp
-	collection/time_of_impact.cpp
+	collection/sample_dynamic_tree.cpp
+	collection/sample_hull.cpp
+	collection/sample_manifold.cpp
+	collection/sample_ray_cast.cpp
+	collection/sample_shape_cast.cpp
+	collection/sample_time_of_impact.cpp
+	collection/sample_vertical_stack.cpp
 )
 
 set_target_properties(samples PROPERTIES

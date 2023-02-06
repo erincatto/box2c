@@ -125,6 +125,13 @@ void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey);
 void b2BroadPhase_UpdatePairs(b2BroadPhase* bp);
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB);
 
+static inline b2AABB b2BroadPhase_GetFatAABB(b2BroadPhase* bp, int32_t proxyKey)
+{
+	b2BodyType type = B2_PROXY_TYPE(proxyKey);
+	int32_t proxyId = B2_PROXY_ID(proxyKey);
+	return b2DynamicTree_GetFatAABB(bp->trees + type, proxyId);
+}
+
 #if 0
 inline void* b2BroadPhase::GetUserData(int32 proxyId) const
 {
@@ -136,11 +143,6 @@ inline bool b2BroadPhase::TestOverlap(int32 proxyIdA, int32 proxyIdB) const
 	const b2AABB& aabbA = m_tree.GetFatAABB(proxyIdA);
 	const b2AABB& aabbB = m_tree.GetFatAABB(proxyIdB);
 	return b2TestOverlap(aabbA, aabbB);
-}
-
-inline const b2AABB& b2BroadPhase::GetFatAABB(int32 proxyId) const
-{
-	return m_tree.GetFatAABB(proxyId);
 }
 
 inline int32 b2BroadPhase::GetProxyCount() const

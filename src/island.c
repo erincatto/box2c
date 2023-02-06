@@ -12,7 +12,6 @@
 #include "solver_data.h"
 #include "world.h"
 
-//#include "contact_solver.h"
 //#include "joint.h"
 
 #include <assert.h>
@@ -391,7 +390,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 				continue;
 			}
 
-			if (b->canSleep ||
+			if (b->canSleep == false ||
 				b->angularVelocity * b->angularVelocity > angTolSqr ||
 				b2Dot(b->linearVelocity, b->linearVelocity) > linTolSqr)
 			{

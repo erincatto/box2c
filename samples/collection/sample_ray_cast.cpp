@@ -149,24 +149,24 @@ public:
 		if (output->hit)
 		{
 			b2Vec2 p = b2MulAdd(p1, output->fraction, d);
-			g_debugDraw.DrawSegment(p1, p, white);
-			g_debugDraw.DrawPoint(p1, 5.0f, green);
-			g_debugDraw.DrawPoint(p, 5.0f, white);
+			g_draw.DrawSegment(p1, p, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+			g_draw.DrawPoint(p, 5.0f, white);
 
 			b2Vec2 n = b2MulAdd(p, 1.0f, output->normal);
-			g_debugDraw.DrawSegment(p, n, violet);
+			g_draw.DrawSegment(p, n, violet);
 
 			if (m_showFraction)
 			{
 				b2Vec2 ps = {p.x + 0.05f, p.y - 0.02f};
-				g_debugDraw.DrawString(ps, "%.2f", output->fraction);
+				g_draw.DrawString(ps, "%.2f", output->fraction);
 			}
 		}
 		else
 		{
-			g_debugDraw.DrawSegment(p1, p2, white);
-			g_debugDraw.DrawPoint(p1, 5.0f, green);
-			g_debugDraw.DrawPoint(p2, 5.0f, red);
+			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+			g_draw.DrawPoint(p2, 5.0f, red);
 		}
 	}
 
@@ -186,7 +186,7 @@ public:
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
 			b2Vec2 c = b2TransformPoint(xf, m_circle.point);
 			b2Vec2 axis = b2RotateVector(xf.q, {1.0f, 0.0f});
-			g_debugDraw.DrawSolidCircle(c, m_circle.radius, axis, color1);
+			g_draw.DrawSolidCircle(c, m_circle.radius, axis, color1);
 
 			b2RayCastOutput localOutput = b2RayCastCircle(&input, &m_circle, xf);
 			if (localOutput.hit)
@@ -203,7 +203,7 @@ public:
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
 			b2Vec2 p1 = b2TransformPoint(xf, m_capsule.point1);
 			b2Vec2 p2 = b2TransformPoint(xf, m_capsule.point2);
-			g_debugDraw.DrawSolidCapsule(p1, p2, m_capsule.radius, color1);
+			g_draw.DrawSolidCapsule(p1, p2, m_capsule.radius, color1);
 
 			b2RayCastOutput localOutput = b2RayCastCapsule(&input, &m_capsule, xf);
 			if (localOutput.hit)
@@ -224,7 +224,7 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf, m_box.vertices[i]);
 			}
-			g_debugDraw.DrawSolidPolygon(vertices, m_box.count, color1);
+			g_draw.DrawSolidPolygon(vertices, m_box.count, color1);
 
 			b2RayCastOutput localOutput = b2RayCastPolygon(&input, &m_box, xf);
 			if (localOutput.hit)
@@ -246,7 +246,7 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf, m_triangle.vertices[i]);
 			}
-			g_debugDraw.DrawSolidPolygon(vertices, m_triangle.count, color1);
+			g_draw.DrawSolidPolygon(vertices, m_triangle.count, color1);
 
 			b2RayCastOutput localOutput = b2RayCastPolygon(&input, &m_triangle, xf);
 			if (localOutput.hit)
@@ -265,7 +265,7 @@ public:
 
 			b2Vec2 p1 = b2TransformPoint(xf, m_segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf, m_segment.point2);
-			g_debugDraw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p1, p2, color1);
 
 			b2RayCastOutput localOutput = b2RayCastSegment(&input, &m_segment, xf);
 			if (localOutput.hit)

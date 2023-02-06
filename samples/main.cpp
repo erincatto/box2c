@@ -242,7 +242,7 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			break;
 
 		case GLFW_KEY_TAB:
-			g_debugDraw.m_showUI = !g_debugDraw.m_showUI;
+			g_draw.m_showUI = !g_draw.m_showUI;
 
 		default:
 			if (s_sample)
@@ -342,12 +342,12 @@ static void ScrollCallback(GLFWwindow* window, double dx, double dy)
 static void UpdateUI()
 {
 	float menuWidth = 180.0f * s_displayScale;
-	if (g_debugDraw.m_showUI)
+	if (g_draw.m_showUI)
 	{
 		ImGui::SetNextWindowPos({g_camera.m_width - menuWidth - 10.0f, 10.0f});
 		ImGui::SetNextWindowSize({menuWidth, g_camera.m_height - 20.0f});
 
-		ImGui::Begin("Tools", &g_debugDraw.m_showUI, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+		ImGui::Begin("Tools", &g_draw.m_showUI, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
 		if (ImGui::BeginTabBar("ControlTabs", ImGuiTabBarFlags_None))
 		{
@@ -541,8 +541,7 @@ int main(int, char**)
 	glfwSetCursorPosCallback(g_mainWindow, MouseMotionCallback);
 	glfwSetScrollCallback(g_mainWindow, ScrollCallback);
 
-	g_debugDraw.Create();
-
+	g_draw.Create();
 	CreateUI(g_mainWindow, glslVersion);
 
 	s_settings.m_sampleIndex = B2_CLAMP(s_settings.m_sampleIndex, 0, g_sampleCount - 1);
@@ -572,7 +571,7 @@ int main(int, char**)
 
 		ImGui::NewFrame();
 
-		if (g_debugDraw.m_showUI)
+		if (g_draw.m_showUI)
 		{
 			ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
 			ImGui::SetNextWindowSize(ImVec2(float(g_camera.m_width), float(g_camera.m_height)));
@@ -589,16 +588,16 @@ int main(int, char**)
 
 		s_sample->Step(s_settings);
 
-		g_debugDraw.Flush();
+		g_draw.Flush();
 
 		UpdateUI();
 
 		// ImGui::ShowDemoWindow();
 
-		if (g_debugDraw.m_showUI)
+		if (g_draw.m_showUI)
 		{
 			sprintf(buffer, "%.1f ms", 1000.0f * frameTime);
-			g_debugDraw.DrawString(5, g_camera.m_height - 20, buffer);
+			g_draw.DrawString(5, g_camera.m_height - 20, buffer);
 		}
 
 		ImGui::Render();
@@ -638,7 +637,7 @@ int main(int, char**)
 	delete s_sample;
 	s_sample = nullptr;
 
-	g_debugDraw.Destroy();
+	g_draw.Destroy();
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	glfwTerminate();

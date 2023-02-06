@@ -41,6 +41,9 @@ b2Polygon b2MakePolygon(const b2Hull* hull)
 
 b2Polygon b2MakeBox(float hx, float hy)
 {
+	assert(b2IsValid(hx) && hx > 0.0f);
+	assert(b2IsValid(hy) && hy > 0.0f);
+
 	b2Polygon shape;
 	shape.count = 4;
 	shape.vertices[0] = (b2Vec2){-hx, -hy};

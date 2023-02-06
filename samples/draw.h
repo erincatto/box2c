@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "box2d/draw.h"
+#include "box2d/debug_draw.h"
 #include "box2d/types.h"
 
 //
@@ -23,11 +23,11 @@ struct Camera
 };
 
 // This class implements Box2D debug drawing callbacks
-class DebugDraw
+class Draw
 {
 public:
-	DebugDraw();
-	~DebugDraw();
+	Draw();
+	~Draw();
 
 	void Create();
 	void Destroy();
@@ -62,9 +62,9 @@ public:
 	struct GLRenderPoints* m_points;
 	struct GLRenderLines* m_lines;
 	struct GLRenderTriangles* m_triangles;
-	b2Draw m_draw;
+	b2DebugDraw m_debugDraw;
 };
 
-extern DebugDraw g_debugDraw;
+extern Draw g_draw;
 extern Camera g_camera;
 extern struct GLFWwindow* g_mainWindow;

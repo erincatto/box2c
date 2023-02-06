@@ -179,7 +179,7 @@ public:
 			b2AABB box = {b2Min(m_startPoint, m_endPoint), b2Max(m_startPoint, m_endPoint)};
 			b2DynamicTree_QueryFiltered(&m_tree, box, b2_defaultMaskBits, QueryCallback, this);
 
-			g_debugDraw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
+			g_draw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
 		}
 
 		//m_startPoint = {-42.0f, -6.0f};
@@ -190,9 +190,9 @@ public:
 			b2RayCastInput input = {m_startPoint, m_endPoint, 1.0f};
 			b2DynamicTree_RayCast(&m_tree, &input, b2_defaultMaskBits, RayCallback, this);
 
-			g_debugDraw.DrawSegment(m_startPoint, m_endPoint, {1.0f, 1.0f, 1.0f, 1.0f});
-			g_debugDraw.DrawPoint(m_startPoint, 5.0f, {0.0f, 1.0f, 0.0f, 1.0f});
-			g_debugDraw.DrawPoint(m_endPoint, 5.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+			g_draw.DrawSegment(m_startPoint, m_endPoint, {1.0f, 1.0f, 1.0f, 1.0f});
+			g_draw.DrawPoint(m_startPoint, 5.0f, {0.0f, 1.0f, 0.0f, 1.0f});
+			g_draw.DrawPoint(m_endPoint, 5.0f, {1.0f, 0.0f, 0.0f, 1.0f});
 		}
 
 		b2Color c = {0.3f, 0.3f, 0.8f, 0.7f};
@@ -204,11 +204,11 @@ public:
 
 			if (p->queryStamp == m_timeStamp || p->rayStamp == m_timeStamp)
 			{
-				g_debugDraw.DrawAABB(p->box, qc);
+				g_draw.DrawAABB(p->box, qc);
 			}
 			else
 			{
-				g_debugDraw.DrawAABB(p->box, c);
+				g_draw.DrawAABB(p->box, c);
 			}
 
 			float moveTest = RandomFloat(0.0f, 1.0f);
@@ -229,12 +229,12 @@ public:
 		float areaRatio = b2DynamicTree_GetAreaRatio(&m_tree);
 
 		int32_t hmin = (int32_t)(ceilf(logf((float)m_proxyCount) / logf(2.0f) - 1.0f));
-		g_debugDraw.DrawString(5, m_textLine, "proxies = %d, height = %d, hmin = %d, area ratio = %.1f", m_proxyCount, height, hmin, areaRatio);
+		g_draw.DrawString(5, m_textLine, "proxies = %d, height = %d, hmin = %d, area ratio = %.1f", m_proxyCount, height, hmin, areaRatio);
 		m_textLine += m_textIncrement;
 
 		if (m_validate)
 		{
-			g_debugDraw.DrawString(5, m_textLine, "validating");
+			g_draw.DrawString(5, m_textLine, "validating");
 			m_textLine += m_textIncrement;
 
 			b2DynamicTree_Validate(&m_tree);

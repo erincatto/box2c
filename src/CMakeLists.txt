@@ -41,6 +41,7 @@ set(BOX2D_API_FILES
 	../include/box2d/box2d.h
 	../include/box2d/callbacks.h
 	../include/box2d/constants.h
+	../include/box2d/debug_draw.h
 	../include/box2d/distance.h
 	../include/box2d/dynamic_tree.h
 	../include/box2d/hull.h
