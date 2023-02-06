@@ -163,7 +163,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->gravity = def->gravity;
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->inv_dt0 = 0.0f;
-	world->canSleep = true;
+	world->enableSleep = true;
 	world->newContacts = false;
 	world->locked = false;
 	world->warmStarting = true;
@@ -241,7 +241,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->world = worldId.index;
 	b->islandFlag = false;
 	b->isAwake = def->isAwake;
-	b->canSleep = def->canSleep;
+	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
 
@@ -566,7 +566,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		}
 
 		b2Profile profile;
-		b2SolveIsland(&island, &profile, step, world->gravity, world->canSleep);
+		b2SolveIsland(&island, &profile, step, world->gravity, world->enableSleep);
 
 		world->profile.solveInit += profile.solveInit;
 		world->profile.solveVelocity += profile.solveVelocity;
@@ -919,6 +919,37 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 // }
 }
 
+void b2World_EnableSleeping(b2WorldId worldId, bool flag)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	if (flag == world->enableSleep)
+	{
+		return;
+	}
+
+	world->enableSleep = flag;
+	if (flag == false)
+	{
+		int32_t count = world->bodyPool.capacity;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			b2Body* b = world->bodies + i;
+			if (b->object.next != i)
+			{
+				continue;
+			}
+
+			b2Body_SetAwake(b, true);
+		}
+	}
+}
+
 #if 0
 b2Joint* b2World::CreateJoint(const b2JointDef* def)
 {
@@ -1075,23 +1106,6 @@ void b2World::DestroyJoint(b2Joint* j)
 	}
 }
 
-//
-void b2World::SetAllowSleeping(bool flag)
-{
-	if (flag == m_allowSleep)
-	{
-		return;
-	}
-
-	m_allowSleep = flag;
-	if (m_allowSleep == false)
-	{
-		for (b2Body* b = m_bodyList; b; b = b->m_next)
-		{
-			b->SetAwake(true);
-		}
-	}
-}
 
 // Find TOI contacts and solve them.
 void b2World::SolveTOI(const b2TimeStep& step)

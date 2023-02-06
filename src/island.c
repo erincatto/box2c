@@ -192,7 +192,7 @@ void b2Island_AddContact(b2Island* island, b2Contact* contact)
 //}
 
 
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool canSleep)
+void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool enableSleep)
 {
 	float h = step->dt;
 
@@ -375,7 +375,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	// Update sleep
-	if (canSleep)
+	if (enableSleep)
 	{
 		float minSleepTime = FLT_MAX;
 
@@ -390,7 +390,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 				continue;
 			}
 
-			if (b->canSleep == false ||
+			if (b->enableSleep == false ||
 				b->angularVelocity * b->angularVelocity > angTolSqr ||
 				b2Dot(b->linearVelocity, b->linearVelocity) > linTolSqr)
 			{

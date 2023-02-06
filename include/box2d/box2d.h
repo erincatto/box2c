@@ -35,6 +35,12 @@ BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityI
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 
+/// Enable/disable sleep.
+BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
+
+/// Get the current profile.
+BOX2D_API struct b2Profile* b2World_GetProfile(b2WorldId worldId);
+
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
@@ -42,8 +48,6 @@ BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
 
-/// Get the current profile.
-BOX2D_API struct b2Profile* b2World_GetProfile(b2WorldId worldId);
 
 #if 0
 	/// Register a destruction listener. The listener is owned by you and must
@@ -111,12 +115,6 @@ const b2Joint* GetJointList() const;
 b2Contact* GetContactList();
 const b2Contact* GetContactList() const;
 
-/// Enable/disable sleep.
-void SetAllowSleeping(bool flag);
-bool GetAllowSleeping() const
-{
-	return m_allowSleep;
-}
 
 /// Enable/disable warm starting. For testing.
 void SetWarmStarting(bool flag)

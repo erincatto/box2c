@@ -326,7 +326,7 @@ typedef struct b2Body
 	// TODO_ERIN islandMarker
 	bool islandFlag;
 	bool isAwake;
-	bool canSleep;
+	bool enableSleep;
 	bool fixedRotation;
 	bool isEnabled;
 } b2Body;

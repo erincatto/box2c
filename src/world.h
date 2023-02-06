@@ -51,7 +51,7 @@ typedef struct b2World
 	b2WorldCallbacks callbacks;
 	b2Profile profile;
 
-	bool canSleep;
+	bool enableSleep;
 	bool newContacts;
 	bool locked;
 	bool warmStarting;
