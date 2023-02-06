@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include "box2d/id.h"
 #include "box2d/types.h"
+
 #include "draw.h"
 
 #include <stdlib.h>
@@ -59,9 +61,6 @@ struct ContactPoint
 };
 #endif
 
-struct b2World;
-struct b2Body;
-struct b2Contact;
 struct b2MouseJoint;
 
 class Sample
@@ -87,13 +86,13 @@ protected:
 	friend class BoundaryListener;
 	friend class ContactListener;
 
-	b2Body* m_groundBody;
+	b2BodyId m_groundBodyId;
 	b2AABB m_worldAABB;
 	//ContactPoint m_points[k_maxContactPoints];
 	int32_t m_pointCount;
 	//DestructionListener m_destructionListener;
 	int32_t m_textLine;
-	b2World* m_world;
+	b2WorldId m_worldId;
 	b2MouseJoint* m_mouseJoint;
 	int32_t m_stepCount;
 	int32_t m_textIncrement;

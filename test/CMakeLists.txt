@@ -1,11 +1,11 @@
 set(BOX2D_TESTS
-    collision_test.c
-    distance_test.c
-    hello_world.c
     main.c
-    math_test.c
-    shape_test.c
+    test_collision.c
+    test_distance.c
     test_macros.h
+    test_math.c
+    test_shape.c
+    test_world.c
 )
 
 add_executable(test ${BOX2D_TESTS})

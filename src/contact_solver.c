@@ -13,7 +13,7 @@
 // effective mass matrix.
 #define B2_DEBUG_SOLVER 0
 
-static bool g_blockSolve = true;
+bool g_blockSolve = true;
 
 typedef struct b2VelocityConstraintPoint
 {

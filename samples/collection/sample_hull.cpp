@@ -83,7 +83,7 @@ public:
 	{
 		Sample::Step(settings);
 
-		g_debugDraw.DrawString(5, m_textLine, "Options: generate(g), auto(a), bulk(b)");
+		g_draw.DrawString(5, m_textLine, "Options: generate(g), auto(a), bulk(b)");
 		m_textLine += m_textIncrement;
 		
 		b2Hull hull;
@@ -144,34 +144,34 @@ public:
 
 		if (valid == false)
 		{
-			g_debugDraw.DrawString(5, m_textLine, "generation = %d, FAILED", m_generation);
+			g_draw.DrawString(5, m_textLine, "generation = %d, FAILED", m_generation);
 			m_textLine += m_textIncrement;
 		}
 		else
 		{
-			g_debugDraw.DrawString(5, m_textLine, "generation = %d, count = %d", m_generation, hull.count);
+			g_draw.DrawString(5, m_textLine, "generation = %d, count = %d", m_generation, hull.count);
 			m_textLine += m_textIncrement;
 		}
 
 		if (milliseconds > 0.0f)
 		{
-			g_debugDraw.DrawString(5, m_textLine, "milliseconds = %g", milliseconds);
+			g_draw.DrawString(5, m_textLine, "milliseconds = %g", milliseconds);
 			m_textLine += m_textIncrement;
 		}
 
 		m_textLine += m_textIncrement;
 
-		g_debugDraw.DrawPolygon(hull.points, hull.count, {0.9f, 0.9f, 0.9f, 1.0f});
+		g_draw.DrawPolygon(hull.points, hull.count, {0.9f, 0.9f, 0.9f, 1.0f});
 
 		for (int32_t i = 0; i < m_count; ++i)
 		{
-			g_debugDraw.DrawPoint(m_points[i], 5.0f, {0.3f, 0.3f, 0.9f, 1.0f});
-			g_debugDraw.DrawString(b2Add(m_points[i], {0.1f, 0.1f}), "%d", i);
+			g_draw.DrawPoint(m_points[i], 5.0f, {0.3f, 0.3f, 0.9f, 1.0f});
+			g_draw.DrawString(b2Add(m_points[i], {0.1f, 0.1f}), "%d", i);
 		}
 
 		for (int32_t i = 0; i < hull.count; ++i)
 		{
-			g_debugDraw.DrawPoint(hull.points[i], 6.0f, {0.3f, 0.7f, 0.3f, 1.0f});
+			g_draw.DrawPoint(hull.points[i], 6.0f, {0.3f, 0.7f, 0.3f, 1.0f});
 		}
 	}
 

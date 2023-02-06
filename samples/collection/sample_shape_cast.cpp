@@ -103,7 +103,7 @@ public:
 
 		b2ShapeDistance(&distanceOutput, &distanceCache, &distanceInput);
 
-		g_debugDraw.DrawString(5, m_textLine, "hit = %s, iters = %d, lambda = %g, distance = %g",
+		g_draw.DrawString(5, m_textLine, "hit = %s, iters = %d, lambda = %g, distance = %g",
 			hit ? "true" : "false", output.iterations, output.lambda, distanceOutput.distance);
 		m_textLine += m_textIncrement;
 
@@ -116,11 +116,11 @@ public:
 
 		if (m_countA == 1)
 		{
-			g_debugDraw.DrawCircle(vertices[0], m_radiusA, { 0.9f, 0.9f, 0.9f, 1.0f });
+			g_draw.DrawCircle(vertices[0], m_radiusA, { 0.9f, 0.9f, 0.9f, 1.0f });
 		}
 		else
 		{
-			g_debugDraw.DrawPolygon(vertices, m_countA, { 0.9f, 0.9f, 0.9f, 1.0f });
+			g_draw.DrawPolygon(vertices, m_countA, { 0.9f, 0.9f, 0.9f, 1.0f });
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -130,11 +130,11 @@ public:
 
 		if (m_countB == 1)
 		{
-			g_debugDraw.DrawCircle(vertices[0], m_radiusB, { 0.5f, 0.9f, 0.5f, 1.0f });
+			g_draw.DrawCircle(vertices[0], m_radiusB, { 0.5f, 0.9f, 0.5f, 1.0f });
 		}
 		else
 		{
-			g_debugDraw.DrawPolygon(vertices, m_countB, { 0.5f, 0.9f, 0.5f, 1.0f });
+			g_draw.DrawPolygon(vertices, m_countB, { 0.5f, 0.9f, 0.5f, 1.0f });
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -144,19 +144,19 @@ public:
 
 		if (m_countB == 1)
 		{
-			g_debugDraw.DrawCircle(vertices[0], m_radiusB, { 0.5f, 0.7f, 0.9f, 1.0f });
+			g_draw.DrawCircle(vertices[0], m_radiusB, { 0.5f, 0.7f, 0.9f, 1.0f });
 		}
 		else
 		{
-			g_debugDraw.DrawPolygon(vertices, m_countB, { 0.5f, 0.7f, 0.9f, 1.0f });
+			g_draw.DrawPolygon(vertices, m_countB, { 0.5f, 0.7f, 0.9f, 1.0f });
 		}
 
 		if (hit)
 		{
 			b2Vec2 p1 = output.point;
-			g_debugDraw.DrawPoint(p1, 10.0f, { 0.9f, 0.3f, 0.3f, 1.0f });
+			g_draw.DrawPoint(p1, 10.0f, { 0.9f, 0.3f, 0.3f, 1.0f });
 			b2Vec2 p2 = b2MulAdd(p1, 1.0f, output.normal);
-			g_debugDraw.DrawSegment(p1, p2, { 0.9f, 0.3f, 0.3f, 1.0f });
+			g_draw.DrawSegment(p1, p2, { 0.9f, 0.3f, 0.3f, 1.0f });
 		}
 	}
 

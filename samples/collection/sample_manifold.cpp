@@ -137,10 +137,10 @@ public:
 				case b2_manifoldCircles:
 				{
 					b2Vec2 p1 = b2TransformPoint(xf1, m->localPoint);
-					g_debugDraw.DrawPoint(p1, 5.0f, green);
+					g_draw.DrawPoint(p1, 5.0f, green);
 
 					b2Vec2 p2 = b2TransformPoint(xf2, m->points[0].localPoint);
-					g_debugDraw.DrawPoint(p2, 5.0f, green);
+					g_draw.DrawPoint(p2, 5.0f, green);
 				}
 				break;
 
@@ -148,17 +148,17 @@ public:
 				{
 					assert(m->pointCount == 2);
 					b2Vec2 p1 = b2TransformPoint(xf1, m->localPoint);
-					g_debugDraw.DrawPoint(p1, 5.0f, green);
+					g_draw.DrawPoint(p1, 5.0f, green);
 
 					b2Vec2 n = b2RotateVector(xf1.q, m->localNormal);
 					b2Vec2 pn = b2MulAdd(p1, 0.5f, n);
-					g_debugDraw.DrawSegment(p1, pn, white);
+					g_draw.DrawSegment(p1, pn, white);
 
 					b2Vec2 p2 = b2TransformPoint(xf2, m->points[0].localPoint);
-					g_debugDraw.DrawPoint(p2, 5.0f, green);
+					g_draw.DrawPoint(p2, 5.0f, green);
 
 					b2Vec2 p3 = b2TransformPoint(xf2, m->points[1].localPoint);
-					g_debugDraw.DrawPoint(p3, 5.0f, green);
+					g_draw.DrawPoint(p3, 5.0f, green);
 				}
 				break;
 
@@ -166,17 +166,17 @@ public:
 				{
 					assert(m->pointCount == 2);
 					b2Vec2 p1 = b2TransformPoint(xf2, m->localPoint);
-					g_debugDraw.DrawPoint(p1, 5.0f, green);
+					g_draw.DrawPoint(p1, 5.0f, green);
 
 					b2Vec2 n = b2RotateVector(xf2.q, m->localNormal);
 					b2Vec2 pn = b2MulAdd(p1, 0.5f, n);
-					g_debugDraw.DrawSegment(p1, pn, white);
+					g_draw.DrawSegment(p1, pn, white);
 
 					b2Vec2 p2 = b2TransformPoint(xf1, m->points[0].localPoint);
-					g_debugDraw.DrawPoint(p2, 5.0f, green);
+					g_draw.DrawPoint(p2, 5.0f, green);
 
 					b2Vec2 p3 = b2TransformPoint(xf1, m->points[1].localPoint);
-					g_debugDraw.DrawPoint(p3, 5.0f, green);
+					g_draw.DrawPoint(p3, 5.0f, green);
 				}
 				break;
 
@@ -191,19 +191,19 @@ public:
 			{
 				b2Vec2 p1 = wm->points[i];
 				b2Vec2 p2 = b2MulAdd(p1, 0.5f, wm->normal);
-				g_debugDraw.DrawSegment(p1, p2, white);
-				g_debugDraw.DrawPoint(p1, 5.0f, green);
+				g_draw.DrawSegment(p1, p2, white);
+				g_draw.DrawPoint(p1, 5.0f, green);
 
 				if (m_showIds)
 				{
 					b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
-					g_debugDraw.DrawString(p, "%x", m->points[i].id.key);
+					g_draw.DrawString(p, "%x", m->points[i].id.key);
 				}
 
 				if (m_showSeparation)
 				{
 					b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
-					g_debugDraw.DrawString(p, "%.3f", wm->separations[i]);
+					g_draw.DrawString(p, "%.3f", wm->separations[i]);
 				}
 			}
 		}
@@ -231,8 +231,8 @@ public:
 			b2Vec2 c2 = b2TransformPoint(xf2, m_circle2.point);
 			b2Vec2 axis1 = b2RotateVector(xf1.q, {1.0f, 0.0f});
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_debugDraw.DrawSolidCircle(c1, m_circle1.radius, axis1, color1);
-			g_debugDraw.DrawSolidCircle(c2, m_circle2.radius, axis2, color2);
+			g_draw.DrawSolidCircle(c1, m_circle1.radius, axis1, color1);
+			g_draw.DrawSolidCircle(c2, m_circle2.radius, axis2, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -249,11 +249,11 @@ public:
 
 			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);
 			b2Vec2 v2 = b2TransformPoint(xf1, m_capsule.point2);
-			g_debugDraw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
 
 			b2Vec2 c1 = b2TransformPoint(xf2, m_circle1.point);
 			b2Vec2 axis1 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_debugDraw.DrawSolidCircle(c1, m_circle1.radius, axis1, color2);
+			g_draw.DrawSolidCircle(c1, m_circle1.radius, axis1, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -270,11 +270,11 @@ public:
 
 			b2Vec2 p1 = b2TransformPoint(xf1, m_segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, m_segment.point2);
-			g_debugDraw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p1, p2, color1);
 
 			b2Vec2 c2 = b2TransformPoint(xf2, m_circle1.point);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_debugDraw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
+			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -291,19 +291,19 @@ public:
 
 			b2Vec2 p1 = b2TransformPoint(xf1, m_smoothSegment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, m_smoothSegment.point2);
-			g_debugDraw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p1, p2, color1);
 
 			p1 = b2TransformPoint(xf1, m_smoothSegment.ghost1);
 			p2 = b2TransformPoint(xf1, m_smoothSegment.point1);
-			g_debugDraw.DrawSegment(p1, p2, dim1);
+			g_draw.DrawSegment(p1, p2, dim1);
 
 			p1 = b2TransformPoint(xf1, m_smoothSegment.point2);
 			p2 = b2TransformPoint(xf1, m_smoothSegment.ghost2);
-			g_debugDraw.DrawSegment(p1, p2, dim1);
+			g_draw.DrawSegment(p1, p2, dim1);
 
 			b2Vec2 c2 = b2TransformPoint(xf2, m_circle1.point);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_debugDraw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
+			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -324,11 +324,11 @@ public:
 
 			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);
 			b2Vec2 v2 = b2TransformPoint(xf1, m_capsule.point2);
-			g_debugDraw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
 
 			v1 = b2TransformPoint(xf2, m_capsule.point1);
 			v2 = b2TransformPoint(xf2, m_capsule.point2);
-			g_debugDraw.DrawSolidCapsule(v1, v2, m_capsule.radius, color2);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color2);
 
 			DrawManifold(&m, &wm, xf1, xf2);
 
@@ -349,11 +349,11 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf1, m_box.vertices[i]);
 			}
-			g_debugDraw.DrawPolygon(vertices, m_box.count, color1);
+			g_draw.DrawPolygon(vertices, m_box.count, color1);
 
 			b2Vec2 c2 = b2TransformPoint(xf2, m_circle1.point);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_debugDraw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
+			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -373,13 +373,13 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf1, m_box.vertices[i]);
 			}
-			g_debugDraw.DrawPolygon(vertices, m_box.count, color1);
+			g_draw.DrawPolygon(vertices, m_box.count, color1);
 
 			for (int i = 0; i < m_box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
 			}
-			g_debugDraw.DrawPolygon(vertices, m_box.count, color2);
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -396,14 +396,14 @@ public:
 
 			b2Vec2 p1 = b2TransformPoint(xf1, m_segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, m_segment.point2);
-			g_debugDraw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p1, p2, color1);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < m_box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
 			}
-			g_debugDraw.DrawPolygon(vertices, m_box.count, color2);
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
 
 			DrawManifold(&m, &wm);
 
@@ -420,22 +420,22 @@ public:
 
 			b2Vec2 p1 = b2TransformPoint(xf1, m_smoothSegment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, m_smoothSegment.point2);
-			g_debugDraw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p1, p2, color1);
 
 			p1 = b2TransformPoint(xf1, m_smoothSegment.ghost1);
 			p2 = b2TransformPoint(xf1, m_smoothSegment.point1);
-			g_debugDraw.DrawSegment(p1, p2, dim1);
+			g_draw.DrawSegment(p1, p2, dim1);
 
 			p1 = b2TransformPoint(xf1, m_smoothSegment.point2);
 			p2 = b2TransformPoint(xf1, m_smoothSegment.ghost2);
-			g_debugDraw.DrawSegment(p1, p2, dim1);
+			g_draw.DrawSegment(p1, p2, dim1);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < m_box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
 			}
-			g_debugDraw.DrawPolygon(vertices, m_box.count, color2);
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
 
 			DrawManifold(&m, &wm);
 

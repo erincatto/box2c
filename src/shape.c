@@ -46,6 +46,7 @@ void b2Shape_CreateProxies(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2
 		b2ShapeProxy* proxy = shape->proxies + i;
 		proxy->aabb = b2Shape_ComputeAABB(shape, xf, i);
 		proxy->proxyKey = b2BroadPhase_CreateProxy(bp, type, proxy->aabb, shape->filter.categoryBits, proxy);
+		assert(B2_PROXY_TYPE(proxy->proxyKey) < b2_bodyTypeCount);
 		proxy->shapeIndex = shape->object.index;
 		proxy->childIndex = i;
 	}

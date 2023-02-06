@@ -7,6 +7,7 @@
 #include "box2d/allocate.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
+#include "box2d/debug_draw.h"
 #include "box2d/timer.h"
 
 #include "body.h"
@@ -153,6 +154,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
 
+	world->contacts = NULL;
+	world->contactCount = 0;
+
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
 
@@ -201,6 +205,15 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b2Body* b = (b2Body*)b2AllocObject(&world->bodyPool);
 	world->bodies = (b2Body*)world->bodyPool.memory;
 
+	assert(0 <= def->type && def->type < b2_bodyTypeCount);
+	assert(b2Vec2_IsValid(def->position));
+	assert(b2IsValid(def->angle));
+	assert(b2Vec2_IsValid(def->linearVelocity));
+	assert(b2IsValid(def->angularVelocity));
+	assert(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
+	assert(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
+	assert(b2IsValid(def->gravityScale) && def->gravityScale >= 0.0f);
+
 	b->type = def->type;
 	b->islandIndex = B2_NULL_INDEX;
 	b->transform.p = def->position;
@@ -246,7 +259,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		return;
 	}
 
-	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + bodyId.index;
 
@@ -277,11 +290,22 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
 
+		// Delete the attached contacts
+		b2ContactEdge* ce = shape->contacts;
+		while (ce)
+		{
+			b2ContactEdge* ce0 = ce;
+			ce = ce->next;
+			b2DestroyContact(world, ce0->contact);
+		}
+		shape->contacts = NULL;
+
 		// if (m_destructionListener)
 		//{
 		//	m_destructionListener->SayGoodbye(f0);
 		// }
 
+		// The broad-phase proxies only exist if the body is enabled
 		if (body->isEnabled)
 		{
 			b2Shape_DestroyProxies(shape, &world->broadPhase);
@@ -671,12 +695,12 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// TODO_ERIN clear forces in island solver on last sub-step
 	// if (m_clearForces)
 	//{
-		int32_t count = world->bodyPool.capacity;
-		for (int32_t i = 0; i < count; ++i)
-		{
-			world->bodies[i].force = b2Vec2_zero;
-			world->bodies[i].torque = 0.0f;
-		}
+	int32_t count = world->bodyPool.capacity;
+	for (int32_t i = 0; i < count; ++i)
+	{
+		world->bodies[i].force = b2Vec2_zero;
+		world->bodies[i].torque = 0.0f;
+	}
 	//}
 
 	world->locked = false;
@@ -684,13 +708,218 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 }
 
-#if 0
-
-void b2World::SetDebugDraw(b2Draw* debugDraw)
+static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Color color)
 {
-	m_debugDraw = debugDraw;
+	switch (shape->type)
+	{
+		case b2_circleShape:
+		{
+			b2Circle* circle = &shape->circle;
+
+			b2Vec2 center = b2TransformPoint(xf, circle->point);
+			float radius = circle->radius;
+			b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
+
+			draw->DrawSolidCircle(center, radius, axis, color, draw->context);
+		}
+		break;
+
+			// case b2_segmentShape:
+			//{
+			// b2EdgeShape* edge = (b2EdgeShape*)shape->GetShape();
+			// b2Vec2 v1 = b2Mul(xf, edge->m_vertex1);
+			// b2Vec2 v2 = b2Mul(xf, edge->m_vertex2);
+			// m_debugDraw->DrawSegment(v1, v2, color);
+
+			// if (edge->m_oneSided == false)
+			//{
+			//	m_debugDraw->DrawPoint(v1, 4.0f, color);
+			//	m_debugDraw->DrawPoint(v2, 4.0f, color);
+			// }
+			// }
+			// break;
+
+			// case b2Shape::e_chain:
+			//{
+			// b2ChainShape* chain = (b2ChainShape*)shape->GetShape();
+			// int32 count = chain->m_count;
+			// const b2Vec2* vertices = chain->m_vertices;
+
+			// b2Vec2 v1 = b2Mul(xf, vertices[0]);
+			// for (int32 i = 1; i < count; ++i)
+			//{
+			//	b2Vec2 v2 = b2Mul(xf, vertices[i]);
+			//	m_debugDraw->DrawSegment(v1, v2, color);
+			//	v1 = v2;
+			// }
+			// }
+			// break;
+
+		case b2_polygonShape:
+		{
+			b2Polygon* poly = &shape->polygon;
+			int32_t count = poly->count;
+			assert(count <= b2_maxPolygonVertices);
+			b2Vec2 vertices[b2_maxPolygonVertices];
+
+			for (int32_t i = 0; i < count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
+			}
+
+			draw->DrawSolidPolygon(vertices, count, color, draw->context);
+		}
+		break;
+
+		default:
+			break;
+	}
 }
 
+void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	if (draw->drawShapes)
+	{
+		int32_t count = world->bodyPool.capacity;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			b2Body* b = world->bodies + i;
+			if (b->object.next != i)
+			{
+				continue;
+			}
+
+			b2Transform xf = b->transform;
+			int32_t shapeIndex = b->shapeIndex;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = world->shapes + shapeIndex;
+				if (b->type == b2_dynamicBody && b->mass == 0.0f)
+				{
+					// Bad body
+					b2DrawShape(draw, shape, xf, (b2Color){1.0f, 0.0f, 0.0f, 1.0f});
+				}
+				else if (b->isEnabled == false)
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.3f, 1.0f});
+				}
+				else if (b->type == b2_staticBody)
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.9f, 0.5f, 1.0f});
+				}
+				else if (b->type == b2_kinematicBody)
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.9f, 1.0f});
+				}
+				else if (b->isAwake == false)
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.6f, 0.6f, 0.6f, 1.0f});
+				}
+				else
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.9f, 0.7f, 0.7f, 1.0f});
+				}
+
+				shapeIndex = shape->nextShapeIndex;
+			}
+		}
+	}
+
+	if (draw->drawJoints)
+	{
+		// for (b2Joint* j = m_jointList; j; j = j->GetNext())
+		//{
+		// j->Draw(m_debugDraw);
+		// }
+	}
+
+	// if (debugDraw->drawPi & b2Draw::e_pairBit)
+	//{
+	//		b2Color color(0.3f, 0.9f, 0.9f);
+	//		for (b2Contact* c = m_contactManager.m_contactList; c; c = c->GetNext())
+	//		{
+	//		b2Shape* fixtureA = c->GetFixtureA();
+	//		b2Shape* fixtureB = c->GetFixtureB();
+	//		int32 indexA = c->GetChildIndexA();
+	//		int32 indexB = c->GetChildIndexB();
+	//		b2Vec2 cA = fixtureA->GetAABB(indexA).GetCenter();
+	//		b2Vec2 cB = fixtureB->GetAABB(indexB).GetCenter();
+
+	//		m_debugDraw->DrawSegment(cA, cB, color);
+	//		}
+	//}
+
+	if (draw->drawAABBs)
+	{
+		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
+		b2BroadPhase* bp = &world->broadPhase;
+
+		int32_t count = world->bodyPool.capacity;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			b2Body* b = world->bodies + i;
+			if (b->object.next != i)
+			{
+				continue;
+			}
+
+			int32_t shapeIndex = b->shapeIndex;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = world->shapes + shapeIndex;
+				for (int32_t j = 0; j < shape->proxyCount; ++j)
+				{
+					b2ShapeProxy* proxy = shape->proxies + j;
+					b2AABB aabb = b2BroadPhase_GetFatAABB(bp, proxy->proxyKey);
+
+					b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
+									{aabb.upperBound.x, aabb.lowerBound.y},
+									{aabb.upperBound.x, aabb.upperBound.y},
+									{aabb.lowerBound.x, aabb.upperBound.y}};
+
+					draw->DrawPolygon(vs, 4, color, draw->context);
+				}
+
+				shapeIndex = shape->nextShapeIndex;
+			}
+		}
+
+		// for (b2Shape* f = b->GetFixtureList(); f; f = f->GetNext())
+		//{
+		//	for (int32 i = 0; i < f->m_proxyCount; ++i)
+		//	{
+		//		b2FixtureProxy* proxy = f->m_proxies + i;
+		//		b2AABB aabb = bp->GetFatAABB(proxy->proxyId);
+		//		b2Vec2 vs[4];
+		//		vs[0].Set(aabb.lowerBound.x, aabb.lowerBound.y);
+		//		vs[1].Set(aabb.upperBound.x, aabb.lowerBound.y);
+		//		vs[2].Set(aabb.upperBound.x, aabb.upperBound.y);
+		//		vs[3].Set(aabb.lowerBound.x, aabb.upperBound.y);
+
+		//		m_debugDraw->DrawPolygon(vs, 4, color);
+		//	}
+		//}
+	}
+
+// if (flags & b2Draw::e_centerOfMassBit)
+//{
+//		for (b2Body* b = m_bodyList; b; b = b->GetNext())
+//		{
+//		b2Transform xf = b->GetTransform();
+//		xf.p = b->GetWorldCenter();
+//		m_debugDraw->DrawTransform(xf);
+//		}
+// }
+}
+
+#if 0
 b2Joint* b2World::CreateJoint(const b2JointDef* def)
 {
 	assert(IsLocked() == false);
@@ -915,8 +1144,8 @@ void b2World::SolveTOI(const b2TimeStep& step)
 			}
 			else
 			{
-				b2Fixture* fA = c->GetFixtureA();
-				b2Fixture* fB = c->GetFixtureB();
+				b2Shape* fA = c->GetFixtureA();
+				b2Shape* fB = c->GetFixtureB();
 
 				// Is there a sensor?
 				if (fA->IsSensor() || fB->IsSensor())
@@ -1011,8 +1240,8 @@ void b2World::SolveTOI(const b2TimeStep& step)
 		}
 
 		// Advance the bodies to the TOI.
-		b2Fixture* fA = minContact->GetFixtureA();
-		b2Fixture* fB = minContact->GetFixtureB();
+		b2Shape* fA = minContact->GetFixtureA();
+		b2Shape* fB = minContact->GetFixtureB();
 		b2Body* bA = fA->GetBody();
 		b2Body* bB = fB->GetBody();
 
@@ -1173,7 +1402,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 			}
 		}
 
-		// Commit fixture proxy movements to the broad-phase so that new contacts are created.
+		// Commit shape proxy movements to the broad-phase so that new contacts are created.
 		// Also, some contacts can be destroyed.
 		m_contactManager.FindNewContacts();
 
@@ -1190,7 +1419,7 @@ struct b2WorldQueryWrapper
 	bool QueryCallback(int32 proxyId)
 	{
 		b2FixtureProxy* proxy = (b2FixtureProxy*)broadPhase->GetUserData(proxyId);
-		return callback->ReportFixture(proxy->fixture);
+		return callback->ReportFixture(proxy->shape);
 	}
 
 	const b2BroadPhase* broadPhase;
@@ -1211,16 +1440,16 @@ struct b2WorldRayCastWrapper
 	{
 		void* userData = broadPhase->GetUserData(proxyId);
 		b2FixtureProxy* proxy = (b2FixtureProxy*)userData;
-		b2Fixture* fixture = proxy->fixture;
+		b2Shape* shape = proxy->shape;
 		int32 index = proxy->childIndex;
 		b2RayCastOutput output;
-		bool hit = fixture->RayCast(&output, input, index);
+		bool hit = shape->RayCast(&output, input, index);
 
 		if (hit)
 		{
 			float fraction = output.fraction;
 			b2Vec2 point = (1.0f - fraction) * input.p1 + fraction * input.p2;
-			return callback->ReportFixture(fixture, point, output.normal, fraction);
+			return callback->ReportFixture(shape, point, output.normal, fraction);
 		}
 
 		return input.maxFraction;
@@ -1242,183 +1471,7 @@ void b2World::RayCast(b2RayCastCallback* callback, const b2Vec2& point1, const b
 	m_contactManager.m_broadPhase.RayCast(&wrapper, input);
 }
 
-void b2World::DrawShape(b2Fixture* fixture, const b2Transform& xf, const b2Color& color)
-{
-	switch (fixture->GetType())
-	{
-	case b2Shape::e_circle:
-		{
-			b2Circle* circle = (b2Circle*)fixture->GetShape();
 
-			b2Vec2 center = b2Mul(xf, circle->m_p);
-			float radius = circle->m_radius;
-			b2Vec2 axis = b2Mul(xf.q, b2Vec2(1.0f, 0.0f));
-
-			m_debugDraw->DrawSolidCircle(center, radius, axis, color);
-		}
-		break;
-
-	case b2Shape::e_edge:
-		{
-			b2EdgeShape* edge = (b2EdgeShape*)fixture->GetShape();
-			b2Vec2 v1 = b2Mul(xf, edge->m_vertex1);
-			b2Vec2 v2 = b2Mul(xf, edge->m_vertex2);
-			m_debugDraw->DrawSegment(v1, v2, color);
-
-			if (edge->m_oneSided == false)
-			{
-				m_debugDraw->DrawPoint(v1, 4.0f, color);
-				m_debugDraw->DrawPoint(v2, 4.0f, color);
-			}
-		}
-		break;
-
-	case b2Shape::e_chain:
-		{
-			b2ChainShape* chain = (b2ChainShape*)fixture->GetShape();
-			int32 count = chain->m_count;
-			const b2Vec2* vertices = chain->m_vertices;
-
-			b2Vec2 v1 = b2Mul(xf, vertices[0]);
-			for (int32 i = 1; i < count; ++i)
-			{
-				b2Vec2 v2 = b2Mul(xf, vertices[i]);
-				m_debugDraw->DrawSegment(v1, v2, color);
-				v1 = v2;
-			}
-		}
-		break;
-
-	case b2Shape::e_polygon:
-		{
-			b2Polygon* poly = (b2Polygon*)fixture->GetShape();
-			int32 vertexCount = poly->m_count;
-			assert(vertexCount <= b2_maxPolygonVertices);
-			b2Vec2 vertices[b2_maxPolygonVertices];
-
-			for (int32 i = 0; i < vertexCount; ++i)
-			{
-				vertices[i] = b2Mul(xf, poly->m_vertices[i]);
-			}
-
-			m_debugDraw->DrawSolidPolygon(vertices, vertexCount, color);
-		}
-		break;
-
-	default:
-	break;
-	}
-}
-
-void b2World::DebugDraw()
-{
-	if (m_debugDraw == nullptr)
-	{
-		return;
-	}
-
-	uint32 flags = m_debugDraw->GetFlags();
-
-	if (flags & b2Draw::e_shapeBit)
-	{
-		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-		{
-			const b2Transform& xf = b->GetTransform();
-			for (b2Fixture* f = b->GetFixtureList(); f; f = f->GetNext())
-			{
-				if (b->GetType() == b2_dynamicBody && b->m_mass == 0.0f)
-				{
-					// Bad body
-					DrawShape(f, xf, b2Color(1.0f, 0.0f, 0.0f));
-				}
-				else if (b->IsEnabled() == false)
-				{
-					DrawShape(f, xf, b2Color(0.5f, 0.5f, 0.3f));
-				}
-				else if (b->GetType() == b2_staticBody)
-				{
-					DrawShape(f, xf, b2Color(0.5f, 0.9f, 0.5f));
-				}
-				else if (b->GetType() == b2_kinematicBody)
-				{
-					DrawShape(f, xf, b2Color(0.5f, 0.5f, 0.9f));
-				}
-				else if (b->IsAwake() == false)
-				{
-					DrawShape(f, xf, b2Color(0.6f, 0.6f, 0.6f));
-				}
-				else
-				{
-					DrawShape(f, xf, b2Color(0.9f, 0.7f, 0.7f));
-				}
-			}
-		}
-	}
-
-	if (flags & b2Draw::e_jointBit)
-	{
-		for (b2Joint* j = m_jointList; j; j = j->GetNext())
-		{
-			j->Draw(m_debugDraw);
-		}
-	}
-
-	if (flags & b2Draw::e_pairBit)
-	{
-		b2Color color(0.3f, 0.9f, 0.9f);
-		for (b2Contact* c = m_contactManager.m_contactList; c; c = c->GetNext())
-		{
-			b2Fixture* fixtureA = c->GetFixtureA();
-			b2Fixture* fixtureB = c->GetFixtureB();
-			int32 indexA = c->GetChildIndexA();
-			int32 indexB = c->GetChildIndexB();
-			b2Vec2 cA = fixtureA->GetAABB(indexA).GetCenter();
-			b2Vec2 cB = fixtureB->GetAABB(indexB).GetCenter();
-
-			m_debugDraw->DrawSegment(cA, cB, color);
-		}
-	}
-
-	if (flags & b2Draw::e_aabbBit)
-	{
-		b2Color color(0.9f, 0.3f, 0.9f);
-		b2BroadPhase* bp = &m_contactManager.m_broadPhase;
-
-		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-		{
-			if (b->IsEnabled() == false)
-			{
-				continue;
-			}
-
-			for (b2Fixture* f = b->GetFixtureList(); f; f = f->GetNext())
-			{
-				for (int32 i = 0; i < f->m_proxyCount; ++i)
-				{
-					b2FixtureProxy* proxy = f->m_proxies + i;
-					b2AABB aabb = bp->GetFatAABB(proxy->proxyId);
-					b2Vec2 vs[4];
-					vs[0].Set(aabb.lowerBound.x, aabb.lowerBound.y);
-					vs[1].Set(aabb.upperBound.x, aabb.lowerBound.y);
-					vs[2].Set(aabb.upperBound.x, aabb.upperBound.y);
-					vs[3].Set(aabb.lowerBound.x, aabb.upperBound.y);
-
-					m_debugDraw->DrawPolygon(vs, 4, color);
-				}
-			}
-		}
-	}
-
-	if (flags & b2Draw::e_centerOfMassBit)
-	{
-		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-		{
-			b2Transform xf = b->GetTransform();
-			xf.p = b->GetWorldCenter();
-			m_debugDraw->DrawTransform(xf);
-		}
-	}
-}
 
 int32 b2World::GetProxyCount() const
 {

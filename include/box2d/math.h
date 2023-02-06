@@ -22,6 +22,7 @@ static const b2Rot b2Rot_identity = {0.0f, 1.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
+bool b2IsValid(float a);
 bool b2Vec2_IsValid(b2Vec2 v);
 
 /// Make a vector

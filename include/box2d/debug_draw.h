@@ -6,7 +6,7 @@
 #include "types.h"
 
 /// This struct holds callbacks you can implement to draw a box2d world.
-typedef struct b2Draw
+typedef struct b2DebugDraw
 {
 	/// Draw a closed polygon provided in CCW order.
 	void (*DrawPolygon)(const b2Vec2* vertices, int vertexCount, b2Color color, void* context);
@@ -35,4 +35,4 @@ typedef struct b2Draw
 	bool drawAABBs;
 	bool drawCOMs;
 	void* context;
-} b2Draw;
+} b2DebugDraw;

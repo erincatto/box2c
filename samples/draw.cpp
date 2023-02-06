@@ -22,7 +22,7 @@
 
 #define BUFFER_OFFSET(x)  ((const void*) (x))
 
-DebugDraw g_debugDraw;
+Draw g_draw;
 Camera g_camera;
 
 //
@@ -594,43 +594,43 @@ struct GLRenderTriangles
 	GLint m_colorAttribute;
 };
 
-void DrawPolygonImpl(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
+void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawPolygon(vertices, vertexCount, color);
+	static_cast<Draw*>(context)->DrawPolygon(vertices, vertexCount, color);
 }
 
-void DrawSolidPolygonImpl(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
+void DrawSolidPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
+	static_cast<Draw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
 }
 
-void DrawCircleImpl(b2Vec2 center, float radius, b2Color color, void* context)
+void DrawCircleFcn(b2Vec2 center, float radius, b2Color color, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawCircle(center, radius, color);
+	static_cast<Draw*>(context)->DrawCircle(center, radius, color);
 }
 
-void DrawSolidCircleImpl(b2Vec2 center, float radius, b2Vec2 axis, b2Color color, void* context)
+void DrawSolidCircleFcn(b2Vec2 center, float radius, b2Vec2 axis, b2Color color, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawSolidCircle(center, radius, axis, color);
+	static_cast<Draw*>(context)->DrawSolidCircle(center, radius, axis, color);
 }
 
-void DrawSegmentImpl(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context)
+void DrawSegmentFcn(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawSegment(p1, p2, color);
+	static_cast<Draw*>(context)->DrawSegment(p1, p2, color);
 }
 
-void DrawTransformImpl(b2Transform xf, void* context)
+void DrawTransformFcn(b2Transform xf, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawTransform(xf);
+	static_cast<Draw*>(context)->DrawTransform(xf);
 }
 
-void DrawPointImpl(b2Vec2 p, float size, b2Color color, void* context)
+void DrawPointFcn(b2Vec2 p, float size, b2Color color, void* context)
 {
-	static_cast<DebugDraw*>(context)->DrawPoint(p, size, color);
+	static_cast<Draw*>(context)->DrawPoint(p, size, color);
 }
 
 //
-DebugDraw::DebugDraw()
+Draw::Draw()
 {
 	m_showUI = true;
 	m_points = nullptr;
@@ -639,7 +639,7 @@ DebugDraw::DebugDraw()
 }
 
 //
-DebugDraw::~DebugDraw()
+Draw::~Draw()
 {
 	assert(m_points == nullptr);
 	assert(m_lines == nullptr);
@@ -647,7 +647,7 @@ DebugDraw::~DebugDraw()
 }
 
 //
-void DebugDraw::Create()
+void Draw::Create()
 {
 	m_points = static_cast<GLRenderPoints*>(malloc(sizeof(GLRenderPoints)));
 	m_points->Create();
@@ -656,14 +656,14 @@ void DebugDraw::Create()
 	m_triangles = static_cast<GLRenderTriangles*>(malloc(sizeof(GLRenderTriangles)));
 	m_triangles->Create();
 
-	m_draw = {
-		DrawPolygonImpl,
-		DrawSolidPolygonImpl,
-		DrawCircleImpl,
-		DrawSolidCircleImpl,
-		DrawSegmentImpl,
-		DrawTransformImpl,
-		DrawPointImpl,
+	m_debugDraw = {
+		DrawPolygonFcn,
+		DrawSolidPolygonFcn,
+		DrawCircleFcn,
+		DrawSolidCircleFcn,
+		DrawSegmentFcn,
+		DrawTransformFcn,
+		DrawPointFcn,
 		true,
 		true,
 		false,
@@ -673,7 +673,7 @@ void DebugDraw::Create()
 }
 
 //
-void DebugDraw::Destroy()
+void Draw::Destroy()
 {
 	m_points->Destroy();
 	free(m_points);
@@ -689,7 +689,7 @@ void DebugDraw::Destroy()
 }
 
 //
-void DebugDraw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
+void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
 {
 	b2Vec2 p1 = vertices[vertexCount - 1];
 	for (int32_t i = 0; i < vertexCount; ++i)
@@ -702,7 +702,7 @@ void DebugDraw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color
 }
 
 //
-void DebugDraw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
+void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
 {
 	b2Color fillColor = { 0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f };
 
@@ -724,7 +724,7 @@ void DebugDraw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2
 }
 
 //
-void DebugDraw::DrawCircle(b2Vec2 center, float radius, b2Color color)
+void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 {
 	const float k_segments = 32.0f;
 	const float k_increment = 2.0f * b2_pi / k_segments;
@@ -747,7 +747,7 @@ void DebugDraw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 }
 
 //
-void DebugDraw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color)
+void Draw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color)
 {
 	b2Color fillColor = { 0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f };
 	const float k_segments = 32.0f;
@@ -792,7 +792,7 @@ void DebugDraw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Colo
 	m_lines->Vertex(p, color);
 }
 
-void DebugDraw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
+void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 {
 	float length;
 	b2Vec2 axis = b2GetLengthAndNormalize(&length, b2Sub(p2, p1));
@@ -851,7 +851,7 @@ void DebugDraw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	m_lines->Vertex(p2, color);
 }
 
-void DebugDraw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
+void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 {
 	float length;
 	b2Vec2 axis = b2GetLengthAndNormalize(&length, b2Sub(p2, p1));
@@ -952,14 +952,14 @@ void DebugDraw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color col
 }
 
 //
-void DebugDraw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color)
+void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color)
 {
 	m_lines->Vertex(p1, color);
 	m_lines->Vertex(p2, color);
 }
 
 //
-void DebugDraw::DrawTransform(b2Transform xf)
+void Draw::DrawTransform(b2Transform xf)
 {
 	const float k_axisScale = 0.4f;
 	b2Color red = { 1.0f, 0.0f, 0.0f, 1.0f };
@@ -976,13 +976,13 @@ void DebugDraw::DrawTransform(b2Transform xf)
 }
 
 //
-void DebugDraw::DrawPoint(b2Vec2 p, float size, b2Color color)
+void Draw::DrawPoint(b2Vec2 p, float size, b2Color color)
 {
 	m_points->Vertex(p, color, size);
 }
 
 //
-void DebugDraw::DrawString(int x, int y, const char* string, ...)
+void Draw::DrawString(int x, int y, const char* string, ...)
 {
 	if (m_showUI == false)
 	{
@@ -999,7 +999,7 @@ void DebugDraw::DrawString(int x, int y, const char* string, ...)
 }
 
 //
-void DebugDraw::DrawString(b2Vec2 pw, const char* string, ...)
+void Draw::DrawString(b2Vec2 pw, const char* string, ...)
 {
 	b2Vec2 ps = g_camera.ConvertWorldToScreen(pw);
 
@@ -1013,7 +1013,7 @@ void DebugDraw::DrawString(b2Vec2 pw, const char* string, ...)
 }
 
 //
-void DebugDraw::DrawAABB(b2AABB aabb, b2Color c)
+void Draw::DrawAABB(b2AABB aabb, b2Color c)
 {
 	b2Vec2 p1 = aabb.lowerBound;
 	b2Vec2 p2 = { aabb.upperBound.x, aabb.lowerBound.y };
@@ -1034,7 +1034,7 @@ void DebugDraw::DrawAABB(b2AABB aabb, b2Color c)
 }
 
 //
-void DebugDraw::Flush()
+void Draw::Flush()
 {
 	m_triangles->Flush();
 	m_lines->Flush();

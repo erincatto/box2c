@@ -1092,8 +1092,7 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 	int32_t iter = 0;
 
 	// Prepare input for distance query.
-	b2DistanceCache cache;
-	cache.count = 0;
+	b2DistanceCache cache = {0};
 	b2DistanceInput distanceInput;
 	distanceInput.proxyA = input->proxyA;
 	distanceInput.proxyB = input->proxyB;
