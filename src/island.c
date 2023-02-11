@@ -417,48 +417,42 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 				b->sleepTime = 0.0f;
 				b->linearVelocity = b2Vec2_zero;
 				b->angularVelocity = 0.0f;
-				b->force = b2Vec2_zero;
-				b->torque = 0.0f;
-				b->awakeIndex = B2_NULL_INDEX;
+				b->speculativePosition = b->position;
+				b->speculativeAngle = b->angle;
 			}
 		}
 	}
 
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
-	b2World* world = island->world;
-
-	for (int32_t i = 0; i < island->bodyCount; ++i)
-	{
-		b2Body* b = island->bodies[i];
-		if (b->isAwake == false)
-		{
-			continue;
-		}
-
-		b2Array_Push(world->awakeBodies, b->object.index);
-
-		b2Vec2 v = b->linearVelocity;
-		float w = b->angularVelocity;
-
-		v = b2Add(v, b2MulSV(h * b->invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
-		w = w + h * b->invI * b->torque;
-
-		v = b2MulSV(1.0f / (1.0f + h * b->linearDamping), v);
-		w *= 1.0f / (1.0f + h * b->angularDamping);
-
-		// Stage 3 - predict new transforms
-		b->speculativePosition = b2MulAdd(b->position, step->dt, v);
-		b->speculativeAngle = b->angle + step->dt * w;
-	}
-
 	if (isIslandAwake)
 	{
-		for (int32_t i = 0; i < island->contactCount; ++i)
+		b2World* world = island->world;
+
+		for (int32_t i = 0; i < island->bodyCount; ++i)
 		{
-			b2Contact* c = island->contacts[i];
-			c->awakeIndex = b2Array(world->awakeContacts).count;
-			b2Array_Push(world->awakeContacts, c);
+			b2Body* b = island->bodies[i];
+			if (b->type == b2_staticBody)
+			{
+				continue;
+			}
+
+			assert(b->awakeIndex == B2_NULL_INDEX);
+			b->awakeIndex = b2Array(world->awakeBodies).count;
+			b2Array_Push(world->awakeBodies, b->object.index);
+
+			b2Vec2 v = b->linearVelocity;
+			float w = b->angularVelocity;
+
+			v = b2Add(v, b2MulSV(h * b->invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
+			w = w + h * b->invI * b->torque;
+
+			v = b2MulSV(1.0f / (1.0f + h * b->linearDamping), v);
+			w *= 1.0f / (1.0f + h * b->angularDamping);
+
+			// Stage 3 - predict new transforms
+			b->speculativePosition = b2MulAdd(b->position, step->dt, v);
+			b->speculativeAngle = b->angle + step->dt * w;
 		}
 	}
 

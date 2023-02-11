@@ -136,6 +136,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		return id;
 	}
 
+	b2InitializeContactRegisters();
+
 	b2World* world = g_worlds + id.index;
 	world->index = id.index;
 
@@ -280,15 +282,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 	b2Body* body = world->bodies + bodyId.index;
 
-	if (body->awakeIndex != B2_NULL_INDEX)
-	{
-		assert(body->isAwake);
-		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
-
-		// Elements of the awake list cannot be moved around, so nullify this element
-		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
-	}
-
 #if 0
 	// Delete the attached joints.
 	b2JointEdge* je = b->m_jointList;
@@ -320,6 +313,26 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b2ContactEdge* ce = shape->contacts;
 		while (ce)
 		{
+			b2Contact* contact = ce->contact;
+
+			// Remove awake contact
+			int32_t awakeIndex = contact->awakeIndex;
+			if (awakeIndex != B2_NULL_INDEX)
+			{
+				assert(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContacts).count);
+				world->awakeContacts[awakeIndex] = NULL;
+				contact->awakeIndex = B2_NULL_INDEX;
+			}
+
+			// TODO_ERIN EndContact callback?
+
+			b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
+			if (contact->manifold.pointCount > 0 && shape->isSensor == false && otherShape->isSensor == false)
+			{
+				b2Body* otherBody = world->bodies + otherShape->bodyIndex;
+				b2Body_SetAwake(world, otherBody, true);
+			}
+
 			b2ContactEdge* ce0 = ce;
 			ce = ce->next;
 
@@ -346,17 +359,59 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		world->shapes = (b2Shape*)world->shapePool.memory;
 	}
 
+	// Remove awake body.
+	// Must do this after destroying contacts because that might wake this body.
+	if (body->awakeIndex != B2_NULL_INDEX)
+	{
+		assert(body->isAwake);
+		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
+		assert(world->awakeBodies[body->awakeIndex] == body->object.index);
+
+		// Elements of the awake list cannot be moved around, so nullify this element
+		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+	}
+
 	b2FreeObject(&world->bodyPool, &body->object);
 	world->bodies = (b2Body*)world->bodyPool.memory;
 }
 
 static void b2Collide(b2World* world)
 {
-	// Update awake contacts.
-	b2Contact* contact = world->contacts;
+	b2ArrayHeader* h1 = (b2ArrayHeader*)world->awakeContacts - 1;
+	B2_MAYBE_UNUSED(h1);
 
-	while (contact)
+	// Validate awake contacts
 	{
+		int32_t N = b2Array(world->awakeContacts).count;
+		int32_t awakeCount = 0;
+		for (int32_t i = 0; i < N; ++i)
+		{
+			b2Contact* contact = world->awakeContacts[i];
+			if (contact != NULL)
+			{
+				++awakeCount;
+				assert(contact->awakeIndex == i);
+			}
+		}
+		assert(awakeCount <= world->contactCount);
+	}
+
+	// Update awake contacts
+	int32_t count = b2Array(world->awakeContacts).count;
+	for (int32_t i = 0; i < count; ++i)
+	{
+		b2Contact* contact = world->awakeContacts[i];
+		if (contact == NULL)
+		{
+			// This means the contact was destroyed
+			continue;
+		}
+
+		// Must clear awake index here because the awake array will be rebuilt
+		// in the island builder.
+		contact->awakeIndex = B2_NULL_INDEX;
+		world->awakeContacts[i] = NULL;
+
 		b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 		b2Shape* shapeB = world->shapes + contact->shapeIndexB;
 		b2Body* bodyA = world->bodies + shapeA->bodyIndex;
@@ -423,6 +478,9 @@ static void b2Collide(b2World* world)
 		b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 		contact = contact->next;
 	}
+
+	// Clear awake contacts
+	b2Array_Clear(world->awakeContacts);
 }
 
 // Find islands, integrate and solve constraints, solve position constraints
@@ -455,10 +513,27 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	//	j->m_islandFlag = false;
 	// }
 
-	// Clear awake contacts
-	b2Array_Clear(world->awakeContacts);
-	b2ArrayHeader* h1 = (b2ArrayHeader*)world->awakeContacts - 1;
-	B2_MAYBE_UNUSED(h1);
+	b2ArrayHeader* header = (b2ArrayHeader*)world->awakeBodies - 1;
+	B2_MAYBE_UNUSED(header);
+
+	// Validate awake bodies
+	{
+		int32_t N = b2Array(world->awakeBodies).count;
+		int32_t awakeCount = 0;
+		for (int32_t i = 0; i < N; ++i)
+		{
+			int32_t bodyIndex = world->awakeBodies[i];
+			if (bodyIndex != B2_NULL_INDEX)
+			{
+				++awakeCount;
+				assert(bodyIndex < world->bodyPool.capacity);
+				b2Body* body = world->bodies + bodyIndex;
+				assert(body->isAwake);
+				assert(body->awakeIndex == i);
+			}
+		}
+		assert(awakeCount <= world->bodyPool.count);
+	}
 
 	// Swap awake body buffer
 	{
@@ -469,8 +544,6 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	const int32_t* seedBuffer = world->seedBodies;
 	b2Array_Clear(world->awakeBodies);
-	b2ArrayHeader* h2 = (b2ArrayHeader*)world->awakeBodies - 1;
-	B2_MAYBE_UNUSED(h2);
 
 	int32_t seedCount = b2Array(seedBuffer).count;
 
@@ -519,6 +592,9 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 				continue;
 			}
 
+			// The awake body array is being rebuilt so the awake index is no longer valid
+			b->awakeIndex = B2_NULL_INDEX;
+
 			// Make sure the body is awake (without resetting sleep timer).
 			b->isAwake = true;
 
@@ -530,17 +606,28 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 				assert(shape->object.index == shapeIndex);
 				shapeIndex = shape->nextShapeIndex;
 
-				if (shape->isSensor)
-				{
-					continue;
-				}
-
 				for (b2ContactEdge* ce = shape->contacts; ce; ce = ce->next)
 				{
 					b2Contact* contact = ce->contact;
 
 					// Has this contact already been added to an island?
 					if (contact->flags & b2_contactIslandFlag)
+					{
+						assert(0 <= contact->awakeIndex && contact->awakeIndex < b2Array(world->awakeContacts).count);
+						assert(world->awakeContacts[contact->awakeIndex] == contact);
+						continue;
+					}
+
+					// This contact is awake even if not touching. This means some contacts will
+					// be computed that fell asleep the previous time step. The contact may have
+					// been added for the other body already.
+					if (contact->awakeIndex == B2_NULL_INDEX)
+					{
+						contact->awakeIndex = b2Array(world->awakeContacts).count;
+						b2Array_Push(world->awakeContacts, contact);
+					}
+
+					if (shape->isSensor)
 					{
 						continue;
 					}

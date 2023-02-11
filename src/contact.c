@@ -61,19 +61,17 @@ static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeTy
 	}
 }
 
-static void b2InitializeRegisters()
+void b2InitializeContactRegisters()
 {
-	b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
+	if (s_initialized == false)
+	{
+		b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
+		s_initialized = true;
+	}
 }
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
 {
-	if (s_initialized == false)
-	{
-		b2InitializeRegisters();
-		s_initialized = true;
-	}
-
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
 
@@ -98,7 +96,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->shapeIndexB = shapeB->object.index;
 	c->childA = childA;
 	c->childB = childB;
-	c->awakeIndex = B2_NULL_INDEX;
 	c->manifold = b2EmptyManifold();
 
 	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
@@ -144,20 +141,28 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	}
 	shapeB->contacts = &c->edgeB;
 	shapeB->contactCount += 1;
+
+	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+
+	if (bodyA->isAwake || bodyB->isAwake)
+	{
+		c->awakeIndex = b2Array(world->awakeContacts).count;
+		b2Array_Push(world->awakeContacts, c);
+	}
+	else
+	{
+		c->awakeIndex = B2_NULL_INDEX;
+	}
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
+	// Expect caller to handle awake contacts
+	assert(contact->awakeIndex == B2_NULL_INDEX);
+
 	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 	b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-
-	if (contact->manifold.pointCount > 0 &&
-		shapeA->isSensor == false &&
-		shapeB->isSensor == false)
-	{
-		b2Body_SetAwake(world, world->bodies + shapeA->bodyIndex, true);
-		b2Body_SetAwake(world, world->bodies + shapeB->bodyIndex, true);
-	}
 
 	//if (contactListener && contact->IsTouching())
 	//{
@@ -212,13 +217,6 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	if (&contact->edgeB == shapeB->contacts)
 	{
 		shapeB->contacts = contact->edgeB.next;
-	}
-
-	int32_t awakeIndex = contact->awakeIndex;
-	if (awakeIndex != B2_NULL_INDEX)
-	{
-		assert(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContacts).count);
-		world->awakeContacts[awakeIndex] = NULL;
 	}
 
 	b2FreeBlock(world->blockAllocator, contact, sizeof(b2Contact));

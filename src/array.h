@@ -37,6 +37,7 @@ void b2Array_Grow(void** a, int32_t elementSize);
 
 #define b2Array_Push(a, element) \
 	if (b2Array(a).count == b2Array(a).capacity) b2Array_Grow((void**)&a, sizeof(element)); \
+	assert(b2Array(a).count < b2Array(a).capacity); \
 	a[b2Array(a).count++] = element
 
 #define b2Array_Remove(a, index) \
