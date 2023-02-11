@@ -4,6 +4,7 @@
 #include "box2d/distance.h"
 #include "box2d/manifold.h"
 
+#include "array.h"
 #include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
@@ -97,10 +98,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->shapeIndexB = shapeB->object.index;
 	c->childA = childA;
 	c->childB = childB;
-
+	c->awakeIndex = B2_NULL_INDEX;
 	c->manifold = b2EmptyManifold();
-	c->childA = childA;
-	c->childB = childB;
 
 	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
@@ -156,8 +155,8 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		shapeA->isSensor == false &&
 		shapeB->isSensor == false)
 	{
-		b2Body_SetAwake(world->bodies + shapeA->bodyIndex, true);
-		b2Body_SetAwake(world->bodies + shapeB->bodyIndex, true);
+		b2Body_SetAwake(world, world->bodies + shapeA->bodyIndex, true);
+		b2Body_SetAwake(world, world->bodies + shapeB->bodyIndex, true);
 	}
 
 	//if (contactListener && contact->IsTouching())
@@ -213,6 +212,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	if (&contact->edgeB == shapeB->contacts)
 	{
 		shapeB->contacts = contact->edgeB.next;
+	}
+
+	int32_t awakeIndex = contact->awakeIndex;
+	if (awakeIndex != B2_NULL_INDEX)
+	{
+		assert(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContacts).count);
+		world->awakeContacts[awakeIndex] = NULL;
 	}
 
 	b2FreeBlock(world->blockAllocator, contact, sizeof(b2Contact));

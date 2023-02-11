@@ -10,6 +10,7 @@
 #include "box2d/debug_draw.h"
 #include "box2d/timer.h"
 
+#include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "island.h"
@@ -157,6 +158,11 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contacts = NULL;
 	world->contactCount = 0;
 
+	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
+	world->seedBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
+
+	world->awakeContacts = b2CreateArray(sizeof(b2Contact*), def->shapeCapacity);
+
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
 
@@ -180,10 +186,15 @@ void b2DestroyWorld(b2WorldId id)
 {
 	b2World* world = b2GetWorldFromId(id);
 
-	b2Free(world->shapes);
+	b2DestroyArray(world->awakeBodies);
+	b2DestroyArray(world->seedBodies);
+
+	b2DestroyArray(world->awakeContacts);
+
+	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
 
-	b2Free(world->bodies);
+	b2DestroyPool(&world->bodyPool);
 	world->bodies = NULL;
 
 	b2BroadPhase_Destroy(&world->broadPhase);
@@ -240,10 +251,16 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->userData = def->userData;
 	b->world = worldId.index;
 	b->islandFlag = false;
-	b->isAwake = def->isAwake;
+	b->isAwake = b->type == b2_staticBody ? false : def->isAwake;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
+
+	if (b->isAwake)
+	{
+		b->awakeIndex = b2Array(world->awakeBodies).count;
+		b2Array_Push(world->awakeBodies, b->object.index);
+	}
 
 	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
 	return id;
@@ -262,6 +279,15 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + bodyId.index;
+
+	if (body->awakeIndex != B2_NULL_INDEX)
+	{
+		assert(body->isAwake);
+		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
+
+		// Elements of the awake list cannot be moved around, so nullify this element
+		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+	}
 
 #if 0
 	// Delete the attached joints.
@@ -296,6 +322,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		{
 			b2ContactEdge* ce0 = ce;
 			ce = ce->next;
+
 			b2DestroyContact(world, ce0->contact);
 		}
 		shape->contacts = NULL;
@@ -428,33 +455,48 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	//	j->m_islandFlag = false;
 	// }
 
-	// Build and simulate all awake islands.
-	b2Body** stack = (b2Body**)b2AllocateStackItem(&world->stackAllocator, bodyCount * sizeof(b2Body*));
+	// Clear awake contacts
+	b2Array_Clear(world->awakeContacts);
+	b2ArrayHeader* h1 = (b2ArrayHeader*)world->awakeContacts - 1;
+	B2_MAYBE_UNUSED(h1);
 
-	for (int32_t i = 0; i < bodyCapacity; ++i)
+	// Swap awake body buffer
 	{
-		b2Body* seed = world->bodies + i;
-		if (seed->object.next != i)
+		int32_t* temp = world->awakeBodies;
+		world->awakeBodies = world->seedBodies;
+		world->seedBodies = temp;
+	}
+
+	const int32_t* seedBuffer = world->seedBodies;
+	b2Array_Clear(world->awakeBodies);
+	b2ArrayHeader* h2 = (b2ArrayHeader*)world->awakeBodies - 1;
+	B2_MAYBE_UNUSED(h2);
+
+	int32_t seedCount = b2Array(seedBuffer).count;
+
+	// Build and simulate all awake islands.
+	b2Body** stack = (b2Body**)b2AllocateStackItem(&world->stackAllocator, seedCount * sizeof(b2Body*));
+
+	for (int32_t i = 0; i < seedCount; ++i)
+	{
+		int32_t seedIndex = seedBuffer[i];
+		if (seedIndex == B2_NULL_INDEX)
 		{
-			// body is in free list
+			// body was destroyed, manually put to sleep, or disabled
 			continue;
 		}
+
+		b2Body* seed = world->bodies + seedIndex;
+		assert(seed->object.next == seedIndex);
+		assert(seed->isEnabled);
+		assert(seed->type != b2_staticBody);
 
 		if (seed->islandFlag)
 		{
 			continue;
 		}
 
-		if (seed->isAwake == false || seed->isEnabled == false)
-		{
-			continue;
-		}
-
-		// The seed can be dynamic or kinematic.
-		if (seed->type == b2_staticBody)
-		{
-			continue;
-		}
+		assert(seed->isAwake);
 
 		// Reset island and stack.
 		b2ClearIsland(&island);
@@ -945,7 +987,7 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 				continue;
 			}
 
-			b2Body_SetAwake(b, true);
+			b2Body_SetAwake(world, b, true);
 		}
 	}
 }

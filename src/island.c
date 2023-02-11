@@ -4,6 +4,7 @@
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
+#include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
@@ -191,7 +192,6 @@ void b2Island_AddContact(b2Island* island, b2Contact* contact)
 //	island->joints[island->jointCount++] = joint;
 //}
 
-
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool enableSleep)
 {
 	float h = step->dt;
@@ -375,6 +375,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	// Update sleep
+	bool isIslandAwake = true;
+
 	if (enableSleep)
 	{
 		float minSleepTime = FLT_MAX;
@@ -406,16 +408,26 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 		if (minSleepTime >= b2_timeToSleep && positionSolved)
 		{
+			isIslandAwake = false;
+
 			for (int32_t i = 0; i < island->bodyCount; ++i)
 			{
 				b2Body* b = island->bodies[i];
-				b2Body_SetAwake(b, false);
+				b->isAwake = false;
+				b->sleepTime = 0.0f;
+				b->linearVelocity = b2Vec2_zero;
+				b->angularVelocity = 0.0f;
+				b->force = b2Vec2_zero;
+				b->torque = 0.0f;
+				b->awakeIndex = B2_NULL_INDEX;
 			}
 		}
 	}
 
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
+	b2World* world = island->world;
+
 	for (int32_t i = 0; i < island->bodyCount; ++i)
 	{
 		b2Body* b = island->bodies[i];
@@ -423,6 +435,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		{
 			continue;
 		}
+
+		b2Array_Push(world->awakeBodies, b->object.index);
 
 		b2Vec2 v = b->linearVelocity;
 		float w = b->angularVelocity;
@@ -436,6 +450,16 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		// Stage 3 - predict new transforms
 		b->speculativePosition = b2MulAdd(b->position, step->dt, v);
 		b->speculativeAngle = b->angle + step->dt * w;
+	}
+
+	if (isIslandAwake)
+	{
+		for (int32_t i = 0; i < island->contactCount; ++i)
+		{
+			b2Contact* c = island->contacts[i];
+			c->awakeIndex = b2Array(world->awakeContacts).count;
+			b2Array_Push(world->awakeContacts, c);
+		}
 	}
 
 	b2DestroyContactSolver(&solver);

@@ -3,6 +3,7 @@
 
 #include "box2d/id.h"
 
+#include "array.h"
 #include "block_allocator.h"
 #include "body.h"
 #include "world.h"
@@ -225,6 +226,42 @@ float b2Body_GetAngle(b2BodyId bodyId)
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
 	return world->bodies[bodyId.index].angle;
+}
+
+// This should NOT be called from island code which is using awake array double buffering.
+void b2Body_SetAwake(b2World* world, b2Body* body, bool flag)
+{
+	if (body->type == b2_staticBody)
+	{
+		return;
+	}
+
+	if (body->isAwake == flag)
+	{
+		return;
+	}
+
+	body->isAwake = flag;
+
+	if (flag)
+	{
+		body->sleepTime = 0.0f;
+		assert(body->awakeIndex == B2_NULL_INDEX);
+		body->awakeIndex = b2Array(world->awakeBodies).count;
+		b2Array_Push(world->awakeBodies, body->object.index);
+	}
+	else
+	{
+		body->sleepTime = 0.0f;
+		body->linearVelocity = b2Vec2_zero;
+		body->angularVelocity = 0.0f;
+		body->force = b2Vec2_zero;
+		body->torque = 0.0f;
+
+		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
+		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+		body->awakeIndex = B2_NULL_INDEX;
+	}
 }
 
 #if 0
