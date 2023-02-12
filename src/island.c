@@ -4,6 +4,7 @@
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
+#include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
@@ -191,9 +192,10 @@ void b2Island_AddContact(b2Island* island, b2Contact* contact)
 //	island->joints[island->jointCount++] = joint;
 //}
 
-
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool canSleep)
+void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool enableSleep)
 {
+	b2Timer timer = b2CreateTimer();
+
 	float h = step->dt;
 
 	// Integrate velocities and apply damping. Initialize the body state.
@@ -228,8 +230,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		island->velocities[i].v = v;
 		island->velocities[i].w = w;
 	}
-
-	b2Timer timer = b2CreateTimer();
 
 	// Solver data
 	// TODO_ERIN for joints
@@ -375,7 +375,9 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	// Update sleep
-	if (canSleep)
+	bool isIslandAwake = true;
+
+	if (enableSleep)
 	{
 		float minSleepTime = FLT_MAX;
 
@@ -390,7 +392,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 				continue;
 			}
 
-			if (b->canSleep == false ||
+			if (b->enableSleep == false ||
 				b->angularVelocity * b->angularVelocity > angTolSqr ||
 				b2Dot(b->linearVelocity, b->linearVelocity) > linTolSqr)
 			{
@@ -406,36 +408,70 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 		if (minSleepTime >= b2_timeToSleep && positionSolved)
 		{
+			isIslandAwake = false;
+
 			for (int32_t i = 0; i < island->bodyCount; ++i)
 			{
 				b2Body* b = island->bodies[i];
-				b2Body_SetAwake(b, false);
+				b->isAwake = false;
+				b->sleepTime = 0.0f;
+				b->linearVelocity = b2Vec2_zero;
+				b->angularVelocity = 0.0f;
+				b->speculativePosition = b->position;
+				b->speculativeAngle = b->angle;
 			}
 		}
 	}
 
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
-	for (int32_t i = 0; i < island->bodyCount; ++i)
+	if (isIslandAwake)
 	{
-		b2Body* b = island->bodies[i];
-		if (b->isAwake == false)
+		b2World* world = island->world;
+
+		for (int32_t i = 0; i < island->bodyCount; ++i)
 		{
-			continue;
+			b2Body* b = island->bodies[i];
+			if (b->type == b2_staticBody)
+			{
+				continue;
+			}
+
+			assert(b->awakeIndex == B2_NULL_INDEX);
+			b->awakeIndex = b2Array(world->awakeBodies).count;
+			b2Array_Push(world->awakeBodies, b->object.index);
+
+			b2Vec2 v = b->linearVelocity;
+			float w = b->angularVelocity;
+
+			v = b2Add(v, b2MulSV(h * b->invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
+			w = w + h * b->invI * b->torque;
+
+			v = b2MulSV(1.0f / (1.0f + h * b->linearDamping), v);
+			w *= 1.0f / (1.0f + h * b->angularDamping);
+
+			// Stage 3 - predict new transforms
+			b->speculativePosition = b2MulAdd(b->position, step->dt, v);
+			b->speculativeAngle = b->angle + step->dt * w;
+
+			// Update shapes (for broad-phase).
+			int32_t shapeIndex = b->shapeIndex;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = world->shapes + shapeIndex;
+				for (int32_t j = 0; j < shape->proxyCount; ++j)
+				{
+					b2ShapeProxy* proxy = shape->proxies + j;
+
+					// TODO_ERIN speculate
+					proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
+
+					b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+				}
+
+				shapeIndex = shape->nextShapeIndex;
+			}
 		}
-
-		b2Vec2 v = b->linearVelocity;
-		float w = b->angularVelocity;
-
-		v = b2Add(v, b2MulSV(h * b->invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
-		w = w + h * b->invI * b->torque;
-
-		v = b2MulSV(1.0f / (1.0f + h * b->linearDamping), v);
-		w *= 1.0f / (1.0f + h * b->angularDamping);
-
-		// Stage 3 - predict new transforms
-		b->speculativePosition = b2MulAdd(b->position, step->dt, v);
-		b->speculativeAngle = b->angle + step->dt * w;
 	}
 
 	b2DestroyContactSolver(&solver);

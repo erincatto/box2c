@@ -37,21 +37,26 @@ typedef struct b2World
 	struct b2Contact* contacts;
 	int32_t contactCount;
 
+	// double buffered awake body array (not safe to copy pointers)
+	int32_t* awakeBodies;
+	int32_t* seedBodies;
+
 	b2Vec2 gravity;
 	float restitutionThreshold;
 
 	//b2DestructionListener* m_destructionListener;
-	//b2Draw* m_debugDraw;
 
 	// This is used to compute the time step ratio to support a variable time step.
 	float inv_dt0;
+
+	uint64_t islandId;
 
 	uint16_t revision;
 
 	b2WorldCallbacks callbacks;
 	b2Profile profile;
 
-	bool canSleep;
+	bool enableSleep;
 	bool newContacts;
 	bool locked;
 	bool warmStarting;
@@ -59,7 +64,3 @@ typedef struct b2World
 
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(int16_t index);
-
-	//void b2Solve(b2World* world, const b2TimeStep* step);
-
-//void b2DrawShape(b2World* world, b2Shape* shape, const b2Transform& xf, const b2Color& color);

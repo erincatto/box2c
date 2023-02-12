@@ -211,6 +211,8 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
 	g_draw.m_debugDraw.drawCOMs = settings.m_drawCOMs;
 
+	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
+
 	//m_world->SetAllowSleeping(settings.m_enableSleep);
 	//m_world->SetWarmStarting(settings.m_enableWarmStarting);
 	//m_world->SetContinuousPhysics(settings.m_enableContinuous);

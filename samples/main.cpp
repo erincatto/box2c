@@ -644,5 +644,9 @@ int main(int, char**)
 
 	s_settings.Save();
 
+#if defined(_WIN32)
+	_CrtDumpMemoryLeaks();
+#endif
+
 	return 0;
 }

@@ -98,6 +98,9 @@ typedef struct b2WorldDef
 	/// speed have restitution applied (will bounce).
 	float restitutionThreshold;
 
+	/// Can bodies go to sleep to improve performance
+	bool enableSleep;
+
 	/// initial capacity for bodies
 	int32_t bodyCapacity;
 
@@ -156,7 +159,7 @@ typedef struct b2BodyDef
 
 	/// Set this flag to false if this body should never fall asleep. Note that
 	/// this increases CPU usage.
-	bool canSleep;
+	bool enableSleep;
 
 	/// Is this body initially awake or sleeping?
 	bool isAwake;
@@ -187,7 +190,7 @@ typedef struct b2Filter
 /// Used to create a shape
 typedef struct b2ShapeDef
 {
-	/// Use this to store application specific fixture data.
+	/// Use this to store application specific shape data.
 	void* userData;
 
 	/// The friction coefficient, usually in the range [0,1].
@@ -221,6 +224,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	b2WorldDef def = {0};
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.enableSleep = true;
 	def.bodyCapacity = 8;
 	def.shapeCapacity = 8;
 	return def;
@@ -239,7 +243,7 @@ static inline b2BodyDef b2DefaultBodyDef()
 	def.angularDamping = 0.0f;
 	def.gravityScale = 1.0f;
 	def.userData = NULL;
-	def.canSleep = true;
+	def.enableSleep = true;
 	def.isAwake = true;
 	def.fixedRotation = false;
 	def.isEnabled = true;
