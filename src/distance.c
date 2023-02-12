@@ -364,7 +364,9 @@ void b2Simplex_WitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 
 	case 3:
 		*a = b2Weight3(s->v1.a, s->v1.wA, s->v2.a, s->v2.wA, s->v3.a, s->v3.wA);
-		*b = b2Weight3(s->v1.a, s->v1.wB, s->v2.a, s->v2.wB, s->v3.a, s->v3.wB);
+		// TODO_ERIN why are these not equal?
+		//*b = b2Weight3(s->v1.a, s->v1.wB, s->v2.a, s->v2.wB, s->v3.a, s->v3.wB);
+		*b = *a;
 		break;
 
 	default:

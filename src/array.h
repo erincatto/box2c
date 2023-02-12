@@ -5,21 +5,6 @@
 
 #include <stdint.h>
 
-#if 0
-typedef struct b2Array
-{
-	char* memory;
-	int32_t elementSize;
-	int32_t capacity;
-	int32_t count;
-} b2Array;
-
-b2Array b2CreateArray(int32_t elementSize, int32_t capacity);
-void b2DestroyArray(b2Array* array);
-void b2GrowArray(b2Array* array);
-void b2PushElement(b2Array* array, void* element);
-#endif
-
 typedef struct b2ArrayHeader
 {
 	int32_t count;

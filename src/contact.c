@@ -141,25 +141,12 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	}
 	shapeB->contacts = &c->edgeB;
 	shapeB->contactCount += 1;
-
-	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
-
-	if (bodyA->isAwake || bodyB->isAwake)
-	{
-		c->awakeIndex = b2Array(world->awakeContacts).count;
-		b2Array_Push(world->awakeContacts, c);
-	}
-	else
-	{
-		c->awakeIndex = B2_NULL_INDEX;
-	}
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
 	// Expect caller to handle awake contacts
-	assert(contact->awakeIndex == B2_NULL_INDEX);
+	//assert(contact->awakeIndex == B2_NULL_INDEX);
 
 	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 	b2Shape* shapeB = world->shapes + contact->shapeIndexB;
@@ -261,6 +248,9 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 {
 	b2Manifold oldManifold = contact->manifold;
 
+	assert(shapeA->object.index == contact->shapeIndexA);
+	assert(shapeB->object.index == contact->shapeIndexB);
+
 	// Re-enable this contact.
 	contact->flags |= b2_contactEnabledFlag;
 
@@ -334,7 +324,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 				}
 
 				// For debugging ids
-				//if (mp2->persisted == false && manifold.pointCount == oldManifold.pointCount)
+				//if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
 				//{
 				//	i += 0;
 				//}

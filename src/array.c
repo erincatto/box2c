@@ -8,47 +8,6 @@
 #include <assert.h>
 #include <string.h>
 
-#if 0
-b2Array b2CreateArray(int32_t elementSize, int32_t capacity)
-{
-	assert(0 < elementSize && elementSize < 1024);
-	b2Array array = {0};
-	array.capacity = capacity > 2 ? capacity : 2;
-	array.count = 0;
-	array.elementSize = elementSize;
-	array.memory = (char*)b2Alloc(array.capacity * array.elementSize);
-	return array;
-}
-
-void b2DestroyArray(b2Array* array)
-{
-	b2Free(array->memory);
-	array->memory = NULL;
-}
-
-void b2GrowArray(b2Array* array)
-{
-	// grow by 50%
-	array->capacity += (array->capacity >> 1);
-	char* mem = (char*)b2Alloc(array->capacity * array->elementSize);
-	memcpy(mem, array->memory, array->count * array->elementSize);
-	b2Free(array->memory);
-	array->memory = mem;
-}
-
-void b2PushElement(b2Array* array, void* element)
-{
-	if (array->count == array->capacity)
-	{
-		b2GrowArray(array);
-	}
-
-	char* dst = array->memory + array->count * array->elementSize;
-	memcpy(dst, element, array->elementSize);
-	++array->count;
-}
-#endif
-
 void* b2CreateArray(int32_t elementSize, int32_t capacity)
 {
 	void* result = (b2ArrayHeader*)b2Alloc(sizeof(b2ArrayHeader) + elementSize * capacity) + 1;

@@ -36,6 +36,7 @@ enum b2ContactFlags
 	b2_contactEnabledFlag = 0x0004,
 
 	// This contact needs filtering because a fixture filter was changed.
+	// TODO_ERIN don't defer this anymore
 	b2_contactFilterFlag = 0x0008,
 };
 
@@ -60,8 +61,6 @@ typedef struct b2Contact
 	int32_t childB;
 
 	b2Manifold manifold;
-
-	int32_t awakeIndex;
 
 	// Mixed friction and restitution
 	float friction;

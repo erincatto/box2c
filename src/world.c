@@ -163,8 +163,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
 	world->seedBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
 
-	world->awakeContacts = b2CreateArray(sizeof(b2Contact*), def->shapeCapacity);
-
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
 
@@ -190,8 +188,6 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyArray(world->awakeBodies);
 	b2DestroyArray(world->seedBodies);
-
-	b2DestroyArray(world->awakeContacts);
 
 	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
@@ -263,6 +259,10 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		b->awakeIndex = b2Array(world->awakeBodies).count;
 		b2Array_Push(world->awakeBodies, b->object.index);
 	}
+	else
+	{
+		b->awakeIndex = B2_NULL_INDEX;
+	}
 
 	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
 	return id;
@@ -314,15 +314,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		while (ce)
 		{
 			b2Contact* contact = ce->contact;
-
-			// Remove awake contact
-			int32_t awakeIndex = contact->awakeIndex;
-			if (awakeIndex != B2_NULL_INDEX)
-			{
-				assert(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContacts).count);
-				world->awakeContacts[awakeIndex] = NULL;
-				contact->awakeIndex = B2_NULL_INDEX;
-			}
 
 			// TODO_ERIN EndContact callback?
 
@@ -377,110 +368,73 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 static void b2Collide(b2World* world)
 {
-	b2ArrayHeader* h1 = (b2ArrayHeader*)world->awakeContacts - 1;
-	B2_MAYBE_UNUSED(h1);
+	// Loop awake bodies
+	const int32_t* awakeBodies = world->awakeBodies;
+	int32_t count = b2Array(awakeBodies).count;
 
-	// Validate awake contacts
-	{
-		int32_t N = b2Array(world->awakeContacts).count;
-		int32_t awakeCount = 0;
-		for (int32_t i = 0; i < N; ++i)
-		{
-			b2Contact* contact = world->awakeContacts[i];
-			if (contact != NULL)
-			{
-				++awakeCount;
-				assert(contact->awakeIndex == i);
-			}
-		}
-		assert(awakeCount <= world->contactCount);
-	}
-
-	// Update awake contacts
-	int32_t count = b2Array(world->awakeContacts).count;
 	for (int32_t i = 0; i < count; ++i)
 	{
-		b2Contact* contact = world->awakeContacts[i];
-		if (contact == NULL)
+		int32_t bodyIndex = awakeBodies[i];
+		if (bodyIndex == B2_NULL_INDEX)
 		{
-			// This means the contact was destroyed
+			// Body was destroyed or put to sleep
 			continue;
 		}
 
-		// Must clear awake index here because the awake array will be rebuilt
-		// in the island builder.
-		contact->awakeIndex = B2_NULL_INDEX;
-		world->awakeContacts[i] = NULL;
+		assert(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+		
+		b2Body* body = world->bodies + bodyIndex;
+		
+		assert(body->object.index == bodyIndex && body->object.index == body->object.next);
+		assert(body->type != b2_staticBody);
 
-		b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-		b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-		b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-		b2Body* bodyB = world->bodies + shapeB->bodyIndex;
-
-		// Is this contact flagged for filtering?
-		if (contact->flags & b2_contactFilterFlag)
+		int32_t shapeIndex = body->shapeIndex;
+		while (shapeIndex != B2_NULL_INDEX)
 		{
-			// Should these bodies collide?
-			if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
+			b2Shape* shape = world->shapes + shapeIndex;
+
+			b2ContactEdge* ce = shape->contacts;
+			while (ce != NULL)
 			{
-				b2Contact* cNuke = contact;
-				contact = cNuke->next;
-				b2DestroyContact(world, cNuke);
-				continue;
+				b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
+				b2Body* otherBody = world->bodies + otherShape->bodyIndex;
+				if (otherBody->awakeIndex != B2_NULL_INDEX && shapeIndex > ce->otherShapeIndex)
+				{
+					// avoid double evaluation
+					ce = ce->next;
+					continue;
+				}
+
+				b2Contact* contact = ce->contact;
+				//contact->awakeIndex = B2_NULL_INDEX;
+
+				int32_t proxyKeyA = shape->proxies[contact->childA].proxyKey;
+				int32_t proxyKeyB = otherShape->proxies[contact->childB].proxyKey;
+
+				// Do proxies still overlap?
+				bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
+				if (overlap == false)
+				{
+					ce = ce->next;
+					b2DestroyContact(world, contact);
+					continue;
+				}
+
+				// Update contact respecting shape/body order
+				if (shapeIndex == contact->shapeIndexA)
+				{
+					b2Contact_Update(world, contact, shape, body, otherShape, otherBody);
+				}
+				else
+				{
+					b2Contact_Update(world, contact, otherShape, otherBody, shape, body);
+				}
+				ce = ce->next;
 			}
 
-			if (b2ShouldCollide(shapeA->filter, shapeB->filter))
-			{
-				b2Contact* cNuke = contact;
-				contact = cNuke->next;
-				b2DestroyContact(world, cNuke);
-				continue;
-			}
-			// Check user filtering.
-			b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
-			b2ShapeId shapeIdB = {shapeA->object.index, world->index, shapeA->object.revision};
-			if (world->callbacks.shouldCollideFcn && world->callbacks.shouldCollideFcn(shapeIdA, shapeIdB) == false)
-			{
-				b2Contact* cNuke = contact;
-				contact = cNuke->next;
-				b2DestroyContact(world, cNuke);
-				continue;
-			}
-
-			// Clear the filtering flag.
-			contact->flags &= ~b2_contactFilterFlag;
+			shapeIndex = shape->nextShapeIndex;
 		}
-
-		bool awakeA = bodyA->isAwake && bodyA->type != b2_staticBody;
-		bool awakeB = bodyB->isAwake && bodyB->type != b2_staticBody;
-
-		// At least one body must be awake and it must be dynamic or kinematic.
-		if (awakeA == false && awakeB == false)
-		{
-			contact = contact->next;
-			continue;
-		}
-
-		int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
-		int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
-		bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
-
-		// Here we destroy contacts that cease to overlap in the broad-phase.
-		if (overlap == false)
-		{
-			b2Contact* cNuke = contact;
-			contact = cNuke->next;
-			b2DestroyContact(world, cNuke);
-			continue;
-		}
-
-		// The contact persists.
-		b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
-		contact = contact->next;
 	}
-
-	// Clear awake contacts
-	b2Array_Clear(world->awakeContacts);
 }
 
 // Find islands, integrate and solve constraints, solve position constraints
@@ -613,18 +567,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 					// Has this contact already been added to an island?
 					if (contact->flags & b2_contactIslandFlag)
 					{
-						assert(0 <= contact->awakeIndex && contact->awakeIndex < b2Array(world->awakeContacts).count);
-						assert(world->awakeContacts[contact->awakeIndex] == contact);
 						continue;
-					}
-
-					// This contact is awake even if not touching. This means some contacts will
-					// be computed that fell asleep the previous time step. The contact may have
-					// been added for the other body already.
-					if (contact->awakeIndex == B2_NULL_INDEX)
-					{
-						contact->awakeIndex = b2Array(world->awakeContacts).count;
-						b2Array_Push(world->awakeContacts, contact);
 					}
 
 					if (shape->isSensor)

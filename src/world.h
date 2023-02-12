@@ -41,9 +41,6 @@ typedef struct b2World
 	int32_t* awakeBodies;
 	int32_t* seedBodies;
 
-	// single contact awake array (not safe to copy pointer)
-	struct b2Contact** awakeContacts;
-
 	b2Vec2 gravity;
 	float restitutionThreshold;
 
