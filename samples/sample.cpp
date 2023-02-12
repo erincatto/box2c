@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/box2d.h"
+#include "box2d/math.h"
+#include "box2d/timer.h"
 
 #include "sample.h"
 #include "settings.h"
 #include <stdio.h>
+#include <string.h>
 
 #include <GLFW/glfw3.h>
 
@@ -44,8 +47,8 @@ Sample::Sample()
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	m_groundBodyId = b2World_CreateBody(m_worldId, &bodyDef);
 	
-	//memset(&m_maxProfile, 0, sizeof(b2Profile));
-	//memset(&m_totalProfile, 0, sizeof(b2Profile));
+	m_maxProfile = b2_emptyProfile;
+	m_totalProfile = b2_emptyProfile;
 }
 
 Sample::~Sample()
@@ -243,32 +246,33 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "proxies/height/balance/quality = %d/%d/%d/%g", proxyCount, height, balance, quality);
 		m_textLine += m_textIncrement;
 	}
+#endif
 
 	// Track maximum profile times
 	{
-		const b2Profile& p = m_world->GetProfile();
-		m_maxProfile.step = b2Max(m_maxProfile.step, p.step);
-		m_maxProfile.collide = b2Max(m_maxProfile.collide, p.collide);
-		m_maxProfile.solve = b2Max(m_maxProfile.solve, p.solve);
-		m_maxProfile.solveInit = b2Max(m_maxProfile.solveInit, p.solveInit);
-		m_maxProfile.solveVelocity = b2Max(m_maxProfile.solveVelocity, p.solveVelocity);
-		m_maxProfile.solvePosition = b2Max(m_maxProfile.solvePosition, p.solvePosition);
-		m_maxProfile.solveTOI = b2Max(m_maxProfile.solveTOI, p.solveTOI);
-		m_maxProfile.broadphase = b2Max(m_maxProfile.broadphase, p.broadphase);
+		const b2Profile* p = b2World_GetProfile(m_worldId);
+		m_maxProfile.step = B2_MAX(m_maxProfile.step, p->step);
+		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p->collide);
+		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p->solve);
+		m_maxProfile.solveInit = B2_MAX(m_maxProfile.solveInit, p->solveInit);
+		m_maxProfile.solveVelocity = B2_MAX(m_maxProfile.solveVelocity, p->solveVelocity);
+		m_maxProfile.solvePosition = B2_MAX(m_maxProfile.solvePosition, p->solvePosition);
+		m_maxProfile.solveTOI = B2_MAX(m_maxProfile.solveTOI, p->solveTOI);
+		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
 
-		m_totalProfile.step += p.step;
-		m_totalProfile.collide += p.collide;
-		m_totalProfile.solve += p.solve;
-		m_totalProfile.solveInit += p.solveInit;
-		m_totalProfile.solveVelocity += p.solveVelocity;
-		m_totalProfile.solvePosition += p.solvePosition;
-		m_totalProfile.solveTOI += p.solveTOI;
-		m_totalProfile.broadphase += p.broadphase;
+		m_totalProfile.step += p->step;
+		m_totalProfile.collide += p->collide;
+		m_totalProfile.solve += p->solve;
+		m_totalProfile.solveInit += p->solveInit;
+		m_totalProfile.solveVelocity += p->solveVelocity;
+		m_totalProfile.solvePosition += p->solvePosition;
+		m_totalProfile.solveTOI += p->solveTOI;
+		m_totalProfile.broadphase += p->broadphase;
 	}
 
 	if (settings.m_drawProfile)
 	{
-		const b2Profile& p = m_world->GetProfile();
+		const b2Profile* p = b2World_GetProfile(m_worldId);
 
 		b2Profile aveProfile;
 		memset(&aveProfile, 0, sizeof(b2Profile));
@@ -285,24 +289,25 @@ void Sample::Step(Settings& settings)
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
-		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
+		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->step, aveProfile.step, m_maxProfile.step);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide, m_maxProfile.collide);
+		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->collide, aveProfile.collide, m_maxProfile.collide);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve, m_maxProfile.solve);
+		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solve, aveProfile.solve, m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve init [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveInit, aveProfile.solveInit, m_maxProfile.solveInit);
+		g_draw.DrawString(5, m_textLine, "solve init [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveInit, aveProfile.solveInit, m_maxProfile.solveInit);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve velocity [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveVelocity, aveProfile.solveVelocity, m_maxProfile.solveVelocity);
+		g_draw.DrawString(5, m_textLine, "solve velocity [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveVelocity, aveProfile.solveVelocity, m_maxProfile.solveVelocity);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve position [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solvePosition, aveProfile.solvePosition, m_maxProfile.solvePosition);
+		g_draw.DrawString(5, m_textLine, "solve position [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solvePosition, aveProfile.solvePosition, m_maxProfile.solvePosition);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solveTOI [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveTOI, aveProfile.solveTOI, m_maxProfile.solveTOI);
+		g_draw.DrawString(5, m_textLine, "solveTOI [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveTOI, aveProfile.solveTOI, m_maxProfile.solveTOI);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase, m_maxProfile.broadphase);
+		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->broadphase, aveProfile.broadphase, m_maxProfile.broadphase);
 		m_textLine += m_textIncrement;
 	}
 
+	#if 0
 	if (settings.m_drawContactPoints)
 	{
 		const float k_impulseScale = 0.1f;

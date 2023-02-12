@@ -18,6 +18,8 @@ typedef struct b2Profile
 	float solveTOI;
 } b2Profile;
 
+static const b2Profile b2_emptyProfile = {0};
+
 /// Timer for profiling. This has platform specific code and may
 /// not work on every platform.
 typedef struct b2Timer
@@ -29,7 +31,6 @@ typedef struct b2Timer
 	unsigned long long start_usec;
 #endif
 } b2Timer;
-
 
 #ifdef __cplusplus
 extern "C" {

@@ -592,7 +592,7 @@ int main(int, char**)
 
 		UpdateUI();
 
-		// ImGui::ShowDemoWindow();
+		//ImGui::ShowDemoWindow();
 
 		if (g_draw.m_showUI)
 		{

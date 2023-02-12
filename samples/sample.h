@@ -4,6 +4,7 @@
 #pragma once
 
 #include "box2d/id.h"
+#include "box2d/timer.h"
 #include "box2d/types.h"
 
 #include "draw.h"
@@ -96,8 +97,8 @@ protected:
 	b2MouseJoint* m_mouseJoint;
 	int32_t m_stepCount;
 	int32_t m_textIncrement;
-	//b2Profile m_maxProfile;
-	//b2Profile m_totalProfile;
+	b2Profile m_maxProfile;
+	b2Profile m_totalProfile;
 };
 
 typedef Sample* SampleCreateFcn();

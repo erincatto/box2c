@@ -16,7 +16,7 @@ public:
 
 	enum
 	{
-		e_maxColumns = 5,
+		e_maxColumns = 500,
 		e_maxRows = 15,
 		e_maxBullets = 20
 	};
@@ -34,7 +34,7 @@ public:
 			bd.position = {0.0f, -1.0f};
 			b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
 
-			b2Polygon box = b2MakeBox(40.0f, 1.0f);
+			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
 			b2ShapeDef sd = b2DefaultShapeDef();
 			b2Body_CreatePolygon(groundId, &sd, &box);
 
@@ -57,8 +57,8 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = 2;
-		m_columnCount = 1;
+		m_rowCount = 12;
+		m_columnCount = 500;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -75,8 +75,6 @@ public:
 				m_bodies[i] = b2_nullBodyId;
 			}
 		}
-
-		float xs[5] = {0.0f, -10.0f, -5.0f, 5.0f, 10.0f};
 
 		b2Circle circle;
 		circle.radius = 0.5f;
@@ -98,8 +96,13 @@ public:
 			offset = 0.01f;
 		}
 
+		float dx = 3.0f;
+		float xroot = -0.5f * dx * (m_columnCount - 1.0f);
+
 		for (int32_t j = 0; j < m_columnCount; ++j)
 		{
+			float x = xroot + j * dx;
+
 			for (int32_t i = 0; i < m_rowCount; ++i)
 			{
 				b2BodyDef bd = b2DefaultBodyDef();
@@ -107,8 +110,8 @@ public:
 
 				int32_t n = j * m_rowCount + i;
 
-				float x = (i % 2 == 0 ? -offset : offset);
-				bd.position = {xs[j] + x, 0.55f + 1.1f * i};
+				float shift = (i % 2 == 0 ? -offset : offset);
+				bd.position = {x + shift, 0.55f + 1.1f * i};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;
@@ -160,9 +163,9 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
-		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
 		const char* shapeTypes[] = { "Circle", "Box" };
