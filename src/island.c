@@ -192,7 +192,7 @@ void b2Island_AddContact(b2Island* island, b2Contact* contact)
 //	island->joints[island->jointCount++] = joint;
 //}
 
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool enableSleep)
+void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
 	b2Timer timer = b2CreateTimer();
 
@@ -377,7 +377,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	// Update sleep
 	bool isIslandAwake = true;
 
-	if (enableSleep)
+	b2World* world = island->world;
+	if (world->enableSleep)
 	{
 		float minSleepTime = FLT_MAX;
 
@@ -427,8 +428,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
 	if (isIslandAwake)
 	{
-		b2World* world = island->world;
-
 		for (int32_t i = 0; i < island->bodyCount; ++i)
 		{
 			b2Body* b = island->bodies[i];

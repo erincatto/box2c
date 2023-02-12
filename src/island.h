@@ -43,5 +43,5 @@ void b2Island_AddBody(b2Island* island, struct b2Body* body);
 void b2Island_AddContact(b2Island* island, struct b2Contact* contact);
 void b2Island_AddJoint(b2Island* island, struct b2Joint* joint);
 
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool allowSleep);
+void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity);
 

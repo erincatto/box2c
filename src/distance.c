@@ -1056,7 +1056,7 @@ float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_
 // by computing the largest time at which separation is maintained.
 void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 {
-	b2Timer timer;
+	b2Timer timer = b2CreateTimer();
 
 	++b2_toiCalls;
 

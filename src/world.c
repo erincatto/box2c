@@ -633,7 +633,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		}
 
 		b2Profile profile;
-		b2SolveIsland(&island, &profile, step, world->gravity, world->enableSleep);
+		b2SolveIsland(&island, &profile, step, world->gravity);
 
 		world->profile.solveInit += profile.solveInit;
 		world->profile.solveVelocity += profile.solveVelocity;
@@ -643,7 +643,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2FreeStackItem(&world->stackAllocator, stack);
 
 	// Look for new contacts
-	b2Timer timer;
+	b2Timer timer = b2CreateTimer();
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
@@ -659,7 +659,9 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		return;
 	}
 
-	b2Timer stepTimer;
+	world->profile = b2_emptyProfile;
+
+	b2Timer stepTimer = b2CreateTimer();
 
 	// If new fixtures were added, we need to find the new contacts.
 	if (world->newContacts)
@@ -690,7 +692,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	// Update contacts. This is where some contacts are destroyed.
 	{
-		b2Timer timer;
+		b2Timer timer = b2CreateTimer();
 		b2Collide(world);
 		world->profile.collide = b2GetMillisecondsAndReset(&timer);
 	}
@@ -698,7 +700,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// Integrate velocities, solve velocity constraints, and integrate positions.
 	if (step.dt > 0.0f)
 	{
-		b2Timer timer;
+		b2Timer timer = b2CreateTimer();
 		b2Solve(world, &step);
 		world->profile.solve = b2GetMillisecondsAndReset(&timer);
 	}
@@ -964,6 +966,12 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 			b2Body_SetAwake(world, b, true);
 		}
 	}
+}
+
+b2Profile* b2World_GetProfile(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	return &world->profile;
 }
 
 #if 0
