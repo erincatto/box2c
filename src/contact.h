@@ -25,9 +25,6 @@ typedef struct b2ContactEdge
 // Flags stored in b2Contact::flags
 enum b2ContactFlags
 {
-	// Used when crawling contact graph when forming islands.
-	b2_contactIslandFlag = 0x0001,
-
 	// Set when the shapes are touching.
 	// TODO_ERIN sensor only? Overlap?
 	b2_contactTouchingFlag = 0x0002,
@@ -61,6 +58,8 @@ typedef struct b2Contact
 	int32_t childB;
 
 	b2Manifold manifold;
+
+	uint64_t islandId;
 
 	// Mixed friction and restitution
 	float friction;

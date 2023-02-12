@@ -97,7 +97,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->childA = childA;
 	c->childB = childB;
 	c->manifold = b2EmptyManifold();
-
+	c->islandId = 0;
 	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	c->tangentSpeed = 0.0f;

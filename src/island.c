@@ -194,6 +194,8 @@ void b2Island_AddContact(b2Island* island, b2Contact* contact)
 
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity, bool enableSleep)
 {
+	b2Timer timer = b2CreateTimer();
+
 	float h = step->dt;
 
 	// Integrate velocities and apply damping. Initialize the body state.
@@ -228,8 +230,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		island->velocities[i].v = v;
 		island->velocities[i].w = w;
 	}
-
-	b2Timer timer = b2CreateTimer();
 
 	// Solver data
 	// TODO_ERIN for joints
@@ -453,6 +453,24 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			// Stage 3 - predict new transforms
 			b->speculativePosition = b2MulAdd(b->position, step->dt, v);
 			b->speculativeAngle = b->angle + step->dt * w;
+
+			// Update shapes (for broad-phase).
+			int32_t shapeIndex = b->shapeIndex;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = world->shapes + shapeIndex;
+				for (int32_t j = 0; j < shape->proxyCount; ++j)
+				{
+					b2ShapeProxy* proxy = shape->proxies + j;
+
+					// TODO_ERIN speculate
+					proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
+
+					b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+				}
+
+				shapeIndex = shape->nextShapeIndex;
+			}
 		}
 	}
 

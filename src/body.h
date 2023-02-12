@@ -44,6 +44,8 @@ typedef struct b2Body
 	int32_t jointIndex;
 	int32_t awakeIndex;
 
+	uint64_t islandId;
+
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.
@@ -58,8 +60,6 @@ typedef struct b2Body
 	void* userData;
 	int16_t world;
 
-	// TODO_ERIN islandMarker
-	bool islandFlag;
 	bool isAwake;
 	bool enableSleep;
 	bool fixedRotation;

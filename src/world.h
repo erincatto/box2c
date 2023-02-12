@@ -45,10 +45,11 @@ typedef struct b2World
 	float restitutionThreshold;
 
 	//b2DestructionListener* m_destructionListener;
-	//b2Draw* m_debugDraw;
 
 	// This is used to compute the time step ratio to support a variable time step.
 	float inv_dt0;
+
+	uint64_t islandId;
 
 	uint16_t revision;
 

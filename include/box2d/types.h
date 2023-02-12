@@ -190,7 +190,7 @@ typedef struct b2Filter
 /// Used to create a shape
 typedef struct b2ShapeDef
 {
-	/// Use this to store application specific fixture data.
+	/// Use this to store application specific shape data.
 	void* userData;
 
 	/// The friction coefficient, usually in the range [0,1].

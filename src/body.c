@@ -29,7 +29,7 @@ static void b2ComputeMass(b2World* w, b2Body* b)
 
 	assert(b->type == b2_dynamicBody);
 
-	// Accumulate mass over all fixtures.
+	// Accumulate mass over all shapes.
 	b2Vec2 localCenter = b2Vec2_zero;
 	int32_t shapeIndex = b->shapeIndex;
 	while (shapeIndex != B2_NULL_INDEX)

@@ -166,6 +166,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
 
+	world->islandId = 0;
+
 	world->gravity = def->gravity;
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->inv_dt0 = 0.0f;
@@ -248,7 +250,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->sleepTime = 0.0f;
 	b->userData = def->userData;
 	b->world = worldId.index;
-	b->islandFlag = false;
+	b->islandId = 0;
 	b->isAwake = b->type == b2_staticBody ? false : def->isAwake;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
@@ -444,23 +446,10 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	world->profile.solveVelocity = 0.0f;
 	world->profile.solvePosition = 0.0f;
 
-	int32_t bodyCapacity = world->bodyPool.capacity;
 	int32_t bodyCount = world->bodyPool.count;
 
 	// Size the island for the worst case.
 	b2Island island = b2CreateIsland(bodyCount, world->contactCount, 0, world);
-
-	// Clear all the island flags.
-	for (int32_t i = 0; i < bodyCapacity; ++i)
-	{
-		b2Body* b = world->bodies + i;
-		b->islandFlag = false;
-	}
-
-	for (b2Contact* c = world->contacts; c; c = c->next)
-	{
-		c->flags &= ~b2_contactIslandFlag;
-	}
 
 	// for (b2Joint* j = m_jointList; j; j = j->m_next)
 	//{
@@ -501,6 +490,8 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	int32_t seedCount = b2Array(seedBuffer).count;
 
+	uint64_t baseId = world->islandId;
+
 	// Build and simulate all awake islands.
 	b2Body** stack = (b2Body**)b2AllocateStackItem(&world->stackAllocator, seedCount * sizeof(b2Body*));
 
@@ -518,8 +509,9 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		assert(seed->isEnabled);
 		assert(seed->type != b2_staticBody);
 
-		if (seed->islandFlag)
+		if (seed->islandId > baseId)
 		{
+			// The body is already in an island
 			continue;
 		}
 
@@ -529,7 +521,8 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		b2ClearIsland(&island);
 		int32_t stackCount = 0;
 		stack[stackCount++] = seed;
-		seed->islandFlag = true;
+		++world->islandId;
+		seed->islandId = world->islandId;
 
 		// Perform a depth first search (DFS) on the constraint graph.
 		while (stackCount > 0)
@@ -564,8 +557,8 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 				{
 					b2Contact* contact = ce->contact;
 
-					// Has this contact already been added to an island?
-					if (contact->flags & b2_contactIslandFlag)
+					// Has this contact already been added to this island?
+					if (contact->islandId == seed->islandId)
 					{
 						continue;
 					}
@@ -589,19 +582,19 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 					}
 
 					b2Island_AddContact(&island, contact);
-					contact->flags |= b2_contactIslandFlag;
+					contact->islandId = seed->islandId;
 
 					b2Body* otherBody = world->bodies + otherShape->bodyIndex;
 
 					// Was the other body already added to this island?
-					if (otherBody->islandFlag)
+					if (otherBody->islandId == seed->islandId)
 					{
 						continue;
 					}
 
 					assert(stackCount < bodyCount);
 					stack[stackCount++] = otherBody;
-					otherBody->islandFlag = true;
+					otherBody->islandId = seed->islandId;
 				}
 			}
 
@@ -643,63 +636,12 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		world->profile.solveInit += profile.solveInit;
 		world->profile.solveVelocity += profile.solveVelocity;
 		world->profile.solvePosition += profile.solvePosition;
-
-		// Post solve cleanup.
-		for (int32_t j = 0; j < island.bodyCount; ++j)
-		{
-			// Allow static bodies to participate in other islands.
-			b2Body* b = island.bodies[j];
-			if (b->type == b2_staticBody)
-			{
-				b->islandFlag = false;
-			}
-		}
 	}
 
 	b2FreeStackItem(&world->stackAllocator, stack);
 
+	// Look for new contacts
 	b2Timer timer;
-
-	// Synchronize fixtures, check for out of range bodies.
-	for (int32_t i = 0; i < bodyCapacity; ++i)
-	{
-		b2Body* b = world->bodies + i;
-		if (b->object.next != i)
-		{
-			// body is in free list
-			continue;
-		}
-
-		// If a body was not in an island then it did not move.
-		if (b->islandFlag == false)
-		{
-			continue;
-		}
-
-		if (b->type == b2_staticBody)
-		{
-			continue;
-		}
-
-		// Update shapes (for broad-phase).
-		int32_t shapeIndex = b->shapeIndex;
-		while (shapeIndex != B2_NULL_INDEX)
-		{
-			b2Shape* shape = world->shapes + shapeIndex;
-			for (int32_t j = 0; j < shape->proxyCount; ++j)
-			{
-				b2ShapeProxy* proxy = shape->proxies + j;
-
-				proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
-
-				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
-			}
-
-			shapeIndex = shape->nextShapeIndex;
-		}
-	}
-
-	// Look for new contacts.
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
