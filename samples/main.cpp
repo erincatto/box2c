@@ -34,7 +34,8 @@ static Sample* s_sample = nullptr;
 static Settings s_settings;
 static bool s_rightMouseDown = false;
 static b2Vec2 s_clickPointWS = b2Vec2_zero;
-static float s_displayScale = 1.0f;
+static float s_windowScale = 1.0f;
+static float s_framebufferScale = 1.0f;
 
 void* AllocFcn(int32_t size)
 {
@@ -48,7 +49,7 @@ void FreeFcn(void* mem)
 
 void glfwErrorCallback(int error, const char* description)
 {
-	fprintf(stderr, "GLFW error occured. Code: %d. Description: %s\n", error, description);
+	fprintf(stderr, "GLFW error occurred. Code: %d. Description: %s\n", error, description);
 }
 
 static inline int CompareSamples(const void* a, const void* b)
@@ -116,16 +117,18 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 
 	if (fontPath)
 	{
-		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 14.0f * s_displayScale);
+		ImFontConfig fontConfig;
+		fontConfig.RasterizerMultiply = s_windowScale * s_framebufferScale;
+		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 14.0f, &fontConfig);
 	}
 }
 
 static void ResizeWindowCallback(GLFWwindow*, int width, int height)
 {
-	g_camera.m_width = width;
-	g_camera.m_height = height;
-	s_settings.m_windowWidth = width;
-	s_settings.m_windowHeight = height;
+	g_camera.m_width = int(width / s_windowScale);
+	g_camera.m_height = int(height / s_windowScale);
+	s_settings.m_windowWidth = int(width / s_windowScale);
+	s_settings.m_windowHeight = int(height / s_windowScale);
 }
 
 static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -274,7 +277,7 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 
 	double xd, yd;
 	glfwGetCursorPos(g_mainWindow, &xd, &yd);
-	b2Vec2 ps = {(float)xd, (float)yd};
+	b2Vec2 ps = {(float)xd / s_windowScale, (float)yd / s_windowScale};
 
 	// Use the mouse to move things around.
 	if (button == GLFW_MOUSE_BUTTON_1)
@@ -305,9 +308,11 @@ static void MouseButtonCallback(GLFWwindow* window, int32_t button, int32_t acti
 	}
 }
 
-static void MouseMotionCallback(GLFWwindow*, double xd, double yd)
+static void MouseMotionCallback(GLFWwindow* window, double xd, double yd)
 {
-	b2Vec2 ps = {(float)xd, (float)yd};
+	b2Vec2 ps = {(float)xd / s_windowScale, (float)yd / s_windowScale};
+
+	ImGui_ImplGlfw_CursorPosCallback(window, ps.x, ps.y);
 
 	b2Vec2 pw = g_camera.ConvertScreenToWorld(ps);
 	s_sample->MouseMove(pw);
@@ -341,7 +346,7 @@ static void ScrollCallback(GLFWwindow* window, double dx, double dy)
 
 static void UpdateUI()
 {
-	float menuWidth = 180.0f * s_displayScale;
+	float menuWidth = 180.0f;
 	if (g_draw.m_showUI)
 	{
 		ImGui::SetNextWindowPos({g_camera.m_width - menuWidth - 10.0f, 10.0f});
@@ -502,14 +507,23 @@ int main(int, char**)
 
 	sprintf(buffer, "Box2D Version %d.%d.%d", b2_version.major, b2_version.minor, b2_version.revision);
 
+	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
+	{
+#ifdef __APPLE__
+		glfwGetMonitorContentScale(primaryMonitor, &s_framebufferScale, &s_framebufferScale);
+#else
+		glfwGetMonitorContentScale(primaryMonitor, &s_windowScale, &s_windowScale);
+#endif
+	}
+
 	bool fullscreen = false;
 	if (fullscreen)
 	{
-		g_mainWindow = glfwCreateWindow(1920, 1080, buffer, glfwGetPrimaryMonitor(), NULL);
+		g_mainWindow = glfwCreateWindow(int(1920 * s_windowScale), int(1080 * s_windowScale), buffer, glfwGetPrimaryMonitor(), NULL);
 	}
 	else
 	{
-		g_mainWindow = glfwCreateWindow(g_camera.m_width, g_camera.m_height, buffer, NULL, NULL);
+		g_mainWindow = glfwCreateWindow(int(g_camera.m_width * s_windowScale), int(g_camera.m_height * s_windowScale), buffer, NULL, NULL);
 	}
 
 	if (g_mainWindow == NULL)
@@ -519,7 +533,11 @@ int main(int, char**)
 		return -1;
 	}
 
-	glfwGetWindowContentScale(g_mainWindow, &s_displayScale, &s_displayScale);
+#ifdef __APPLE__
+	glfwGetWindowContentScale(g_mainWindow, &s_framebufferScale, &s_framebufferScale);
+#else
+	glfwGetWindowContentScale(g_mainWindow, &s_windowScale, &s_windowScale);
+#endif
 
 	glfwMakeContextCurrent(g_mainWindow);
 
@@ -559,6 +577,8 @@ int main(int, char**)
 		double time1 = glfwGetTime();
 
 		glfwGetWindowSize(g_mainWindow, &g_camera.m_width, &g_camera.m_height);
+		g_camera.m_width = int(g_camera.m_width / s_windowScale);
+		g_camera.m_height = int(g_camera.m_height / s_windowScale);
 
 		int bufferWidth, bufferHeight;
 		glfwGetFramebufferSize(g_mainWindow, &bufferWidth, &bufferHeight);
@@ -566,8 +586,18 @@ int main(int, char**)
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		double cursorPosX = 0, cursorPosY = 0;
+		glfwGetCursorPos(g_mainWindow, &cursorPosX, &cursorPosY);
+		ImGui_ImplGlfw_CursorPosCallback(g_mainWindow, cursorPosX / s_windowScale, cursorPosY / s_windowScale);
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
+		ImGui_ImplGlfw_CursorPosCallback(g_mainWindow, cursorPosX / s_windowScale, cursorPosY / s_windowScale);
+
+		auto& io = ImGui::GetIO();
+		io.DisplaySize.x = float(g_camera.m_width);
+		io.DisplaySize.y = float(g_camera.m_height);
+		io.DisplayFramebufferScale.x = bufferWidth / float(g_camera.m_width);
+		io.DisplayFramebufferScale.y = bufferHeight / float(g_camera.m_height);
 
 		ImGui::NewFrame();
 
@@ -577,8 +607,8 @@ int main(int, char**)
 			ImGui::SetNextWindowSize(ImVec2(float(g_camera.m_width), float(g_camera.m_height)));
 			ImGui::SetNextWindowBgAlpha(0.0f);
 			ImGui::Begin("Overlay", nullptr,
-			             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
-			                 ImGuiWindowFlags_NoScrollbar);
+						 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+							 ImGuiWindowFlags_NoScrollbar);
 			ImGui::End();
 
 			const SampleEntry& entry = g_sampleEntries[s_settings.m_sampleIndex];

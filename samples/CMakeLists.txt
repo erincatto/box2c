@@ -34,6 +34,8 @@ target_link_libraries(samples PUBLIC box2d glfw imgui::imgui glad::glad)
 # message(STATUS "runtime = ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 # message(STATUS "binary = ${CMAKE_CURRENT_BINARY_DIR}")
 
+set_target_properties(samples PROPERTIES VS_DPI_AWARE "ON")
+
 # Copy font files, etc
 add_custom_command(
         TARGET samples POST_BUILD
