@@ -456,6 +456,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	//	j->m_islandFlag = false;
 	// }
 
+#if defined(_DEBUG)
 	b2ArrayHeader* header = (b2ArrayHeader*)world->awakeBodies - 1;
 	B2_MAYBE_UNUSED(header);
 
@@ -477,6 +478,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		}
 		assert(awakeCount <= world->bodyPool.count);
 	}
+#endif
 
 	// Swap awake body buffer
 	{
