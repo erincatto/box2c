@@ -4,6 +4,7 @@
 #pragma once
 
 #include "box2d/constants.h"
+#include "box2d/id.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -45,21 +46,6 @@ typedef struct b2Mat22
 	/// columns
 	b2Vec2 cx, cy;
 } b2Mat22;
-
-/// This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
-/// which may not coincide with the center of mass. However, to support dynamics we must interpolate the center of mass
-/// position.
-typedef struct b2Sweep
-{
-	/// local center of mass position
-	b2Vec2 localCenter;
-
-	/// center world positions
-	b2Vec2 c1, c2;
-
-	/// world angles
-	float a1, a2;
-} b2Sweep;
 
 /// Axis-aligned bounding box
 typedef struct b2AABB
@@ -211,10 +197,34 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
-#ifdef __cplusplus
-extern "C"
+/// A mouse joint is used to make a point on a body track a
+/// specified world point. This a soft constraint with a maximum
+/// force. This allows the constraint to stretch without
+/// applying huge forces.
+/// NOTE: this joint is not documented in the manual because it was
+/// developed to be used in samples. If you want to learn how to
+/// use the mouse joint, look at the samples app.
+typedef struct b2MouseJointDef
 {
-#endif
+	/// The attached body. It should be dynamic.
+	b2BodyId bodyId;
+
+	/// The initial world target point. This is assumed
+	/// to coincide with the body anchor initially.
+	b2Vec2 target;
+
+	/// The maximum constraint force that can be exerted
+	/// to move the candidate body. Usually you will express
+	/// as some multiple of the weight (multiplier * mass * gravity).
+	float maxForce;
+
+	/// The linear stiffness in N/m
+	float stiffness;
+
+	/// The linear damping in N*s/m
+	float damping;
+} b2MouseJointDef;
+
 
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
@@ -261,6 +271,13 @@ static inline struct b2ShapeDef b2DefaultShapeDef()
 	return def;
 }
 
-#ifdef __cplusplus
+static inline struct b2MouseJointDef b2DefaultMouseJointDef()
+{
+	b2MouseJointDef def = {0};
+	def.bodyId = b2_nullBodyId;
+	def.target = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.maxForce = 0.0f;
+	def.stiffness = 0.0f;
+	def.damping = 0.0f;
+	return def;
 }
-#endif

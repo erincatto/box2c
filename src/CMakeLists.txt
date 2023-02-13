@@ -20,6 +20,8 @@ set(BOX2D_SOURCE_FILES
 	hull.c
 	island.c
 	island.h
+	joint.c
+	joint.h
 	manifold.c
 	math.c
 	polygon_shape.h
