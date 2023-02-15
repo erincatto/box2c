@@ -27,12 +27,12 @@ typedef struct b2World
 	b2BroadPhase broadPhase;
 
 	b2Pool bodyPool;
+	b2Pool jointPool;
 	b2Pool shapePool;
 
 	struct b2Body* bodies;
+	struct b2Joint* joints;
 	struct b2Shape* shapes;
-	//b2Joint* m_jointList;
-	//int32_t m_jointCount;
 
 	struct b2Contact* contacts;
 	int32_t contactCount;

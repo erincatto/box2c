@@ -90,6 +90,9 @@ typedef struct b2WorldDef
 	/// initial capacity for bodies
 	int32_t bodyCapacity;
 
+	/// initial capacity for joints
+	int32_t jointCapacity;
+
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
 } b2WorldDef;
@@ -236,6 +239,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.enableSleep = true;
 	def.bodyCapacity = 8;
+	def.jointCapacity = 8;
 	def.shapeCapacity = 8;
 	return def;
 }

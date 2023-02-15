@@ -55,8 +55,10 @@ void b2AngularStiffness(float* stiffness, float* damping,
 	*damping = 2.0f * I * dampingRatio * omega;
 }
 
-b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef*)
+b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 {
+	b2World* world = b2GetWorldFromId(worldId);
+
 	b2JointId jointId;
 
 	return jointId;

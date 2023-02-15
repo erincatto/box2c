@@ -6,10 +6,177 @@
 #include "array.h"
 #include "block_allocator.h"
 #include "body.h"
+#include "contact.h"
 #include "world.h"
 #include "shape.h"
 
 #include <assert.h>
+
+
+b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	assert(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullBodyId;
+	}
+
+	b2Body* b = (b2Body*)b2AllocObject(&world->bodyPool);
+	world->bodies = (b2Body*)world->bodyPool.memory;
+
+	assert(0 <= def->type && def->type < b2_bodyTypeCount);
+	assert(b2Vec2_IsValid(def->position));
+	assert(b2IsValid(def->angle));
+	assert(b2Vec2_IsValid(def->linearVelocity));
+	assert(b2IsValid(def->angularVelocity));
+	assert(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
+	assert(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
+	assert(b2IsValid(def->gravityScale) && def->gravityScale >= 0.0f);
+
+	b->type = def->type;
+	b->islandIndex = B2_NULL_INDEX;
+	b->transform.p = def->position;
+	b->transform.q = b2MakeRot(def->angle);
+	b->position = def->position;
+	b->angle = def->angle;
+	b->localCenter = b2Vec2_zero;
+	b->speculativePosition = def->position;
+	b->speculativeAngle = def->angle;
+	b->linearVelocity = def->linearVelocity;
+	b->angularVelocity = def->angularVelocity;
+	b->force = b2Vec2_zero;
+	b->torque = 0.0f;
+	b->shapeIndex = B2_NULL_INDEX;
+	b->jointIndex = B2_NULL_INDEX;
+	b->mass = 0.0f;
+	b->invMass = 0.0f;
+	b->I = 0.0f;
+	b->invI = 0.0f;
+	b->linearDamping = def->linearDamping;
+	b->angularDamping = def->angularDamping;
+	b->gravityScale = def->gravityScale;
+	b->sleepTime = 0.0f;
+	b->userData = def->userData;
+	b->world = worldId.index;
+	b->islandId = 0;
+	b->isAwake = b->type == b2_staticBody ? false : def->isAwake;
+	b->enableSleep = def->enableSleep;
+	b->fixedRotation = def->fixedRotation;
+	b->isEnabled = def->isEnabled;
+
+	if (b->isAwake)
+	{
+		b->awakeIndex = b2Array(world->awakeBodies).count;
+		b2Array_Push(world->awakeBodies, b->object.index);
+	}
+	else
+	{
+		b->awakeIndex = B2_NULL_INDEX;
+	}
+
+	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
+	return id;
+}
+
+void b2World_DestroyBody(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(world->locked == false);
+
+	if (world->locked)
+	{
+		return;
+	}
+
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+
+	b2Body* body = world->bodies + bodyId.index;
+
+#if 0
+	// Delete the attached joints.
+	b2JointEdge* je = b->m_jointList;
+	while (je)
+	{
+		b2JointEdge* je0 = je;
+		je = je->next;
+
+		if (m_destructionListener)
+		{
+			m_destructionListener->SayGoodbye(je0->joint);
+		}
+
+		DestroyJoint(je0->joint);
+
+		b->m_jointList = je;
+	}
+	b->m_jointList = nullptr;
+#endif
+
+	// Delete the attached fixtures. This destroys broad-phase proxies.
+	int32_t shapeIndex = body->shapeIndex;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		b2Shape* shape = world->shapes + shapeIndex;
+		shapeIndex = shape->nextShapeIndex;
+
+		// Delete the attached contacts
+		b2ContactEdge* ce = shape->contacts;
+		while (ce)
+		{
+			b2Contact* contact = ce->contact;
+
+			// TODO_ERIN EndContact callback?
+
+			b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
+			if (contact->manifold.pointCount > 0 && shape->isSensor == false && otherShape->isSensor == false)
+			{
+				b2Body* otherBody = world->bodies + otherShape->bodyIndex;
+				b2Body_SetAwake(world, otherBody, true);
+			}
+
+			b2ContactEdge* ce0 = ce;
+			ce = ce->next;
+
+			b2DestroyContact(world, ce0->contact);
+		}
+		shape->contacts = NULL;
+
+		// if (m_destructionListener)
+		//{
+		//	m_destructionListener->SayGoodbye(f0);
+		// }
+
+		// The broad-phase proxies only exist if the body is enabled
+		if (body->isEnabled)
+		{
+			b2Shape_DestroyProxies(shape, &world->broadPhase);
+		}
+
+		b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
+
+		// TODO_ERIN destroy contacts
+
+		b2FreeObject(&world->shapePool, &shape->object);
+		world->shapes = (b2Shape*)world->shapePool.memory;
+	}
+
+	// Remove awake body.
+	// Must do this after destroying contacts because that might wake this body.
+	if (body->awakeIndex != B2_NULL_INDEX)
+	{
+		assert(body->isAwake);
+		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
+		assert(world->awakeBodies[body->awakeIndex] == body->object.index);
+
+		// Elements of the awake list cannot be moved around, so nullify this element
+		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+	}
+
+	b2FreeObject(&world->bodyPool, &body->object);
+	world->bodies = (b2Body*)world->bodyPool.memory;
+}
 
 static void b2ComputeMass(b2World* w, b2Body* b)
 {

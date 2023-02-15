@@ -7,6 +7,8 @@
 #include <float.h>
 
 float b2_lengthUnitsPerMeter = 1.0f;
+float b2_timeToSleep = 0.5f;
+
 b2Version b2_version = { 3, 0, 0 };
 
 bool b2IsValid(float a)

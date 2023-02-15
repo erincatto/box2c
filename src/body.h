@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include "box2d/distance.h"
 #include "box2d/id.h"
 #include "box2d/math.h"
+
 #include "pool.h"
 
 typedef struct b2Polygon b2Polygon;

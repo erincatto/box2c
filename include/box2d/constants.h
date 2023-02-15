@@ -11,6 +11,8 @@ extern "C" {
 /// Constants used by box2d.
 /// box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless
 /// degrees are indicated.
+/// Some values can be overriden with a define and some values can be modified at runtime.
+/// Other values cannot be modified without causing stability and/or performance problems.
 
 /// box2d bases all length units on meters, but you may need different units for your game.
 /// You can adjust this value to use different units, normally at application startup.
@@ -23,11 +25,6 @@ extern float b2_lengthUnitsPerMeter;
 /// This is in meters.
 #define b2_aabbExtension (0.1f * b2_lengthUnitsPerMeter)
 
-/// This is used to fatten AABBs in the dynamic tree. This is used to predict
-/// the future position based on the current displacement.
-/// This is a dimensionless multiplier.
-#define b2_aabbMultiplier 4.0f
-
 /// A small length used as a collision and constraint tolerance. Usually it is
 /// chosen to be numerically significant, but visually insignificant. In meters.
 #define b2_linearSlop (0.005f * b2_lengthUnitsPerMeter)
@@ -38,16 +35,14 @@ extern float b2_lengthUnitsPerMeter;
 
 /// The maximum number of vertices on a convex polygon. You cannot increase
 /// this too much because b2BlockAllocator has a maximum object size.
+#ifndef b2_maxPolygonVertices
 #define b2_maxPolygonVertices 8
-
-/// Maximum number of sub-steps per contact in continuous physics simulation.
-#define b2_maxSubSteps 8
-
-/// Maximum number of contacts to be handled to solve a TOI impact.
-#define b2_maxTOIContacts 32
+#endif
 
 /// Maximum number of simultaneouos worlds that can be allocated
+#ifndef b2_maxWorlds
 #define b2_maxWorlds 32
+#endif
 
 /// The maximum linear position correction used when solving constraints. This helps to
 /// prevent overshoot. Meters.
@@ -71,16 +66,19 @@ extern float b2_lengthUnitsPerMeter;
 /// that overlap is removed in one time step. However using values close to 1 often lead
 /// to overshoot.
 #define b2_baumgarte 0.5f
-#define b2_toiBaumgarte 0.75f
 
 /// The time that a body must be still before it will go to sleep.
-#define b2_timeToSleep 0.5f
+extern float b2_timeToSleep;
 
 /// A body cannot sleep if its linear velocity is above this tolerance.
+#ifndef b2_linearSleepTolerance
 #define b2_linearSleepTolerance (0.01f * b2_lengthUnitsPerMeter)
+#endif
 
 /// A body cannot sleep if its angular velocity is above this tolerance.
+#ifndef b2_angularSleepTolerance
 #define b2_angularSleepTolerance (2.0f / 180.0f * b2_pi)
+#endif
 
 /// Used to detect bad values. Positions greater than about 16km will have precision
 /// problems, so 100km as a limit should be fine in all cases.
