@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 typedef struct b2SolverData b2SolverData;
+typedef struct b2World b2World;
 
 typedef enum b2JointType
 {
@@ -40,7 +41,6 @@ typedef enum b2JointType
 typedef struct b2JointEdge
 {
 	int32_t bodyIndex;
-	int32_t prevJointIndex;
 	int32_t nextJointIndex;
 } b2JointEdge;
 
@@ -84,58 +84,12 @@ typedef struct b2Joint
 {
 	b2Object object;
 
-#if 0
-	/// Get the anchor point on bodyA in world coordinates.
-	virtual b2Vec2 GetAnchorA() const = 0;
-
-	/// Get the anchor point on bodyB in world coordinates.
-	virtual b2Vec2 GetAnchorB() const = 0;
-
-	/// Get the reaction force on bodyB at the joint anchor in Newtons.
-	virtual b2Vec2 GetReactionForce(float inv_dt) const = 0;
-
-	/// Get the reaction torque on bodyB in N*m.
-	virtual float GetReactionTorque(float inv_dt) const = 0;
-
-	/// Get the next joint the world joint list.
-	b2Joint* GetNext();
-	const b2Joint* GetNext() const;
-
-	/// Get the user data pointer.
-	b2JointUserData& GetUserData();
-	const b2JointUserData& GetUserData() const;
-
-	/// Short-cut function to determine if either body is enabled.
-	bool IsEnabled() const;
-
-	/// Get collide connected.
-	/// Note: modifying the collide connect flag won't work correctly because
-	/// the flag is only checked when fixture AABBs begin to overlap.
-	bool GetCollideConnected() const;
-
-	/// Dump this joint to the log file.
-	virtual void Dump() { b2Dump("// Dump is not supported for this joint type.\n"); }
-
-	/// Shift the origin for any points stored in world coordinates.
-	virtual void ShiftOrigin(const b2Vec2& newOrigin) { B2_NOT_USED(newOrigin);  }
-
-	/// Debug draw this joint
-	virtual void Draw(b2Draw* draw) const;
-
-	static b2Joint* Create(const b2JointDef* def, b2BlockAllocator* allocator);
-	static void Destroy(b2Joint* joint, b2BlockAllocator* allocator);
-
-	b2Joint(const b2JointDef* def);
-	virtual ~b2Joint() {}
-
-	#endif
-
 	b2JointType type;
 
 	b2JointEdge edgeA;
 	b2JointEdge edgeB;
 
-	int32_t islandId;
+	uint64_t islandId;
 
 	union
 	{
@@ -145,8 +99,8 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-void b2InitVelocityConstraints(b2Joint* joint, const b2SolverData* data);
-void b2SolveVelocityConstraints(b2Joint* joint, const b2SolverData* data);
+void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* data);
+void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, const b2SolverData* data);
+bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data);

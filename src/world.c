@@ -185,6 +185,12 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->callbacks = b2DefaultWorldCallbacks();
 
 	id.revision = world->revision;
+
+	// Make ground body
+	b2BodyDef groundDef = b2DefaultBodyDef();
+	b2BodyId groundId = b2World_CreateBody(id, &groundDef);
+	world->groundBodyIndex = groundId.index;
+
 	return id;
 }
 
@@ -292,12 +298,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	int32_t jointCount = world->jointPool.count;
 
 	// Size the island for the worst case.
-	b2Island island = b2CreateIsland(bodyCount, world->contactCount, 0, world);
-
-	// for (b2Joint* j = m_jointList; j; j = j->m_next)
-	//{
-	//	j->m_islandFlag = false;
-	// }
+	b2Island island = b2CreateIsland(bodyCount, world->contactCount, jointCount, world);
 
 #if defined(_DEBUG)
 	b2ArrayHeader* header = (b2ArrayHeader*)world->awakeBodies - 1;
@@ -443,36 +444,53 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 				}
 			}
 
-#if 0
 			// Search all joints connect to this body.
-			for (b2JointEdge* je = b->m_jointList; je; je = je->next)
+			int32_t jointIndex = b->jointIndex;
+			while (jointIndex != B2_NULL_INDEX)
 			{
-				if (je->joint->m_islandFlag == true)
+				b2Joint* joint = world->joints + jointIndex;
+				assert(joint->object.index == jointIndex);
+
+				int32_t otherBodyIndex;
+				if (joint->edgeA.bodyIndex == b->object.index)
+				{
+					jointIndex = joint->edgeA.nextJointIndex;
+					otherBodyIndex = joint->edgeB.bodyIndex;
+				}
+				else
+				{
+					assert(joint->edgeB.bodyIndex == b->object.index);
+					jointIndex = joint->edgeB.nextJointIndex;
+					otherBodyIndex = joint->edgeA.bodyIndex;
+				}
+
+				// Has this joint already been added to this island?
+				if (joint->islandId == seed->islandId)
 				{
 					continue;
 				}
 
-				b2Body* other = je->other;
+				b2Body* otherBody = world->bodies + otherBodyIndex;
 
 				// Don't simulate joints connected to disabled bodies.
-				if (other->IsEnabled() == false)
+				if (otherBody->isEnabled == false)
 				{
 					continue;
 				}
 
-				island.Add(je->joint);
-				je->joint->m_islandFlag = true;
+				b2Island_AddJoint(&island, joint);
 
-				if (other->m_flags & b2Body::e_islandFlag)
+				joint->islandId = seed->islandId;
+
+				if (otherBody->islandId == seed->islandId)
 				{
 					continue;
 				}
 
-				assert(stackCount < stackSize);
-				stack[stackCount++] = other;
-				other->m_flags |= b2Body::e_islandFlag;
+				assert(stackCount < bodyCount);
+				stack[stackCount++] = otherBody;
+				otherBody->islandId = seed->islandId;
 			}
-#endif
 		}
 
 		b2Profile profile;
@@ -1461,3 +1479,29 @@ void b2World::Dump()
 	b2CloseDump();
 }
 #endif
+
+bool b2IsBodyIdValid(b2World* world, b2BodyId id)
+{
+	if (id.world != world->index)
+	{
+		return false;
+	}
+
+	if (id.index >= world->bodyPool.capacity)
+	{
+		return false;
+	}
+
+	b2Body* body = world->bodies + id.index;
+	if (body->object.index != body->object.next)
+	{
+		return false;
+	}
+
+	if (body->object.revision != id.revision)
+	{
+		return false;
+	}
+
+	return true;
+}

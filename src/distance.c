@@ -9,6 +9,19 @@
 #include <assert.h>
 #include <float.h>
 
+b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
+{
+	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
+	b2Transform xf;
+	xf.p = b2Add(b2MulSV(1.0f - time, sweep->c1), b2MulSV(time, sweep->c2));
+	float angle = (1.0f - time) * sweep->a1 + time * sweep->a2;
+	xf.q = b2MakeRot(angle);
+
+	// Shift to origin
+	xf.p = b2Sub(xf.p, b2RotateVector(xf.q, sweep->localCenter));
+	return xf;
+}
+
 /// Follows Ericson 5.1.9 Closest Points of Two Line Segments
 b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2)
 {

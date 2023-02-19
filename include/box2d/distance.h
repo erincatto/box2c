@@ -107,6 +107,8 @@ typedef struct b2Sweep
 	float a1, a2;
 } b2Sweep;
 
+b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
+
 /// Input parameters for b2TimeOfImpact
 typedef struct b2TOIInput
 {

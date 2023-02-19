@@ -175,7 +175,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	}
 
 	b2FreeObject(&world->bodyPool, &body->object);
-	world->bodies = (b2Body*)world->bodyPool.memory;
 }
 
 static void b2ComputeMass(b2World* w, b2Body* b)
@@ -319,12 +318,13 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	assert(0 <= shapeId.index && shapeId.index < world->shapePool.count);
 
 	b2Shape* shape = world->shapes + shapeId.index;
+	assert(shape->object.index == shape->object.next);
 	assert(shape->object.revision == shapeId.revision);
-	assert(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.count);
+	assert(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + shape->bodyIndex;
 
-	// Remove the fixture from the body's singly linked list.
+	// Remove the shape from the body's singly linked list.
 	int32_t* shapeIndex = &body->shapeIndex;
 	bool found = false;
 	while (*shapeIndex != B2_NULL_INDEX)

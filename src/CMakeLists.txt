@@ -24,6 +24,7 @@ set(BOX2D_SOURCE_FILES
 	joint.h
 	manifold.c
 	math.c
+	mouse_joint.c
 	polygon_shape.h
 	pool.c
 	pool.h

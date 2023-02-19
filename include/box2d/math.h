@@ -152,6 +152,12 @@ static inline float b2Length(b2Vec2 v)
 	return sqrtf(v.x * v.x + v.y * v.y);
 }
 
+/// Get the length of this vector (the norm).
+static inline float b2LengthSquared(b2Vec2 v)
+{
+	return v.x * v.x + v.y * v.y;
+}
+
 static inline float b2Distance(b2Vec2 a, b2Vec2 b)
 {
 	float dx = b.x - a.x;
@@ -291,8 +297,6 @@ static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 	B.cy.y = det * a;
 	return B;
 }
-
-b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
 
 #ifdef __cplusplus
 }

@@ -53,6 +53,8 @@ typedef struct b2World
 
 	uint16_t revision;
 
+	int32_t groundBodyIndex;
+
 	b2WorldCallbacks callbacks;
 	b2Profile profile;
 
@@ -64,3 +66,5 @@ typedef struct b2World
 
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(int16_t index);
+
+bool b2IsBodyIdValid(b2World* world, b2BodyId id);

@@ -49,6 +49,10 @@ BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
 
 
+BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
+BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
+
+
 #if 0
 	/// Register a destruction listener. The listener is owned by you and must
 /// remain in scope.

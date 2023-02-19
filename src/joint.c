@@ -5,9 +5,8 @@
 #include "body.h"
 #include "world.h"
 
-void b2LinearStiffness(float* stiffness, float* damping,
-	float frequencyHertz, float dampingRatio,
-	const b2Body* bodyA, const b2Body* bodyB)
+void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, const b2Body* bodyA,
+					   const b2Body* bodyB)
 {
 	float massA = bodyA->mass;
 	float massB = bodyB->mass;
@@ -30,9 +29,8 @@ void b2LinearStiffness(float* stiffness, float* damping,
 	*damping = 2.0f * mass * dampingRatio * omega;
 }
 
-void b2AngularStiffness(float* stiffness, float* damping,
-	float frequencyHertz, float dampingRatio,
-	const b2Body* bodyA, const b2Body* bodyB)
+void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, const b2Body* bodyA,
+						const b2Body* bodyB)
 {
 	float IA = bodyA->I;
 	float IB = bodyB->I;
@@ -59,37 +57,186 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
-	b2JointId jointId;
+	assert(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	assert(b2IsBodyIdValid(world, def->bodyId));
+
+	b2Joint* joint = (b2Joint*)b2AllocObject(&world->jointPool);
+	world->joints = (b2Joint*)world->jointPool.memory;
+
+	joint->type = b2_mouseJoint;
+	joint->edgeA.bodyIndex = world->groundBodyIndex;
+	joint->edgeB.bodyIndex = def->bodyId.index;
+	joint->collideConnected = false;
+	joint->islandId = 0;
+
+	int32_t index = joint->object.index;
+
+	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
+	b2Body* bodyB = world->bodies + joint->edgeB.bodyIndex;
+
+	joint->edgeA.nextJointIndex = bodyA->jointIndex;
+	bodyA->jointIndex = index;
+
+	joint->edgeB.nextJointIndex = bodyB->jointIndex;
+	bodyB->jointIndex = index;
+
+	b2MouseJoint empty = {0};
+	joint->mouseJoint = empty;
+
+	joint->mouseJoint.targetA = def->target;
+	joint->mouseJoint.maxForce = def->maxForce;
+	joint->mouseJoint.stiffness = def->stiffness;
+	joint->mouseJoint.damping = def->damping;
+	joint->mouseJoint.localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 
 	return jointId;
 }
 
-
-b2Joint::b2Joint(const b2JointDef* def)
+void b2World_DestroyJoint(b2JointId jointId)
 {
-	b2Assert(def->bodyA != def->bodyB);
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	assert(world->locked == false);
 
-	m_type = def->type;
-	m_prev = nullptr;
-	m_next = nullptr;
-	m_bodyA = def->bodyA;
-	m_bodyB = def->bodyB;
-	m_index = 0;
-	m_collideConnected = def->collideConnected;
-	m_islandFlag = false;
-	m_userData = def->userData;
+	if (world->locked)
+	{
+		return;
+	}
 
-	m_edgeA.joint = nullptr;
-	m_edgeA.other = nullptr;
-	m_edgeA.prev = nullptr;
-	m_edgeA.next = nullptr;
+	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
-	m_edgeB.joint = nullptr;
-	m_edgeB.other = nullptr;
-	m_edgeB.prev = nullptr;
-	m_edgeB.next = nullptr;
+	b2Joint* joint = world->joints + jointId.index;
+
+	assert(0 <= joint->edgeA.bodyIndex && joint->edgeA.bodyIndex < world->bodyPool.capacity);
+	assert(0 <= joint->edgeB.bodyIndex && joint->edgeB.bodyIndex < world->bodyPool.capacity);
+
+	int32_t bodyIndexA = joint->edgeA.bodyIndex;
+	int32_t bodyIndexB = joint->edgeB.bodyIndex;
+
+	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
+	b2Body* bodyB = world->bodies + joint->edgeB.bodyIndex;
+
+	// Remove the joint from the bodyA singly linked list.
+	int32_t* jointIndex = &bodyA->jointIndex;
+	bool found = false;
+	while (*jointIndex != B2_NULL_INDEX)
+	{
+		if (*jointIndex == jointId.index)
+		{
+			*jointIndex = joint->edgeA.nextJointIndex;
+			found = true;
+			break;
+		}
+
+		// bodyA may be bodyB on other joints in the linked list
+		b2Joint* otherJoint = world->joints + *jointIndex;
+		if (joint->edgeA.bodyIndex == bodyIndexA)
+		{
+			jointIndex = &(otherJoint->edgeA.nextJointIndex);
+		}
+
+		if (joint->edgeB.bodyIndex == bodyIndexA)
+		{
+			jointIndex = &(otherJoint->edgeB.nextJointIndex);
+		}
+
+		assert(false);
+		return;
+	}
+
+	assert(found);
+	if (found == false)
+	{
+		return;
+	}
+
+	// Remove the joint from the bodyB singly linked list.
+	jointIndex = &bodyB->jointIndex;
+	found = false;
+	while (*jointIndex != B2_NULL_INDEX)
+	{
+		if (*jointIndex == jointId.index)
+		{
+			*jointIndex = joint->edgeB.nextJointIndex;
+			found = true;
+			break;
+		}
+
+		// bodyB may be bodyA on other joints in the linked list
+		b2Joint* otherJoint = world->joints + *jointIndex;
+		if (joint->edgeA.bodyIndex == bodyIndexB)
+		{
+			jointIndex = &(otherJoint->edgeA.nextJointIndex);
+		}
+
+		if (joint->edgeB.bodyIndex == bodyIndexB)
+		{
+			jointIndex = &(otherJoint->edgeB.nextJointIndex);
+		}
+
+		assert(false);
+		return;
+	}
+
+	assert(found);
+	if (found == false)
+	{
+		return;
+	}
+
+	b2FreeObject(&world->jointPool, &joint->object);
 }
 
+extern void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2SolverData* data);
+
+void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* data)
+{
+	switch (joint->type)
+	{
+		case b2_mouseJoint:
+			b2MouseJoint_InitVelocityConstraints(world, joint, data);
+			break;
+
+		default:
+			assert(false);
+	}
+}
+
+extern void b2MouseJoint_SolveVelocityConstraints(b2Joint* base, b2SolverData* data);
+
+void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data)
+{
+	switch (joint->type)
+	{
+		case b2_mouseJoint:
+			b2MouseJoint_SolveVelocityConstraints(joint, data);
+			break;
+
+		default:
+			assert(false);
+	}
+}
+
+// This returns true if the position errors are within tolerance.
+bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data)
+{
+	B2_MAYBE_UNUSED(data);
+
+	switch (joint->type)
+	{
+		default:
+			return true;
+	}
+}
+
+#if 0
 bool b2Joint::IsEnabled() const
 {
 	return m_bodyA->IsEnabled() && m_bodyB->IsEnabled();
@@ -142,3 +289,4 @@ void b2Joint::Draw(b2Draw* draw) const
 		draw->DrawSegment(x2, p2, color);
 	}
 }
+#endif
