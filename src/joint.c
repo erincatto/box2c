@@ -5,9 +5,18 @@
 #include "body.h"
 #include "world.h"
 
-void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, const b2Body* bodyA,
-					   const b2Body* bodyB)
+void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
+					   b2BodyId bodyIdB)
 {
+	assert(bodyIdA.world == bodyIdB.world);
+
+	b2World* world = b2GetWorldFromIndex(bodyIdA.world);
+	assert(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
+	assert(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
+
+	b2Body* bodyA = world->bodies + bodyIdA.index;
+	b2Body* bodyB = world->bodies + bodyIdB.index;
+
 	float massA = bodyA->mass;
 	float massB = bodyB->mass;
 	float mass;
@@ -29,9 +38,18 @@ void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, f
 	*damping = 2.0f * mass * dampingRatio * omega;
 }
 
-void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, const b2Body* bodyA,
-						const b2Body* bodyB)
+void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
+						b2BodyId bodyIdB)
 {
+	assert(bodyIdA.world == bodyIdB.world);
+
+	b2World* world = b2GetWorldFromIndex(bodyIdA.world);
+	assert(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
+	assert(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
+
+	b2Body* bodyA = world->bodies + bodyIdA.index;
+	b2Body* bodyB = world->bodies + bodyIdB.index;
+
 	float IA = bodyA->I;
 	float IB = bodyB->I;
 	float I;

@@ -52,6 +52,7 @@ set(BOX2D_API_FILES
 	../include/box2d/geometry.h
 	../include/box2d/hull.h
 	../include/box2d/id.h
+	../include/box2d/joint_util.h
 	../include/box2d/manifold.h
 	../include/box2d/math.h
 	../include/box2d/timer.h

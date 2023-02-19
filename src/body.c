@@ -133,7 +133,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			if (contact->manifold.pointCount > 0 && shape->isSensor == false && otherShape->isSensor == false)
 			{
 				b2Body* otherBody = world->bodies + otherShape->bodyIndex;
-				b2Body_SetAwake(world, otherBody, true);
+				b2SetAwake(world, otherBody, true);
 			}
 
 			b2ContactEdge* ce0 = ce;
@@ -384,19 +384,40 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
 	return world->bodies[bodyId.index].transform.p;
 }
 
 float b2Body_GetAngle(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.count);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
 	return world->bodies[bodyId.index].angle;
 }
 
+b2BodyType b2Body_GetType(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	return world->bodies[bodyId.index].type;
+}
+
+float b2Body_GetMass(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	return world->bodies[bodyId.index].mass;
+}
+
+void b2Body_SetAwake(b2BodyId bodyId, bool awake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	b2SetAwake(world, world->bodies + bodyId.index, awake);
+}
+
 // This should NOT be called from island code which is using awake array double buffering.
-void b2Body_SetAwake(b2World* world, b2Body* body, bool flag)
+void b2SetAwake(b2World* world, b2Body* body, bool flag)
 {
 	if (body->type == b2_staticBody)
 	{

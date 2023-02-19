@@ -824,7 +824,7 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 				continue;
 			}
 
-			b2Body_SetAwake(world, b, true);
+			b2SetAwake(world, b, true);
 		}
 	}
 }
@@ -833,6 +833,14 @@ b2Profile* b2World_GetProfile(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	return &world->profile;
+}
+
+b2BodyId b2World_GetGroundBodyId(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	b2Body* body = world->bodies + world->groundBodyIndex;
+	b2BodyId bodyId = {world->groundBodyIndex, world->index, body->object.revision};
+	return bodyId;
 }
 
 #if 0
@@ -1313,25 +1321,6 @@ void b2World::SolveTOI(const b2TimeStep& step)
 	}
 }
 
-struct b2WorldQueryWrapper
-{
-	bool QueryCallback(int32 proxyId)
-	{
-		b2FixtureProxy* proxy = (b2FixtureProxy*)broadPhase->GetUserData(proxyId);
-		return callback->ReportFixture(proxy->shape);
-	}
-
-	const b2BroadPhase* broadPhase;
-	b2QueryCallback* callback;
-};
-
-void b2World::QueryAABB(b2QueryCallback* callback, const b2AABB& aabb) const
-{
-	b2WorldQueryWrapper wrapper;
-	wrapper.broadPhase = &m_contactManager.m_broadPhase;
-	wrapper.callback = callback;
-	m_contactManager.m_broadPhase.Query(&wrapper, aabb);
-}
 
 struct b2WorldRayCastWrapper
 {
@@ -1479,6 +1468,48 @@ void b2World::Dump()
 	b2CloseDump();
 }
 #endif
+
+typedef struct WorldQueryContext
+{
+	b2World* world;
+	b2QueryCallbackFcn* fcn;
+	void* userContext;
+} WorldQueryContext;
+
+static bool TreeQueryCallback(int32_t proxyId, void* userData, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	b2ShapeProxy* proxy = (b2ShapeProxy*)userData;
+	WorldQueryContext* worldContext = (WorldQueryContext*)context;
+	b2World* world = worldContext->world;
+
+	assert(0 <= proxy->shapeIndex && proxy->shapeIndex < world->shapePool.capacity);
+
+	b2Shape* shape = world->shapes + proxy->shapeIndex;
+	assert(shape->object.index == shape->object.next);
+
+	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
+	bool result = worldContext->fcn(shapeId, worldContext->userContext);
+	return result;
+};
+
+void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	WorldQueryContext worldContext = {world, fcn, context};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeQueryCallback, &worldContext);
+	}
+}
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id)
 {

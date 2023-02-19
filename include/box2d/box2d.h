@@ -17,14 +17,6 @@ BOX2D_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 /// Destroy a world.
 BOX2D_API void b2DestroyWorld(b2WorldId worldId);
 
-/// Create a rigid body given a definition. No reference to the definition is retained.
-/// @warning This function is locked during callbacks.
-BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
-
-/// Destroy a rigid body given an id.
-/// @warning This function is locked during callbacks.
-BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
-
 /// Take a time step. This performs collision detection, integration,
 /// and constraint solution.
 /// @param timeStep the amount of time to simulate, this should not vary.
@@ -41,17 +33,42 @@ BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
 /// Get the current profile.
 BOX2D_API struct b2Profile* b2World_GetProfile(b2WorldId worldId);
 
+BOX2D_API b2BodyId b2World_GetGroundBodyId(b2WorldId worldId);
+
+/// Create a rigid body given a definition. No reference to the definition is retained.
+/// @warning This function is locked during callbacks.
+BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
+
+/// Destroy a rigid body given an id.
+/// @warning This function is locked during callbacks.
+BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
+
+BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
+BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
+BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
+BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
+BOX2D_API void b2Body_SetAwake(b2BodyId bodyId, bool awake);
+
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
-BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
-BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
-
+BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
+BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
 BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
+BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
+
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
 
+/// This function receives shapes found in the AABB query.
+/// @return true if the query should continue
+typedef bool b2QueryCallbackFcn(b2ShapeId shapeId, void* context);
+
+/// Query the world for all fixtures that potentially overlap the provided AABB.
+/// @param callback a user implemented callback function.
+/// @param aabb the query box.
+BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context);
 
 #if 0
 	/// Register a destruction listener. The listener is owned by you and must

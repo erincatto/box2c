@@ -166,7 +166,7 @@ void b2DestroyIsland(b2Island* island)
 	// Warning: the order should reverse the constructor order.
 	b2FreeStackItem(alloc, island->positions);
 	b2FreeStackItem(alloc, island->velocities);
-	//b2FreeStackItem(alloc, island->joints);
+	b2FreeStackItem(alloc, island->joints);
 	b2FreeStackItem(alloc, island->contacts);
 	b2FreeStackItem(alloc, island->bodies);
 }

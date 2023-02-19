@@ -54,16 +54,16 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb1)
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
-typedef bool b2QueryCallbackFcn(int32_t proxyId, void* userData, void* context);
+typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, void* userData, void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
-void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2QueryCallbackFcn* callback,
+void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
                          void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallbackFcn* callback,
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback,
                          void* context);
 
 /// This function receives clipped raycast input for a proxy. The function
@@ -71,7 +71,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallback
 /// - return a value of 0 to terminate the ray cast
 /// - return a value less than input->maxFraction to clip the ray
 /// - return a value of input->maxFraction to continue the ray cast without clipping
-typedef float b2RayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
+typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
 
 /// Ray-cast against the proxies in the tree. This relies on the callback
 /// to perform a exact ray-cast in the case were the proxy contains a shape.
@@ -81,7 +81,7 @@ typedef float b2RayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId,
 /// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
 /// @param callback a callback class that is called for each proxy that is hit by the ray.
 void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
-                           b2RayCastCallbackFcn* callback, void* context);
+                           b2TreeRayCastCallbackFcn* callback, void* context);
 
 /// Validate this tree. For testing.
 void b2DynamicTree_Validate(const b2DynamicTree* tree);

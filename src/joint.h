@@ -44,16 +44,6 @@ typedef struct b2JointEdge
 	int32_t nextJointIndex;
 } b2JointEdge;
 
-/// Utility to compute linear stiffness values from frequency and damping ratio
-//void b2LinearStiffness(float& stiffness, float& damping,
-//	float frequencyHertz, float dampingRatio,
-//	const b2Body* bodyA, const b2Body* bodyB);
-//
-///// Utility to compute rotational stiffness values frequency and damping ratio
-//void b2AngularStiffness(float& stiffness, float& damping,
-//	float frequencyHertz, float dampingRatio,
-//	const b2Body* bodyA, const b2Body* bodyB);
-
 typedef struct b2MouseJoint
 {
 	b2Vec2 localAnchorB;
