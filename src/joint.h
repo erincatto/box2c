@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 
+typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2SolverData b2SolverData;
 typedef struct b2World b2World;
 
@@ -26,13 +27,6 @@ typedef enum b2JointType
 	b2_motorJoint
 } b2JointType;
 
-//struct b2Jacobian
-//{
-//	b2Vec2 linear;
-//	float angularA;
-//	float angularB;
-//};
-
 /// A joint edge is used to connect bodies and joints together
 /// in a joint graph where each body is a node and each joint
 /// is an edge. A joint edge belongs to a doubly linked list
@@ -46,8 +40,6 @@ typedef struct b2JointEdge
 
 typedef struct b2MouseJoint
 {
-	b2Vec2 localAnchorB;
-	b2Vec2 targetA;
 	float stiffness;
 	float damping;
 	float beta;
@@ -81,6 +73,9 @@ typedef struct b2Joint
 
 	uint64_t islandId;
 
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
+
 	union
 	{
 		b2MouseJoint mouseJoint;
@@ -94,3 +89,5 @@ void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data);
 
 // This returns true if the position errors are within tolerance.
 bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data);
+
+void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

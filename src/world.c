@@ -713,10 +713,17 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 
 	if (draw->drawJoints)
 	{
-		// for (b2Joint* j = m_jointList; j; j = j->GetNext())
-		//{
-		// j->Draw(m_debugDraw);
-		// }
+		int32_t count = world->jointPool.capacity;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			b2Joint* joint = world->joints + i;
+			if (joint->object.next != i)
+			{
+				continue;
+			}
+
+			b2DrawJoint(draw, world, joint);
+		}
 	}
 
 	// if (debugDraw->drawPi & b2Draw::e_pairBit)

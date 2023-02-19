@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/debug_draw.h"
+
 #include "joint.h"
 #include "body.h"
 #include "world.h"
@@ -93,25 +95,24 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	joint->collideConnected = false;
 	joint->islandId = 0;
 
-	int32_t index = joint->object.index;
-
 	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
 	b2Body* bodyB = world->bodies + joint->edgeB.bodyIndex;
 
 	joint->edgeA.nextJointIndex = bodyA->jointIndex;
-	bodyA->jointIndex = index;
+	bodyA->jointIndex = joint->object.index;
 
 	joint->edgeB.nextJointIndex = bodyB->jointIndex;
-	bodyB->jointIndex = index;
+	bodyB->jointIndex = joint->object.index;
+
+	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
+	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
 
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
 
-	joint->mouseJoint.targetA = def->target;
 	joint->mouseJoint.maxForce = def->maxForce;
 	joint->mouseJoint.stiffness = def->stiffness;
 	joint->mouseJoint.damping = def->damping;
-	joint->mouseJoint.localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 
@@ -254,57 +255,50 @@ bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data)
 	}
 }
 
-#if 0
-bool b2Joint::IsEnabled() const
+void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
-	return m_bodyA->IsEnabled() && m_bodyB->IsEnabled();
-}
+	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
+	b2Body* bodyB = world->bodies + joint->edgeB.bodyIndex;
 
-void b2Joint::Draw(b2Draw* draw) const
-{
-	const b2Transform& xf1 = m_bodyA->GetTransform();
-	const b2Transform& xf2 = m_bodyB->GetTransform();
-	b2Vec2 x1 = xf1.p;
-	b2Vec2 x2 = xf2.p;
-	b2Vec2 p1 = GetAnchorA();
-	b2Vec2 p2 = GetAnchorB();
+	b2Transform xfA = bodyA->transform;
+	b2Transform xfB = bodyB->transform;
+	b2Vec2 pA = b2TransformPoint(bodyA->transform, joint->localAnchorA);
+	b2Vec2 pB = b2TransformPoint(bodyB->transform, joint->localAnchorB);
 
-	b2Color color(0.5f, 0.8f, 0.8f);
+	b2Color color = {0.5f, 0.8f, 0.8f, 1.0f};
 
-	switch (m_type)
+	switch (joint->type)
 	{
-	case e_distanceJoint:
-		draw->DrawSegment(p1, p2, color);
+	case b2_distanceJoint:
+		draw->DrawSegment(pA, pB, color, draw->context);
 		break;
 
-	case e_pulleyJoint:
-	{
-		b2PulleyJoint* pulley = (b2PulleyJoint*)this;
-		b2Vec2 s1 = pulley->GetGroundAnchorA();
-		b2Vec2 s2 = pulley->GetGroundAnchorB();
-		draw->DrawSegment(s1, p1, color);
-		draw->DrawSegment(s2, p2, color);
-		draw->DrawSegment(s1, s2, color);
-	}
-	break;
+	//case b2_pulleyJoint:
+	//{
+	//	b2PulleyJoint* pulley = (b2PulleyJoint*)this;
+	//	b2Vec2 sA = pulley->GetGroundAnchorA();
+	//	b2Vec2 sB = pulley->GetGroundAnchorB();
+	//	draw->DrawSegment(sA, pA, color);
+	//	draw->DrawSegment(sB, pB, color);
+	//	draw->DrawSegment(sA, sB, color);
+	//}
+	//break;
 
-	case e_mouseJoint:
+	case b2_mouseJoint:
 	{
-		b2Color c;
-		c.Set(0.0f, 1.0f, 0.0f);
-		draw->DrawPoint(p1, 4.0f, c);
-		draw->DrawPoint(p2, 4.0f, c);
+		b2Color c1 = {0.0f, 1.0f, 0.0f, 1.0f};
+		draw->DrawPoint(pA, 4.0f, c1, draw->context);
+		draw->DrawPoint(pB, 4.0f, c1, draw->context);
 
-		c.Set(0.8f, 0.8f, 0.8f);
-		draw->DrawSegment(p1, p2, c);
+		b2Color c2 = {0.8f, 0.8f, 0.8f, 1.0f};
+		draw->DrawSegment(pA, pB, c2, draw->context);
 
 	}
 	break;
 
 	default:
-		draw->DrawSegment(x1, p1, color);
-		draw->DrawSegment(p1, p2, color);
-		draw->DrawSegment(x2, p2, color);
+		draw->DrawSegment(xfA.p, pA, color, draw->context);
+		draw->DrawSegment(pA, pB, color, draw->context);
+		draw->DrawSegment(xfB.p, pB, color, draw->context);
 	}
 }
-#endif

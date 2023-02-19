@@ -30,13 +30,16 @@ void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 	assert(joint->object.revision == jointId.revision);
 	assert(joint->type == b2_mouseJoint);
 
-	joint->mouseJoint.targetA = target;
+	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
+
+	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, target);
 }
 
 void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2SolverData* data)
 {
 	assert(base->type == b2_mouseJoint);
 
+	b2Body* bodyA = world->bodies + base->edgeA.bodyIndex;
 	b2Body* bodyB = world->bodies + base->edgeB.bodyIndex;
 
 	b2MouseJoint* joint = &base->mouseJoint;
@@ -68,7 +71,7 @@ void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2Solve
 	joint->beta = h * k * joint->gamma;
 
 	// Compute the effective mass matrix.
-	joint->rB = b2RotateVector(qB, b2Sub(joint->localAnchorB, joint->localCenterB));
+	joint->rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
 
 	// K    = [(1/m1 + 1/m2) * eye(2) - skew(r1) * invI1 * skew(r1) - skew(r2) * invI2 * skew(r2)]
 	//      = [1/m1+1/m2     0    ] + invI1 * [r1.y*r1.y -r1.x*r1.y] + invI2 * [r1.y*r1.y -r1.x*r1.y]
@@ -81,7 +84,8 @@ void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2Solve
 
 	joint->mass = b2GetInverse22(K);
 
-	joint->C = b2Add(cB, b2Sub(joint->rB, joint->targetA));
+	b2Vec2 targetA = b2TransformPoint(bodyA->transform, base->localAnchorA);
+	joint->C = b2Add(cB, b2Sub(joint->rB, targetA));
 	joint->C = b2MulSV(joint->beta, joint->C);
 
 	// Cheat with some damping
