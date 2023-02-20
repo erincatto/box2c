@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include "box2d/distance.h"
 #include "box2d/id.h"
 #include "box2d/math.h"
+
 #include "pool.h"
 
 typedef struct b2Polygon b2Polygon;
@@ -66,7 +68,7 @@ typedef struct b2Body
 	bool isEnabled;
 } b2Body;
 
-void b2Body_SetAwake(b2World* world, b2Body* body, bool flag);
+void b2SetAwake(b2World* world, b2Body* body, bool flag);
 
 // TODO_ERIN filter on joints
 static inline bool b2ShouldBodiesCollide(b2Body* bodyA, b2Body* bodyB)

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 #include "shape.h"
+#include "body.h"
 #include "broad_phase.h"
+#include "world.h"
 
 b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf, int32_t childIndex)
 {
@@ -91,5 +93,44 @@ float b2Shape_GetRadius(const b2Shape* shape)
 			return shape->circle.radius;
 		default:
 			return 0.0f;
+	}
+}
+
+b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	assert(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
+	b2Shape* shape = world->shapes + shapeId.index;
+	assert(b2ObjectValid(&shape->object));
+
+	assert(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + shape->bodyIndex;
+	assert(b2ObjectValid(&body->object));
+
+	b2BodyId bodyId = {body->object.index, shapeId.world, body->object.revision};
+	return bodyId;
+}
+
+bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	assert(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
+	b2Shape* shape = world->shapes + shapeId.index;
+	assert(b2ObjectValid(&shape->object));
+
+	assert(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + shape->bodyIndex;
+	assert(b2ObjectValid(&body->object));
+
+	switch (shape->type)
+	{
+		case b2_circleShape:
+			return b2PointInCircle(point, &shape->circle, body->transform);
+
+		case b2_polygonShape:
+			return b2PointInPolygon(point, &shape->polygon, body->transform);
+
+		default:
+			return false;
 	}
 }

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "box2d/constants.h"
+#include "box2d/id.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -45,21 +46,6 @@ typedef struct b2Mat22
 	/// columns
 	b2Vec2 cx, cy;
 } b2Mat22;
-
-/// This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
-/// which may not coincide with the center of mass. However, to support dynamics we must interpolate the center of mass
-/// position.
-typedef struct b2Sweep
-{
-	/// local center of mass position
-	b2Vec2 localCenter;
-
-	/// center world positions
-	b2Vec2 c1, c2;
-
-	/// world angles
-	float a1, a2;
-} b2Sweep;
 
 /// Axis-aligned bounding box
 typedef struct b2AABB
@@ -103,6 +89,9 @@ typedef struct b2WorldDef
 
 	/// initial capacity for bodies
 	int32_t bodyCapacity;
+
+	/// initial capacity for joints
+	int32_t jointCapacity;
 
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
@@ -211,11 +200,6 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
 /// Make a world definition with default values.
@@ -226,6 +210,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.enableSleep = true;
 	def.bodyCapacity = 8;
+	def.jointCapacity = 8;
 	def.shapeCapacity = 8;
 	return def;
 }
@@ -260,7 +245,3 @@ static inline struct b2ShapeDef b2DefaultShapeDef()
 	def.isSensor = false;
 	return def;
 }
-
-#ifdef __cplusplus
-}
-#endif

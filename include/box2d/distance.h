@@ -92,6 +92,23 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input);
 
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);
 
+/// This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
+/// which may not coincide with the center of mass. However, to support dynamics we must interpolate the center of mass
+/// position.
+typedef struct b2Sweep
+{
+	/// local center of mass position
+	b2Vec2 localCenter;
+
+	/// center world positions
+	b2Vec2 c1, c2;
+
+	/// world angles
+	float a1, a2;
+} b2Sweep;
+
+b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
+
 /// Input parameters for b2TimeOfImpact
 typedef struct b2TOIInput
 {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/box2d.h"
+#include "box2d/joint_util.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
 
@@ -34,13 +35,12 @@ Sample::Sample()
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
 	m_textIncrement = 18;
-	m_mouseJoint = nullptr;
+	m_mouseJointId = b2_nullJointId;
 	m_pointCount = 0;
 
 	//m_destructionListener.test = this;
 	//m_world->SetDestructionListener(&m_destructionListener);
 	//m_world->SetContactListener(this);
-	//m_world->SetDebugDraw(&g_draw);
 	
 	m_stepCount = 0;
 
@@ -98,95 +98,89 @@ void Sample::DrawTitle(const char *string)
     m_textLine = int32_t(26.0f);
 }
 
-#if 0
-class QueryCallback : public b2QueryCallback
+struct QueryContext
 {
-public:
-	QueryCallback(const b2Vec2& point)
+	b2Vec2 point;
+	b2BodyId bodyId = b2_nullBodyId;
+};
+
+bool QueryCallback(b2ShapeId shapeId, void* context)
+{
+	QueryContext* queryContext = static_cast<QueryContext*>(context);
+	
+	b2BodyId bodyId = b2Shape_GetBody(shapeId);
+	b2BodyType bodyType = b2Body_GetType(bodyId);
+	if (bodyType != b2_dynamicBody)
 	{
-		m_point = point;
-		m_fixture = nullptr;
-	}
-
-	bool ReportFixture(b2Fixture* fixture) override
-	{
-		b2Body* body = fixture->GetBody();
-		if (body->GetType() == b2_dynamicBody)
-		{
-			bool inside = fixture->TestPoint(m_point);
-			if (inside)
-			{
-				m_fixture = fixture;
-
-				// We are done, terminate the query.
-				return false;
-			}
-		}
-
-		// Continue the query.
+		// continue query
 		return true;
 	}
 
-	b2Vec2 m_point;
-	b2Fixture* m_fixture;
-};
-#endif
+	bool overlap = b2Shape_TestPoint(shapeId, queryContext->point);
+	if (overlap)
+	{
+		// found shape
+		queryContext->bodyId = bodyId;
+		return false;
+	}
+
+	return true;
+}
 
 void Sample::MouseDown(b2Vec2 p, int button, int mod)
 {
-	if (m_mouseJoint != nullptr)
+	if (B2_NON_NULL(m_mouseJointId))
 	{
 		return;
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_1)
 	{
-	#if 0
 		// Make a small box.
-		b2AABB aabb;
-		b2Vec2 d;
-		d.Set(0.001f, 0.001f);
-		aabb.lowerBound = p - d;
-		aabb.upperBound = p + d;
+		b2AABB box;
+		b2Vec2 d = {0.001f, 0.001f};
+		box.lowerBound = b2Sub(p, d);
+		box.upperBound = b2Add(p, d);
 
 		// Query the world for overlapping shapes.
-		QueryCallback callback(p);
-		m_world->QueryAABB(&callback, aabb);
+		QueryContext queryContext = {p, b2_nullBodyId};
+		b2World_QueryAABB(m_worldId, box, QueryCallback, &queryContext);
 
-		if (callback.m_fixture)
+		if (B2_NON_NULL(queryContext.bodyId))
 		{
 			float frequencyHz = 5.0f;
 			float dampingRatio = 0.7f;
+			float mass = b2Body_GetMass(queryContext.bodyId);
 
-			b2Body* body = callback.m_fixture->GetBody();
+			b2BodyId groundBodyId = b2World_GetGroundBodyId(m_worldId);
+
 			b2MouseJointDef jd;
-			jd.bodyA = m_groundBody;
-			jd.bodyB = body;
+			jd.bodyId = queryContext.bodyId;
 			jd.target = p;
-			jd.maxForce = 1000.0f * body->GetMass();
-			b2LinearStiffness(jd.stiffness, jd.damping, frequencyHz, dampingRatio, jd.bodyA, jd.bodyB);
+			jd.maxForce = 1000.0f * mass;
+			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, groundBodyId, queryContext.bodyId);
 
-			m_mouseJoint = (b2MouseJoint*)m_world->CreateJoint(&jd);
-			body->SetAwake(true);
+			m_mouseJointId = b2World_CreateMouseJoint(m_worldId, &jd);
+
+			b2Body_SetAwake(queryContext.bodyId, true);
 		}
-	#endif
 	}
 }
 
 void Sample::MouseUp(b2Vec2 p, int button)
 {
-	if (m_mouseJoint && button == GLFW_MOUSE_BUTTON_1)
+	if (B2_NON_NULL(m_mouseJointId) && button == GLFW_MOUSE_BUTTON_1)
 	{
-		//m_world->DestroyJoint(m_mouseJoint);
-		m_mouseJoint = nullptr;
+		b2World_DestroyJoint(m_mouseJointId);
+		m_mouseJointId = b2_nullJointId;
 	}
 }
 
 void Sample::MouseMove(b2Vec2 p)
 {
-	if (m_mouseJoint)
+	if (B2_NON_NULL(m_mouseJointId))
 	{
-		//m_mouseJoint->SetTarget(p);
+		b2MouseJoint_SetTarget(m_mouseJointId, p);
 	}
 }
 

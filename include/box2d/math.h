@@ -152,6 +152,12 @@ static inline float b2Length(b2Vec2 v)
 	return sqrtf(v.x * v.x + v.y * v.y);
 }
 
+/// Get the length of this vector (the norm).
+static inline float b2LengthSquared(b2Vec2 v)
+{
+	return v.x * v.x + v.y * v.y;
+}
+
 static inline float b2Distance(b2Vec2 a, b2Vec2 b)
 {
 	float dx = b.x - a.x;
@@ -292,7 +298,19 @@ static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 	return B;
 }
 
-b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
+/// Solve A * x = b, where b is a column vector. This is more efficient
+/// than computing the inverse in one-shot cases.
+static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
+{
+	float a11 = A.cx.x, a12 = A.cy.x, a21 = A.cx.y, a22 = A.cy.y;
+	float det = a11 * a22 - a12 * a21;
+	if (det != 0.0f)
+	{
+		det = 1.0f / det;
+	}
+	b2Vec2 x = {det * (a22 * b.x - a12 * b.y), det * (a11 * b.y - a21 * b.x)};
+	return x;
+}
 
 #ifdef __cplusplus
 }

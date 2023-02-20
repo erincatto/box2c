@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 // Any pooled struct must have this as the first member.
@@ -27,3 +28,9 @@ void b2DestroyPool(b2Pool* pool);
 
 b2Object* b2AllocObject(b2Pool* pool);
 void b2FreeObject(b2Pool* pool, b2Object* object);
+
+static inline bool b2ObjectValid(const b2Object* object)
+{
+	// this means the object is not on the free list
+	return object->index == object->next;
+}

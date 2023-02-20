@@ -62,8 +62,6 @@ struct ContactPoint
 };
 #endif
 
-struct b2MouseJoint;
-
 class Sample
 {
 public:
@@ -94,7 +92,7 @@ protected:
 	//DestructionListener m_destructionListener;
 	int32_t m_textLine;
 	b2WorldId m_worldId;
-	b2MouseJoint* m_mouseJoint;
+	b2JointId m_mouseJointId;
 	int32_t m_stepCount;
 	int32_t m_textIncrement;
 	b2Profile m_maxProfile;

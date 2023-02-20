@@ -9,11 +9,10 @@
 #include "contact.h"
 #include "contact_solver.h"
 #include "island.h"
+#include "joint.h"
 #include "shape.h"
 #include "solver_data.h"
 #include "world.h"
-
-//#include "joint.h"
 
 #include <assert.h>
 #include <float.h>
@@ -152,7 +151,7 @@ b2Island b2CreateIsland(
 	b2StackAllocator* alloc = &world->stackAllocator;
 	island.bodies = (b2Body**)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Body*));
 	island.contacts = (b2Contact**)b2AllocateStackItem(alloc, contactCapacity * sizeof(b2Contact*));
-	//island.joints = (b2Joint**)b2AllocateStackItem(allocator, jointCapacity * sizeof(b2Joint*));
+	island.joints = (b2Joint**)b2AllocateStackItem(alloc, jointCapacity * sizeof(b2Joint*));
 
 	island.velocities = (b2Velocity*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Velocity));
 	island.positions = (b2Position*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Position));
@@ -167,7 +166,7 @@ void b2DestroyIsland(b2Island* island)
 	// Warning: the order should reverse the constructor order.
 	b2FreeStackItem(alloc, island->positions);
 	b2FreeStackItem(alloc, island->velocities);
-	//b2FreeStackItem(alloc, island->joints);
+	b2FreeStackItem(alloc, island->joints);
 	b2FreeStackItem(alloc, island->contacts);
 	b2FreeStackItem(alloc, island->bodies);
 }
@@ -186,11 +185,11 @@ void b2Island_AddContact(b2Island* island, b2Contact* contact)
 	island->contacts[island->contactCount++] = contact;
 }
 
-//void b2Island_AddJoint(b2Joint* joint)
-//{
-//	assert(island->jointCount < island->jointCapacity);
-//	island->joints[island->jointCount++] = joint;
-//}
+void b2Island_AddJoint(b2Island* island, b2Joint* joint)
+{
+	assert(island->jointCount < island->jointCapacity);
+	island->joints[island->jointCount++] = joint;
+}
 
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
@@ -232,11 +231,10 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	// Solver data
-	// TODO_ERIN for joints
-	//b2SolverData solverData;
-	//solverData.step = *step;
-	//solverData.positions = island->positions;
-	//solverData.velocities = island->velocities;
+	b2SolverData solverData;
+	solverData.step = *step;
+	solverData.positions = island->positions;
+	solverData.velocities = island->velocities;
 
 	// Initialize velocity constraints.
 	b2ContactSolverDef contactSolverDef;
@@ -251,26 +249,26 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 	b2ContactSolver_InitializeVelocityConstraints(&solver);
 
-	// TODO_ERIN do this in init
+	// TODO_ERIN do this in init?
 	if (step->warmStarting)
 	{
 		b2ContactSolver_WarmStart(&solver);
 	}
 	
-	//for (int32_t i = 0; i < island->jointCount; ++i)
-	//{
-	//	island->joints[i]->InitVelocityConstraints(solverData);
-	//}
+	for (int32_t i = 0; i < island->jointCount; ++i)
+	{
+		b2InitVelocityConstraints(island->world, island->joints[i], &solverData);
+	}
 
 	profile->solveInit = b2GetMillisecondsAndReset(&timer);
 
 	// Solve velocity constraints
 	for (int32_t i = 0; i < step->velocityIterations; ++i)
 	{
-		//for (int32_t j = 0; j < island->jointCount; ++j)
-		//{
-		//	island->joints[j]->SolveVelocityConstraints(solverData);
-		//}
+		for (int32_t j = 0; j < island->jointCount; ++j)
+		{
+			b2SolveVelocityConstraints(island->joints[j], &solverData);
+		}
 
 		b2ContactSolver_SolveVelocityConstraints(&solver);
 	}
@@ -323,11 +321,11 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		bool contactsOkay = b2ContactSolver_SolvePositionConstraints(&solver);
 
 		bool jointsOkay = true;
-		//for (int32_t j = 0; j < island->jointCount; ++j)
-		//{
-		//	bool jointOkay = island->joints[j]->SolvePositionConstraints(solverData);
-		//	jointsOkay = jointsOkay && jointOkay;
-		//}
+		for (int32_t j = 0; j < island->jointCount; ++j)
+		{
+			bool jointOkay = b2SolvePositionConstraints(island->joints[j], &solverData);
+			jointsOkay = jointsOkay && jointOkay;
+		}
 
 		if (contactsOkay && jointsOkay)
 		{

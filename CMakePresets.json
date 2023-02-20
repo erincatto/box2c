@@ -35,13 +35,13 @@
       "name": "debug",
       "configurePreset": "debug",
       "displayName": "debug",
-      "description": "Debug configuration",
+      "description": "Debug configuration"
     },
     {
       "name": "release",
       "configurePreset": "release",
       "displayName": "release",
-      "description": "Release configuration",
+      "description": "Release configuration"
     }
   ]
 }

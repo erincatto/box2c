@@ -838,7 +838,7 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 #define b2_treeStackSize 256
 
 void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
-								 b2QueryCallbackFcn* callback, void* context)
+								 b2TreeQueryCallbackFcn* callback, void* context)
 {
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
@@ -880,7 +880,7 @@ void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_
 	}
 }
 
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallbackFcn* callback, void* context)
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context)
 {
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
@@ -922,7 +922,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2QueryCallback
 	}
 }
 
-void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2RayCastCallbackFcn* callback, void* context)
+void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2TreeRayCastCallbackFcn* callback, void* context)
 {
 	b2Vec2 p1 = input->p1;
 	b2Vec2 p2 = input->p2;

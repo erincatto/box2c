@@ -7,6 +7,8 @@
 #include <float.h>
 
 float b2_lengthUnitsPerMeter = 1.0f;
+float b2_timeToSleep = 0.5f;
+
 b2Version b2_version = { 3, 0, 0 };
 
 bool b2IsValid(float a)
@@ -63,17 +65,4 @@ b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v)
 	float invLength = 1.0f / *length;
 	b2Vec2 n = {invLength * v.x, invLength * v.y};
 	return n;
-}
-
-b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
-{
-	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
-	b2Transform xf;
-	xf.p = b2Add(b2MulSV(1.0f - time, sweep->c1), b2MulSV(time, sweep->c2));
-	float angle = (1.0f - time) * sweep->a1 + time * sweep->a2;
-	xf.q = b2MakeRot(angle);
-
-	// Shift to origin
-	xf.p = b2Sub(xf.p, b2RotateVector(xf.q, sweep->localCenter));
-	return xf;
 }
