@@ -40,6 +40,20 @@ struct b2ContactRegister
 static struct b2ContactRegister s_registers[b2_shapeTypeCount][b2_shapeTypeCount];
 static bool s_initialized = false;
 
+b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
+{
+	B2_MAYBE_UNUSED(childIndexA);
+	B2_MAYBE_UNUSED(xfA);
+	B2_MAYBE_UNUSED(xfB);
+	return b2CollideCircles(&shapeA->circle, &shapeB->circle);
+}
+
+b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
+{
+	B2_MAYBE_UNUSED(childIndexA);
+	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
+}
+
 b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	B2_MAYBE_UNUSED(childIndexA);
@@ -65,6 +79,8 @@ void b2InitializeContactRegisters()
 {
 	if (s_initialized == false)
 	{
+		b2AddType(b2CircleManifold, b2_circleShape, b2_circleShape);
+		b2AddType(b2PolygonAndCircleManifold, b2_polygonShape, b2_circleShape);
 		b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
 		s_initialized = true;
 	}
@@ -146,7 +162,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
 	// Expect caller to handle awake contacts
-	//assert(contact->awakeIndex == B2_NULL_INDEX);
 
 	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 	b2Shape* shapeB = world->shapes + contact->shapeIndexB;

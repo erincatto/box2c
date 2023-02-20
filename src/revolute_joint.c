@@ -288,6 +288,78 @@ bool b2SolveRevolutePosition(b2Joint* base, b2SolverData* data)
 	return positionError <= b2_linearSlop && angularError <= b2_angularSlop;
 }
 
+void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	assert(joint->object.index == joint->object.next);
+	assert(joint->object.revision == jointId.revision);
+	assert(joint->type == b2_revoluteJoint);
+	joint->revoluteJoint.enableLimit = enableLimit;
+}
+
+void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	assert(joint->object.index == joint->object.next);
+	assert(joint->object.revision == jointId.revision);
+	assert(joint->type == b2_revoluteJoint);
+	joint->revoluteJoint.enableMotor = enableMotor;
+}
+
+void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	assert(joint->object.index == joint->object.next);
+	assert(joint->object.revision == jointId.revision);
+	assert(joint->type == b2_revoluteJoint);
+	joint->revoluteJoint.motorSpeed = motorSpeed;
+}
+
+float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	assert(world->locked == false);
+	if (world->locked)
+	{
+		return 0.0f;
+	}
+
+	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	assert(joint->object.index == joint->object.next);
+	assert(joint->object.revision == jointId.revision);
+	assert(joint->type == b2_revoluteJoint);
+	return inverseTimeStep * joint->revoluteJoint.motorImpulse;
+}
+
 #if 0
 void b2RevoluteJoint::Dump()
 {

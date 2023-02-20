@@ -58,7 +58,7 @@ public:
 
 		m_shapeType = e_boxShape;
 		m_rowCount = 12;
-		m_columnCount = 500;
+		m_columnCount = g_sampleDebug ? 5 : 500;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -76,7 +76,7 @@ public:
 			}
 		}
 
-		b2Circle circle;
+		b2Circle circle = {0};
 		circle.radius = 0.5f;
 
 		b2Polygon box = b2MakeBox(0.5f, 0.5f);
@@ -116,7 +116,14 @@ public:
 
 				m_bodies[n] = bodyId;
 
-				b2Body_CreatePolygon(bodyId, &sd, &box);
+				if (m_shapeType == e_circleShape)
+				{
+					b2Body_CreateCircle(bodyId, &sd, &circle);
+				}
+				else
+				{
+					b2Body_CreatePolygon(bodyId, &sd, &box);
+				}
 			}
 		}
 	}
@@ -173,7 +180,6 @@ public:
 		int shapeType = int(m_shapeType);
 		changed = changed || ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
 		m_shapeType = ShapeType(shapeType);
-
 
 		changed = changed || ImGui::SliderInt("Rows", &m_rowCount, 1, e_maxRows);
 		changed = changed || ImGui::SliderInt("Columns", &m_columnCount, 1, e_maxColumns);
