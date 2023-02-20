@@ -4,6 +4,7 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "sample.h"
+#include "settings.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -57,37 +58,38 @@ public:
 			m_joint1 = b2World_CreateRevoluteJoint(m_worldId, &jd);
 		}
 
-		m_joint2 = b2_nullJointId;
-		m_ball = b2_nullBodyId;
-		#if 0
 		{
-			b2CircleShape circle_shape;
-			circle_shape.m_radius = 2.0f;
+			b2Circle circle = {0};
+			circle.radius = 2.0f;
 
-			b2BodyDef circle_bd;
-			circle_bd.type = b2_dynamicBody;
-			circle_bd.position.Set(5.0f, 30.0f);
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.type = b2_dynamicBody;
+			bd.position = {5.0f, 30.0f};
+			m_ball = b2World_CreateBody(m_worldId, &bd);
 
-			b2FixtureDef fd;
-			fd.density = 5.0f;
-			fd.filter.maskBits = 1;
-			fd.shape = &circle_shape;
+			b2ShapeDef sd = b2DefaultShapeDef();
+			sd.density = 5.0f;
 
-			m_ball = m_world->CreateBody(&circle_bd);
-			m_ball->CreateFixture(&fd);
+			b2Body_CreateCircle(m_ball, &sd, &circle);
+		}
 
-			b2PolygonShape polygon_shape;
-			polygon_shape.SetAsBox(10.0f, 0.5f, b2Vec2 (-10.0f, 0.0f), 0.0f);
+		{
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.position = {20.0f, 10.0f};
+			bd.type = b2_dynamicBody;
+			b2BodyId body = b2World_CreateBody(m_worldId, &bd);
 
-			b2BodyDef polygon_bd;
-			polygon_bd.position.Set(20.0f, 10.0f);
-			polygon_bd.type = b2_dynamicBody;
-			polygon_bd.bullet = true;
-			b2Body* polygon_body = m_world->CreateBody(&polygon_bd);
-			polygon_body->CreateFixture(&polygon_shape, 2.0f);
+			b2Polygon box = b2MakeOffsetBox(10.0f, 0.5f, {-10.0f, 0.0f}, 0.0f);
+			b2ShapeDef sd = b2DefaultShapeDef();
+			sd.density = 2.0f;
+			b2Body_CreatePolygon(body, &sd, &box);
 
-			b2RevoluteJointDef jd;
-			jd.Initialize(ground, polygon_body, b2Vec2(19.0f, 10.0f));
+			b2Vec2 pivot = {19.0f, 10.0f};
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			jd.bodyIdA = ground;
+			jd.bodyIdB = body;
+			jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
+			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
 			jd.lowerAngle = -0.25f * b2_pi;
 			jd.upperAngle = 0.0f * b2_pi;
 			jd.enableLimit = true;
@@ -95,9 +97,8 @@ public:
 			jd.motorSpeed = 0.0f;
 			jd.maxMotorTorque = 10000.0f;
 
-			m_joint2 = (b2RevoluteJoint*)m_world->CreateJoint(&jd);
+			m_joint2 = b2World_CreateRevoluteJoint(m_worldId, &jd);
 		}
-		#endif
 	}
 
 	void UpdateUI() override
@@ -108,17 +109,17 @@ public:
 
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
-			//m_joint1->EnableLimit(m_enableLimit);
+			b2RevoluteJoint_EnableLimit(m_joint1, m_enableLimit);
 		}
 
 		if (ImGui::Checkbox("Motor", &m_enableMotor))
 		{
-			//m_joint1->EnableMotor(m_enableMotor);
+			b2RevoluteJoint_EnableMotor(m_joint1, m_enableMotor);
 		}
 
 		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -20.0f, 20.0f, "%.0f"))
 		{
-			//m_joint1->SetMotorSpeed(m_motorSpeed);
+			b2RevoluteJoint_SetMotorSpeed(m_joint1, m_motorSpeed);
 		}
 
 		ImGui::End();
@@ -128,13 +129,13 @@ public:
 	{
 		Sample::Step(settings);
 		
-		//float torque1 = m_joint1->GetMotorTorque(settings.m_hertz);
-		//g_debugDraw.DrawString(5, m_textLine, "Motor Torque 1= %4.0f", torque1);
-		//m_textLine += m_textIncrement;
+		float torque1 = b2RevoluteJoint_GetMotorTorque(m_joint1, settings.m_hertz);
+		g_draw.DrawString(5, m_textLine, "Motor Torque 1= %4.0f", torque1);
+		m_textLine += m_textIncrement;
 
-		//float torque2 = m_joint2->GetMotorTorque(settings.m_hertz);
-		//g_debugDraw.DrawString(5, m_textLine, "Motor Torque 2= %4.0f", torque2);
-		//m_textLine += m_textIncrement;
+		float torque2 = b2RevoluteJoint_GetMotorTorque(m_joint2, settings.m_hertz);
+		g_draw.DrawString(5, m_textLine, "Motor Torque 2= %4.0f", torque2);
+		m_textLine += m_textIncrement;
 	}
 
 	static Sample* Create()

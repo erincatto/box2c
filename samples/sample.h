@@ -14,6 +14,12 @@
 struct Settings;
 class Test;
 
+#ifdef _DEBUG
+constexpr bool g_sampleDebug = true;
+#else
+constexpr bool g_sampleDebug = false;
+#endif
+
 #define	RAND_LIMIT 32767
 
 /// Random number in range [-1,1]

@@ -245,6 +245,66 @@ static void b2ComputeMass(b2World* w, b2Body* b)
 	b->linearVelocity = b2Add(b->linearVelocity, deltaLinear);
 }
 
+b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle)
+{
+	b2World* w = b2GetWorldFromIndex(bodyId.world);
+	assert(w->locked == false);
+	if (w->locked)
+	{
+		return b2_nullShapeId;
+	}
+
+	assert(0 <= bodyId.index && bodyId.index < w->bodyPool.capacity);
+
+	b2Body* body = w->bodies + bodyId.index;
+
+	b2Shape* shape = (b2Shape*)b2AllocObject(&w->shapePool);
+	w->shapes = (b2Shape*)w->shapePool.memory;
+
+	assert(b2IsValid(def->density) && def->density >= 0.0f);
+	assert(b2IsValid(def->friction) && def->friction >= 0.0f);
+	assert(b2IsValid(def->restitution) && def->restitution >= 0.0f);
+
+	shape->bodyIndex = body->object.index;
+	shape->type = b2_circleShape;
+	shape->density = def->density;
+	shape->friction = def->friction;
+	shape->restitution = def->restitution;
+	shape->filter = def->filter;
+	shape->userData = def->userData;
+	shape->isSensor = def->isSensor;
+	shape->circle = *circle;
+	shape->contacts = NULL;
+	shape->contactCount = 0;
+	shape->reportContacts = false;
+
+	shape->proxyCount = 1;
+	shape->proxies = (b2ShapeProxy*)b2AllocBlock(w->blockAllocator, sizeof(b2ShapeProxy));
+	shape->proxies[0].aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
+	shape->proxies[0].childIndex = 0;
+	shape->proxies[0].proxyKey = B2_NULL_INDEX;
+	shape->proxies[0].shapeIndex = shape->object.index;
+
+	if (body->isEnabled)
+	{
+		b2Shape_CreateProxies(shape, &w->broadPhase, body->type, body->transform);
+	}
+
+	// Add to shape linked list
+	shape->nextShapeIndex = body->shapeIndex;
+	body->shapeIndex = shape->object.index;
+
+	if (shape->density)
+	{
+		b2ComputeMass(w, body);
+	}
+
+	w->newContacts = true;
+
+	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
+	return id;
+}
+
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon)
 {
 	b2World* w = b2GetWorldFromIndex(bodyId.world);
