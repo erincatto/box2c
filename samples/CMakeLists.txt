@@ -17,6 +17,7 @@ add_executable(samples
 	collection/sample_hull.cpp
 	collection/sample_manifold.cpp
 	collection/sample_ray_cast.cpp
+	collection/sample_revolute_joint.cpp
 	collection/sample_shape_cast.cpp
 	collection/sample_time_of_impact.cpp
 	collection/sample_vertical_stack.cpp

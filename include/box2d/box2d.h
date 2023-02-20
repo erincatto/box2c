@@ -46,6 +46,8 @@ BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
+BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
+
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
 BOX2D_API void b2Body_SetAwake(b2BodyId bodyId, bool awake);

@@ -395,6 +395,13 @@ float b2Body_GetAngle(b2BodyId bodyId)
 	return world->bodies[bodyId.index].angle;
 }
 
+b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	return b2InvTransformPoint(world->bodies[bodyId.index].transform, globalPoint);
+}
+
 b2BodyType b2Body_GetType(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
