@@ -1499,7 +1499,7 @@ static bool TreeQueryCallback(int32_t proxyId, void* userData, void* context)
 	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
 	return result;
-};
+}
 
 void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context)
 {
