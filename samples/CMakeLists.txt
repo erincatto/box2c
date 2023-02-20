@@ -4,7 +4,7 @@ find_package(glad CONFIG REQUIRED)
 
 find_path(JSMN_INCLUDE_DIRS "jsmn.h")
 
-add_executable(samples
+set(BOX2D_SAMPLES
 	draw.cpp
 	draw.h
 	main.cpp
@@ -12,6 +12,8 @@ add_executable(samples
 	sample.h
 	settings.h
 	settings.cpp
+
+	collection/benchmark_boxes.cpp
 
 	collection/sample_dynamic_tree.cpp
 	collection/sample_hull.cpp
@@ -23,8 +25,10 @@ add_executable(samples
 	collection/sample_vertical_stack.cpp
 )
 
+add_executable(samples ${BOX2D_SAMPLES})
+
 set_target_properties(samples PROPERTIES
-	CXX_STANDARD 11
+	CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
 )
@@ -42,4 +46,4 @@ add_custom_command(
                 ${CMAKE_CURRENT_SOURCE_DIR}/data/
                 ${CMAKE_CURRENT_BINARY_DIR}/data/)
 
-# source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SAMPLES_SOURCE_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${BOX2D_SAMPLES})
