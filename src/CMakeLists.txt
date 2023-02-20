@@ -28,6 +28,7 @@ set(BOX2D_SOURCE_FILES
 	polygon_shape.h
 	pool.c
 	pool.h
+	revolute_joint.c
 	shape.c
 	shape.h
 	solver_data.h
@@ -52,6 +53,7 @@ set(BOX2D_API_FILES
 	../include/box2d/geometry.h
 	../include/box2d/hull.h
 	../include/box2d/id.h
+	../include/box2d/joint_types.h
 	../include/box2d/joint_util.h
 	../include/box2d/manifold.h
 	../include/box2d/math.h

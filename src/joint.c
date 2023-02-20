@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/debug_draw.h"
+#include "box2d/joint_types.h"
 
 #include "joint.h"
 #include "body.h"
@@ -119,6 +120,63 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	return jointId;
 }
 
+b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	assert(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	assert(b2IsBodyIdValid(world, def->bodyIdA));
+	assert(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Joint* joint = (b2Joint*)b2AllocObject(&world->jointPool);
+	world->joints = (b2Joint*)world->jointPool.memory;
+
+	joint->type = b2_revoluteJoint;
+	joint->edgeA.bodyIndex = def->bodyIdA.index;
+	joint->edgeB.bodyIndex = def->bodyIdB.index;
+	joint->collideConnected = false;
+	joint->islandId = 0;
+
+	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
+	b2Body* bodyB = world->bodies + joint->edgeB.bodyIndex;
+
+	joint->edgeA.nextJointIndex = bodyA->jointIndex;
+	bodyA->jointIndex = joint->object.index;
+
+	joint->edgeB.nextJointIndex = bodyB->jointIndex;
+	bodyB->jointIndex = joint->object.index;
+
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+
+	b2RevoluteJoint empty = {0};
+	joint->revoluteJoint = empty;
+
+	joint->revoluteJoint.referenceAngle = def->referenceAngle;
+	joint->revoluteJoint.impulse = b2Vec2_zero;
+	joint->revoluteJoint.axialMass = 0.0f;
+	joint->revoluteJoint.motorImpulse = 0.0f;
+	joint->revoluteJoint.lowerImpulse = 0.0f;
+	joint->revoluteJoint.upperImpulse = 0.0f;
+	joint->revoluteJoint.lowerAngle = def->lowerAngle;
+	joint->revoluteJoint.upperAngle = def->upperAngle;
+	joint->revoluteJoint.maxMotorTorque = def->maxMotorTorque;
+	joint->revoluteJoint.motorSpeed = def->motorSpeed;
+	joint->revoluteJoint.enableLimit = def->enableLimit;
+	joint->revoluteJoint.enableMotor = def->enableMotor;
+	joint->revoluteJoint.angle = 0.0f;
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+
+	return jointId;
+}
+
 void b2World_DestroyJoint(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
@@ -213,14 +271,19 @@ void b2World_DestroyJoint(b2JointId jointId)
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
-extern void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2SolverData* data);
+extern void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data);
+extern void b2InitializeRevolute(b2World* world, b2Joint* base, b2SolverData* data);
 
 void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* data)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2MouseJoint_InitVelocityConstraints(world, joint, data);
+			b2InitializeMouse(world, joint, data);
+			break;
+
+		case b2_revoluteJoint:
+			b2InitializeRevolute(world, joint, data);
 			break;
 
 		default:
@@ -228,14 +291,19 @@ void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* dat
 	}
 }
 
-extern void b2MouseJoint_SolveVelocityConstraints(b2Joint* base, b2SolverData* data);
+extern void b2SolveMouseVelocity(b2Joint* base, b2SolverData* data);
+extern void b2SolveRevoluteVelocity(b2Joint* base, b2SolverData* data);
 
 void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2MouseJoint_SolveVelocityConstraints(joint, data);
+			b2SolveMouseVelocity(joint, data);
+			break;
+
+		case b2_revoluteJoint:
+			b2SolveRevoluteVelocity(joint, data);
 			break;
 
 		default:
@@ -243,17 +311,22 @@ void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data)
 	}
 }
 
+extern bool b2SolveRevolutePosition(b2Joint* base, b2SolverData* data);
+
 // This returns true if the position errors are within tolerance.
 bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data)
 {
-	B2_MAYBE_UNUSED(data);
-
 	switch (joint->type)
 	{
+		case b2_revoluteJoint:
+			return b2SolveRevolutePosition(joint, data);
+
 		default:
 			return true;
 	}
 }
+
+extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
@@ -295,6 +368,10 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 
 	}
 	break;
+
+	case b2_revoluteJoint:
+		b2DrawRevolute(draw, joint, bodyA, bodyB);
+		break;
 
 	default:
 		draw->DrawSegment(xfA.p, pA, color, draw->context);

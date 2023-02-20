@@ -35,7 +35,7 @@ void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, target);
 }
 
-void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2SolverData* data)
+void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data)
 {
 	assert(base->type == b2_mouseJoint);
 
@@ -106,7 +106,7 @@ void b2MouseJoint_InitVelocityConstraints(b2World* world, b2Joint* base, b2Solve
 	data->velocities[joint->indexB].w = wB;
 }
 
-void b2MouseJoint_SolveVelocityConstraints(b2Joint* base, b2SolverData* data)
+void b2SolveMouseVelocity(b2Joint* base, b2SolverData* data)
 {
 	b2MouseJoint* joint = &base->mouseJoint;
 

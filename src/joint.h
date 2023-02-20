@@ -60,6 +60,37 @@ typedef struct b2MouseJoint
 	b2Vec2 C;
 } b2MouseJoint;
 
+typedef struct b2RevoluteJoint
+{
+	// Solver shared
+	b2Vec2 impulse;
+	float motorImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	bool enableMotor;
+	float maxMotorTorque;
+	float motorSpeed;
+	bool enableLimit;
+	float referenceAngle;
+	float lowerAngle;
+	float upperAngle;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 localCenterA;
+	b2Vec2 localCenterB;
+	float invMassA;
+	float invMassB;
+	float invIA;
+	float invIB;
+	b2Mat22 K;
+	float angle;
+	float axialMass;
+} b2RevoluteJoint;
+
 /// The base joint class. Joints are used to constraint two bodies together in
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
@@ -79,6 +110,7 @@ typedef struct b2Joint
 	union
 	{
 		b2MouseJoint mouseJoint;
+		b2RevoluteJoint revoluteJoint;
 	};
 
 	bool collideConnected;
