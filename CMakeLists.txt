@@ -11,10 +11,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+#if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+#  set(CMAKE_CXX_FLAGS_DEBUG "/ZI")
+#  set(CMAKE_SHARED_LINKER_FLAGS "/SAFESEH:NO")
+#  set(CMAKE_EXE_LINKER_FLAGS "/SAFESEH:NO")
+#endif()
+
 if (MSVC AND WIN32)
     # Enable edit and continue
-    add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)
-    add_compile_options($<$<CONFIG:Debug>:/ZI>)
+    add_link_options(/INCREMENTAL)
+    add_compile_options(/ZI)
 endif()
 
 add_subdirectory(test)

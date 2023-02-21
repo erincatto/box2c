@@ -32,7 +32,7 @@ public:
 			b2Body_CreatePolygon(groundId, &sd, &box);
 		}
 
-		int32_t num = 26;
+		int32_t num = g_sampleDebug ? 2 : 26;
 		float rad = 0.5f;
 
 		float shift = rad * 2.0f;
@@ -47,8 +47,10 @@ public:
 		sd.friction = 0.5f;
 
 		b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
+		//b2Circle circle = {0};
+		//circle.radius = rad;
 
-		int32_t numj = g_sampleDebug ? 5 : 5 * num;
+		int32_t numj = g_sampleDebug ? 2 : 5 * num;
 
 		for (int32_t i = 0; i < num; ++i)
 		{
@@ -62,6 +64,7 @@ public:
 
 				b2BodyId rigidBody = b2World_CreateBody(m_worldId, &bd);
 				b2Body_CreatePolygon(rigidBody, &sd, &cuboid);
+				//b2Body_CreateCircle(rigidBody, &sd, &circle);
 			}
 		}
 	}

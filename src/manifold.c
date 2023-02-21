@@ -153,12 +153,6 @@ int32_t b2ClipSegmentToLine(b2ClipVertex vOut[2], const b2ClipVertex vIn[2], b2V
 		// Find intersection point of edge and plane
 		float interp = distance0 / (distance0 - distance1);
 		vOut[count].v = b2Lerp(vIn[0].v, vIn[1].v, interp);
-
-		// VertexA is hitting edgeB.
-		vOut[count].id.cf.indexA = (uint8_t)vertexIndexA;
-		vOut[count].id.cf.indexB = vIn[0].id.cf.indexB;
-		vOut[count].id.cf.typeA = b2_vertexFeature;
-		vOut[count].id.cf.typeB = b2_faceFeature;
 		++count;
 
 		assert(count == 2);
@@ -1522,6 +1516,53 @@ static void b2FindIncidentEdge(b2ClipVertex c[2], const b2Polygon* poly1, b2Tran
 	c[1].id.cf.typeB = b2_vertexFeature;
 }
 
+static void b2FindIncidentEdge2(b2ClipVertex c[2], const b2Polygon* poly1, b2Transform xf1, int32_t edge1,
+							   const b2Polygon* poly2, b2Transform xf2)
+{
+	const b2Vec2* normals1 = poly1->normals;
+
+	int32_t count2 = poly2->count;
+	const b2Vec2* vertices2 = poly2->vertices;
+	const b2Vec2* normals2 = poly2->normals;
+
+	assert(0 <= edge1 && edge1 < poly1->count);
+
+	// Get the normal of the reference edge in poly2's frame.
+	b2Vec2 normal1 = b2InvRotateVector(xf2.q, b2RotateVector(xf1.q, normals1[edge1]));
+
+	// Find the incident edge on poly2.
+	int32_t index = 0;
+	float minDot = FLT_MAX;
+	for (int32_t i = 0; i < count2; ++i)
+	{
+		float dot = b2Dot(normal1, normals2[i]);
+		if (dot < minDot)
+		{
+			minDot = dot;
+			index = i;
+		}
+	}
+
+	// Build the clip vertices for the incident edge.
+	int32_t i1 = index;
+	int32_t i2 = i1 + 1 < count2 ? i1 + 1 : 0;
+
+	int32_t j1 = edge1 + 1 < poly1->count ? edge1 + 1 : 0;
+	int32_t j2 = edge1;
+
+	c[0].v = b2TransformPoint(xf2, vertices2[i1]);
+	c[0].id.cf.indexA = (uint8_t)j2;
+	c[0].id.cf.indexB = (uint8_t)i1;
+	c[0].id.cf.typeA = b2_vertexFeature;
+	c[0].id.cf.typeB = b2_vertexFeature;
+
+	c[1].v = b2TransformPoint(xf2, vertices2[i2]);
+	c[1].id.cf.indexA = (uint8_t)j1;
+	c[1].id.cf.indexB = (uint8_t)i2;
+	c[1].id.cf.typeA = b2_vertexFeature;
+	c[1].id.cf.typeB = b2_vertexFeature;
+}
+
 // Find edge normal of max separation on A - return if separating axis is found
 // Find edge normal of max separation on B - return if separation axis is found
 // Choose reference edge as min(minA, minB)
@@ -1568,7 +1609,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	}
 
 	b2ClipVertex incidentEdge[2];
-	b2FindIncidentEdge(incidentEdge, poly1, xf1, edge1, poly2, xf2);
+	b2FindIncidentEdge2(incidentEdge, poly1, xf1, edge1, poly2, xf2);
 
 	int32_t count1 = poly1->count;
 	const b2Vec2* vertices1 = poly1->vertices;
@@ -1631,8 +1672,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 			b2ContactFeature cf = cp->id.cf;
 			cp->id.cf.indexA = cf.indexB;
 			cp->id.cf.indexB = cf.indexA;
-			cp->id.cf.typeA = cf.typeB;
-			cp->id.cf.typeB = cf.typeA;
+			cp->id.cf.typeA = 0;
+			cp->id.cf.typeB = 0;
 		}
 	}
 

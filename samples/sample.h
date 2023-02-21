@@ -4,6 +4,7 @@
 #pragma once
 
 #include "box2d/id.h"
+#include "box2d/manifold.h"
 #include "box2d/timer.h"
 #include "box2d/types.h"
 
@@ -52,13 +53,14 @@ public:
 
 	Test* test;
 };
+#endif
 
-const int32_t k_maxContactPoints = 2048;
+constexpr int32_t k_maxContactPoints = 2048;
 
 struct ContactPoint
 {
-	b2Fixture* fixtureA;
-	b2Fixture* fixtureB;
+	b2ShapeId shapeIdA;
+	b2ShapeId shapeIdB;
 	b2Vec2 normal;
 	b2Vec2 position;
 	b2PointState state;
@@ -66,7 +68,6 @@ struct ContactPoint
 	float tangentImpulse;
 	float separation;
 };
-#endif
 
 class Sample
 {
@@ -86,14 +87,15 @@ public:
 
 	void ShiftOrigin(b2Vec2 newOrigin);
 
-protected:
+	void PreSolve(const b2ManifoldResult* result);
+
 	friend class DestructionListener;
 	friend class BoundaryListener;
 	friend class ContactListener;
 
 	b2BodyId m_groundBodyId;
 	b2AABB m_worldAABB;
-	//ContactPoint m_points[k_maxContactPoints];
+	ContactPoint m_points[k_maxContactPoints];
 	int32_t m_pointCount;
 	//DestructionListener m_destructionListener;
 	int32_t m_textLine;

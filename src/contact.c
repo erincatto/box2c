@@ -266,13 +266,16 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	assert(shapeA->object.index == contact->shapeIndexA);
 	assert(shapeB->object.index == contact->shapeIndexB);
 
+	b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
+	b2ShapeId shapeIdB = {shapeB->object.index, world->index, shapeB->object.revision};
+
 	// Re-enable this contact.
 	contact->flags |= b2_contactEnabledFlag;
 
 	bool touching = false;
 	contact->manifold.pointCount = 0;
 
-	bool wasTouching = (contact->flags & b2_contactTouchingFlag) == b2_contactTouchingFlag;
+	//bool wasTouching = (contact->flags & b2_contactTouchingFlag) == b2_contactTouchingFlag;
 
 	bool sensorA = shapeA->isSensor;
 	bool sensorB = shapeB->isSensor;
@@ -344,6 +347,29 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 				//	i += 0;
 				//}
 			}
+
+			if (touching && world->preSolveFcn)
+			{
+				// TODO_ERIN too much computation
+				b2WorldManifold wm =
+					b2ComputeWorldManifold(&contact->manifold, xfA, input.proxyA.radius, xfB, input.proxyB.radius);
+
+				b2PointState state1[b2_maxManifoldPoints], state2[b2_maxManifoldPoints];
+				b2GetPointStates(state1, state2, &oldManifold, &contact->manifold);
+
+				b2ManifoldResult result;
+				result.shapeIdA = shapeIdA;
+				result.shapeIdB = shapeIdB;
+				result.normal = wm.normal;
+				result.points[0] = wm.points[0];
+				result.points[1] = wm.points[1];
+				result.separations[0] = wm.separations[0];
+				result.separations[1] = wm.separations[1];
+				result.states[0] = state2[0];
+				result.states[1] = state2[1];
+				result.pointCount = contact->manifold.pointCount;
+				world->preSolveFcn(&result, world->preSolveContext);
+			}
 		}
 	}
 
@@ -356,21 +382,13 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 		contact->flags &= ~b2_contactTouchingFlag;
 	}
 
-	b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
-	b2ShapeId shapeIdB = {shapeB->object.index, world->index, shapeB->object.revision};
+	//if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
+	//{
+	//	world->callbacks.beginContactFcn(shapeIdA, shapeIdB);
+	//}
 
-	if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
-	{
-		world->callbacks.beginContactFcn(shapeIdA, shapeIdB);
-	}
-
-	if (wasTouching == true && touching == false && world->callbacks.endContactFcn)
-	{
-		world->callbacks.endContactFcn(shapeIdA, shapeIdB);
-	}
-
-	if (sensor == false && touching && world->callbacks.preSolveFcn)
-	{
-		world->callbacks.preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, &oldManifold);
-	}
+	//if (wasTouching == true && touching == false && world->callbacks.endContactFcn)
+	//{
+	//	world->callbacks.endContactFcn(shapeIdA, shapeIdB);
+	//}
 }

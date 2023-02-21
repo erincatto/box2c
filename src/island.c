@@ -12,6 +12,7 @@
 #include "joint.h"
 #include "shape.h"
 #include "solver_data.h"
+#include "stack_allocator.h"
 #include "world.h"
 
 #include <assert.h>
@@ -148,7 +149,7 @@ b2Island b2CreateIsland(
 
 	island.world = world;
 
-	b2StackAllocator* alloc = &world->stackAllocator;
+	b2StackAllocator* alloc = world->stackAllocator;
 	island.bodies = (b2Body**)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Body*));
 	island.contacts = (b2Contact**)b2AllocateStackItem(alloc, contactCapacity * sizeof(b2Contact*));
 	island.joints = (b2Joint**)b2AllocateStackItem(alloc, jointCapacity * sizeof(b2Joint*));
@@ -161,7 +162,7 @@ b2Island b2CreateIsland(
 
 void b2DestroyIsland(b2Island* island)
 {
-	b2StackAllocator* alloc = &island->world->stackAllocator;
+	b2StackAllocator* alloc = island->world->stackAllocator;
 
 	// Warning: the order should reverse the constructor order.
 	b2FreeStackItem(alloc, island->positions);
@@ -352,7 +353,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
 	// Report impulses
-	b2PostSolveFcn* postSolveFcn = island->world->callbacks.postSolveFcn;
+	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
 	{
 		int16_t worldIndex = island->world->index;
@@ -368,7 +369,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
 			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
-			postSolveFcn(idA, idB, &impulse);
+			postSolveFcn(idA, idB, &impulse, island->world->postSolveContext);
 		}
 	}
 
