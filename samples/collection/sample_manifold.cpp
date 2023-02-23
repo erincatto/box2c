@@ -197,7 +197,8 @@ public:
 				if (m_showIds)
 				{
 					b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
-					g_draw.DrawString(p, "%x", m->points[i].id.key);
+					//g_draw.DrawString(p, "%x", m->points[i].id.key);
+					g_draw.DrawString(p, "%d,%d", m->points[i].id.cf.indexA, m->points[i].id.cf.indexB);
 				}
 
 				if (m_showSeparation)

@@ -1472,103 +1472,11 @@ static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, b2T
 	return maxSeparation;
 }
 
-static void b2FindIncidentEdge(b2ClipVertex c[2], const b2Polygon* poly1, b2Transform xf1, int32_t edge1,
-							   const b2Polygon* poly2, b2Transform xf2)
-{
-	const b2Vec2* normals1 = poly1->normals;
-
-	int32_t count2 = poly2->count;
-	const b2Vec2* vertices2 = poly2->vertices;
-	const b2Vec2* normals2 = poly2->normals;
-
-	assert(0 <= edge1 && edge1 < poly1->count);
-
-	// Get the normal of the reference edge in poly2's frame.
-	b2Vec2 normal1 = b2InvRotateVector(xf2.q, b2RotateVector(xf1.q, normals1[edge1]));
-
-	// Find the incident edge on poly2.
-	int32_t index = 0;
-	float minDot = FLT_MAX;
-	for (int32_t i = 0; i < count2; ++i)
-	{
-		float dot = b2Dot(normal1, normals2[i]);
-		if (dot < minDot)
-		{
-			minDot = dot;
-			index = i;
-		}
-	}
-
-	// Build the clip vertices for the incident edge.
-	int32_t i1 = index;
-	int32_t i2 = i1 + 1 < count2 ? i1 + 1 : 0;
-
-	c[0].v = b2TransformPoint(xf2, vertices2[i1]);
-	c[0].id.cf.indexA = (uint8_t)edge1;
-	c[0].id.cf.indexB = (uint8_t)i1;
-	c[0].id.cf.typeA = b2_faceFeature;
-	c[0].id.cf.typeB = b2_vertexFeature;
-
-	c[1].v = b2TransformPoint(xf2, vertices2[i2]);
-	c[1].id.cf.indexA = (uint8_t)edge1;
-	c[1].id.cf.indexB = (uint8_t)i2;
-	c[1].id.cf.typeA = b2_faceFeature;
-	c[1].id.cf.typeB = b2_vertexFeature;
-}
-
-static void b2FindIncidentEdge2(b2ClipVertex c[2], const b2Polygon* poly1, b2Transform xf1, int32_t edge1,
-							   const b2Polygon* poly2, b2Transform xf2)
-{
-	const b2Vec2* normals1 = poly1->normals;
-
-	int32_t count2 = poly2->count;
-	const b2Vec2* vertices2 = poly2->vertices;
-	const b2Vec2* normals2 = poly2->normals;
-
-	assert(0 <= edge1 && edge1 < poly1->count);
-
-	// Get the normal of the reference edge in poly2's frame.
-	b2Vec2 normal1 = b2InvRotateVector(xf2.q, b2RotateVector(xf1.q, normals1[edge1]));
-
-	// Find the incident edge on poly2.
-	int32_t index = 0;
-	float minDot = FLT_MAX;
-	for (int32_t i = 0; i < count2; ++i)
-	{
-		float dot = b2Dot(normal1, normals2[i]);
-		if (dot < minDot)
-		{
-			minDot = dot;
-			index = i;
-		}
-	}
-
-	// Build the clip vertices for the incident edge.
-	int32_t i1 = index;
-	int32_t i2 = i1 + 1 < count2 ? i1 + 1 : 0;
-
-	int32_t j1 = edge1 + 1 < poly1->count ? edge1 + 1 : 0;
-	int32_t j2 = edge1;
-
-	c[0].v = b2TransformPoint(xf2, vertices2[i1]);
-	c[0].id.cf.indexA = (uint8_t)j2;
-	c[0].id.cf.indexB = (uint8_t)i1;
-	c[0].id.cf.typeA = b2_vertexFeature;
-	c[0].id.cf.typeB = b2_vertexFeature;
-
-	c[1].v = b2TransformPoint(xf2, vertices2[i2]);
-	c[1].id.cf.indexA = (uint8_t)j1;
-	c[1].id.cf.indexB = (uint8_t)i2;
-	c[1].id.cf.typeA = b2_vertexFeature;
-	c[1].id.cf.typeB = b2_vertexFeature;
-}
-
-// Find edge normal of max separation on A - return if separating axis is found
-// Find edge normal of max separation on B - return if separation axis is found
-// Choose reference edge as min(minA, minB)
-// Find incident edge
-// Clip
-
+// 1. Find edge normal of max separation on A
+// 2. Find edge normal of max separation on B
+// 3. Choose reference edge as min(minA, minB)
+// 4. Find incident edge
+// 5. Clip
 // The normal points from A to B
 b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
 {
@@ -1584,7 +1492,6 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	const b2Polygon* poly2; // incident polygon
 	b2Transform xf1, xf2;
 	int32_t edge1; // reference edge
-	uint8_t flip;
 	const float k_tol = 0.1f * b2_linearSlop;
 
 	if (separationB > separationA + k_tol)
@@ -1595,7 +1502,6 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		xf2 = xfA;
 		edge1 = edgeB;
 		manifold.type = b2_manifoldFaceB;
-		flip = 1;
 	}
 	else
 	{
@@ -1605,20 +1511,44 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		xf2 = xfB;
 		edge1 = edgeA;
 		manifold.type = b2_manifoldFaceA;
-		flip = 0;
 	}
 
-	b2ClipVertex incidentEdge[2];
-	b2FindIncidentEdge2(incidentEdge, poly1, xf1, edge1, poly2, xf2);
-
 	int32_t count1 = poly1->count;
+	int32_t count2 = poly2->count;
+
+	const b2Vec2* normals1 = poly1->normals;
+	const b2Vec2* vertices2 = poly2->vertices;
+	const b2Vec2* normals2 = poly2->normals;
+
+	// Get the normal of the reference edge in poly2's frame.
+	b2Vec2 normal1 = b2InvRotateVector(xf2.q, b2RotateVector(xf1.q, normals1[edge1]));
+
+	// Find the incident edge on poly2.
+	int32_t edge2 = 0;
+	float minDot = FLT_MAX;
+	for (int32_t i = 0; i < count2; ++i)
+	{
+		float dot = b2Dot(normal1, normals2[i]);
+		if (dot < minDot)
+		{
+			minDot = dot;
+			edge2 = i;
+		}
+	}
+
+	// Build the clip vertices for the incident edge.
+	int32_t i21 = edge2;
+	int32_t i22 = edge2 + 1 < count2 ? edge2 + 1 : 0;
+
+	b2Vec2 v21 = b2TransformPoint(xf2, vertices2[i21]);
+	b2Vec2 v22 = b2TransformPoint(xf2, vertices2[i22]);
+
 	const b2Vec2* vertices1 = poly1->vertices;
 
-	int32_t iv1 = edge1;
-	int32_t iv2 = edge1 + 1 < count1 ? edge1 + 1 : 0;
-
-	b2Vec2 v11 = vertices1[iv1];
-	b2Vec2 v12 = vertices1[iv2];
+	int32_t i11 = edge1;
+	int32_t i12 = edge1 + 1 < count1 ? edge1 + 1 : 0;
+	b2Vec2 v11 = vertices1[i11];
+	b2Vec2 v12 = vertices1[i12];
 
 	b2Vec2 localTangent = b2Normalize(b2Sub(v12, v11));
 
@@ -1630,54 +1560,68 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	v11 = b2TransformPoint(xf1, v11);
 	v12 = b2TransformPoint(xf1, v12);
 
-	// Side offsets for clipping
-	float sideOffset1 = -b2Dot(tangent, v11);
-	float sideOffset2 = b2Dot(tangent, v12);
+	float lower1 = 0.0f;
+	float upper1 = b2Dot(b2Sub(v12, v11), tangent);
 
-	// Clip incident edge against extruded edge1 side edges.
-	b2ClipVertex clipPoints1[2];
-	b2ClipVertex clipPoints2[2];
-	int np;
+	// Incident edge should point opposite of tangent
+	float upper2 = b2Dot(b2Sub(v21, v11), tangent);
+	float lower2 = b2Dot(b2Sub(v22, v11), tangent);
 
-	// TODO stabilize ids by using only vertex indices?
-
-	// First side edge
-	np = b2ClipSegmentToLine(clipPoints1, incidentEdge, b2Neg(tangent), sideOffset1, iv1);
-
-	if (np < 2)
+	if (upper2 < lower1 || upper1 < lower2 || upper2 - lower2 < FLT_EPSILON)
 	{
 		return manifold;
 	}
 
-	// Second side edge
-	np = b2ClipSegmentToLine(clipPoints2, clipPoints1, tangent, sideOffset2, iv2);
-
-	if (np < 2)
+	b2Vec2 vLower;
+	if (lower2 < lower1)
 	{
-		return manifold;
+		vLower = b2Lerp(vertices2[i22], vertices2[i21], (lower1 - lower2) / (upper2 - lower2));
+	}
+	else
+	{
+		vLower = vertices2[i22];
+	}
+
+	b2Vec2 vUpper;
+	if (upper2 > upper1)
+	{
+		vUpper = b2Lerp(vertices2[i22], vertices2[i21], (upper1 - lower2) / (upper2 - lower2));
+	}
+	else
+	{
+		vUpper = vertices2[i21];
 	}
 
 	// Now clipPoints2 contains the clipped points.
 	manifold.localNormal = localNormal;
 	manifold.localPoint = planePoint;
 
-	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
+	if (manifold.type == b2_manifoldFaceA)
 	{
-		b2ManifoldPoint* cp = manifold.points + i;
-		cp->localPoint = b2InvTransformPoint(xf2, clipPoints2[i].v);
-		cp->id = clipPoints2[i].id;
-		if (flip)
-		{
-			// Swap features
-			b2ContactFeature cf = cp->id.cf;
-			cp->id.cf.indexA = cf.indexB;
-			cp->id.cf.indexB = cf.indexA;
-			cp->id.cf.typeA = 0;
-			cp->id.cf.typeB = 0;
-		}
+		b2ManifoldPoint* cp = manifold.points + 0;
+		cp->localPoint = vLower;
+		cp->id.cf.indexA = (uint8_t)i11;
+		cp->id.cf.indexB = (uint8_t)i22;
+
+		cp = manifold.points + 1;
+		cp->localPoint = vUpper;
+		cp->id.cf.indexA = (uint8_t)i12;
+		cp->id.cf.indexB = (uint8_t)i21;
+	}
+	else
+	{
+		b2ManifoldPoint* cp = manifold.points + 0;
+		cp->localPoint = vUpper;
+		cp->id.cf.indexA = (uint8_t)i21;
+		cp->id.cf.indexB = (uint8_t)i12;
+
+		cp = manifold.points + 1;
+		cp->localPoint = vLower;
+		cp->id.cf.indexA = (uint8_t)i22;
+		cp->id.cf.indexB = (uint8_t)i11;
 	}
 
-	manifold.pointCount = b2_maxManifoldPoints;
+	manifold.pointCount = 2;
 
 	return manifold;
 }
