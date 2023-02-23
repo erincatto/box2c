@@ -153,6 +153,12 @@ int32_t b2ClipSegmentToLine(b2ClipVertex vOut[2], const b2ClipVertex vIn[2], b2V
 		// Find intersection point of edge and plane
 		float interp = distance0 / (distance0 - distance1);
 		vOut[count].v = b2Lerp(vIn[0].v, vIn[1].v, interp);
+
+		// VertexA is hitting edgeB.
+		vOut[count].id.cf.indexA = (uint8_t)vertexIndexA;
+		vOut[count].id.cf.indexB = vIn[0].id.cf.indexB;
+		vOut[count].id.cf.typeA = b2_vertexFeature;
+		vOut[count].id.cf.typeB = b2_faceFeature;
 		++count;
 
 		assert(count == 2);

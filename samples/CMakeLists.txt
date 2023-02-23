@@ -14,6 +14,7 @@ set(BOX2D_SAMPLES
 	settings.cpp
 
 	collection/benchmark_boxes.cpp
+	collection/benchmark_revolute.cpp
 
 	collection/sample_dynamic_tree.cpp
 	collection/sample_hull.cpp

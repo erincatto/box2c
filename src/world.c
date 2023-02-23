@@ -104,14 +104,14 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		edge = edge->next;
 	}
 
-	// b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-	// b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 
 	// Does a joint override collision? Is at least one body dynamic?
-	// if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
-	//{
-	//	return;
-	//}
+	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
+	{
+		return;
+	}
 
 	// Check user filtering.
 	// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
@@ -235,9 +235,9 @@ static void b2Collide(b2World* world)
 		}
 
 		assert(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
-		
+
 		b2Body* body = world->bodies + bodyIndex;
-		
+
 		assert(body->object.index == bodyIndex && body->object.index == body->object.next);
 		assert(body->type != b2_staticBody);
 
@@ -259,7 +259,7 @@ static void b2Collide(b2World* world)
 				}
 
 				b2Contact* contact = ce->contact;
-				//contact->awakeIndex = B2_NULL_INDEX;
+				// contact->awakeIndex = B2_NULL_INDEX;
 
 				int32_t proxyKeyA = shape->proxies[contact->childA].proxyKey;
 				int32_t proxyKeyB = otherShape->proxies[contact->childB].proxyKey;
@@ -797,15 +797,15 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		//}
 	}
 
-// if (flags & b2Draw::e_centerOfMassBit)
-//{
-//		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-//		{
-//		b2Transform xf = b->GetTransform();
-//		xf.p = b->GetWorldCenter();
-//		m_debugDraw->DrawTransform(xf);
-//		}
-// }
+	// if (flags & b2Draw::e_centerOfMassBit)
+	//{
+	//		for (b2Body* b = m_bodyList; b; b = b->GetNext())
+	//		{
+	//		b2Transform xf = b->GetTransform();
+	//		xf.p = b->GetWorldCenter();
+	//		m_debugDraw->DrawTransform(xf);
+	//		}
+	// }
 }
 
 void b2World_EnableSleeping(b2WorldId worldId, bool flag)

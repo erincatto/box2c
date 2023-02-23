@@ -5,10 +5,10 @@
 #include "box2d/geometry.h"
 #include "sample.h"
 
-class Boxes : public Sample
+class BenchmarkBoxes : public Sample
 {
 public:
-	Boxes()
+	BenchmarkBoxes()
 	{
 		float groundSize = 25.0f;
 
@@ -71,8 +71,8 @@ public:
 
 	static Sample* Create()
 	{
-		return new Boxes;
+		return new BenchmarkBoxes;
 	}
 };
 
-static int sampleIndex = RegisterSample("Benchmark", "Boxes", Boxes::Create);
+static int sampleIndex = RegisterSample("Benchmark", "Boxes", BenchmarkBoxes::Create);

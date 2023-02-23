@@ -4,8 +4,10 @@
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
 
-#include "joint.h"
 #include "body.h"
+#include "contact.h"
+#include "joint.h"
+#include "shape.h"
 #include "world.h"
 
 void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
@@ -140,7 +142,7 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->type = b2_revoluteJoint;
 	joint->edgeA.bodyIndex = def->bodyIdA.index;
 	joint->edgeB.bodyIndex = def->bodyIdB.index;
-	joint->collideConnected = false;
+	joint->collideConnected = def->collideConnected;
 	joint->islandId = 0;
 
 	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
@@ -171,6 +173,30 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
 	joint->revoluteJoint.angle = 0.0f;
+
+	// If the joint prevents collisions, then destroy all contacts between attached shapes
+	if (def->collideConnected == false)
+	{
+		int32_t shapeIndex = bodyB->shapeIndex;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+			b2ContactEdge* edge = shape->contacts;
+			while (edge)
+			{
+				b2ContactEdge* next = edge->next;
+				b2Shape* otherShape = world->shapes + edge->otherShapeIndex;
+				if (otherShape->bodyIndex == bodyA->object.index)
+				{
+					b2DestroyContact(world, edge->contact);
+				}
+
+				edge = next;
+			}
+		
+			shapeIndex = shape->nextShapeIndex;
+		}
+	}
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 
