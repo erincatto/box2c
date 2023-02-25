@@ -55,7 +55,7 @@ public:
 };
 #endif
 
-constexpr int32_t k_maxContactPoints = 2048;
+constexpr int32_t k_maxContactPoints = 12 * 2048;
 
 struct ContactPoint
 {
