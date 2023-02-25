@@ -46,7 +46,7 @@ extern float b2_lengthUnitsPerMeter;
 
 /// The maximum linear position correction used when solving constraints. This helps to
 /// prevent overshoot. Meters.
-#define b2_maxLinearCorrection (2.0f * b2_lengthUnitsPerMeter)
+#define b2_maxLinearCorrection (0.2f * b2_lengthUnitsPerMeter)
 
 /// The maximum angular position correction used when solving constraints. This helps to
 /// prevent overshoot.
