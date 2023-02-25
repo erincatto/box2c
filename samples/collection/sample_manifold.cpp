@@ -197,7 +197,8 @@ public:
 				if (m_showIds)
 				{
 					b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
-					g_draw.DrawString(p, "%x", m->points[i].id.key);
+					//g_draw.DrawString(p, "%x", m->points[i].id.key);
+					g_draw.DrawString(p, "%d,%d", m->points[i].id.cf.indexA, m->points[i].id.cf.indexB);
 				}
 
 				if (m_showSeparation)
@@ -335,7 +336,6 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
-		#if 0
 		// box-circle
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};
@@ -355,7 +355,7 @@ public:
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
 
-			DrawManifold(&m, &wm);
+			DrawManifold(&m, &wm, xf1, xf2);
 
 			offset = b2Add(offset, increment);
 		}
@@ -381,11 +381,12 @@ public:
 			}
 			g_draw.DrawPolygon(vertices, m_box.count, color2);
 
-			DrawManifold(&m, &wm);
+			DrawManifold(&m, &wm, xf1, xf2);
 
 			offset = b2Add(offset, increment);
 		}
 
+		#if 0
 		// segment-box
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};

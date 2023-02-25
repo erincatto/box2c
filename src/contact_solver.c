@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "contact_solver.h"
 #include "body.h"
 #include "contact.h"
+#include "contact_solver.h"
 #include "shape.h"
+#include "stack_allocator.h"
 #include "world.h"
 
 #include <assert.h>
@@ -61,7 +62,7 @@ typedef struct b2ContactPositionConstraint
 
 b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 {
-	b2StackAllocator* alloc = &def->world->stackAllocator;
+	b2StackAllocator* alloc = def->world->stackAllocator;
 
 	b2ContactSolver solver;
 	solver.step = def->step;
@@ -151,7 +152,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 
 void b2DestroyContactSolver(b2ContactSolver* solver)
 {
-	b2StackAllocator* alloc = &solver->world->stackAllocator;
+	b2StackAllocator* alloc = solver->world->stackAllocator;
 	b2FreeStackItem(alloc, solver->velocityConstraints);
 	b2FreeStackItem(alloc, solver->positionConstraints);
 	solver->velocityConstraints = NULL;

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/box2d.h"
+#include "box2d/callbacks.h"
 #include "box2d/joint_util.h"
+#include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
 
@@ -27,6 +29,12 @@ void DestructionListener::SayGoodbye(b2Joint* joint)
 }
 #endif
 
+void PreSolveFcn(const b2ManifoldResult* manifold, void* context)
+{
+	Sample* sample = static_cast<Sample*>(context);
+	sample->PreSolve(manifold);
+}
+
 Sample::Sample()
 {
 	b2Vec2 gravity = { 0.0f, -10.0f };
@@ -42,6 +50,8 @@ Sample::Sample()
 	//m_world->SetDestructionListener(&m_destructionListener);
 	//m_world->SetContactListener(this);
 	
+	b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
+
 	m_stepCount = 0;
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -301,11 +311,13 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 	}
 
-	#if 0
 	if (settings.m_drawContactPoints)
 	{
 		const float k_impulseScale = 0.1f;
 		const float k_axisScale = 0.3f;
+		b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
+		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
+		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
 
 		for (int32_t i = 0; i < m_pointCount; ++i)
 		{
@@ -314,48 +326,64 @@ void Sample::Step(Settings& settings)
 			if (point->separation > b2_linearSlop)
 			{
 				// Speculative
-				g_draw.DrawPoint(point->position, 5.0f, b2Color(0.3f, 0.3f, 0.3f));
+				g_draw.DrawPoint(point->position, 5.0f, speculativeColor);
 			}
 			else if (point->state == b2_addState)
 			{
 				// Add
-				g_draw.DrawPoint(point->position, 10.0f, b2Color(0.3f, 0.95f, 0.3f));
+				g_draw.DrawPoint(point->position, 10.0f, addColor);
 			}
 			else if (point->state == b2_persistState)
 			{
 				// Persist
-				g_draw.DrawPoint(point->position, 5.0f, b2Color(0.3f, 0.3f, 0.95f));
+				g_draw.DrawPoint(point->position, 5.0f, persistColor);
 			}
 
 			if (settings.m_drawContactNormals == 1)
 			{
 				b2Vec2 p1 = point->position;
-				b2Vec2 p2 = p1 + k_axisScale * point->normal;
-				g_draw.DrawSegment(p1, p2, b2Color(0.9f, 0.9f, 0.9f));
+				b2Vec2 p2 = b2MulAdd(p1, k_axisScale, point->normal);
+				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.9f, 1.0f});
 			}
 			else if (settings.m_drawContactImpulse == 1)
 			{
 				b2Vec2 p1 = point->position;
-				b2Vec2 p2 = p1 + k_impulseScale * point->normalImpulse * point->normal;
-				g_draw.DrawSegment(p1, p2, b2Color(0.9f, 0.9f, 0.3f));
+				b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->normalImpulse, point->normal);
+				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.3f, 1.0f});
 			}
 
 			if (settings.m_drawFrictionImpulse == 1)
 			{
-				b2Vec2 tangent = b2Cross(point->normal, 1.0f);
+				b2Vec2 tangent = b2CrossVS(point->normal, 1.0f);
 				b2Vec2 p1 = point->position;
-				b2Vec2 p2 = p1 + k_impulseScale * point->tangentImpulse * tangent;
-				g_draw.DrawSegment(p1, p2, b2Color(0.9f, 0.9f, 0.3f));
+				b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->tangentImpulse, tangent);
+				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.3f, 1.0f});
 			}
 		}
 	}
-#endif
-
 }
 
 void Sample::ShiftOrigin(b2Vec2 newOrigin)
 {
 	//m_world->ShiftOrigin(newOrigin);
+}
+
+void Sample::PreSolve(const b2ManifoldResult* result)
+{
+	for (int32_t i = 0; i < result->pointCount && m_pointCount < k_maxContactPoints; ++i)
+	{
+		ContactPoint* cp = m_points + m_pointCount;
+		cp->shapeIdA = result->shapeIdA;
+		cp->shapeIdB = result->shapeIdB;
+		cp->position = result->points[i];
+		cp->normal = result->normal;
+		cp->state = result->states[i];
+		// TODO_ERIN
+		cp->normalImpulse = 0.0f;
+		cp->tangentImpulse = 0.0f;
+		cp->separation = result->separations[i];
+		++m_pointCount;
+	}
 }
 
 SampleEntry g_sampleEntries[MAX_SAMPLES] = { {nullptr} };

@@ -70,13 +70,7 @@ typedef struct b2Body
 
 void b2SetAwake(b2World* world, b2Body* body, bool flag);
 
-// TODO_ERIN filter on joints
-static inline bool b2ShouldBodiesCollide(b2Body* bodyA, b2Body* bodyB)
-{
-	B2_MAYBE_UNUSED(bodyA);
-	B2_MAYBE_UNUSED(bodyB);
-	return true;
-}
+bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 void b2Body_DestroyShape(b2ShapeId shapeId);

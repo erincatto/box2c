@@ -3,23 +3,24 @@
 
 #pragma once
 
+#include "box2d/api.h"
 #include "box2d/id.h"
 #include "box2d/types.h"
 
-typedef struct b2Manifold b2Manifold;
 typedef struct b2ContactImpulse b2ContactImpulse;
+typedef struct b2ManifoldResult b2ManifoldResult;
 
 /// Joints and shapes are destroyed when their associated
 /// body is destroyed. Implement this listener so that you
 /// may nullify references to these joints and shapes.
-typedef void b2JointDestroyedFcn(b2JointId jointId);
-typedef void b2ShapeDestroyedFcn(b2JointId jointId);
+typedef void b2JointDestroyedFcn(b2JointId jointId, void* context);
+typedef void b2ShapeDestroyedFcn(b2ShapeId shapeId, void* context);
 
 /// Implement this class to provide collision filtering. In other words, you can implement
 /// this class if you want finer control over contact creation.
 /// Return true if contact calculations should be performed between these two shapes.
 /// @warning for performance reasons this is only called when the AABBs begin to overlap.
-typedef bool b2ShouldCollideFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
+typedef bool b2ShouldCollideFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context);
 
 /// Contact impulses for reporting. Impulses are used instead of forces because
 /// sub-step forces may approach infinity for rigid body collisions. These
@@ -41,10 +42,10 @@ struct b2ContactImpulse
 /// many callbacks per time step.
 /// @warning You cannot create/destroy Box2D entities inside these callbacks.
 /// Called when two shapes begin to touch.
-typedef void b2BeginContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
+typedef void b2BeginContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context);
 
 /// Called when two shapes cease to touch.
-typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
+typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context);
 
 /// This is called after a contact is updated. This allows you to inspect a
 /// contact before it goes to the solver. If you are careful, you can modify the
@@ -56,7 +57,8 @@ typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
 /// Note: if you set the number of contact points to zero, you will not
 /// get an EndContact callback. However, you may get a BeginContact callback
 /// the next step.
-typedef void b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, const b2Manifold* oldManifold);
+typedef void b2PreSolveFcn(const b2ManifoldResult* manifold, void* context);
+BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
 /// This lets you inspect a contact after the solver is finished. This is useful
 /// for inspecting impulses.
@@ -64,7 +66,8 @@ typedef void b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* m
 /// arbitrarily large if the sub-step is small. Hence the impulse is provided explicitly
 /// in a separate data structure.
 /// Note: this is only called for contacts that are touching, solid, and awake.
-typedef void b2PostSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2ContactImpulse* impulse);
+typedef void b2PostSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2ContactImpulse* impulse, void* context);
+BOX2D_API void b2World_SetPostSolveCallback(b2WorldId worldId, b2PostSolveFcn* fcn, void* context);
 
 typedef struct b2WorldCallbacks
 {

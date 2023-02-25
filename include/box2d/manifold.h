@@ -105,6 +105,26 @@ typedef enum
 	b2_removeState	 ///< point was removed in the update
 } b2PointState;
 
+/// Manifold results sent to the user in a callback
+typedef struct b2ManifoldResult
+{
+	b2ShapeId shapeIdA;
+	b2ShapeId shapeIdB;
+
+	/// unit normal pointing from shape A to shape B
+	b2Vec2 normal;
+
+	/// world contact point (point of intersection)
+	b2Vec2 points[b2_maxManifoldPoints];
+
+	b2PointState states[b2_maxManifoldPoints];
+
+	/// a negative value indicates overlap (default to meters)
+	float separations[b2_maxManifoldPoints];
+	
+	int32_t pointCount;
+} b2ManifoldResult;
+
 #ifdef __cplusplus
 extern "C"
 {

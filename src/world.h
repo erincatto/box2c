@@ -3,9 +3,7 @@
 
 #pragma once
 
-#include "block_allocator.h"
 #include "pool.h"
-#include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/math.h"
@@ -20,9 +18,8 @@ typedef struct b2World
 {
 	int16_t index;
 
-	// TODO_ERIN make this embedded
-	b2BlockAllocator* blockAllocator;
-	b2StackAllocator stackAllocator;
+	struct b2BlockAllocator* blockAllocator;
+	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
 
@@ -55,8 +52,13 @@ typedef struct b2World
 
 	int32_t groundBodyIndex;
 
-	b2WorldCallbacks callbacks;
 	b2Profile profile;
+
+	b2PreSolveFcn* preSolveFcn;
+	void* preSolveContext;
+
+	b2PostSolveFcn* postSolveFcn;
+	void* postSolveContext;
 
 	bool enableSleep;
 	bool newContacts;

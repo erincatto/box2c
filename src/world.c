@@ -11,6 +11,7 @@
 #include "box2d/timer.h"
 
 #include "array.h"
+#include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
 #include "island.h"
@@ -18,6 +19,7 @@
 #include "pool.h"
 #include "shape.h"
 #include "solver_data.h"
+#include "stack_allocator.h"
 #include "world.h"
 
 #include <assert.h>
@@ -56,6 +58,11 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 
 	// Are the fixtures on the same body?
 	if (shapeA->bodyIndex == shapeB->bodyIndex)
+	{
+		return;
+	}
+
+	if (b2ShouldCollide(shapeA->filter, shapeB->filter) == false)
 	{
 		return;
 	}
@@ -102,14 +109,14 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		edge = edge->next;
 	}
 
-	// b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-	// b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 
 	// Does a joint override collision? Is at least one body dynamic?
-	// if (b2ShouldBodiesCollide(bodyA, bodyB) == false)
-	//{
-	//	return;
-	//}
+	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
+	{
+		return;
+	}
 
 	// Check user filtering.
 	// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
@@ -139,15 +146,14 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	b2InitializeContactRegisters();
 
+	b2World empty = {0};
 	b2World* world = g_worlds + id.index;
+	*world = empty;
+
 	world->index = id.index;
 
 	world->blockAllocator = b2CreateBlockAllocator();
-
-	world->stackAllocator.allocation = 0;
-	world->stackAllocator.maxAllocation = 0;
-	world->stackAllocator.entryCount = 0;
-	world->stackAllocator.index = 0;
+	world->stackAllocator = b2CreateStackAllocator();
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
 
@@ -182,7 +188,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	b2Profile profile = {0};
 	world->profile = profile;
-	world->callbacks = b2DefaultWorldCallbacks();
 
 	id.revision = world->revision;
 
@@ -214,6 +219,9 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyBlockAllocator(world->blockAllocator);
 	world->blockAllocator = NULL;
+
+	b2DestroyStackAllocator(world->stackAllocator);
+	world->stackAllocator = NULL;
 }
 
 static void b2Collide(b2World* world)
@@ -232,9 +240,9 @@ static void b2Collide(b2World* world)
 		}
 
 		assert(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
-		
+
 		b2Body* body = world->bodies + bodyIndex;
-		
+
 		assert(body->object.index == bodyIndex && body->object.index == body->object.next);
 		assert(body->type != b2_staticBody);
 
@@ -256,7 +264,7 @@ static void b2Collide(b2World* world)
 				}
 
 				b2Contact* contact = ce->contact;
-				//contact->awakeIndex = B2_NULL_INDEX;
+				// contact->awakeIndex = B2_NULL_INDEX;
 
 				int32_t proxyKeyA = shape->proxies[contact->childA].proxyKey;
 				int32_t proxyKeyB = otherShape->proxies[contact->childB].proxyKey;
@@ -339,7 +347,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	uint64_t baseId = world->islandId;
 
 	// Build and simulate all awake islands.
-	b2Body** stack = (b2Body**)b2AllocateStackItem(&world->stackAllocator, seedCount * sizeof(b2Body*));
+	b2Body** stack = (b2Body**)b2AllocateStackItem(world->stackAllocator, seedCount * sizeof(b2Body*));
 
 	for (int32_t i = 0; i < seedCount; ++i)
 	{
@@ -501,7 +509,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		world->profile.solvePosition += profile.solvePosition;
 	}
 
-	b2FreeStackItem(&world->stackAllocator, stack);
+	b2FreeStackItem(world->stackAllocator, stack);
 
 	// Look for new contacts
 	b2Timer timer = b2CreateTimer();
@@ -794,15 +802,15 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		//}
 	}
 
-// if (flags & b2Draw::e_centerOfMassBit)
-//{
-//		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-//		{
-//		b2Transform xf = b->GetTransform();
-//		xf.p = b->GetWorldCenter();
-//		m_debugDraw->DrawTransform(xf);
-//		}
-// }
+	// if (flags & b2Draw::e_centerOfMassBit)
+	//{
+	//		for (b2Body* b = m_bodyList; b; b = b->GetNext())
+	//		{
+	//		b2Transform xf = b->GetTransform();
+	//		xf.p = b->GetWorldCenter();
+	//		m_debugDraw->DrawTransform(xf);
+	//		}
+	// }
 }
 
 void b2World_EnableSleeping(b2WorldId worldId, bool flag)
@@ -1542,4 +1550,18 @@ bool b2IsBodyIdValid(b2World* world, b2BodyId id)
 	}
 
 	return true;
+}
+
+void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	world->preSolveFcn = fcn;
+	world->preSolveContext = context;
+}
+
+void b2World_SetPostSolveCallback(b2WorldId worldId, b2PostSolveFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	world->postSolveFcn = fcn;
+	world->postSolveContext = context;
 }

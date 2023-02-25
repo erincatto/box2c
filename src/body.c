@@ -7,6 +7,7 @@
 #include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
+#include "joint.h"
 #include "world.h"
 #include "shape.h"
 
@@ -517,6 +518,37 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
 		body->awakeIndex = B2_NULL_INDEX;
 	}
+}
+
+bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
+{
+	int32_t indexA = bodyA->object.index;
+	int32_t indexB = bodyB->object.index;
+
+	int32_t jointIndex = bodyB->jointIndex;
+	while (jointIndex != B2_NULL_INDEX)
+	{
+		b2Joint* joint = world->joints + jointIndex;
+		if (joint->edgeA.bodyIndex == indexB)
+		{
+			if (joint->edgeB.bodyIndex == indexA)
+			{
+				return false;
+			}
+			jointIndex = joint->edgeA.nextJointIndex;
+		}
+		else
+		{
+			if (joint->edgeA.bodyIndex == indexA)
+			{
+				return false;
+			}
+			assert(joint->edgeB.bodyIndex == indexB);
+			jointIndex = joint->edgeB.nextJointIndex;
+		}
+	}
+
+	return true;
 }
 
 #if 0
