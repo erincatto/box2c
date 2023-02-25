@@ -10,6 +10,7 @@
 #include <float.h>
 #include <string.h>
 
+#if 0
 b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform xfA, float radiusA, b2Transform xfB,
 									   float radiusB)
 {
@@ -77,56 +78,15 @@ b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform x
 
 	return wm;
 }
+#endif
 
-void b2GetPointStates(b2PointState state1[b2_maxManifoldPoints], b2PointState state2[b2_maxManifoldPoints],
-					  const b2Manifold* manifold1, const b2Manifold* manifold2)
-{
-	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
-	{
-		state1[i] = b2_nullState;
-		state2[i] = b2_nullState;
-	}
-
-	// Detect persists and removes.
-	for (int32_t i = 0; i < manifold1->pointCount; ++i)
-	{
-		b2ContactID id = manifold1->points[i].id;
-
-		state1[i] = b2_removeState;
-
-		for (int32_t j = 0; j < manifold2->pointCount; ++j)
-		{
-			if (manifold2->points[j].id.key == id.key)
-			{
-				state1[i] = b2_persistState;
-				break;
-			}
-		}
-	}
-
-	// Detect persists and adds.
-	for (int32_t i = 0; i < manifold2->pointCount; ++i)
-	{
-		b2ContactID id = manifold2->points[i].id;
-
-		state2[i] = b2_addState;
-
-		for (int32_t j = 0; j < manifold1->pointCount; ++j)
-		{
-			if (manifold1->points[j].id.key == id.key)
-			{
-				state2[i] = b2_persistState;
-				break;
-			}
-		}
-	}
-}
 
 /// Used for computing contact manifolds.
 typedef struct b2ClipVertex
 {
 	b2Vec2 v;
-	b2ContactID id;
+	int32_t indexA;
+	int32_t indexB;
 } b2ClipVertex;
 
 // Sutherland-Hodgman clipping.
@@ -155,10 +115,9 @@ int32_t b2ClipSegmentToLine(b2ClipVertex vOut[2], const b2ClipVertex vIn[2], b2V
 		vOut[count].v = b2Lerp(vIn[0].v, vIn[1].v, interp);
 
 		// VertexA is hitting edgeB.
-		vOut[count].id.cf.indexA = (uint8_t)vertexIndexA;
-		vOut[count].id.cf.indexB = vIn[0].id.cf.indexB;
-		vOut[count].id.cf.typeA = b2_vertexFeature;
-		vOut[count].id.cf.typeB = b2_faceFeature;
+		vOut[count].indexA = (uint8_t)vertexIndexA;
+		vOut[count].indexB = vIn[0].indexB;
+
 		++count;
 
 		assert(count == 2);
@@ -201,19 +160,32 @@ int32_t b2ClipSegmentToLine2(b2Vec2 vOut[2], b2Vec2 vIn[2], b2Vec2 normal, float
 	return count;
 }
 
-b2Manifold b2CollideCircles(const b2Circle* circleA, const b2Circle* circleB)
+b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
-	manifold.type = b2_manifoldCircles;
-	manifold.localPoint = circleA->point;
-	manifold.localNormal = (b2Vec2){0.0f, 0.0f};
-	manifold.pointCount = 1;
+	
+	b2Vec2 pointA = b2TransformPoint(xfA, circleA->point);
+	b2Vec2 pointB = b2TransformPoint(xfB, circleB->point);
 
-	manifold.points[0].localPoint = circleB->point;
-	manifold.points[0].id.key = 0;
+	if (b2DistanceSquared(pointA, pointB) > FLT_EPSILON * FLT_EPSILON)
+	{
+		manifold.normal = b2Normalize(b2Sub(pointB, pointA));
+	}
+	else
+	{
+		manifold.normal = (b2Vec2){1.0f, 0.0f};
+	}
+
+	b2Vec2 cA = b2MulAdd(pointA, circleA->radius, manifold.normal);
+	b2Vec2 cB = b2MulAdd(pointB, -circleB->radius, manifold.normal);
+	manifold.points[0].point = b2Lerp(cA, cB, 0.5f);
+	manifold.points[0].separation = b2Dot(b2Sub(cB, cA), manifold.normal);
+	manifold.points[0].id = 0;
+	manifold.pointCount = 1;
 	return manifold;
 }
 
+#if 0
 /// Compute the collision manifold between a capulse and circle
 b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA, const b2Circle* circleB,
 									 b2Transform xfB)
@@ -272,6 +244,7 @@ b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA,
 
 	return manifold;
 }
+#endif
 
 b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB,
 									 b2Transform xfB)
@@ -309,11 +282,17 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 	if (separation < FLT_EPSILON)
 	{
 		manifold.pointCount = 1;
-		manifold.type = b2_manifoldFaceA;
-		manifold.localNormal = normals[normalIndex];
-		manifold.localPoint = (b2Vec2){0.5f * v1.x + 0.5f * v2.x, 0.5f * v1.y + 0.5f * v2.y};
-		manifold.points[0].localPoint = circleB->point;
-		manifold.points[0].id.key = 0;
+
+		b2Vec2 normal = b2RotateVector(xfA.q, normals[normalIndex]);
+		manifold.normal = normal;
+
+		b2Vec2 clipPoint = b2TransformPoint(xfB, circleB->point);
+		b2Vec2 planePoint = b2TransformPoint(xfA, v1);
+		b2Vec2 cA = b2MulAdd(clipPoint, -b2Dot(b2Sub(clipPoint, planePoint), normal), normal);
+		b2Vec2 cB = b2MulAdd(clipPoint, -circleB->radius, normal);
+		manifold.points[0].point = b2Lerp(cA, cB, 0.5f);
+		manifold.points[0].separation = b2Dot(b2Sub(cB, cA), normal);
+		manifold.points[0].id = 0;
 		return manifold;
 	}
 
@@ -323,8 +302,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 	if (u1 <= 0.0f)
 	{
 		manifold.pointCount = 1;
-		manifold.type = b2_manifoldFaceA;
-		manifold.localNormal = b2Normalize(b2Sub(cLocal, v1));
+		manifold.normal = b2Normalize(b2Sub(cLocal, v1));
 		manifold.localPoint = v1;
 		manifold.points[0].localPoint = circleB->point;
 		manifold.points[0].id.key = 0;

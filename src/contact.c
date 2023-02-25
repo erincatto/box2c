@@ -326,13 +326,13 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 				mp2->normalImpulse = 0.0f;
 				mp2->tangentImpulse = 0.0f;
 				mp2->persisted = false;
-				b2ContactID id2 = mp2->id;
+				uint16_t id2 = mp2->id;
 
 				for (int32_t j = 0; j < oldManifold.pointCount; ++j)
 				{
 					b2ManifoldPoint* mp1 = oldManifold.points + j;
 
-					if (mp1->id.key == id2.key)
+					if (mp1->id == id2)
 					{
 						mp2->normalImpulse = mp1->normalImpulse;
 						mp2->tangentImpulse = mp1->tangentImpulse;
@@ -350,25 +350,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 
 			if (touching && world->preSolveFcn)
 			{
-				// TODO_ERIN too much computation
-				b2WorldManifold wm =
-					b2ComputeWorldManifold(&contact->manifold, xfA, input.proxyA.radius, xfB, input.proxyB.radius);
-
-				b2PointState state1[b2_maxManifoldPoints], state2[b2_maxManifoldPoints];
-				b2GetPointStates(state1, state2, &oldManifold, &contact->manifold);
-
-				b2ManifoldResult result;
-				result.shapeIdA = shapeIdA;
-				result.shapeIdB = shapeIdB;
-				result.normal = wm.normal;
-				result.points[0] = wm.points[0];
-				result.points[1] = wm.points[1];
-				result.separations[0] = wm.separations[0];
-				result.separations[1] = wm.separations[1];
-				result.states[0] = state2[0];
-				result.states[1] = state2[1];
-				result.pointCount = contact->manifold.pointCount;
-				world->preSolveFcn(&result, world->preSolveContext);
+				world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
 			}
 		}
 	}

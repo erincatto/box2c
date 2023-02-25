@@ -8,7 +8,7 @@
 #include "box2d/types.h"
 
 typedef struct b2ContactImpulse b2ContactImpulse;
-typedef struct b2ManifoldResult b2ManifoldResult;
+typedef struct b2Manifold b2Manifold;
 
 /// Joints and shapes are destroyed when their associated
 /// body is destroyed. Implement this listener so that you
@@ -57,7 +57,7 @@ typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* conte
 /// Note: if you set the number of contact points to zero, you will not
 /// get an EndContact callback. However, you may get a BeginContact callback
 /// the next step.
-typedef void b2PreSolveFcn(const b2ManifoldResult* manifold, void* context);
+typedef void b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold, void* context);
 BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
 /// This lets you inspect a contact after the solver is finished. This is useful

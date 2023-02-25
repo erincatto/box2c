@@ -248,8 +248,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 	b2ContactSolver solver = b2CreateContactSolver(&contactSolverDef);
 
-	b2ContactSolver_InitializeVelocityConstraints(&solver);
-
 	// TODO_ERIN do this in init?
 	if (step->warmStarting)
 	{
