@@ -13,8 +13,8 @@ set(BOX2D_SAMPLES
 	settings.h
 	settings.cpp
 
-	collection/benchmark_boxes.cpp
-	collection/benchmark_revolute.cpp
+	collection/benchmark_barrel.cpp
+	collection/benchmark_joint_grid.cpp
 
 	collection/sample_dynamic_tree.cpp
 	collection/sample_hull.cpp

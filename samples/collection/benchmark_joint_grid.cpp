@@ -1,25 +1,30 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/allocate.h"
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "sample.h"
 
-class BenchmarkRevolute : public Sample
+// TODO_ERIN test more joint types
+// TODO_ERIN try to stabilize revolute
+class BenchmarkJointGrid : public Sample
 {
 public:
-	BenchmarkRevolute()
+	BenchmarkJointGrid()
 	{
 		constexpr float rad = 0.4f;
 		constexpr int32_t numi = g_sampleDebug ? 10 : 100;
 		constexpr int32_t numk = g_sampleDebug ? 10 : 100;
 		constexpr float shift = 1.0f;
 
-		b2BodyId bodies[numi * numk] = {0};
+		// Allocate to avoid huge stack usage
+		b2BodyId* bodies = static_cast<b2BodyId*>(b2Alloc(numi * numk * sizeof(b2BodyId)));
 		int32_t index = 0;
 
 		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;
+		sd.filter.maskBits = 0;
 
 		b2Circle circle = {0};
 		circle.radius = rad;
@@ -70,12 +75,14 @@ public:
 				bodies[index++] = body;
 			}
 		}
+
+		b2Free(bodies);
 	}
 
 	static Sample* Create()
 	{
-		return new BenchmarkRevolute;
+		return new BenchmarkJointGrid;
 	}
 };
 
-static int sampleIndex = RegisterSample("Benchmark", "Revolute", BenchmarkRevolute::Create);
+static int sampleIndex = RegisterSample("Benchmark", "Joint Grid", BenchmarkJointGrid::Create);

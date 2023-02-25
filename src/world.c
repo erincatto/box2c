@@ -62,6 +62,11 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		return;
 	}
 
+	if (b2ShouldCollide(shapeA->filter, shapeB->filter) == false)
+	{
+		return;
+	}
+
 	// Search contacts on shape with the fewest contacts.
 	b2ContactEdge* edge;
 	int32_t otherShapeIndex;
