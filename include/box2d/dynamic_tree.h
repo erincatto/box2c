@@ -90,8 +90,7 @@ void b2DynamicTree_Validate(const b2DynamicTree* tree);
 /// called often.
 int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree);
 
-/// Get the maximum balance of an node in the tree. The balance is the difference
-/// in height of the two children of a node.
+/// Get the maximum balance of the tree. The balance is the difference in height of the two children of a node.
 int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree);
 
 /// Get the ratio of the sum of the node areas to the root area.

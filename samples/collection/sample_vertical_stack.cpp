@@ -83,7 +83,7 @@ public:
 
 		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;
-		sd.friction = 0.6f;
+		sd.friction = 0.3f;
 
 		float offset;
 
@@ -93,7 +93,7 @@ public:
 		}
 		else
 		{
-			offset = 0.01f;
+			offset = 0.0f; // 0.01f;
 		}
 
 		float dx = 3.0f;

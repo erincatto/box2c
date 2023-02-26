@@ -1473,8 +1473,18 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	int32_t edgeA = 0;
 	float separationA = b2FindMaxSeparation(&edgeA, polyA, xfA, polyB, xfB);
 
+	if (separationA > b2_speculativeDistance)
+	{
+		return manifold;
+	}
+
 	int32_t edgeB = 0;
 	float separationB = b2FindMaxSeparation(&edgeB, polyB, xfB, polyA, xfA);
+
+	if (separationB > b2_speculativeDistance)
+	{
+		return manifold;
+	}
 
 	const b2Polygon* poly1; // reference polygon
 	const b2Polygon* poly2; // incident polygon
@@ -1579,33 +1589,47 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	if (flip == false)
 	{
 		manifold.normal = b2RotateVector(xfA.q, normal);
-
 		b2ManifoldPoint* cp = manifold.points + 0;
-		cp->point = b2TransformPoint(xfA, vLower);
-		cp->separation = separationLower;
-		cp->id = B2_MAKE_ID(i11, i22);
+
+		if (separationLower <= b2_speculativeDistance)
+		{
+			cp->point = b2TransformPoint(xfA, vLower);
+			cp->separation = separationLower;
+			cp->id = B2_MAKE_ID(i11, i22);
+			manifold.pointCount += 1;
+			cp += 1;
+		}
 		
-		cp = manifold.points + 1;
-		cp->point = b2TransformPoint(xfA, vUpper);
-		cp->separation = separationUpper;
-		cp->id = B2_MAKE_ID(i12, i21);
+		if (separationUpper <= b2_speculativeDistance)
+		{
+			cp->point = b2TransformPoint(xfA, vUpper);
+			cp->separation = separationUpper;
+			cp->id = B2_MAKE_ID(i12, i21);
+			manifold.pointCount += 1;
+		}
 	}
 	else
 	{
 		manifold.normal = b2RotateVector(xfB.q, b2Neg(normal));
-
 		b2ManifoldPoint* cp = manifold.points + 0;
-		cp->point = b2TransformPoint(xfB, vUpper);
-		cp->separation = separationUpper;
-		cp->id = B2_MAKE_ID(i21, i12);
 
-		cp = manifold.points + 1;
-		cp->point = b2TransformPoint(xfB, vLower);
-		cp->separation = separationLower;
-		cp->id = B2_MAKE_ID(i22, i11);
+		if (separationUpper <= b2_speculativeDistance)
+		{
+			cp->point = b2TransformPoint(xfB, vUpper);
+			cp->separation = separationUpper;
+			cp->id = B2_MAKE_ID(i21, i12);
+			manifold.pointCount += 1;
+			cp += 1;
+		}
+
+		if (separationLower <= b2_speculativeDistance)
+		{
+			cp->point = b2TransformPoint(xfB, vLower);
+			cp->separation = separationLower;
+			cp->id = B2_MAKE_ID(i22, i11);
+			manifold.pointCount += 1;
+		}
 	}
-
-	manifold.pointCount = 2;
 
 	return manifold;
 }

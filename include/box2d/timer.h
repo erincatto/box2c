@@ -20,6 +20,16 @@ typedef struct b2Profile
 
 static const b2Profile b2_emptyProfile = {0};
 
+typedef struct b2Statistics
+{
+	int32_t bodyCount;
+	int32_t contactCount;
+	int32_t jointCount;
+	int32_t proxyCount;
+	int32_t treeHeight;
+	int32_t contactPointCount;
+} b2Statistics;
+
 /// Timer for profiling. This has platform specific code and may
 /// not work on every platform.
 typedef struct b2Timer

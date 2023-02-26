@@ -53,6 +53,7 @@ typedef struct b2World
 	int32_t groundBodyIndex;
 
 	b2Profile profile;
+	int32_t contactPointCount;
 
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;

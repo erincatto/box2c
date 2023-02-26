@@ -301,6 +301,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	world->profile.solveInit = 0.0f;
 	world->profile.solveVelocity = 0.0f;
 	world->profile.solvePosition = 0.0f;
+	world->contactPointCount = 0;
 
 	int32_t bodyCount = world->bodyPool.count;
 	int32_t jointCount = world->jointPool.count;
@@ -436,6 +437,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 					}
 
 					b2Island_AddContact(&island, contact);
+					world->contactPointCount += contact->manifold.pointCount;
 					contact->islandId = seed->islandId;
 
 					b2Body* otherBody = world->bodies + otherShape->bodyIndex;
@@ -848,6 +850,22 @@ b2Profile* b2World_GetProfile(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	return &world->profile;
+}
+
+b2Statistics b2World_GetStatistics(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	b2Statistics s = {0};
+	s.bodyCount = world->bodyPool.count;
+	s.contactCount = world->contactCount;
+	s.jointCount = world->jointPool.count;
+
+	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
+	s.proxyCount = tree->nodeCount;
+	s.treeHeight = b2DynamicTree_GetHeight(tree);
+	s.contactPointCount = world->contactPointCount;
+
+	return s;
 }
 
 b2BodyId b2World_GetGroundBodyId(b2WorldId worldId)

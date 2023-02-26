@@ -234,23 +234,16 @@ void Sample::Step(Settings& settings)
 		++m_stepCount;
 	}
 
-#if 0
 	if (settings.m_drawStats)
 	{
-		int32_t bodyCount = m_world->GetBodyCount();
-		int32_t contactCount = m_world->GetContactCount();
-		int32_t jointCount = m_world->GetJointCount();
-		g_draw.DrawString(5, m_textLine, "bodies/contacts/joints = %d/%d/%d", bodyCount, contactCount, jointCount);
+		b2Statistics s = b2World_GetStatistics(m_worldId);
+
+		g_draw.DrawString(5, m_textLine, "bodies/contacts/joints = %d/%d/%d", s.bodyCount, s.contactCount, s.jointCount);
 		m_textLine += m_textIncrement;
 
-		int32_t proxyCount = m_world->GetProxyCount();
-		int32_t height = m_world->GetTreeHeight();
-		int32_t balance = m_world->GetTreeBalance();
-		float quality = m_world->GetTreeQuality();
-		g_draw.DrawString(5, m_textLine, "proxies/height/balance/quality = %d/%d/%d/%g", proxyCount, height, balance, quality);
+		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight, s.contactPointCount);
 		m_textLine += m_textIncrement;
 	}
-#endif
 
 	// Track maximum profile times
 	{
