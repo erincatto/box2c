@@ -125,87 +125,32 @@ public:
 		}
 	}
 
-	void DrawManifold(const b2Manifold* m, const b2WorldManifold* wm, b2Transform xf1, b2Transform xf2)
+	void DrawManifold(const b2Manifold* manifold)
 	{
 		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
 		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
 
-		if (m_localManifolds && m->pointCount > 0)
+		for (int i = 0; i < manifold->pointCount; ++i)
 		{
-			switch (m->type)
+			const b2ManifoldPoint* mp = manifold->points + i;
+
+			b2Vec2 p1 = mp->point;
+			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
+			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+
+			if (m_showIds)
 			{
-				case b2_manifoldCircles:
-				{
-					b2Vec2 p1 = b2TransformPoint(xf1, m->localPoint);
-					g_draw.DrawPoint(p1, 5.0f, green);
-
-					b2Vec2 p2 = b2TransformPoint(xf2, m->points[0].localPoint);
-					g_draw.DrawPoint(p2, 5.0f, green);
-				}
-				break;
-
-				case b2_manifoldFaceA:
-				{
-					assert(m->pointCount == 2);
-					b2Vec2 p1 = b2TransformPoint(xf1, m->localPoint);
-					g_draw.DrawPoint(p1, 5.0f, green);
-
-					b2Vec2 n = b2RotateVector(xf1.q, m->localNormal);
-					b2Vec2 pn = b2MulAdd(p1, 0.5f, n);
-					g_draw.DrawSegment(p1, pn, white);
-
-					b2Vec2 p2 = b2TransformPoint(xf2, m->points[0].localPoint);
-					g_draw.DrawPoint(p2, 5.0f, green);
-
-					b2Vec2 p3 = b2TransformPoint(xf2, m->points[1].localPoint);
-					g_draw.DrawPoint(p3, 5.0f, green);
-				}
-				break;
-
-				case b2_manifoldFaceB:
-				{
-					assert(m->pointCount == 2);
-					b2Vec2 p1 = b2TransformPoint(xf2, m->localPoint);
-					g_draw.DrawPoint(p1, 5.0f, green);
-
-					b2Vec2 n = b2RotateVector(xf2.q, m->localNormal);
-					b2Vec2 pn = b2MulAdd(p1, 0.5f, n);
-					g_draw.DrawSegment(p1, pn, white);
-
-					b2Vec2 p2 = b2TransformPoint(xf1, m->points[0].localPoint);
-					g_draw.DrawPoint(p2, 5.0f, green);
-
-					b2Vec2 p3 = b2TransformPoint(xf1, m->points[1].localPoint);
-					g_draw.DrawPoint(p3, 5.0f, green);
-				}
-				break;
-
-				default:
-					assert(false);
-					break;
+				//uint32_t indexA = mp->id >> 8;
+				//uint32_t indexB = 0xFF & mp->id;
+				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
+				g_draw.DrawString(p, "0x%04x", mp->id);
 			}
-		}
-		else
-		{
-			for (int i = 0; i < m->pointCount; ++i)
+
+			if (m_showSeparation)
 			{
-				b2Vec2 p1 = wm->points[i];
-				b2Vec2 p2 = b2MulAdd(p1, 0.5f, wm->normal);
-				g_draw.DrawSegment(p1, p2, white);
-				g_draw.DrawPoint(p1, 5.0f, green);
-
-				if (m_showIds)
-				{
-					b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
-					//g_draw.DrawString(p, "%x", m->points[i].id.key);
-					g_draw.DrawString(p, "%d,%d", m->points[i].id.cf.indexA, m->points[i].id.cf.indexB);
-				}
-
-				if (m_showSeparation)
-				{
-					b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
-					g_draw.DrawString(p, "%.3f", wm->separations[i]);
-				}
+				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
+				g_draw.DrawString(p, "%.3f", mp->separation);
 			}
 		}
 	}
@@ -315,13 +260,13 @@ public:
 		// TODO temp
 		offset = b2Vec2_zero;
 
+		#if 0
 		// capsule-capsule
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m = b2CollideCapsules(&m_capsule, xf1, &m_capsule, xf2);
-			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, m_capsule.radius, xf2, m_capsule.radius);
 
 			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);
 			b2Vec2 v2 = b2TransformPoint(xf1, m_capsule.point2);
@@ -331,10 +276,11 @@ public:
 			v2 = b2TransformPoint(xf2, m_capsule.point2);
 			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color2);
 
-			DrawManifold(&m, &wm, xf1, xf2);
+			DrawManifold(&m);
 
 			offset = b2Add(offset, increment);
 		}
+		#endif
 
 		// box-circle
 		{
@@ -342,7 +288,6 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m = b2CollidePolygonAndCircle(&m_box, xf1, &m_circle1, xf2);
-			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, m_circle1.radius);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < m_box.count; ++i)
@@ -355,7 +300,7 @@ public:
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
 
-			DrawManifold(&m, &wm, xf1, xf2);
+			DrawManifold(&m);
 
 			offset = b2Add(offset, increment);
 		}
@@ -366,7 +311,6 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m = b2CollidePolygons(&m_box, xf1, &m_box, xf2);
-			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, 0.0f);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < m_box.count; ++i)
@@ -381,7 +325,7 @@ public:
 			}
 			g_draw.DrawPolygon(vertices, m_box.count, color2);
 
-			DrawManifold(&m, &wm, xf1, xf2);
+			DrawManifold(&m);
 
 			offset = b2Add(offset, increment);
 		}

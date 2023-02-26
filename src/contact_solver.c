@@ -122,8 +122,8 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 
 		b2Rot qA = bodyA->transform.q;
 		b2Vec2 cA = bodyA->position;
-		b2Rot qB = bodyA->transform.q;
-		b2Vec2 cB = bodyA->position;
+		b2Rot qB = bodyB->transform.q;
+		b2Vec2 cB = bodyB->position;
 
 		b2Vec2 vA = bodyA->linearVelocity;
 		float wA = bodyA->angularVelocity;
@@ -166,7 +166,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 			vcp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
 			// Velocity bias for speculative collision
-			vcp->velocityBias = -B2_MAX(0.0f, pc->separations[j] * solver.step.inv_dt);
+			vcp->velocityBias = -B2_MAX(0.0f, cp->separation * solver.step.inv_dt);
 
 			// Relative velocity
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, vcp->rB));

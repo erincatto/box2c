@@ -14,6 +14,8 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 typedef struct b2SmoothSegment b2SmoothSegment;
 
+#define B2_MAKE_ID(A, B) ((uint8_t)(A) << 8 | (uint8_t)(B))
+
 /// A manifold point is a contact point belonging to a contact
 /// manifold. It holds details related to the geometry and dynamics
 /// of the contact points.
@@ -58,7 +60,7 @@ static inline b2Manifold b2EmptyManifold(void)
 }
 
 /// Compute the collision manifold between two circles.
-b2Manifold b2CollideCircles(const b2Circle* circleA, const b2Circle* circleB);
+b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB);
 
 /// Compute the collision manifold between a capulse and circle
 b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA, const b2Circle* circleB,

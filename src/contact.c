@@ -43,9 +43,8 @@ static bool s_initialized = false;
 b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	B2_MAYBE_UNUSED(childIndexA);
-	B2_MAYBE_UNUSED(xfA);
-	B2_MAYBE_UNUSED(xfB);
-	return b2CollideCircles(&shapeA->circle, &shapeB->circle);
+
+	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB);
 }
 
 b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
