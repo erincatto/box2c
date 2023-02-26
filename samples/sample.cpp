@@ -29,10 +29,10 @@ void DestructionListener::SayGoodbye(b2Joint* joint)
 }
 #endif
 
-void PreSolveFcn(const b2ManifoldResult* manifold, void* context)
+void PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
-	sample->PreSolve(manifold);
+	sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
 Sample::Sample()
@@ -234,23 +234,16 @@ void Sample::Step(Settings& settings)
 		++m_stepCount;
 	}
 
-#if 0
 	if (settings.m_drawStats)
 	{
-		int32_t bodyCount = m_world->GetBodyCount();
-		int32_t contactCount = m_world->GetContactCount();
-		int32_t jointCount = m_world->GetJointCount();
-		g_draw.DrawString(5, m_textLine, "bodies/contacts/joints = %d/%d/%d", bodyCount, contactCount, jointCount);
+		b2Statistics s = b2World_GetStatistics(m_worldId);
+
+		g_draw.DrawString(5, m_textLine, "bodies/contacts/joints = %d/%d/%d", s.bodyCount, s.contactCount, s.jointCount);
 		m_textLine += m_textIncrement;
 
-		int32_t proxyCount = m_world->GetProxyCount();
-		int32_t height = m_world->GetTreeHeight();
-		int32_t balance = m_world->GetTreeBalance();
-		float quality = m_world->GetTreeQuality();
-		g_draw.DrawString(5, m_textLine, "proxies/height/balance/quality = %d/%d/%d/%g", proxyCount, height, balance, quality);
+		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight, s.contactPointCount);
 		m_textLine += m_textIncrement;
 	}
-#endif
 
 	// Track maximum profile times
 	{
@@ -328,12 +321,12 @@ void Sample::Step(Settings& settings)
 				// Speculative
 				g_draw.DrawPoint(point->position, 5.0f, speculativeColor);
 			}
-			else if (point->state == b2_addState)
+			else if (point->persisted == false)
 			{
 				// Add
 				g_draw.DrawPoint(point->position, 10.0f, addColor);
 			}
-			else if (point->state == b2_persistState)
+			else if (point->persisted == true)
 			{
 				// Persist
 				g_draw.DrawPoint(point->position, 5.0f, persistColor);
@@ -368,20 +361,19 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	//m_world->ShiftOrigin(newOrigin);
 }
 
-void Sample::PreSolve(const b2ManifoldResult* result)
+void Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold)
 {
-	for (int32_t i = 0; i < result->pointCount && m_pointCount < k_maxContactPoints; ++i)
+	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
 	{
 		ContactPoint* cp = m_points + m_pointCount;
-		cp->shapeIdA = result->shapeIdA;
-		cp->shapeIdB = result->shapeIdB;
-		cp->position = result->points[i];
-		cp->normal = result->normal;
-		cp->state = result->states[i];
-		// TODO_ERIN
-		cp->normalImpulse = 0.0f;
-		cp->tangentImpulse = 0.0f;
-		cp->separation = result->separations[i];
+		cp->shapeIdA = shapeIdA;
+		cp->shapeIdB = shapeIdB;
+		cp->normal = manifold->normal;
+		cp->position = manifold->points[i].point;
+		cp->separation = manifold->points[i].separation;
+		cp->normalImpulse = manifold->points[i].normalImpulse;
+		cp->tangentImpulse = manifold->points[i].tangentImpulse;
+		cp->persisted = manifold->points[i].persisted;
 		++m_pointCount;
 	}
 }

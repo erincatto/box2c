@@ -88,7 +88,7 @@ int HelloWorld()
 	b2DestroyWorld(worldId);
 
 	ENSURE(B2_ABS(position.x) < 0.01f);
-	ENSURE(B2_ABS(position.y - 1.01f) < 0.01f);
+	ENSURE(B2_ABS(position.y - 1.00f) < 0.01f);
 	ENSURE(B2_ABS(angle) < 0.01f);
 
 	return 0;

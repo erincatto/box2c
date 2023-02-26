@@ -62,6 +62,8 @@ extern float b2_lengthUnitsPerMeter;
 #define b2_maxRotation (0.5f * b2_pi)
 #define b2_maxRotationSquared (b2_maxRotation * b2_maxRotation)
 
+#define b2_speculativeDistance (4.0f * b2_linearSlop)
+
 /// This scale factor controls how fast overlap is resolved. Ideally this would be 1 so
 /// that overlap is removed in one time step. However using values close to 1 often lead
 /// to overshoot.

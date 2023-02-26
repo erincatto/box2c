@@ -35,6 +35,8 @@ BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
 /// Get the current profile.
 BOX2D_API struct b2Profile* b2World_GetProfile(b2WorldId worldId);
 
+BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
+
 BOX2D_API b2BodyId b2World_GetGroundBodyId(b2WorldId worldId);
 
 /// Create a rigid body given a definition. No reference to the definition is retained.

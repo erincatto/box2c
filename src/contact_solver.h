@@ -33,7 +33,6 @@ typedef struct b2ContactSolver
 b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def);
 void b2DestroyContactSolver(b2ContactSolver* solver);
 
-void b2ContactSolver_InitializeVelocityConstraints(b2ContactSolver* solver);
 void b2ContactSolver_WarmStart(b2ContactSolver* solver);
 void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver);
 void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver);

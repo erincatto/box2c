@@ -63,7 +63,7 @@ struct ContactPoint
 	b2ShapeId shapeIdB;
 	b2Vec2 normal;
 	b2Vec2 position;
-	b2PointState state;
+	bool persisted;
 	float normalImpulse;
 	float tangentImpulse;
 	float separation;
@@ -87,7 +87,7 @@ public:
 
 	void ShiftOrigin(b2Vec2 newOrigin);
 
-	void PreSolve(const b2ManifoldResult* result);
+	void PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold);
 
 	friend class DestructionListener;
 	friend class BoundaryListener;

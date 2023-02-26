@@ -43,9 +43,8 @@ static bool s_initialized = false;
 b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	B2_MAYBE_UNUSED(childIndexA);
-	B2_MAYBE_UNUSED(xfA);
-	B2_MAYBE_UNUSED(xfB);
-	return b2CollideCircles(&shapeA->circle, &shapeB->circle);
+
+	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB);
 }
 
 b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
@@ -281,8 +280,6 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	bool sensorB = shapeB->isSensor;
 	bool sensor = sensorA || sensorB;
 
-	bool noStatic = bodyA->type != b2_staticBody && bodyB->type != b2_staticBody;
-
 	int32_t childA = contact->childA;
 	int32_t childB = contact->childB;
 
@@ -296,80 +293,45 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	else
 	{
 		// Compute TOI
-		b2TOIInput input;
-		input.proxyA = b2Shape_MakeDistanceProxy(shapeA, childA);
-		input.proxyB = b2Shape_MakeDistanceProxy(shapeB, childB);
-		input.sweepA = b2Body_GetSweep(bodyA);
-		input.sweepB = b2Body_GetSweep(bodyB);
-		input.tMax = 1.0f;
+		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		b2TOIOutput output;
-		b2TimeOfImpact(&output, &input);
+		contact->manifold = fcn(shapeA, childA, bodyA->transform, shapeB, bodyB->transform);
 
-		if (output.state != b2_toiStateSeparated || noStatic)
+		touching = contact->manifold.pointCount > 0;
+
+		// Match old contact ids to new contact ids and copy the
+		// stored impulses to warm start the solver.
+		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
 		{
-			b2Transform xfA = b2GetSweepTransform(&input.sweepA, output.t);
-			b2Transform xfB = b2GetSweepTransform(&input.sweepB, output.t);
+			b2ManifoldPoint* mp2 = contact->manifold.points + i;
+			mp2->normalImpulse = 0.0f;
+			mp2->tangentImpulse = 0.0f;
+			mp2->persisted = false;
+			uint16_t id2 = mp2->id;
 
-			b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
-
-			contact->manifold = fcn(shapeA, childA, xfA, shapeB, xfB);
-
-			// TODO_ERIN not with speculation
-			touching = contact->manifold.pointCount > 0;
-
-			// Match old contact ids to new contact ids and copy the
-			// stored impulses to warm start the solver.
-			for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
+			for (int32_t j = 0; j < oldManifold.pointCount; ++j)
 			{
-				b2ManifoldPoint* mp2 = contact->manifold.points + i;
-				mp2->normalImpulse = 0.0f;
-				mp2->tangentImpulse = 0.0f;
-				mp2->persisted = false;
-				b2ContactID id2 = mp2->id;
+				b2ManifoldPoint* mp1 = oldManifold.points + j;
 
-				for (int32_t j = 0; j < oldManifold.pointCount; ++j)
+				if (mp1->id == id2)
 				{
-					b2ManifoldPoint* mp1 = oldManifold.points + j;
-
-					if (mp1->id.key == id2.key)
-					{
-						mp2->normalImpulse = mp1->normalImpulse;
-						mp2->tangentImpulse = mp1->tangentImpulse;
-						mp2->persisted = true;
-						break;
-					}
+					mp2->normalImpulse = mp1->normalImpulse;
+					mp2->tangentImpulse = mp1->tangentImpulse;
+					mp2->persisted = true;
+					break;
 				}
-
-				// For debugging ids
-				//if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
-				//{
-				//	i += 0;
-				//}
 			}
 
-			if (touching && world->preSolveFcn)
-			{
-				// TODO_ERIN too much computation
-				b2WorldManifold wm =
-					b2ComputeWorldManifold(&contact->manifold, xfA, input.proxyA.radius, xfB, input.proxyB.radius);
+			// For debugging ids
+			//if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
+			//{
+			//	i += 0;
+			//}
+		}
 
-				b2PointState state1[b2_maxManifoldPoints], state2[b2_maxManifoldPoints];
-				b2GetPointStates(state1, state2, &oldManifold, &contact->manifold);
-
-				b2ManifoldResult result;
-				result.shapeIdA = shapeIdA;
-				result.shapeIdB = shapeIdB;
-				result.normal = wm.normal;
-				result.points[0] = wm.points[0];
-				result.points[1] = wm.points[1];
-				result.separations[0] = wm.separations[0];
-				result.separations[1] = wm.separations[1];
-				result.states[0] = state2[0];
-				result.states[1] = state2[1];
-				result.pointCount = contact->manifold.pointCount;
-				world->preSolveFcn(&result, world->preSolveContext);
-			}
+		if (touching && world->preSolveFcn)
+		{
+			world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
 		}
 	}
 
