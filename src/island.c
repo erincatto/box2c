@@ -333,6 +333,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			break;
 		}
 	}
+	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
 	// Copy state buffers back to the bodies
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -347,8 +348,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		body->transform.q = b2MakeRot(body->angle);
 		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
 	}
-
-	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
 	// Report impulses
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
@@ -417,6 +416,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 				b->angularVelocity = 0.0f;
 				b->speculativePosition = b->position;
 				b->speculativeAngle = b->angle;
+				b->force = b2Vec2_zero;
+				b->torque = 0.0f;
 			}
 		}
 	}
@@ -432,6 +433,9 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			{
 				continue;
 			}
+
+			b->force = b2Vec2_zero;
+			b->torque = 0.0f;
 
 			assert(b->awakeIndex == B2_NULL_INDEX);
 			b->awakeIndex = b2Array(world->awakeBodies).count;
@@ -471,4 +475,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	b2DestroyContactSolver(&solver);
+
+	profile->completion = b2GetMillisecondsAndReset(&timer);
 }

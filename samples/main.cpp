@@ -393,6 +393,11 @@ static void UpdateUI()
 					s_settings.m_singleStep = !s_settings.m_singleStep;
 				}
 
+				if (ImGui::Button("Reset Profile", button_sz))
+				{
+					s_sample->ResetProfile();
+				}
+
 				if (ImGui::Button("Restart (R)", button_sz))
 				{
 					RestartTest();

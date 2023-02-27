@@ -11,9 +11,11 @@ typedef struct b2Profile
 	float step;
 	float collide;
 	float solve;
+	float island;
 	float solveInit;
 	float solveVelocity;
 	float solvePosition;
+	float completion;
 	float broadphase;
 	float solveTOI;
 } b2Profile;
@@ -35,7 +37,7 @@ typedef struct b2Statistics
 typedef struct b2Timer
 {
 #if defined(_WIN32)
-	double start;
+	int64_t start;
 #elif defined(__linux__) || defined (__APPLE__)
 	unsigned long long start_sec;
 	unsigned long long start_usec;
@@ -47,6 +49,7 @@ extern "C" {
 #endif
 
 b2Timer b2CreateTimer();
+int64_t b2GetTicks(b2Timer* timer);
 float b2GetMilliseconds(const b2Timer* timer);
 float b2GetMillisecondsAndReset(b2Timer* timer);
 void b2SleepMilliseconds(float milliseconds);
