@@ -67,41 +67,6 @@ Sample::~Sample()
 	b2DestroyWorld(m_worldId);
 }
 
-#if 0
-void Sample::PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
-{
-	const b2Manifold* manifold = contact->GetManifold();
-
-	if (manifold->pointCount == 0)
-	{
-		return;
-	}
-
-	b2Fixture* fixtureA = contact->GetFixtureA();
-	b2Fixture* fixtureB = contact->GetFixtureB();
-
-	b2PointState state1[b2_maxManifoldPoints], state2[b2_maxManifoldPoints];
-	b2GetPointStates(state1, state2, oldManifold, manifold);
-
-	b2WorldManifold worldManifold;
-	contact->GetWorldManifold(&worldManifold);
-
-	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
-	{
-		ContactPoint* cp = m_points + m_pointCount;
-		cp->fixtureA = fixtureA;
-		cp->fixtureB = fixtureB;
-		cp->position = worldManifold.points[i];
-		cp->normal = worldManifold.normal;
-		cp->state = state2[i];
-		cp->normalImpulse = manifold->points[i].normalImpulse;
-		cp->tangentImpulse = manifold->points[i].tangentImpulse;
-		cp->separation = worldManifold.separations[i];
-		++m_pointCount;
-	}
-}
-#endif
-
 void Sample::DrawTitle(const char* string)
 {
 	g_draw.DrawString(5, 5, string);
@@ -227,7 +192,6 @@ void Sample::Step(Settings& settings)
 
 	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
 
-	// m_world->SetAllowSleeping(settings.m_enableSleep);
 	// m_world->SetWarmStarting(settings.m_enableWarmStarting);
 	// m_world->SetContinuousPhysics(settings.m_enableContinuous);
 
@@ -335,7 +299,7 @@ void Sample::Step(Settings& settings)
 
 	if (settings.m_drawContactPoints)
 	{
-		const float k_impulseScale = 0.1f;
+		const float k_impulseScale = 1.0f;
 		const float k_axisScale = 0.3f;
 		b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
 		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
@@ -372,6 +336,7 @@ void Sample::Step(Settings& settings)
 				b2Vec2 p1 = point->position;
 				b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->normalImpulse, point->normal);
 				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.3f, 1.0f});
+				g_draw.DrawString(p1, "%.2f", point->normalImpulse);
 			}
 
 			if (settings.m_drawFrictionImpulse == 1)
@@ -380,6 +345,7 @@ void Sample::Step(Settings& settings)
 				b2Vec2 p1 = point->position;
 				b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->tangentImpulse, tangent);
 				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.3f, 1.0f});
+				g_draw.DrawString(p1, "%.2f", point->tangentImpulse);
 			}
 		}
 	}

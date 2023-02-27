@@ -67,7 +67,7 @@ extern float b2_lengthUnitsPerMeter;
 /// This scale factor controls how fast overlap is resolved. Ideally this would be 1 so
 /// that overlap is removed in one time step. However using values close to 1 often lead
 /// to overshoot.
-#define b2_baumgarte 0.5f
+#define b2_baumgarte 0.2f
 
 /// The time that a body must be still before it will go to sleep.
 extern float b2_timeToSleep;

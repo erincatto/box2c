@@ -675,6 +675,7 @@ bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
+	float slop = b2_linearSlop;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
@@ -712,8 +713,9 @@ bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
 			// Track max constraint error.
 			minSeparation = B2_MIN(minSeparation, separation);
 
-			// Prevent large corrections
-			float C = B2_CLAMP(b2_baumgarte * separation, -b2_maxLinearCorrection, 0.0f);
+			// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
+			// This improves stacking stability significantly.
+			float C = B2_CLAMP(b2_baumgarte * (separation + slop), -b2_maxLinearCorrection, 0.0f);
 
 			// Compute the effective mass.
 			float rnA = b2Cross(rA, normal);

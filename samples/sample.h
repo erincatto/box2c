@@ -95,7 +95,6 @@ public:
 	friend class ContactListener;
 
 	b2BodyId m_groundBodyId;
-	b2AABB m_worldAABB;
 	ContactPoint m_points[k_maxContactPoints];
 	int32_t m_pointCount;
 	//DestructionListener m_destructionListener;

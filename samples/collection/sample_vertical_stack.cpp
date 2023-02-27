@@ -17,7 +17,7 @@ public:
 	enum
 	{
 		e_maxColumns = 500,
-		e_maxRows = 12,
+		e_maxRows = 15,
 		e_maxBullets = 20
 	};
 
@@ -58,7 +58,7 @@ public:
 
 		m_shapeType = e_boxShape;
 		m_rowCount = e_maxRows;
-		m_columnCount = g_sampleDebug ? 5 : e_maxColumns;
+		m_columnCount = g_sampleDebug ? 1 : e_maxColumns;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -79,7 +79,7 @@ public:
 		b2Circle circle = {0};
 		circle.radius = 0.5f;
 
-		b2Polygon box = b2MakeBox(1.0f, 0.5f);
+		b2Polygon box = b2MakeBox(0.5f, 0.5f);
 
 		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;
@@ -107,7 +107,6 @@ public:
 			{
 				b2BodyDef bd = b2DefaultBodyDef();
 				bd.type = b2_dynamicBody;
-				bd.angularDamping = 0.02f;
 
 				int32_t n = j * m_rowCount + i;
 
