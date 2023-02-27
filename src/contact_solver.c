@@ -677,6 +677,7 @@ bool b2ContactSolver_SolvePositionConstraints_lambda(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
+	float slop = b2_linearSlop;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
