@@ -47,9 +47,10 @@ typedef struct b2ContactVelocityConstraint
 
 typedef struct b2ContactPositionConstraint
 {
-	b2Vec2 localAnchorsA[b2_maxManifoldPoints];
-	b2Vec2 localAnchorsB[b2_maxManifoldPoints];
-	float separations[b2_maxManifoldPoints];
+	b2Vec2 localAnchorsA[2];
+	b2Vec2 localAnchorsB[2];
+	float separations[2];
+	float lambdas[2];
 	b2Vec2 normal;
 	int32_t indexA;
 	int32_t indexB;
@@ -176,6 +177,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 			pc->localAnchorsA[j] = b2InvRotateVector(qA, vcp->rA);
 			pc->localAnchorsB[j] = b2InvRotateVector(qB, vcp->rB);
 			pc->separations[j] = cp->separation;
+			pc->lambdas[j] = 0.0f;
 		}
 
 		// If we have two points, then prepare the block solver.
@@ -307,7 +309,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 			float vt = b2Dot(dv, tangent) - vc->tangentSpeed;
 			float lambda = vcp->tangentMass * (-vt);
 
-			// b2Clamp the accumulated force
+			// Clamp the accumulated force
 			float maxFriction = friction * vcp->normalImpulse;
 			float newImpulse = B2_CLAMP(vcp->tangentImpulse + lambda, -maxFriction, maxFriction);
 			lambda = newImpulse - vcp->tangentImpulse;
@@ -339,7 +341,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 				float vn = b2Dot(dv, normal);
 				float lambda = -vcp->normalMass * (vn - vcp->velocityBias);
 
-				// b2Clamp the accumulated impulse
+				// Clamp the accumulated impulse
 				float newImpulse = B2_MAX(vcp->normalImpulse + lambda, 0.0f);
 				lambda = newImpulse - vcp->normalImpulse;
 				vcp->normalImpulse = newImpulse;
@@ -671,7 +673,85 @@ void b2ContactSolver_StoreImpulses(b2ContactSolver* solver)
 }
 
 // Sequential solver.
-bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
+bool b2ContactSolver_SolvePositionConstraints_lambda(b2ContactSolver* solver)
+{
+	float minSeparation = 0.0f;
+	int32_t count = solver->count;
+
+	for (int32_t i = 0; i < count; ++i)
+	{
+		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
+
+		int32_t indexA = pc->indexA;
+		int32_t indexB = pc->indexB;
+		float mA = pc->invMassA;
+		float iA = pc->invIA;
+		float mB = pc->invMassB;
+		float iB = pc->invIB;
+		int32_t pointCount = pc->pointCount;
+
+		b2Vec2 cA = solver->positions[indexA].c;
+		float aA = solver->positions[indexA].a;
+
+		b2Vec2 cB = solver->positions[indexB].c;
+		float aB = solver->positions[indexB].a;
+
+		b2Vec2 normal = pc->normal;
+
+		// Solve normal constraints
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2Rot qA = b2MakeRot(aA);
+			b2Rot qB = b2MakeRot(aB);
+
+			b2Vec2 rA = b2RotateVector(qA, pc->localAnchorsA[j]);
+			b2Vec2 rB = b2RotateVector(qB, pc->localAnchorsB[j]);
+
+			// Current separation
+			b2Vec2 d = b2Sub(b2Add(cB, rB), b2Add(cA, rA));
+			float separation = b2Dot(d, normal) + pc->separations[j];
+
+			// Track max constraint error.
+			minSeparation = B2_MIN(minSeparation, separation);
+
+			// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
+			// This improves stacking stability significantly.
+			float C = b2_baumgarte * separation;
+
+			// Compute the effective mass.
+			float rnA = b2Cross(rA, normal);
+			float rnB = b2Cross(rB, normal);
+			float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+			// Compute normal impulse
+			float impulse = K > 0.0f ? -C / K : 0.0f;
+
+			// Clamp the accumulated impulse
+			float newLambda = B2_MAX(pc->lambdas[j] + impulse, 0.0f);
+			impulse = newLambda - pc->lambdas[j];
+			pc->lambdas[j] = impulse;
+
+			b2Vec2 P = b2MulSV(impulse, normal);
+
+			cA = b2MulSub(cA, mA, P);
+			aA -= iA * b2Cross(rA, P);
+
+			cB = b2MulAdd(cB, mB, P);
+			aB += iB * b2Cross(rB, P);
+		}
+
+		solver->positions[indexA].c = cA;
+		solver->positions[indexA].a = aA;
+		solver->positions[indexB].c = cB;
+		solver->positions[indexB].a = aB;
+	}
+
+	// We can't expect minSpeparation >= -b2_linearSlop because we don't
+	// push the separation above -b2_linearSlop.
+	return minSeparation >= -3.0f * b2_linearSlop;
+}
+
+bool b2ContactSolver_SolvePositionConstraints_orig(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
@@ -732,6 +812,219 @@ bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
 
 			cB = b2MulAdd(cB, mB, P);
 			aB += iB * b2Cross(rB, P);
+		}
+
+		solver->positions[indexA].c = cA;
+		solver->positions[indexA].a = aA;
+		solver->positions[indexB].c = cB;
+		solver->positions[indexB].a = aB;
+	}
+
+	// We can't expect minSpeparation >= -b2_linearSlop because we don't
+	// push the separation above -b2_linearSlop.
+	return minSeparation >= -3.0f * b2_linearSlop;
+}
+
+bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
+{
+	float minSeparation = 0.0f;
+	int32_t count = solver->count;
+	float slop = b2_linearSlop;
+
+	for (int32_t i = 0; i < count; ++i)
+	{
+		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
+
+		int32_t indexA = pc->indexA;
+		int32_t indexB = pc->indexB;
+		float mA = pc->invMassA;
+		float iA = pc->invIA;
+		float mB = pc->invMassB;
+		float iB = pc->invIB;
+		int32_t pointCount = pc->pointCount;
+		b2Vec2 cA = solver->positions[indexA].c;
+		float aA = solver->positions[indexA].a;
+
+		b2Vec2 cB = solver->positions[indexB].c;
+		float aB = solver->positions[indexB].a;
+		b2Vec2 normal = pc->normal;
+
+		if (pointCount == 2)
+		{
+			b2Rot qA = b2MakeRot(aA);
+			b2Rot qB = b2MakeRot(aB);
+
+			b2Vec2 rA1 = b2RotateVector(qA, pc->localAnchorsA[0]);
+			b2Vec2 rB1 = b2RotateVector(qB, pc->localAnchorsB[0]);
+			b2Vec2 rA2 = b2RotateVector(qA, pc->localAnchorsA[1]);
+			b2Vec2 rB2 = b2RotateVector(qB, pc->localAnchorsB[1]);
+
+			// Current separation
+			b2Vec2 d1 = b2Sub(b2Add(cB, rB1), b2Add(cA, rA1));
+			float separation1 = b2Dot(d1, normal) + pc->separations[0];
+
+			b2Vec2 d2 = b2Sub(b2Add(cB, rB2), b2Add(cA, rA2));
+			float separation2 = b2Dot(d2, normal) + pc->separations[1];
+
+			// Track max constraint error.
+			minSeparation = B2_MIN(minSeparation, separation1);
+			minSeparation = B2_MIN(minSeparation, separation2);
+
+			float C1 = B2_CLAMP(b2_baumgarte * (separation1 + slop), -b2_maxLinearCorrection, 0.0f);
+			float C2 = B2_CLAMP(b2_baumgarte * (separation2 + slop), -b2_maxLinearCorrection, 0.0f);
+
+			b2Vec2 b = {C1, C2};
+
+			float rn1A = b2Cross(rA1, normal);
+			float rn1B = b2Cross(rB1, normal);
+			float rn2A = b2Cross(rA2, normal);
+			float rn2B = b2Cross(rB2, normal);
+
+			float k11 = mA + mB + iA * rn1A * rn1A + iB * rn1B * rn1B;
+			float k22 = mA + mB + iA * rn2A * rn2A + iB * rn2B * rn2B;
+			float k12 = mA + mB + iA * rn1A * rn2A + iB * rn1B * rn2B;
+
+			b2Mat22 K, invK;
+
+			// Ensure a reasonable condition number.
+			const float k_maxConditionNumber = 1000.0f;
+			if (k11 * k11 < k_maxConditionNumber * (k11 * k22 - k12 * k12))
+			{
+				// K is safe to invert.
+				K.cx = (b2Vec2){k11, k12};
+				K.cy = (b2Vec2){k12, k22};
+				invK = b2GetInverse22(K);
+			}
+			else
+			{
+				// The constraints are redundant, just use one.
+				continue;
+			}
+
+			const float k_errorTol = 1e-3f;
+			B2_MAYBE_UNUSED(k_errorTol);
+
+			for (;;)
+			{
+				//
+				// Case 1: vn = 0
+				//
+				// 0 = A * x + b'
+				//
+				// Solve for x:
+				//
+				// x = - inv(A) * b'
+				//
+				b2Vec2 x = b2Neg(b2MulMV(invK, b));
+
+				if (x.x >= 0.0f && x.y >= 0.0f)
+				{
+					// Get the incremental impulse
+					b2Vec2 d = x;
+
+					// Apply incremental impulse
+					b2Vec2 P1 = b2MulSV(d.x, normal);
+					b2Vec2 P2 = b2MulSV(d.y, normal);
+
+					cA = b2MulSub(cA, mA, b2Add(P1, P2));
+					aA -= iA * (b2Cross(rA1, P1) + b2Cross(rA2, P2));
+
+					cB = b2MulAdd(cB, mB, b2Add(P1, P2));
+					aB += iB * (b2Cross(rB1, P1) + b2Cross(rB2, P2));
+					break;
+				}
+
+				//
+				// Case 2: vn1 = 0 and x2 = 0
+				//
+				//   0 = a11 * x1 + a12 * 0 + b1'
+				// vn2 = a21 * x1 + a22 * 0 + b2'
+				//
+				x.x = -b.x / k11;
+				x.y = 0.0f;
+				float vn2 = K.cx.y * x.x + b.y;
+				if (x.x >= 0.0f && vn2 >= 0.0f)
+				{
+					// Get the incremental impulse
+					b2Vec2 d = x;
+
+					// Apply incremental impulse
+					b2Vec2 P1 = b2MulSV(d.x, normal);
+					b2Vec2 P2 = b2MulSV(d.y, normal);
+
+					cA = b2MulSub(cA, mA, b2Add(P1, P2));
+					aA -= iA * (b2Cross(rA1, P1) + b2Cross(rA2, P2));
+
+					cB = b2MulAdd(cB, mB, b2Add(P1, P2));
+					aB += iB * (b2Cross(rB1, P1) + b2Cross(rB2, P2));
+					break;
+				}
+
+				//
+				// Case 3: vn2 = 0 and x1 = 0
+				//
+				// vn1 = a11 * 0 + a12 * x2 + b1'
+				//   0 = a21 * 0 + a22 * x2 + b2'
+				//
+				x.x = 0.0f;
+				x.y = -b.y / k22;
+				float vn1 = K.cy.x * x.y + b.x;
+				if (x.y >= 0.0f && vn1 >= 0.0f)
+				{
+					// Resubstitute for the incremental impulse
+					b2Vec2 d = x;
+
+					// Apply incremental impulse
+					b2Vec2 P1 = b2MulSV(d.x, normal);
+					b2Vec2 P2 = b2MulSV(d.y, normal);
+
+					cA = b2MulSub(cA, mA, b2Add(P1, P2));
+					aA -= iA * (b2Cross(rA1, P1) + b2Cross(rA2, P2));
+
+					cB = b2MulAdd(cB, mB, b2Add(P1, P2));
+					aB += iB * (b2Cross(rB1, P1) + b2Cross(rB2, P2));
+					break;
+				}
+				break;
+			}
+		}
+		else
+		{
+			for (int32_t j = 0; j < pointCount; ++j)
+			{
+				b2Rot qA = b2MakeRot(aA);
+				b2Rot qB = b2MakeRot(aB);
+
+				b2Vec2 rA = b2RotateVector(qA, pc->localAnchorsA[j]);
+				b2Vec2 rB = b2RotateVector(qB, pc->localAnchorsB[j]);
+
+				// Current separation
+				b2Vec2 d = b2Sub(b2Add(cB, rB), b2Add(cA, rA));
+				float separation = b2Dot(d, normal) + pc->separations[j];
+
+				// Track max constraint error.
+				minSeparation = B2_MIN(minSeparation, separation);
+
+				// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
+				// This improves stacking stability significantly.
+				float C = B2_CLAMP(b2_baumgarte * (separation + slop), -b2_maxLinearCorrection, 0.0f);
+
+				// Compute the effective mass.
+				float rnA = b2Cross(rA, normal);
+				float rnB = b2Cross(rB, normal);
+				float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+				// Compute normal impulse
+				float impulse = K > 0.0f ? -C / K : 0.0f;
+
+				b2Vec2 P = b2MulSV(impulse, normal);
+
+				cA = b2MulSub(cA, mA, P);
+				aA -= iA * b2Cross(rA, P);
+
+				cB = b2MulAdd(cB, mB, P);
+				aB += iB * b2Cross(rB, P);
+			}
 		}
 
 		solver->positions[indexA].c = cA;

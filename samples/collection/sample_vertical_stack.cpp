@@ -17,7 +17,7 @@ public:
 	enum
 	{
 		e_maxColumns = 500,
-		e_maxRows = 15,
+		e_maxRows = 100,
 		e_maxBullets = 20
 	};
 
