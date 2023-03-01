@@ -8,7 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API bool g_blockSolve;
+BOX2D_API bool g_velocityBlockSolve;
 
 class VerticalStack : public Sample
 {
@@ -111,7 +111,7 @@ public:
 				int32_t n = j * m_rowCount + i;
 
 				float shift = (i % 2 == 0 ? -offset : offset);
-				bd.position = {x + shift, 0.55f + 1.1f * i};
+				bd.position = {x + shift, 0.505f + 1.01f * i};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;
@@ -196,7 +196,7 @@ public:
 			FireBullets();
 		}
 
-		ImGui::Checkbox("Block Solve", &g_blockSolve);
+		ImGui::Checkbox("Block Solve", &g_velocityBlockSolve);
 
 		changed = changed || ImGui::Button("Reset Stack");
 

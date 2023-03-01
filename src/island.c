@@ -192,6 +192,8 @@ void b2Island_AddJoint(b2Island* island, b2Joint* joint)
 	island->joints[island->jointCount++] = joint;
 }
 
+bool g_positionBlockSolve = true;
+
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
 	b2Timer timer = b2CreateTimer();
@@ -317,7 +319,15 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	bool positionSolved = false;
 	for (int32_t i = 0; i < step->positionIterations; ++i)
 	{
-		bool contactsOkay = b2ContactSolver_SolvePositionConstraints(&solver);
+		bool contactsOkay;
+		if (g_positionBlockSolve)
+		{
+			contactsOkay = b2ContactSolver_SolvePositionConstraintsBlock(&solver);
+		}
+		else
+		{
+			contactsOkay = b2ContactSolver_SolvePositionConstraintsSingle(&solver);
+		}
 
 		bool jointsOkay = true;
 		for (int32_t j = 0; j < island->jointCount; ++j)

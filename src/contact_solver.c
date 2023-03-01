@@ -14,7 +14,7 @@
 // effective mass matrix.
 #define B2_DEBUG_SOLVER 0
 
-bool g_blockSolve = true;
+bool g_velocityBlockSolve = true;
 
 typedef struct b2VelocityConstraintPoint
 {
@@ -181,7 +181,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 		}
 
 		// If we have two points, then prepare the block solver.
-		if (vc->pointCount == 2 && g_blockSolve)
+		if (vc->pointCount == 2 && g_velocityBlockSolve)
 		{
 			b2VelocityConstraintPoint* vcp1 = vc->points + 0;
 			b2VelocityConstraintPoint* vcp2 = vc->points + 1;
@@ -326,7 +326,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 		}
 
 		// Solve normal constraints
-		if (pointCount == 1 || g_blockSolve == false)
+		if (pointCount == 1 || g_velocityBlockSolve == false)
 		{
 			for (int32_t j = 0; j < pointCount; ++j)
 			{
@@ -751,7 +751,7 @@ bool b2ContactSolver_SolvePositionConstraints_lambda(b2ContactSolver* solver)
 	return minSeparation >= -3.0f * b2_linearSlop;
 }
 
-bool b2ContactSolver_SolvePositionConstraints_orig(b2ContactSolver* solver)
+bool b2ContactSolver_SolvePositionConstraintsSingle(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
@@ -825,7 +825,7 @@ bool b2ContactSolver_SolvePositionConstraints_orig(b2ContactSolver* solver)
 	return minSeparation >= -3.0f * b2_linearSlop;
 }
 
-bool b2ContactSolver_SolvePositionConstraints(b2ContactSolver* solver)
+bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
