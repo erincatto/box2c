@@ -192,6 +192,8 @@ void b2Island_AddJoint(b2Island* island, b2Joint* joint)
 	island->joints[island->jointCount++] = joint;
 }
 
+bool g_positionBlockSolve = true;
+
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
 	b2Timer timer = b2CreateTimer();
@@ -317,7 +319,15 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	bool positionSolved = false;
 	for (int32_t i = 0; i < step->positionIterations; ++i)
 	{
-		bool contactsOkay = b2ContactSolver_SolvePositionConstraints(&solver);
+		bool contactsOkay;
+		if (g_positionBlockSolve)
+		{
+			contactsOkay = b2ContactSolver_SolvePositionConstraintsBlock(&solver);
+		}
+		else
+		{
+			contactsOkay = b2ContactSolver_SolvePositionConstraintsSingle(&solver);
+		}
 
 		bool jointsOkay = true;
 		for (int32_t j = 0; j < island->jointCount; ++j)
@@ -333,6 +343,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			break;
 		}
 	}
+	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
 	// Copy state buffers back to the bodies
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -347,8 +358,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		body->transform.q = b2MakeRot(body->angle);
 		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
 	}
-
-	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
 	// Report impulses
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
@@ -417,6 +426,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 				b->angularVelocity = 0.0f;
 				b->speculativePosition = b->position;
 				b->speculativeAngle = b->angle;
+				b->force = b2Vec2_zero;
+				b->torque = 0.0f;
 			}
 		}
 	}
@@ -432,6 +443,9 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			{
 				continue;
 			}
+
+			b->force = b2Vec2_zero;
+			b->torque = 0.0f;
 
 			assert(b->awakeIndex == B2_NULL_INDEX);
 			b->awakeIndex = b2Array(world->awakeBodies).count;
@@ -471,4 +485,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	b2DestroyContactSolver(&solver);
+
+	profile->completion = b2GetMillisecondsAndReset(&timer);
 }

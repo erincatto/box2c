@@ -15,6 +15,8 @@ set(BOX2D_SAMPLES
 
 	collection/benchmark_barrel.cpp
 	collection/benchmark_joint_grid.cpp
+	collection/benchmark_pyramid.cpp
+	collection/benchmark_tumbler.cpp
 
 	collection/sample_dynamic_tree.cpp
 	collection/sample_hull.cpp

@@ -29,15 +29,25 @@ b2Timer b2CreateTimer()
 
 	QueryPerformanceCounter(&largeInteger);
 	b2Timer timer;
-	timer.start = (double)largeInteger.QuadPart;
+	timer.start = largeInteger.QuadPart;
 	return timer;
+}
+
+int64_t b2GetTicks(b2Timer* timer)
+{
+	LARGE_INTEGER largeInteger;
+	QueryPerformanceCounter(&largeInteger);
+	int64_t ticks = largeInteger.QuadPart;
+	int64_t count = ticks - timer->start;
+	timer->start = ticks;
+	return count;
 }
 
 float b2GetMilliseconds(const b2Timer* timer)
 {
 	LARGE_INTEGER largeInteger;
 	QueryPerformanceCounter(&largeInteger);
-	double count = (double)largeInteger.QuadPart;
+	int64_t count = largeInteger.QuadPart;
 	float ms = (float)(s_invFrequency * (count - timer->start));
 	return ms;
 }
@@ -46,7 +56,7 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 {
 	LARGE_INTEGER largeInteger;
 	QueryPerformanceCounter(&largeInteger);
-	double count = (double)largeInteger.QuadPart;
+	int64_t count = largeInteger.QuadPart;
 	float ms = (float)(s_invFrequency * (count - timer->start));
 	timer->start = count;
 	return ms;

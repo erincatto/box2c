@@ -85,6 +85,7 @@ public:
 	virtual void MouseUp(b2Vec2 p, int button);
 	virtual void MouseMove(b2Vec2 p);
 
+	void ResetProfile();
 	void ShiftOrigin(b2Vec2 newOrigin);
 
 	void PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold);
@@ -94,7 +95,6 @@ public:
 	friend class ContactListener;
 
 	b2BodyId m_groundBodyId;
-	b2AABB m_worldAABB;
 	ContactPoint m_points[k_maxContactPoints];
 	int32_t m_pointCount;
 	//DestructionListener m_destructionListener;

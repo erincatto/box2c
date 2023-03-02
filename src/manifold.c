@@ -1490,6 +1490,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	const b2Polygon* poly2; // incident polygon
 	b2Transform xf;
 	int32_t edge1; // reference edge
+
+	// TODO_ERIN feature flipping seems fine now
 	const float k_tol = 0.0f; //0.1f * b2_linearSlop;
 	bool flip;
 

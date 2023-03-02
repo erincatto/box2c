@@ -352,6 +352,8 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	for (int32_t i = 0; i < seedCount; ++i)
 	{
+		b2Timer islandTimer = b2CreateTimer();
+
 		int32_t seedIndex = seedBuffer[i];
 		if (seedIndex == B2_NULL_INDEX)
 		{
@@ -503,22 +505,24 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 			}
 		}
 
+		world->profile.island += b2GetMilliseconds(&islandTimer);
+
 		b2Profile profile;
 		b2SolveIsland(&island, &profile, step, world->gravity);
 
 		world->profile.solveInit += profile.solveInit;
 		world->profile.solveVelocity += profile.solveVelocity;
 		world->profile.solvePosition += profile.solvePosition;
+		world->profile.completion += profile.completion;
 	}
 
 	b2FreeStackItem(world->stackAllocator, stack);
+	b2DestroyIsland(&island);
 
 	// Look for new contacts
 	b2Timer timer = b2CreateTimer();
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
 	world->profile.broadphase = b2GetMilliseconds(&timer);
-
-	b2DestroyIsland(&island);
 }
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
@@ -565,7 +569,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	{
 		b2Timer timer = b2CreateTimer();
 		b2Collide(world);
-		world->profile.collide = b2GetMillisecondsAndReset(&timer);
+		world->profile.collide = b2GetMilliseconds(&timer);
 	}
 
 	// Integrate velocities, solve velocity constraints, and integrate positions.
@@ -573,7 +577,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	{
 		b2Timer timer = b2CreateTimer();
 		b2Solve(world, &step);
-		world->profile.solve = b2GetMillisecondsAndReset(&timer);
+		world->profile.solve = b2GetMilliseconds(&timer);
 	}
 
 	if (step.dt > 0.0f)
