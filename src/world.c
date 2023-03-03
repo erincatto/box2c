@@ -67,18 +67,24 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		return;
 	}
 
+	int32_t bodyIndexA = shapeA->bodyIndex;
+	int32_t bodyIndexB = shapeB->bodyIndex;
+
+	b2Body* bodyA = world->bodies + bodyIndexA;
+	b2Body* bodyB = world->bodies + bodyIndexB;
+
 	// Search contacts on shape with the fewest contacts.
 	b2ContactEdge* edge;
-	int32_t otherShapeIndex;
-	if (shapeA->contactCount < shapeB->contactCount)
+	int32_t otherBodyIndex;
+	if (bodyA->contactCount < bodyB->contactCount)
 	{
-		edge = shapeA->contacts;
-		otherShapeIndex = shapeIndexB;
+		edge = bodyA->contacts;
+		otherBodyIndex = bodyIndexB;
 	}
 	else
 	{
-		edge = shapeB->contacts;
-		otherShapeIndex = shapeIndexA;
+		edge = bodyB->contacts;
+		otherBodyIndex = bodyIndexA;
 	}
 
 	int32_t childA = proxyA->childIndex;
@@ -86,7 +92,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 
 	while (edge)
 	{
-		if (edge->otherShapeIndex == otherShapeIndex)
+		if (edge->otherBodyIndex == otherBodyIndex)
 		{
 			int32_t sA = edge->contact->shapeIndexA;
 			int32_t sB = edge->contact->shapeIndexB;
@@ -108,9 +114,6 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 
 		edge = edge->next;
 	}
-
-	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 
 	// Does a joint override collision? Is at least one body dynamic?
 	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
@@ -246,51 +249,40 @@ static void b2Collide(b2World* world)
 		assert(body->object.index == bodyIndex && body->object.index == body->object.next);
 		assert(body->type != b2_staticBody);
 
-		int32_t shapeIndex = body->shapeIndex;
-		while (shapeIndex != B2_NULL_INDEX)
+		b2ContactEdge* ce = body->contacts;
+		while (ce != NULL)
 		{
-			b2Shape* shape = world->shapes + shapeIndex;
-
-			b2ContactEdge* ce = shape->contacts;
-			while (ce != NULL)
+			b2Body* otherBody = world->bodies + ce->otherBodyIndex;
+			if (otherBody->awakeIndex != B2_NULL_INDEX && bodyIndex > ce->otherBodyIndex)
 			{
-				b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
-				b2Body* otherBody = world->bodies + otherShape->bodyIndex;
-				if (otherBody->awakeIndex != B2_NULL_INDEX && shapeIndex > ce->otherShapeIndex)
-				{
-					// avoid double evaluation
-					ce = ce->next;
-					continue;
-				}
-
-				b2Contact* contact = ce->contact;
-				// contact->awakeIndex = B2_NULL_INDEX;
-
-				int32_t proxyKeyA = shape->proxies[contact->childA].proxyKey;
-				int32_t proxyKeyB = otherShape->proxies[contact->childB].proxyKey;
-
-				// Do proxies still overlap?
-				bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
-				if (overlap == false)
-				{
-					ce = ce->next;
-					b2DestroyContact(world, contact);
-					continue;
-				}
-
-				// Update contact respecting shape/body order
-				if (shapeIndex == contact->shapeIndexA)
-				{
-					b2Contact_Update(world, contact, shape, body, otherShape, otherBody);
-				}
-				else
-				{
-					b2Contact_Update(world, contact, otherShape, otherBody, shape, body);
-				}
+				// avoid double evaluation
 				ce = ce->next;
+				continue;
 			}
 
-			shapeIndex = shape->nextShapeIndex;
+			b2Contact* contact = ce->contact;
+
+			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+			b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+			b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+
+			int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
+			int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
+
+			// Do proxies still overlap?
+			bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
+			if (overlap == false)
+			{
+				ce = ce->next;
+				b2DestroyContact(world, contact);
+				continue;
+			}
+
+			// Update contact respecting shape/body order (A,B)
+			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
+
+			ce = ce->next;
 		}
 	}
 }
@@ -403,57 +395,43 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 			b->isAwake = true;
 
 			// Search all contacts connected to this body.
-			int32_t shapeIndex = b->shapeIndex;
-			while (shapeIndex != B2_NULL_INDEX)
+			for (b2ContactEdge* ce = b->contacts; ce; ce = ce->next)
 			{
-				b2Shape* shape = world->shapes + shapeIndex;
-				assert(shape->object.index == shapeIndex);
-				shapeIndex = shape->nextShapeIndex;
+				b2Contact* contact = ce->contact;
 
-				for (b2ContactEdge* ce = shape->contacts; ce; ce = ce->next)
+				// Has this contact already been added to this island?
+				if (contact->islandId == seed->islandId)
 				{
-					b2Contact* contact = ce->contact;
-
-					// Has this contact already been added to this island?
-					if (contact->islandId == seed->islandId)
-					{
-						continue;
-					}
-
-					if (shape->isSensor)
-					{
-						continue;
-					}
-
-					// Is this contact solid and touching?
-					if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
-					{
-						continue;
-					}
-
-					// Skip sensors.
-					b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
-					if (otherShape->isSensor)
-					{
-						continue;
-					}
-
-					b2Island_AddContact(&island, contact);
-					world->contactPointCount += contact->manifold.pointCount;
-					contact->islandId = seed->islandId;
-
-					b2Body* otherBody = world->bodies + otherShape->bodyIndex;
-
-					// Was the other body already added to this island?
-					if (otherBody->islandId == seed->islandId)
-					{
-						continue;
-					}
-
-					assert(stackCount < bodyCount);
-					stack[stackCount++] = otherBody;
-					otherBody->islandId = seed->islandId;
+					continue;
 				}
+
+				// Skip sensors
+				if (contact->flags & b2_contactSensorFlag)
+				{
+					continue;
+				}
+
+				// Is this contact solid and touching?
+				if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
+				{
+					continue;
+				}
+
+				b2Island_AddContact(&island, contact);
+				world->contactPointCount += contact->manifold.pointCount;
+				contact->islandId = seed->islandId;
+
+				b2Body* otherBody = world->bodies + ce->otherBodyIndex;
+
+				// Was the other body already added to this island?
+				if (otherBody->islandId == seed->islandId)
+				{
+					continue;
+				}
+
+				assert(stackCount < bodyCount);
+				stack[stackCount++] = otherBody;
+				otherBody->islandId = seed->islandId;
 			}
 
 			// Search all joints connect to this body.
