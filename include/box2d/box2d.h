@@ -115,12 +115,6 @@ void DestroyJoint(b2Joint* joint);
 /// @see SetAutoClearForces
 void ClearForces();
 
-/// Query the world for all fixtures that potentially overlap the
-/// provided AABB.
-/// @param callback a user implemented callback class.
-/// @param aabb the query box.
-void QueryAABB(b2QueryCallback* callback, const b2AABB& aabb) const;
-
 /// Ray-cast the world for all fixtures in the path of the ray. Your callback
 /// controls whether you get the closest point, any point, or n-points.
 /// The ray-cast ignores shapes that contain the starting point.

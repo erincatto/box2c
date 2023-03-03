@@ -44,6 +44,10 @@ typedef struct b2Body
 
 	int32_t shapeIndex;
 	int32_t jointIndex;
+
+	struct b2ContactEdge* contacts;
+	int32_t contactCount;
+
 	int32_t awakeIndex;
 
 	uint64_t islandId;

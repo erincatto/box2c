@@ -51,6 +51,8 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->torque = 0.0f;
 	b->shapeIndex = B2_NULL_INDEX;
 	b->jointIndex = B2_NULL_INDEX;
+	b->contacts = NULL;
+	b->contactCount = 0;
 	b->mass = 0.0f;
 	b->invMass = 0.0f;
 	b->I = 0.0f;
@@ -114,35 +116,39 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	}
 	b->m_jointList = nullptr;
 #endif
+	// Delete the attached contacts
+	b2ContactEdge* ce = body->contacts;
+	while (ce)
+	{
+		b2Contact* contact = ce->contact;
 
-	// Delete the attached fixtures. This destroys broad-phase proxies.
+		// TODO_ERIN EndContact callback?
+
+		b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+		b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+		bool isSensor = shapeA->isSensor || shapeB->isSensor;
+
+		if (contact->manifold.pointCount > 0 && isSensor == false)
+		{
+			b2Body* otherBody = world->bodies + ce->otherBodyIndex;
+			b2SetAwake(world, otherBody, true);
+		}
+
+		b2ContactEdge* ce0 = ce;
+		ce = ce->next;
+
+		// Careful because this modifies the contact edge list
+		b2DestroyContact(world, ce0->contact);
+	}
+	body->contacts = NULL;
+
+	// Delete the attached shapes. This destroys broad-phase proxies.
 	int32_t shapeIndex = body->shapeIndex;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
 
-		// Delete the attached contacts
-		b2ContactEdge* ce = shape->contacts;
-		while (ce)
-		{
-			b2Contact* contact = ce->contact;
-
-			// TODO_ERIN EndContact callback?
-
-			b2Shape* otherShape = world->shapes + ce->otherShapeIndex;
-			if (contact->manifold.pointCount > 0 && shape->isSensor == false && otherShape->isSensor == false)
-			{
-				b2Body* otherBody = world->bodies + otherShape->bodyIndex;
-				b2SetAwake(world, otherBody, true);
-			}
-
-			b2ContactEdge* ce0 = ce;
-			ce = ce->next;
-
-			b2DestroyContact(world, ce0->contact);
-		}
-		shape->contacts = NULL;
 
 		// if (m_destructionListener)
 		//{
@@ -275,8 +281,6 @@ b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Ci
 	shape->userData = def->userData;
 	shape->isSensor = def->isSensor;
 	shape->circle = *circle;
-	shape->contacts = NULL;
-	shape->contactCount = 0;
 	shape->reportContacts = false;
 
 	shape->proxyCount = 1;
@@ -335,8 +339,6 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	shape->userData = def->userData;
 	shape->isSensor = def->isSensor;
 	shape->polygon = *polygon;
-	shape->contacts = NULL;
-	shape->contactCount = 0;
 	shape->reportContacts = false;
 
 	shape->proxyCount = 1;

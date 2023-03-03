@@ -177,24 +177,16 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	// If the joint prevents collisions, then destroy all contacts between attached shapes
 	if (def->collideConnected == false)
 	{
-		int32_t shapeIndex = bodyB->shapeIndex;
-		while (shapeIndex != B2_NULL_INDEX)
+		b2ContactEdge* edge = bodyB->contacts;
+		while (edge)
 		{
-			b2Shape* shape = world->shapes + shapeIndex;
-			b2ContactEdge* edge = shape->contacts;
-			while (edge)
+			b2ContactEdge* next = edge->next;
+			if (edge->otherBodyIndex == bodyA->object.index)
 			{
-				b2ContactEdge* next = edge->next;
-				b2Shape* otherShape = world->shapes + edge->otherShapeIndex;
-				if (otherShape->bodyIndex == bodyA->object.index)
-				{
-					b2DestroyContact(world, edge->contact);
-				}
-
-				edge = next;
+				b2DestroyContact(world, edge->contact);
 			}
-		
-			shapeIndex = shape->nextShapeIndex;
+
+			edge = next;
 		}
 	}
 

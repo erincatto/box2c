@@ -16,7 +16,7 @@ typedef struct b2World b2World;
 // nodes, one for each attached body.
 typedef struct b2ContactEdge
 {
-	int32_t otherShapeIndex;
+	int32_t otherBodyIndex;
 	struct b2Contact* contact;
 	struct b2ContactEdge* prev;
 	struct b2ContactEdge* next;
@@ -35,6 +35,9 @@ enum b2ContactFlags
 	// This contact needs filtering because a fixture filter was changed.
 	// TODO_ERIN don't defer this anymore
 	b2_contactFilterFlag = 0x0008,
+
+	// One of the shapes is a sensor
+	b2_contactSensorFlag = 0x0010
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
@@ -73,6 +76,7 @@ void b2InitializeContactRegisters();
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
+void b2DestroyContactWithBody(b2World* world, b2Contact* contact);
 
 bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);
 
