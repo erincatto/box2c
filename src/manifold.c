@@ -1470,18 +1470,20 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 {
 	b2Manifold manifold = b2EmptyManifold();
 
+	float radius = polyA->radius + polyB->radius;
+
+	float speculativeDistance = b2_speculativeDistance;
+
 	int32_t edgeA = 0;
 	float separationA = b2FindMaxSeparation(&edgeA, polyA, xfA, polyB, xfB);
-
-	if (separationA > b2_speculativeDistance)
+	if (separationA > radius + speculativeDistance)
 	{
 		return manifold;
 	}
 
 	int32_t edgeB = 0;
 	float separationB = b2FindMaxSeparation(&edgeB, polyB, xfB, polyA, xfA);
-
-	if (separationB > b2_speculativeDistance)
+	if (separationB > radius + speculativeDistance)
 	{
 		return manifold;
 	}
@@ -1556,6 +1558,74 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	float upper2 = b2Dot(b2Sub(v21, v11), tangent);
 	float lower2 = b2Dot(b2Sub(v22, v11), tangent);
 
+	if (upper2 < lower1)
+	{
+		// vertex-vertex collision
+		float separation;
+		normal = b2GetLengthAndNormalize(&separation, b2Sub(v21, v11));
+		if (separation > radius + speculativeDistance)
+		{
+			return manifold;
+		}
+
+		b2Vec2 point = b2MulAdd(v11, 0.5f * separation, normal);
+
+		if (flip == false)
+		{
+			manifold.normal = b2RotateVector(xfA.q, normal);
+			b2ManifoldPoint* cp = manifold.points + 0;
+			cp->point = b2TransformPoint(xfA, point);
+			cp->separation = separation - radius;
+			cp->id = B2_MAKE_ID(i11, i21);
+			manifold.pointCount = 1;
+		}
+		else
+		{
+			manifold.normal = b2RotateVector(xfB.q, b2Neg(normal));
+			b2ManifoldPoint* cp = manifold.points + 0;
+			cp->point = b2TransformPoint(xfB, point);
+			cp->separation = separation - radius;
+			cp->id = B2_MAKE_ID(i21, i11);
+			manifold.pointCount = 1;
+		}
+
+		return manifold;
+	}
+
+	if (upper1 < lower2)
+	{
+		// vertex-vertex collision
+		float separation;
+		normal = b2GetLengthAndNormalize(&separation, b2Sub(v22, v12));
+		if (separation > radius + speculativeDistance)
+		{
+			return manifold;
+		}
+
+		b2Vec2 point = b2MulAdd(v12, 0.5f * separation, normal);
+
+		if (flip == false)
+		{
+			manifold.normal = b2RotateVector(xfA.q, normal);
+			b2ManifoldPoint* cp = manifold.points + 0;
+			cp->point = b2TransformPoint(xfA, point);
+			cp->separation = separation - radius;
+			cp->id = B2_MAKE_ID(i12, i22);
+			manifold.pointCount = 1;
+		}
+		else
+		{
+			manifold.normal = b2RotateVector(xfB.q, b2Neg(normal));
+			b2ManifoldPoint* cp = manifold.points + 0;
+			cp->point = b2TransformPoint(xfB, point);
+			cp->separation = separation - radius;
+			cp->id = B2_MAKE_ID(i22, i12);
+			manifold.pointCount = 1;
+		}
+
+		return manifold;
+	}
+
 	if (upper2 < lower1 || upper1 < lower2 || upper2 - lower2 < FLT_EPSILON)
 	{
 		return manifold;
@@ -1593,19 +1663,19 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		manifold.normal = b2RotateVector(xfA.q, normal);
 		b2ManifoldPoint* cp = manifold.points + 0;
 
-		if (separationLower <= b2_speculativeDistance)
+		if (separationLower <= radius + speculativeDistance)
 		{
 			cp->point = b2TransformPoint(xfA, vLower);
-			cp->separation = separationLower;
+			cp->separation = separationLower - radius;
 			cp->id = B2_MAKE_ID(i11, i22);
 			manifold.pointCount += 1;
 			cp += 1;
 		}
 		
-		if (separationUpper <= b2_speculativeDistance)
+		if (separationUpper <= radius + speculativeDistance)
 		{
 			cp->point = b2TransformPoint(xfA, vUpper);
-			cp->separation = separationUpper;
+			cp->separation = separationUpper - radius;
 			cp->id = B2_MAKE_ID(i12, i21);
 			manifold.pointCount += 1;
 		}
@@ -1615,19 +1685,19 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		manifold.normal = b2RotateVector(xfB.q, b2Neg(normal));
 		b2ManifoldPoint* cp = manifold.points + 0;
 
-		if (separationUpper <= b2_speculativeDistance)
+		if (separationUpper <= radius + speculativeDistance)
 		{
 			cp->point = b2TransformPoint(xfB, vUpper);
-			cp->separation = separationUpper;
+			cp->separation = separationUpper - radius;
 			cp->id = B2_MAKE_ID(i21, i12);
 			manifold.pointCount += 1;
 			cp += 1;
 		}
 
-		if (separationLower <= b2_speculativeDistance)
+		if (separationLower <= radius + speculativeDistance)
 		{
 			cp->point = b2TransformPoint(xfB, vLower);
-			cp->separation = separationLower;
+			cp->separation = separationLower - radius;
 			cp->id = B2_MAKE_ID(i22, i11);
 			manifold.pointCount += 1;
 		}

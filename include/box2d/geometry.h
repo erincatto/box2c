@@ -3,8 +3,9 @@
 
 #pragma once
 
-#include "types.h"
-#include "constants.h"
+#include "box2d/api.h"
+#include "box2d/types.h"
+#include "box2d/constants.h"
 
 typedef struct b2Hull b2Hull;
 typedef struct b2RayCastOutput b2RayCastOutput;
@@ -46,6 +47,7 @@ typedef struct b2Polygon
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
 	b2Vec2 centroid;
+	float radius;
 	int32_t count;
 } b2Polygon;
 
@@ -72,34 +74,26 @@ typedef struct b2SmoothSegment
 } b2SmoothSegment;
 
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull);
+BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
+BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);
+BOX2D_API b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
 
-b2Polygon b2MakePolygon(const b2Hull* hull);
-b2Polygon b2MakeBox(float hx, float hy);
-b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
+BOX2D_API b2MassData b2ComputeCircleMass(const b2Circle* shape, float density);
+BOX2D_API b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density);
+BOX2D_API b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density);
 
-b2MassData b2ComputeCircleMass(const b2Circle* shape, float density);
-b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density);
-b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density);
+BOX2D_API b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform xf);
+BOX2D_API b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform xf);
+BOX2D_API b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform xf);
+BOX2D_API b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform xf);
 
-b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform xf);
-b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform xf);
-b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform xf);
-b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform xf);
-
-bool b2PointInCircle(b2Vec2 point, const b2Circle* shape, b2Transform xf);
-bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape, b2Transform xf);
-bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape, b2Transform xf);
+BOX2D_API bool b2PointInCircle(b2Vec2 point, const b2Circle* shape, b2Transform xf);
+BOX2D_API bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape, b2Transform xf);
+BOX2D_API bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape, b2Transform xf);
 
 // Ray cast versus shape. Initial overlap is treated as a miss.
-b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape, b2Transform xf);
-b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape, b2Transform xf);
-b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, b2Transform xf);
-b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape, b2Transform xf);
-
-#ifdef __cplusplus
-}
-#endif
+BOX2D_API b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape, b2Transform xf);
+BOX2D_API b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape, b2Transform xf);
+BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, b2Transform xf);
+BOX2D_API b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape, b2Transform xf);

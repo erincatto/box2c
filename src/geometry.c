@@ -15,6 +15,7 @@ b2Polygon b2MakePolygon(const b2Hull* hull)
 
 	b2Polygon shape;
 	shape.count = hull->count;
+	shape.radius = 0.0f;
 
 	// Copy vertices
 	for (int32_t i = 0; i < shape.count; ++i)
@@ -55,6 +56,14 @@ b2Polygon b2MakeBox(float hx, float hy)
 	shape.normals[2] = (b2Vec2){0.0f, 1.0f};
 	shape.normals[3] = (b2Vec2){-1.0f, 0.0f};
 	shape.centroid = (b2Vec2){0.0f, 0.0f};
+	shape.radius = 0.0f;
+	return shape;
+}
+
+b2Polygon b2MakeRoundedBox(float hx, float hy, float radius)
+{
+	b2Polygon shape = b2MakeBox(hx, hy);
+	shape.radius = radius;
 	return shape;
 }
 
@@ -75,6 +84,7 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[2] = b2RotateVector(xf.q, (b2Vec2){0.0f, 1.0f});
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
 	shape.centroid = center;
+	shape.radius = 0.0f;
 	return shape;
 }
 
