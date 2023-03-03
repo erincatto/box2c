@@ -67,7 +67,8 @@ public:
 		sd.density = 1.0f;
 		sd.friction = 0.5f;
 
-		b2Polygon cuboid = b2MakeRoundedBox(0.4f, 0.4f, 0.05f);
+		//b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
+		b2Polygon cuboid = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
 
 		int32_t index = 0;
 

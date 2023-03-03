@@ -243,6 +243,10 @@ b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform xf)
 		upper = b2Max(upper, v);
 	}
 
+	b2Vec2 r = {shape->radius, shape->radius};
+	lower = b2Sub(lower, r);
+	upper = b2Add(upper, r);
+
 	b2AABB aabb = {lower, upper};
 	return aabb;
 }
