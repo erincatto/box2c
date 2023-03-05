@@ -36,6 +36,8 @@ public:
 
 	void DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color);
 
+	void DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor, b2Color outlineColor);
+
 	void DrawCircle(b2Vec2 center, float radius, b2Color color);
 
 	void DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color);
@@ -62,6 +64,7 @@ public:
 	struct GLRenderPoints* m_points;
 	struct GLRenderLines* m_lines;
 	struct GLRenderTriangles* m_triangles;
+	struct GLRenderRoundedTriangles* m_roundedTriangles;
 	b2DebugDraw m_debugDraw;
 };
 

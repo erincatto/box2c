@@ -164,6 +164,13 @@ public:
 		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
 
+		m_box = b2MakeRoundedBox(10.0f, 10.0f, 10.0f);
+		m_box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
+
+		b2Color fill = {0.345098048f, 0.431372553f, 0.458823532f, 1.0f};
+		b2Color outline = {0.933333337f, 0.909803927f, 0.835294127f, 1.0f};
+		g_draw.DrawRoundedPolygon(m_box.vertices, m_box.count, m_box.radius, fill, outline);
+
 		#if 0
 		// circle-circle
 		{
@@ -280,7 +287,6 @@ public:
 
 			offset = b2Add(offset, increment);
 		}
-		#endif
 
 		// box-circle
 		{
@@ -330,7 +336,6 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
-		#if 0
 		// segment-box
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};
