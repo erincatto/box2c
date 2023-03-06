@@ -102,7 +102,9 @@ b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA
 b2Manifold b2CollidePolygons(const b2Polygon* polygonA, b2Transform xfA, const b2Polygon* polygonB,
 							 b2Transform xfB);
 
-/// Compute the collision manifold between an segment and a polygon.
+b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB);
+
+	/// Compute the collision manifold between an segment and a polygon.
 b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
 									  b2Transform xfB);
 

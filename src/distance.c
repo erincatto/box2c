@@ -239,7 +239,7 @@ static float b2Simplex_Metric(const b2Simplex* s)
 	}
 }
 
-static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
+static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache,
 	const b2DistanceProxy* proxyA, b2Transform transformA,
 	const b2DistanceProxy* proxyB, b2Transform transformB)
 {
@@ -259,12 +259,16 @@ static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
 		v->wA = b2TransformPoint(transformA, wALocal);
 		v->wB = b2TransformPoint(transformB, wBLocal);
 		v->w = b2Sub(v->wB, v->wA);
-		v->a = 0.0f;
+
+		// invalid
+		v->a = -1.0f;
 	}
 
+	// TODO_ERIN not seeing any benefit to reseting. ignore metric?
+	#if 0
 	// Compute the new simplex metric, if it is substantially different than
 	// old metric then flush the simplex.
-	if (s.count > 1)
+	if (s.count == 2)
 	{
 		float metric1 = cache->metric;
 		float metric2 = b2Simplex_Metric(&s);
@@ -274,6 +278,19 @@ static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
 			s.count = 0;
 		}
 	}
+	else if (s.count == 3)
+	{
+		float metric1 = cache->metric;
+		float metric2 = b2Simplex_Metric(&s);
+		float abs1 = B2_ABS(metric1);
+		float abs2 = B2_ABS(metric2);
+		if (metric1 * metric2 < 0.0f || abs2 < 0.5f * abs1 || 2.0f * abs1 < abs2)
+		{
+			// Reset the simplex.
+			s.count = 0;
+		}
+	}
+	#endif
 
 	// If the cache is empty or invalid ...
 	if (s.count == 0)
@@ -293,7 +310,7 @@ static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
 	return s;
 }
 
-static void b2Simplex_WriteCache(b2DistanceCache* cache, const b2Simplex* simplex)
+static void b2MakeSimplexCache(b2DistanceCache* cache, const b2Simplex* simplex)
 {
 	cache->metric = b2Simplex_Metric(simplex);
 	cache->count = (uint16_t)simplex->count;
@@ -305,7 +322,7 @@ static void b2Simplex_WriteCache(b2DistanceCache* cache, const b2Simplex* simple
 	}
 }
 
-b2Vec2 b2Simplex_SearchDirection(const b2Simplex* simplex)
+b2Vec2 b2ComputeSimplexSearchDirection(const b2Simplex* simplex)
 {
 	switch (simplex->count)
 	{
@@ -334,7 +351,7 @@ b2Vec2 b2Simplex_SearchDirection(const b2Simplex* simplex)
 	}
 }
 
-b2Vec2 b2Simplex_ClosestPoint(const b2Simplex* s)
+b2Vec2 b2ComputeSimplexClosestPoint(const b2Simplex* s)
 {
 	switch (s->count)
 	{
@@ -357,7 +374,7 @@ b2Vec2 b2Simplex_ClosestPoint(const b2Simplex* s)
 	}
 }
 
-void b2Simplex_WitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
+void b2ComputeSimplexWitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 {
 	switch (s->count)
 	{
@@ -411,7 +428,7 @@ void b2Simplex_WitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 // Solution
 // a1 = d12_1 / d12
 // a2 = d12_2 / d12
-void b2Simplex_Solve2(b2Simplex* s)
+void b2SolveSimplex2(b2Simplex* s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -445,12 +462,7 @@ void b2Simplex_Solve2(b2Simplex* s)
 	s->count = 2;
 }
 
-// Possible regions:
-// - points[2]
-// - edge points[0]-points[2]
-// - edge points[1]-points[2]
-// - inside the triangle
-void b2Simplex_Solve3(b2Simplex* s)
+void b2SolveSimplex3(b2Simplex* s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -570,7 +582,7 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 	b2Transform transformB = input->transformB;
 
 	// Initialize the simplex.
-	b2Simplex simplex = b2Simplex_ReadCache(cache, proxyA, transformA, proxyB, transformB);
+	b2Simplex simplex = b2MakeSimplexFromCache(cache, proxyA, transformA, proxyB, transformB);
 
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = { &simplex.v1, &simplex.v2, &simplex.v3 };
@@ -599,11 +611,11 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 			break;
 
 		case 2:
-			b2Simplex_Solve2(&simplex);
+			b2SolveSimplex2(&simplex);
 			break;
 
 		case 3:
-			b2Simplex_Solve3(&simplex);
+			b2SolveSimplex3(&simplex);
 			break;
 
 		default:
@@ -617,7 +629,7 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 		}
 
 		// Get search direction.
-		b2Vec2 d = b2Simplex_SearchDirection(&simplex);
+		b2Vec2 d = b2ComputeSimplexSearchDirection(&simplex);
 
 		// Ensure the search direction is numerically fit.
 		if (b2Dot(d, d) < FLT_EPSILON * FLT_EPSILON)
@@ -667,12 +679,12 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 	b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
 
 	// Prepare output
-	b2Simplex_WitnessPoints(&output->pointA, &output->pointB, &simplex);
+	b2ComputeSimplexWitnessPoints(&output->pointA, &output->pointB, &simplex);
 	output->distance = b2Distance(output->pointA, output->pointB);
 	output->iterations = iter;
 
 	// Cache the simplex
-	b2Simplex_WriteCache(cache, &simplex);
+	b2MakeSimplexCache(cache, &simplex);
 
 	// Apply radii if requested
 	if (input->useRadii)
@@ -799,11 +811,11 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 			break;
 
 		case 2:
-			b2Simplex_Solve2(&simplex);
+			b2SolveSimplex2(&simplex);
 			break;
 
 		case 3:
-			b2Simplex_Solve3(&simplex);
+			b2SolveSimplex3(&simplex);
 			break;
 
 		default:
@@ -818,7 +830,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		}
 
 		// Get search direction.
-		v = b2Simplex_ClosestPoint(&simplex);
+		v = b2ComputeSimplexClosestPoint(&simplex);
 
 		// Iteration count is equated to the number of support point calls.
 		++iter;
@@ -832,7 +844,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 
 	// Prepare output.
 	b2Vec2 pointA, pointB;
-	b2Simplex_WitnessPoints(&pointB, &pointA, &simplex);
+	b2ComputeSimplexWitnessPoints(&pointB, &pointA, &simplex);
 
 	if (b2Dot(v, v) > 0.0f)
 	{

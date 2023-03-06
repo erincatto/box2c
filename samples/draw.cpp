@@ -625,16 +625,13 @@ struct GLRenderRoundedTriangles
 	void Create()
 	{
 		const char* vs = SHADER_TEXT(
-			layout(location = 0) in vec2 position;
-			layout(location = 1) in vec2 uv;
-			layout(location = 2) in float radius;
-			layout(location = 3) in vec4 fillColor;
+			layout(location = 0) in vec2 position; layout(location = 1) in vec2 uv;
+			layout(location = 2) in float radius; layout(location = 3) in vec4 fillColor;
 			layout(location = 4) in vec4 outlineColor;
 
 			uniform mat4 projectionMatrix;
 
-			out struct
-			{
+			out struct {
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
@@ -650,17 +647,15 @@ struct GLRenderRoundedTriangles
 			});
 
 		const char* fs = SHADER_TEXT(
-			in struct
-			{
+			in struct {
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
 			} Frag;
-			
+
 			out vec4 outColor;
-			
-			void main()
-			{
+
+			void main() {
 				// length of 1 is the circular border of the rounded edge
 				float len = length(Frag.uv);
 				float uvGrad = length(fwidth(Frag.uv));
@@ -677,7 +672,7 @@ struct GLRenderRoundedTriangles
 
 		m_programId = sCreateShaderProgram(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		
+
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
 		glGenBuffers(1, &m_vboId);
@@ -695,7 +690,7 @@ struct GLRenderRoundedTriangles
 		// position
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, p));
-		
+
 		// uv
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
@@ -961,11 +956,12 @@ void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color
 // Fill needs (count - 2) triangles.
 // Outline needs 4*count triangles.
 #define MAX_POLY_INDEXES (3 * (5 * MAX_POLY_VERTEXES - 2))
-float DebugDrawPointLineScale = 0.05f;
 
 void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radius, b2Color fillColor,
 							  b2Color outlineColor)
 {
+	assert(count <= MAX_POLY_VERTEXES);
+
 	RGBA8 fill = MakeRGBA8(fillColor);
 	RGBA8 outline = MakeRGBA8(outlineColor);
 
@@ -980,30 +976,31 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 	}
 
 	// Polygon outline triangles.
-	uint16_t* cursor = indices + 3 * (count - 2);
+	uint16_t* outlineIndices = indices + 3 * (count - 2);
 	for (int i0 = 0; i0 < count; ++i0)
 	{
 		int i1 = (i0 + 1) % count;
-		cursor[12 * i0 + 0] = 4 * i0 + 0;
-		cursor[12 * i0 + 1] = 4 * i0 + 1;
-		cursor[12 * i0 + 2] = 4 * i0 + 2;
-		cursor[12 * i0 + 3] = 4 * i0 + 0;
-		cursor[12 * i0 + 4] = 4 * i0 + 2;
-		cursor[12 * i0 + 5] = 4 * i0 + 3;
-		cursor[12 * i0 + 6] = 4 * i0 + 0;
-		cursor[12 * i0 + 7] = 4 * i0 + 3;
-		cursor[12 * i0 + 8] = 4 * i1 + 0;
-		cursor[12 * i0 + 9] = 4 * i0 + 3;
-		cursor[12 * i0 + 10] = 4 * i1 + 0;
-		cursor[12 * i0 + 11] = 4 * i1 + 1;
+		outlineIndices[12 * i0 + 0] = 4 * i0 + 0;
+		outlineIndices[12 * i0 + 1] = 4 * i0 + 1;
+		outlineIndices[12 * i0 + 2] = 4 * i0 + 2;
+		outlineIndices[12 * i0 + 3] = 4 * i0 + 0;
+		outlineIndices[12 * i0 + 4] = 4 * i0 + 2;
+		outlineIndices[12 * i0 + 5] = 4 * i0 + 3;
+		outlineIndices[12 * i0 + 6] = 4 * i0 + 0;
+		outlineIndices[12 * i0 + 7] = 4 * i0 + 3;
+		outlineIndices[12 * i0 + 8] = 4 * i1 + 0;
+		outlineIndices[12 * i0 + 9] = 4 * i0 + 3;
+		outlineIndices[12 * i0 + 10] = 4 * i1 + 0;
+		outlineIndices[12 * i0 + 11] = 4 * i1 + 1;
 	}
 
 	// Inset so that zero radius polgyons still get a border
 	float r = radius;
 	float inset = 0.0f;
-	if (radius < DebugDrawPointLineScale)
+	constexpr float minRadius = 0.02f;
+	if (radius < minRadius)
 	{
-		inset = radius - DebugDrawPointLineScale;
+		inset = radius - minRadius;
 		r = radius - inset;
 	}
 
@@ -1154,6 +1151,7 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	m_lines->Vertex(p2, color);
 }
 
+//
 void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 {
 	float length;

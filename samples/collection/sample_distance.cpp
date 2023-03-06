@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/manifold.h"
+#include "box2d/distance.h"
 #include "box2d/math.h"
 #include "box2d/geometry.h"
 #include "sample.h"
@@ -10,15 +10,15 @@
 #include <imgui.h>
 
 // Tests manifolds and contact points
-class Manifold : public Sample
+class SampleDistance : public Sample
 {
 public:
-	Manifold()
+	SampleDistance()
 	{
 		m_circle1 = {{0.0f, 0.0f}, 0.5f};
 		m_circle2 = {{0.0f, 0.0f}, 1.0f};
 		m_capsule = {{-0.5f, 0.0f}, {0.5f, 0.0f}, 0.5f};
-		m_box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
+		m_box = b2MakeBox(0.5f, 0.5f);
 
 		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
 		m_smoothSegment = {{2.0f, 1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0}, {-2.0f, -1.0f}};
@@ -26,22 +26,22 @@ public:
 		m_transform = b2Transform_identity;
 		m_angle = 0.0f;
 
+		m_boxbox = b2_emptyDistanceCache;
 		m_startPoint = {0.0f, 0.0f};
 		m_basePosition = {0.0f, 0.0f};
 		m_baseAngle = 0.0f;
 
 		m_dragging = false;
 		m_rotating = false;
-		m_showIds = false;
-		m_showSeparation = false;
-		m_localManifolds = false;
+		m_showIndices = false;
+		m_useCache = false;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
 		ImGui::SetNextWindowSize(ImVec2(230.0f, 230.0f));
-		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Distance Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
 		{
@@ -56,15 +56,11 @@ public:
 			m_transform.q = b2MakeRot(m_angle);
 		}
 
-		if (ImGui::Checkbox("show ids", &m_showIds))
+		if (ImGui::Checkbox("show indices", &m_showIndices))
 		{
 		}
 
-		if (ImGui::Checkbox("show separation", &m_showSeparation))
-		{
-		}
-
-		if (ImGui::Checkbox("local manifolds", &m_localManifolds))
+		if (ImGui::Checkbox("use cache", &m_useCache))
 		{
 		}
 
@@ -125,33 +121,31 @@ public:
 		}
 	}
 
-	void DrawManifold(const b2Manifold* manifold)
+	void DrawDistance(const b2DistanceInput* input, const b2DistanceCache* cache, const b2DistanceOutput* output)
 	{
 		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
 		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
+		b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
 
-		for (int i = 0; i < manifold->pointCount; ++i)
+		g_draw.DrawSegment(output->pointA, output->pointB, white);
+
+		if (m_showIndices)
 		{
-			const b2ManifoldPoint* mp = manifold->points + i;
-
-			b2Vec2 p1 = mp->point;
-			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
-			g_draw.DrawSegment(p1, p2, white);
-			g_draw.DrawPoint(p1, 5.0f, green);
-
-			if (m_showIds)
+			for (int32_t i = 0; i < cache->count; ++i)
 			{
-				//uint32_t indexA = mp->id >> 8;
-				//uint32_t indexB = 0xFF & mp->id;
-				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
-				g_draw.DrawString(p, "0x%04x", mp->id);
+				b2Vec2 pointA = b2TransformPoint(input->transformA, input->proxyA.vertices[cache->indexA[i]]);
+				b2Vec2 pointB = b2TransformPoint(input->transformB, input->proxyB.vertices[cache->indexB[i]]);
+				g_draw.DrawPoint(pointA, 5.0f, green);
+				g_draw.DrawPoint(pointB, 5.0f, red);
 			}
+			b2Vec2 m = b2Lerp(output->pointA, output->pointB, 0.5f);
+			g_draw.DrawString(m, " %d", cache->count);
+		}
+		else
+		{
+			g_draw.DrawPoint(output->pointA, 5.0f, green);
+			g_draw.DrawPoint(output->pointB, 5.0f, red);
 
-			if (m_showSeparation)
-			{
-				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
-				g_draw.DrawString(p, "%.3f", mp->separation);
-			}
 		}
 	}
 
@@ -166,13 +160,6 @@ public:
 		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
 
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
-
-		//m_box = b2MakeRoundedBox(10.0f, 10.0f, 10.0f);
-		//m_box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
-
-		//b2Color fill = {0.345098048f, 0.431372553f, 0.458823532f, 1.0f};
-		//b2Color outline = {0.933333337f, 0.909803927f, 0.835294127f, 1.0f};
-		//g_draw.DrawRoundedPolygon(m_box.vertices, m_box.count, m_box.radius, fill, outline);
 
 		#if 0
 		// circle-circle
@@ -320,22 +307,43 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollidePolygonsGJK(&m_box, xf1, &m_box, xf2);
+			b2DistanceInput input;
+			input.proxyA = b2MakeProxy(m_box.vertices, m_box.count, 0.0f);
+			input.proxyB = b2MakeProxy(m_box.vertices, m_box.count, 0.0f);
+			input.transformA = xf1;
+			input.transformB = xf2;
+			input.useRadii = false;
+
+			b2DistanceCache cache = {0};
+			b2DistanceOutput output;
+
+			if (m_useCache)
+			{
+				b2ShapeDistance(&output, &m_boxbox, &input);
+				cache = m_boxbox;
+			}
+			else
+			{
+				b2ShapeDistance(&output, &cache, &input);
+			}
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < m_box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf1, m_box.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, m_box.count, m_box.radius, fillColor1, color1);
+			g_draw.DrawPolygon(vertices, m_box.count, color1);
 
 			for (int i = 0; i < m_box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, m_box.count, m_box.radius, fillColor2, color2);
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
 
-			DrawManifold(&m);
+			DrawDistance(&input, &cache, &output);
+
+			g_draw.DrawString(5, m_textLine, "box-box: distance = %.2f, iters = %d", output.distance, output.iterations);
+			m_textLine += m_textIncrement;
 
 			offset = b2Add(offset, increment);
 		}
@@ -401,7 +409,7 @@ public:
 
 	static Sample* Create()
 	{
-		return new Manifold;
+		return new SampleDistance;
 	}
 
 	b2Polygon m_box;
@@ -410,6 +418,8 @@ public:
 	b2Capsule m_capsule;
 	b2Segment m_segment;
 	b2SmoothSegment m_smoothSegment;
+
+	b2DistanceCache m_boxbox;
 
 	b2Transform m_transform;
 	float m_angle;
@@ -420,9 +430,8 @@ public:
 
 	bool m_dragging;
 	bool m_rotating;
-	bool m_showIds;
-	bool m_showSeparation;
-	bool m_localManifolds;
+	bool m_showIndices;
+	bool m_useCache;
 };
 
-static int sampleIndex = RegisterSample("Collision", "Manifold", Manifold::Create);
+static int sampleIndex = RegisterSample("Collision", "Distance", SampleDistance::Create);
