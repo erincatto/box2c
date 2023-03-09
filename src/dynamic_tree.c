@@ -533,7 +533,7 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 	b2AABB treeAABB = tree->nodes[proxyId].aabb;
 	if (b2AABB_Contains(treeAABB, aabb))
 	{
-		// The tree AABB still contains the object, but it might be too large.
+		// The tree AABB still contains the object, but the tree AABB might be too large.
 		// Perhaps the object was moving fast but has since gone to sleep.
 		// The huge AABB is larger than the new fat AABB.
 		b2AABB hugeAABB;
@@ -556,7 +556,13 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 
 	b2InsertLeaf(tree, proxyId);
 
+	bool alreadyMoved = tree->nodes[proxyId].moved;
 	tree->nodes[proxyId].moved = true;
+
+	if (alreadyMoved)
+	{
+		return false;
+	}
 
 	return true;
 }

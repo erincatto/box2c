@@ -18,7 +18,7 @@ public:
 		m_circle1 = {{0.0f, 0.0f}, 0.5f};
 		m_circle2 = {{0.0f, 0.0f}, 1.0f};
 		m_capsule = {{-0.5f, 0.0f}, {0.5f, 0.0f}, 0.5f};
-		m_box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
+		m_box = b2MakeRoundedBox(0.4f, 0.4f, 0.0f);
 
 		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
 		m_smoothSegment = {{2.0f, 1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0}, {-2.0f, -1.0f}};
@@ -319,6 +319,7 @@ public:
 		{
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+			//b2Transform xf2 = {b2Add({-0.702293277f, 0.938223243f}, offset), {0.315451413f, 0.948941708f}};
 
 			b2Manifold m = b2CollidePolygonsGJK(&m_box, xf1, &m_box, xf2);
 

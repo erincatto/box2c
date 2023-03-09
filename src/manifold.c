@@ -1980,8 +1980,8 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 		}
 		else
 		{
-			iB1 = cache.indexB[0];
-			iB2 = cache.indexB[1];
+			iB1 = cache.indexB[1];
+			iB2 = cache.indexB[0];
 		}
 
 		flip = true;
@@ -2002,14 +2002,6 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 	}
 	else
 	{
-		// expect 1 point on B
-		if (cache.indexB[0] != cache.indexB[1])
-		{
-			return manifold;
-		}
-
-		assert(cache.indexB[0] == cache.indexB[1]);
-
 		// need vertices in CCW order
 		if ((cache.indexA[0] == countA - 1 && cache.indexA[1] == 0) ||
 			(cache.indexA[0] == 0 && cache.indexA[1] == countA - 1))
@@ -2024,8 +2016,8 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 		}
 		else
 		{
-			iA1 = cache.indexA[0];
-			iA2 = cache.indexA[1];
+			iA1 = cache.indexA[1];
+			iA2 = cache.indexA[0];
 		}
 
 		flip = false;
@@ -2038,7 +2030,7 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 		// Find the incident edge on polyB
 		// Limit search to edges adjacent to closest vertex
 
-		int32_t edgeB1 = cache.indexB[0];
+		int32_t edgeB1 = B2_MIN(cache.indexB[0], cache.indexB[1]);
 		int32_t edgeB2 = edgeB1 == 0 ? countB - 1 : edgeB1 - 1;
 
 		float dot1 = b2Dot(searchDirection, polyB->normals[edgeB1]);

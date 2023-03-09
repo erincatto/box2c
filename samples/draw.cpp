@@ -302,7 +302,6 @@ struct GLRenderPoints
 		g_camera.BuildProjectionMatrix(proj, 0.0f);
 
 		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-
 		glBindVertexArray(m_vaoId);
 
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
@@ -620,6 +619,7 @@ struct Vertex
 	RGBA8 outline;
 };
 
+// Thanks to Scott Lembcke for this shader
 struct GLRenderRoundedTriangles
 {
 	void Create()
@@ -631,40 +631,45 @@ struct GLRenderRoundedTriangles
 
 			uniform mat4 projectionMatrix;
 
-			out struct {
+			out struct
+			{
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
 			} Frag;
 
-			void main() {
+			void main()
+			{
 				gl_Position = projectionMatrix * vec4(position + radius * uv, 0, 1);
 				Frag.uv = uv;
 				Frag.fillColor = fillColor;
-				Frag.fillColor.rgb *= fillColor.a;
 				Frag.outlineColor = outlineColor;
-				Frag.outlineColor.a *= outlineColor.a;
 			});
 
 		const char* fs = SHADER_TEXT(
-			in struct {
+			in struct
+		{
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
 			} Frag;
 
 			out vec4 outColor;
-
-			void main() {
+			
+			void main()
+			{
 				// length of 1 is the circular border of the rounded edge
 				float len = length(Frag.uv);
-				float uvGrad = length(fwidth(Frag.uv));
+				vec2 df = vec2(dFdx(len), dFdy(len));
+				float fw = 4.0f * length(df);
 
 				// mask is 1 inside rounded polygon, 0 outside with smoothing at the border
-				float mask = 1 - smoothstep(1 - uvGrad, 1, len);
+				// smoothing needed to anti-alias the perimeter
+				float mask = 1 - smoothstep(1 - 0.5f * fw, 1, len);
 
 				// outline mask is 1 outside polygon including a border strip that is roughly fixed pixel width
-				float outlineMask = smoothstep(1 - uvGrad, 1, len + uvGrad);
+				// smooth step needed to anti-alias the interior of the border
+				float outlineMask = smoothstep(1 - 1.5 * fw, 1 - fw, len);
 
 				vec4 color = Frag.fillColor + (Frag.outlineColor - Frag.fillColor * Frag.outlineColor.a) * outlineMask;
 				outColor = color * mask;
@@ -994,10 +999,10 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 		outlineIndices[12 * i0 + 11] = 4 * i1 + 1;
 	}
 
-	// Inset so that zero radius polgyons still get a border
+	// Inset so that zero radius polygons still get a border
 	float r = radius;
 	float inset = 0.0f;
-	constexpr float minRadius = 0.02f;
+	constexpr float minRadius = 0.04f;
 	if (radius < minRadius)
 	{
 		inset = radius - minRadius;
