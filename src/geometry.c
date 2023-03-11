@@ -40,12 +40,17 @@ b2Polygon b2MakePolygon(const b2Hull* hull)
 	return shape;
 }
 
+b2Polygon b2MakeSquare(float h)
+{
+	return b2MakeBox(h, h);
+}
+
 b2Polygon b2MakeBox(float hx, float hy)
 {
 	assert(b2IsValid(hx) && hx > 0.0f);
 	assert(b2IsValid(hy) && hy > 0.0f);
 
-	b2Polygon shape;
+	b2Polygon shape = {0};
 	shape.count = 4;
 	shape.vertices[0] = (b2Vec2){-hx, -hy};
 	shape.vertices[1] = (b2Vec2){hx, -hy};
@@ -73,7 +78,7 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	xf.p = center;
 	xf.q = b2MakeRot(angle);
 
-	b2Polygon shape;
+	b2Polygon shape = {0};
 	shape.count = 4;
 	shape.vertices[0] = b2TransformPoint(xf, (b2Vec2){-hx, -hy});
 	shape.vertices[1] = b2TransformPoint(xf, (b2Vec2){hx, -hy});
@@ -85,6 +90,24 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
 	shape.centroid = center;
 	shape.radius = 0.0f;
+	return shape;
+}
+
+b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
+{
+	b2Polygon shape = {0};
+	shape.vertices[0] = p1;
+	shape.vertices[1] = p2;
+
+	b2Vec2 axis = b2NormalizeChecked(b2Sub(p2, p1));
+	b2Vec2 normal = b2CrossVS(axis, 1.0f);
+
+	shape.normals[0] = normal;
+	shape.normals[1] = b2Neg(normal);
+	shape.count = 2;
+	shape.centroid = b2Lerp(p1, p2, 0.5f);
+	shape.radius = radius;
+
 	return shape;
 }
 

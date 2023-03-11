@@ -75,9 +75,11 @@ typedef struct b2SmoothSegment
 
 
 BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull);
+BOX2D_API b2Polygon b2MakeSquare(float h);
 BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
 BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);
 BOX2D_API b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
+BOX2D_API b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius);
 
 BOX2D_API b2MassData b2ComputeCircleMass(const b2Circle* shape, float density);
 BOX2D_API b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density);

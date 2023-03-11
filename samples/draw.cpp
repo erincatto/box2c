@@ -1002,12 +1002,17 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 	// Inset so that zero radius polygons still get a border
 	float r = radius;
 	float inset = 0.0f;
-	constexpr float minRadius = 0.04f;
-	if (radius < minRadius)
-	{
-		inset = radius - minRadius;
-		r = radius - inset;
-	}
+	//constexpr float minRadius = 0.04f;
+	//if (radius < minRadius)
+	//{
+	//	inset = radius - minRadius;
+	//	r = radius - inset;
+	//}
+
+	//constexpr float lineScale = 0.05f;
+	//float inset = -B2_MAX(0, 2.0f * lineScale - radius);
+	//float outset = radius + lineScale;
+	//float r = outset - inset;
 
 	Vertex* vertexes = m_roundedTriangles->AllocVertices(4 * count, indices, 3 * (5 * count - 2));
 	for (int i = 0; i < count; ++i)

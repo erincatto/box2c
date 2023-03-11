@@ -80,7 +80,6 @@ b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform x
 }
 #endif
 
-
 /// Used for computing contact manifolds.
 typedef struct b2ClipVertex
 {
@@ -162,8 +161,8 @@ int32_t b2ClipSegmentToLine2(b2Vec2 vOut[2], b2Vec2 vIn[2], b2Vec2 normal, float
 
 b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
-	b2Manifold manifold = b2EmptyManifold();
-	
+	b2Manifold manifold = {0};
+
 	b2Vec2 pointA = b2TransformPoint(xfA, circleA->point);
 	b2Vec2 pointB = b2TransformPoint(xfB, circleB->point);
 
@@ -249,7 +248,7 @@ b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA,
 b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB,
 									 b2Transform xfB)
 {
-	b2Manifold manifold = b2EmptyManifold();
+	b2Manifold manifold = {0};
 
 	// Compute circle position in the frame of the polygon.
 	b2Vec2 c = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
@@ -1460,7 +1459,6 @@ static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, b2T
 	return maxSeparation;
 }
 
-
 // 1. Find edge normal of max separation on A
 // 2. Find edge normal of max separation on B
 // 3. Choose reference edge as min(minA, minB)
@@ -1469,7 +1467,7 @@ static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, b2T
 // The normal points from A to B
 b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
 {
-	b2Manifold manifold = b2EmptyManifold();
+	b2Manifold manifold = {0};
 
 	float radius = polyA->radius + polyB->radius;
 
@@ -1495,7 +1493,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	int32_t edge1; // reference edge
 
 	// TODO_ERIN feature flipping seems fine now
-	const float k_tol = 0.0f; //0.1f * b2_linearSlop;
+	const float k_tol = 0.0f; // 0.1f * b2_linearSlop;
 	bool flip;
 
 	if (separationB > separationA + k_tol)
@@ -1672,7 +1670,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 			manifold.pointCount += 1;
 			cp += 1;
 		}
-		
+
 		if (separationUpper <= radius + speculativeDistance)
 		{
 			cp->point = b2TransformPoint(xfA, vUpper);
@@ -1731,7 +1729,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 // TODO_ERIN maybe just have this return the features to clip
 static b2Manifold b2CollidePolygonsSAT(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
 {
-	b2Manifold manifold = b2EmptyManifold();
+	b2Manifold manifold = {0};
 
 	int32_t edgeA = 0;
 	float separationA = b2FindMaxSeparation(&edgeA, polyA, xfA, polyB, xfB);
@@ -1895,149 +1893,11 @@ static b2Manifold b2CollidePolygonsSAT(const b2Polygon* polyA, b2Transform xfA, 
 	return manifold;
 }
 
-// Due to speculation, every polygon is rounded
-// Algorithm:
-// compute distance
-// if distance <= 0.1f * b2_linearSlop
-//   SAT
-// else
-//   find closest features from GJK
-//   expect 2-1 or 1-1 or 1-2 features
-//   if 2-1 or 1-2
-//     clip
-//   else
-//     vertex-vertex
-//   end
-// end
-b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
+// Polygon clipper used by GJK and SAT to compute contact points when there are potentially two contact points.
+static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB,
+								int32_t edgeA, int32_t edgeB, bool flip)
 {
-	// TODO_ERIN shift so that xfA.p is the origin
-
-	b2Manifold manifold = b2EmptyManifold();
-	float radius = polyA->radius + polyB->radius;
-	float speculativeDistance = b2_speculativeDistance;
-
-	b2DistanceInput input;
-	input.proxyA = b2MakeProxy(polyA->vertices, polyA->count, 0.0f);
-	input.proxyB = b2MakeProxy(polyB->vertices, polyB->count, 0.0f);
-	input.transformA = xfA;
-	input.transformB = xfB;
-	input.useRadii = false;
-
-	b2DistanceCache cache = {0};
-	b2DistanceOutput output;
-	b2ShapeDistance(&output, &cache, &input);
-
-	if (output.distance > radius + speculativeDistance)
-	{
-		return manifold;
-	}
-
-	if (output.distance < 0.1f * b2_linearSlop)
-	{
-		// distance is small or zero, fallback to SAT
-		return b2CollidePolygonsSAT(polyA, xfA, polyB, xfB);
-	}
-
-	if (cache.count == 1)
-	{
-		// vertex-vertex collision
-		b2Vec2 vertexA = output.pointA;
-		b2Vec2 vertexB = output.pointB;
-
-		float separation;
-		manifold.normal = b2GetLengthAndNormalize(&separation, b2Sub(vertexB, vertexA));
-		b2ManifoldPoint* cp = manifold.points + 0;
-		cp->point = b2Lerp(vertexA, vertexB, 0.5f);
-		cp->separation = separation - radius;
-		cp->id = B2_MAKE_ID(cache.indexA[0], cache.indexB[0]);
-		manifold.pointCount = 1;
-		return manifold;
-	}
-
-	// vertex-edge collision
-	assert(cache.count == 2);
-	bool flip;
-	int32_t countA = polyA->count;
-	int32_t countB = polyB->count;
-	int32_t iA1, iA2, iB1, iB2;
-	if (cache.indexA[0] == cache.indexA[1])
-	{
-		// 1 point on A, expect 2 points on B
-		assert(cache.indexB[0] != cache.indexB[1]);
-
-		// need vertices in CCW order
-		if ((cache.indexB[0] == countB - 1 && cache.indexB[1] == 0) ||
-			(cache.indexB[0] == 0 && cache.indexB[1] == countB - 1))
-		{
-			iB1 = countB - 1;
-			iB2 = 0;
-		}
-		else if (cache.indexB[0] < cache.indexB[1])
-		{
-			iB1 = cache.indexB[0];
-			iB2 = cache.indexB[1];
-		}
-		else
-		{
-			iB1 = cache.indexB[1];
-			iB2 = cache.indexB[0];
-		}
-
-		flip = true;
-
-		b2Vec2 normal = polyB->normals[iB1];
-
-		// Get the normal of the reference edge in polyA's frame.
-		b2Vec2 searchDirection = b2InvRotateVector(xfA.q, b2RotateVector(xfB.q, normal));
-
-		// Find the incident edge on polyA
-		// Limit search to edges adjacent to closest vertex on A
-		int32_t edgeA1 = cache.indexA[0];
-		int32_t edgeA2 = edgeA1 == 0 ? countA - 1 : edgeA1 - 1;
-		float dot1 = b2Dot(searchDirection, polyA->normals[edgeA1]);
-		float dot2 = b2Dot(searchDirection, polyA->normals[edgeA2]);
-		iA1 = dot1 < dot2 ? edgeA1 : edgeA2;
-		iA2 = iA1 < countA - 1 ? iA1 + 1 : 0;
-	}
-	else
-	{
-		// need vertices in CCW order
-		if ((cache.indexA[0] == countA - 1 && cache.indexA[1] == 0) ||
-			(cache.indexA[0] == 0 && cache.indexA[1] == countA - 1))
-		{
-			iA1 = countA - 1;
-			iA2 = 0;
-		}
-		else if (cache.indexA[0] < cache.indexA[1])
-		{
-			iA1 = cache.indexA[0];
-			iA2 = cache.indexA[1];
-		}
-		else
-		{
-			iA1 = cache.indexA[1];
-			iA2 = cache.indexA[0];
-		}
-
-		flip = false;
-
-		b2Vec2 normal = polyA->normals[iA1];
-
-		// Get the normal of the reference edge in polyB's frame.
-		b2Vec2 searchDirection = b2InvRotateVector(xfB.q, b2RotateVector(xfA.q, normal));
-
-		// Find the incident edge on polyB
-		// Limit search to edges adjacent to closest vertex
-
-		int32_t edgeB1 = B2_MIN(cache.indexB[0], cache.indexB[1]);
-		int32_t edgeB2 = edgeB1 == 0 ? countB - 1 : edgeB1 - 1;
-
-		float dot1 = b2Dot(searchDirection, polyB->normals[edgeB1]);
-		float dot2 = b2Dot(searchDirection, polyB->normals[edgeB2]);
-		iB1 = dot1 < dot2 ? edgeB1 : edgeB2;
-		iB2 = iB1 < countB - 1 ? iB1 + 1 : 0;
-	}
+	b2Manifold manifold = {0};
 
 	// reference polygon
 	const b2Polygon* poly1;
@@ -2055,10 +1915,10 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 		poly2 = polyA;
 		// take points in frame A into frame B
 		xf = b2InvMulTransforms(xfB, xfA);
-		i11 = iB1;
-		i12 = iB2;
-		i21 = iA1;
-		i22 = iA2;
+		i11 = edgeB;
+		i12 = edgeB + 1 < polyB->count ? edgeB + 1 : 0;
+		i21 = edgeA;
+		i22 = edgeA + 1 < polyA->count ? edgeA + 1 : 0;
 	}
 	else
 	{
@@ -2066,10 +1926,10 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 		poly2 = polyB;
 		// take points in frame B into frame A
 		xf = b2InvMulTransforms(xfA, xfB);
-		i11 = iA1;
-		i12 = iA2;
-		i21 = iB1;
-		i22 = iB2;
+		i11 = edgeA;
+		i12 = edgeA + 1 < polyA->count ? edgeA + 1 : 0;
+		i21 = edgeB;
+		i22 = edgeB + 1 < polyB->count ? edgeB + 1 : 0;
 	}
 
 	b2Vec2 normal = poly1->normals[i11];
@@ -2121,9 +1981,15 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 	float separationLower = b2Dot(b2Sub(vLower, v11), normal);
 	float separationUpper = b2Dot(b2Sub(vUpper, v11), normal);
 
-	// Put contact points at midpoint
-	vLower = b2MulSub(vLower, 0.5f * separationLower, normal);
-	vUpper = b2MulSub(vUpper, 0.5f * separationUpper, normal);
+	float r1 = poly1->radius;
+	float r2 = poly2->radius;
+
+	// Put contact points at midpoint, accounting for radii
+	vLower = b2MulAdd(vLower, 0.5f * (r1 - r2 - separationLower), normal);
+	vUpper = b2MulAdd(vUpper, 0.5f * (r1 - r2 - separationUpper), normal);
+
+	float radius = r1 + r2;
+	float speculativeDistance = b2_speculativeDistance;
 
 	if (flip == false)
 	{
@@ -2171,6 +2037,184 @@ b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b
 	}
 
 	return manifold;
+}
+
+// This function assumes there is overlap
+static b2Manifold b2PolygonSAT(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
+{
+	int32_t edgeA = 0;
+	float separationA = b2FindMaxSeparation(&edgeA, polyA, xfA, polyB, xfB);
+
+	int32_t edgeB = 0;
+	float separationB = b2FindMaxSeparation(&edgeB, polyB, xfB, polyA, xfA);
+
+	bool flip;
+
+	if (separationB > separationA)
+	{
+		flip = true;
+		b2Vec2 normal = b2RotateVector(xfB.q, polyB->normals[edgeB]);
+		b2Vec2 searchDirection = b2InvRotateVector(xfA.q, normal);
+
+		// Find the incident edge on polyA
+		int32_t count = polyA->count;
+		const b2Vec2* normals = polyA->normals;
+		edgeA = 0;
+		float minDot = FLT_MAX;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			float dot = b2Dot(searchDirection, normals[i]);
+			if (dot < minDot)
+			{
+				minDot = dot;
+				edgeA = i;
+			}
+		}
+	}
+	else
+	{
+		flip = false;
+		b2Vec2 normal = b2RotateVector(xfA.q, polyA->normals[edgeA]);
+		b2Vec2 searchDirection = b2InvRotateVector(xfB.q, normal);
+
+		// Find the incident edge on polyB
+		int32_t count = polyB->count;
+		const b2Vec2* normals = polyB->normals;
+		edgeB = 0;
+		float minDot = FLT_MAX;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			float dot = b2Dot(searchDirection, normals[i]);
+			if (dot < minDot)
+			{
+				minDot = dot;
+				edgeB = i;
+			}
+		}
+	}
+
+	return b2PolygonClip(polyA, xfA, polyB, xfB, edgeA, edgeB, flip);
+}
+
+// Due to speculation, every polygon is rounded
+// Algorithm:
+// compute distance
+// if distance <= 0.1f * b2_linearSlop
+//   SAT
+// else
+//   find closest features from GJK
+//   expect 2-1 or 1-1 or 1-2 features
+//   if 2-1 or 1-2
+//     clip
+//   else
+//     vertex-vertex
+//   end
+// end
+b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB,
+								b2DistanceCache* cache)
+{
+	b2Manifold manifold = {0};
+	float radius = polyA->radius + polyB->radius;
+	float speculativeDistance = b2_speculativeDistance;
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeProxy(polyA->vertices, polyA->count, 0.0f);
+	input.proxyB = b2MakeProxy(polyB->vertices, polyB->count, 0.0f);
+	input.transformA = xfA;
+	input.transformB = xfB;
+	input.useRadii = false;
+
+	b2DistanceOutput output;
+	b2ShapeDistance(&output, cache, &input);
+
+	if (output.distance > radius + speculativeDistance)
+	{
+		return manifold;
+	}
+
+	if (output.distance < 0.1f * b2_linearSlop)
+	{
+		// distance is small or zero, fallback to SAT
+		return b2PolygonSAT(polyA, xfA, polyB, xfB);
+	}
+
+	if (cache->count == 1)
+	{
+		// vertex-vertex collision
+		b2Vec2 pA = output.pointA;
+		b2Vec2 pB = output.pointB;
+
+		float distance = output.distance;
+		manifold.normal = b2Normalize(b2Sub(pB, pA));
+		b2ManifoldPoint* cp = manifold.points + 0;
+		cp->point = b2MulAdd(pB, 0.5f * (polyA->radius - polyB->radius - distance), manifold.normal);
+		cp->separation = distance - radius;
+		cp->id = B2_MAKE_ID(cache->indexA[0], cache->indexB[0]);
+		manifold.pointCount = 1;
+		return manifold;
+	}
+
+	// vertex-edge collision
+	assert(cache->count == 2);
+	bool flip;
+	int32_t countA = polyA->count;
+	int32_t countB = polyB->count;
+	int32_t edgeA, edgeB;
+
+	int32_t a1 = cache->indexA[0];
+	int32_t a2 = cache->indexA[1];
+	int32_t b1 = cache->indexB[0];
+	int32_t b2 = cache->indexB[1];
+
+	if (a1 == a2)
+	{
+		// 1 point on A, expect 2 points on B
+		assert(b1 != b2);
+
+		// Find reference edge that most aligns with vector between closest points.
+		// This works for capsules and polygons
+		b2Vec2 axis = b2InvRotateVector(xfB.q, b2Sub(output.pointA, output.pointB));
+		float dot1 = b2Dot(axis, polyB->normals[b1]);
+		float dot2 = b2Dot(axis, polyB->normals[b2]);
+		edgeB = dot1 > dot2 ? b1 : b2;
+
+		flip = true;
+
+		// Get the normal of the reference edge in polyA's frame.
+		axis = b2InvRotateVector(xfA.q, b2RotateVector(xfB.q, polyB->normals[edgeB]));
+
+		// Find the incident edge on polyA
+		// Limit search to edges adjacent to closest vertex on A
+		int32_t edgeA1 = a1;
+		int32_t edgeA2 = edgeA1 == 0 ? countA - 1 : edgeA1 - 1;
+		dot1 = b2Dot(axis, polyA->normals[edgeA1]);
+		dot2 = b2Dot(axis, polyA->normals[edgeA2]);
+		edgeA = dot1 < dot2 ? edgeA1 : edgeA2;
+	}
+	else
+	{
+		// Find reference edge that most aligns with vector between closest points.
+		// This works for capsules and polygons
+		b2Vec2 axis = b2InvRotateVector(xfA.q, b2Sub(output.pointB, output.pointA));
+		float dot1 = b2Dot(axis, polyA->normals[a1]);
+		float dot2 = b2Dot(axis, polyA->normals[a2]);
+		edgeA = dot1 > dot2 ? a1 : a2;
+
+		flip = false;
+
+		// Get the normal of the reference edge in polyB's frame.
+		axis = b2InvRotateVector(xfB.q, b2RotateVector(xfA.q, polyA->normals[edgeA]));
+
+		// Find the incident edge on polyB
+		// Limit search to edges adjacent to closest vertex
+		int32_t edgeB1 = b1;
+		int32_t edgeB2 = edgeB1 == 0 ? countB - 1 : edgeB1 - 1;
+		dot1 = b2Dot(axis, polyB->normals[edgeB1]);
+		dot2 = b2Dot(axis, polyB->normals[edgeB2]);
+		edgeB = dot1 < dot2 ? edgeB1 : edgeB2;
+	}
+
+	return b2PolygonClip(polyA, xfA, polyB, xfB, edgeA, edgeB, flip);
 }
 
 #if 0

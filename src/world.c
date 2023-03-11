@@ -640,7 +640,14 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 
 			b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
 
-			draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
+			if (poly->radius > 0.0f)
+			{
+				draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
+			}
+			else
+			{
+				draw->DrawSolidPolygon(vertices, count, color, draw->context);
+			}
 		}
 		break;
 

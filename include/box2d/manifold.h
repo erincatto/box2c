@@ -10,6 +10,7 @@
 
 typedef struct b2Circle b2Circle;
 typedef struct b2Capsule b2Capsule;
+typedef struct b2DistanceCache b2DistanceCache;
 typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 typedef struct b2SmoothSegment b2SmoothSegment;
@@ -48,16 +49,12 @@ typedef struct b2Manifold
 	int32_t pointCount;
 } b2Manifold;
 
+static const b2Manifold b2_emptyManifold = {0};
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-static inline b2Manifold b2EmptyManifold(void)
-{
-	b2Manifold m = {0};
-	return m;
-}
 
 /// Compute the collision manifold between two circles.
 b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB);
@@ -102,7 +99,7 @@ b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA
 b2Manifold b2CollidePolygons(const b2Polygon* polygonA, b2Transform xfA, const b2Polygon* polygonB,
 							 b2Transform xfB);
 
-b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB);
+b2Manifold b2CollidePolygonsGJK(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB, b2DistanceCache* cache);
 
 	/// Compute the collision manifold between an segment and a polygon.
 b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB,

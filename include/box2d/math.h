@@ -144,6 +144,9 @@ static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 /// Convert this vector into a unit vector
 b2Vec2 b2Normalize(b2Vec2 v);
 
+/// This asserts of the vector is too short
+b2Vec2 b2NormalizeChecked(b2Vec2 v);
+
 b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
 
 /// Get the length of this vector (the norm).
