@@ -67,7 +67,7 @@ typedef struct b2DistanceOutput
 /// Compute the closest points between two shapes. Supports any combination of:
 /// b2Circle, b2Polygon, b2EdgeShape. The simplex cache is input/output.
 /// On the first call set b2SimplexCache.count to zero.
-void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2DistanceInput* input);
+b2DistanceOutput b2ShapeDistance(b2DistanceCache *cache, const b2DistanceInput *input);
 
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastInput

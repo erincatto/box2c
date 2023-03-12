@@ -336,12 +336,14 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 	float upper2 = b2Dot(b2Sub(v21, v11), tangent);
 	float lower2 = b2Dot(b2Sub(v22, v11), tangent);
 
-	if (upper2 < lower1 || upper1 < lower2)
-	{
-		// numeric failure
-		assert(false);
-		return manifold;
-	}
+	// This check can fail slightly due to mismatch with GJK code.
+	// Perhaps fallback to a single point here? Otherwise we get two coincident points.
+	//if (upper2 < lower1 || upper1 < lower2)
+	//{
+	//	// numeric failure
+	//	assert(false);
+	//	return manifold;
+	//}
 
 	b2Vec2 vLower;
 	if (lower2 < lower1 && upper2 - lower2 > FLT_EPSILON)
@@ -362,6 +364,8 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 	{
 		vUpper = v21;
 	}
+
+	// TODO_ERIN vLower can be very close to vUpper, reduce to one point?
 
 	float separationLower = b2Dot(b2Sub(vLower, v11), normal);
 	float separationUpper = b2Dot(b2Sub(vUpper, v11), normal);
@@ -550,8 +554,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	input.transformB = xfB;
 	input.useRadii = false;
 
-	b2DistanceOutput output;
-	b2ShapeDistance(&output, cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(cache, &input);
 
 	if (output.distance > radius + speculativeDistance)
 	{

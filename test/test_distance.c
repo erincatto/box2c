@@ -48,11 +48,8 @@ static int ShapeDistanceTest()
 	input.transformB = b2Transform_identity;
 	input.useRadii = false;
 
-	b2DistanceCache cache;
-	cache.count = 0;
-	b2DistanceOutput output;
-
-	b2ShapeDistance(&output, &cache, &input);
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
 
 	ENSURE_SMALL(output.distance - 1.0f, FLT_EPSILON);
 

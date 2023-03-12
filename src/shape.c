@@ -75,7 +75,7 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child)
 		case b2_circleShape:
 			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
 		case b2_polygonShape:
-			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, 0.0f);
+			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
 		default:
 		{
 			assert(false);

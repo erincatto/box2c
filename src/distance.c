@@ -513,9 +513,11 @@ void b2SolveSimplex3(b2Simplex* s)
 	s->count = 3;
 }
 
-void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2DistanceInput* input)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache *cache, const b2DistanceInput *input)
 {
 	++b2_gjkCalls;
+
+	b2DistanceOutput output = {0};
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;
@@ -621,9 +623,9 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 	b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
 
 	// Prepare output
-	b2ComputeSimplexWitnessPoints(&output->pointA, &output->pointB, &simplex);
-	output->distance = b2Distance(output->pointA, output->pointB);
-	output->iterations = iter;
+	b2ComputeSimplexWitnessPoints(&output.pointA, &output.pointB, &simplex);
+	output.distance = b2Distance(output.pointA, output.pointB);
+	output.iterations = iter;
 
 	// Cache the simplex
 	b2MakeSimplexCache(cache, &simplex);
@@ -631,14 +633,14 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 	// Apply radii if requested
 	if (input->useRadii)
 	{
-		if (output->distance < FLT_EPSILON)
+		if (output.distance < FLT_EPSILON)
 		{
 			// Shapes are too close to safely compute normal
-			b2Vec2 p = (b2Vec2){ 0.5f * (output->pointA.x + output->pointB.x),
-								0.5f * (output->pointA.y + output->pointB.y) };
-			output->pointA = p;
-			output->pointB = p;
-			output->distance = 0.0f;
+			b2Vec2 p = (b2Vec2){ 0.5f * (output.pointA.x + output.pointB.x),
+								0.5f * (output.pointA.y + output.pointB.y) };
+			output.pointA = p;
+			output.pointB = p;
+			output.distance = 0.0f;
 		}
 		else
 		{
@@ -646,14 +648,16 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 			// the points move smoothly.
 			float rA = proxyA->radius;
 			float rB = proxyB->radius;
-			output->distance = B2_MAX(0.0f, output->distance - rA - rB);
-			b2Vec2 normal = b2Normalize(b2Sub(output->pointB, output->pointA));
+			output.distance = B2_MAX(0.0f, output.distance - rA - rB);
+			b2Vec2 normal = b2Normalize(b2Sub(output.pointB, output.pointA));
 			b2Vec2 offsetA = (b2Vec2){ rA * normal.x, rA * normal.y };
 			b2Vec2 offsetB = (b2Vec2){ rB * normal.x, rB * normal.y };
-			output->pointA = b2Add(output->pointA, offsetA);
-			output->pointB = b2Sub(output->pointB, offsetB);
+			output.pointA = b2Add(output.pointA, offsetA);
+			output.pointB = b2Sub(output.pointB, offsetB);
 		}
 	}
+
+	return output;
 }
 
 // GJK-raycast
@@ -1078,8 +1082,7 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 		// to get a separating axis.
 		distanceInput.transformA = xfA;
 		distanceInput.transformB = xfB;
-		b2DistanceOutput distanceOutput;
-		b2ShapeDistance(&distanceOutput, &cache, &distanceInput);
+		b2DistanceOutput distanceOutput = b2ShapeDistance(&cache, &distanceInput);
 
 		// If the shapes are overlapped, we give up on continuous collision.
 		if (distanceOutput.distance <= 0.0f)

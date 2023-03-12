@@ -100,7 +100,7 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(230.0f, 170.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 220.0f));
 		ImGui::Begin("Tree Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -130,6 +130,11 @@ public:
 		if (ImGui::Checkbox("validate", &m_validate))
 		{
 		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: ray cast");
+		ImGui::Text("mouse button 1 + shift: query");
 
 		ImGui::End();
 

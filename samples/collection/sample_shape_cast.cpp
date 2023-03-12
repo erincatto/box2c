@@ -99,9 +99,7 @@ public:
 		distanceInput.useRadii = false;
 		b2DistanceCache distanceCache;
 		distanceCache.count = 0;
-		b2DistanceOutput distanceOutput;
-
-		b2ShapeDistance(&distanceOutput, &distanceCache, &distanceInput);
+		b2DistanceOutput distanceOutput = b2ShapeDistance(&distanceCache, &distanceInput);
 
 		g_draw.DrawString(5, m_textLine, "hit = %s, iters = %d, lambda = %g, distance = %g",
 			hit ? "true" : "false", output.iterations, output.lambda, distanceOutput.distance);

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/aabb.h"
+#include "box2d/distance.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
 #include "box2d/geometry.h"
@@ -174,9 +175,36 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	int32_t count = shape->count;
 	float radius = shape->radius;
 
-	// TODO fix mass
-	dlkfjasd;
-	fl;
+	if (radius > 0.0f)
+	{
+		// Push out vertices according to radius. This improves
+		// the mass accuracy, especially the rotational inertia.
+		for (int32_t i = 0; i < count; ++i)
+		{
+			int32_t j = i == 0 ? count - 1 : i - 1;
+			b2Vec2 n1 = shape->normals[j];
+			b2Vec2 n2 = shape->normals[i];
+
+			b2Vec2 mid = b2Normalize(b2Add(n1, n2));
+			b2Vec2 t1 = {-n1.y, n1.x};
+			float sinHalfAngle = b2Cross(mid, t1);
+
+			float offset = radius;
+			if (sinHalfAngle > FLT_EPSILON)
+			{
+				offset = radius / sinHalfAngle;
+			}
+
+			vertices[i] = b2MulAdd(shape->vertices[i], offset, mid); 
+		}
+	}
+	else
+	{
+		for (int32_t i = 0; i < count; ++i)
+		{
+			vertices[i] = shape->vertices[i];
+		}
+	}
 
 	b2Vec2 center = {0.0f, 0.0f};
 	float area = 0.0f;
@@ -184,15 +212,15 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 
 	// Get a reference point for forming triangles.
 	// Use the first vertex to reduce round-off errors.
-	b2Vec2 r = shape->vertices[0];
+	b2Vec2 r = vertices[0];
 
 	const float inv3 = 1.0f / 3.0f;
 
-	for (int32_t i = 1; i < shape->count - 1; ++i)
+	for (int32_t i = 1; i < count - 1; ++i)
 	{
 		// Triangle edges
-		b2Vec2 e1 = b2Sub(shape->vertices[i], r);
-		b2Vec2 e2 = b2Sub(shape->vertices[i + 1], r);
+		b2Vec2 e1 = b2Sub(vertices[i], r);
+		b2Vec2 e2 = b2Sub(vertices[i + 1], r);
 
 		float D = b2Cross(e1, e2);
 
@@ -323,18 +351,17 @@ bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape, b2Transform xf)
 
 bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape, b2Transform xf)
 {
-	b2Vec2 localPoint = b2InvRotateVector(xf.q, b2Sub(point, xf.p));
+	b2DistanceInput input = {0};
+	input.proxyA = b2MakeProxy(shape->vertices, shape->count, 0.0f);
+	input.proxyB = b2MakeProxy(&point, 1, 0.0f);
+	input.transformA = xf;
+	input.transformB = b2Transform_identity;
+	input.useRadii = false;
 
-	for (int32_t i = 0; i < shape->count; ++i)
-	{
-		float dot = b2Dot(shape->normals[i], b2Sub(localPoint, shape->vertices[i]));
-		if (dot > 0.0f)
-		{
-			return false;
-		}
-	}
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
 
-	return true;
+	return output.distance <= shape->radius;
 }
 
 // Precision Improvements for Ray / Sphere Intersection - Ray Tracing Gems 2019
@@ -343,7 +370,7 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* sha
 {
 	b2Vec2 p = b2TransformPoint(xf, shape->point);
 
-	b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
+	b2RayCastOutput output = {0};
 	
 	// Shift ray so circle center is the origin
 	b2Vec2 s = b2Sub(input->p1, p);
@@ -364,7 +391,8 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* sha
 	b2Vec2 c = b2MulAdd(s, t, d);
 
 	float cc = b2Dot(c, c);
-	float rr = shape->radius * shape->radius;
+	float r = shape->radius + input->radius;
+	float rr = r * r;
 
 	if (cc > rr)
 	{
@@ -465,14 +493,17 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 		return output;
 	}
 
-	b2Vec2 b1 = b2MulAdd(q, -shape->radius, n);
-	b2Vec2 b2 = b2MulAdd(q, shape->radius, n);
+	float r = shape->radius + input->radius;
+	b2Vec2 b1 = b2MulSub(q, r, n);
+	b2Vec2 b2 = b2MulAdd(q, r, n);
+
+	float invDen = 1.0f / den;
 
 	// Cramer's rule [a b1]
-	float s21 = (a.x * b1.y - b1.x * a.y) / den;
+	float s21 = (a.x * b1.y - b1.x * a.y) * invDen;
 
 	// Cramer's rule [a b2]
-	float s22 = (a.x * b2.y - b2.x * a.y) / den;
+	float s22 = (a.x * b2.y - b2.x * a.y) * invDen;
 
 	float s2;
 	b2Vec2 b;
@@ -494,7 +525,7 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 	}
 
 	// Cramer's rule [b -u]
-	float s1 = (- b.x * u.y + u.x * b.y) / den;
+	float s1 = (-b.x * u.y + u.x * b.y) * invDen;
 
 	if (s1 < 0.0f)
 	{
@@ -596,6 +627,12 @@ b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* s
 	b2Vec2 p2 = b2InvRotateVector(xf.q, b2Sub(input->p2, xf.p));
 	b2Vec2 d = b2Sub(p2, p1);
 
+	float r = shape->radius + input->radius;
+
+	// TODO_ERIN implement
+	sd;
+	kjasdf;
+
 	float lower = 0.0f, upper = input->maxFraction;
 
 	int32_t index = -1;
@@ -612,8 +649,10 @@ b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* s
 
 		if (denominator == 0.0f)
 		{
-			if (numerator < 0.0f)
+			// segment is parallel to edge
+			if (numerator < -r)
 			{
+				// segment is also outside the edge
 				return output;
 			}
 		}

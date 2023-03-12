@@ -319,12 +319,12 @@ public:
 
 			if (m_useCache)
 			{
-				b2ShapeDistance(&output, &m_boxbox, &input);
+				output = b2ShapeDistance(&m_boxbox, &input);
 				cache = m_boxbox;
 			}
 			else
 			{
-				b2ShapeDistance(&output, &cache, &input);
+				output = b2ShapeDistance(&cache, &input);
 			}
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
