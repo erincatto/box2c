@@ -1,3 +1,4 @@
+
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
@@ -140,65 +141,6 @@ static int32_t b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
 
 	return bestIndex;
 }
-
-#if 0
-void b2DistanceProxy::Set(const b2Shape* shape, int32_t index)
-{
-	switch (shape->GetType())
-	{
-	case b2Shape::e_circle:
-	{
-		const b2Circle* circle = static_cast<const b2Circle*>(shape);
-		m_vertices = &circle->m_p;
-		m_count = 1;
-		m_radius = circle->m_radius;
-	}
-	break;
-
-	case b2Shape::e_polygon:
-	{
-		const b2Polygon* polygon = static_cast<const b2Polygon*>(shape);
-		m_vertices = polygon->m_vertices;
-		m_count = polygon->m_count;
-		m_radius = polygon->m_radius;
-	}
-	break;
-
-	case b2Shape::e_chain:
-	{
-		const b2ChainShape* chain = static_cast<const b2ChainShape*>(shape);
-		assert(0 <= index && index < chain->m_count);
-
-		m_buffer[0] = chain->m_vertices[index];
-		if (index + 1 < chain->m_count)
-		{
-			m_buffer[1] = chain->m_vertices[index + 1];
-		}
-		else
-		{
-			m_buffer[1] = chain->m_vertices[0];
-		}
-
-		m_vertices = m_buffer;
-		m_count = 2;
-		m_radius = chain->m_radius;
-	}
-	break;
-
-	case b2Shape::e_edge:
-	{
-		const b2EdgeShape* edge = static_cast<const b2EdgeShape*>(shape);
-		m_vertices = &edge->m_vertex1;
-		m_count = 2;
-		m_radius = edge->m_radius;
-	}
-	break;
-
-	default:
-		assert(false);
-	}
-}
-#endif
 
 typedef struct b2SimplexVertex
 {

@@ -78,7 +78,7 @@ BasedOnStyle: Microsoft
 # BreakConstructorInitializers: BeforeComma
 # BreakAfterJavaFieldAnnotations: false
 # BreakStringLiterals: true
-# ColumnLimit:     120
+ColumnLimit: 120
 # CommentPragmas:  '^ IWYU pragma:'
 # QualifierAlignment: Leave
 # CompactNamespaces: false

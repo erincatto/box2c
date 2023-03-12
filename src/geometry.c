@@ -9,13 +9,13 @@
 #include <assert.h>
 #include <float.h>
 
-b2Polygon b2MakePolygon(const b2Hull* hull)
+b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 {
 	assert(hull->count >= 3);
 
 	b2Polygon shape;
 	shape.count = hull->count;
-	shape.radius = 0.0f;
+	shape.radius = radius;
 
 	// Copy vertices
 	for (int32_t i = 0; i < shape.count; ++i)
@@ -32,10 +32,6 @@ b2Polygon b2MakePolygon(const b2Hull* hull)
 		assert(b2Dot(edge, edge) > FLT_EPSILON * FLT_EPSILON);
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
-
-	// this is a bit wasteful and the centroid is only needed for smooth collision
-	b2MassData massData = b2ComputePolygonMass(&shape, 1.0f);
-	shape.centroid = massData.center;
 
 	return shape;
 }
@@ -60,7 +56,6 @@ b2Polygon b2MakeBox(float hx, float hy)
 	shape.normals[1] = (b2Vec2){1.0f, 0.0f};
 	shape.normals[2] = (b2Vec2){0.0f, 1.0f};
 	shape.normals[3] = (b2Vec2){-1.0f, 0.0f};
-	shape.centroid = (b2Vec2){0.0f, 0.0f};
 	shape.radius = 0.0f;
 	return shape;
 }
@@ -88,7 +83,6 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[1] = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
 	shape.normals[2] = b2RotateVector(xf.q, (b2Vec2){0.0f, 1.0f});
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
-	shape.centroid = center;
 	shape.radius = 0.0f;
 	return shape;
 }
@@ -105,7 +99,6 @@ b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
 	shape.normals[0] = normal;
 	shape.normals[1] = b2Neg(normal);
 	shape.count = 2;
-	shape.centroid = b2Lerp(p1, p2, 0.5f);
 	shape.radius = radius;
 
 	return shape;
@@ -176,6 +169,14 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	// The rest of the derivation is handled by computer algebra.
 
 	assert(shape->count >= 3);
+
+	b2Vec2 vertices[b2_maxPolygonVertices];
+	int32_t count = shape->count;
+	float radius = shape->radius;
+
+	// TODO fix mass
+	dlkfjasd;
+	fl;
 
 	b2Vec2 center = {0.0f, 0.0f};
 	float area = 0.0f;

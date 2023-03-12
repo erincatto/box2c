@@ -61,7 +61,7 @@ static b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, 
 									b2Transform xfB, b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(childIndexA);
-	return b2CollidePolygonsGJK(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
+	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
 }
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)

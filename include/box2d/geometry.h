@@ -46,7 +46,6 @@ typedef struct b2Polygon
 {
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
-	b2Vec2 centroid;
 	float radius;
 	int32_t count;
 } b2Polygon;
@@ -74,7 +73,7 @@ typedef struct b2SmoothSegment
 } b2SmoothSegment;
 
 
-BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull);
+BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);
 BOX2D_API b2Polygon b2MakeSquare(float h);
 BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
 BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);

@@ -23,7 +23,7 @@ public:
 
 		b2Vec2 vertices[3] = {{-2.0f, 0.0f}, {2.0f, 0.0f}, {2.0f, 3.0f}};
 		b2Hull hull = b2ComputeHull(vertices, 3);
-		m_triangle = b2MakePolygon(&hull);
+		m_triangle = b2MakePolygon(&hull, 0.0f);
 
 		m_segment = {{-3.0f, 0.0f}, {3.0f, 0.0}};
 
