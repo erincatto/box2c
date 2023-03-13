@@ -72,16 +72,13 @@ static int ShapeCastTest()
 	b2ShapeCastInput input;
 	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
 	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
-	input.transformA = b2Transform_identity;
-	input.transformB = b2Transform_identity;
 	input.translationB = (b2Vec2){-2.0f, 0.0f};
+	input.maxFraction = 1.0f;
 
-	b2ShapeCastOutput output;
+	b2RayCastOutput output = b2ShapeCast(&input);
 
-	bool hit = b2ShapeCast(&output, &input);
-
-	ENSURE(hit);
-	ENSURE_SMALL(output.lambda - 0.5f, b2_linearSlop);
+	ENSURE(output.hit);
+	ENSURE_SMALL(output.fraction - 0.5f, b2_linearSlop);
 
 	return 0;
 }

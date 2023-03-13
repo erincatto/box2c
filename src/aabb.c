@@ -19,13 +19,16 @@ bool b2AABB_IsValid(b2AABB a)
 }
 
 // From Real-time Collision Detection, p179.
-bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* input)
+b2RayCastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 {
+	// Radius not handled
+	b2RayCastOutput output = {0};
+
 	float tmin = -FLT_MAX;
 	float tmax = FLT_MAX;
 
-	b2Vec2 p = input->p1;
-	b2Vec2 d = b2Sub(input->p2, input->p1);
+	b2Vec2 p = p1;
+	b2Vec2 d = b2Sub(p2, p1);
 	b2Vec2 absD = b2Abs(d);
 
 	b2Vec2 normal = b2Vec2_zero;
@@ -36,7 +39,7 @@ bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* inp
 		// parallel
 		if (p.x < a.lowerBound.x || a.upperBound.x < p.x)
 		{
-			return false;
+			return output;
 		}
 	}
 	else
@@ -69,7 +72,7 @@ bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* inp
 
 		if (tmin > tmax)
 		{
-			return false;
+			return output;
 		}
 	}
 
@@ -79,7 +82,7 @@ bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* inp
 		// parallel
 		if (p.y < a.lowerBound.y || a.upperBound.y < p.y)
 		{
-			return false;
+			return output;
 		}
 	}
 	else
@@ -112,21 +115,23 @@ bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* inp
 
 		if (tmin > tmax)
 		{
-			return false;
+			return output;
 		}
 	}
 	
 	// Does the ray start inside the box?
 	// Does the ray intersect beyond the max fraction?
-	if (tmin < 0.0f || input->maxFraction < tmin)
+	if (tmin < 0.0f || 1.0f < tmin)
 	{
-		return false;
+		return output;
 	}
 
 	// Intersection.
-	output->fraction = tmin;
-	output->normal = normal;
-	return true;
+	output.fraction = tmin;
+	output.normal = normal;
+	output.point = b2Lerp(p1, p2, tmin);
+	output.hit = true;
+	return output;
 }
 
 #if 0

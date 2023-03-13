@@ -72,7 +72,9 @@ typedef struct b2RayCastInput
 typedef struct b2RayCastOutput
 {
 	b2Vec2 normal;
+	b2Vec2 point;
 	float fraction;
+	int32_t iterations;
 	bool hit;
 } b2RayCastOutput;
 

@@ -73,6 +73,7 @@ typedef struct b2SmoothSegment
 } b2SmoothSegment;
 
 
+/// Helper functions to make convex polygons
 BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);
 BOX2D_API b2Polygon b2MakeSquare(float h);
 BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
@@ -80,21 +81,24 @@ BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);
 BOX2D_API b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
 BOX2D_API b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius);
 
+/// Compute mass properties
 BOX2D_API b2MassData b2ComputeCircleMass(const b2Circle* shape, float density);
 BOX2D_API b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density);
 BOX2D_API b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density);
 
+/// These compute the bounding box in world space
 BOX2D_API b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform xf);
 BOX2D_API b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform xf);
 BOX2D_API b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform xf);
 BOX2D_API b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform xf);
 
-BOX2D_API bool b2PointInCircle(b2Vec2 point, const b2Circle* shape, b2Transform xf);
-BOX2D_API bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape, b2Transform xf);
-BOX2D_API bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape, b2Transform xf);
+/// Test a point in local space
+BOX2D_API bool b2PointInCircle(b2Vec2 point, const b2Circle* shape);
+BOX2D_API bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape);
+BOX2D_API bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape);
 
-// Ray cast versus shape. Initial overlap is treated as a miss.
-BOX2D_API b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape, b2Transform xf);
-BOX2D_API b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape, b2Transform xf);
-BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, b2Transform xf);
-BOX2D_API b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape, b2Transform xf);
+// Ray cast versus shape in shape local space. Initial overlap is treated as a miss.
+BOX2D_API b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape);
+BOX2D_API b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape);
+BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape);
+BOX2D_API b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape);

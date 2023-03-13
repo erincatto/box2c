@@ -403,7 +403,6 @@ public:
 
 		// rox-rox
 		{
-			m_round = 0.4f;
 			float h = 0.5f - m_round;
 			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
 

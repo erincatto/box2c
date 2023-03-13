@@ -663,12 +663,9 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache *cache, const b2DistanceInput *
 // GJK-raycast
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
-bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
+b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input)
 {
-	output->iterations = 0;
-	output->lambda = 1.0f;
-	output->normal = b2Vec2_zero;
-	output->point = b2Vec2_zero;
+	b2RayCastOutput output = {0};
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;
@@ -681,6 +678,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	b2Vec2 r = input->translationB;
 	b2Vec2 n = b2Vec2_zero;
 	float lambda = 0.0f;
+	float maxFraction = input->maxFraction;
 
 	// Initial simplex
 	b2Simplex simplex;
@@ -706,7 +704,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	{
 		assert(simplex.count < 3);
 
-		output->iterations += 1;
+		output.iterations += 1;
 
 		// Support in direction -v (A - B)
 		indexA = b2FindSupport(proxyA, b2InvRotateVector(xfA.q, b2Neg(v)));
@@ -725,13 +723,13 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		{
 			if (vr <= 0.0f)
 			{
-				return false;
+				return output;
 			}
 
 			lambda = (vp - sigma) / vr;
-			if (lambda > 1.0f)
+			if (lambda > maxFraction)
 			{
-				return false;
+				return output;
 			}
 
 			n = (b2Vec2){ -v.x, -v.y };
@@ -772,7 +770,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		if (simplex.count == 3)
 		{
 			// Overlap
-			return false;
+			return output;
 		}
 
 		// Get search direction.
@@ -785,7 +783,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	if (iter == 0)
 	{
 		// Initial overlap
-		return false;
+		return output;
 	}
 
 	// Prepare output.
@@ -798,11 +796,12 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	}
 
 	float radiusA = proxyA->radius;
-	output->point = (b2Vec2){ pointA.x + radiusA * n.x, pointA.y + radiusA * n.y };
-	output->normal = n;
-	output->lambda = lambda;
-	output->iterations = iter;
-	return true;
+	output.point = (b2Vec2){ pointA.x + radiusA * n.x, pointA.y + radiusA * n.y };
+	output.normal = n;
+	output.fraction = lambda;
+	output.iterations = iter;
+	output.hit = true;
+	return output;
 }
 
 float b2_toiTime, b2_toiMaxTime;

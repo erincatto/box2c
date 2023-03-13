@@ -84,12 +84,11 @@ public:
 		input.transformB = m_transformB;
 		input.translationB = m_translationB;
 
-		b2ShapeCastOutput output;
-		bool hit = b2ShapeCast(&output, &input);
+		b2RayCastOutput output = b2ShapeCast(&input);
 
 		b2Transform transformB2;
 		transformB2.q = m_transformB.q;
-		transformB2.p = b2MulAdd(m_transformB.p, output.lambda, input.translationB);
+		transformB2.p = b2MulAdd(m_transformB.p, output.fraction, input.translationB);
 
 		b2DistanceInput distanceInput;
 		distanceInput.proxyA = b2MakeProxy(m_vAs, m_countA, m_radiusA);
@@ -102,7 +101,7 @@ public:
 		b2DistanceOutput distanceOutput = b2ShapeDistance(&distanceCache, &distanceInput);
 
 		g_draw.DrawString(5, m_textLine, "hit = %s, iters = %d, lambda = %g, distance = %g",
-			hit ? "true" : "false", output.iterations, output.lambda, distanceOutput.distance);
+			output.hit ? "true" : "false", output.iterations, output.fraction, distanceOutput.distance);
 		m_textLine += m_textIncrement;
 
 		b2Vec2 vertices[b2_maxPolygonVertices];
@@ -149,7 +148,7 @@ public:
 			g_draw.DrawPolygon(vertices, m_countB, { 0.5f, 0.7f, 0.9f, 1.0f });
 		}
 
-		if (hit)
+		if (output.hit)
 		{
 			b2Vec2 p1 = output.point;
 			g_draw.DrawPoint(p1, 10.0f, { 0.9f, 0.3f, 0.3f, 1.0f });

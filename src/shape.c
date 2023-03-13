@@ -122,13 +122,15 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 	b2Body* body = world->bodies + shape->bodyIndex;
 	assert(b2ObjectValid(&body->object));
 
+	b2Vec2 localPoint = b2InvTransformPoint(body->transform, point);
+
 	switch (shape->type)
 	{
 		case b2_circleShape:
-			return b2PointInCircle(point, &shape->circle, body->transform);
+			return b2PointInCircle(localPoint, &shape->circle);
 
 		case b2_polygonShape:
-			return b2PointInPolygon(point, &shape->polygon, body->transform);
+			return b2PointInPolygon(localPoint, &shape->polygon);
 
 		default:
 			return false;
