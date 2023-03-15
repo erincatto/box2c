@@ -68,17 +68,17 @@ static int PointInShapeTest()
 	
 	{
 		bool hit;
-		hit = b2PointInCircle(p1, &circle, b2Transform_identity);
+		hit = b2PointInCircle(p1, &circle);
 		ENSURE(hit == true);
-		hit = b2PointInCircle(p2, &circle, b2Transform_identity);
+		hit = b2PointInCircle(p2, &circle);
 		ENSURE(hit == false);
 	}
 
 	{
 		bool hit;
-		hit = b2PointInPolygon(p1, &box, b2Transform_identity);
+		hit = b2PointInPolygon(p1, &box);
 		ENSURE(hit == true);
-		hit = b2PointInPolygon(p2, &box, b2Transform_identity);
+		hit = b2PointInPolygon(p2, &box);
 		ENSURE(hit == false);
 	}
 
@@ -87,10 +87,10 @@ static int PointInShapeTest()
 
 static int RayCastShapeTest()
 {
-	b2RayCastInput input = {{-4.0f, 0.0f}, {4.0f, 0.0f}, 1.0f};
+	b2RayCastInput input = {{-4.0f, 0.0f}, {4.0f, 0.0f}, 0.0f, 1.0f};
 	
 	{
-		b2RayCastOutput output = b2RayCastCircle(&input, &circle, b2Transform_identity);
+		b2RayCastOutput output = b2RayCastCircle(&input, &circle);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);
@@ -98,7 +98,7 @@ static int RayCastShapeTest()
 	}
 
 	{
-		b2RayCastOutput output = b2RayCastPolygon(&input, &box, b2Transform_identity);
+		b2RayCastOutput output = b2RayCastPolygon(&input, &box);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);
@@ -106,7 +106,7 @@ static int RayCastShapeTest()
 	}
 
 	{
-		b2RayCastOutput output = b2RayCastSegment(&input, &segment, b2Transform_identity);
+		b2RayCastOutput output = b2RayCastSegment(&input, &segment);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);

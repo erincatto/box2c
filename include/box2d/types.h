@@ -64,6 +64,7 @@ typedef struct b2Color
 typedef struct b2RayCastInput
 {
 	b2Vec2 p1, p2;
+	float radius;
 	float maxFraction;
 } b2RayCastInput;
 
@@ -71,7 +72,9 @@ typedef struct b2RayCastInput
 typedef struct b2RayCastOutput
 {
 	b2Vec2 normal;
+	b2Vec2 point;
 	float fraction;
+	int32_t iterations;
 	bool hit;
 } b2RayCastOutput;
 

@@ -25,6 +25,7 @@ public:
 	{
 		float groundSize = 100.0f;
 		m_groundThickness = 1.0f;
+		m_round = 0.0f;
 
 		b2BodyDef bd = b2DefaultBodyDef();
 		b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
@@ -67,7 +68,10 @@ public:
 		sd.density = 1.0f;
 		sd.friction = 0.5f;
 
-		b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
+		//b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
+		//b2Polygon cuboid = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
+		float h = 0.5f - m_round;
+		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
 
 		int32_t index = 0;
 
@@ -100,6 +104,8 @@ public:
 
 		bool changed = false;
 		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, e_maxBaseCount);
+
+		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
 
 		if (changed)
@@ -117,6 +123,7 @@ public:
 
 	b2BodyId m_bodies[e_maxBodyCount];
 	int32_t m_baseCount;
+	float m_round;
 	float m_groundThickness;
 };
 

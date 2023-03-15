@@ -15,7 +15,7 @@ extern "C"
 bool b2AABB_IsValid(b2AABB a);
 
 /// Ray cast an AABB
-bool b2AABB_RayCast(b2AABB a, b2RayCastOutput* output, const b2RayCastInput* input);
+b2RayCastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2);
 
 /// Get the center of the AABB.
 static inline b2Vec2 b2AABB_Center(b2AABB a)

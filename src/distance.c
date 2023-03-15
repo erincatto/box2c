@@ -1,3 +1,4 @@
+
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
@@ -141,65 +142,6 @@ static int32_t b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
 	return bestIndex;
 }
 
-#if 0
-void b2DistanceProxy::Set(const b2Shape* shape, int32_t index)
-{
-	switch (shape->GetType())
-	{
-	case b2Shape::e_circle:
-	{
-		const b2Circle* circle = static_cast<const b2Circle*>(shape);
-		m_vertices = &circle->m_p;
-		m_count = 1;
-		m_radius = circle->m_radius;
-	}
-	break;
-
-	case b2Shape::e_polygon:
-	{
-		const b2Polygon* polygon = static_cast<const b2Polygon*>(shape);
-		m_vertices = polygon->m_vertices;
-		m_count = polygon->m_count;
-		m_radius = polygon->m_radius;
-	}
-	break;
-
-	case b2Shape::e_chain:
-	{
-		const b2ChainShape* chain = static_cast<const b2ChainShape*>(shape);
-		assert(0 <= index && index < chain->m_count);
-
-		m_buffer[0] = chain->m_vertices[index];
-		if (index + 1 < chain->m_count)
-		{
-			m_buffer[1] = chain->m_vertices[index + 1];
-		}
-		else
-		{
-			m_buffer[1] = chain->m_vertices[0];
-		}
-
-		m_vertices = m_buffer;
-		m_count = 2;
-		m_radius = chain->m_radius;
-	}
-	break;
-
-	case b2Shape::e_edge:
-	{
-		const b2EdgeShape* edge = static_cast<const b2EdgeShape*>(shape);
-		m_vertices = &edge->m_vertex1;
-		m_count = 2;
-		m_radius = edge->m_radius;
-	}
-	break;
-
-	default:
-		assert(false);
-	}
-}
-#endif
-
 typedef struct b2SimplexVertex
 {
 	b2Vec2 wA;		// support point in proxyA
@@ -239,7 +181,7 @@ static float b2Simplex_Metric(const b2Simplex* s)
 	}
 }
 
-static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
+static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache,
 	const b2DistanceProxy* proxyA, b2Transform transformA,
 	const b2DistanceProxy* proxyB, b2Transform transformB)
 {
@@ -259,12 +201,16 @@ static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
 		v->wA = b2TransformPoint(transformA, wALocal);
 		v->wB = b2TransformPoint(transformB, wBLocal);
 		v->w = b2Sub(v->wB, v->wA);
-		v->a = 0.0f;
+
+		// invalid
+		v->a = -1.0f;
 	}
 
+	// TODO_ERIN not seeing any benefit to reseting. ignore metric?
+	#if 0
 	// Compute the new simplex metric, if it is substantially different than
 	// old metric then flush the simplex.
-	if (s.count > 1)
+	if (s.count == 2)
 	{
 		float metric1 = cache->metric;
 		float metric2 = b2Simplex_Metric(&s);
@@ -274,6 +220,19 @@ static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
 			s.count = 0;
 		}
 	}
+	else if (s.count == 3)
+	{
+		float metric1 = cache->metric;
+		float metric2 = b2Simplex_Metric(&s);
+		float abs1 = B2_ABS(metric1);
+		float abs2 = B2_ABS(metric2);
+		if (metric1 * metric2 < 0.0f || abs2 < 0.5f * abs1 || 2.0f * abs1 < abs2)
+		{
+			// Reset the simplex.
+			s.count = 0;
+		}
+	}
+	#endif
 
 	// If the cache is empty or invalid ...
 	if (s.count == 0)
@@ -293,7 +252,7 @@ static b2Simplex b2Simplex_ReadCache(const b2DistanceCache* cache,
 	return s;
 }
 
-static void b2Simplex_WriteCache(b2DistanceCache* cache, const b2Simplex* simplex)
+static void b2MakeSimplexCache(b2DistanceCache* cache, const b2Simplex* simplex)
 {
 	cache->metric = b2Simplex_Metric(simplex);
 	cache->count = (uint16_t)simplex->count;
@@ -305,7 +264,7 @@ static void b2Simplex_WriteCache(b2DistanceCache* cache, const b2Simplex* simple
 	}
 }
 
-b2Vec2 b2Simplex_SearchDirection(const b2Simplex* simplex)
+b2Vec2 b2ComputeSimplexSearchDirection(const b2Simplex* simplex)
 {
 	switch (simplex->count)
 	{
@@ -334,7 +293,7 @@ b2Vec2 b2Simplex_SearchDirection(const b2Simplex* simplex)
 	}
 }
 
-b2Vec2 b2Simplex_ClosestPoint(const b2Simplex* s)
+b2Vec2 b2ComputeSimplexClosestPoint(const b2Simplex* s)
 {
 	switch (s->count)
 	{
@@ -357,7 +316,7 @@ b2Vec2 b2Simplex_ClosestPoint(const b2Simplex* s)
 	}
 }
 
-void b2Simplex_WitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
+void b2ComputeSimplexWitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 {
 	switch (s->count)
 	{
@@ -411,7 +370,7 @@ void b2Simplex_WitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 // Solution
 // a1 = d12_1 / d12
 // a2 = d12_2 / d12
-void b2Simplex_Solve2(b2Simplex* s)
+void b2SolveSimplex2(b2Simplex* s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -445,12 +404,7 @@ void b2Simplex_Solve2(b2Simplex* s)
 	s->count = 2;
 }
 
-// Possible regions:
-// - points[2]
-// - edge points[0]-points[2]
-// - edge points[1]-points[2]
-// - inside the triangle
-void b2Simplex_Solve3(b2Simplex* s)
+void b2SolveSimplex3(b2Simplex* s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -559,9 +513,11 @@ void b2Simplex_Solve3(b2Simplex* s)
 	s->count = 3;
 }
 
-void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2DistanceInput* input)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache *cache, const b2DistanceInput *input)
 {
 	++b2_gjkCalls;
+
+	b2DistanceOutput output = {0};
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;
@@ -570,7 +526,7 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 	b2Transform transformB = input->transformB;
 
 	// Initialize the simplex.
-	b2Simplex simplex = b2Simplex_ReadCache(cache, proxyA, transformA, proxyB, transformB);
+	b2Simplex simplex = b2MakeSimplexFromCache(cache, proxyA, transformA, proxyB, transformB);
 
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = { &simplex.v1, &simplex.v2, &simplex.v3 };
@@ -599,11 +555,11 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 			break;
 
 		case 2:
-			b2Simplex_Solve2(&simplex);
+			b2SolveSimplex2(&simplex);
 			break;
 
 		case 3:
-			b2Simplex_Solve3(&simplex);
+			b2SolveSimplex3(&simplex);
 			break;
 
 		default:
@@ -617,7 +573,7 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 		}
 
 		// Get search direction.
-		b2Vec2 d = b2Simplex_SearchDirection(&simplex);
+		b2Vec2 d = b2ComputeSimplexSearchDirection(&simplex);
 
 		// Ensure the search direction is numerically fit.
 		if (b2Dot(d, d) < FLT_EPSILON * FLT_EPSILON)
@@ -667,24 +623,24 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 	b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
 
 	// Prepare output
-	b2Simplex_WitnessPoints(&output->pointA, &output->pointB, &simplex);
-	output->distance = b2Distance(output->pointA, output->pointB);
-	output->iterations = iter;
+	b2ComputeSimplexWitnessPoints(&output.pointA, &output.pointB, &simplex);
+	output.distance = b2Distance(output.pointA, output.pointB);
+	output.iterations = iter;
 
 	// Cache the simplex
-	b2Simplex_WriteCache(cache, &simplex);
+	b2MakeSimplexCache(cache, &simplex);
 
 	// Apply radii if requested
 	if (input->useRadii)
 	{
-		if (output->distance < FLT_EPSILON)
+		if (output.distance < FLT_EPSILON)
 		{
 			// Shapes are too close to safely compute normal
-			b2Vec2 p = (b2Vec2){ 0.5f * (output->pointA.x + output->pointB.x),
-								0.5f * (output->pointA.y + output->pointB.y) };
-			output->pointA = p;
-			output->pointB = p;
-			output->distance = 0.0f;
+			b2Vec2 p = (b2Vec2){ 0.5f * (output.pointA.x + output.pointB.x),
+								0.5f * (output.pointA.y + output.pointB.y) };
+			output.pointA = p;
+			output.pointB = p;
+			output.distance = 0.0f;
 		}
 		else
 		{
@@ -692,25 +648,25 @@ void b2ShapeDistance(b2DistanceOutput* output, b2DistanceCache* cache, const b2D
 			// the points move smoothly.
 			float rA = proxyA->radius;
 			float rB = proxyB->radius;
-			output->distance = B2_MAX(0.0f, output->distance - rA - rB);
-			b2Vec2 normal = b2Normalize(b2Sub(output->pointB, output->pointA));
+			output.distance = B2_MAX(0.0f, output.distance - rA - rB);
+			b2Vec2 normal = b2Normalize(b2Sub(output.pointB, output.pointA));
 			b2Vec2 offsetA = (b2Vec2){ rA * normal.x, rA * normal.y };
 			b2Vec2 offsetB = (b2Vec2){ rB * normal.x, rB * normal.y };
-			output->pointA = b2Add(output->pointA, offsetA);
-			output->pointB = b2Sub(output->pointB, offsetB);
+			output.pointA = b2Add(output.pointA, offsetA);
+			output.pointB = b2Sub(output.pointB, offsetB);
 		}
 	}
+
+	return output;
 }
 
 // GJK-raycast
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
-bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
+// TODO_ERIN this is failing when used to raycast a box
+b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input)
 {
-	output->iterations = 0;
-	output->lambda = 1.0f;
-	output->normal = b2Vec2_zero;
-	output->point = b2Vec2_zero;
+	b2RayCastOutput output = {0};
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;
@@ -723,6 +679,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	b2Vec2 r = input->translationB;
 	b2Vec2 n = b2Vec2_zero;
 	float lambda = 0.0f;
+	float maxFraction = input->maxFraction;
 
 	// Initial simplex
 	b2Simplex simplex;
@@ -748,7 +705,7 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	{
 		assert(simplex.count < 3);
 
-		output->iterations += 1;
+		output.iterations += 1;
 
 		// Support in direction -v (A - B)
 		indexA = b2FindSupport(proxyA, b2InvRotateVector(xfA.q, b2Neg(v)));
@@ -767,13 +724,13 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		{
 			if (vr <= 0.0f)
 			{
-				return false;
+				return output;
 			}
 
 			lambda = (vp - sigma) / vr;
-			if (lambda > 1.0f)
+			if (lambda > maxFraction)
 			{
-				return false;
+				return output;
 			}
 
 			n = (b2Vec2){ -v.x, -v.y };
@@ -799,11 +756,11 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 			break;
 
 		case 2:
-			b2Simplex_Solve2(&simplex);
+			b2SolveSimplex2(&simplex);
 			break;
 
 		case 3:
-			b2Simplex_Solve3(&simplex);
+			b2SolveSimplex3(&simplex);
 			break;
 
 		default:
@@ -814,11 +771,11 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 		if (simplex.count == 3)
 		{
 			// Overlap
-			return false;
+			return output;
 		}
 
 		// Get search direction.
-		v = b2Simplex_ClosestPoint(&simplex);
+		v = b2ComputeSimplexClosestPoint(&simplex);
 
 		// Iteration count is equated to the number of support point calls.
 		++iter;
@@ -827,12 +784,12 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	if (iter == 0)
 	{
 		// Initial overlap
-		return false;
+		return output;
 	}
 
 	// Prepare output.
 	b2Vec2 pointA, pointB;
-	b2Simplex_WitnessPoints(&pointB, &pointA, &simplex);
+	b2ComputeSimplexWitnessPoints(&pointB, &pointA, &simplex);
 
 	if (b2Dot(v, v) > 0.0f)
 	{
@@ -840,11 +797,12 @@ bool b2ShapeCast(b2ShapeCastOutput* output, const b2ShapeCastInput* input)
 	}
 
 	float radiusA = proxyA->radius;
-	output->point = (b2Vec2){ pointA.x + radiusA * n.x, pointA.y + radiusA * n.y };
-	output->normal = n;
-	output->lambda = lambda;
-	output->iterations = iter;
-	return true;
+	output.point = (b2Vec2){ pointA.x + radiusA * n.x, pointA.y + radiusA * n.y };
+	output.normal = n;
+	output.fraction = lambda;
+	output.iterations = iter;
+	output.hit = true;
+	return output;
 }
 
 float b2_toiTime, b2_toiMaxTime;
@@ -1124,8 +1082,7 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 		// to get a separating axis.
 		distanceInput.transformA = xfA;
 		distanceInput.transformB = xfB;
-		b2DistanceOutput distanceOutput;
-		b2ShapeDistance(&distanceOutput, &cache, &distanceInput);
+		b2DistanceOutput distanceOutput = b2ShapeDistance(&cache, &distanceInput);
 
 		// If the shapes are overlapped, we give up on continuous collision.
 		if (distanceOutput.distance <= 0.0f)

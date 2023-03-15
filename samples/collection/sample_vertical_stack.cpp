@@ -57,7 +57,7 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = e_maxRows;
+		m_rowCount = g_sampleDebug ? 4 : e_maxRows;
 		m_columnCount = g_sampleDebug ? 1 : e_maxColumns;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
@@ -79,7 +79,8 @@ public:
 		b2Circle circle = {0};
 		circle.radius = 0.5f;
 
-		b2Polygon box = b2MakeBox(0.5f, 0.5f);
+		//b2Polygon box = b2MakeBox(0.5f, 0.5f);
+		b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
 		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;

@@ -4,6 +4,7 @@
 #include "box2d/constants.h"
 #include "box2d/math.h"
 
+#include <assert.h>
 #include <float.h>
 
 float b2_lengthUnitsPerMeter = 1.0f;
@@ -26,7 +27,7 @@ bool b2IsValid(float a)
 	return true;
 }
 
-bool b2Vec2_IsValid(b2Vec2 v)
+bool b2IsValidVec2(b2Vec2 v)
 {
 	if (isnan(v.x) || isnan(v.y))
 	{
@@ -46,6 +47,20 @@ b2Vec2 b2Normalize(b2Vec2 v)
 	float length = b2Length(v);
 	if (length < FLT_EPSILON)
 	{
+		return b2Vec2_zero;
+	}
+
+	float invLength = 1.0f / length;
+	b2Vec2 n = {invLength * v.x, invLength * v.y};
+	return n;
+}
+
+b2Vec2 b2NormalizeChecked(b2Vec2 v)
+{
+	float length = b2Length(v);
+	if (length < FLT_EPSILON)
+	{
+		assert(false);
 		return b2Vec2_zero;
 	}
 

@@ -29,7 +29,8 @@ static inline float b2MixRestitution(float restitution1, float restitution2)
 	return restitution1 > restitution2 ? restitution1 : restitution2;
 }
 
-typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB);
+typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+								 b2Transform xfB, b2DistanceCache* cache);
 
 struct b2ContactRegister
 {
@@ -40,30 +41,34 @@ struct b2ContactRegister
 static struct b2ContactRegister s_registers[b2_shapeTypeCount][b2_shapeTypeCount];
 static bool s_initialized = false;
 
-b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
+static b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+								   b2Transform xfB, b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(childIndexA);
-
+	B2_MAYBE_UNUSED(cache);
 	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB);
 }
 
-b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
+static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA,
+											 const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(childIndexA);
+	B2_MAYBE_UNUSED(cache);
 	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
 }
 
-b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
+static b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+									b2Transform xfB, b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(childIndexA);
-	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB);
+	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
 }
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
 {
 	assert(0 <= type1 && type1 < b2_shapeTypeCount);
 	assert(0 <= type2 && type2 < b2_shapeTypeCount);
-	
+
 	s_registers[type1][type2].fcn = fcn;
 	s_registers[type1][type2].primary = true;
 
@@ -117,7 +122,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->shapeIndexB = shapeB->object.index;
 	c->childA = childA;
 	c->childB = childB;
-	c->manifold = b2EmptyManifold();
+	c->cache = b2_emptyDistanceCache;
+	c->manifold = b2_emptyManifold;
 	c->islandId = 0;
 	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
@@ -170,10 +176,10 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2Body* bodyA = world->bodies + contact->edgeB.otherBodyIndex;
 	b2Body* bodyB = world->bodies + contact->edgeA.otherBodyIndex;
 
-	//if (contactListener && contact->IsTouching())
+	// if (contactListener && contact->IsTouching())
 	//{
 	//	contactListener->EndContact(contact);
-	//}
+	// }
 
 	// Remove from the world.
 	if (contact->prev)
@@ -242,8 +248,8 @@ bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
 	return collide;
 }
 
-static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transform xfA,
-	const b2Shape* shapeB, int32_t childB, b2Transform xfB)
+static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transform xfA, const b2Shape* shapeB,
+							   int32_t childB, b2Transform xfB)
 {
 	b2DistanceInput input;
 	input.proxyA = b2Shape_MakeDistanceProxy(shapeA, childA);
@@ -253,16 +259,14 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transfor
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output;
-
-	b2ShapeDistance(&output, &cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
 
 	return output.distance < 10.0f * FLT_EPSILON;
 }
 
 // Update the contact manifold and touching status.
 // Note: do not assume the fixture AABBs are overlapping or are valid.
-void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB, 
+void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
 					  b2Body* bodyB)
 {
 	b2Manifold oldManifold = contact->manifold;
@@ -279,7 +283,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	bool touching = false;
 	contact->manifold.pointCount = 0;
 
-	//bool wasTouching = (contact->flags & b2_contactTouchingFlag) == b2_contactTouchingFlag;
+	// bool wasTouching = (contact->flags & b2_contactTouchingFlag) == b2_contactTouchingFlag;
 
 	bool sensorA = shapeA->isSensor;
 	bool sensorB = shapeB->isSensor;
@@ -300,7 +304,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		contact->manifold = fcn(shapeA, childA, bodyA->transform, shapeB, bodyB->transform);
+		contact->manifold = fcn(shapeA, childA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;
 
@@ -328,7 +332,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 			}
 
 			// For debugging ids
-			//if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
+			// if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
 			//{
 			//	i += 0;
 			//}
@@ -349,13 +353,13 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 		contact->flags &= ~b2_contactTouchingFlag;
 	}
 
-	//if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
+	// if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
 	//{
 	//	world->callbacks.beginContactFcn(shapeIdA, shapeIdB);
-	//}
+	// }
 
-	//if (wasTouching == true && touching == false && world->callbacks.endContactFcn)
+	// if (wasTouching == true && touching == false && world->callbacks.endContactFcn)
 	//{
 	//	world->callbacks.endContactFcn(shapeIdA, shapeIdB);
-	//}
+	// }
 }

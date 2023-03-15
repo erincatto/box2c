@@ -49,7 +49,7 @@ void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
 /// Move a proxy with a swepted AABB. If the proxy has moved outside of its
 /// fattened AABB, then the proxy is removed from the tree and re-inserted.
 /// Otherwise the function returns immediately.
-/// @return true if the proxy was re-inserted.
+/// @return true if the proxy was re-inserted and the moved flag was previously false
 bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb1);
 
 /// This function receives proxies found in the AABB query.

@@ -89,8 +89,7 @@ public:
 			dinput.transformB = b2GetSweepTransform(&sweepB, output.t);
 			dinput.useRadii = false;
 			b2DistanceCache cache = {0};
-			b2DistanceOutput doutput;
-			b2ShapeDistance(&doutput, &cache, &dinput);
+			b2DistanceOutput doutput = b2ShapeDistance(&cache, &dinput);
 			g_draw.DrawString(5, m_textLine, "distance = %g", doutput.distance);
 			m_textLine += m_textIncrement;
 		}

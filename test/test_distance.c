@@ -48,11 +48,8 @@ static int ShapeDistanceTest()
 	input.transformB = b2Transform_identity;
 	input.useRadii = false;
 
-	b2DistanceCache cache;
-	cache.count = 0;
-	b2DistanceOutput output;
-
-	b2ShapeDistance(&output, &cache, &input);
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
 
 	ENSURE_SMALL(output.distance - 1.0f, FLT_EPSILON);
 
@@ -78,13 +75,12 @@ static int ShapeCastTest()
 	input.transformA = b2Transform_identity;
 	input.transformB = b2Transform_identity;
 	input.translationB = (b2Vec2){-2.0f, 0.0f};
+	input.maxFraction = 1.0f;
 
-	b2ShapeCastOutput output;
+	b2RayCastOutput output = b2ShapeCast(&input);
 
-	bool hit = b2ShapeCast(&output, &input);
-
-	ENSURE(hit);
-	ENSURE_SMALL(output.lambda - 0.5f, b2_linearSlop);
+	ENSURE(output.hit);
+	ENSURE_SMALL(output.fraction - 0.5f, b2_linearSlop);
 
 	return 0;
 }

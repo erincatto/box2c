@@ -75,7 +75,7 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child)
 		case b2_circleShape:
 			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
 		case b2_polygonShape:
-			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, 0.0f);
+			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
 		default:
 		{
 			assert(false);
@@ -122,13 +122,15 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 	b2Body* body = world->bodies + shape->bodyIndex;
 	assert(b2ObjectValid(&body->object));
 
+	b2Vec2 localPoint = b2InvTransformPoint(body->transform, point);
+
 	switch (shape->type)
 	{
 		case b2_circleShape:
-			return b2PointInCircle(point, &shape->circle, body->transform);
+			return b2PointInCircle(localPoint, &shape->circle);
 
 		case b2_polygonShape:
-			return b2PointInPolygon(point, &shape->polygon, body->transform);
+			return b2PointInPolygon(localPoint, &shape->polygon);
 
 		default:
 			return false;

@@ -23,7 +23,7 @@ static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
 bool b2IsValid(float a);
-bool b2Vec2_IsValid(b2Vec2 v);
+bool b2IsValidVec2(b2Vec2 v);
 
 /// Make a vector
 static inline b2Vec2 b2MakeVec2(float x, float y)
@@ -143,6 +143,9 @@ static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 
 /// Convert this vector into a unit vector
 b2Vec2 b2Normalize(b2Vec2 v);
+
+/// This asserts of the vector is too short
+b2Vec2 b2NormalizeChecked(b2Vec2 v);
 
 b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
 

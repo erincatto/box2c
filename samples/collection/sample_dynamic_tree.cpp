@@ -100,7 +100,7 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(230.0f, 170.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 220.0f));
 		ImGui::Begin("Tree Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -130,6 +130,11 @@ public:
 		if (ImGui::Checkbox("validate", &m_validate))
 		{
 		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: ray cast");
+		ImGui::Text("mouse button 1 + shift: query");
 
 		ImGui::End();
 
@@ -187,7 +192,7 @@ public:
 
 		if (m_rayDrag)
 		{
-			b2RayCastInput input = {m_startPoint, m_endPoint, 1.0f};
+			b2RayCastInput input = {m_startPoint, m_endPoint, 0.0f, 1.0f};
 			b2DynamicTree_RayCast(&m_tree, &input, b2_defaultMaskBits, RayCallback, this);
 
 			g_draw.DrawSegment(m_startPoint, m_endPoint, {1.0f, 1.0f, 1.0f, 1.0f});
