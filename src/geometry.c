@@ -577,7 +577,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 		b2Vec2 v2 = shape->point2;
 		b2Vec2 e = b2Sub(v2, v1);
 
-		b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
+		b2RayCastOutput output = {0};
 
 		float length;
 		b2Vec2 eUnit = b2GetLengthAndNormalize(&length, e);
