@@ -27,7 +27,7 @@ bool b2IsValid(float a)
 	return true;
 }
 
-bool b2Vec2_IsValid(b2Vec2 v)
+bool b2IsValidVec2(b2Vec2 v)
 {
 	if (isnan(v.x) || isnan(v.y))
 	{

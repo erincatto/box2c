@@ -73,6 +73,8 @@ typedef struct b2SmoothSegment
 } b2SmoothSegment;
 
 
+BOX2D_API bool b2IsValidRay(const b2RayCastInput *input);
+
 /// Helper functions to make convex polygons
 BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);
 BOX2D_API b2Polygon b2MakeSquare(float h);

@@ -72,6 +72,8 @@ static int ShapeCastTest()
 	b2ShapeCastInput input;
 	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
 	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
+	input.transformA = b2Transform_identity;
+	input.transformB = b2Transform_identity;
 	input.translationB = (b2Vec2){-2.0f, 0.0f};
 	input.maxFraction = 1.0f;
 

@@ -28,9 +28,9 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	world->bodies = (b2Body*)world->bodyPool.memory;
 
 	assert(0 <= def->type && def->type < b2_bodyTypeCount);
-	assert(b2Vec2_IsValid(def->position));
+	assert(b2IsValidVec2(def->position));
 	assert(b2IsValid(def->angle));
-	assert(b2Vec2_IsValid(def->linearVelocity));
+	assert(b2IsValidVec2(def->linearVelocity));
 	assert(b2IsValid(def->angularVelocity));
 	assert(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	assert(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);

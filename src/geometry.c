@@ -10,6 +10,14 @@
 #include <assert.h>
 #include <float.h>
 
+bool b2IsValidRay(const b2RayCastInput *input)
+{
+	bool isValid = b2IsValidVec2(input->p1) && b2IsValidVec2(input->p2) && b2IsValid(input->radius) &&
+				   b2IsValid(input->maxFraction) && 0.0f <= input->radius && input->radius < b2_huge &&
+				   0.0f <= input->maxFraction && input->maxFraction < b2_huge;
+	return isValid;
+}
+
 b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 {
 	assert(hull->count >= 3);
@@ -367,6 +375,8 @@ bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape)
 // http://www.codercorner.com/blog/?p=321
 b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape)
 {
+	assert(b2IsValidRay(input));
+
 	b2Vec2 p = shape->point;
 
 	b2RayCastOutput output = {0};
@@ -422,6 +432,8 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* sha
 
 b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape)
 {
+	assert(b2IsValidRay(input));
+
 	b2RayCastOutput output = {0};
 
 	b2Vec2 v1 = shape->point1;
@@ -554,12 +566,157 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 // Ray vs line segment
 b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape)
 {
+	if (input->radius == 0.0f)
+	{
+		// Put the ray into the edge's frame of reference.
+		b2Vec2 p1 = input->p1;
+		b2Vec2 p2 = input->p2;
+		b2Vec2 d = b2Sub(p2, p1);
+
+		b2Vec2 v1 = shape->point1;
+		b2Vec2 v2 = shape->point2;
+		b2Vec2 e = b2Sub(v2, v1);
+
+		b2RayCastOutput output = {{0.0f, 0.0f}, 0.0f, false};
+
+		float length;
+		b2Vec2 eUnit = b2GetLengthAndNormalize(&length, e);
+		if (length == 0.0f)
+		{
+			return output;
+		}
+
+		// Normal points to the right, looking from v1 towards v2
+		b2Vec2 normal = {eUnit.y, -eUnit.x};
+
+		// Intersect ray with infinite segment using normal
+		// Similar to intersecting a ray with an infinite plane
+		// p = p1 + t * d
+		// dot(normal, p - v1) = 0
+		// dot(normal, p1 - v1) + t * dot(normal, d) = 0
+		float numerator = b2Dot(normal, b2Sub(v1, p1));
+		float denominator = b2Dot(normal, d);
+
+		if (denominator == 0.0f)
+		{
+			// parallel
+			return output;
+		}
+
+		float t = numerator / denominator;
+		if (t < 0.0f || input->maxFraction < t)
+		{
+			// out of ray range
+			return output;
+		}
+
+		// Intersection point on infinite segment
+		b2Vec2 p = b2MulAdd(p1, t, d);
+
+		// Compute position of p along segment
+		// p = v1 + s * e
+		// s = dot(p - v1, e) / dot(e, e)
+
+		float s = b2Dot(b2Sub(p, v1), eUnit);
+		if (s < 0.0f || length < s)
+		{
+			// out of segment range
+			return output;
+		}
+
+		if (numerator > 0.0f)
+		{
+			normal = b2Neg(normal);
+		}
+
+		output.fraction = t;
+		output.normal = normal;
+		output.hit = true;
+
+		return output;
+	}
+
 	b2Capsule capsule = {shape->point1, shape->point2, 0.0f};
 	return b2RayCastCapsule(input, &capsule);
 }
 
 b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape)
 {
+	assert(b2IsValidRay(input));
+
+	if (input->radius == 0.0f && shape->radius == 0.0f)
+	{
+		// Put the ray into the polygon's frame of reference.
+		b2Vec2 p1 = input->p1;
+		b2Vec2 p2 = input->p2;
+		b2Vec2 d = b2Sub(p2, p1);
+
+		float lower = 0.0f, upper = input->maxFraction;
+
+		int32_t index = -1;
+
+		b2RayCastOutput output = {0};
+
+		for (int32_t i = 0; i < shape->count; ++i)
+		{
+			// p = p1 + a * d
+			// dot(normal, p - v) = 0
+			// dot(normal, p1 - v) + a * dot(normal, d) = 0
+			float numerator = b2Dot(shape->normals[i], b2Sub(shape->vertices[i], p1));
+			float denominator = b2Dot(shape->normals[i], d);
+
+			if (denominator == 0.0f)
+			{
+				if (numerator < 0.0f)
+				{
+					return output;
+				}
+			}
+			else
+			{
+				// Note: we want this predicate without division:
+				// lower < numerator / denominator, where denominator < 0
+				// Since denominator < 0, we have to flip the inequality:
+				// lower < numerator / denominator <==> denominator * lower > numerator.
+				if (denominator < 0.0f && numerator < lower * denominator)
+				{
+					// Increase lower.
+					// The segment enters this half-space.
+					lower = numerator / denominator;
+					index = i;
+				}
+				else if (denominator > 0.0f && numerator < upper * denominator)
+				{
+					// Decrease upper.
+					// The segment exits this half-space.
+					upper = numerator / denominator;
+				}
+			}
+
+			// The use of epsilon here causes the assert on lower to trip
+			// in some cases. Apparently the use of epsilon was to make edge
+			// shapes work, but now those are handled separately.
+			// if (upper < lower - b2_epsilon)
+			if (upper < lower)
+			{
+				return output;
+			}
+		}
+
+		assert(0.0f <= lower && lower <= input->maxFraction);
+
+		if (index >= 0)
+		{
+			output.fraction = lower;
+			output.normal = shape->normals[index];
+			output.point = b2Lerp(p1, p2, output.fraction);
+			output.hit = true;
+		}
+
+		return output;
+	}
+
+	// TODO_ERIN this is not working for ray vs box (zero radii)
 	b2ShapeCastInput castInput;
 	castInput.proxyA = b2MakeProxy(shape->vertices, shape->count, shape->radius);
 	castInput.proxyB = b2MakeProxy(&input->p1, 1, input->radius);

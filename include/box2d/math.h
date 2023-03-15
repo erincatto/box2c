@@ -23,7 +23,7 @@ static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
 bool b2IsValid(float a);
-bool b2Vec2_IsValid(b2Vec2 v);
+bool b2IsValidVec2(b2Vec2 v);
 
 /// Make a vector
 static inline b2Vec2 b2MakeVec2(float x, float y)
