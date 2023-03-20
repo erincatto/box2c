@@ -990,6 +990,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 			subInput.maxFraction = maxFraction;
 
 			float value = callback(&subInput, nodeId, node->userData, context);
+			assert(value >= 0.0f);
 
 			if (value == 0.0f)
 			{
@@ -997,7 +998,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 				return;
 			}
 
-			if (value > 0.0f)
+			if (value < maxFraction)
 			{
 				// Update segment bounding box.
 				maxFraction = value;
@@ -1013,6 +1014,8 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 
 			if (stackCount <= b2_treeStackSize - 2)
 			{
+				// TODO_ERIN just put one node on the stack, continue on a child node
+				// TODO_ERIN test ordering children by nearest to ray origin
 				stack[stackCount++] = node->child1;
 				stack[stackCount++] = node->child2;
 			}

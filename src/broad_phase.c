@@ -5,7 +5,9 @@
 #include "box2d/allocate.h"
 
 #include "broad_phase.h"
+
 #include <string.h>
+#include <tracy/TracyC.h>
 
 void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 {
@@ -141,6 +143,8 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 
 void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 {
+	TracyCZoneC(ctx, b2_colorAzure3, true);
+
 	// Perform tree queries for all moving proxies. This fills the pair buffer.
 	for (int32_t i = 0; i < bp->moveCount; ++i)
 	{
@@ -197,6 +201,8 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 
 	// Reset move buffer
 	bp->moveCount = 0;
+
+	TracyCZoneEnd(ctx);
 }
 
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB)

@@ -8,6 +8,7 @@
       "features": [ "opengl3-binding", "glfw-binding" ]
     },
     "glad",
-    "jsmn"
+    "jsmn",
+    "tracy"
   ]
 }

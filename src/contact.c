@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <float.h>
 #include <math.h>
+#include <tracy/TracyC.h>
 
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.
@@ -269,6 +270,8 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transfor
 void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
 					  b2Body* bodyB)
 {
+	TracyCZoneC(contact_update, 0x232879FF, true);
+
 	b2Manifold oldManifold = contact->manifold;
 
 	assert(shapeA->object.index == contact->shapeIndexA);
@@ -362,4 +365,6 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	//{
 	//	world->callbacks.endContactFcn(shapeIdA, shapeIdB);
 	// }
+
+	TracyCZoneEnd(contact_update);
 }

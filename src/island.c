@@ -17,6 +17,7 @@
 
 #include <assert.h>
 #include <float.h>
+#include <tracy/TracyC.h>
 
 /*
 Position Correction Notes
@@ -196,6 +197,8 @@ bool g_positionBlockSolve = true;
 
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
+	TracyCZoneC(ctx, b2_colorFirebrick2, true);
+
 	b2Timer timer = b2CreateTimer();
 
 	float h = step->dt;
@@ -263,6 +266,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 	profile->solveInit = b2GetMillisecondsAndReset(&timer);
 
+	TracyCZoneNC(velc, "Velocity Constraints", 0xFF0000FF, true);
 	// Solve velocity constraints
 	for (int32_t i = 0; i < step->velocityIterations; ++i)
 	{
@@ -273,6 +277,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 		b2ContactSolver_SolveVelocityConstraints(&solver);
 	}
+	TracyCZoneEnd(velc);
 
 	// Special handling for restitution
 	b2ContactSolver_ApplyRestitution(&solver);
@@ -314,6 +319,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		island->velocities[i].w = w;
 	}
 
+	TracyCZoneNC(posc, "Position Constraints", 0x00FF00FF, true);
+
 	// Solve position constraints
 	b2GetMillisecondsAndReset(&timer);
 	bool positionSolved = false;
@@ -344,6 +351,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
+
+	TracyCZoneEnd(posc);
 
 	// Copy state buffers back to the bodies
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -432,6 +441,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
+	TracyCZoneNC(moveproxies, "Move Proxies", 0x112233FF, true);
+
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
 	if (isIslandAwake)
@@ -484,7 +495,11 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
+	TracyCZoneEnd(moveproxies);
+
 	b2DestroyContactSolver(&solver);
 
 	profile->completion = b2GetMillisecondsAndReset(&timer);
+
+	TracyCZoneEnd(ctx);
 }

@@ -21,6 +21,8 @@
 #include "box2d/math.h"
 #include "box2d/timer.h"
 
+#include <tracy/Tracy.hpp>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -643,6 +645,8 @@ int main(int, char**)
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		glfwSwapBuffers(g_mainWindow);
+
+		FrameMark;
 
 		if (s_selection != s_settings.m_sampleIndex)
 		{
