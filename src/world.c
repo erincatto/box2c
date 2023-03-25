@@ -22,8 +22,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include <tracy/TracyC.h>
-
 b2World g_worlds[b2_maxWorlds];
 
 b2World* b2GetWorldFromId(b2WorldId id)
@@ -228,7 +226,7 @@ void b2DestroyWorld(b2WorldId id)
 
 static void b2Collide(b2World* world)
 {
-	TracyCZoneC(ctx, b2_colorLinen, true);
+	b2TracyCZoneC(collide, b2_colorLinen, true);
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
@@ -287,13 +285,13 @@ static void b2Collide(b2World* world)
 		}
 	}
 
-	TracyCZoneEnd(ctx);
+	b2TracyCZoneEnd(collide);
 }
 
 // Find islands, integrate and solve constraints, solve position constraints
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
-	TracyCZoneC(ctx, b2_colorCornsilk3, true);
+	b2TracyCZoneC(solve, b2_colorCornsilk3, true);
 
 	world->profile.solveInit = 0.0f;
 	world->profile.solveVelocity = 0.0f;
@@ -507,12 +505,12 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
-	TracyCZoneEnd(ctx);
+	b2TracyCZoneEnd(solve);
 }
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
-	TracyCZoneC(ctx, b2_colorGold1, true);
+	b2TracyCZoneC(step_ctx, b2_colorGold1, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
 	assert(world->locked == false);
@@ -587,7 +585,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
-	TracyCZoneEnd(ctx);
+	b2TracyCZoneEnd(step_ctx);
 }
 
 static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Color color)

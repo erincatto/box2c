@@ -1,4 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.23)
+include(FetchContent)
 
 message(STATUS "cmake tool chain: ${CMAKE_TOOLCHAIN_FILE}")
 message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
@@ -6,6 +7,7 @@ message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
 project(box2d LANGUAGES C CXX)
 
 option(BOX2D_BUILD_SAMPLES "Build the Box2D samples application" ON)
+option(BOX2D_PROFILE "Enable profiling with Tracy" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -17,10 +19,26 @@ if (MSVC AND WIN32)
     add_compile_options($<$<CONFIG:Debug>:/ZI>)
 endif()
 
+if (BOX2D_PROFILE)
+	add_compile_definitions(BOX2D_PROFILE)
+endif()
+
 add_subdirectory(test)
 add_subdirectory(src)
 
 if (BOX2D_BUILD_SAMPLES)
+
+	if (BOX2D_PROFILE)
+		FetchContent_Declare(
+			tracy
+			GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+			GIT_TAG master
+			GIT_SHALLOW TRUE
+			GIT_PROGRESS TRUE
+		)
+		FetchContent_MakeAvailable(tracy)
+	endif()
+
 	add_subdirectory(samples)
 
 	# default startup project for Visual Studio

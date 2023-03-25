@@ -17,7 +17,6 @@
 
 #include <assert.h>
 #include <float.h>
-#include <tracy/TracyC.h>
 
 /*
 Position Correction Notes
@@ -197,7 +196,7 @@ bool g_positionBlockSolve = true;
 
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
-	TracyCZoneC(ctx, b2_colorFirebrick2, true);
+	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
 
 	b2Timer timer = b2CreateTimer();
 
@@ -266,7 +265,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 	profile->solveInit = b2GetMillisecondsAndReset(&timer);
 
-	TracyCZoneNC(velc, "Velocity Constraints", 0xFF0000FF, true);
+	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorBrown2, true);
 	// Solve velocity constraints
 	for (int32_t i = 0; i < step->velocityIterations; ++i)
 	{
@@ -277,7 +276,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 		b2ContactSolver_SolveVelocityConstraints(&solver);
 	}
-	TracyCZoneEnd(velc);
+	b2TracyCZoneEnd(velc);
 
 	// Special handling for restitution
 	b2ContactSolver_ApplyRestitution(&solver);
@@ -319,7 +318,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		island->velocities[i].w = w;
 	}
 
-	TracyCZoneNC(posc, "Position Constraints", 0x00FF00FF, true);
+	b2TracyCZoneNC(posc, "Position Constraints", 0x00FF00FF, true);
 
 	// Solve position constraints
 	b2GetMillisecondsAndReset(&timer);
@@ -352,7 +351,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
-	TracyCZoneEnd(posc);
+	b2TracyCZoneEnd(posc);
 
 	// Copy state buffers back to the bodies
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -441,7 +440,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
-	TracyCZoneNC(moveproxies, "Move Proxies", 0x112233FF, true);
+	b2TracyCZoneNC(move_proxies, "Move Proxies", b2_colorSalmon2, true);
 
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
@@ -495,11 +494,11 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
-	TracyCZoneEnd(moveproxies);
+	b2TracyCZoneEnd(move_proxies);
 
 	b2DestroyContactSolver(&solver);
 
 	profile->completion = b2GetMillisecondsAndReset(&timer);
 
-	TracyCZoneEnd(ctx);
+	b2TracyCZoneEnd(solve_island);
 }

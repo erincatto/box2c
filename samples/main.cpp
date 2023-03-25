@@ -21,10 +21,14 @@
 #include "box2d/math.h"
 #include "box2d/timer.h"
 
-#include <tracy/Tracy.hpp>
-
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef BOX2D_PROFILE
+#include <tracy/Tracy.hpp>
+#else
+#define FrameMark
+#endif
 
 #if defined(_WIN32)
 #include <crtdbg.h>
