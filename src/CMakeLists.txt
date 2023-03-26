@@ -34,6 +34,7 @@ set(BOX2D_SOURCE_FILES
 	solver_data.h
 	stack_allocator.c
 	stack_allocator.h
+	thread.c
 	thread.h
 	timer.c
 	types.c
@@ -76,7 +77,7 @@ set_target_properties(box2d PROPERTIES
 	C_EXTENSIONS NO
 )
 
-if(MSVC)
+if (MSVC)
 	target_compile_options(box2d PRIVATE /W4 /WX)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -90,8 +91,6 @@ endif()
 if (BOX2D_PROFILE)
 	target_link_libraries(box2d PUBLIC TracyClient)
 endif()
-
-# target_link_libraries(box2d PUBLIC Tracy::TracyClient)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_API_FILES})
