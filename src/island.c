@@ -265,7 +265,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 	profile->solveInit = b2GetMillisecondsAndReset(&timer);
 
-	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorBrown2, true);
+	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorCadetBlue, true);
 	// Solve velocity constraints
 	for (int32_t i = 0; i < step->velocityIterations; ++i)
 	{
@@ -318,7 +318,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		island->velocities[i].w = w;
 	}
 
-	b2TracyCZoneNC(posc, "Position Constraints", 0x00FF00FF, true);
+	b2TracyCZoneNC(posc, "Position Constraints", b2_colorBurlywood, true);
 
 	// Solve position constraints
 	b2GetMillisecondsAndReset(&timer);

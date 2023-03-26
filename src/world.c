@@ -226,7 +226,7 @@ void b2DestroyWorld(b2WorldId id)
 
 static void b2Collide(b2World* world)
 {
-	b2TracyCZoneC(collide, b2_colorLinen, true);
+	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
@@ -291,7 +291,7 @@ static void b2Collide(b2World* world)
 // Find islands, integrate and solve constraints, solve position constraints
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
-	b2TracyCZoneC(solve, b2_colorCornsilk3, true);
+	b2TracyCZoneC(solve, b2_colorMistyRose, true);
 
 	world->profile.solveInit = 0.0f;
 	world->profile.solveVelocity = 0.0f;
@@ -510,7 +510,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
-	b2TracyCZoneC(step_ctx, b2_colorGold1, true);
+	b2TracyCZoneC(step_ctx, b2_colorChartreuse, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
 	assert(world->locked == false);

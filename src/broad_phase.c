@@ -143,7 +143,7 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 
 void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 {
-	b2TracyCZoneC(update_pairs, b2_colorAzure3, true);
+	b2TracyCZoneC(update_pairs, b2_colorDimGrey, true);
 
 	// Perform tree queries for all moving proxies. This fills the pair buffer.
 	for (int32_t i = 0; i < bp->moveCount; ++i)
