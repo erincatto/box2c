@@ -1,3 +1,6 @@
+# find_package(Tracy CONFIG REQUIRED)
+# find_package(Threads)
+
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	allocate.c
@@ -46,6 +49,7 @@ set(BOX2D_API_FILES
 	../include/box2d/api.h
 	../include/box2d/box2d.h
 	../include/box2d/callbacks.h
+	../include/box2d/color.h
 	../include/box2d/constants.h
 	../include/box2d/debug_draw.h
 	../include/box2d/distance.h
@@ -81,9 +85,15 @@ else()
 endif()
 
 find_library(MATH_LIBRARY m)
-if(MATH_LIBRARY)
+if (MATH_LIBRARY)
 	target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
 endif()
+
+if (BOX2D_PROFILE)
+	target_link_libraries (box2d PUBLIC TracyClient)
+endif()
+
+# target_link_libraries(box2d PUBLIC Tracy::TracyClient)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_API_FILES})

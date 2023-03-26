@@ -3,6 +3,7 @@
 
 #include "box2d/distance.h"
 #include "box2d/manifold.h"
+#include "box2d/timer.h"
 
 #include "array.h"
 #include "block_allocator.h"
@@ -14,6 +15,7 @@
 #include <assert.h>
 #include <float.h>
 #include <math.h>
+
 
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.

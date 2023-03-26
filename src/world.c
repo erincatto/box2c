@@ -1,9 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-// #include "contact_solver.h"
-// #include "island.h"
-
 #include "box2d/allocate.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
@@ -229,6 +226,8 @@ void b2DestroyWorld(b2WorldId id)
 
 static void b2Collide(b2World* world)
 {
+	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
 	int32_t count = b2Array(awakeBodies).count;
@@ -285,11 +284,15 @@ static void b2Collide(b2World* world)
 			ce = ce->next;
 		}
 	}
+
+	b2TracyCZoneEnd(collide);
 }
 
 // Find islands, integrate and solve constraints, solve position constraints
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
+	b2TracyCZoneC(solve, b2_colorMistyRose, true);
+
 	world->profile.solveInit = 0.0f;
 	world->profile.solveVelocity = 0.0f;
 	world->profile.solvePosition = 0.0f;
@@ -501,10 +504,14 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2Timer timer = b2CreateTimer();
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
 	world->profile.broadphase = b2GetMilliseconds(&timer);
+
+	b2TracyCZoneEnd(solve);
 }
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
+	b2TracyCZoneC(step_ctx, b2_colorChartreuse, true);
+
 	b2World* world = b2GetWorldFromId(worldId);
 	assert(world->locked == false);
 	if (world->locked)
@@ -577,6 +584,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	world->locked = false;
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
+
+	b2TracyCZoneEnd(step_ctx);
 }
 
 static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Color color)

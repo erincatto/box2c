@@ -24,6 +24,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef BOX2D_PROFILE
+#include <tracy/Tracy.hpp>
+#else
+#define FrameMark
+#endif
+
 #if defined(_WIN32)
 #include <crtdbg.h>
 #endif
@@ -643,6 +649,8 @@ int main(int, char**)
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		glfwSwapBuffers(g_mainWindow);
+
+		FrameMark;
 
 		if (s_selection != s_settings.m_sampleIndex)
 		{

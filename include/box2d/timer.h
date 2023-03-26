@@ -57,3 +57,18 @@ void b2SleepMilliseconds(float milliseconds);
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef BOX2D_PROFILE
+
+#include <tracy/TracyC.h>
+#define b2TracyCZoneC(ctx, color, active) TracyCZoneC(ctx, color, active)
+#define b2TracyCZoneNC(ctx, name, color, active) TracyCZoneNC(ctx, name, color, active)
+#define b2TracyCZoneEnd(ctx) TracyCZoneEnd(ctx)
+
+#else
+
+#define b2TracyCZoneC(ctx, color, active)
+#define b2TracyCZoneNC(ctx, name, color, active)
+#define b2TracyCZoneEnd(ctx)
+
+#endif
