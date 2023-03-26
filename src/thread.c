@@ -10,8 +10,6 @@ Do this:
 before you include this file in *one* C/C++ file to create the implementation.
 */
 
-#include "thread.h"
-
 /**
 
 thread.h
@@ -451,6 +449,10 @@ Returns the number of elements currently held in a single-producer/single-consum
 get the count, it might have changed by another thread calling consume or produce, so use with care.
 
 */
+
+#include "thread.h"
+
+#include <stdint.h>
 
 #ifndef THREAD_U64
 #define THREAD_U64 unsigned long long
