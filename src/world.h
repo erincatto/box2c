@@ -36,7 +36,7 @@ typedef struct b2World
 
 	// array of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;
-	thread_mutex_t invalidContactMutex;
+	b2Mutex invalidContactMutex;
 
 	// double buffered awake body array (not safe to copy pointers)
 	int32_t* awakeBodies;

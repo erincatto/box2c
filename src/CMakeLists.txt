@@ -34,7 +34,7 @@ set(BOX2D_SOURCE_FILES
 	solver_data.h
 	stack_allocator.c
 	stack_allocator.h
-	thread.c
+	thread.cpp
 	thread.h
 	timer.c
 	types.c
@@ -75,10 +75,12 @@ set_target_properties(box2d PROPERTIES
 	C_STANDARD 17
 	C_STANDARD_REQUIRED YES
 	C_EXTENSIONS NO
+	CXX_STANDARD 17
 )
 
 if (MSVC)
-	target_compile_options(box2d PRIVATE /W4 /WX)
+	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
+	# target_compile_options(box2d PRIVATE /W4 /WX)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

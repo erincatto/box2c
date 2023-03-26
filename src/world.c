@@ -185,7 +185,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contacts = NULL;
 	world->contactCount = 0;
 
-	thread_mutex_init(&world->invalidContactMutex);
+	b2CreateMutex(&world->invalidContactMutex);
 	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
 
 	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
@@ -239,7 +239,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyArray(world->awakeBodies);
 	b2DestroyArray(world->seedBodies);
 
-	thread_mutex_term(&world->invalidContactMutex);
+	b2DestroyMutex(&world->invalidContactMutex);
 	b2DestroyArray(world->invalidContacts);
 
 	b2DestroyPool(&world->shapePool);
@@ -327,9 +327,9 @@ static void b2CollideTaskFcn(void* taskContext)
 				ce = ce->next;
 
 				// Safely make array of invalid contacts to be destroyed serially
-				thread_mutex_lock(&world->invalidContactMutex);
+				b2LockMutex(&world->invalidContactMutex);
 				b2Array_Push(world->invalidContacts, contact);
-				thread_mutex_unlock(&world->invalidContactMutex);
+				b2UnlockMutex(&world->invalidContactMutex);
 
 				continue;
 			}
