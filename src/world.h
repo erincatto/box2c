@@ -3,13 +3,13 @@
 
 #pragma once
 
+#include "broad_phase.h"
 #include "pool.h"
+#include "thread.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
-
-#include "broad_phase.h"
 
 /// The world class manages all physics entities, dynamic simulation,
 /// and asynchronous queries. The world also contains efficient memory
@@ -33,6 +33,10 @@ typedef struct b2World
 
 	struct b2Contact* contacts;
 	int32_t contactCount;
+
+	// array of contacts with shapes that no longer have overlapping bounding boxes
+	struct b2Contact** invalidContacts;
+	thread_mutex_t invalidContactMutex;
 
 	// double buffered awake body array (not safe to copy pointers)
 	int32_t* awakeBodies;
@@ -60,6 +64,11 @@ typedef struct b2World
 
 	b2PostSolveFcn* postSolveFcn;
 	void* postSolveContext;
+
+	int32_t workerCount;
+	b2AddTaskFcn *addFcn;
+	b2FinishTasksFcn *finishFcn;
+	void *userTaskContext;
 
 	bool enableSleep;
 	bool newContacts;

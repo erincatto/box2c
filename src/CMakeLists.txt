@@ -1,6 +1,3 @@
-# find_package(Tracy CONFIG REQUIRED)
-# find_package(Threads)
-
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	allocate.c
@@ -37,6 +34,7 @@ set(BOX2D_SOURCE_FILES
 	solver_data.h
 	stack_allocator.c
 	stack_allocator.h
+	thread.h
 	timer.c
 	types.c
 	world.c
@@ -90,7 +88,7 @@ if (MATH_LIBRARY)
 endif()
 
 if (BOX2D_PROFILE)
-	target_link_libraries (box2d PUBLIC TracyClient)
+	target_link_libraries(box2d PUBLIC TracyClient)
 endif()
 
 # target_link_libraries(box2d PUBLIC Tracy::TracyClient)

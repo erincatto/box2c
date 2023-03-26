@@ -35,11 +35,44 @@ void PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manif
 	sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
+static void AddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext)
+{
+	Sample* sample = static_cast<Sample*>(userContext);
+	if (sample->m_taskCount < maxTasks)
+	{
+		SampleTask& task = sample->m_tasks[sample->m_taskCount];
+		task.m_taskFcn = taskFcn;
+		task.m_taskContext = taskContext;
+		sample->m_scheduler.AddTaskSetToPipe(&task);
+		++sample->m_taskCount;
+	}
+	else
+	{
+		taskFcn(taskContext);
+	}
+}
+
+static void FinishTasksFcn(void* userContext)
+{
+	Sample* sample = static_cast<Sample*>(userContext);
+	sample->m_scheduler.WaitforAll();
+	sample->m_taskCount = 0;
+}
+
 Sample::Sample()
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
+	uint32_t maxThreads = enki::GetNumHardwareThreads() / 2;
+	m_scheduler.Initialize(maxThreads);
+	m_taskCount = 0;
+
 	b2WorldDef worldDef = b2DefaultWorldDef();
+	worldDef.workerCount = maxThreads;
+	worldDef.addTaskFcn = &AddTaskFcn;
+	worldDef.finishTasksFcn = &FinishTasksFcn;
+	worldDef.userTaskContext = this;
+
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
 	m_textIncrement = 18;

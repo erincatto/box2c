@@ -7,6 +7,9 @@
 #include "box2d/debug_draw.h"
 #include "box2d/timer.h"
 
+#define THREAD_IMPLEMENTATION
+#include "thread.h"
+
 #include "array.h"
 #include "block_allocator.h"
 #include "body.h"
@@ -21,6 +24,7 @@
 
 #include <assert.h>
 #include <string.h>
+
 
 b2World g_worlds[b2_maxWorlds];
 
@@ -38,6 +42,17 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	b2World* world = g_worlds + index;
 	assert(world->blockAllocator != NULL);
 	return world;
+}
+
+static void b2DefaultAddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext)
+{
+	B2_MAYBE_UNUSED(userContext);
+	taskFcn(taskContext);
+}
+
+static void b2DefaultFinishTasksFcn(void* userContext)
+{
+	B2_MAYBE_UNUSED(userContext);
 }
 
 static void b2AddPair(void* userDataA, void* userDataB, void* context)
@@ -170,6 +185,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contacts = NULL;
 	world->contactCount = 0;
 
+	thread_mutex_init(&world->invalidContactMutex);
+	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
+
 	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
 	world->seedBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
 
@@ -196,6 +214,21 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2BodyId groundId = b2World_CreateBody(id, &groundDef);
 	world->groundBodyIndex = groundId.index;
 
+	if (def->workerCount > 0 && def->addTaskFcn != NULL && def->finishTasksFcn != NULL)
+	{
+		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
+		world->addFcn = def->addTaskFcn;
+		world->finishFcn = def->finishTasksFcn;
+		world->userTaskContext = def->userTaskContext;
+	}
+	else
+	{
+		world->workerCount = 1;
+		world->addFcn = b2DefaultAddTaskFcn;
+		world->finishFcn = b2DefaultFinishTasksFcn;
+		world->userTaskContext = NULL;
+	}
+
 	return id;
 }
 
@@ -205,6 +238,9 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyArray(world->awakeBodies);
 	b2DestroyArray(world->seedBodies);
+
+	thread_mutex_term(&world->invalidContactMutex);
+	b2DestroyArray(world->invalidContacts);
 
 	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
@@ -224,15 +260,29 @@ void b2DestroyWorld(b2WorldId id)
 	world->stackAllocator = NULL;
 }
 
-static void b2Collide(b2World* world)
+typedef struct b2CollideTask
 {
-	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+	b2World* world;
+	int32_t bodyIndex1;
+	int32_t bodyIndex2;
+} b2CollideTask;
+
+static void b2CollideTaskFcn(void* taskContext)
+{
+	b2TracyCZoneC(collide_task, b2_colorYellow, true);
+
+	b2CollideTask* task = taskContext;
+	b2World* world = task->world;
+	int32_t i1 = task->bodyIndex1;
+	int32_t i2 = task->bodyIndex2;
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
-	int32_t count = b2Array(awakeBodies).count;
 
-	for (int32_t i = 0; i < count; ++i)
+	assert(i1 <= i2);
+	assert(i2 < b2Array(awakeBodies).count);
+
+	for (int32_t i = i1; i <= i2; ++i)
 	{
 		int32_t bodyIndex = awakeBodies[i];
 		if (bodyIndex == B2_NULL_INDEX)
@@ -270,11 +320,17 @@ static void b2Collide(b2World* world)
 			int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
 
 			// Do proxies still overlap?
+			// TODO_ERIN if we keep fat aabbs on shapes we don't need to dive into the broadphase here
 			bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
 			if (overlap == false)
 			{
 				ce = ce->next;
-				b2DestroyContact(world, contact);
+
+				// Safely make array of invalid contacts to be destroyed serially
+				thread_mutex_lock(&world->invalidContactMutex);
+				b2Array_Push(world->invalidContacts, contact);
+				thread_mutex_unlock(&world->invalidContactMutex);
+
 				continue;
 			}
 
@@ -284,6 +340,60 @@ static void b2Collide(b2World* world)
 			ce = ce->next;
 		}
 	}
+
+	b2TracyCZoneEnd(collide_task);
+}
+
+static void b2Collide(b2World* world)
+{
+	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+
+	b2CollideTask tasks[b2_maxWorkers] = {0};
+
+	const int32_t* awakeBodies = world->awakeBodies;
+	int32_t count = b2Array(awakeBodies).count;
+
+	// Divide the set of awake bodies up into one group per worker
+
+	int32_t workerCount = world->workerCount;
+	assert(0 < workerCount && workerCount <= b2_maxWorkers);
+
+	// number of bodies per task
+	int32_t n;
+	if (workerCount == 1 || count < workerCount)
+	{
+		n = count;
+	}
+	else
+	{
+		n = count / (workerCount - 1);
+	}
+
+	int32_t index = 0;
+	while (count > 0)
+	{
+		assert(index < b2_maxWorkers);
+		b2CollideTask* task = tasks + index;
+		task->world = world;
+		task->bodyIndex1 = n * index;
+		task->bodyIndex2 = task->bodyIndex1 + B2_MIN(count, n) - 1;
+		world->addFcn(&b2CollideTaskFcn, task, world->userTaskContext);
+		index += 1;
+		count -= n;
+	}
+
+	world->finishFcn(world->userTaskContext);
+
+	// Serially destroy contacts
+	b2TracyCZoneNC(destroy_contacts, "Destroy Contact", b2_colorCoral, true);
+	int32_t invalidContactCount = b2Array(world->invalidContacts).count;
+	for (int32_t i = 0; i < invalidContactCount; ++i)
+	{
+		b2Contact* contact = world->invalidContacts[i];
+		b2DestroyContact(world, contact);
+	}
+	b2Array_Clear(world->invalidContacts);
+	b2TracyCZoneEnd(destroy_contacts);
 
 	b2TracyCZoneEnd(collide);
 }

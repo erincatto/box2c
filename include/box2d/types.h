@@ -73,6 +73,15 @@ typedef struct b2RayCastOutput
 	bool hit;
 } b2RayCastOutput;
 
+
+/// Task interface
+/// This is a internal Box2D task
+typedef void b2TaskFcn(void* context);
+
+/// These functions can be provided to Box2D to support task parallelism
+typedef void b2AddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext);
+typedef void b2FinishTasksFcn(void* userContext);
+
 typedef struct b2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
@@ -93,6 +102,13 @@ typedef struct b2WorldDef
 
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
+
+	/// task system hookup
+	int32_t workerCount;
+	b2AddTaskFcn* addTaskFcn;
+	b2FinishTasksFcn* finishTasksFcn;
+	void* userTaskContext;
+
 } b2WorldDef;
 
 /// The body type.

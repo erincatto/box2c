@@ -102,16 +102,3 @@ typedef bool b2QueryResultFcn(b2ShapeId shapeId);
 /// closest hit, 1 to continue
 typedef float b2RayResultFcn(b2ShapeId shape, b2Vec2 point, b2Vec2 normal, float fraction);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-static inline b2WorldCallbacks b2DefaultWorldCallbacks()
-{
-	b2WorldCallbacks callbacks = {0};
-	return callbacks;
-}
-
-#ifdef __cplusplus
-}
-#endif
