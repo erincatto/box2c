@@ -27,12 +27,6 @@ int thread_atomic_int_sub(thread_atomic_int_t* atomic, int value);
 int thread_atomic_int_swap(thread_atomic_int_t* atomic, int desired);
 int thread_atomic_int_compare_and_swap(thread_atomic_int_t* atomic, int expected, int desired);
 
-typedef union thread_atomic_ptr_t thread_atomic_ptr_t;
-void* thread_atomic_ptr_load(thread_atomic_ptr_t* atomic);
-void thread_atomic_ptr_store(thread_atomic_ptr_t* atomic, void* desired);
-void* thread_atomic_ptr_swap(thread_atomic_ptr_t* atomic, void* desired);
-void* thread_atomic_ptr_compare_and_swap(thread_atomic_ptr_t* atomic, void* expected, void* desired);
-
 typedef void* thread_tls_t;
 thread_tls_t thread_tls_create(void);
 void thread_tls_destroy(thread_tls_t tls);
