@@ -21,23 +21,21 @@ endif()
 
 if (BOX2D_PROFILE)
 	add_compile_definitions(BOX2D_PROFILE)
+
+	FetchContent_Declare(
+		tracy
+		GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+		GIT_TAG master
+		GIT_SHALLOW TRUE
+		GIT_PROGRESS TRUE
+	)
+	FetchContent_MakeAvailable(tracy)
 endif()
 
 add_subdirectory(test)
 add_subdirectory(src)
 
 if (BOX2D_BUILD_SAMPLES)
-
-	if (BOX2D_PROFILE)
-		FetchContent_Declare(
-			tracy
-			GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-			GIT_TAG master
-			GIT_SHALLOW TRUE
-			GIT_PROGRESS TRUE
-		)
-		FetchContent_MakeAvailable(tracy)
-	endif()
 
 	add_subdirectory(samples)
 
