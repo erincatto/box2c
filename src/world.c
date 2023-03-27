@@ -44,10 +44,11 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	return world;
 }
 
-static void b2DefaultAddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext)
+static void b2DefaultAddTaskFcn(b2TaskFcn* taskFcn, int32_t count, int32_t minRange, void* taskContext, void* userContext)
 {
+	B2_MAYBE_UNUSED(minRange);
 	B2_MAYBE_UNUSED(userContext);
-	taskFcn(taskContext);
+	taskFcn(0, count, taskContext);
 }
 
 static void b2DefaultFinishTasksFcn(void* userContext)
@@ -185,7 +186,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contacts = NULL;
 	world->contactCount = 0;
 
-	b2CreateMutex(&world->invalidContactMutex);
+	world->invalidContactMutex = b2CreateMutex("Invalid Contact");
 	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
 
 	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
@@ -237,10 +238,15 @@ void b2DestroyWorld(b2WorldId id)
 	b2World* world = b2GetWorldFromId(id);
 
 	b2DestroyArray(world->awakeBodies);
-	b2DestroyArray(world->seedBodies);
+	world->awakeBodies = NULL;
 
-	b2DestroyMutex(&world->invalidContactMutex);
+	b2DestroyArray(world->seedBodies);
+	world->seedBodies = NULL;
+
+	b2DestroyMutex(world->invalidContactMutex);
+	world->invalidContactMutex = NULL;
 	b2DestroyArray(world->invalidContacts);
+	world->invalidContacts = NULL;
 
 	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
@@ -263,26 +269,22 @@ void b2DestroyWorld(b2WorldId id)
 typedef struct b2CollideTask
 {
 	b2World* world;
-	int32_t bodyIndex1;
-	int32_t bodyIndex2;
 } b2CollideTask;
 
-static void b2CollideTaskFcn(void* taskContext)
+static void b2CollideTaskFcn(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
 	b2TracyCZoneC(collide_task, b2_colorYellow, true);
 
 	b2CollideTask* task = taskContext;
 	b2World* world = task->world;
-	int32_t i1 = task->bodyIndex1;
-	int32_t i2 = task->bodyIndex2;
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
 
-	assert(i1 <= i2);
-	assert(i2 < b2Array(awakeBodies).count);
+	assert(startIndex < endIndex);
+	assert(endIndex <= b2Array(awakeBodies).count);
 
-	for (int32_t i = i1; i <= i2; ++i)
+	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		int32_t bodyIndex = awakeBodies[i];
 		if (bodyIndex == B2_NULL_INDEX)
@@ -327,9 +329,9 @@ static void b2CollideTaskFcn(void* taskContext)
 				ce = ce->next;
 
 				// Safely make array of invalid contacts to be destroyed serially
-				b2LockMutex(&world->invalidContactMutex);
+				b2LockMutex(world->invalidContactMutex);
 				b2Array_Push(world->invalidContacts, contact);
-				b2UnlockMutex(&world->invalidContactMutex);
+				b2UnlockMutex(world->invalidContactMutex);
 
 				continue;
 			}
@@ -348,40 +350,19 @@ static void b2Collide(b2World* world)
 {
 	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
 
-	b2CollideTask tasks[b2_maxWorkers] = {0};
-
 	const int32_t* awakeBodies = world->awakeBodies;
 	int32_t count = b2Array(awakeBodies).count;
 
-	// Divide the set of awake bodies up into one group per worker
-
-	int32_t workerCount = world->workerCount;
-	assert(0 < workerCount && workerCount <= b2_maxWorkers);
-
-	// number of bodies per task
-	int32_t n;
-	if (workerCount == 1 || count < workerCount)
+	if (count == 0)
 	{
-		n = count;
-	}
-	else
-	{
-		n = count / (workerCount - 1);
+		b2TracyCZoneEnd(collide);
+		return;
 	}
 
-	int32_t index = 0;
-	while (count > 0)
-	{
-		assert(index < b2_maxWorkers);
-		b2CollideTask* task = tasks + index;
-		task->world = world;
-		task->bodyIndex1 = n * index;
-		task->bodyIndex2 = task->bodyIndex1 + B2_MIN(count, n) - 1;
-		world->addFcn(&b2CollideTaskFcn, task, world->userTaskContext);
-		index += 1;
-		count -= n;
-	}
+	int32_t minRange = 16;
 
+	b2CollideTask task = {world};
+	world->addFcn(&b2CollideTaskFcn, count, minRange, &task, world->userTaskContext);
 	world->finishFcn(world->userTaskContext);
 
 	// Serially destroy contacts

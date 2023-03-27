@@ -76,19 +76,13 @@ class SampleTask : public enki::ITaskSet
 public:
 	SampleTask() = default;
 
-	SampleTask(b2TaskFcn* taskFcn, void* taskContext)
+	void ExecuteRange(enki::TaskSetPartition range, uint32_t) override
 	{
-		m_taskFcn = taskFcn;
-		m_taskContext = taskContext;
+		m_taskFcn(range.start, range.end, m_taskContext);
 	}
 
-	void ExecuteRange(enki::TaskSetPartition, uint32_t) override
-	{
-		m_taskFcn(m_taskContext);
-	}
-
-	b2TaskFcn* m_taskFcn;
-	void* m_taskContext;
+	b2TaskFcn* m_taskFcn = nullptr;
+	void* m_taskContext = nullptr;
 };
 
 constexpr int32_t maxTasks = 128;

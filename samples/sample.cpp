@@ -35,12 +35,14 @@ void PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manif
 	sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
-static void AddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext)
+static void AddTaskFcn(b2TaskFcn* taskFcn, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	if (sample->m_taskCount < maxTasks)
 	{
 		SampleTask& task = sample->m_tasks[sample->m_taskCount];
+		task.m_SetSize = itemCount;
+		task.m_MinRange = minRange;
 		task.m_taskFcn = taskFcn;
 		task.m_taskContext = taskContext;
 		sample->m_scheduler.AddTaskSetToPipe(&task);
@@ -48,7 +50,7 @@ static void AddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext)
 	}
 	else
 	{
-		taskFcn(taskContext);
+		taskFcn(0, itemCount, taskContext);
 	}
 }
 

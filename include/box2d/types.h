@@ -73,13 +73,12 @@ typedef struct b2RayCastOutput
 	bool hit;
 } b2RayCastOutput;
 
-
 /// Task interface
-/// This is a internal Box2D task
-typedef void b2TaskFcn(void* context);
+/// This is an internal Box2D task
+typedef void b2TaskFcn(int32_t startIndex, int32_t endIndex, void* context);
 
-/// These functions can be provided to Box2D to support task parallelism
-typedef void b2AddTaskFcn(b2TaskFcn* taskFcn, void* taskContext, void* userContext);
+/// These functions can be provided to Box2D to support parallelism
+typedef void b2AddTaskFcn(b2TaskFcn* taskFcn, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);
 typedef void b2FinishTasksFcn(void* userContext);
 
 typedef struct b2WorldDef

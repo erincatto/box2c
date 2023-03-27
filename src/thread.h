@@ -1,18 +1,15 @@
 #pragma once
 
-#include <stdalign.h>
+//#include <stdalign.h>
 
-typedef struct b2Mutex
-{
-	alignas(8) char data[80];
-} b2Mutex;
+typedef struct b2Mutex b2Mutex;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-void b2CreateMutex(b2Mutex* mutex);
+b2Mutex* b2CreateMutex(const char* name);
 void b2DestroyMutex(b2Mutex* mutex);
 void b2LockMutex(b2Mutex* mutex);
 void b2UnlockMutex(b2Mutex* mutex);

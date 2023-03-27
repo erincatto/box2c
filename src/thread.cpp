@@ -4,31 +4,48 @@
 #include "thread.h"
 
 #include <mutex>
-#include <new>
 
-// This wraps threading primitives for C. Replace when Microsoft supports C11 threads.
+#ifdef BOX2D_PROFILE
 
-void b2CreateMutex(b2Mutex* mutex)
+#include <tracy/Tracy.hpp>
+#include <string.h>
+
+struct b2Mutex
 {
-	static_assert(sizeof(b2Mutex) >= sizeof(std::mutex));
-	static_assert(alignof(b2Mutex) >= alignof(std::mutex));
-	new (mutex->data) std::mutex;
+	TracyLockable(std::mutex, mutex);
+};
+
+b2Mutex* b2CreateMutex(const char* name)
+{
+	b2Mutex* mutex = new b2Mutex;
+	mutex->mutex.CustomName(name, strlen(name));
+	return mutex;
 }
+
+#else
+
+struct b2Mutex
+{
+	std::mutex mutex;
+};
+
+b2Mutex* b2CreateMutex(const char*)
+{
+	return new b2Mutex;
+}
+#endif
 
 void b2DestroyMutex(b2Mutex* mutex)
 {
-	std::mutex* s = reinterpret_cast<std::mutex*>(mutex);
-	s->~mutex();
+	delete mutex;
 }
 
 void b2LockMutex(b2Mutex* mutex)
 {
-	std::mutex* s = reinterpret_cast<std::mutex*>(mutex);
-	s->lock();
+	mutex->mutex.lock();
 }
 
 void b2UnlockMutex(b2Mutex* mutex)
 {
-	std::mutex* s = reinterpret_cast<std::mutex*>(mutex);
-	s->unlock();
+	mutex->mutex.unlock();
 }
