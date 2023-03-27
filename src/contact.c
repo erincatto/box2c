@@ -16,7 +16,6 @@
 #include <float.h>
 #include <math.h>
 
-
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.
 static inline float b2MixFriction(float friction1, float friction2)

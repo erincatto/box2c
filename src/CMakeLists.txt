@@ -1,6 +1,3 @@
-# find_package(Tracy CONFIG REQUIRED)
-# find_package(Threads)
-
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	allocate.c
@@ -37,6 +34,8 @@ set(BOX2D_SOURCE_FILES
 	solver_data.h
 	stack_allocator.c
 	stack_allocator.h
+	thread.cpp
+	thread.h
 	timer.c
 	types.c
 	world.c
@@ -76,10 +75,12 @@ set_target_properties(box2d PROPERTIES
 	C_STANDARD 17
 	C_STANDARD_REQUIRED YES
 	C_EXTENSIONS NO
+	CXX_STANDARD 17
 )
 
-if(MSVC)
-	target_compile_options(box2d PRIVATE /W4 /WX)
+if (MSVC)
+	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
+	# target_compile_options(box2d PRIVATE /W4 /WX)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
@@ -90,10 +91,8 @@ if (MATH_LIBRARY)
 endif()
 
 if (BOX2D_PROFILE)
-	target_link_libraries (box2d PUBLIC TracyClient)
+	target_link_libraries(box2d PUBLIC TracyClient)
 endif()
-
-# target_link_libraries(box2d PUBLIC Tracy::TracyClient)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../include" PREFIX "include" FILES ${BOX2D_API_FILES})

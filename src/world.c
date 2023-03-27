@@ -7,6 +7,9 @@
 #include "box2d/debug_draw.h"
 #include "box2d/timer.h"
 
+#define THREAD_IMPLEMENTATION
+#include "thread.h"
+
 #include "array.h"
 #include "block_allocator.h"
 #include "body.h"
@@ -21,6 +24,7 @@
 
 #include <assert.h>
 #include <string.h>
+
 
 b2World g_worlds[b2_maxWorlds];
 
@@ -38,6 +42,18 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	b2World* world = g_worlds + index;
 	assert(world->blockAllocator != NULL);
 	return world;
+}
+
+static void b2DefaultAddTaskFcn(b2TaskFcn* taskFcn, int32_t count, int32_t minRange, void* taskContext, void* userContext)
+{
+	B2_MAYBE_UNUSED(minRange);
+	B2_MAYBE_UNUSED(userContext);
+	taskFcn(0, count, taskContext);
+}
+
+static void b2DefaultFinishTasksFcn(void* userContext)
+{
+	B2_MAYBE_UNUSED(userContext);
 }
 
 static void b2AddPair(void* userDataA, void* userDataB, void* context)
@@ -170,6 +186,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contacts = NULL;
 	world->contactCount = 0;
 
+	world->invalidContactMutex = b2CreateMutex("Invalid Contact");
+	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
+
 	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
 	world->seedBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
 
@@ -196,6 +215,21 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2BodyId groundId = b2World_CreateBody(id, &groundDef);
 	world->groundBodyIndex = groundId.index;
 
+	if (def->workerCount > 0 && def->addTaskFcn != NULL && def->finishTasksFcn != NULL)
+	{
+		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
+		world->addFcn = def->addTaskFcn;
+		world->finishFcn = def->finishTasksFcn;
+		world->userTaskContext = def->userTaskContext;
+	}
+	else
+	{
+		world->workerCount = 1;
+		world->addFcn = b2DefaultAddTaskFcn;
+		world->finishFcn = b2DefaultFinishTasksFcn;
+		world->userTaskContext = NULL;
+	}
+
 	return id;
 }
 
@@ -204,7 +238,15 @@ void b2DestroyWorld(b2WorldId id)
 	b2World* world = b2GetWorldFromId(id);
 
 	b2DestroyArray(world->awakeBodies);
+	world->awakeBodies = NULL;
+
 	b2DestroyArray(world->seedBodies);
+	world->seedBodies = NULL;
+
+	b2DestroyMutex(world->invalidContactMutex);
+	world->invalidContactMutex = NULL;
+	b2DestroyArray(world->invalidContacts);
+	world->invalidContacts = NULL;
 
 	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
@@ -224,15 +266,25 @@ void b2DestroyWorld(b2WorldId id)
 	world->stackAllocator = NULL;
 }
 
-static void b2Collide(b2World* world)
+typedef struct b2CollideTask
 {
-	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+	b2World* world;
+} b2CollideTask;
+
+static void b2CollideTaskFcn(int32_t startIndex, int32_t endIndex, void* taskContext)
+{
+	b2TracyCZoneC(collide_task, b2_colorYellow, true);
+
+	b2CollideTask* task = taskContext;
+	b2World* world = task->world;
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
-	int32_t count = b2Array(awakeBodies).count;
 
-	for (int32_t i = 0; i < count; ++i)
+	assert(startIndex < endIndex);
+	assert(endIndex <= b2Array(awakeBodies).count);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		int32_t bodyIndex = awakeBodies[i];
 		if (bodyIndex == B2_NULL_INDEX)
@@ -270,11 +322,17 @@ static void b2Collide(b2World* world)
 			int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
 
 			// Do proxies still overlap?
+			// TODO_ERIN if we keep fat aabbs on shapes we don't need to dive into the broadphase here
 			bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
 			if (overlap == false)
 			{
 				ce = ce->next;
-				b2DestroyContact(world, contact);
+
+				// Safely make array of invalid contacts to be destroyed serially
+				b2LockMutex(world->invalidContactMutex);
+				b2Array_Push(world->invalidContacts, contact);
+				b2UnlockMutex(world->invalidContactMutex);
+
 				continue;
 			}
 
@@ -284,6 +342,39 @@ static void b2Collide(b2World* world)
 			ce = ce->next;
 		}
 	}
+
+	b2TracyCZoneEnd(collide_task);
+}
+
+static void b2Collide(b2World* world)
+{
+	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+
+	const int32_t* awakeBodies = world->awakeBodies;
+	int32_t count = b2Array(awakeBodies).count;
+
+	if (count == 0)
+	{
+		b2TracyCZoneEnd(collide);
+		return;
+	}
+
+	int32_t minRange = 16;
+
+	b2CollideTask task = {world};
+	world->addFcn(&b2CollideTaskFcn, count, minRange, &task, world->userTaskContext);
+	world->finishFcn(world->userTaskContext);
+
+	// Serially destroy contacts
+	b2TracyCZoneNC(destroy_contacts, "Destroy Contact", b2_colorCoral, true);
+	int32_t invalidContactCount = b2Array(world->invalidContacts).count;
+	for (int32_t i = 0; i < invalidContactCount; ++i)
+	{
+		b2Contact* contact = world->invalidContacts[i];
+		b2DestroyContact(world, contact);
+	}
+	b2Array_Clear(world->invalidContacts);
+	b2TracyCZoneEnd(destroy_contacts);
 
 	b2TracyCZoneEnd(collide);
 }

@@ -86,6 +86,9 @@ extern float b2_timeToSleep;
 /// problems, so 100km as a limit should be fine in all cases.
 #define b2_huge (100000.0f * b2_lengthUnitsPerMeter)
 
+/// Maximum parallel workers. Used to size some static arrays.
+#define b2_maxWorkers 64
+
 /// Version numbering scheme.
 /// See http://en.wikipedia.org/wiki/Software_versioning
 typedef struct b2Version

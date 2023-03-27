@@ -10,6 +10,8 @@
 
 #include "draw.h"
 
+#include "TaskScheduler.h"
+
 #include <stdlib.h>
 
 struct Settings;
@@ -69,6 +71,22 @@ struct ContactPoint
 	float separation;
 };
 
+class SampleTask : public enki::ITaskSet
+{
+public:
+	SampleTask() = default;
+
+	void ExecuteRange(enki::TaskSetPartition range, uint32_t) override
+	{
+		m_taskFcn(range.start, range.end, m_taskContext);
+	}
+
+	b2TaskFcn* m_taskFcn = nullptr;
+	void* m_taskContext = nullptr;
+};
+
+constexpr int32_t maxTasks = 128;
+
 class Sample
 {
 public:
@@ -93,6 +111,10 @@ public:
 	friend class DestructionListener;
 	friend class BoundaryListener;
 	friend class ContactListener;
+
+	enki::TaskScheduler m_scheduler;
+	SampleTask m_tasks[maxTasks];
+	int32_t m_taskCount;
 
 	b2BodyId m_groundBodyId;
 	ContactPoint m_points[k_maxContactPoints];

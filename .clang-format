@@ -49,7 +49,7 @@ BasedOnStyle: Microsoft
 #   - __capability
 # BinPackArguments: true
 # BinPackParameters: true
-# BraceWrapping:
+BraceWrapping:
 #   AfterCaseLabel:  true
 #   AfterClass:      true
 #   AfterControlStatement: Always
@@ -58,7 +58,7 @@ BasedOnStyle: Microsoft
 #   AfterNamespace:  true
 #   AfterObjCDeclaration: true
 #   AfterStruct:     true
-#   AfterUnion:      true
+   AfterUnion:      true
 #   AfterExternBlock: false #
 #   BeforeCatch:     true
 #   BeforeElse:      true
@@ -151,7 +151,7 @@ ColumnLimit: 120
 # PenaltyExcessCharacter: 1000000
 # PenaltyReturnTypeOnItsOwnLine: 1000
 # PenaltyIndentedWhitespace: 0
-# PointerAlignment: Left
+PointerAlignment: Left
 # PPIndentWidth:   -1
 # ReferenceAlignment: Pointer
 # ReflowComments:  true

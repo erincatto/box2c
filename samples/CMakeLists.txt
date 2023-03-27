@@ -3,6 +3,15 @@ find_package(imgui CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_path(JSMN_INCLUDE_DIRS "jsmn.h")
 
+FetchContent_Declare(
+	enkits
+	GIT_REPOSITORY https://github.com/dougbinks/enkiTS
+	GIT_TAG master
+	GIT_SHALLOW TRUE
+	GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(enkits)
+
 set(BOX2D_SAMPLES
 	draw.cpp
 	draw.h
@@ -37,7 +46,7 @@ set_target_properties(samples PROPERTIES
 )
 
 target_include_directories(samples PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${JSMN_INCLUDE_DIRS})
-target_link_libraries(samples PUBLIC box2d glfw imgui::imgui glad::glad)
+target_link_libraries(samples PUBLIC box2d glfw imgui::imgui glad::glad enkiTS)
 
 # message(STATUS "runtime = ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 # message(STATUS "binary = ${CMAKE_CURRENT_BINARY_DIR}")
