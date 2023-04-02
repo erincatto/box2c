@@ -4,7 +4,6 @@
 #pragma once
 
 #include "box2d/callbacks.h"
-#include "box2d/types.h"
 
 #include "solver_data.h"
 
@@ -39,4 +38,3 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver);
 void b2ContactSolver_StoreImpulses(b2ContactSolver* solver);
 bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver);
 bool b2ContactSolver_SolvePositionConstraintsSingle(b2ContactSolver* solver);
-b2ContactImpulse b2ContactSolver_GetImpulse(b2ContactSolver* solver, int32_t index);

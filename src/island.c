@@ -195,6 +195,7 @@ void b2Island_AddJoint(b2Island* island, b2Joint* joint)
 
 bool g_positionBlockSolve = true;
 
+// This must be thread safe
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
 {
 	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
@@ -321,7 +322,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		b2InitVelocityConstraints(island->world, island->joints[i], &solverData);
 	}
 
-	profile->solveInit = b2GetMillisecondsAndReset(&timer);
+	profile->solveInit += b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorCadetBlue, true);
 	// Solve velocity constraints
@@ -341,7 +342,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 	// Store impulses for warm starting
 	b2ContactSolver_StoreImpulses(&solver);
-	profile->solveVelocity = b2GetMillisecondsAndReset(&timer);
+	profile->solveVelocity += b2GetMillisecondsAndReset(&timer);
 
 	// Integrate positions
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -407,9 +408,11 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			break;
 		}
 	}
-	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
+	profile->solvePosition += b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneEnd(posc);
+
+	b2TracyCZoneNC(sleep, "Sleep", b2_colorSalmon2, true);
 
 	// Copy state buffers back to the bodies
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -423,27 +426,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		// Update body transform
 		body->transform.q = b2MakeRot(body->angle);
 		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
-	}
-
-	// Report impulses
-	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
-	if (postSolveFcn != NULL)
-	{
-		int16_t worldIndex = island->world->index;
-
-		for (int32_t i = 0; i < island->contactCount; ++i)
-		{
-			const b2Contact* contact = island->contacts[i];
-
-			b2ContactImpulse impulse = b2ContactSolver_GetImpulse(&solver, i);
-
-			const b2Shape* shapeA = island->world->shapes + contact->shapeIndexA;
-			const b2Shape* shapeB = island->world->shapes + contact->shapeIndexB;
-
-			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
-			postSolveFcn(idA, idB, &impulse, island->world->postSolveContext);
-		}
 	}
 
 	// Update sleep
@@ -498,8 +480,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
-	b2TracyCZoneNC(move_proxies, "Move Proxies", b2_colorSalmon2, true);
-
+	island->isAwake = isIslandAwake;
+	
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
 	if (isIslandAwake)
@@ -531,32 +513,82 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			// Stage 3 - predict new transforms
 			b->speculativePosition = b2MulAdd(b->position, step->dt, v);
 			b->speculativeAngle = b->angle + step->dt * w;
+		}
+	}
 
-			// Update shapes (for broad-phase).
-			int32_t shapeIndex = b->shapeIndex;
-			while (shapeIndex != B2_NULL_INDEX)
+	b2TracyCZoneEnd(sleep);
+
+	b2DestroyContactSolver(&solver);
+
+	profile->sleep += b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneEnd(solve_island);
+}
+
+// Single threaded work
+void b2CompleteIsland(b2Island* island, b2Profile* profile)
+{
+	if (island->isAwake == false)
+	{
+		return;
+	}
+
+	b2Timer timer = b2CreateTimer();
+	b2TracyCZoneNC(move_proxies, "Move Proxies", b2_colorSalmon2, true);
+
+	b2World* world = island->world;
+
+	for (int32_t i = 0; i < island->bodyCount; ++i)
+	{
+		b2Body* b = island->bodies[i];
+		if (b->type == b2_staticBody)
+		{
+			continue;
+		}
+
+		// Update shapes (for broad-phase).
+		int32_t shapeIndex = b->shapeIndex;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+			for (int32_t j = 0; j < shape->proxyCount; ++j)
 			{
-				b2Shape* shape = world->shapes + shapeIndex;
-				for (int32_t j = 0; j < shape->proxyCount; ++j)
-				{
-					b2ShapeProxy* proxy = shape->proxies + j;
+				b2ShapeProxy* proxy = shape->proxies + j;
 
-					// TODO_ERIN speculate
-					proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
+				// TODO_ERIN speculate
+				proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
 
-					b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
-				}
-
-				shapeIndex = shape->nextShapeIndex;
+				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
 			}
+
+			shapeIndex = shape->nextShapeIndex;
 		}
 	}
 
 	b2TracyCZoneEnd(move_proxies);
 
-	b2DestroyContactSolver(&solver);
+	b2TracyCZoneNC(postsolve, "Report Post Solve", b2_colorIndigo, true);
 
-	profile->completion = b2GetMillisecondsAndReset(&timer);
+	// Report impulses
+	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
+	if (postSolveFcn != NULL)
+	{
+		int16_t worldIndex = island->world->index;
 
-	b2TracyCZoneEnd(solve_island);
+		for (int32_t i = 0; i < island->contactCount; ++i)
+		{
+			const b2Contact* contact = island->contacts[i];
+
+			const b2Shape* shapeA = island->world->shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = island->world->shapes + contact->shapeIndexB;
+
+			b2ShapeId idA = { shapeA->object.index, worldIndex, shapeA->object.revision };
+			b2ShapeId idB = { shapeB->object.index, worldIndex, shapeB->object.revision };
+			postSolveFcn(idA, idB, &contact->manifold, island->world->postSolveContext);
+		}
+	}
+
+	profile->completion += b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneEnd(postsolve);
 }

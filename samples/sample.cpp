@@ -29,10 +29,10 @@ void DestructionListener::SayGoodbye(b2Joint* joint)
 }
 #endif
 
-void PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold, void* context)
+bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
-	sample->PreSolve(shapeIdA, shapeIdB, manifold);
+	return sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
 static void AddTaskFcn(b2TaskFcn* taskFcn, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
@@ -264,6 +264,7 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.solveVelocity = B2_MAX(m_maxProfile.solveVelocity, p->solveVelocity);
 		m_maxProfile.solvePosition = B2_MAX(m_maxProfile.solvePosition, p->solvePosition);
 		m_maxProfile.solveTOI = B2_MAX(m_maxProfile.solveTOI, p->solveTOI);
+		m_maxProfile.sleep = B2_MAX(m_maxProfile.sleep, p->sleep);
 		m_maxProfile.completion = B2_MAX(m_maxProfile.completion, p->completion);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
 
@@ -275,6 +276,7 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.solveVelocity += p->solveVelocity;
 		m_totalProfile.solvePosition += p->solvePosition;
 		m_totalProfile.solveTOI += p->solveTOI;
+		m_totalProfile.sleep += p->sleep;
 		m_totalProfile.completion += p->completion;
 		m_totalProfile.broadphase += p->broadphase;
 	}
@@ -296,6 +298,7 @@ void Sample::Step(Settings& settings)
 			aveProfile.solveVelocity = scale * m_totalProfile.solveVelocity;
 			aveProfile.solvePosition = scale * m_totalProfile.solvePosition;
 			aveProfile.solveTOI = scale * m_totalProfile.solveTOI;
+			aveProfile.sleep = scale * m_totalProfile.sleep;
 			aveProfile.completion = scale * m_totalProfile.completion;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
@@ -323,6 +326,9 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "solveTOI [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveTOI,
 						  aveProfile.solveTOI, m_maxProfile.solveTOI);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "sleep [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->sleep,
+						  aveProfile.sleep, m_maxProfile.sleep);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "completion [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->completion,
 						  aveProfile.completion, m_maxProfile.completion);
@@ -391,7 +397,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	// m_world->ShiftOrigin(newOrigin);
 }
 
-void Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold)
+bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
 {
 	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
 	{
@@ -406,6 +412,8 @@ void Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* 
 		cp->persisted = manifold->points[i].persisted;
 		++m_pointCount;
 	}
+
+	return true;
 }
 
 SampleEntry g_sampleEntries[MAX_SAMPLES] = {{nullptr}};

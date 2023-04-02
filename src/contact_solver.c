@@ -1037,17 +1037,3 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 	// push the separation above -b2_linearSlop.
 	return minSeparation >= -3.0f * b2_linearSlop;
 }
-
-b2ContactImpulse b2ContactSolver_GetImpulse(b2ContactSolver* solver, int32_t index)
-{
-	const b2ContactVelocityConstraint* vc = solver->velocityConstraints + index;
-
-	b2ContactImpulse impulse;
-	impulse.count = vc->pointCount;
-	for (int32_t i = 0; i < vc->pointCount; ++i)
-	{
-		impulse.normalImpulses[i] = vc->points[i].normalImpulse;
-		impulse.tangentImpulses[i] = vc->points[i].tangentImpulse;
-	}
-	return impulse;
-}

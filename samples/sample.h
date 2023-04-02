@@ -106,7 +106,7 @@ public:
 	void ResetProfile();
 	void ShiftOrigin(b2Vec2 newOrigin);
 
-	void PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold);
+	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold);
 
 	friend class DestructionListener;
 	friend class BoundaryListener;

@@ -585,19 +585,14 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 		world->profile.island += b2GetMilliseconds(&islandTimer);
 
-		b2Profile profile;
-		b2SolveIsland(island, &profile, step, world->gravity);
-
-		world->profile.solveInit += profile.solveInit;
-		world->profile.solveVelocity += profile.solveVelocity;
-		world->profile.solvePosition += profile.solvePosition;
-		world->profile.completion += profile.completion;
+		b2SolveIsland(island, &world->profile, step, world->gravity);
 	}
 
-	// Destroy islands in reverse order
+	// Complete and destroy islands in reverse order
 	b2Island* island = islandList;
 	while (island)
 	{
+		b2CompleteIsland(island, &world->profile);
 		b2Island* next = island->nextIsland;
 		b2DestroyIsland(island);
 		island = next;

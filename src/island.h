@@ -28,6 +28,8 @@ typedef struct b2Island
 	int32_t bodyCapacity;
 	int32_t contactCapacity;
 	int32_t jointCapacity;
+
+	bool isAwake;
 } b2Island;
 
 b2Island* b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world);
@@ -40,3 +42,4 @@ void b2Island_AddJoint(b2Island* island, struct b2Joint* joint);
 
 void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity);
 
+void b2CompleteIsland(b2Island* island, b2Profile* profile);

@@ -6,6 +6,7 @@
 #include "types.h"
 
 /// Profiling data. Times are in milliseconds.
+///	TODO_ERIN convert to ns so they can be atomic
 typedef struct b2Profile
 {
 	float step;
@@ -15,6 +16,7 @@ typedef struct b2Profile
 	float solveInit;
 	float solveVelocity;
 	float solvePosition;
+	float sleep;
 	float completion;
 	float broadphase;
 	float solveTOI;
