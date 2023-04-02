@@ -382,6 +382,19 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneEnd(collide);
 }
 
+static void b2IslandTaskFcn(int32_t startIndex, int32_t endIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+
+	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
+
+	b2Island* island = taskContext;
+	b2SolveIsland(island);
+
+	b2TracyCZoneEnd(island_task);
+}
+
 // Find islands, integrate and solve constraints, solve position constraints
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
@@ -463,7 +476,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		assert(seed->isAwake);
 
 		// Size the island for the worst case. Make a linked list of islands
-		b2Island* island = b2CreateIsland(bodyCount, awakeContactCount, jointCount, world);
+		b2Island* island = b2CreateIsland(bodyCount, awakeContactCount, jointCount, world, step);
 		island->nextIsland = islandList;
 		islandList = island;
 
@@ -583,16 +596,16 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 			}
 		}
 
-		world->profile.island += b2GetMilliseconds(&islandTimer);
+		world->profile.island += b2GetMillisecondsAndReset(&islandTimer);
 
-		b2SolveIsland(island, &world->profile, step, world->gravity);
+		b2IslandTaskFcn(0, 0, island);
 	}
 
 	// Complete and destroy islands in reverse order
 	b2Island* island = islandList;
 	while (island)
 	{
-		b2CompleteIsland(island, &world->profile);
+		b2CompleteIsland(island);
 		b2Island* next = island->nextIsland;
 		b2DestroyIsland(island);
 		island = next;
@@ -977,161 +990,6 @@ b2BodyId b2World_GetGroundBodyId(b2WorldId worldId)
 }
 
 #if 0
-b2Joint* b2World::CreateJoint(const b2JointDef* def)
-{
-	assert(IsLocked() == false);
-	if (IsLocked())
-	{
-		return nullptr;
-	}
-
-	b2Joint* j = b2Joint::Create(def, &m_blockAllocator);
-
-	// Connect to the world list.
-	j->m_prev = nullptr;
-	j->m_next = m_jointList;
-	if (m_jointList)
-	{
-		m_jointList->m_prev = j;
-	}
-	m_jointList = j;
-	++m_jointCount;
-
-	// Connect to the bodies' doubly linked lists.
-	j->m_edgeA.joint = j;
-	j->m_edgeA.other = j->m_bodyB;
-	j->m_edgeA.prev = nullptr;
-	j->m_edgeA.next = j->m_bodyA->m_jointList;
-	if (j->m_bodyA->m_jointList) j->m_bodyA->m_jointList->prev = &j->m_edgeA;
-	j->m_bodyA->m_jointList = &j->m_edgeA;
-
-	j->m_edgeB.joint = j;
-	j->m_edgeB.other = j->m_bodyA;
-	j->m_edgeB.prev = nullptr;
-	j->m_edgeB.next = j->m_bodyB->m_jointList;
-	if (j->m_bodyB->m_jointList) j->m_bodyB->m_jointList->prev = &j->m_edgeB;
-	j->m_bodyB->m_jointList = &j->m_edgeB;
-
-	b2Body* bodyA = def->bodyA;
-	b2Body* bodyB = def->bodyB;
-
-	// If the joint prevents collisions, then flag any contacts for filtering.
-	if (def->collideConnected == false)
-	{
-		b2ContactEdge* edge = bodyB->GetContactList();
-		while (edge)
-		{
-			if (edge->other == bodyA)
-			{
-				// Flag the contact for filtering at the next time step (where either
-				// body is awake).
-				edge->contact->FlagForFiltering();
-			}
-
-			edge = edge->next;
-		}
-	}
-
-	// Note: creating a joint doesn't wake the bodies.
-
-	return j;
-}
-
-void b2World::DestroyJoint(b2Joint* j)
-{
-	assert(IsLocked() == false);
-	if (IsLocked())
-	{
-		return;
-	}
-
-	bool collideConnected = j->m_collideConnected;
-
-	// Remove from the doubly linked list.
-	if (j->m_prev)
-	{
-		j->m_prev->m_next = j->m_next;
-	}
-
-	if (j->m_next)
-	{
-		j->m_next->m_prev = j->m_prev;
-	}
-
-	if (j == m_jointList)
-	{
-		m_jointList = j->m_next;
-	}
-
-	// Disconnect from island graph.
-	b2Body* bodyA = j->m_bodyA;
-	b2Body* bodyB = j->m_bodyB;
-
-	// Wake up connected bodies.
-	bodyA->SetAwake(true);
-	bodyB->SetAwake(true);
-
-	// Remove from body 1.
-	if (j->m_edgeA.prev)
-	{
-		j->m_edgeA.prev->next = j->m_edgeA.next;
-	}
-
-	if (j->m_edgeA.next)
-	{
-		j->m_edgeA.next->prev = j->m_edgeA.prev;
-	}
-
-	if (&j->m_edgeA == bodyA->m_jointList)
-	{
-		bodyA->m_jointList = j->m_edgeA.next;
-	}
-
-	j->m_edgeA.prev = nullptr;
-	j->m_edgeA.next = nullptr;
-
-	// Remove from body 2
-	if (j->m_edgeB.prev)
-	{
-		j->m_edgeB.prev->next = j->m_edgeB.next;
-	}
-
-	if (j->m_edgeB.next)
-	{
-		j->m_edgeB.next->prev = j->m_edgeB.prev;
-	}
-
-	if (&j->m_edgeB == bodyB->m_jointList)
-	{
-		bodyB->m_jointList = j->m_edgeB.next;
-	}
-
-	j->m_edgeB.prev = nullptr;
-	j->m_edgeB.next = nullptr;
-
-	b2Joint::Destroy(j, &m_blockAllocator);
-
-	assert(m_jointCount > 0);
-	--m_jointCount;
-
-	// If the joint prevents collisions, then flag any contacts for filtering.
-	if (collideConnected == false)
-	{
-		b2ContactEdge* edge = bodyB->GetContactList();
-		while (edge)
-		{
-			if (edge->other == bodyA)
-			{
-				// Flag the contact for filtering at the next time step (where either
-				// body is awake).
-				edge->contact->FlagForFiltering();
-			}
-
-			edge = edge->next;
-		}
-	}
-}
-
 
 // Find TOI contacts and solve them.
 void b2World::SolveTOI(const b2TimeStep& step)
@@ -1454,7 +1312,6 @@ void b2World::SolveTOI(const b2TimeStep& step)
 	}
 }
 
-
 struct b2WorldRayCastWrapper
 {
 	float RayCastCallback(const b2RayCastInput& input, int32 proxyId)
@@ -1491,8 +1348,6 @@ void b2World::RayCast(b2RayCastCallback* callback, const b2Vec2& point1, const b
 	input.p2 = point2;
 	m_contactManager.m_broadPhase.RayCast(&wrapper, input);
 }
-
-
 
 int32 b2World::GetProxyCount() const
 {

@@ -140,7 +140,8 @@ b2Island* b2CreateIsland(
 	int32_t bodyCapacity,
 	int32_t contactCapacity,
 	int32_t jointCapacity,
-	b2World* world)
+	b2World* world,
+	const b2TimeStep* step)
 {
 	b2StackAllocator* alloc = world->stackAllocator;
 
@@ -152,6 +153,7 @@ b2Island* b2CreateIsland(
 	island->contactCount = 0;
 	island->jointCount = 0;
 	island->world = world;
+	island->step = step;
 	island->bodies = (b2Body**)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Body*));
 	island->contacts = (b2Contact**)b2AllocateStackItem(alloc, contactCapacity * sizeof(b2Contact*));
 	island->joints = (b2Joint**)b2AllocateStackItem(alloc, jointCapacity * sizeof(b2Joint*));
@@ -196,11 +198,16 @@ void b2Island_AddJoint(b2Island* island, b2Joint* joint)
 bool g_positionBlockSolve = true;
 
 // This must be thread safe
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
+void b2SolveIsland(b2Island* island)
 {
 	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
 
 	b2Timer timer = b2CreateTimer();
+
+	b2World* world = island->world;
+	const b2TimeStep* step = island->step;
+	b2Vec2 gravity = world->gravity;
+	b2Profile* profile = &world->profile;
 
 #if 0
 	if (island->bodyCount > 16)
@@ -431,7 +438,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	// Update sleep
 	bool isIslandAwake = true;
 
-	b2World* world = island->world;
 	if (world->enableSleep)
 	{
 		float minSleepTime = FLT_MAX;
@@ -526,7 +532,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 }
 
 // Single threaded work
-void b2CompleteIsland(b2Island* island, b2Profile* profile)
+void b2CompleteIsland(b2Island* island)
 {
 	if (island->isAwake == false)
 	{
@@ -537,6 +543,7 @@ void b2CompleteIsland(b2Island* island, b2Profile* profile)
 	b2TracyCZoneNC(move_proxies, "Move Proxies", b2_colorSalmon2, true);
 
 	b2World* world = island->world;
+	b2Profile* profile = &world->profile;
 
 	for (int32_t i = 0; i < island->bodyCount; ++i)
 	{

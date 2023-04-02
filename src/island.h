@@ -11,6 +11,7 @@ typedef struct b2TimeStep b2TimeStep;
 typedef struct b2Island
 {
 	struct b2World* world;
+	const b2TimeStep* step;
 
 	struct b2Body** bodies;
 	struct b2Contact** contacts;
@@ -32,7 +33,7 @@ typedef struct b2Island
 	bool isAwake;
 } b2Island;
 
-b2Island* b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world);
+b2Island* b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world, const b2TimeStep* step);
 
 void b2DestroyIsland(b2Island* island);
 
@@ -40,6 +41,6 @@ void b2Island_AddBody(b2Island* island, struct b2Body* body);
 void b2Island_AddContact(b2Island* island, struct b2Contact* contact);
 void b2Island_AddJoint(b2Island* island, struct b2Joint* joint);
 
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity);
+void b2SolveIsland(b2Island* island);
 
-void b2CompleteIsland(b2Island* island, b2Profile* profile);
+void b2CompleteIsland(b2Island* island);
