@@ -117,13 +117,13 @@ stored in a single array since multiple arrays lead to multiple misses.
 2D Rotation
 
 R = [cos(theta) -sin(theta)]
-    [sin(theta) cos(theta) ]
+	[sin(theta) cos(theta) ]
 
 thetaDot = omega
 
 Let q1 = cos(theta), q2 = sin(theta).
 R = [q1 -q2]
-    [q2  q1]
+	[q2  q1]
 
 q1Dot = -thetaDot * q2
 q2Dot = thetaDot * q1
@@ -136,27 +136,27 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
-b2Island b2CreateIsland(
+b2Island* b2CreateIsland(
 	int32_t bodyCapacity,
 	int32_t contactCapacity,
 	int32_t jointCapacity,
 	b2World* world)
 {
-	b2Island island = {0};
-	island.bodyCapacity = bodyCapacity;
-	island.contactCapacity = contactCapacity;
-	island.jointCapacity = jointCapacity;
-
-	island.world = world;
-
 	b2StackAllocator* alloc = world->stackAllocator;
-	island.bodies = (b2Body**)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Body*));
-	island.contacts = (b2Contact**)b2AllocateStackItem(alloc, contactCapacity * sizeof(b2Contact*));
-	island.joints = (b2Joint**)b2AllocateStackItem(alloc, jointCapacity * sizeof(b2Joint*));
 
-	island.velocities = (b2Velocity*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Velocity));
-	island.positions = (b2Position*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Position));
-
+	b2Island* island = (b2Island*)b2AllocateStackItem(alloc, sizeof(b2Island));
+	island->bodyCapacity = bodyCapacity;
+	island->contactCapacity = contactCapacity;
+	island->jointCapacity = jointCapacity;
+	island->bodyCount = 0;
+	island->contactCount = 0;
+	island->jointCount = 0;
+	island->world = world;
+	island->bodies = (b2Body**)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Body*));
+	island->contacts = (b2Contact**)b2AllocateStackItem(alloc, contactCapacity * sizeof(b2Contact*));
+	island->joints = (b2Joint**)b2AllocateStackItem(alloc, jointCapacity * sizeof(b2Joint*));
+	island->velocities = (b2Velocity*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Velocity));
+	island->positions = (b2Position*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Position));
 	return island;
 }
 
@@ -170,6 +170,7 @@ void b2DestroyIsland(b2Island* island)
 	b2FreeStackItem(alloc, island->joints);
 	b2FreeStackItem(alloc, island->contacts);
 	b2FreeStackItem(alloc, island->bodies);
+	b2FreeStackItem(alloc, island);
 }
 
 void b2Island_AddBody(b2Island* island, struct b2Body* body)
@@ -199,6 +200,63 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
 
 	b2Timer timer = b2CreateTimer();
+
+#if 0
+	if (island->bodyCount > 16)
+	{
+		int32_t k = 4;
+		b2Vec2 clusterCenters[4] = {0};
+		int32_t clusterCounts[4] = {0};
+		int32_t m = island->bodyCount / k;
+
+		// seed cluster positions
+		for (int32_t i = 0; i < k; ++i)
+		{
+			int32_t j = (i * m) % island->bodyCount;
+			clusterCenters[i] = island->bodies[j]->position;
+		}
+
+		for (int32_t i = 0; i < island->bodyCount; ++i)
+		{
+			b2Body* b = island->bodies[i];
+			b2Vec2 p = b->position;
+			float bestDist = b2DistanceSquared(clusterCenters[0], p);
+			b->cluster = 0;
+
+			for (int32_t j = 1; j < k; ++j)
+			{
+				float dist = b2DistanceSquared(clusterCenters[j], p);
+				if (dist < bestDist)
+				{
+					bestDist = dist;
+					b->cluster = j;
+				}
+			}
+		}
+
+		int32_t maxIter = 4;
+		for (int32_t iter = 0; iter < maxIter; ++iter)
+		{
+			// reset clusters
+			for (int32_t i = 0; i < k; ++i)
+			{
+				clusterCenters[i] = b2Vec2_zero;
+				clusterCounts[i] = 0;
+			}
+
+			// computer new clusters
+			for (int32_t i = 0; i < island->bodyCount; ++i)
+			{
+				b2Body* b = island->bodies[i];
+				int32_t j = b->cluster;
+				clusterCenters[j] = b2Add(clusterCenters[j], b->position);
+				clusterCounts[j] += 1;
+			}
+
+
+		}
+	}
+#endif
 
 	float h = step->dt;
 

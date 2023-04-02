@@ -19,6 +19,8 @@ typedef struct b2Island
 	struct b2Position* positions;
 	struct b2Velocity* velocities;
 
+	struct b2Island* nextIsland;
+
 	int32_t bodyCount;
 	int32_t jointCount;
 	int32_t contactCount;
@@ -28,14 +30,7 @@ typedef struct b2Island
 	int32_t jointCapacity;
 } b2Island;
 
-static inline void b2ClearIsland(b2Island* island)
-{
-	island->bodyCount = 0;
-	island->contactCount = 0;
-	island->jointCount = 0;
-}
-
-b2Island b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world);
+b2Island* b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world);
 
 void b2DestroyIsland(b2Island* island);
 

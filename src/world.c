@@ -338,6 +338,7 @@ static void b2CollideTaskFcn(int32_t startIndex, int32_t endIndex, void* taskCon
 
 			// Update contact respecting shape/body order (A,B)
 			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
+			atomic_fetch_add(&world->awakeContactCount, 1);
 
 			ce = ce->next;
 		}
@@ -349,6 +350,8 @@ static void b2CollideTaskFcn(int32_t startIndex, int32_t endIndex, void* taskCon
 static void b2Collide(b2World* world)
 {
 	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+
+	atomic_store(&world->awakeContactCount, 0);
 
 	const int32_t* awakeBodies = world->awakeBodies;
 	int32_t count = b2Array(awakeBodies).count;
@@ -389,11 +392,9 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	world->profile.solvePosition = 0.0f;
 	world->contactPointCount = 0;
 
-	int32_t bodyCount = world->bodyPool.count;
-	int32_t jointCount = world->jointPool.count;
-
-	// Size the island for the worst case.
-	b2Island island = b2CreateIsland(bodyCount, world->contactCount, jointCount, world);
+	const int32_t bodyCount = world->bodyPool.count;
+	const int32_t jointCount = world->jointPool.count;
+	const int32_t awakeContactCount = world->awakeContactCount;
 
 #if defined(_DEBUG)
 	b2ArrayHeader* header = (b2ArrayHeader*)world->awakeBodies - 1;
@@ -435,6 +436,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	// Build and simulate all awake islands.
 	b2Body** stack = (b2Body**)b2AllocateStackItem(world->stackAllocator, seedCount * sizeof(b2Body*));
+	b2Island* islandList = NULL;
 
 	for (int32_t i = 0; i < seedCount; ++i)
 	{
@@ -460,8 +462,12 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 		assert(seed->isAwake);
 
-		// Reset island and stack.
-		b2ClearIsland(&island);
+		// Size the island for the worst case. Make a linked list of islands
+		b2Island* island = b2CreateIsland(bodyCount, awakeContactCount, jointCount, world);
+		island->nextIsland = islandList;
+		islandList = island;
+
+		// Reset stack, bump island id
 		int32_t stackCount = 0;
 		stack[stackCount++] = seed;
 		++world->islandId;
@@ -473,7 +479,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 			// Grab the next body off the stack and add it to the island.
 			b2Body* b = stack[--stackCount];
 			assert(b->isEnabled == true);
-			b2Island_AddBody(&island, b);
+			b2Island_AddBody(island, b);
 
 			// To keep islands as small as possible, we don't
 			// propagate islands across static bodies.
@@ -511,7 +517,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 					continue;
 				}
 
-				b2Island_AddContact(&island, contact);
+				b2Island_AddContact(island, contact);
 				world->contactPointCount += contact->manifold.pointCount;
 				contact->islandId = seed->islandId;
 
@@ -562,7 +568,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 					continue;
 				}
 
-				b2Island_AddJoint(&island, joint);
+				b2Island_AddJoint(island, joint);
 
 				joint->islandId = seed->islandId;
 
@@ -580,7 +586,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		world->profile.island += b2GetMilliseconds(&islandTimer);
 
 		b2Profile profile;
-		b2SolveIsland(&island, &profile, step, world->gravity);
+		b2SolveIsland(island, &profile, step, world->gravity);
 
 		world->profile.solveInit += profile.solveInit;
 		world->profile.solveVelocity += profile.solveVelocity;
@@ -588,8 +594,16 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		world->profile.completion += profile.completion;
 	}
 
+	// Destroy islands in reverse order
+	b2Island* island = islandList;
+	while (island)
+	{
+		b2Island* next = island->nextIsland;
+		b2DestroyIsland(island);
+		island = next;
+	}
+
 	b2FreeStackItem(world->stackAllocator, stack);
-	b2DestroyIsland(&island);
 
 	// Look for new contacts
 	b2Timer timer = b2CreateTimer();

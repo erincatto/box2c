@@ -49,7 +49,7 @@ BasedOnStyle: Microsoft
 #   - __capability
 # BinPackArguments: true
 # BinPackParameters: true
-BraceWrapping:
+# BraceWrapping:
 #   AfterCaseLabel:  true
 #   AfterClass:      true
 #   AfterControlStatement: Always
@@ -58,7 +58,7 @@ BraceWrapping:
 #   AfterNamespace:  true
 #   AfterObjCDeclaration: true
 #   AfterStruct:     true
-   AfterUnion:      true
+#   AfterUnion:      true
 #   AfterExternBlock: false #
 #   BeforeCatch:     true
 #   BeforeElse:      true
@@ -70,7 +70,7 @@ BraceWrapping:
 #   SplitEmptyNamespace: true
 # BreakBeforeBinaryOperators: None
 # BreakBeforeConceptDeclarations: Always
-# BreakBeforeBraces: Custom #
+BreakBeforeBraces: Allman 
 # BreakBeforeInheritanceComma: false
 # BreakInheritanceList: BeforeColon
 # BreakBeforeTernaryOperators: true
@@ -78,7 +78,7 @@ BraceWrapping:
 # BreakConstructorInitializers: BeforeComma
 # BreakAfterJavaFieldAnnotations: false
 # BreakStringLiterals: true
-ColumnLimit: 120
+ColumnLimit: 140
 # CommentPragmas:  '^ IWYU pragma:'
 # QualifierAlignment: Leave
 # CompactNamespaces: false
