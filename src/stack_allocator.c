@@ -58,9 +58,6 @@ void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size)
 	{
 		entry.data = (char*)b2Alloc(size);
 		entry.usedMalloc = true;
-
-		// TODO_ERIN log warning
-		assert(false);
 	}
 	else
 	{

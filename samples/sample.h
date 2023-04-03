@@ -85,7 +85,7 @@ public:
 	void* m_taskContext = nullptr;
 };
 
-constexpr int32_t maxTasks = 128;
+constexpr int32_t maxTasks = 1024;
 
 class Sample
 {

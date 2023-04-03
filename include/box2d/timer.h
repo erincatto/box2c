@@ -17,7 +17,6 @@ typedef struct b2Profile
 	float solveVelocity;
 	float solvePosition;
 	float sleep;
-	float completion;
 	float broadphase;
 	float solveTOI;
 } b2Profile;

@@ -395,6 +395,8 @@ static void b2IslandTaskFcn(int32_t startIndex, int32_t endIndex, void* taskCont
 	b2TracyCZoneEnd(island_task);
 }
 
+bool g_parallelIslands = true;
+
 // Find islands, integrate and solve constraints, solve position constraints
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
@@ -596,10 +598,24 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 			}
 		}
 
+		b2FinalizeIsland(island);
+
 		world->profile.island += b2GetMillisecondsAndReset(&islandTimer);
 
-		b2IslandTaskFcn(0, 0, island);
+		if (g_parallelIslands)
+		{
+			world->addFcn(&b2IslandTaskFcn, 1, 1, island, world->userTaskContext);
+		}
+		else
+		{
+			b2IslandTaskFcn(0, 1, island);
+		}
 	}
+
+	world->finishFcn(world->userTaskContext);
+
+	b2Timer timer = b2CreateTimer();
+	b2TracyCZoneNC(broad_phase, "broadphase", b2_colorPurple, true);
 
 	// Complete and destroy islands in reverse order
 	b2Island* island = islandList;
@@ -614,9 +630,10 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2FreeStackItem(world->stackAllocator, stack);
 
 	// Look for new contacts
-	b2Timer timer = b2CreateTimer();
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
 	world->profile.broadphase = b2GetMilliseconds(&timer);
+
+	b2TracyCZoneEnd(broad_phase);
 
 	b2TracyCZoneEnd(solve);
 }
@@ -636,7 +653,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	b2Timer stepTimer = b2CreateTimer();
 
-	// If new fixtures were added, we need to find the new contacts.
+	// If new shapes were added, we need to find the new contacts.
 	if (world->newContacts)
 	{
 		b2BroadPhase_UpdatePairs(&world->broadPhase);

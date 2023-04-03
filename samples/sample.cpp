@@ -265,7 +265,6 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.solvePosition = B2_MAX(m_maxProfile.solvePosition, p->solvePosition);
 		m_maxProfile.solveTOI = B2_MAX(m_maxProfile.solveTOI, p->solveTOI);
 		m_maxProfile.sleep = B2_MAX(m_maxProfile.sleep, p->sleep);
-		m_maxProfile.completion = B2_MAX(m_maxProfile.completion, p->completion);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
 
 		m_totalProfile.step += p->step;
@@ -277,7 +276,6 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.solvePosition += p->solvePosition;
 		m_totalProfile.solveTOI += p->solveTOI;
 		m_totalProfile.sleep += p->sleep;
-		m_totalProfile.completion += p->completion;
 		m_totalProfile.broadphase += p->broadphase;
 	}
 
@@ -299,7 +297,6 @@ void Sample::Step(Settings& settings)
 			aveProfile.solvePosition = scale * m_totalProfile.solvePosition;
 			aveProfile.solveTOI = scale * m_totalProfile.solveTOI;
 			aveProfile.sleep = scale * m_totalProfile.sleep;
-			aveProfile.completion = scale * m_totalProfile.completion;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
@@ -329,9 +326,6 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "sleep [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->sleep,
 						  aveProfile.sleep, m_maxProfile.sleep);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "completion [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->completion,
-						  aveProfile.completion, m_maxProfile.completion);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->broadphase,
 						  aveProfile.broadphase, m_maxProfile.broadphase);

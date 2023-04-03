@@ -59,38 +59,47 @@ typedef struct b2ContactPositionConstraint
 	int32_t pointCount;
 } b2ContactPositionConstraint;
 
-b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
+b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverDef* def)
 {
-	b2StackAllocator* alloc = def->world->stackAllocator;
+	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver));
+	solver->step = def->step;
+	solver->world = def->world;
+	solver->count = def->count;
+	solver->positionConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactPositionConstraint));
+	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactVelocityConstraint));
+	solver->positions = def->positions;
+	solver->velocities = def->velocities;
+	solver->contacts = def->contacts;
+	return solver;
+}
 
-	b2ContactSolver solver;
-	solver.step = def->step;
-	solver.world = def->world;
-	solver.count = def->count;
-	solver.positionConstraints =
-		(b2ContactPositionConstraint*)b2AllocateStackItem(alloc, solver.count * sizeof(b2ContactPositionConstraint));
-	solver.velocityConstraints =
-		(b2ContactVelocityConstraint*)b2AllocateStackItem(alloc, solver.count * sizeof(b2ContactVelocityConstraint));
-	solver.positions = def->positions;
-	solver.velocities = def->velocities;
-	solver.contacts = def->contacts;
+void b2DestroyContactSolver(b2StackAllocator* alloc, b2ContactSolver* solver)
+{
+	b2FreeStackItem(alloc, solver->velocityConstraints);
+	b2FreeStackItem(alloc, solver->positionConstraints);
+	b2FreeStackItem(alloc, solver);
+}
+
+void b2ContactSolver_Initialize(b2ContactSolver* solver)
+{
+	int32_t count = solver->count;
+	b2TimeStep step = *solver->step;
 
 	// Initialize position independent portions of the constraints.
-	int32_t contactCount = solver.count;
-	for (int32_t i = 0; i < contactCount; ++i)
+	for (int32_t i = 0; i < count; ++i)
 	{
-		b2Contact* contact = solver.contacts[i];
+		b2Contact* contact = solver->contacts[i];
 
-		b2Shape* shapeA = solver.world->shapes + contact->shapeIndexA;
-		b2Shape* shapeB = solver.world->shapes + contact->shapeIndexB;
-		b2Body* bodyA = solver.world->bodies + shapeA->bodyIndex;
-		b2Body* bodyB = solver.world->bodies + shapeB->bodyIndex;
+		b2Shape* shapeA = solver->world->shapes + contact->shapeIndexA;
+		b2Shape* shapeB = solver->world->shapes + contact->shapeIndexB;
+		b2Body* bodyA = solver->world->bodies + shapeA->bodyIndex;
+		b2Body* bodyB = solver->world->bodies + shapeB->bodyIndex;
 		b2Manifold* manifold = &contact->manifold;
 
 		int32_t pointCount = manifold->pointCount;
 		assert(pointCount > 0);
 
-		b2ContactVelocityConstraint* vc = solver.velocityConstraints + i;
+		b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
 		vc->normal = manifold->normal;
 		vc->friction = contact->friction;
 		vc->restitution = contact->restitution;
@@ -106,7 +115,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 		vc->K = b2Mat22_zero;
 		vc->normalMass = b2Mat22_zero;
 
-		b2ContactPositionConstraint* pc = solver.positionConstraints + i;
+		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
 		pc->indexA = bodyA->islandIndex;
 		pc->indexB = bodyB->islandIndex;
 		pc->invMassA = bodyA->invMass;
@@ -136,10 +145,10 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 			b2ManifoldPoint* cp = manifold->points + j;
 			b2VelocityConstraintPoint* vcp = vc->points + j;
 
-			if (solver.step.warmStarting)
+			if (step.warmStarting)
 			{
-				vcp->normalImpulse = solver.step.dtRatio * cp->normalImpulse;
-				vcp->tangentImpulse = solver.step.dtRatio * cp->tangentImpulse;
+				vcp->normalImpulse = step.dtRatio * cp->normalImpulse;
+				vcp->tangentImpulse = step.dtRatio * cp->tangentImpulse;
 			}
 			else
 			{
@@ -167,7 +176,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 			vcp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
 			// Velocity bias for speculative collision
-			vcp->velocityBias = -B2_MAX(0.0f, cp->separation * solver.step.inv_dt);
+			vcp->velocityBias = -B2_MAX(0.0f, cp->separation * step.inv_dt);
 
 			// Relative velocity
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, vcp->rB));
@@ -200,8 +209,8 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 			if (k11 * k11 < k_maxConditionNumber * (k11 * k22 - k12 * k12))
 			{
 				// K is safe to invert.
-				vc->K.cx = (b2Vec2){k11, k12};
-				vc->K.cy = (b2Vec2){k12, k22};
+				vc->K.cx = (b2Vec2){ k11, k12 };
+				vc->K.cy = (b2Vec2){ k12, k22 };
 				vc->normalMass = b2GetInverse22(vc->K);
 			}
 			else
@@ -213,23 +222,7 @@ b2ContactSolver b2CreateContactSolver(b2ContactSolverDef* def)
 		}
 	}
 
-	return solver;
-}
-
-void b2DestroyContactSolver(b2ContactSolver* solver)
-{
-	b2StackAllocator* alloc = solver->world->stackAllocator;
-	b2FreeStackItem(alloc, solver->velocityConstraints);
-	b2FreeStackItem(alloc, solver->positionConstraints);
-	solver->velocityConstraints = NULL;
-	solver->positionConstraints = NULL;
-}
-
-void b2ContactSolver_WarmStart(b2ContactSolver* solver)
-{
-	int32_t count = solver->count;
-
-	// Warm start.
+	// Warm start
 	for (int32_t i = 0; i < count; ++i)
 	{
 		b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
