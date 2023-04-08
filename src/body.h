@@ -19,8 +19,6 @@ typedef struct b2Body
 
 	enum b2BodyType type;
 
-	int32_t islandIndex;
-
 	// the body origin transform
 	b2Transform transform;
 	

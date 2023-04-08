@@ -25,34 +25,28 @@ void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 
 	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
-	b2Joint* joint = world->joints + jointId.index;
-	assert(joint->object.index == joint->object.next);
-	assert(joint->object.revision == jointId.revision);
-	assert(joint->type == b2_mouseJoint);
-
-	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
-
-	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, target);
+	b2Joint* base = world->joints + jointId.index;
+	assert(base->object.index == base->object.next);
+	assert(base->object.revision == jointId.revision);
+	assert(base->type == b2_mouseJoint);
+	base->mouseJoint.targetA = target;
 }
 
-void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data)
+void b2InitializeMouse(b2Joint* base, b2SolverContext* context)
 {
 	assert(base->type == b2_mouseJoint);
 
-	b2Body* bodyA = world->bodies + base->edgeA.bodyIndex;
-	b2Body* bodyB = world->bodies + base->edgeB.bodyIndex;
-
 	b2MouseJoint* joint = &base->mouseJoint;
+	int32_t indexB = base->islandIndexB;
 
-	joint->indexB = bodyB->islandIndex;
-	joint->localCenterB = bodyB->localCenter;
-	joint->invMassB = bodyB->invMass;
-	joint->invIB = bodyB->invI;
+	joint->localCenterB = context->bodyData[indexB].localCenter;
+	joint->invMassB = context->bodyData[indexB].invMass;
+	joint->invIB = context->bodyData[indexB].invI;
 
-	b2Vec2 cB = data->positions[joint->indexB].c;
-	float aB = data->positions[joint->indexB].a;
-	b2Vec2 vB = data->velocities[joint->indexB].v;
-	float wB = data->velocities[joint->indexB].w;
+	b2Vec2 cB = context->positions[indexB].c;
+	float aB = context->positions[indexB].a;
+	b2Vec2 vB = context->velocities[indexB].v;
+	float wB = context->velocities[indexB].w;
 
 	b2Rot qB = b2MakeRot(aB);
 
@@ -62,7 +56,7 @@ void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data)
 	// magic formulas
 	// gamma has units of inverse mass.
 	// beta has units of inverse time.
-	float h = data->step.dt;
+	float h = context->step->dt;
 	joint->gamma = h * (d + h * k);
 	if (joint->gamma != 0.0f)
 	{
@@ -84,16 +78,15 @@ void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data)
 
 	joint->mass = b2GetInverse22(K);
 
-	b2Vec2 targetA = b2TransformPoint(bodyA->transform, base->localAnchorA);
-	joint->C = b2Add(cB, b2Sub(joint->rB, targetA));
+	joint->C = b2Add(cB, b2Sub(joint->rB, joint->targetA));
 	joint->C = b2MulSV(joint->beta, joint->C);
 
 	// Cheat with some damping
-	wB *= B2_MAX(0.0f, 1.0f - 0.02f * (60.0f * data->step.dt));
+	wB *= B2_MAX(0.0f, 1.0f - 0.02f * (60.0f * h));
 
-	if (data->step.warmStarting)
+	if (context->step->warmStarting)
 	{
-		joint->impulse = b2MulSV(data->step.dtRatio, joint->impulse);
+		joint->impulse = b2MulSV(context->step->dtRatio, joint->impulse);
 		vB = b2MulAdd(vB, joint->invMassB, joint->impulse);
 		wB += joint->invIB * b2Cross(joint->rB, joint->impulse);
 	}
@@ -102,16 +95,17 @@ void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data)
 		joint->impulse = b2Vec2_zero;
 	}
 
-	data->velocities[joint->indexB].v = vB;
-	data->velocities[joint->indexB].w = wB;
+	context->velocities[indexB].v = vB;
+	context->velocities[indexB].w = wB;
 }
 
-void b2SolveMouseVelocity(b2Joint* base, b2SolverData* data)
+void b2SolveMouseVelocity(b2Joint* base, b2SolverContext* data)
 {
 	b2MouseJoint* joint = &base->mouseJoint;
+	int32_t indexB = base->islandIndexB;
 
-	b2Vec2 vB = data->velocities[joint->indexB].v;
-	float wB = data->velocities[joint->indexB].w;
+	b2Vec2 vB = data->velocities[indexB].v;
+	float wB = data->velocities[indexB].w;
 
 	// Cdot = v + cross(w, r)
 	b2Vec2 Cdot = b2Add(vB, b2CrossSV(wB, joint->rB));
@@ -120,7 +114,7 @@ void b2SolveMouseVelocity(b2Joint* base, b2SolverData* data)
 
 	b2Vec2 oldImpulse = joint->impulse;
 	joint->impulse = b2Add(joint->impulse, impulse);
-	float maxImpulse = data->step.dt * joint->maxForce;
+	float maxImpulse = data->step->dt * joint->maxForce;
 	if (b2LengthSquared(joint->impulse) > maxImpulse * maxImpulse)
 	{
 		joint->impulse = b2MulSV(maxImpulse / b2Length(joint->impulse), joint->impulse);
@@ -130,6 +124,6 @@ void b2SolveMouseVelocity(b2Joint* base, b2SolverData* data)
 	vB = b2MulAdd(vB, joint->invMassB, impulse);
 	wB += joint->invIB * b2Cross(joint->rB, impulse);
 
-	data->velocities[joint->indexB].v = vB;
-	data->velocities[joint->indexB].w = wB;
+	data->velocities[indexB].v = vB;
+	data->velocities[indexB].w = wB;
 }

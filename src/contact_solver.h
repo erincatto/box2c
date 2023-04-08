@@ -11,10 +11,10 @@ typedef struct b2StackAllocator b2StackAllocator;
 
 typedef struct b2ContactSolverDef
 {
-	struct b2World* world;
 	const b2TimeStep* step;
 	struct b2Contact** contacts;
 	int32_t count;
+	b2BodyData* bodyData;
 	b2Position* positions;
 	b2Velocity* velocities;
 } b2ContactSolverDef;
@@ -22,9 +22,9 @@ typedef struct b2ContactSolverDef
 typedef struct b2ContactSolver
 {
 	const b2TimeStep* step;
+	const b2BodyData* bodyData;
 	b2Position* positions;
 	b2Velocity* velocities;
-	struct b2World* world;
 	struct b2ContactPositionConstraint* positionConstraints;
 	struct b2ContactVelocityConstraint* velocityConstraints;
 	struct b2Contact** contacts;

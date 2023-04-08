@@ -37,7 +37,6 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	assert(b2IsValid(def->gravityScale) && def->gravityScale >= 0.0f);
 
 	b->type = def->type;
-	b->islandIndex = B2_NULL_INDEX;
 	b->transform.p = def->position;
 	b->transform.q = b2MakeRot(def->angle);
 	b->position = def->position;

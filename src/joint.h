@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2SolverData b2SolverData;
+typedef struct b2SolverContext b2SolverContext;
 typedef struct b2World b2World;
 
 typedef enum b2JointType
@@ -40,6 +40,7 @@ typedef struct b2JointEdge
 
 typedef struct b2MouseJoint
 {
+	b2Vec2 targetA;
 	float stiffness;
 	float damping;
 	float beta;
@@ -50,8 +51,6 @@ typedef struct b2MouseJoint
 	float gamma;
 
 	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
 	b2Vec2 rB;
 	b2Vec2 localCenterB;
 	float invMassB;
@@ -76,8 +75,6 @@ typedef struct b2RevoluteJoint
 	float upperAngle;
 
 	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
 	b2Vec2 rA;
 	b2Vec2 rB;
 	b2Vec2 localCenterA;
@@ -104,6 +101,9 @@ typedef struct b2Joint
 
 	uint64_t islandId;
 
+	int32_t islandIndexA;
+	int32_t islandIndexB;
+
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
 
@@ -116,10 +116,10 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* data);
-void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data);
+void b2InitVelocityConstraints(b2Joint* joint, b2SolverContext* data);
+void b2SolveVelocityConstraints(b2Joint* joint, b2SolverContext* data);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data);
+bool b2SolvePositionConstraints(b2Joint* joint, b2SolverContext* data);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

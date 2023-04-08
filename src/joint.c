@@ -107,12 +107,12 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	joint->edgeB.nextJointIndex = bodyB->jointIndex;
 	bodyB->jointIndex = joint->object.index;
 
-	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
+	joint->localAnchorA = b2Vec2_zero;
 	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
 
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
-
+	joint->mouseJoint.targetA = def->target;
 	joint->mouseJoint.maxForce = def->maxForce;
 	joint->mouseJoint.stiffness = def->stiffness;
 	joint->mouseJoint.damping = def->damping;
@@ -289,19 +289,19 @@ void b2World_DestroyJoint(b2JointId jointId)
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
-extern void b2InitializeMouse(b2World* world, b2Joint* base, b2SolverData* data);
-extern void b2InitializeRevolute(b2World* world, b2Joint* base, b2SolverData* data);
+extern void b2InitializeMouse(b2Joint* base, b2SolverContext* data);
+extern void b2InitializeRevolute(b2Joint* base, b2SolverContext* data);
 
-void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* data)
+void b2InitVelocityConstraints(b2Joint* joint, b2SolverContext* data)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2InitializeMouse(world, joint, data);
+			b2InitializeMouse(joint, data);
 			break;
 
 		case b2_revoluteJoint:
-			b2InitializeRevolute(world, joint, data);
+			b2InitializeRevolute(joint, data);
 			break;
 
 		default:
@@ -309,10 +309,10 @@ void b2InitVelocityConstraints(b2World* world, b2Joint* joint, b2SolverData* dat
 	}
 }
 
-extern void b2SolveMouseVelocity(b2Joint* base, b2SolverData* data);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2SolverData* data);
+extern void b2SolveMouseVelocity(b2Joint* base, b2SolverContext* data);
+extern void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* data);
 
-void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data)
+void b2SolveVelocityConstraints(b2Joint* joint, b2SolverContext* data)
 {
 	switch (joint->type)
 	{
@@ -329,10 +329,10 @@ void b2SolveVelocityConstraints(b2Joint* joint, b2SolverData* data)
 	}
 }
 
-extern bool b2SolveRevolutePosition(b2Joint* base, b2SolverData* data);
+extern bool b2SolveRevolutePosition(b2Joint* base, b2SolverContext* data);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2SolverData* data)
+bool b2SolvePositionConstraints(b2Joint* joint, b2SolverContext* data)
 {
 	switch (joint->type)
 	{
@@ -377,13 +377,14 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 
 	case b2_mouseJoint:
 	{
+		b2Vec2 target = joint->mouseJoint.targetA;
+
 		b2Color c1 = {0.0f, 1.0f, 0.0f, 1.0f};
-		draw->DrawPoint(pA, 4.0f, c1, draw->context);
+		draw->DrawPoint(target, 4.0f, c1, draw->context);
 		draw->DrawPoint(pB, 4.0f, c1, draw->context);
 
 		b2Color c2 = {0.8f, 0.8f, 0.8f, 1.0f};
-		draw->DrawSegment(pA, pB, c2, draw->context);
-
+		draw->DrawSegment(target, pB, c2, draw->context);
 	}
 	break;
 
