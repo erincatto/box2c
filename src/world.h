@@ -10,8 +10,6 @@
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
-#include <stdatomic.h>
-
 /// The world class manages all physics entities, dynamic simulation,
 /// and asynchronous queries. The world also contains efficient memory
 /// management facilities.
@@ -34,7 +32,6 @@ typedef struct b2World
 
 	struct b2Contact* contacts;
 	int32_t contactCount;
-	atomic_int awakeContactCount;
 
 	// array of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;

@@ -7,9 +7,6 @@
 #include "box2d/debug_draw.h"
 #include "box2d/timer.h"
 
-#define THREAD_IMPLEMENTATION
-#include "thread.h"
-
 #include "array.h"
 #include "block_allocator.h"
 #include "body.h"
@@ -20,11 +17,11 @@
 #include "shape.h"
 #include "solver_data.h"
 #include "stack_allocator.h"
+#include "thread.h"
 #include "world.h"
 
 #include <assert.h>
 #include <string.h>
-
 
 b2World g_worlds[b2_maxWorlds];
 
@@ -332,7 +329,6 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 
 			// Update contact respecting shape/body order (A,B)
 			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
-			atomic_fetch_add(&world->awakeContactCount, 1);
 
 			ce = ce->next;
 		}
@@ -344,8 +340,6 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 static void b2Collide(b2World* world)
 {
 	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
-
-	atomic_store(&world->awakeContactCount, 0);
 
 	const int32_t* awakeBodies = world->awakeBodies;
 	int32_t count = b2Array(awakeBodies).count;
