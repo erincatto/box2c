@@ -375,6 +375,9 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneEnd(collide);
 }
 
+#define B2_ISLAND_PARALLEL_FOR 1
+
+#if B2_ISLAND_PARALLEL_FOR == 0
 static void b2IslandTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
 	B2_MAYBE_UNUSED(startIndex);
@@ -387,7 +390,7 @@ static void b2IslandTask(int32_t startIndex, int32_t endIndex, void* taskContext
 
 	b2TracyCZoneEnd(island_task);
 }
-
+#else
 static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
 	B2_MAYBE_UNUSED(startIndex);
@@ -406,9 +409,9 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* 
 
 	b2TracyCZoneEnd(island_task);
 }
+#endif
 
 bool g_parallelIslands = true;
-#define B2_ISLAND_PARALLEL_FOR 1
 
 // Find islands, integrate equations of motion and solve constraints.
 // Also reports contact results and updates sleep.
@@ -481,7 +484,10 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	// Build and simulate all awake islands.
 	int32_t* stack = (int32_t*)b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t));
 	b2Island* islandList = NULL;
+
+#if B2_ISLAND_PARALLEL_FOR == 1
 	int32_t islandCount = 0;
+#endif
 
 	// Each island is found as a depth first search starting from a seed body
 	for (int32_t i = 0; i < seedCount; ++i)
