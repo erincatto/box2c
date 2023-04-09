@@ -9,7 +9,6 @@
 #include <imgui.h>
 
 BOX2D_API bool g_velocityBlockSolve;
-BOX2D_API bool g_parallelIslands;
 
 class VerticalStack : public Sample
 {
@@ -58,7 +57,7 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = g_sampleDebug ? 1 : 50;
+		m_rowCount = g_sampleDebug ? 4 : 50;
 		m_columnCount = g_sampleDebug ? 1 : 200;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
@@ -199,7 +198,6 @@ public:
 		}
 
 		ImGui::Checkbox("Block Solve", &g_velocityBlockSolve);
-		ImGui::Checkbox("Parallel Islands", &g_parallelIslands);
 
 		changed = changed || ImGui::Button("Reset Stack");
 

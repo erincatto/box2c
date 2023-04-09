@@ -374,6 +374,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 
 bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
 {
+	// TODO_ERIN make thread safe
 	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
 	{
 		ContactPoint* cp = m_points + m_pointCount;

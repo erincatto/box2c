@@ -24,6 +24,7 @@
 #include <string.h>
 
 b2World g_worlds[b2_maxWorlds];
+bool g_parallel = true;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -320,6 +321,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 				ce = ce->next;
 
 				// Safely make array of invalid contacts to be destroyed serially
+				// TODO_ERIN use CAS
 				b2LockMutex(world->invalidContactMutex);
 				b2Array_Push(world->invalidContacts, contact);
 				b2UnlockMutex(world->invalidContactMutex);
@@ -350,10 +352,16 @@ static void b2Collide(b2World* world)
 		return;
 	}
 
-	int32_t minRange = 16;
-
-	world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
-	world->finishTasks(world->userTaskContext);
+	if (g_parallel)
+	{
+		int32_t minRange = 16;
+		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+		world->finishTasks(world->userTaskContext);
+	}
+	else
+	{
+		b2CollideTask(0, count, world);
+	}
 
 	// Serially destroy contacts
 	b2TracyCZoneNC(destroy_contacts, "Destroy Contact", b2_colorCoral, true);
@@ -404,8 +412,6 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* 
 	b2TracyCZoneEnd(island_task);
 }
 #endif
-
-bool g_parallelIslands = true;
 
 // Find islands, integrate equations of motion and solve constraints.
 // Also reports contact results and updates sleep.
@@ -671,7 +677,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		islandList = island;
 
 #if B2_ISLAND_PARALLEL_FOR == 0
-		if (g_parallelIslands)
+		if (g_parallel)
 		{
 			world->enqueueTask(&b2IslandTask, 1, 1, island, world->userTaskContext);
 		}
@@ -692,7 +698,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
 #if B2_ISLAND_PARALLEL_FOR == 1
-	if (g_parallelIslands)
+	if (g_parallel)
 	{
 		world->enqueueTask(&b2IslandParallelForTask, islandCount, 1, islands, world->userTaskContext);
 	}
