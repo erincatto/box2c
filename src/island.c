@@ -200,12 +200,9 @@ void b2SolveIsland(b2Island* island)
 {
 	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
 
-	b2Timer timer = b2CreateTimer();
-
 	b2World* world = island->world;
 	const b2TimeStep* step = island->step;
 	b2Vec2 gravity = world->gravity;
-	b2Profile* profile = &world->profile;
 
 #if 0
 	if (island->bodyCount > 16)
@@ -315,8 +312,6 @@ void b2SolveIsland(b2Island* island)
 		b2InitVelocityConstraints(island->joints[i], &context);
 	}
 
-	profile->solveInit += b2GetMillisecondsAndReset(&timer);
-
 	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorCadetBlue, true);
 	// Solve velocity constraints
 	for (int32_t i = 0; i < step->velocityIterations; ++i)
@@ -335,7 +330,6 @@ void b2SolveIsland(b2Island* island)
 
 	// Store impulses for warm starting
 	b2ContactSolver_StoreImpulses(island->contactSolver);
-	profile->solveVelocity += b2GetMillisecondsAndReset(&timer);
 
 	// Integrate positions
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -373,7 +367,6 @@ void b2SolveIsland(b2Island* island)
 	b2TracyCZoneNC(posc, "Position Constraints", b2_colorBurlywood, true);
 
 	// Solve position constraints
-	b2GetMillisecondsAndReset(&timer);
 	bool positionSolved = false;
 	for (int32_t i = 0; i < step->positionIterations; ++i)
 	{
@@ -401,7 +394,6 @@ void b2SolveIsland(b2Island* island)
 			break;
 		}
 	}
-	profile->solvePosition += b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneEnd(posc);
 
@@ -524,9 +516,6 @@ void b2SolveIsland(b2Island* island)
 	}
 
 	b2TracyCZoneEnd(sleep);
-
-	profile->sleep += b2GetMillisecondsAndReset(&timer);
-
 	b2TracyCZoneEnd(solve_island);
 }
 

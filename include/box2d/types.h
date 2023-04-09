@@ -102,6 +102,11 @@ typedef struct b2WorldDef
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
 
+	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
+	/// Larger worlds require more space. b2Statistics can be used to determine a good capacity for your
+	/// application.
+	int32_t stackAllocatorCapacity;
+
 	/// task system hookup
 	int32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTask;
@@ -225,6 +230,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.bodyCapacity = 8;
 	def.jointCapacity = 8;
 	def.shapeCapacity = 8;
+	def.stackAllocatorCapacity = 1024 * 1024;
 	return def;
 }
 

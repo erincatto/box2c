@@ -75,6 +75,7 @@ Sample::Sample()
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTasks = &FinishTasks;
 	worldDef.userTaskContext = this;
+	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
@@ -252,6 +253,9 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight,
 						  s.contactPointCount);
 		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "max stack allocator bytes = %d", s.maxStackAllocation);
+		m_textLine += m_textIncrement;
 	}
 
 	// Track maximum profile times
@@ -260,23 +264,15 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.step = B2_MAX(m_maxProfile.step, p->step);
 		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p->collide);
 		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p->solve);
-		m_maxProfile.island = B2_MAX(m_maxProfile.island, p->island);
-		m_maxProfile.solveInit = B2_MAX(m_maxProfile.solveInit, p->solveInit);
-		m_maxProfile.solveVelocity = B2_MAX(m_maxProfile.solveVelocity, p->solveVelocity);
-		m_maxProfile.solvePosition = B2_MAX(m_maxProfile.solvePosition, p->solvePosition);
-		m_maxProfile.solveTOI = B2_MAX(m_maxProfile.solveTOI, p->solveTOI);
-		m_maxProfile.sleep = B2_MAX(m_maxProfile.sleep, p->sleep);
+		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p->buildIslands);
+		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p->solveIslands);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
 
 		m_totalProfile.step += p->step;
 		m_totalProfile.collide += p->collide;
 		m_totalProfile.solve += p->solve;
-		m_totalProfile.island += p->island;
-		m_totalProfile.solveInit += p->solveInit;
-		m_totalProfile.solveVelocity += p->solveVelocity;
-		m_totalProfile.solvePosition += p->solvePosition;
-		m_totalProfile.solveTOI += p->solveTOI;
-		m_totalProfile.sleep += p->sleep;
+		m_totalProfile.buildIslands += p->buildIslands;
+		m_totalProfile.solveIslands += p->solveIslands;
 		m_totalProfile.broadphase += p->broadphase;
 	}
 
@@ -292,12 +288,8 @@ void Sample::Step(Settings& settings)
 			aveProfile.step = scale * m_totalProfile.step;
 			aveProfile.collide = scale * m_totalProfile.collide;
 			aveProfile.solve = scale * m_totalProfile.solve;
-			aveProfile.island = scale * m_totalProfile.island;
-			aveProfile.solveInit = scale * m_totalProfile.solveInit;
-			aveProfile.solveVelocity = scale * m_totalProfile.solveVelocity;
-			aveProfile.solvePosition = scale * m_totalProfile.solvePosition;
-			aveProfile.solveTOI = scale * m_totalProfile.solveTOI;
-			aveProfile.sleep = scale * m_totalProfile.sleep;
+			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
+			aveProfile.solveIslands = scale * m_totalProfile.solveIslands;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
@@ -310,23 +302,11 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solve, aveProfile.solve,
 						  m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->island, aveProfile.island,
-						  m_maxProfile.island);
+		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->buildIslands, aveProfile.buildIslands,
+						  m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve init [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveInit,
-						  aveProfile.solveInit, m_maxProfile.solveInit);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve velocity [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveVelocity,
-						  aveProfile.solveVelocity, m_maxProfile.solveVelocity);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve position [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solvePosition,
-						  aveProfile.solvePosition, m_maxProfile.solvePosition);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solveTOI [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveTOI,
-						  aveProfile.solveTOI, m_maxProfile.solveTOI);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "sleep [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->sleep,
-						  aveProfile.sleep, m_maxProfile.sleep);
+		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveIslands,
+						  aveProfile.solveIslands, m_maxProfile.solveIslands);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->broadphase,
 						  aveProfile.broadphase, m_maxProfile.broadphase);

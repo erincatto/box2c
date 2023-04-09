@@ -166,7 +166,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->index = id.index;
 
 	world->blockAllocator = b2CreateBlockAllocator();
-	world->stackAllocator = b2CreateStackAllocator();
+	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
 
@@ -416,9 +416,6 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	b2Timer timer = b2CreateTimer();
 
-	world->profile.solveInit = 0.0f;
-	world->profile.solveVelocity = 0.0f;
-	world->profile.solvePosition = 0.0f;
 	world->contactPointCount = 0;
 
 	// Island buffers
@@ -690,7 +687,9 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	b2TracyCZoneEnd(island_builder);
 
-	world->profile.island = b2GetMillisecondsAndReset(&timer);
+	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
 #if B2_ISLAND_PARALLEL_FOR == 1
 	if (g_parallelIslands)
@@ -704,6 +703,10 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 #endif
 
 	world->finishTasks(world->userTaskContext);
+
+	b2TracyCZoneEnd(island_solver);
+
+	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
@@ -726,10 +729,11 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	// Look for new contacts
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
-	world->profile.broadphase = b2GetMilliseconds(&timer);
 
 	// Store new island id
 	world->islandId = islandId;
+
+	world->profile.broadphase = b2GetMilliseconds(&timer);
 
 	b2TracyCZoneEnd(broad_phase);
 
@@ -812,6 +816,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	world->locked = false;
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
+
+	assert(b2GetStackAllocation(world->stackAllocator) == 0);
 
 	b2TracyCZoneEnd(step_ctx);
 }
@@ -1092,7 +1098,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.proxyCount = tree->nodeCount;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
 	s.contactPointCount = world->contactPointCount;
-
+	s.maxStackAllocation = b2GetMaxStackAllocation(world->stackAllocator);
 	return s;
 }
 
