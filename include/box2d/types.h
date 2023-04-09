@@ -74,12 +74,12 @@ typedef struct b2RayCastOutput
 } b2RayCastOutput;
 
 /// Task interface
-/// This is an internal Box2D task
-typedef void b2TaskFcn(int32_t startIndex, int32_t endIndex, void* context);
+/// This is prototype for a Box2D task
+typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, void* context);
 
-/// These functions can be provided to Box2D to support parallelism
-typedef void b2AddTaskFcn(b2TaskFcn* taskFcn, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);
-typedef void b2FinishTasksFcn(void* userContext);
+/// These functions can be provided to Box2D to invoke a task system
+typedef void b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);
+typedef void b2FinishTasksCallback(void* userContext);
 
 typedef struct b2WorldDef
 {
@@ -102,10 +102,15 @@ typedef struct b2WorldDef
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
 
+	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
+	/// Larger worlds require more space. b2Statistics can be used to determine a good capacity for your
+	/// application.
+	int32_t stackAllocatorCapacity;
+
 	/// task system hookup
 	int32_t workerCount;
-	b2AddTaskFcn* addTaskFcn;
-	b2FinishTasksFcn* finishTasksFcn;
+	b2EnqueueTaskCallback* enqueueTask;
+	b2FinishTasksCallback* finishTasks;
 	void* userTaskContext;
 
 } b2WorldDef;
@@ -225,6 +230,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.bodyCapacity = 8;
 	def.jointCapacity = 8;
 	def.shapeCapacity = 8;
+	def.stackAllocatorCapacity = 1024 * 1024;
 	return def;
 }
 

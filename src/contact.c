@@ -341,7 +341,12 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 
 		if (touching && world->preSolveFcn)
 		{
-			world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
+			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
+			if (collide == false)
+			{
+				// disable contact
+				contact->flags &= ~b2_contactEnabledFlag;
+			}
 		}
 	}
 

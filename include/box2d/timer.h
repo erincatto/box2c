@@ -11,13 +11,9 @@ typedef struct b2Profile
 	float step;
 	float collide;
 	float solve;
-	float island;
-	float solveInit;
-	float solveVelocity;
-	float solvePosition;
-	float completion;
+	float buildIslands;
+	float solveIslands;
 	float broadphase;
-	float solveTOI;
 } b2Profile;
 
 static const b2Profile b2_emptyProfile = {0};
@@ -30,6 +26,7 @@ typedef struct b2Statistics
 	int32_t proxyCount;
 	int32_t treeHeight;
 	int32_t contactPointCount;
+	int32_t maxStackAllocation;
 } b2Statistics;
 
 /// Timer for profiling. This has platform specific code and may

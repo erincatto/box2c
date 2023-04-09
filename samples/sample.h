@@ -78,14 +78,14 @@ public:
 
 	void ExecuteRange(enki::TaskSetPartition range, uint32_t) override
 	{
-		m_taskFcn(range.start, range.end, m_taskContext);
+		m_task(range.start, range.end, m_taskContext);
 	}
 
-	b2TaskFcn* m_taskFcn = nullptr;
+	b2TaskCallback* m_task = nullptr;
 	void* m_taskContext = nullptr;
 };
 
-constexpr int32_t maxTasks = 128;
+constexpr int32_t maxTasks = 1024;
 
 class Sample
 {
@@ -106,7 +106,7 @@ public:
 	void ResetProfile();
 	void ShiftOrigin(b2Vec2 newOrigin);
 
-	void PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold);
+	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold);
 
 	friend class DestructionListener;
 	friend class BoundaryListener;

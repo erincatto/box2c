@@ -29,32 +29,32 @@ void DestructionListener::SayGoodbye(b2Joint* joint)
 }
 #endif
 
-void PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold, void* context)
+bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
-	sample->PreSolve(shapeIdA, shapeIdB, manifold);
+	return sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
-static void AddTaskFcn(b2TaskFcn* taskFcn, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
+static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	if (sample->m_taskCount < maxTasks)
 	{
-		SampleTask& task = sample->m_tasks[sample->m_taskCount];
-		task.m_SetSize = itemCount;
-		task.m_MinRange = minRange;
-		task.m_taskFcn = taskFcn;
-		task.m_taskContext = taskContext;
-		sample->m_scheduler.AddTaskSetToPipe(&task);
+		SampleTask& sampleTask = sample->m_tasks[sample->m_taskCount];
+		sampleTask.m_SetSize = itemCount;
+		sampleTask.m_MinRange = minRange;
+		sampleTask.m_task= task;
+		sampleTask.m_taskContext = taskContext;
+		sample->m_scheduler.AddTaskSetToPipe(&sampleTask);
 		++sample->m_taskCount;
 	}
 	else
 	{
-		taskFcn(0, itemCount, taskContext);
+		task(0, itemCount, taskContext);
 	}
 }
 
-static void FinishTasksFcn(void* userContext)
+static void FinishTasks(void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	sample->m_scheduler.WaitforAll();
@@ -65,15 +65,17 @@ Sample::Sample()
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
+	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
 	uint32_t maxThreads = enki::GetNumHardwareThreads() / 2;
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = maxThreads;
-	worldDef.addTaskFcn = &AddTaskFcn;
-	worldDef.finishTasksFcn = &FinishTasksFcn;
+	worldDef.enqueueTask = &EnqueueTask;
+	worldDef.finishTasks = &FinishTasks;
 	worldDef.userTaskContext = this;
+	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
@@ -251,6 +253,9 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight,
 						  s.contactPointCount);
 		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "max stack allocator bytes = %d", s.maxStackAllocation);
+		m_textLine += m_textIncrement;
 	}
 
 	// Track maximum profile times
@@ -259,23 +264,15 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.step = B2_MAX(m_maxProfile.step, p->step);
 		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p->collide);
 		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p->solve);
-		m_maxProfile.island = B2_MAX(m_maxProfile.island, p->island);
-		m_maxProfile.solveInit = B2_MAX(m_maxProfile.solveInit, p->solveInit);
-		m_maxProfile.solveVelocity = B2_MAX(m_maxProfile.solveVelocity, p->solveVelocity);
-		m_maxProfile.solvePosition = B2_MAX(m_maxProfile.solvePosition, p->solvePosition);
-		m_maxProfile.solveTOI = B2_MAX(m_maxProfile.solveTOI, p->solveTOI);
-		m_maxProfile.completion = B2_MAX(m_maxProfile.completion, p->completion);
+		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p->buildIslands);
+		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p->solveIslands);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
 
 		m_totalProfile.step += p->step;
 		m_totalProfile.collide += p->collide;
 		m_totalProfile.solve += p->solve;
-		m_totalProfile.island += p->island;
-		m_totalProfile.solveInit += p->solveInit;
-		m_totalProfile.solveVelocity += p->solveVelocity;
-		m_totalProfile.solvePosition += p->solvePosition;
-		m_totalProfile.solveTOI += p->solveTOI;
-		m_totalProfile.completion += p->completion;
+		m_totalProfile.buildIslands += p->buildIslands;
+		m_totalProfile.solveIslands += p->solveIslands;
 		m_totalProfile.broadphase += p->broadphase;
 	}
 
@@ -291,12 +288,8 @@ void Sample::Step(Settings& settings)
 			aveProfile.step = scale * m_totalProfile.step;
 			aveProfile.collide = scale * m_totalProfile.collide;
 			aveProfile.solve = scale * m_totalProfile.solve;
-			aveProfile.island = scale * m_totalProfile.island;
-			aveProfile.solveInit = scale * m_totalProfile.solveInit;
-			aveProfile.solveVelocity = scale * m_totalProfile.solveVelocity;
-			aveProfile.solvePosition = scale * m_totalProfile.solvePosition;
-			aveProfile.solveTOI = scale * m_totalProfile.solveTOI;
-			aveProfile.completion = scale * m_totalProfile.completion;
+			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
+			aveProfile.solveIslands = scale * m_totalProfile.solveIslands;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
@@ -309,23 +302,11 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solve, aveProfile.solve,
 						  m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->island, aveProfile.island,
-						  m_maxProfile.island);
+		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->buildIslands, aveProfile.buildIslands,
+						  m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve init [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveInit,
-						  aveProfile.solveInit, m_maxProfile.solveInit);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve velocity [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveVelocity,
-						  aveProfile.solveVelocity, m_maxProfile.solveVelocity);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve position [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solvePosition,
-						  aveProfile.solvePosition, m_maxProfile.solvePosition);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solveTOI [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveTOI,
-						  aveProfile.solveTOI, m_maxProfile.solveTOI);
-		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "completion [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->completion,
-						  aveProfile.completion, m_maxProfile.completion);
+		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveIslands,
+						  aveProfile.solveIslands, m_maxProfile.solveIslands);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->broadphase,
 						  aveProfile.broadphase, m_maxProfile.broadphase);
@@ -391,7 +372,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	// m_world->ShiftOrigin(newOrigin);
 }
 
-void Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* manifold)
+bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
 {
 	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
 	{
@@ -406,6 +387,8 @@ void Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, const b2Manifold* 
 		cp->persisted = manifold->points[i].persisted;
 		++m_pointCount;
 	}
+
+	return true;
 }
 
 SampleEntry g_sampleEntries[MAX_SAMPLES] = {{nullptr}};

@@ -3,14 +3,11 @@
 
 #include "box2d/allocate.h"
 
+#include "array.h"
 #include "stack_allocator.h"
 
 #include <assert.h>
 #include <stdbool.h>
-
-// 100k
-#define b2_stackSize (100 * 1024)
-#define b2_maxStackEntries 32
 
 typedef struct b2StackEntry
 {
@@ -22,50 +19,54 @@ typedef struct b2StackEntry
 // This is a stack allocator used for fast per step allocations.
 // You must nest allocate/free pairs. The code will assert
 // if you try to interleave multiple allocate/free pairs.
+// Unlike a scratch allocator, this lets me use the heap if the allocator
+// space is insufficient.
 typedef struct b2StackAllocator
 {
-	char data[b2_stackSize];
+	char* data;
+	int32_t capacity;
 	int32_t index;
 
 	int32_t allocation;
 	int32_t maxAllocation;
 
-	b2StackEntry entries[b2_maxStackEntries];
-	int32_t entryCount;
+	b2StackEntry* entries;
 } b2StackAllocator;
 
-b2StackAllocator* b2CreateStackAllocator()
+b2StackAllocator* b2CreateStackAllocator(int32_t capacity)
 {
+	assert(capacity >= 0);
 	b2StackAllocator* allocator = b2Alloc(sizeof(b2StackAllocator));
+	allocator->capacity = capacity;
+	allocator->data = b2Alloc(capacity);
 	allocator->allocation = 0;
 	allocator->maxAllocation = 0;
-	allocator->entryCount = 0;
 	allocator->index = 0;
-
+	allocator->entries = b2CreateArray(sizeof(b2StackEntry), 32);
 	return allocator;
 }
 
 void b2DestroyStackAllocator(b2StackAllocator* allocator)
 {
-	assert(allocator->entryCount == 0);
+	b2DestroyArray(allocator->entries);
+	b2Free(allocator->data);
 	b2Free(allocator);
 }
 
 void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size)
 {
-	assert(alloc->entryCount < b2_maxStackEntries);
-
-	b2StackEntry* entry = alloc->entries + alloc->entryCount;
-	entry->size = size;
-	if (alloc->index + size > b2_stackSize)
+	b2StackEntry entry;
+	entry.size = size;
+	if (alloc->index + size > alloc->capacity)
 	{
-		entry->data = (char*)b2Alloc(size);
-		entry->usedMalloc = true;
+		// fall back to the heap (undesirable)
+		entry.data = (char*)b2Alloc(size);
+		entry.usedMalloc = true;
 	}
 	else
 	{
-		entry->data = alloc->data + alloc->index;
-		entry->usedMalloc = false;
+		entry.data = alloc->data + alloc->index;
+		entry.usedMalloc = false;
 		alloc->index += size;
 	}
 
@@ -74,15 +75,17 @@ void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size)
 	{
 		alloc->maxAllocation = alloc->allocation;
 	}
-	++alloc->entryCount;
 
-	return entry->data;
+	b2Array_Push(alloc->entries, entry);
+
+	return entry.data;
 }
 
 void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 {
-	assert(alloc->entryCount > 0);
-	b2StackEntry* entry = alloc->entries + alloc->entryCount - 1;
+	int32_t entryCount = b2Array(alloc->entries).count;
+	assert(entryCount > 0);
+	b2StackEntry* entry = alloc->entries + (entryCount - 1);
 	assert(mem == entry->data);
 	if (entry->usedMalloc)
 	{
@@ -93,5 +96,15 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 		alloc->index -= entry->size;
 	}
 	alloc->allocation -= entry->size;
-	--alloc->entryCount;
+	b2Array_Pop(alloc->entries);
+}
+
+int32_t b2GetStackAllocation(b2StackAllocator* alloc)
+{
+	return alloc->allocation;
+}
+
+int32_t b2GetMaxStackAllocation(b2StackAllocator* alloc)
+{
+	return alloc->maxAllocation;
 }

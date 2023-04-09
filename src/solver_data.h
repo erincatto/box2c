@@ -22,9 +22,18 @@ typedef struct b2TimeStep
 	// Position iterations for constraint solver. Controls the accuracy of shape overlap and joint alignment.
 	int32_t positionIterations;
 
+	float restitutionThreshold;
+
 	// For testing
 	bool warmStarting;
 } b2TimeStep;
+
+typedef struct b2BodyData
+{
+	b2Vec2 localCenter;
+	float invMass;
+	float invI;
+} b2BodyData;
 
 typedef struct b2Position
 {
@@ -38,10 +47,10 @@ typedef struct b2Velocity
 	float w;
 } b2Velocity;
 
-//	TODO_ERIN b2SolverContext?
-typedef struct b2SolverData
+typedef struct b2SolverContext
 {
-	b2TimeStep step;
+	const b2TimeStep* step;
+	const b2BodyData* bodyData;
 	b2Position* positions;
 	b2Velocity* velocities;
-} b2SolverData;
+} b2SolverContext;

@@ -66,6 +66,9 @@ typedef struct b2Contact
 
 	uint64_t islandId;
 
+	int32_t islandIndexA;
+	int32_t islandIndexB;
+
 	// Mixed friction and restitution
 	float friction;
 	float restitution;

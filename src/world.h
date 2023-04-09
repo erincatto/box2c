@@ -8,7 +8,6 @@
 #include "thread.h"
 
 #include "box2d/callbacks.h"
-#include "box2d/math.h"
 #include "box2d/timer.h"
 
 /// The world class manages all physics entities, dynamic simulation,
@@ -45,15 +44,13 @@ typedef struct b2World
 	b2Vec2 gravity;
 	float restitutionThreshold;
 
-	//b2DestructionListener* m_destructionListener;
+	// b2DestructionListener* m_destructionListener;
 
 	// This is used to compute the time step ratio to support a variable time step.
 	float inv_dt0;
 
 	uint64_t islandId;
-
 	uint16_t revision;
-
 	int32_t groundBodyIndex;
 
 	b2Profile profile;
@@ -66,9 +63,9 @@ typedef struct b2World
 	void* postSolveContext;
 
 	int32_t workerCount;
-	b2AddTaskFcn *addFcn;
-	b2FinishTasksFcn *finishFcn;
-	void *userTaskContext;
+	b2EnqueueTaskCallback* enqueueTask;
+	b2FinishTasksCallback* finishTasks;
+	void* userTaskContext;
 
 	bool enableSleep;
 	bool newContacts;
@@ -80,4 +77,3 @@ b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(int16_t index);
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id);
-

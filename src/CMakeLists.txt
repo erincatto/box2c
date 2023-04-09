@@ -3,6 +3,7 @@ set(BOX2D_SOURCE_FILES
 	allocate.c
 	array.c
 	array.h
+	atomic.inl
 	block_allocator.c
 	block_allocator.h
 	body.c

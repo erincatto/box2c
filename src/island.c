@@ -17,6 +17,7 @@
 
 #include <assert.h>
 #include <float.h>
+#include <string.h>
 
 /*
 Position Correction Notes
@@ -117,13 +118,13 @@ stored in a single array since multiple arrays lead to multiple misses.
 2D Rotation
 
 R = [cos(theta) -sin(theta)]
-    [sin(theta) cos(theta) ]
+	[sin(theta) cos(theta) ]
 
 thetaDot = omega
 
 Let q1 = cos(theta), q2 = sin(theta).
 R = [q1 -q2]
-    [q2  q1]
+	[q2  q1]
 
 q1Dot = -thetaDot * q2
 q2Dot = thetaDot * q1
@@ -136,26 +137,42 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
-b2Island b2CreateIsland(
-	int32_t bodyCapacity,
-	int32_t contactCapacity,
-	int32_t jointCapacity,
-	b2World* world)
+// This just allocates data doing the minimal amount of single threaded work
+b2Island* b2CreateIsland(
+	b2Body** bodies, int32_t bodyCount, b2Contact** contacts, int32_t contactCount, b2Joint** joints, int32_t jointCount, struct b2World* world, const b2TimeStep* step)
 {
-	b2Island island = {0};
-	island.bodyCapacity = bodyCapacity;
-	island.contactCapacity = contactCapacity;
-	island.jointCapacity = jointCapacity;
-
-	island.world = world;
-
 	b2StackAllocator* alloc = world->stackAllocator;
-	island.bodies = (b2Body**)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Body*));
-	island.contacts = (b2Contact**)b2AllocateStackItem(alloc, contactCapacity * sizeof(b2Contact*));
-	island.joints = (b2Joint**)b2AllocateStackItem(alloc, jointCapacity * sizeof(b2Joint*));
 
-	island.velocities = (b2Velocity*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Velocity));
-	island.positions = (b2Position*)b2AllocateStackItem(alloc, bodyCapacity * sizeof(b2Position));
+	b2Island* island = b2AllocateStackItem(alloc, sizeof(b2Island));
+	island->bodyCount = bodyCount;
+	island->contactCount = contactCount;
+	island->jointCount = jointCount;
+	island->world = world;
+	island->step = step;
+
+	island->bodies = b2AllocateStackItem(alloc, bodyCount * sizeof(b2Body*));
+	memcpy(island->bodies, bodies, bodyCount * sizeof(b2Body*));
+
+	island->contacts = b2AllocateStackItem(alloc, contactCount * sizeof(b2Contact*));
+	memcpy(island->contacts, contacts, contactCount * sizeof(b2Contact*));
+
+	island->joints = b2AllocateStackItem(alloc, jointCount * sizeof(b2Joint*));
+	memcpy(island->joints, joints, jointCount * sizeof(b2Joint*));
+
+	island->bodyData = b2AllocateStackItem(alloc, bodyCount * sizeof(b2BodyData));
+	island->velocities = b2AllocateStackItem(alloc, bodyCount * sizeof(b2Velocity));
+	island->positions = b2AllocateStackItem(alloc, bodyCount * sizeof(b2Position));
+	island->contactSolver = NULL;
+	island->nextIsland = NULL;
+
+	b2ContactSolverDef contactSolverDef;
+	contactSolverDef.step = island->step;
+	contactSolverDef.contacts = island->contacts;
+	contactSolverDef.count = island->contactCount;
+	contactSolverDef.bodyData = island->bodyData;
+	contactSolverDef.positions = island->positions;
+	contactSolverDef.velocities = island->velocities;
+	island->contactSolver = b2CreateContactSolver(alloc, &contactSolverDef);
 
 	return island;
 }
@@ -164,41 +181,85 @@ void b2DestroyIsland(b2Island* island)
 {
 	b2StackAllocator* alloc = island->world->stackAllocator;
 
+	b2DestroyContactSolver(alloc, island->contactSolver);
+
 	// Warning: the order should reverse the constructor order.
 	b2FreeStackItem(alloc, island->positions);
 	b2FreeStackItem(alloc, island->velocities);
+	b2FreeStackItem(alloc, island->bodyData);
 	b2FreeStackItem(alloc, island->joints);
 	b2FreeStackItem(alloc, island->contacts);
 	b2FreeStackItem(alloc, island->bodies);
-}
-
-void b2Island_AddBody(b2Island* island, struct b2Body* body)
-{
-	assert(island->bodyCount < island->bodyCapacity);
-	body->islandIndex = island->bodyCount;
-	island->bodies[island->bodyCount] = body;
-	++island->bodyCount;
-}
-
-void b2Island_AddContact(b2Island* island, b2Contact* contact)
-{
-	assert(island->contactCount < island->contactCapacity);
-	island->contacts[island->contactCount++] = contact;
-}
-
-void b2Island_AddJoint(b2Island* island, b2Joint* joint)
-{
-	assert(island->jointCount < island->jointCapacity);
-	island->joints[island->jointCount++] = joint;
+	b2FreeStackItem(alloc, island);
 }
 
 bool g_positionBlockSolve = true;
 
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity)
+// This must be thread safe
+void b2SolveIsland(b2Island* island)
 {
 	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
 
-	b2Timer timer = b2CreateTimer();
+	b2World* world = island->world;
+	const b2TimeStep* step = island->step;
+	b2Vec2 gravity = world->gravity;
+
+#if 0
+	if (island->bodyCount > 16)
+	{
+		int32_t k = 4;
+		b2Vec2 clusterCenters[4] = {0};
+		int32_t clusterCounts[4] = {0};
+		int32_t m = island->bodyCount / k;
+
+		// seed cluster positions
+		for (int32_t i = 0; i < k; ++i)
+		{
+			int32_t j = (i * m) % island->bodyCount;
+			clusterCenters[i] = island->bodies[j]->position;
+		}
+
+		for (int32_t i = 0; i < island->bodyCount; ++i)
+		{
+			b2Body* b = island->bodies[i];
+			b2Vec2 p = b->position;
+			float bestDist = b2DistanceSquared(clusterCenters[0], p);
+			b->cluster = 0;
+
+			for (int32_t j = 1; j < k; ++j)
+			{
+				float dist = b2DistanceSquared(clusterCenters[j], p);
+				if (dist < bestDist)
+				{
+					bestDist = dist;
+					b->cluster = j;
+				}
+			}
+		}
+
+		int32_t maxIter = 4;
+		for (int32_t iter = 0; iter < maxIter; ++iter)
+		{
+			// reset clusters
+			for (int32_t i = 0; i < k; ++i)
+			{
+				clusterCenters[i] = b2Vec2_zero;
+				clusterCounts[i] = 0;
+			}
+
+			// computer new clusters
+			for (int32_t i = 0; i < island->bodyCount; ++i)
+			{
+				b2Body* b = island->bodies[i];
+				int32_t j = b->cluster;
+				clusterCenters[j] = b2Add(clusterCenters[j], b->position);
+				clusterCounts[j] += 1;
+			}
+
+
+		}
+	}
+#endif
 
 	float h = step->dt;
 
@@ -212,11 +273,14 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		b2Vec2 v = b->linearVelocity;
 		float w = b->angularVelocity;
 
+		float invMass = b->invMass;
+		float invI = b->invI;
+
 		if (b->type == b2_dynamicBody)
 		{
 			// Integrate velocities
-			v = b2Add(v, b2MulSV(h * b->invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
-			w = w + h * b->invI * b->torque;
+			v = b2Add(v, b2MulSV(h * invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
+			w = w + h * invI * b->torque;
 
 			// Apply damping.
 			// ODE: dv/dt + c * v = 0
@@ -229,6 +293,9 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			w *= 1.0f / (1.0f + h * b->angularDamping);
 		}
 
+		island->bodyData[i].localCenter = b->localCenter;
+		island->bodyData[i].invMass = invMass;
+		island->bodyData[i].invI = invI;
 		island->positions[i].c = c;
 		island->positions[i].a = a;
 		island->velocities[i].v = v;
@@ -236,34 +303,14 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	}
 
 	// Solver data
-	b2SolverData solverData;
-	solverData.step = *step;
-	solverData.positions = island->positions;
-	solverData.velocities = island->velocities;
+	b2SolverContext context = {step, island->bodyData, island->positions, island->velocities};
 
-	// Initialize velocity constraints.
-	b2ContactSolverDef contactSolverDef;
-	contactSolverDef.step = *step;
-	contactSolverDef.world = island->world;
-	contactSolverDef.contacts = island->contacts;
-	contactSolverDef.count = island->contactCount;
-	contactSolverDef.positions = island->positions;
-	contactSolverDef.velocities = island->velocities;
-
-	b2ContactSolver solver = b2CreateContactSolver(&contactSolverDef);
-
-	// TODO_ERIN do this in init?
-	if (step->warmStarting)
-	{
-		b2ContactSolver_WarmStart(&solver);
-	}
+	b2ContactSolver_Initialize(island->contactSolver);
 	
 	for (int32_t i = 0; i < island->jointCount; ++i)
 	{
-		b2InitVelocityConstraints(island->world, island->joints[i], &solverData);
+		b2InitVelocityConstraints(island->joints[i], &context);
 	}
-
-	profile->solveInit = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorCadetBlue, true);
 	// Solve velocity constraints
@@ -271,19 +318,18 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	{
 		for (int32_t j = 0; j < island->jointCount; ++j)
 		{
-			b2SolveVelocityConstraints(island->joints[j], &solverData);
+			b2SolveVelocityConstraints(island->joints[j], &context);
 		}
 
-		b2ContactSolver_SolveVelocityConstraints(&solver);
+		b2ContactSolver_SolveVelocityConstraints(island->contactSolver);
 	}
 	b2TracyCZoneEnd(velc);
 
 	// Special handling for restitution
-	b2ContactSolver_ApplyRestitution(&solver);
+	b2ContactSolver_ApplyRestitution(island->contactSolver);
 
 	// Store impulses for warm starting
-	b2ContactSolver_StoreImpulses(&solver);
-	profile->solveVelocity = b2GetMillisecondsAndReset(&timer);
+	b2ContactSolver_StoreImpulses(island->contactSolver);
 
 	// Integrate positions
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -321,24 +367,23 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 	b2TracyCZoneNC(posc, "Position Constraints", b2_colorBurlywood, true);
 
 	// Solve position constraints
-	b2GetMillisecondsAndReset(&timer);
 	bool positionSolved = false;
 	for (int32_t i = 0; i < step->positionIterations; ++i)
 	{
 		bool contactsOkay;
 		if (g_positionBlockSolve)
 		{
-			contactsOkay = b2ContactSolver_SolvePositionConstraintsBlock(&solver);
+			contactsOkay = b2ContactSolver_SolvePositionConstraintsBlock(island->contactSolver);
 		}
 		else
 		{
-			contactsOkay = b2ContactSolver_SolvePositionConstraintsSingle(&solver);
+			contactsOkay = b2ContactSolver_SolvePositionConstraintsSingle(island->contactSolver);
 		}
 
 		bool jointsOkay = true;
 		for (int32_t j = 0; j < island->jointCount; ++j)
 		{
-			bool jointOkay = b2SolvePositionConstraints(island->joints[j], &solverData);
+			bool jointOkay = b2SolvePositionConstraints(island->joints[j], &context);
 			jointsOkay = jointsOkay && jointOkay;
 		}
 
@@ -349,49 +394,31 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			break;
 		}
 	}
-	profile->solvePosition = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneEnd(posc);
+
+	b2TracyCZoneNC(sleep, "Sleep", b2_colorSalmon2, true);
 
 	// Copy state buffers back to the bodies
 	for (int32_t i = 0; i < island->bodyCount; ++i)
 	{
 		b2Body* body = island->bodies[i];
-		body->position = island->positions[i].c;
-		body->angle = island->positions[i].a;
-		body->linearVelocity = island->velocities[i].v;
-		body->angularVelocity = island->velocities[i].w;
-
-		// Update body transform
-		body->transform.q = b2MakeRot(body->angle);
-		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
-	}
-
-	// Report impulses
-	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
-	if (postSolveFcn != NULL)
-	{
-		int16_t worldIndex = island->world->index;
-
-		for (int32_t i = 0; i < island->contactCount; ++i)
+		if (body->type != b2_staticBody)
 		{
-			const b2Contact* contact = island->contacts[i];
+			body->position = island->positions[i].c;
+			body->angle = island->positions[i].a;
+			body->linearVelocity = island->velocities[i].v;
+			body->angularVelocity = island->velocities[i].w;
 
-			b2ContactImpulse impulse = b2ContactSolver_GetImpulse(&solver, i);
-
-			const b2Shape* shapeA = island->world->shapes + contact->shapeIndexA;
-			const b2Shape* shapeB = island->world->shapes + contact->shapeIndexB;
-
-			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
-			postSolveFcn(idA, idB, &impulse, island->world->postSolveContext);
+			// Update body transform
+			body->transform.q = b2MakeRot(body->angle);
+			body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
 		}
 	}
 
 	// Update sleep
 	bool isIslandAwake = true;
 
-	b2World* world = island->world;
 	if (world->enableSleep)
 	{
 		float minSleepTime = FLT_MAX;
@@ -440,8 +467,8 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
-	b2TracyCZoneNC(move_proxies, "Move Proxies", b2_colorSalmon2, true);
-
+	island->isAwake = isIslandAwake;
+	
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
 	if (isIslandAwake)
@@ -457,10 +484,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			b->force = b2Vec2_zero;
 			b->torque = 0.0f;
 
-			assert(b->awakeIndex == B2_NULL_INDEX);
-			b->awakeIndex = b2Array(world->awakeBodies).count;
-			b2Array_Push(world->awakeBodies, b->object.index);
-
 			b2Vec2 v = b->linearVelocity;
 			float w = b->angularVelocity;
 
@@ -474,7 +497,7 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 			b->speculativePosition = b2MulAdd(b->position, step->dt, v);
 			b->speculativeAngle = b->angle + step->dt * w;
 
-			// Update shapes (for broad-phase).
+			// Update shapes AABBs
 			int32_t shapeIndex = b->shapeIndex;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
@@ -485,8 +508,6 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 
 					// TODO_ERIN speculate
 					proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
-
-					b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
 				}
 
 				shapeIndex = shape->nextShapeIndex;
@@ -494,11 +515,63 @@ void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step,
 		}
 	}
 
-	b2TracyCZoneEnd(move_proxies);
-
-	b2DestroyContactSolver(&solver);
-
-	profile->completion = b2GetMillisecondsAndReset(&timer);
-
+	b2TracyCZoneEnd(sleep);
 	b2TracyCZoneEnd(solve_island);
+}
+
+// Single threaded work
+void b2CompleteIsland(b2Island* island)
+{
+	if (island->isAwake == false)
+	{
+		return;
+	}
+
+	b2World* world = island->world;
+
+	for (int32_t i = 0; i < island->bodyCount; ++i)
+	{
+		b2Body* b = island->bodies[i];
+		if (b->type == b2_staticBody)
+		{
+			continue;
+		}
+
+		assert(b->awakeIndex == B2_NULL_INDEX);
+		b->awakeIndex = b2Array(world->awakeBodies).count;
+		b2Array_Push(world->awakeBodies, b->object.index);
+
+		// Update shapes (for broad-phase).
+		int32_t shapeIndex = b->shapeIndex;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+			for (int32_t j = 0; j < shape->proxyCount; ++j)
+			{
+				b2ShapeProxy* proxy = shape->proxies + j;
+				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
+	}
+
+	// Report impulses
+	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
+	if (postSolveFcn != NULL)
+	{
+		int16_t worldIndex = island->world->index;
+
+		for (int32_t i = 0; i < island->contactCount; ++i)
+		{
+			const b2Contact* contact = island->contacts[i];
+
+			const b2Shape* shapeA = island->world->shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = island->world->shapes + contact->shapeIndexB;
+
+			b2ShapeId idA = { shapeA->object.index, worldIndex, shapeA->object.revision };
+			b2ShapeId idB = { shapeB->object.index, worldIndex, shapeB->object.revision };
+			postSolveFcn(idA, idB, &contact->manifold, island->world->postSolveContext);
+		}
+	}
 }

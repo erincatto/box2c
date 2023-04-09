@@ -5,43 +5,45 @@
 
 #include <stdint.h>
 
+typedef struct b2Body b2Body;
+typedef struct b2Contact b2Contact;
+typedef struct b2Joint b2Joint;
 typedef struct b2Profile b2Profile;
 typedef struct b2TimeStep b2TimeStep;
 
 typedef struct b2Island
 {
 	struct b2World* world;
+	const b2TimeStep* step;
 
-	struct b2Body** bodies;
-	struct b2Contact** contacts;
-	struct b2Joint** joints;
+	b2Body** bodies;
+	b2Contact** contacts;
+	b2Joint** joints;
 
+	struct b2ContactSolver* contactSolver;
+	struct b2BodyData* bodyData;
 	struct b2Position* positions;
 	struct b2Velocity* velocities;
+
+	struct b2Island* nextIsland;
 
 	int32_t bodyCount;
 	int32_t jointCount;
 	int32_t contactCount;
 
-	int32_t bodyCapacity;
-	int32_t contactCapacity;
-	int32_t jointCapacity;
+	bool isAwake;
 } b2Island;
 
-static inline void b2ClearIsland(b2Island* island)
-{
-	island->bodyCount = 0;
-	island->contactCount = 0;
-	island->jointCount = 0;
-}
-
-b2Island b2CreateIsland(int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity, struct b2World* world);
-
+b2Island* b2CreateIsland(b2Body** bodies, int32_t bodyCount, b2Contact** contacts, int32_t contactCount, b2Joint** joints, int32_t jointCount, struct b2World* world, const b2TimeStep* step);
 void b2DestroyIsland(b2Island* island);
 
 void b2Island_AddBody(b2Island* island, struct b2Body* body);
 void b2Island_AddContact(b2Island* island, struct b2Contact* contact);
 void b2Island_AddJoint(b2Island* island, struct b2Joint* joint);
 
-void b2SolveIsland(b2Island* island, b2Profile* profile, const b2TimeStep* step, b2Vec2 gravity);
+// Finalize island after adding bodies/contacts/joints
+void b2FinalizeIsland(b2Island* island);
 
+void b2SolveIsland(b2Island* island);
+
+void b2CompleteIsland(b2Island* island);
