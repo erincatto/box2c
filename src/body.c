@@ -13,7 +13,6 @@
 
 #include <assert.h>
 
-
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);

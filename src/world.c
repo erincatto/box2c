@@ -415,6 +415,8 @@ bool g_parallelIslands = true;
 static void b2Solve(b2World* world, const b2TimeStep* step)
 {
 	b2TracyCZoneC(solve, b2_colorMistyRose, true);
+	b2TracyCZoneNC(island_builder, "Island Builder", b2_colorDarkSalmon, true);
+
 	b2Timer timer = b2CreateTimer();
 
 	world->profile.solveInit = 0.0f;
@@ -686,6 +688,8 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 #endif
 	}
 
+	b2TracyCZoneEnd(island_builder);
+
 	world->profile.island = b2GetMillisecondsAndReset(&timer);
 
 #if B2_ISLAND_PARALLEL_FOR == 1
@@ -701,7 +705,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	world->finishTasks(world->userTaskContext);
 
-	b2TracyCZoneNC(broad_phase, "broadphase", b2_colorPurple, true);
+	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
 	// Complete and destroy islands in reverse order
 	b2Island* island = islandList;
