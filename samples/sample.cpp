@@ -35,26 +35,26 @@ bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, v
 	return sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
-static void AddTaskFcn(b2TaskFcn* taskFcn, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
+static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	if (sample->m_taskCount < maxTasks)
 	{
-		SampleTask& task = sample->m_tasks[sample->m_taskCount];
-		task.m_SetSize = itemCount;
-		task.m_MinRange = minRange;
-		task.m_taskFcn = taskFcn;
-		task.m_taskContext = taskContext;
-		sample->m_scheduler.AddTaskSetToPipe(&task);
+		SampleTask& sampleTask = sample->m_tasks[sample->m_taskCount];
+		sampleTask.m_SetSize = itemCount;
+		sampleTask.m_MinRange = minRange;
+		sampleTask.m_task= task;
+		sampleTask.m_taskContext = taskContext;
+		sample->m_scheduler.AddTaskSetToPipe(&sampleTask);
 		++sample->m_taskCount;
 	}
 	else
 	{
-		taskFcn(0, itemCount, taskContext);
+		task(0, itemCount, taskContext);
 	}
 }
 
-static void FinishTasksFcn(void* userContext)
+static void FinishTasks(void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	sample->m_scheduler.WaitforAll();
@@ -65,14 +65,15 @@ Sample::Sample()
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
+	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
 	uint32_t maxThreads = enki::GetNumHardwareThreads() / 2;
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = maxThreads;
-	worldDef.addTaskFcn = &AddTaskFcn;
-	worldDef.finishTasksFcn = &FinishTasksFcn;
+	worldDef.enqueueTask = &EnqueueTask;
+	worldDef.finishTasks = &FinishTasks;
 	worldDef.userTaskContext = this;
 
 	m_worldId = b2CreateWorld(&worldDef);

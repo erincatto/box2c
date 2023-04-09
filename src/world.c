@@ -44,11 +44,11 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	return world;
 }
 
-static void b2DefaultAddTaskFcn(b2TaskFcn* taskFcn, int32_t count, int32_t minRange, void* taskContext, void* userContext)
+static void b2DefaultAddTaskFcn(b2TaskCallback* task, int32_t count, int32_t minRange, void* taskContext, void* userContext)
 {
 	B2_MAYBE_UNUSED(minRange);
 	B2_MAYBE_UNUSED(userContext);
-	taskFcn(0, count, taskContext);
+	task(0, count, taskContext);
 }
 
 static void b2DefaultFinishTasksFcn(void* userContext)
@@ -215,18 +215,18 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2BodyId groundId = b2World_CreateBody(id, &groundDef);
 	world->groundBodyIndex = groundId.index;
 
-	if (def->workerCount > 0 && def->addTaskFcn != NULL && def->finishTasksFcn != NULL)
+	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTasks != NULL)
 	{
 		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
-		world->addFcn = def->addTaskFcn;
-		world->finishFcn = def->finishTasksFcn;
+		world->enqueueTask = def->enqueueTask;
+		world->finishTasks = def->finishTasks;
 		world->userTaskContext = def->userTaskContext;
 	}
 	else
 	{
 		world->workerCount = 1;
-		world->addFcn = b2DefaultAddTaskFcn;
-		world->finishFcn = b2DefaultFinishTasksFcn;
+		world->enqueueTask = b2DefaultAddTaskFcn;
+		world->finishTasks = b2DefaultFinishTasksFcn;
 		world->userTaskContext = NULL;
 	}
 
@@ -266,17 +266,11 @@ void b2DestroyWorld(b2WorldId id)
 	world->stackAllocator = NULL;
 }
 
-typedef struct b2CollideTask
-{
-	b2World* world;
-} b2CollideTask;
-
-static void b2CollideTaskFcn(int32_t startIndex, int32_t endIndex, void* taskContext)
+static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
 	b2TracyCZoneC(collide_task, b2_colorYellow, true);
 
-	b2CollideTask* task = taskContext;
-	b2World* world = task->world;
+	b2World* world = taskContext;
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
@@ -364,9 +358,8 @@ static void b2Collide(b2World* world)
 
 	int32_t minRange = 16;
 
-	b2CollideTask task = {world};
-	world->addFcn(&b2CollideTaskFcn, count, minRange, &task, world->userTaskContext);
-	world->finishFcn(world->userTaskContext);
+	world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+	world->finishTasks(world->userTaskContext);
 
 	// Serially destroy contacts
 	b2TracyCZoneNC(destroy_contacts, "Destroy Contact", b2_colorCoral, true);
@@ -382,7 +375,7 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneEnd(collide);
 }
 
-static void b2IslandTaskFcn(int32_t startIndex, int32_t endIndex, void* taskContext)
+static void b2IslandTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
 	B2_MAYBE_UNUSED(startIndex);
 	B2_MAYBE_UNUSED(endIndex);
@@ -395,7 +388,27 @@ static void b2IslandTaskFcn(int32_t startIndex, int32_t endIndex, void* taskCont
 	b2TracyCZoneEnd(island_task);
 }
 
+static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+
+	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
+
+	b2Island** islands = taskContext;
+
+	assert(startIndex < endIndex);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2SolveIsland(islands[i]);
+	}
+
+	b2TracyCZoneEnd(island_task);
+}
+
 bool g_parallelIslands = true;
+#define B2_ISLAND_PARALLEL_FOR 1
 
 // Find islands, integrate equations of motion and solve constraints.
 // Also reports contact results and updates sleep.
@@ -417,6 +430,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	// Body island indices could be stored in b2Body, but they are only used in this scope. Also
 	// this is safer because static bodies can have multiple island indices within this scope.
 	int32_t* islandIndices = b2AllocateStackItem(world->stackAllocator, world->bodyPool.capacity * sizeof(int32_t));
+	b2Island** islands = b2AllocateStackItem(world->stackAllocator, world->bodyPool.capacity * sizeof(b2Island*));
 
 	b2Body** bodies = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(b2Body*));
 	b2Joint** joints = b2AllocateStackItem(world->stackAllocator, jointCapacity * sizeof(b2Joint*));
@@ -465,6 +479,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	// Build and simulate all awake islands.
 	int32_t* stack = (int32_t*)b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t));
 	b2Island* islandList = NULL;
+	int32_t islandCount = 0;
 
 	// Each island is found as a depth first search starting from a seed body
 	for (int32_t i = 0; i < seedCount; ++i)
@@ -656,39 +671,35 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 		island->nextIsland = islandList;
 		islandList = island;
 
-#if 1
+#if B2_ISLAND_PARALLEL_FOR == 0
 		if (g_parallelIslands)
 		{
-			world->addFcn(&b2IslandTaskFcn, 1, 1, island, world->userTaskContext);
+			world->enqueueTask(&b2IslandTask, 1, 1, island, world->userTaskContext);
 		}
 		else
 		{
-			b2IslandTaskFcn(0, 1, island);
+			b2IslandTask(0, 1, island);
 		}
+#else
+		assert(islandCount < world->bodyPool.capacity);
+		islands[islandCount++] = island;
 #endif
 	}
 
 	world->profile.island = b2GetMillisecondsAndReset(&timer);
 
-	// TODO_ERIN testing
-#if 0
-	b2Island* islandTest = islandList;
-	while (islandTest)
+#if B2_ISLAND_PARALLEL_FOR == 1
+	if (g_parallelIslands)
 	{
-		if (g_parallelIslands)
-		{
-			world->addFcn(&b2IslandTaskFcn, 1, 1, islandTest, world->userTaskContext);
-		}
-		else
-		{
-			b2IslandTaskFcn(0, 1, islandTest);
-		}
-
-		islandTest = islandTest->nextIsland;
+		world->enqueueTask(&b2IslandParallelForTask, islandCount, 1, islands, world->userTaskContext);
+	}
+	else
+	{
+		b2IslandParallelForTask(0, islandCount, islands);
 	}
 #endif
 
-	world->finishFcn(world->userTaskContext);
+	world->finishTasks(world->userTaskContext);
 
 	b2TracyCZoneNC(broad_phase, "broadphase", b2_colorPurple, true);
 
@@ -706,6 +717,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2FreeStackItem(world->stackAllocator, contacts);
 	b2FreeStackItem(world->stackAllocator, joints);
 	b2FreeStackItem(world->stackAllocator, bodies);
+	b2FreeStackItem(world->stackAllocator, islands);
 	b2FreeStackItem(world->stackAllocator, islandIndices);
 
 	// Look for new contacts

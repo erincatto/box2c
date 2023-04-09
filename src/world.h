@@ -66,8 +66,8 @@ typedef struct b2World
 	void* postSolveContext;
 
 	int32_t workerCount;
-	b2AddTaskFcn* addFcn;
-	b2FinishTasksFcn* finishFcn;
+	b2EnqueueTaskCallback* enqueueTask;
+	b2FinishTasksCallback* finishTasks;
 	void* userTaskContext;
 
 	bool enableSleep;

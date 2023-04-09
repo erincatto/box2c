@@ -78,10 +78,10 @@ public:
 
 	void ExecuteRange(enki::TaskSetPartition range, uint32_t) override
 	{
-		m_taskFcn(range.start, range.end, m_taskContext);
+		m_task(range.start, range.end, m_taskContext);
 	}
 
-	b2TaskFcn* m_taskFcn = nullptr;
+	b2TaskCallback* m_task = nullptr;
 	void* m_taskContext = nullptr;
 };
 
