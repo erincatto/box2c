@@ -22,16 +22,6 @@ typedef void b2ShapeDestroyedFcn(b2ShapeId shapeId, void* context);
 /// @warning for performance reasons this is only called when the AABBs begin to overlap.
 typedef bool b2ShouldCollideFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context);
 
-/// Contact impulses for reporting. Impulses are used instead of forces because
-/// sub-step forces may approach infinity for rigid body collisions. These
-/// match up one-to-one with the contact points in b2Manifold.
-//struct b2ContactImpulse
-//{
-//	float normalImpulses[2];
-//	float tangentImpulses[2];
-//	int32_t count;
-//};
-
 /// Implement these callbacks to get contact information. You can use these results for
 /// things like sounds and game logic. You can also get contact results by
 /// traversing the contact lists after the time step. However, you might miss
@@ -50,13 +40,14 @@ typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* conte
 /// This is called after a contact is updated. This allows you to inspect a
 /// contact before it goes to the solver. If you are careful, you can modify the
 /// contact manifold (e.g. disable contact).
-/// A copy of the old manifold is provided so that you can detect changes.
-/// Note: this is called only for awake bodies.
-/// Note: this is called even when the number of contact points is zero.
-/// Note: this is not called for sensors.
-/// Note: if you set the number of contact points to zero, you will not
+/// Notes:
+/// - this is called only for awake bodies.
+/// - this is called even when the number of contact points is zero.
+/// - this is not called for sensors.
+/// - if you set the number of contact points to zero, you will not
 /// get an EndContact callback. However, you may get a BeginContact callback
 /// the next step.
+/// - the supplied manifold has impulse values from the previous frame
 typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
 BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
