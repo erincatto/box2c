@@ -63,7 +63,6 @@ typedef struct b2Body
 
 	void* userData;
 	int16_t world;
-	int16_t cluster;
 
 	bool isAwake;
 	bool enableSleep;
