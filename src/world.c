@@ -170,6 +170,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
+	world->islandBuilder = b2CreateIslandBuilder(def->bodyCapacity);
 
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -181,8 +182,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
 
-	world->contacts = NULL;
-	world->contactCount = 0;
+	world->contacts = b2CreateArray(sizeof(b2Contact*), B2_MAX(def->contactCapacity, 1));
 
 	world->invalidContactMutex = b2CreateMutex("Invalid Contact");
 	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
@@ -256,6 +256,7 @@ void b2DestroyWorld(b2WorldId id)
 	world->bodies = NULL;
 
 	b2BroadPhase_Destroy(&world->broadPhase);
+	b2DestroyIslandBuilder(&world->islandBuilder);
 
 	b2DestroyBlockAllocator(world->blockAllocator);
 	world->blockAllocator = NULL;
@@ -428,6 +429,388 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	const int32_t bodyCapacity = world->bodyPool.count;
 	const int32_t jointCapacity = world->jointPool.count;
 	const int32_t contactCapacity = world->contactCount;
+
+	// Body island indices could be stored in b2Body, but they are only used in this scope. Also
+	// this is safer because static bodies can have multiple island indices within this scope.
+	int32_t* islandIndices = b2AllocateStackItem(world->stackAllocator, world->bodyPool.capacity * sizeof(int32_t));
+	b2Island** islands = b2AllocateStackItem(world->stackAllocator, world->bodyPool.capacity * sizeof(b2Island*));
+
+	b2Body** bodies = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(b2Body*));
+	b2Joint** joints = b2AllocateStackItem(world->stackAllocator, jointCapacity * sizeof(b2Joint*));
+	b2Contact** contacts = b2AllocateStackItem(world->stackAllocator, contactCapacity * sizeof(b2Contact*));
+
+#if defined(_DEBUG)
+	b2ArrayHeader* header = (b2ArrayHeader*)world->awakeBodies - 1;
+	B2_MAYBE_UNUSED(header);
+
+	// Validate awake bodies
+	{
+		int32_t N = b2Array(world->awakeBodies).count;
+		int32_t awakeCount = 0;
+		for (int32_t i = 0; i < N; ++i)
+		{
+			int32_t bodyIndex = world->awakeBodies[i];
+			if (bodyIndex != B2_NULL_INDEX)
+			{
+				++awakeCount;
+				assert(bodyIndex < world->bodyPool.capacity);
+				b2Body* body = world->bodies + bodyIndex;
+				assert(body->isAwake);
+				assert(body->awakeIndex == i);
+			}
+		}
+		assert(awakeCount <= world->bodyPool.count);
+	}
+#endif
+
+	// Swap awake body buffer
+	{
+		int32_t* temp = world->awakeBodies;
+		world->awakeBodies = world->seedBodies;
+		world->seedBodies = temp;
+	}
+
+	// The awake bodies are the seeds for the island depth first search
+	const int32_t* seedBuffer = world->seedBodies;
+	b2Array_Clear(world->awakeBodies);
+
+	int32_t seedCount = b2Array(seedBuffer).count;
+
+	uint64_t baseId = world->islandId;
+	uint64_t islandId = baseId;
+
+	// Build and simulate all awake islands.
+	int32_t* stack = (int32_t*)b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t));
+	b2Island* islandList = NULL;
+
+#if B2_ISLAND_PARALLEL_FOR == 1
+	int32_t islandCount = 0;
+#endif
+
+	// Each island is found as a depth first search starting from a seed body
+	for (int32_t i = 0; i < seedCount; ++i)
+	{
+		int32_t seedIndex = seedBuffer[i];
+		if (seedIndex == B2_NULL_INDEX)
+		{
+			// body was destroyed, manually put to sleep, or disabled
+			continue;
+		}
+
+		b2Body* seed = world->bodies + seedIndex;
+		assert(seed->object.next == seedIndex);
+		assert(seed->isEnabled);
+		assert(seed->type != b2_staticBody);
+
+		if (seed->islandId > baseId)
+		{
+			// The body is already in an island
+			continue;
+		}
+
+		assert(seed->isAwake);
+
+		// Reset stack, bump island id
+		int32_t stackCount = 0;
+		stack[stackCount++] = seedIndex;
+		++islandId;
+
+		// Add seed to island
+		seed->islandId = islandId;
+		islandIndices[seedIndex] = 0;
+		bodies[0] = seed;
+
+		int32_t bodyCount = 1;
+		int32_t jointCount = 0;
+		int32_t contactCount = 0;
+
+		// Perform a depth first search (DFS) on the constraint graph.
+		while (stackCount > 0)
+		{
+			// Grab the next body off the stack and add it to the island.
+			int32_t bodyIndex = stack[--stackCount];
+			b2Body* b = world->bodies + bodyIndex;
+			assert(b->type != b2_staticBody);
+
+			// The awake body array is being rebuilt so the awake index is no longer valid
+			b->awakeIndex = B2_NULL_INDEX;
+
+			// Make sure the body is awake (without resetting sleep timer).
+			b->isAwake = true;
+
+			// Search all contacts connected to this body.
+			for (b2ContactEdge* ce = b->contacts; ce; ce = ce->next)
+			{
+				b2Contact* contact = ce->contact;
+
+				// Has this contact already been added to this island?
+				if (contact->islandId == seed->islandId)
+				{
+					continue;
+				}
+
+				// Skip sensors
+				if (contact->flags & b2_contactSensorFlag)
+				{
+					continue;
+				}
+
+				// Is this contact solid and touching?
+				if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
+				{
+					continue;
+				}
+
+				int32_t otherBodyIndex = ce->otherBodyIndex;
+				b2Body* otherBody = world->bodies + otherBodyIndex;
+
+				// Maybe add other body to island
+				if (otherBody->islandId != islandId)
+				{
+					otherBody->islandId = islandId;
+					islandIndices[otherBodyIndex] = bodyCount;
+					bodies[bodyCount++] = otherBody;
+					assert(otherBody->isEnabled == true);
+
+					if (otherBody->type != b2_staticBody)
+					{
+						assert(stackCount < bodyCapacity);
+						stack[stackCount++] = otherBodyIndex;
+					}
+				}
+
+				world->contactPointCount += contact->manifold.pointCount;
+
+				// Add contact to island
+				contact->islandId = islandId;
+				if (ce == &contact->edgeA)
+				{
+					contact->islandIndexA = islandIndices[bodyIndex];
+					contact->islandIndexB = islandIndices[otherBodyIndex];
+				}
+				else
+				{
+					contact->islandIndexA = islandIndices[otherBodyIndex];
+					contact->islandIndexB = islandIndices[bodyIndex];
+				}
+
+				assert(0 <= contact->islandIndexA && contact->islandIndexA < world->bodyPool.capacity);
+				assert(0 <= contact->islandIndexB && contact->islandIndexB < world->bodyPool.capacity);
+
+				contacts[contactCount++] = contact;
+			}
+
+			// Search all joints connect to this body.
+			int32_t jointIndex = b->jointIndex;
+			while (jointIndex != B2_NULL_INDEX)
+			{
+				b2Joint* joint = world->joints + jointIndex;
+				assert(joint->object.index == jointIndex);
+
+				bool isBodyA;
+				int32_t otherBodyIndex;
+				if (joint->edgeA.bodyIndex == b->object.index)
+				{
+					jointIndex = joint->edgeA.nextJointIndex;
+					otherBodyIndex = joint->edgeB.bodyIndex;
+					isBodyA = true;
+				}
+				else
+				{
+					assert(joint->edgeB.bodyIndex == b->object.index);
+					jointIndex = joint->edgeB.nextJointIndex;
+					otherBodyIndex = joint->edgeA.bodyIndex;
+					isBodyA = false;
+				}
+
+				// Has this joint already been added to this island?
+				if (joint->islandId == islandId)
+				{
+					continue;
+				}
+
+				b2Body* otherBody = world->bodies + otherBodyIndex;
+
+				// Don't simulate joints connected to disabled bodies.
+				if (otherBody->isEnabled == false)
+				{
+					continue;
+				}
+
+				// Maybe add other body to island
+				if (otherBody->islandId != islandId)
+				{
+					otherBody->islandId = islandId;
+					islandIndices[otherBodyIndex] = bodyCount;
+					bodies[bodyCount++] = otherBody;
+					assert(otherBody->isEnabled == true);
+
+					if (otherBody->type != b2_staticBody)
+					{
+						assert(stackCount < bodyCapacity);
+						stack[stackCount++] = otherBodyIndex;
+					}
+				}
+
+				// Add joint to island
+				joint->islandId = islandId;
+				if (isBodyA)
+				{
+					joint->islandIndexA = islandIndices[bodyIndex];
+					joint->islandIndexB = islandIndices[otherBodyIndex];
+				}
+				else
+				{
+					joint->islandIndexA = islandIndices[otherBodyIndex];
+					joint->islandIndexB = islandIndices[bodyIndex];
+				}
+
+				assert(0 <= joint->islandIndexA && joint->islandIndexA < world->bodyPool.capacity);
+				assert(0 <= joint->islandIndexB && joint->islandIndexB < world->bodyPool.capacity);
+
+				joints[jointCount++] = joint;
+			}
+		}
+
+		// Create island and add to linked list
+		b2Island* island = b2CreateIsland(bodies, bodyCount, contacts, contactCount, joints, jointCount, world, step);
+		island->nextIsland = islandList;
+		islandList = island;
+
+#if B2_ISLAND_PARALLEL_FOR == 0
+		if (g_parallel)
+		{
+			world->enqueueTask(&b2IslandTask, 1, 1, island, world->userTaskContext);
+		}
+		else
+		{
+			b2IslandTask(0, 1, island);
+		}
+#else
+		assert(islandCount < world->bodyPool.capacity);
+		islands[islandCount++] = island;
+#endif
+	}
+
+	b2TracyCZoneEnd(island_builder);
+
+	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
+
+#if B2_ISLAND_PARALLEL_FOR == 1
+	if (g_parallel)
+	{
+		world->enqueueTask(&b2IslandParallelForTask, islandCount, 1, islands, world->userTaskContext);
+	}
+	else
+	{
+		b2IslandParallelForTask(0, islandCount, islands);
+	}
+#endif
+
+	world->finishTasks(world->userTaskContext);
+
+	b2TracyCZoneEnd(island_solver);
+
+	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
+
+	// Complete and destroy islands in reverse order
+	b2Island* island = islandList;
+	while (island)
+	{
+		b2CompleteIsland(island);
+		b2Island* next = island->nextIsland;
+		b2DestroyIsland(island);
+		island = next;
+	}
+
+	b2FreeStackItem(world->stackAllocator, stack);
+	b2FreeStackItem(world->stackAllocator, contacts);
+	b2FreeStackItem(world->stackAllocator, joints);
+	b2FreeStackItem(world->stackAllocator, bodies);
+	b2FreeStackItem(world->stackAllocator, islands);
+	b2FreeStackItem(world->stackAllocator, islandIndices);
+
+	// Look for new contacts
+	b2BroadPhase_UpdatePairs(&world->broadPhase);
+
+	// Store new island id
+	world->islandId = islandId;
+
+	world->profile.broadphase = b2GetMilliseconds(&timer);
+
+	b2TracyCZoneEnd(broad_phase);
+
+	b2TracyCZoneEnd(solve);
+}
+
+// Solve with union-find islands
+static void b2Solve2(b2World* world, const b2TimeStep* step)
+{
+	b2TracyCZoneC(solve, b2_colorMistyRose, true);
+	b2TracyCZoneNC(island_builder, "Island Builder", b2_colorDarkSalmon, true);
+
+	b2Timer timer = b2CreateTimer();
+
+	world->contactPointCount = 0;
+
+	b2IslandBuilder* builder = &world->islandBuilder;
+
+	// Island buffers
+	const int32_t bodyCapacity = world->bodyPool.count;
+	const int32_t jointCapacity = world->jointPool.count;
+	const int32_t contactCount = b2Array(world->contacts).count;
+
+	b2StackAllocator* allocator = world->stackAllocator;
+
+	b2InitializeIslands(builder, contactCount, jointCapacity, allocator);
+
+	b2Body* bodies = world->bodies;
+	b2Joint* joints = world->joints;
+	b2Contact* contacts = world->contacts;
+
+	for (int32_t i = 0; i < jointCapacity; ++i)
+	{
+		b2Joint* joint = joints + i;
+		if (joint->object.next == joint->object.index)
+		{
+			int32_t indexA = joint->edgeA.bodyIndex;
+			int32_t indexB = joint->edgeB.bodyIndex;
+			b2Body* bodyA = bodies + indexA;
+			b2Body* bodyB = bodies + indexB;
+
+			assert(bodyA->object.index == bodyA->object.next);
+			assert(bodyB->object.index == bodyB->object.next);
+
+			if (bodyA->awakeIndex != B2_NULL_INDEX || bodyB->awakeIndex != B2_NULL_INDEX)
+			{
+				b2LinkJoint(builder, i, indexA, indexB);
+			}
+		}
+	}
+
+	for (int32_t i = 0; i < contactCount; ++i)
+	{
+		b2Contact* contact = contacts + i;
+
+		int32_t indexA = contact->edgeB.otherBodyIndex;
+		int32_t indexB = contact->edgeA.otherBodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
+		assert(bodyA->object.index == bodyA->object.next);
+		assert(bodyB->object.index == bodyB->object.next);
+
+		if (bodyA->awakeIndex != B2_NULL_INDEX || bodyB->awakeIndex != B2_NULL_INDEX)
+		{
+			b2LinkContact(builder, contact, indexA, indexB);
+		}
+	}
+
+	b2FinalizeIslands(builder, bodies, bodyCapacity, contactCount, allocator);
 
 	// Body island indices could be stored in b2Body, but they are only used in this scope. Also
 	// this is safer because static bodies can have multiple island indices within this scope.

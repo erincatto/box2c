@@ -4,6 +4,7 @@
 #pragma once
 
 #include "broad_phase.h"
+#include "island_builder.h"
 #include "pool.h"
 #include "thread.h"
 
@@ -21,6 +22,7 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
+	b2IslandBuilder islandBuilder;
 
 	b2Pool bodyPool;
 	b2Pool jointPool;
@@ -30,8 +32,7 @@ typedef struct b2World
 	struct b2Joint* joints;
 	struct b2Shape* shapes;
 
-	struct b2Contact* contacts;
-	int32_t contactCount;
+	struct b2Contact** contacts;
 
 	// array of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;

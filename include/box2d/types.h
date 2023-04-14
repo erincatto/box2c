@@ -96,11 +96,14 @@ typedef struct b2WorldDef
 	/// initial capacity for bodies
 	int32_t bodyCapacity;
 
-	/// initial capacity for joints
-	int32_t jointCapacity;
-
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
+
+	/// initial capacity for contacts
+	int32_t contactCapacity;
+
+	/// initial capacity for joints
+	int32_t jointCapacity;
 
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
 	/// Larger worlds require more space. b2Statistics can be used to determine a good capacity for your
@@ -228,8 +231,9 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.enableSleep = true;
 	def.bodyCapacity = 8;
-	def.jointCapacity = 8;
 	def.shapeCapacity = 8;
+	def.contactCapacity = 8;
+	def.jointCapacity = 8;
 	def.stackAllocatorCapacity = 1024 * 1024;
 	return def;
 }
