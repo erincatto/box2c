@@ -15,12 +15,16 @@ set(BOX2D_SOURCE_FILES
 	contact.h
 	contact_solver.c
 	contact_solver.h
+	contact_solver2.c
+	contact_solver2.h
 	distance.c
 	dynamic_tree.c
 	geometry.c
 	hull.c
 	island.c
 	island.h
+	island2.c
+	island2.h
 	island_builder.c
 	island_builder.h
 	joint.c

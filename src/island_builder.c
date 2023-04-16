@@ -222,12 +222,11 @@ static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* co
 	*outConstraintsEnd = constraintEnds;
 }
 
-static int b2ReverseCompareInt32(const void* count1Ptr, const void* count2Ptr, void* context)
+static int b2CompareIslands(const void* index1, const void* index2)
 {
-	int32_t index1 = *(const int32_t*)count1Ptr;
-	int32_t index2 = *(const int32_t*)count2Ptr;
-	int32_t* counts = context;
-	return counts[index2] - counts[index1];
+	const b2IslandIndex* island1 = index1;
+	const b2IslandIndex* island2 = index2;
+	return island2->constraintCount - island1->constraintCount;
 }
 
 void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
@@ -241,46 +240,44 @@ void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 		const int32_t* contactIslandEnds = builder->contactIslandEnds;
 		const int32_t* jointIslandEnds = builder->jointIslandEnds;
 
-		int32_t* sortedIslands = b2AllocateStackItem(allocator, islandCount * sizeof(int32_t));
+		b2IslandIndex* sortedIslands = b2AllocateStackItem(allocator, islandCount * sizeof(b2IslandIndex));
 
 		// Initialize index
 		for (int32_t i = 0; i < islandCount; ++i)
 		{
-			sortedIslands[i] = i;
+			sortedIslands[i].index = i;
+			sortedIslands[i].constraintCount = 0;
 		}
 
-		int32_t* constraintCounts = b2AllocateStackItem(allocator, islandCount * sizeof(int32_t));
 		if (contactCount > 0 && jointCount > 0)
 		{
-			constraintCounts[0] = contactIslandEnds[0] + jointIslandEnds[0];
+			sortedIslands[0].constraintCount = contactIslandEnds[0] + jointIslandEnds[0];
 			for (int32_t i = 1; i < islandCount; ++i)
 			{
-				int32_t jointCount = jointIslandEnds[i] - jointIslandEnds[i - 1];
-				int32_t contactCount = contactIslandEnds[i] - contactIslandEnds[i - 1];
-				constraintCounts[i] = jointCount + contactCount;
+				int32_t count1 = jointIslandEnds[i] - jointIslandEnds[i - 1];
+				int32_t count2 = contactIslandEnds[i] - contactIslandEnds[i - 1];
+				sortedIslands[i].constraintCount = count1 + count2;
 			}
 		}
 		else if (contactCount > 0)
 		{
-			constraintCounts[0] = contactIslandEnds[0];
+			sortedIslands[0].constraintCount = contactIslandEnds[0];
 			for (int32_t i = 1; i < islandCount; ++i)
 			{
-				constraintCounts[i] = contactIslandEnds[i] - contactIslandEnds[i - 1];
+				sortedIslands[i].constraintCount = contactIslandEnds[i] - contactIslandEnds[i - 1];
 			}
 		}
 		else
 		{
-			constraintCounts[0] = jointIslandEnds[0];
+			sortedIslands[0].constraintCount = jointIslandEnds[0];
 			for (int32_t i = 1; i < islandCount; ++i)
 			{
-				constraintCounts[i] = jointIslandEnds[i] - jointIslandEnds[i - 1];
+				sortedIslands[i].constraintCount = jointIslandEnds[i] - jointIslandEnds[i - 1];
 			}
 		}
 
 		// Bigger islands go first
-		qsort_s(sortedIslands, islandCount, sizeof(int32_t), b2ReverseCompareInt32, constraintCounts);
-
-		b2FreeStackItem(allocator, constraintCounts);
+		qsort(sortedIslands, islandCount, sizeof(b2IslandIndex), b2CompareIslands);
 	}
 }
 void b2FinalizeIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator *allocator)

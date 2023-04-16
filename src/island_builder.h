@@ -17,6 +17,12 @@ typedef struct b2BodyLink
 	int32_t islandIndex;
 } b2BodyLink;
 
+typedef struct b2IslandIndex
+{
+	int32_t index;
+	int32_t constraintCount;
+} b2IslandIndex;
+
 // Union find island builder based on https://gdcvault.com/play/1027560/Architecting-Jolt-Physics-for-Horizon
 typedef struct b2IslandBuilder
 {
@@ -46,7 +52,7 @@ typedef struct b2IslandBuilder
 	int32_t* contactIslandEnds;
 
 	// Island indices sorted by contact + joint count
-	int32_t* sortedIslands;
+	struct b2IslandIndex* sortedIslands;
 
 	int32_t bodyCapacity;
 	int32_t bodyCount;

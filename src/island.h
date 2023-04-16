@@ -37,13 +37,5 @@ typedef struct b2Island
 b2Island* b2CreateIsland(b2Body** bodies, int32_t bodyCount, b2Contact** contacts, int32_t contactCount, b2Joint** joints, int32_t jointCount, struct b2World* world, const b2TimeStep* step);
 void b2DestroyIsland(b2Island* island);
 
-void b2Island_AddBody(b2Island* island, struct b2Body* body);
-void b2Island_AddContact(b2Island* island, struct b2Contact* contact);
-void b2Island_AddJoint(b2Island* island, struct b2Joint* joint);
-
-// Finalize island after adding bodies/contacts/joints
-void b2FinalizeIsland(b2Island* island);
-
 void b2SolveIsland(b2Island* island);
-
 void b2CompleteIsland(b2Island* island);
