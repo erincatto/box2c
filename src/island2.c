@@ -144,6 +144,10 @@ b2Island2* b2CreateIsland2(b2IslandBuilder* builder, int32_t islandIndex, struct
 
 	b2Island2* island = b2AllocateStackItem(alloc, sizeof(b2Island2));
 
+	// TODO_ERIN
+	island->jointIndices = NULL;
+	island->jointCount = 0;
+
 	if (islandIndex == 0)
 	{
 		island->bodyIndices = builder->bodyIslands;
@@ -152,8 +156,8 @@ b2Island2* b2CreateIsland2(b2IslandBuilder* builder, int32_t islandIndex, struct
 		island->contactIndices = builder->contactIslands;
 		island->contactCount = builder->contactIslandEnds[0];
 
-		island->jointIndices = builder->jointIslands;
-		island->jointCount = builder->jointIslandEnds[0];
+		//island->jointIndices = builder->jointIslands;
+		//island->jointCount = builder->jointIslandEnds[0];
 	}
 	else
 	{
@@ -165,9 +169,9 @@ b2Island2* b2CreateIsland2(b2IslandBuilder* builder, int32_t islandIndex, struct
 		island->contactIndices = builder->contactIslands + contactStartIndex;
 		island->contactCount = builder->contactIslandEnds[islandIndex] - contactStartIndex;
 
-		int32_t jointStartIndex = builder->jointIslandEnds[islandIndex - 1];
-		island->jointIndices = builder->jointIslands + jointStartIndex;
-		island->jointCount = builder->jointIslandEnds[islandIndex] - jointStartIndex;
+		//int32_t jointStartIndex = builder->jointIslandEnds[islandIndex - 1];
+		//island->jointIndices = builder->jointIslands + jointStartIndex;
+		//island->jointCount = builder->jointIslandEnds[islandIndex] - jointStartIndex;
 	}
 
 	island->world = world;
@@ -388,6 +392,8 @@ void b2SolveIsland2(b2Island2* island)
 		b2Body* body = bodies + island->bodyIndices[i];
 		if (body->type != b2_staticBody)
 		{
+			body->awakeIndex = B2_NULL_INDEX;
+
 			// Update body transform
 			body->transform.q = b2MakeRot(body->angle);
 			body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
@@ -540,18 +546,22 @@ void b2CompleteIsland2(b2Island2* island)
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
 	{
-		int16_t worldIndex = island->world->index;
+		int16_t worldIndex = world->index;
+		int32_t count = island->contactCount;
+		const int32_t* contactIndices = island->contactIndices;
+		const b2Shape* shapes = world->shapes;
 
-		for (int32_t i = 0; i < island->contactCount; ++i)
+		for (int32_t i = 0; i < count; ++i)
 		{
-			const b2Contact* contact = contacts[island->contactIndices[i]];
+			int32_t index = contactIndices[i];
+			const b2Contact* contact = contacts[index];
 
-			const b2Shape* shapeA = island->world->shapes + contact->shapeIndexA;
-			const b2Shape* shapeB = island->world->shapes + contact->shapeIndexB;
+			const b2Shape* shapeA = shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = shapes + contact->shapeIndexB;
 
 			b2ShapeId idA = { shapeA->object.index, worldIndex, shapeA->object.revision };
 			b2ShapeId idB = { shapeB->object.index, worldIndex, shapeB->object.revision };
-			postSolveFcn(idA, idB, &contact->manifold, island->world->postSolveContext);
+			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
 		}
 	}
 }

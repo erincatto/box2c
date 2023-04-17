@@ -70,8 +70,9 @@ void b2DestroyIslandBuilder(b2IslandBuilder* builder);
 void b2InitializeIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator);
 
 // multi-thread calls
+void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB);
 void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t indexA, int32_t indexB);
-void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t indexA, int32_t indexB);
+void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeBodyIndex);
 
 // single-thread calls
 void b2FinalizeIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator* allocator);

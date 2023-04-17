@@ -48,20 +48,23 @@ void b2DestroyIslandBuilder(b2IslandBuilder* builder)
 
 void b2InitializeIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator)
 {
-	builder->contactCapacity = contactCapacity;
-	builder->contactLinks = b2AllocateStackItem(allocator, contactCapacity * sizeof(int32_t));
-
 	builder->jointCount = jointCount;
 	builder->jointLinks = b2AllocateStackItem(allocator, jointCount * sizeof(int32_t));
+
+	builder->contactCapacity = contactCapacity;
+	builder->contactLinks = b2AllocateStackItem(allocator, contactCapacity * sizeof(int32_t));
 }
 
 // body union
-static void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB)
+void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB)
 {
-	if (indexA >= builder->bodyCapacity || indexB >= builder->bodyCapacity)
+	if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
 	{
 		return;
 	}
+
+	assert(indexA < builder->bodyCapacity);
+	assert(indexB < builder->bodyCapacity);
 
 	int32_t rootA = indexA;
 	int32_t rootB = indexB;
@@ -106,13 +109,15 @@ static void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t index
 void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t indexA, int32_t indexB)
 {
 	b2LinkBodies(builder, indexA, indexB);
-	builder->jointLinks[jointIndex] = B2_MIN(indexA, indexB);
+	builder->jointLinks[jointIndex] = B2_MAX(indexA, indexB);
 }
 
-void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t indexA, int32_t indexB)
+void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeBodyIndex)
 {
+	// TODO_ERIN why not bump the contact count here?
+	// This assumes no gaps in contact indices
 	assert(contactIndex < builder->contactCapacity);
-	builder->contactLinks[contactIndex] = B2_MIN(indexA, indexB);
+	builder->contactLinks[contactIndex] = awakeBodyIndex;
 }
 
 static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, b2StackAllocator* allocator)
@@ -193,7 +198,7 @@ static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* co
 	int32_t* constraints = b2AllocateStackItem(allocator, constraintCount * sizeof(int32_t));
 	int32_t* constraintEnds = b2AllocateStackItem(allocator, (islandCount + 1) * sizeof(int32_t));
 
-	for (int32_t i = 0; i < islandCount; ++i)
+	for (int32_t i = 0; i <= islandCount; ++i)
 	{
 		constraintEnds[i] = 0;
 	}
@@ -235,19 +240,19 @@ void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 	int32_t jointCount = builder->jointCount;
 	int32_t islandCount = builder->islandCount;
 
+	b2IslandIndex* sortedIslands = b2AllocateStackItem(allocator, islandCount * sizeof(b2IslandIndex));
+
+	// Initialize index
+	for (int32_t i = 0; i < islandCount; ++i)
+	{
+		sortedIslands[i].index = i;
+		sortedIslands[i].constraintCount = 0;
+	}
+
 	if (contactCount > 0 || jointCount > 0)
 	{
 		const int32_t* contactIslandEnds = builder->contactIslandEnds;
 		const int32_t* jointIslandEnds = builder->jointIslandEnds;
-
-		b2IslandIndex* sortedIslands = b2AllocateStackItem(allocator, islandCount * sizeof(b2IslandIndex));
-
-		// Initialize index
-		for (int32_t i = 0; i < islandCount; ++i)
-		{
-			sortedIslands[i].index = i;
-			sortedIslands[i].constraintCount = 0;
-		}
 
 		if (contactCount > 0 && jointCount > 0)
 		{
@@ -279,7 +284,10 @@ void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 		// Bigger islands go first
 		qsort(sortedIslands, islandCount, sizeof(b2IslandIndex), b2CompareIslands);
 	}
+
+	builder->sortedIslands = sortedIslands;
 }
+
 void b2FinalizeIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator *allocator)
 {
 	builder->contactCount = contactCount;
@@ -321,11 +329,11 @@ void b2DestroyIslands(b2IslandBuilder* builder, b2StackAllocator *allocator)
 	b2FreeStackItem(allocator, builder->bodyIslands);
 	builder->bodyIslands = NULL;
 
-	b2FreeStackItem(allocator, builder->jointLinks);
-	builder->jointLinks = NULL;
-
 	b2FreeStackItem(allocator, builder->contactLinks);
 	builder->contactLinks = NULL;
+
+	b2FreeStackItem(allocator, builder->jointLinks);
+	builder->jointLinks = NULL;
 
 	builder->bodyCount = 0;
 	builder->contactCount = 0;

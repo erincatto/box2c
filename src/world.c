@@ -413,6 +413,25 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* 
 
 	b2TracyCZoneEnd(island_task);
 }
+
+static void b2IslandParallelForTask2(int32_t startIndex, int32_t endIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+
+	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
+
+	b2Island2** islands = taskContext;
+
+	assert(startIndex < endIndex);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2SolveIsland2(islands[i]);
+	}
+
+	b2TracyCZoneEnd(island_task);
+}
 #endif
 
 // Find islands, integrate equations of motion and solve constraints.
@@ -761,16 +780,21 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 	b2IslandBuilder* builder = &world->islandBuilder;
 
 	const int32_t jointCount = world->jointPool.count;
-	const int32_t contactCount = b2Array(world->contacts).count;
+
+	// Contact capacity because some contacts may not be touching or the bodies are sleeping
+	const int32_t contactCapacity = b2Array(world->contacts).count;
 
 	b2StackAllocator* allocator = world->stackAllocator;
 
-	b2InitializeIslands(builder, contactCount, jointCount, allocator);
+	assert(b2Array(world->awakeBodies).count <= builder->bodyCapacity);
+
+	b2InitializeIslands(builder, contactCapacity, jointCount, allocator);
 
 	b2Body* bodies = world->bodies;
 	b2Joint* joints = world->joints;
 	b2Contact** contacts = world->contacts;
 
+	// Add joints to island builder
 	// TODO_ERIN inefficient
 	for (int32_t i = 0; i < jointCount; ++i)
 	{
@@ -785,17 +809,39 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 			assert(bodyA->object.index == bodyA->object.next);
 			assert(bodyB->object.index == bodyB->object.next);
 
-			if (bodyA->awakeIndex != B2_NULL_INDEX || bodyB->awakeIndex != B2_NULL_INDEX)
+			if (bodyA->awakeIndex != B2_NULL_INDEX)
 			{
-				b2LinkJoint(builder, i, indexA, indexB);
+				if (bodyB->awakeIndex == B2_NULL_INDEX && bodyB->type != b2_staticBody)
+				{
+					bodyB->sleepTime = 0.0f;
+					bodyB->awakeIndex = b2Array(world->awakeBodies).count;
+					b2Array_Push(world->awakeBodies, indexB);
+				}
+				b2LinkJoint(builder, i, bodyA->awakeIndex, bodyB->awakeIndex);
+			}
+			else if (bodyB->awakeIndex != B2_NULL_INDEX)
+			{
+				if (bodyA->awakeIndex == B2_NULL_INDEX && bodyA->type != b2_staticBody)
+				{
+					bodyA->sleepTime = 0.0f;
+					bodyA->awakeIndex = b2Array(world->awakeBodies).count;
+					b2Array_Push(world->awakeBodies, indexA);
+				}
+				b2LinkJoint(builder, i, bodyA->awakeIndex, bodyB->awakeIndex);
 			}
 		}
 	}
 
+	// Add contacts to island builder
 	// TODO_ERIN inefficient
-	for (int32_t i = 0; i < contactCount; ++i)
+	int32_t contactCount = 0;
+	for (int32_t i = 0; i < contactCapacity; ++i)
 	{
 		b2Contact* contact = contacts[i];
+		if ((contact->flags & b2_contactTouchingFlag) == 0)
+		{
+			continue;
+		}
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -805,9 +851,51 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 		assert(bodyA->object.index == bodyA->object.next);
 		assert(bodyB->object.index == bodyB->object.next);
 
-		if (bodyA->awakeIndex != B2_NULL_INDEX || bodyB->awakeIndex != B2_NULL_INDEX)
+		if (bodyA->awakeIndex != B2_NULL_INDEX)
 		{
-			b2LinkContact(builder, i, indexA, indexB);
+			b2LinkContact(builder, contactCount, bodyA->awakeIndex);
+
+			// Swap so that active contacts need to be contiguous
+			b2Contact* temp = contacts[contactCount];
+			contacts[i] = temp;
+			contacts[contactCount] = contact;
+
+			// Fix the indices
+			temp->index = i;
+			contact->index = contactCount;
+
+			++contactCount;
+
+			if (bodyB->awakeIndex == B2_NULL_INDEX && bodyB->type != b2_staticBody)
+			{
+				bodyB->sleepTime = 0.0f;
+				bodyB->awakeIndex = b2Array(world->awakeBodies).count;
+				b2Array_Push(world->awakeBodies, indexB);
+			}
+			b2LinkBodies(builder, bodyA->awakeIndex, bodyB->awakeIndex);
+		}
+		else if (bodyB->awakeIndex != B2_NULL_INDEX)
+		{
+			b2LinkContact(builder, contactCount, bodyB->awakeIndex);
+
+			// Swap so that active contacts need to be contiguous
+			b2Contact* temp = contacts[contactCount];
+			contacts[i] = temp;
+			contacts[contactCount] = contact;
+
+			// Fix the indices
+			temp->index = i;
+			contact->index = contactCount;
+			
+			++contactCount;
+
+			if (bodyA->awakeIndex == B2_NULL_INDEX && bodyA->type != b2_staticBody)
+			{
+				bodyA->sleepTime = 0.0f;
+				bodyA->awakeIndex = b2Array(world->awakeBodies).count;
+				b2Array_Push(world->awakeBodies, indexA);
+			}
+			b2LinkBodies(builder, bodyA->awakeIndex, bodyB->awakeIndex);
 		}
 	}
 
@@ -824,6 +912,7 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 
 	int32_t seedCount = b2Array(seedBuffer).count;
 
+	// TODO_ERIN if contacts are linked why can't the builder keep track of the count?
 	b2FinalizeIslands(builder, seedBuffer, seedCount, contactCount, allocator);
 
 	int32_t islandCount = builder->islandCount;
@@ -843,11 +932,11 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 #if B2_ISLAND_PARALLEL_FOR == 1
 	if (g_parallel)
 	{
-		world->enqueueTask(&b2IslandParallelForTask, islandCount, 1, islands, world->userTaskContext);
+		world->enqueueTask(&b2IslandParallelForTask2, islandCount, 1, islands, world->userTaskContext);
 	}
 	else
 	{
-		b2IslandParallelForTask(0, islandCount, islands);
+		b2IslandParallelForTask2(0, islandCount, islands);
 	}
 #endif
 
@@ -859,8 +948,8 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
-	// Complete and destroy islands
-	for (int32_t i = 0; i < islandCount; ++i)
+	// Complete and destroy islands (reverse order for stack allocator)
+	for (int32_t i = islandCount - 1; i >= 0; --i)
 	{
 		b2Island2* island = islands[i];
 		b2CompleteIsland2(island);
