@@ -351,6 +351,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 
 					if (otherBody->type != b2_staticBody)
 					{
+
 						b2LinkBodies(&world->islandBuilder, i, ce->otherBodyIndex);
 					}
 				}
