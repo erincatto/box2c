@@ -33,17 +33,29 @@ typedef struct b2World
 	struct b2Joint* joints;
 	struct b2Shape* shapes;
 
+	int32_t bodyCapacity;
+	int32_t contactCapacity;
+
 	// This is a dense dmArray
 	struct b2Contact** contactArray;
 
-	// dmArray of contacts with shapes that no longer have overlapping bounding boxes
+	// Fixed capacity array allocated at world creation and rebuilt every time step.
+	// These are solid contacts that are touching and awake.
+	struct b2Contact** activeContacts;
+
+	// This atomic allows contacts to be added to the active contact array and to the island builder
+	// from multiple threads
+	B2_ATOMIC long activeContactCount;
+
+	// Fixed capacity array of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;
-	b2Mutex* invalidContactMutex;
+	B2_ATOMIC long invalidContactCount;
 
 	// double-buffered awake body arrays
-	// these are dense dmArrays
+	// these are dense fixed capacity arrays
 	int32_t* awakeBodies;
 	int32_t* seedBodies;
+	B2_ATOMIC long awakeCount;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;

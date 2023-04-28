@@ -21,6 +21,13 @@
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 #define B2_NULL_INDEX (-1)
 
+// TODO_ERIN temp until github updates MSVC
+#if defined(_MSC_VER) && !defined(__clang__)
+#define B2_ATOMIC
+#else
+#define B2_ATOMIC _Atomic
+#endif
+
 /// 2D vector
 typedef struct b2Vec2
 {
@@ -93,13 +100,13 @@ typedef struct b2WorldDef
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
 
-	/// initial capacity for bodies
+	/// Capacity for bodies
 	int32_t bodyCapacity;
 
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
 
-	/// initial capacity for contacts
+	/// Capacity for contacts
 	int32_t contactCapacity;
 
 	/// initial capacity for joints

@@ -114,8 +114,8 @@ void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t indexA, i
 
 void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeBodyIndex)
 {
-	// TODO_ERIN why not bump the contact count here?
 	// This assumes no gaps in contact indices
+	// Index is incremented atomically in b2CollideTask
 	assert(contactIndex < builder->contactCapacity);
 	builder->contactLinks[contactIndex] = awakeBodyIndex;
 }

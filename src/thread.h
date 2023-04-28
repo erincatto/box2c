@@ -2,13 +2,6 @@
 
 typedef struct b2Mutex b2Mutex;
 
-// TODO_ERIN temp until github updates MSVC
-#if defined(_MSC_VER) && !defined(__clang__)
-#define B2_ATOMIC
-#else
-#define B2_ATOMIC _Atomic
-#endif
-
 #ifdef __cplusplus
 extern "C"
 {

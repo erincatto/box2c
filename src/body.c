@@ -75,8 +75,10 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (b->isAwake)
 	{
-		b->awakeIndex = b2Array(world->awakeBodies).count;
-		b2Array_Push(world->awakeBodies, b->object.index);
+		int32_t awakeIndex = world->awakeCount - 1;
+		b->awakeIndex = awakeIndex;
+		world->awakeBodies[awakeIndex] = b->object.index;
+		world->awakeCount += 1;
 	}
 	else
 	{
@@ -177,18 +179,22 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	int32_t awakeIndex = body->awakeIndex;
 	if (awakeIndex != B2_NULL_INDEX)
 	{
+		// These atomic operations are not for thread safety
+		int32_t awakeCount = &world->awakeCount;
+
 		assert(body->isAwake);
-		assert(0 <= awakeIndex && awakeIndex < b2Array(world->awakeBodies).count);
+		assert(0 <= awakeIndex && awakeIndex < awakeCount);
 		assert(world->awakeBodies[awakeIndex] == body->object.index);
 
-		int32_t count = b2Array(world->awakeBodies).count;
-		b2Array_RemoveSwap(world->awakeBodies, awakeIndex);
-		if (awakeIndex < count - 1)
+		if (awakeIndex < awakeCount - 1)
 		{
 			// Fix awake index on body that got swapped
-			int32_t otherBodyIndex = world->awakeBodies[awakeIndex];
+			int32_t otherBodyIndex = world->awakeBodies[awakeCount - 1];
 			world->bodies[otherBodyIndex].awakeIndex = awakeIndex;
+			world->awakeBodies[awakeIndex] = otherBodyIndex;
 		}
+
+		world->awakeCount -= 1;
 	}
 
 	b2FreeObject(&world->bodyPool, &body->object);
