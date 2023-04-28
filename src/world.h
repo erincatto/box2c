@@ -28,17 +28,20 @@ typedef struct b2World
 	b2Pool jointPool;
 	b2Pool shapePool;
 
+	// These are sparse arrays that point into the pools above
 	struct b2Body* bodies;
 	struct b2Joint* joints;
 	struct b2Shape* shapes;
 
-	struct b2Contact** contacts;
+	// This is a dense dmArray
+	struct b2Contact** contactArray;
 
-	// array of contacts with shapes that no longer have overlapping bounding boxes
+	// dmArray of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;
 	b2Mutex* invalidContactMutex;
 
-	// double buffered awake body array (not safe to copy pointers)
+	// double-buffered awake body arrays
+	// these are dense dmArrays
 	int32_t* awakeBodies;
 	int32_t* seedBodies;
 

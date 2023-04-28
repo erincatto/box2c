@@ -183,7 +183,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
 
-	world->contacts = b2CreateArray(sizeof(b2Contact*), B2_MAX(def->contactCapacity, 1));
+	world->contactArray = b2CreateArray(sizeof(b2Contact*), B2_MAX(def->contactCapacity, 1));
 
 	world->invalidContactMutex = b2CreateMutex("Invalid Contact");
 	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
@@ -246,6 +246,8 @@ void b2DestroyWorld(b2WorldId id)
 	world->invalidContactMutex = NULL;
 	b2DestroyArray(world->invalidContacts);
 	world->invalidContacts = NULL;
+
+	b2DestroyArray(world->contactArray);
 
 	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
@@ -448,7 +450,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	// Island buffers
 	const int32_t bodyCapacity = world->bodyPool.count;
 	const int32_t jointCapacity = world->jointPool.count;
-	const int32_t contactCapacity = b2Array(world->contacts).count;
+	const int32_t contactCapacity = b2Array(world->contactArray).count;
 
 	// Body island indices could be stored in b2Body, but they are only used in this scope. Also
 	// this is safer because static bodies can have multiple island indices within this scope.
@@ -782,7 +784,7 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 	const int32_t jointCount = world->jointPool.count;
 
 	// Contact capacity because some contacts may not be touching or the bodies are sleeping
-	const int32_t contactCapacity = b2Array(world->contacts).count;
+	const int32_t contactCapacity = b2Array(world->contactArray).count;
 
 	b2StackAllocator* allocator = world->stackAllocator;
 
@@ -792,7 +794,7 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 
 	b2Body* bodies = world->bodies;
 	b2Joint* joints = world->joints;
-	b2Contact** contacts = world->contacts;
+	b2Contact** contacts = world->contactArray;
 
 	// Add joints to island builder
 	// TODO_ERIN inefficient
@@ -856,6 +858,7 @@ static void b2Solve2(b2World* world, const b2TimeStep* step)
 			b2LinkContact(builder, contactCount, bodyA->awakeIndex);
 
 			// Swap so that active contacts need to be contiguous
+			assert(contactCount < contactCapacity);
 			b2Contact* temp = contacts[contactCount];
 			contacts[i] = temp;
 			contacts[contactCount] = contact;
@@ -1309,10 +1312,10 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 	}
 }
 
-b2Profile* b2World_GetProfile(b2WorldId worldId)
+b2Profile b2World_GetProfile(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	return &world->profile;
+	return world->profile;
 }
 
 b2Statistics b2World_GetStatistics(b2WorldId worldId)
@@ -1320,7 +1323,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	b2World* world = b2GetWorldFromId(worldId);
 	b2Statistics s = {0};
 	s.bodyCount = world->bodyPool.count;
-	s.contactCount = b2Array(world->contacts).count;
+	s.contactCount = b2Array(world->contactArray).count;
 	s.jointCount = world->jointPool.count;
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;

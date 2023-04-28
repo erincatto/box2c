@@ -131,8 +131,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->tangentSpeed = 0.0f;
 
 	// Insert into the world
-	c->index = b2Array(world->contacts).count;
-	b2Array_Push(world->contacts, c);
+	c->index = b2Array(world->contactArray).count;
+	b2Array_Push(world->contactArray, c);
 
 	// Connect to island graph
 	c->edgeA = (b2ContactEdge){shapeB->bodyIndex, c, NULL, NULL};
@@ -176,13 +176,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	//	contactListener->EndContact(contact);
 	// }
 
-	int32_t count = b2Array(world->contacts).count;
+	int32_t count = b2Array(world->contactArray).count;
 	int32_t index = contact->index;
-	b2Array_Remove(world->contacts, index);
+	b2Array_RemoveSwap(world->contactArray, index);
 	if (index < count - 1)
 	{
 		// Fix swapped contact index
-		world->contacts[index]->index = index;
+		world->contactArray[index]->index = index;
 	}
 
 	// Remove from body A

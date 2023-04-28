@@ -23,6 +23,12 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		return b2_nullBodyId;
 	}
 
+	if (world->bodyPool.count == world->bodyPool.capacity)
+	{
+		assert(false);
+		return b2_nullBodyId;
+	}
+
 	b2Body* b = (b2Body*)b2AllocObject(&world->bodyPool);
 	world->bodies = (b2Body*)world->bodyPool.memory;
 
@@ -167,16 +173,22 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		world->shapes = (b2Shape*)world->shapePool.memory;
 	}
 
-	// Remove awake body.
-	// Must do this after destroying contacts because that might wake this body.
-	if (body->awakeIndex != B2_NULL_INDEX)
+	// Remove awake body
+	int32_t awakeIndex = body->awakeIndex;
+	if (awakeIndex != B2_NULL_INDEX)
 	{
 		assert(body->isAwake);
-		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
-		assert(world->awakeBodies[body->awakeIndex] == body->object.index);
+		assert(0 <= awakeIndex && awakeIndex < b2Array(world->awakeBodies).count);
+		assert(world->awakeBodies[awakeIndex] == body->object.index);
 
-		// Elements of the awake list cannot be moved around, so nullify this element
-		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+		int32_t count = b2Array(world->awakeBodies).count;
+		b2Array_RemoveSwap(world->awakeBodies, awakeIndex);
+		if (awakeIndex < count - 1)
+		{
+			// Fix awake index on body that got swapped
+			int32_t otherBodyIndex = world->awakeBodies[awakeIndex];
+			world->bodies[otherBodyIndex].awakeIndex = awakeIndex;
+		}
 	}
 
 	b2FreeObject(&world->bodyPool, &body->object);

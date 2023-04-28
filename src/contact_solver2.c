@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver2.h"
@@ -73,21 +74,23 @@ void b2ContactSolver_Initialize2(b2ContactSolver2* solver)
 
 	b2TimeStep step = *solver->step;
 	b2World* world = solver->world;
-	b2Contact** contacts = world->contacts;
+	const b2Contact** contacts = world->contactArray;
+
 	b2Body* bodies = world->bodies;
 
 	// Initialize position independent portions of the constraints.
 	for (int32_t i = 0; i < count; ++i)
 	{
 		int32_t index = contactIndices[i];
-		b2Contact* contact = contacts[index];
+		b2Array_Check(world->contactArray, index);
+		const b2Contact* contact = contacts[index];
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
 		b2Body* bodyA = bodies + indexA;
 		b2Body* bodyB = bodies + indexB;
 
-		b2Manifold* manifold = &contact->manifold;
+		const b2Manifold* manifold = &contact->manifold;
 
 		int32_t pointCount = manifold->pointCount;
 		assert(pointCount > 0);
@@ -122,7 +125,7 @@ void b2ContactSolver_Initialize2(b2ContactSolver2* solver)
 
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
-			b2ManifoldPoint* cp = manifold->points + j;
+			const b2ManifoldPoint* cp = manifold->points + j;
 			b2VelocityConstraintPoint2* vcp = vc->points + j;
 
 			if (step.warmStarting)
@@ -208,7 +211,8 @@ void b2ContactSolver_Initialize2(b2ContactSolver2* solver)
 		for (int32_t i = 0; i < count; ++i)
 		{
 			int32_t index = contactIndices[i];
-			b2Contact* contact = contacts[index];
+			b2Array_Check(world->contactArray, index);
+			const b2Contact* contact = contacts[index];
 
 			int32_t indexA = contact->edgeB.otherBodyIndex;
 			int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -255,13 +259,14 @@ void b2ContactSolver_SolveVelocityConstraints2(b2ContactSolver2* solver)
 	const int32_t* contactIndices = solver->contactIndices;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->contacts;
+	const b2Contact** contacts = world->contactArray;
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
 		int32_t index = contactIndices[i];
-		b2Contact* contact = contacts[index];
+		b2Array_Check(world->contactArray, index);
+		const b2Contact* contact = contacts[index];
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -591,13 +596,14 @@ void b2ContactSolver_ApplyRestitution2(b2ContactSolver2* solver)
 	float threshold = solver->step->restitutionThreshold;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->contacts;
+	const b2Contact** contacts = world->contactArray;
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
 		int32_t index = contactIndices[i];
-		b2Contact* contact = contacts[index];
+		b2Array_Check(world->contactArray, index);
+		const b2Contact* contact = contacts[index];
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -665,11 +671,12 @@ void b2ContactSolver_StoreImpulses2(b2ContactSolver2* solver)
 	const int32_t* contactIndices = solver->contactIndices;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->contacts;
+	b2Contact** contacts = world->contactArray;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
 		int32_t index = contactIndices[i];
+		b2Array_Check(world->contactArray, index);
 		b2Contact* contact = contacts[index];
 
 		b2ContactVelocityConstraint2* vc = solver->velocityConstraints + i;
@@ -691,13 +698,15 @@ bool b2ContactSolver_SolvePositionConstraintsBlock2(b2ContactSolver2* solver)
 	float slop = b2_linearSlop;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->contacts;
+	const b2Contact** contacts = world->contactArray;
+
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
 		int32_t index = contactIndices[i];
-		b2Contact* contact = contacts[index];
+		b2Array_Check(world->contactArray, index);
+		const b2Contact* contact = contacts[index];
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;

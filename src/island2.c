@@ -153,8 +153,16 @@ b2Island2* b2CreateIsland2(b2IslandBuilder* builder, int32_t islandIndex, struct
 		island->bodyIndices = builder->bodyIslands;
 		island->bodyCount = builder->bodyIslandEnds[0];
 
-		island->contactIndices = builder->contactIslands;
-		island->contactCount = builder->contactIslandEnds[0];
+		if (builder->contactCount > 0)
+		{
+			island->contactIndices = builder->contactIslands;
+			island->contactCount = builder->contactIslandEnds[0];
+		}
+		else
+		{
+			island->contactIndices = NULL;
+			island->contactCount = 0;
+		}
 
 		//island->jointIndices = builder->jointIslands;
 		//island->jointCount = builder->jointIslandEnds[0];
@@ -165,9 +173,17 @@ b2Island2* b2CreateIsland2(b2IslandBuilder* builder, int32_t islandIndex, struct
 		island->bodyIndices = builder->bodyIslands + bodyStartIndex;
 		island->bodyCount = builder->bodyIslandEnds[islandIndex] - bodyStartIndex;
 
-		int32_t contactStartIndex = builder->contactIslandEnds[islandIndex - 1];
-		island->contactIndices = builder->contactIslands + contactStartIndex;
-		island->contactCount = builder->contactIslandEnds[islandIndex] - contactStartIndex;
+		if (builder->contactCount > 0)
+		{
+			int32_t contactStartIndex = builder->contactIslandEnds[islandIndex - 1];
+			island->contactIndices = builder->contactIslands + contactStartIndex;
+			island->contactCount = builder->contactIslandEnds[islandIndex] - contactStartIndex;
+		}
+		else
+		{
+			island->contactIndices = NULL;
+			island->contactCount = 0;
+		}
 
 		//int32_t jointStartIndex = builder->jointIslandEnds[islandIndex - 1];
 		//island->jointIndices = builder->jointIslands + jointStartIndex;
@@ -542,7 +558,8 @@ void b2CompleteIsland2(b2Island2* island)
 	}
 
 	// Report impulses
-	const b2Contact** contacts = world->contacts;
+	const b2Contact** contacts = world->contactArray;
+
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
 	{
@@ -554,6 +571,7 @@ void b2CompleteIsland2(b2Island2* island)
 		for (int32_t i = 0; i < count; ++i)
 		{
 			int32_t index = contactIndices[i];
+			b2Array_Check(world->contactArray, index);
 			const b2Contact* contact = contacts[index];
 
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;

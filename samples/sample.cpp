@@ -74,6 +74,7 @@ Sample::Sample()
 	worldDef.workerCount = maxThreads;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTasks = &FinishTasks;
+	worldDef.bodyCapacity = 1024 * 10;
 	worldDef.userTaskContext = this;
 	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
 
@@ -260,25 +261,25 @@ void Sample::Step(Settings& settings)
 
 	// Track maximum profile times
 	{
-		const b2Profile* p = b2World_GetProfile(m_worldId);
-		m_maxProfile.step = B2_MAX(m_maxProfile.step, p->step);
-		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p->collide);
-		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p->solve);
-		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p->buildIslands);
-		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p->solveIslands);
-		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
+		b2Profile p = b2World_GetProfile(m_worldId);
+		m_maxProfile.step = B2_MAX(m_maxProfile.step, p.step);
+		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p.collide);
+		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
+		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
+		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p.solveIslands);
+		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 
-		m_totalProfile.step += p->step;
-		m_totalProfile.collide += p->collide;
-		m_totalProfile.solve += p->solve;
-		m_totalProfile.buildIslands += p->buildIslands;
-		m_totalProfile.solveIslands += p->solveIslands;
-		m_totalProfile.broadphase += p->broadphase;
+		m_totalProfile.step += p.step;
+		m_totalProfile.collide += p.collide;
+		m_totalProfile.solve += p.solve;
+		m_totalProfile.buildIslands += p.buildIslands;
+		m_totalProfile.solveIslands += p.solveIslands;
+		m_totalProfile.broadphase += p.broadphase;
 	}
 
 	if (settings.m_drawProfile)
 	{
-		const b2Profile* p = b2World_GetProfile(m_worldId);
+		b2Profile p = b2World_GetProfile(m_worldId);
 
 		b2Profile aveProfile;
 		memset(&aveProfile, 0, sizeof(b2Profile));
@@ -293,22 +294,22 @@ void Sample::Step(Settings& settings)
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
-		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->step, aveProfile.step,
+		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step,
 						  m_maxProfile.step);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->collide, aveProfile.collide,
+		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solve, aveProfile.solve,
+		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve,
 						  m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->buildIslands, aveProfile.buildIslands,
+		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands, aveProfile.buildIslands,
 						  m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveIslands,
+		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveIslands,
 						  aveProfile.solveIslands, m_maxProfile.solveIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->broadphase,
+		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase,
 						  aveProfile.broadphase, m_maxProfile.broadphase);
 		m_textLine += m_textIncrement;
 	}
