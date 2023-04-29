@@ -280,7 +280,7 @@ void b2DestroyWorld(b2WorldId id)
 
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
-	b2TracyCZoneC(collide_task, b2_colorYellow, true);
+	b2TracyCZoneC(collide_task, b2_colorDodgerBlue1, true);
 
 	b2World* world = taskContext;
 	b2Shape* shapes = world->shapes;

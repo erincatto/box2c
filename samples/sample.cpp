@@ -236,7 +236,10 @@ void Sample::Step(Settings& settings)
 
 	m_pointCount = 0;
 
-	b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+	for (int32_t i = 0; i < 1; ++i)
+	{
+		b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+	}
 	b2World_Draw(m_worldId, &g_draw.m_debugDraw);
 
 	if (timeStep > 0.0f)
@@ -374,21 +377,30 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	// m_world->ShiftOrigin(newOrigin);
 }
 
+// Thread-safe callback
 bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
 {
-	// TODO_ERIN make thread safe
-	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
+	long startCount = m_pointCount.fetch_add(manifold->pointCount);
+	if (startCount >= k_maxContactPoints)
 	{
-		ContactPoint* cp = m_points + m_pointCount;
+		return true;
+	}
+
+	long endCount = B2_MIN(k_maxContactPoints, startCount + manifold->pointCount);
+
+	int32_t j = 0;
+	for (long i = startCount; i < endCount; ++i)
+	{
+		ContactPoint* cp = m_points + i;
 		cp->shapeIdA = shapeIdA;
 		cp->shapeIdB = shapeIdB;
 		cp->normal = manifold->normal;
-		cp->position = manifold->points[i].point;
-		cp->separation = manifold->points[i].separation;
-		cp->normalImpulse = manifold->points[i].normalImpulse;
-		cp->tangentImpulse = manifold->points[i].tangentImpulse;
-		cp->persisted = manifold->points[i].persisted;
-		++m_pointCount;
+		cp->position = manifold->points[j].point;
+		cp->separation = manifold->points[j].separation;
+		cp->normalImpulse = manifold->points[j].normalImpulse;
+		cp->tangentImpulse = manifold->points[j].tangentImpulse;
+		cp->persisted = manifold->points[j].persisted;
+		++j;
 	}
 
 	return true;
