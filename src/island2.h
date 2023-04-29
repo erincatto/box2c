@@ -13,9 +13,11 @@ typedef struct b2Island2
 	struct b2World* world;
 	const b2TimeStep* step;
 
+	// Indices into b2World::bodies
 	int32_t* bodyIndices;
 	int32_t bodyCount;
 
+	// Indices into b2World::activeContacts
 	int32_t* contactIndices;
 	int32_t contactCount;
 

@@ -75,7 +75,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (b->isAwake)
 	{
-		int32_t awakeIndex = world->awakeCount - 1;
+		int32_t awakeIndex = world->awakeCount;
 		b->awakeIndex = awakeIndex;
 		world->awakeBodies[awakeIndex] = b->object.index;
 		world->awakeCount += 1;
@@ -104,6 +104,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b2Body* body = world->bodies + bodyId.index;
 
 #if 0
+	// TODO_ERIN eliminate joint graph?
 	// Delete the attached joints.
 	b2JointEdge* je = b->m_jointList;
 	while (je)
@@ -155,7 +156,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
 
-
 		// if (m_destructionListener)
 		//{
 		//	m_destructionListener->SayGoodbye(f0);
@@ -179,8 +179,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	int32_t awakeIndex = body->awakeIndex;
 	if (awakeIndex != B2_NULL_INDEX)
 	{
-		// These atomic operations are not for thread safety
-		int32_t awakeCount = &world->awakeCount;
+		int32_t awakeCount = world->awakeCount;
 
 		assert(body->isAwake);
 		assert(0 <= awakeIndex && awakeIndex < awakeCount);
@@ -521,8 +520,10 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 	{
 		body->sleepTime = 0.0f;
 		assert(body->awakeIndex == B2_NULL_INDEX);
-		body->awakeIndex = b2Array(world->awakeBodies).count;
-		b2Array_Push(world->awakeBodies, body->object.index);
+		assert(world->awakeCount < world->bodyCapacity);
+		body->awakeIndex = world->awakeCount;
+		world->awakeBodies[body->awakeIndex] = body->object.index;
+		world->awakeCount += 1;
 	}
 	else
 	{
@@ -532,9 +533,22 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
 
-		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
-		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+		int32_t awakeIndex = body->awakeIndex;
+		int32_t awakeCount = world->awakeCount;
+		assert(0 <= awakeIndex && awakeIndex < world->awakeCount);
+
+		// Swap in last body
+		if (awakeIndex < awakeCount - 1)
+		{
+			int32_t endIndex = world->awakeBodies[awakeCount - 1];
+			world->awakeBodies[awakeIndex] = endIndex;
+			assert(world->bodies[endIndex].awakeIndex == awakeCount - 1);
+			assert(world->bodies[endIndex].object.next == world->bodies[endIndex].object.index);
+			world->bodies[endIndex].awakeIndex = awakeIndex;
+		}
+
 		body->awakeIndex = B2_NULL_INDEX;
+		world->awakeCount -= 1;
 	}
 }
 

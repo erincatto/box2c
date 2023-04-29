@@ -40,22 +40,23 @@ typedef struct b2World
 	struct b2Contact** contactArray;
 
 	// Fixed capacity array allocated at world creation and rebuilt every time step.
-	// These are solid contacts that are touching and awake.
+	// These are solid contacts that are touching and awake. b2IslandBuilder builds islands
+	// that index into this array.
 	struct b2Contact** activeContacts;
 
-	// This atomic allows contacts to be added to the active contact array and to the island builder
-	// from multiple threads
+	// This atomic allows contacts to be added to the active contact array and to b2IslandBuilder
+	// from multiple threads.
 	B2_ATOMIC long activeContactCount;
 
 	// Fixed capacity array of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;
 	B2_ATOMIC long invalidContactCount;
 
-	// double-buffered awake body arrays
-	// these are dense fixed capacity arrays
+	// Awake body array holds indices into bodies array (bodyPool).
+	// This is a dense fixed capacity array (bodyCapacity) that is rebuilt every time step.
 	int32_t* awakeBodies;
-	int32_t* seedBodies;
-	B2_ATOMIC long awakeCount;
+	int32_t awakeCount;
+	struct b2Mutex* awakeMutex;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;

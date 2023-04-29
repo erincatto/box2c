@@ -46,7 +46,7 @@ void b2DestroyIslandBuilder(b2IslandBuilder* builder)
 	b2Free(builder->links);
 }
 
-void b2InitializeIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator)
+void b2StartIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator)
 {
 	builder->jointCount = jointCount;
 	builder->jointLinks = b2AllocateStackItem(allocator, jointCount * sizeof(int32_t));
@@ -58,6 +58,7 @@ void b2InitializeIslands(b2IslandBuilder* builder, int32_t contactCapacity, int3
 // body union
 void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB)
 {
+	// TODO_ERIN this should be an assert
 	if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
 	{
 		return;
@@ -124,7 +125,6 @@ static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, 
 {
 	builder->bodyCount = bodyCount;
 	int32_t* bodyIslands = b2AllocateStackItem(allocator, bodyCount * sizeof(int32_t));
-	
 	int32_t* baseIndices = b2AllocateStackItem(allocator, (bodyCount + 1) * sizeof(int32_t));
 	baseIndices[0] = 0;
 	int32_t islandCount = 0;
@@ -142,14 +142,12 @@ static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, 
 		{
 			int32_t islandIndex = links[parent].islandIndex;
 			link->islandIndex = islandIndex;
-
 			baseIndices[islandIndex + 1] += 1;
 		}
 		else
 		{
 			link->islandIndex = islandCount;
 			islandCount += 1;
-
 			baseIndices[islandCount] = 1;
 		}
 	}
@@ -172,6 +170,8 @@ static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, 
 		b2BodyLink* link = links + i;
 
 		int32_t base = baseIndices[link->islandIndex];
+
+		// This resolves the body index from b2World::activeBodies to b2World::bodies
 		bodyIslands[base] = bodies[i];
 
 		baseIndices[link->islandIndex] += 1;
@@ -220,6 +220,8 @@ static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* co
 	{
 		int32_t bodyIndex = constraintToBody[i];
 		int32_t islandIndex = links[bodyIndex].islandIndex;
+
+		// Could pass in array of contacts and assign a b2Contact*
 		constraints[constraintEnds[islandIndex]++] = i;
 	}
 
@@ -288,7 +290,7 @@ void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 	builder->sortedIslands = sortedIslands;
 }
 
-void b2FinalizeIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator *allocator)
+void b2FinishIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator *allocator)
 {
 	builder->contactCount = contactCount;
 
@@ -303,7 +305,7 @@ void b2FinalizeIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t 
 	b2SortIslands(builder, allocator);
 }
 
-void b2DestroyIslands(b2IslandBuilder* builder, b2StackAllocator *allocator)
+void b2ResetIslands(b2IslandBuilder* builder, b2StackAllocator *allocator)
 {
 	b2FreeStackItem(allocator, builder->sortedIslands);
 	builder->sortedIslands = NULL;

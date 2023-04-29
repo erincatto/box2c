@@ -93,6 +93,12 @@ void b2InitializeContactRegisters()
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
 {
+	if (b2Array(world->contactArray).count == b2Array(world->contactArray).capacity)
+	{
+		assert(false);
+		return;
+	}
+
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
 

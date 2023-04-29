@@ -7,16 +7,19 @@
 
 typedef long atomic_long;
 
+// Returns the initial value
 static inline int32_t atomic_fetch_add_long(volatile atomic_long* obj, int32_t val)
 {
 	return InterlockedExchangeAdd(obj, val);
 }
 
+// Returns the initial value
 static inline int32_t atomic_fetch_sub_long(volatile atomic_long* obj, int32_t val)
 {
 	return InterlockedExchangeAdd(obj, -val);
 }
 
+// Returns the initial value
 static inline int32_t atomic_store_long(volatile atomic_long* obj, int32_t val)
 {
 	return InterlockedExchange(obj, val);
@@ -53,7 +56,7 @@ static inline bool atomic_compare_exchange_weak_long(volatile atomic_long* obj, 
 
 // Atomically store the minimum two values
 // *ptr = min(*ptr, b)
-void b2AtomicStoreMin(atomic_long* ptr, int32_t b)
+static inline void b2AtomicStoreMin(atomic_long* ptr, int32_t b)
 {
 	int32_t a = atomic_load_long(ptr);
 	while (a > b)

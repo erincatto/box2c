@@ -27,16 +27,22 @@ typedef struct b2IslandIndex
 typedef struct b2IslandBuilder
 {
 	// Union-find data populated in narrow-phase
+
+	// Array of body links one-to-one with b2World::activeBodies. Must be contiguous.
 	b2BodyLink*	links;
+
+	// Map joint index to active body index
 	int32_t* jointLinks;
+
+	// Map contact index to active body index
 	int32_t* contactLinks;
 
 	// Final island data
 
-	// Body indices ordered by island
+	// Body indices ordered by island. Index into b2World::bodies.
 	int32_t* bodyIslands;
 
-	// End body index of each island
+	// End body index of each island. Index into bodyIslands.
 	int32_t* bodyIslandEnds;
 
 	// Joint indices ordered by island
@@ -45,7 +51,8 @@ typedef struct b2IslandBuilder
 	// End index of each joint island
 	int32_t* jointIslandEnds;
 	
-	// Contact indices ordered by island
+	// Contact indices ordered by island. Index into b2World::activeContacts
+	// TODO_ERIN makes this an array of b2Contact*?
 	int32_t* contactIslands;
 
 	// End contact index for each island
@@ -67,7 +74,7 @@ b2IslandBuilder b2CreateIslandBuilder(int32_t bodyCapacity);
 void b2DestroyIslandBuilder(b2IslandBuilder* builder);
 
 // single-thread call
-void b2InitializeIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator);
+void b2StartIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator);
 
 // multi-thread calls
 void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB);
@@ -75,5 +82,5 @@ void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t indexA, i
 void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeBodyIndex);
 
 // single-thread calls
-void b2FinalizeIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator* allocator);
-void b2DestroyIslands(b2IslandBuilder* builder, b2StackAllocator* allocator);
+void b2FinishIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator* allocator);
+void b2ResetIslands(b2IslandBuilder* builder, b2StackAllocator* allocator);

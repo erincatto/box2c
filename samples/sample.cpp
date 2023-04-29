@@ -74,7 +74,8 @@ Sample::Sample()
 	worldDef.workerCount = maxThreads;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTasks = &FinishTasks;
-	worldDef.bodyCapacity = 1024 * 10;
+	worldDef.bodyCapacity = 10 * 1024;
+	worldDef.contactCapacity = 4 * 10 * 1024;
 	worldDef.userTaskContext = this;
 	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
 

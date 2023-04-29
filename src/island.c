@@ -538,8 +538,9 @@ void b2CompleteIsland(b2Island* island)
 		}
 
 		assert(b->awakeIndex == B2_NULL_INDEX);
-		b->awakeIndex = b2Array(world->awakeBodies).count;
-		b2Array_Push(world->awakeBodies, b->object.index);
+		b->awakeIndex = world->awakeCount;
+		world->awakeBodies[b->awakeIndex] = b->object.index;
+		world->awakeCount += 1;
 
 		// Update shapes (for broad-phase).
 		int32_t shapeIndex = b->shapeIndex;
