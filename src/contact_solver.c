@@ -74,7 +74,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 
 	b2StepContext context = *solver->context;
 	b2World* world = solver->world;
-	const b2Contact** contacts = world->activeContacts;
+	b2Contact** contacts = world->activeContacts;
 
 	b2Body* bodies = world->bodies;
 
@@ -259,7 +259,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 	const int32_t* contactIndices = solver->contactIndices;
 
 	b2World* world = solver->world;
-	const b2Contact** contacts = world->activeContacts;
+	b2Contact** contacts = world->activeContacts;
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
@@ -596,7 +596,7 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 	float threshold = solver->context->restitutionThreshold;
 
 	b2World* world = solver->world;
-	const b2Contact** contacts = world->activeContacts;
+	b2Contact** contacts = world->activeContacts;
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
@@ -698,7 +698,7 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 	float slop = b2_linearSlop;
 
 	b2World* world = solver->world;
-	const b2Contact** contacts = world->activeContacts;
+	b2Contact** contacts = world->activeContacts;
 
 	b2Body* bodies = world->bodies;
 
