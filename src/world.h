@@ -11,6 +11,8 @@
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
+typedef struct b2Contact b2Contact;
+
 /// The world class manages all physics entities, dynamic simulation,
 /// and asynchronous queries. The world also contains efficient memory
 /// management facilities.
@@ -37,15 +39,15 @@ typedef struct b2World
 	int32_t contactCapacity;
 
 	// This is a dense dmArray
-	struct b2Contact** contactArray;
+	b2Contact** contactArray;
 
 	// Fixed capacity array allocated at world creation and rebuilt every time step.
 	// These are solid contacts that are touching and awake. b2IslandBuilder builds islands
 	// that index into this array.
-	struct b2Contact** activeContacts;
+	b2Contact** activeContacts;
 
 	// Fixed capacity array of contacts with shapes that no longer have overlapping bounding boxes
-	struct b2Contact** invalidContacts;
+	b2Contact** invalidContacts;
 
 	// This atomic allows active contacts to be added to the active contact array and to b2IslandBuilder
 	// from multiple threads. Padding to avoid sharing cache lines with other atomics.
