@@ -534,19 +534,19 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	world->contactPointCount = 0;
 
+	// Finish building islands
 	b2IslandBuilder* builder = &world->islandBuilder;
-
 	int32_t jointCount = atomic_load_long(&context->activeJointCount);
+	assert(jointCount <= world->jointPool.count);
 	int32_t contactCount = atomic_load_long(&world->activeContactCount);
-	int32_t awakeCount = world->awakeCount;
+	assert(contactCount <= b2Array(world->contactArray).count);
+	int32_t awakeCount = atomic_load_long(&world->awakeCount);
 	assert(awakeCount <= builder->bodyCapacity);
-
 	b2StackAllocator* allocator = world->stackAllocator;
-
 	b2FinishIslands(builder, world->awakeBodies, awakeCount, jointCount, contactCount, allocator);
 
+	// Now create the island solvers
 	int32_t islandCount = builder->islandCount;
-
 	b2Island** islands = b2AllocateStackItem(allocator, islandCount * sizeof(b2Island*), "islands");
 	for (int32_t i = 0; i < islandCount; ++i)
 	{

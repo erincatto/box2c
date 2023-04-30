@@ -23,7 +23,9 @@ typedef struct b2IslandIndex
 	int32_t constraintCount;
 } b2IslandIndex;
 
-// Union find island builder based on https://gdcvault.com/play/1027560/Architecting-Jolt-Physics-for-Horizon
+// Parallel Union-Find island builder based Jorrit Rouwe's presentation:
+// https://gdcvault.com/play/1027560/Architecting-Jolt-Physics-for-Horizon
+// and Jolt Physics: https://github.com/jrouwe/JoltPhysics
 typedef struct b2IslandBuilder
 {
 	// Union-find data populated in narrow-phase

@@ -143,7 +143,7 @@ void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awake
 	builder->contactLinks[contactIndex] = B2_MAX(awakeIndexA, awakeIndexB);
 }
 
-static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, b2StackAllocator* allocator)
+static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32_t bodyCount, b2StackAllocator* allocator)
 {
 	builder->bodyCount = bodyCount;
 	int32_t* bodyIslands = b2AllocateStackItem(allocator, bodyCount * sizeof(int32_t), "body islands");
@@ -194,7 +194,7 @@ static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, 
 		int32_t base = baseIndices[link->islandIndex];
 
 		// This resolves the body index from b2World::activeBodies to b2World::bodies
-		bodyIslands[base] = bodies[i];
+		bodyIslands[base] = awakeBodies[i];
 
 		baseIndices[link->islandIndex] += 1;
 
@@ -242,8 +242,6 @@ static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* co
 	{
 		int32_t bodyIndex = constraintToBody[i];
 		int32_t islandIndex = links[bodyIndex].islandIndex;
-
-		// Could pass in array of contacts and assign a b2Contact*
 		constraints[constraintEnds[islandIndex]++] = i;
 	}
 
@@ -258,7 +256,7 @@ static int b2CompareIslands(const void* index1, const void* index2)
 	return island2->constraintCount - island1->constraintCount;
 }
 
-void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
+static void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 {
 	int32_t contactCount = builder->contactCount;
 	int32_t jointCount = builder->jointCount;
@@ -325,6 +323,7 @@ void b2FinishIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32
 	// Contacts
 	b2BuildConstraintIslands(builder, builder->contactLinks, contactCount, &builder->contactIslands, &builder->contactIslandEnds, allocator);
 
+	// Sort islands so largest islands come first
 	b2SortIslands(builder, allocator);
 }
 
