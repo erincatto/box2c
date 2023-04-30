@@ -283,8 +283,6 @@ if (island->bodyCount > 16)
 // This must be thread safe
 void b2SolveIsland(b2Island* island)
 {
-	b2TracyCZoneC(solve_island, b2_colorFirebrick2, true);
-
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
 	b2StepContext* context = island->context;
@@ -542,7 +540,6 @@ void b2SolveIsland(b2Island* island)
 	}
 
 	b2TracyCZoneEnd(sleep);
-	b2TracyCZoneEnd(solve_island);
 }
 
 // Single threaded work

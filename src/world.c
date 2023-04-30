@@ -418,23 +418,20 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 					assert(0 <= index && index < world->contactCapacity);
 					world->activeContacts[index] = contact;
 
-					if (otherBody->type != b2_staticBody)
+					if (otherBody->type != b2_staticBody && otherBody->awakeIndex == B2_NULL_INDEX)
 					{
 						// If the other body is asleep then I have to wake it and append to the awake array.
 						// This must be done under a lock to guard the awake array and the body's awake
 						// index simultaneously.
 						b2LockMutex(world->awakeMutex);
 
-						if (otherBody->awakeIndex == B2_NULL_INDEX)
-						{
-							// TODO_ERIN this should cause more collision tasks
-							otherBody->sleepTime = 0.0f;
-							assert(otherBody->awakeIndex == B2_NULL_INDEX);
-							assert(world->awakeCount < world->bodyCapacity);
-							otherBody->awakeIndex = atomic_load_long(&world->awakeCount);
-							world->awakeBodies[otherBody->awakeIndex] = otherBody->object.index;
-							atomic_fetch_add_long(&world->awakeCount, 1);
-						}
+						// TODO_ERIN this should cause more collision tasks
+						otherBody->sleepTime = 0.0f;
+						long awakeIndex = atomic_load_long(&world->awakeCount);
+						assert(awakeIndex < world->bodyCapacity);
+						otherBody->awakeIndex = awakeIndex;
+						world->awakeBodies[awakeIndex] = otherBody->object.index;
+						atomic_fetch_add_long(&world->awakeCount, 1);
 
 						b2UnlockMutex(world->awakeMutex);
 					}
@@ -466,7 +463,7 @@ static void b2Collide(b2World* world)
 
 	if (g_parallel)
 	{
-		int32_t minRange = 16;
+		int32_t minRange = 8;
 		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -565,7 +562,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 #if B2_ISLAND_PARALLEL_FOR == 1
 	if (g_parallel)
 	{
-		world->enqueueTask(&b2IslandParallelForTask, islandCount, 1, islands, world->userTaskContext);
+		int32_t minRange = 1;
+		world->enqueueTask(&b2IslandParallelForTask, islandCount, minRange, islands, world->userTaskContext);
 	}
 	else
 	{
