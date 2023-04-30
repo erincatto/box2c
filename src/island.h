@@ -11,7 +11,7 @@ typedef struct b2StepContext b2StepContext;
 typedef struct b2Island
 {
 	struct b2World* world;
-	const b2StepContext* step;
+	b2StepContext* context;
 
 	// Indices into b2World::bodies
 	int32_t* bodyIndices;
@@ -21,6 +21,7 @@ typedef struct b2Island
 	int32_t* contactIndices;
 	int32_t contactCount;
 
+	// Indices into b2StepContext::activeJoints
 	int32_t* jointIndices;
 	int32_t jointCount;
 
@@ -29,7 +30,7 @@ typedef struct b2Island
 	bool isAwake;
 } b2Island;
 
-b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t index, struct b2World* world, const b2StepContext* step);
+b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t index, struct b2World* world, b2StepContext* step);
 void b2DestroyIsland(b2Island* island);
 
 void b2SolveIsland(b2Island* island);

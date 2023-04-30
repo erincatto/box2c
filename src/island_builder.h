@@ -79,14 +79,11 @@ void b2StartIslands(b2IslandBuilder* builder, int32_t bodyCapacity, int32_t join
 
 // multi-thread calls
 
-// Link two bodies given their indices into the awake body array
-void b2LinkBodies(b2IslandBuilder* builder, int32_t awakeIndexA, int32_t awakeIndexB);
-
-// Link a joint and the two bodies given the indices into the active joint array and the awake body array
+// Link a joint given the index into the active joint array and the awake body array indices
 void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t awakeIndexA, int32_t awakeIndexB);
 
-// Link a contact
-void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeIndex);
+// Link a contact given the index into the active contact array and the awake body array indices
+void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeIndexA, int32_t awakeIndexB);
 
 // single-thread calls
 void b2FinishIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32_t bodyCount, int32_t jointCount, int32_t contactCount, b2StackAllocator* allocator);

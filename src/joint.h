@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2SolverContext b2SolverContext;
+typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
 typedef enum b2JointType
@@ -101,9 +101,6 @@ typedef struct b2Joint
 
 	uint64_t islandId;
 
-	int32_t islandIndexA;
-	int32_t islandIndexB;
-
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
 
@@ -116,10 +113,10 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-void b2InitVelocityConstraints(b2Joint* joint, b2SolverContext* data);
-void b2SolveVelocityConstraints(b2Joint* joint, b2SolverContext* data);
+void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data);
+void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2SolverContext* data);
+bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

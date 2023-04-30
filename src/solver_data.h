@@ -5,25 +5,6 @@
 
 #include "box2d/types.h"
 
-typedef struct b2BodyData
-{
-	b2Vec2 localCenter;
-	float invMass;
-	float invI;
-} b2BodyData;
-
-typedef struct b2Position
-{
-	b2Vec2 c;
-	float a;
-} b2Position;
-
-typedef struct b2Velocity
-{
-	b2Vec2 v;
-	float w;
-} b2Velocity;
-
 // Context for a time step. Recreated each time step.
 typedef struct b2StepContext
 {
@@ -44,6 +25,10 @@ typedef struct b2StepContext
 
 	float restitutionThreshold;
 
+	// From b2World::bodies for convenience
+	b2Body* bodies;
+	int32_t bodyCapacity;
+
 	// Stack allocated array of active joints
 	struct b2Joint** activeJoints;
 
@@ -51,10 +36,5 @@ typedef struct b2StepContext
 	B2_ATOMIC long activeJointCount;
 	char padding4[64 - sizeof(long)];
 
-	const b2BodyData* bodyData;
-	b2Position* positions;
-	b2Velocity* velocities;
-
-	// For testing
 	bool warmStarting;
 } b2StepContext;

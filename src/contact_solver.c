@@ -50,12 +50,12 @@ typedef struct b2ContactPositionConstraint
 
 b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverDef* def)
 {
-	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver));
-	solver->step = def->step;
+	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver), "contact solver");
+	solver->context = def->context;
 	solver->contactIndices = def->contactIndices;
 	solver->count = def->count;
-	solver->positionConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactPositionConstraint));
-	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactVelocityConstraint));
+	solver->positionConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactPositionConstraint), "position constraints");
+	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactVelocityConstraint), "velocity constraints");
 	solver->world = def->world;
 	return solver;
 }
@@ -72,7 +72,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	int32_t count = solver->count;
 	const int32_t* contactIndices = solver->contactIndices;
 
-	b2StepContext step = *solver->step;
+	b2StepContext context = *solver->context;
 	b2World* world = solver->world;
 	const b2Contact** contacts = world->activeContacts;
 
@@ -128,10 +128,10 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 			const b2ManifoldPoint* cp = manifold->points + j;
 			b2VelocityConstraintPoint* vcp = vc->points + j;
 
-			if (step.warmStarting)
+			if (context.warmStarting)
 			{
-				vcp->normalImpulse = step.dtRatio * cp->normalImpulse;
-				vcp->tangentImpulse = step.dtRatio * cp->tangentImpulse;
+				vcp->normalImpulse = context.dtRatio * cp->normalImpulse;
+				vcp->tangentImpulse = context.dtRatio * cp->tangentImpulse;
 			}
 			else
 			{
@@ -159,7 +159,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 			vcp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
 			// Velocity bias for speculative collision
-			vcp->velocityBias = -B2_MAX(0.0f, cp->separation * step.inv_dt);
+			vcp->velocityBias = -B2_MAX(0.0f, cp->separation * context.inv_dt);
 
 			// Relative velocity
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, vcp->rB));
@@ -206,7 +206,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	}
 
 	// Warm start
-	if (step.warmStarting)
+	if (context.warmStarting)
 	{
 		for (int32_t i = 0; i < count; ++i)
 		{
@@ -593,7 +593,7 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
 	const int32_t* contactIndices = solver->contactIndices;
-	float threshold = solver->step->restitutionThreshold;
+	float threshold = solver->context->restitutionThreshold;
 
 	b2World* world = solver->world;
 	const b2Contact** contacts = world->activeContacts;

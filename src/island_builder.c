@@ -63,14 +63,14 @@ void b2StartIslands(b2IslandBuilder* builder, int32_t bodyCapacity, int32_t join
 	}
 
 	builder->jointCapacity = jointCapacity;
-	builder->jointLinks = b2AllocateStackItem(allocator, jointCapacity * sizeof(int32_t));
+	builder->jointLinks = b2AllocateStackItem(allocator, jointCapacity * sizeof(int32_t), "joint links");
 
 	builder->contactCapacity = contactCapacity;
-	builder->contactLinks = b2AllocateStackItem(allocator, contactCapacity * sizeof(int32_t));
+	builder->contactLinks = b2AllocateStackItem(allocator, contactCapacity * sizeof(int32_t), "contact links");
 }
 
 // body union
-void b2LinkBodies(b2IslandBuilder* builder, int32_t awakeIndexA, int32_t awakeIndexB)
+static void b2LinkBodies(b2IslandBuilder* builder, int32_t awakeIndexA, int32_t awakeIndexB)
 {
 	if (awakeIndexA == B2_NULL_INDEX || awakeIndexB == B2_NULL_INDEX)
 	{
@@ -122,26 +122,31 @@ void b2LinkBodies(b2IslandBuilder* builder, int32_t awakeIndexA, int32_t awakeIn
 
 void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t awakeIndexA, int32_t awakeIndexB)
 {
+	assert(awakeIndexA != B2_NULL_INDEX || awakeIndexB != B2_NULL_INDEX);
+	assert(jointIndex < builder->jointCapacity);
+
 	b2LinkBodies(builder, awakeIndexA, awakeIndexB);
 
 	// Max to ensure awake body (static bodies are never awake)
-	assert(indexA != B2_NULL_INDEX || indexB != B2_NULL_INDEX);
-	builder->jointLinks[jointIndex] = B2_MAX(indexA, indexB);
+	builder->jointLinks[jointIndex] = B2_MAX(awakeIndexA, awakeIndexB);
 }
 
-void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeBodyIndex)
+void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeIndexA, int32_t awakeIndexB)
 {
-	// This assumes no gaps in contact indices
-	// Index is incremented atomically in b2CollideTask
+	assert(awakeIndexA != B2_NULL_INDEX || awakeIndexB != B2_NULL_INDEX);
 	assert(contactIndex < builder->contactCapacity);
-	builder->contactLinks[contactIndex] = awakeBodyIndex;
+
+	b2LinkBodies(builder, awakeIndexA, awakeIndexB);
+
+	// Max to ensure awake body (static bodies are never awake)
+	builder->contactLinks[contactIndex] = B2_MAX(awakeIndexA, awakeIndexB);
 }
 
 static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, b2StackAllocator* allocator)
 {
 	builder->bodyCount = bodyCount;
-	int32_t* bodyIslands = b2AllocateStackItem(allocator, bodyCount * sizeof(int32_t));
-	int32_t* baseIndices = b2AllocateStackItem(allocator, (bodyCount + 1) * sizeof(int32_t));
+	int32_t* bodyIslands = b2AllocateStackItem(allocator, bodyCount * sizeof(int32_t), "body islands");
+	int32_t* baseIndices = b2AllocateStackItem(allocator, (bodyCount + 1) * sizeof(int32_t), "body island ends");
 	baseIndices[0] = 0;
 	int32_t islandCount = 0;
 
@@ -211,8 +216,8 @@ static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* co
 	const int32_t islandCount = builder->islandCount;
 	const b2BodyLink* links = builder->links;
 
-	int32_t* constraints = b2AllocateStackItem(allocator, constraintCount * sizeof(int32_t));
-	int32_t* constraintEnds = b2AllocateStackItem(allocator, (islandCount + 1) * sizeof(int32_t));
+	int32_t* constraints = b2AllocateStackItem(allocator, constraintCount * sizeof(int32_t), "constraint islands");
+	int32_t* constraintEnds = b2AllocateStackItem(allocator, (islandCount + 1) * sizeof(int32_t), "constraint island ends");
 
 	for (int32_t i = 0; i <= islandCount; ++i)
 	{
@@ -258,7 +263,7 @@ void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 	int32_t jointCount = builder->jointCount;
 	int32_t islandCount = builder->islandCount;
 
-	b2IslandIndex* sortedIslands = b2AllocateStackItem(allocator, islandCount * sizeof(b2IslandIndex));
+	b2IslandIndex* sortedIslands = b2AllocateStackItem(allocator, islandCount * sizeof(b2IslandIndex), "sorted islands");
 
 	// Initialize index
 	for (int32_t i = 0; i < islandCount; ++i)
@@ -306,14 +311,15 @@ void b2SortIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
 	builder->sortedIslands = sortedIslands;
 }
 
-void b2FinishIslands(b2IslandBuilder* builder, const int32_t* bodies, int32_t bodyCount, int32_t contactCount, b2StackAllocator *allocator)
+void b2FinishIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32_t bodyCount, int32_t jointCount, int32_t contactCount, b2StackAllocator *allocator)
 {
+	builder->jointCount = jointCount;
 	builder->contactCount = contactCount;
 
-	b2BuildBodyIslands(builder, bodies, bodyCount, allocator);
+	b2BuildBodyIslands(builder, awakeBodies, bodyCount, allocator);
 
 	// Joints
-	b2BuildConstraintIslands(builder, builder->jointLinks, builder->jointCount, &builder->jointIslands, &builder->jointIslandEnds, allocator);
+	b2BuildConstraintIslands(builder, builder->jointLinks, jointCount, &builder->jointIslands, &builder->jointIslandEnds, allocator);
 	
 	// Contacts
 	b2BuildConstraintIslands(builder, builder->contactLinks, contactCount, &builder->contactIslands, &builder->contactIslandEnds, allocator);

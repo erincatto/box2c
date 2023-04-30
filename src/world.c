@@ -277,15 +277,14 @@ void b2DestroyWorld(b2WorldId id)
 	world->stackAllocator = NULL;
 }
 
-// Builds the list of active joints and ensures attached bodies are in
-// the awake body array
-static void b2FindActiveJoints(b2World* world, b2StepContext* step)
+// Builds the array of active joints, wakes bodies, and links bodies in island builder
+static void b2LinkActiveJoints(b2World* world, b2StepContext* context)
 {
+	b2TracyCZoneNC(link_joint_task, "Link Joints", b2_colorSalmon2, true);
+
 	b2IslandBuilder* builder = &world->islandBuilder;
 
 	int32_t jointCount = world->jointPool.count;
-
-	step->activeJoints = b2AllocateStackItem(world->stackAllocator, jointCount * sizeof(b2Joint*));
 
 	b2Joint* joints = world->joints;
 	b2Body* bodies = world->bodies;
@@ -321,7 +320,8 @@ static void b2FindActiveJoints(b2World* world, b2StepContext* step)
 				atomic_fetch_add_long(&world->awakeCount, 1);
 			}
 
-			step->activeJoints[activeJointCount] = joint;
+			b2LinkJoint(builder, activeJointCount, bodyA->awakeIndex, bodyB->awakeIndex);
+			context->activeJoints[activeJointCount] = joint;
 			activeJointCount += 1;
 		}
 		else if (bodyB->awakeIndex != B2_NULL_INDEX)
@@ -334,35 +334,15 @@ static void b2FindActiveJoints(b2World* world, b2StepContext* step)
 				atomic_fetch_add_long(&world->awakeCount, 1);
 			}
 
-			step->activeJoints[activeJointCount] = joint;
+			b2LinkJoint(builder, activeJointCount, bodyA->awakeIndex, bodyB->awakeIndex);
+			context->activeJoints[activeJointCount] = joint;
 			activeJointCount += 1;
 		}
 	}
 
-	atomic_store_long(&step->activeJointCount, activeJointCount);
-}
+	atomic_store_long(&context->activeJointCount, activeJointCount);
 
-static void b2AddJointLinks(b2World* world, b2StepContext* step)
-{
-	b2IslandBuilder* builder = &world->islandBuilder;
-
-	int32_t jointCount = atomic_load_long(&step->activeJointCount);
-	b2Joint* joints = step->activeJoints;
-	b2Body* bodies = world->bodies;
-
-	// TODO_ERIN this could be a parallel-for
-	long activeJointCount = atomic_load_long(&step->activeJointCount);
-	for (int32_t i = 0; i < activeJointCount; ++i)
-	{
-		b2Joint* joint = joints + i;
-
-		int32_t indexA = joint->edgeA.bodyIndex;
-		int32_t indexB = joint->edgeB.bodyIndex;
-		b2Body* bodyA = bodies + indexA;
-		b2Body* bodyB = bodies + indexB;
-
-		b2LinkJoint(builder, i, bodyA->awakeIndex, bodyB->awakeIndex);
-	}
+	b2TracyCZoneEnd(link_joint_task);
 }
 
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
@@ -437,15 +417,14 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 					int32_t index = atomic_fetch_add_long(&world->activeContactCount, 1);
 					assert(0 <= index && index < world->contactCapacity);
 					world->activeContacts[index] = contact;
-					b2LinkContact(&world->islandBuilder, index, i);
 
 					if (otherBody->type != b2_staticBody)
 					{
-						b2LockMutex(world->awakeMutex);
-
 						// If the other body is asleep then I have to wake it and append to the awake array.
 						// This must be done under a lock to guard the awake array and the body's awake
 						// index simultaneously.
+						b2LockMutex(world->awakeMutex);
+
 						if (otherBody->awakeIndex == B2_NULL_INDEX)
 						{
 							// TODO_ERIN this should cause more collision tasks
@@ -458,10 +437,9 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 						}
 
 						b2UnlockMutex(world->awakeMutex);
-
-						// Both bodies awake now
-						b2LinkBodies(&world->islandBuilder, i, otherBody->awakeIndex);
 					}
+
+					b2LinkContact(&world->islandBuilder, index, i, otherBody->awakeIndex);
 				}
 			}
 
@@ -474,7 +452,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 
 static void b2Collide(b2World* world)
 {
-	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
 	int32_t count = world->awakeCount;
 	assert(world->activeContactCount == 0);
@@ -550,10 +528,10 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* 
 #endif
 
 // Solve with union-find islands
-static void b2Solve(b2World* world, const b2StepContext* step)
+static void b2Solve(b2World* world, b2StepContext* context)
 {
-	b2TracyCZoneC(solve, b2_colorMistyRose, true);
-	b2TracyCZoneNC(island_builder, "Island Builder", b2_colorDarkSalmon, true);
+	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
+	b2TracyCZoneNC(island_builder, "Finish Islands", b2_colorDarkSalmon, true);
 
 	b2Timer timer = b2CreateTimer();
 
@@ -561,20 +539,21 @@ static void b2Solve(b2World* world, const b2StepContext* step)
 
 	b2IslandBuilder* builder = &world->islandBuilder;
 
+	int32_t jointCount = atomic_load_long(&context->activeJointCount);
 	int32_t contactCount = atomic_load_long(&world->activeContactCount);
 	int32_t awakeCount = world->awakeCount;
 	assert(awakeCount <= builder->bodyCapacity);
 
 	b2StackAllocator* allocator = world->stackAllocator;
 
-	b2FinishIslands(builder, world->awakeBodies, awakeCount, contactCount, allocator);
+	b2FinishIslands(builder, world->awakeBodies, awakeCount, jointCount, contactCount, allocator);
 
 	int32_t islandCount = builder->islandCount;
 
-	b2Island** islands = b2AllocateStackItem(allocator, islandCount * sizeof(b2Island*));
+	b2Island** islands = b2AllocateStackItem(allocator, islandCount * sizeof(b2Island*), "islands");
 	for (int32_t i = 0; i < islandCount; ++i)
 	{
-		islands[i] = b2CreateIsland(builder, i, world, step);
+		islands[i] = b2CreateIsland(builder, i, world, context);
 	}
 
 	b2TracyCZoneEnd(island_builder);
@@ -613,7 +592,6 @@ static void b2Solve(b2World* world, const b2StepContext* step)
 	}
 
 	b2FreeStackItem(allocator, islands);
-	b2ResetIslands(builder, allocator);
 
 	// Look for new contacts
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
@@ -627,7 +605,7 @@ static void b2Solve(b2World* world, const b2StepContext* step)
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
-	b2TracyCZoneC(step_ctx, b2_colorChartreuse, true);
+	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
 	assert(world->locked == false);
@@ -650,38 +628,36 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// TODO_ERIN atomic
 	world->locked = true;
 
-	b2StepContext step = {0};
-	step.dt = timeStep;
-	step.velocityIterations = velocityIterations;
-	step.positionIterations = positionIterations;
+	b2StepContext context = {0};
+	context.dt = timeStep;
+	context.velocityIterations = velocityIterations;
+	context.positionIterations = positionIterations;
 	if (timeStep > 0.0f)
 	{
-		step.inv_dt = 1.0f / timeStep;
+		context.inv_dt = 1.0f / timeStep;
 	}
 	else
 	{
-		step.inv_dt = 0.0f;
+		context.inv_dt = 0.0f;
 	}
 
-	step.dtRatio = world->inv_dt0 * timeStep;
-	step.restitutionThreshold = world->restitutionThreshold;
-	step.warmStarting = world->warmStarting;
+	context.dtRatio = world->inv_dt0 * timeStep;
+	context.restitutionThreshold = world->restitutionThreshold;
+	context.warmStarting = world->warmStarting;
+	context.bodies = world->bodies;
+	context.bodyCapacity = world->bodyPool.capacity;
+	context.activeJoints = b2AllocateStackItem(world->stackAllocator, world->jointPool.capacity * sizeof(b2Joint*), "active joints");
 
-	// Determine how many joints are needed.
-	// TODO_ERIN why 
-	b2FindActiveJoints(world, &step);
-
-	// Start island builder
-	const int32_t jointCount = atomic_load_long(&step.activeJointCount);
-
-	// Contact capacity because some contacts may not be touching or the bodies are sleeping
+	// Start island builder with maximal capacities
+	const int32_t bodyCapacity = world->bodyPool.count;
+	const int32_t jointCapacity = world->jointPool.count;
 	const int32_t contactCapacity = b2Array(world->contactArray).count;
+	b2StartIslands(&world->islandBuilder, bodyCapacity, jointCapacity, contactCapacity, world->stackAllocator);
 
-	b2StartIslands(&world->islandBuilder, contactCapacity, jointCount, world->stackAllocator);
+	// Link active joints into island builder
+	b2LinkActiveJoints(world, &context);
 
-
-
-	// Update contacts. Builds contact islands. This is where some contacts are destroyed.
+	// Update contacts. Builds contact islands. Destroy invalid contacts.
 	{
 		b2Timer timer = b2CreateTimer();
 		b2Collide(world);
@@ -689,32 +665,20 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	}
 
 	// Integrate velocities, solve velocity constraints, and integrate positions.
-	if (step.dt > 0.0f)
+	if (context.dt > 0.0f)
 	{
 		b2Timer timer = b2CreateTimer();
-		b2Solve(world, &step);
+		b2Solve(world, &context);
 		world->profile.solve = b2GetMilliseconds(&timer);
 	}
-	else
-	{
-		b2ResetIslands(&world->islandBuilder, world->stackAllocator);
-	}
 
-	if (step.dt > 0.0f)
-	{
-		world->inv_dt0 = step.inv_dt;
-	}
+	b2ResetIslands(&world->islandBuilder, world->stackAllocator);
+	b2FreeStackItem(world->stackAllocator, context.activeJoints);
 
-	// TODO_ERIN clear forces in island solver on last sub-step
-	// if (m_clearForces)
-	//{
-	int32_t count = world->bodyPool.capacity;
-	for (int32_t i = 0; i < count; ++i)
+	if (context.dt > 0.0f)
 	{
-		world->bodies[i].force = b2Vec2_zero;
-		world->bodies[i].torque = 0.0f;
+		world->inv_dt0 = context.inv_dt;
 	}
-	//}
 
 	// Reset active contacts
 	atomic_store_long(&world->activeContactCount, 0);
@@ -725,7 +689,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	assert(b2GetStackAllocation(world->stackAllocator) == 0);
 
-	b2TracyCZoneEnd(step_ctx);
+	b2TracyCZoneEnd(world_step);
 }
 
 static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Color color)

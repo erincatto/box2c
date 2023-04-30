@@ -138,20 +138,27 @@ However, we can compute sin+cos of the same angle fast.
 */
 
 // This just allocates data doing the minimal amount of single threaded work
-b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b2World* world, const b2StepContext* step)
+b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b2World* world, b2StepContext* context)
 {
 	b2StackAllocator* alloc = world->stackAllocator;
 
-	b2Island* island = b2AllocateStackItem(alloc, sizeof(b2Island));
-
-	// TODO_ERIN
-	island->jointIndices = NULL;
-	island->jointCount = 0;
+	b2Island* island = b2AllocateStackItem(alloc, sizeof(b2Island), "island");
 
 	if (islandIndex == 0)
 	{
 		island->bodyIndices = builder->bodyIslands;
 		island->bodyCount = builder->bodyIslandEnds[0];
+
+		if (builder->jointCount > 0)
+		{
+			island->jointIndices = builder->jointIslands;
+			island->jointCount = builder->jointIslandEnds[0];
+		}
+		else
+		{
+			island->jointIndices = NULL;
+			island->jointCount = 0;
+		}
 
 		if (builder->contactCount > 0)
 		{
@@ -163,15 +170,24 @@ b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b
 			island->contactIndices = NULL;
 			island->contactCount = 0;
 		}
-
-		//island->jointIndices = builder->jointIslands;
-		//island->jointCount = builder->jointIslandEnds[0];
 	}
 	else
 	{
 		int32_t bodyStartIndex = builder->bodyIslandEnds[islandIndex - 1];
 		island->bodyIndices = builder->bodyIslands + bodyStartIndex;
 		island->bodyCount = builder->bodyIslandEnds[islandIndex] - bodyStartIndex;
+
+		if (builder->jointCount > 0)
+		{
+			int32_t jointStartIndex = builder->jointIslandEnds[islandIndex - 1];
+			island->jointIndices = builder->jointIslands + jointStartIndex;
+			island->jointCount = builder->jointIslandEnds[islandIndex] - jointStartIndex;
+		}
+		else
+		{
+			island->jointIndices = NULL;
+			island->jointCount = 0;
+		}
 
 		if (builder->contactCount > 0)
 		{
@@ -184,17 +200,13 @@ b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b
 			island->contactIndices = NULL;
 			island->contactCount = 0;
 		}
-
-		//int32_t jointStartIndex = builder->jointIslandEnds[islandIndex - 1];
-		//island->jointIndices = builder->jointIslands + jointStartIndex;
-		//island->jointCount = builder->jointIslandEnds[islandIndex] - jointStartIndex;
 	}
 
 	island->world = world;
-	island->step = step;
+	island->context = context;
 
 	b2ContactSolverDef contactSolverDef;
-	contactSolverDef.step = island->step;
+	contactSolverDef.context = island->context;
 	contactSolverDef.world = world;
 	contactSolverDef.contactIndices = island->contactIndices;
 	contactSolverDef.count = island->contactCount;
@@ -275,11 +287,12 @@ void b2SolveIsland(b2Island* island)
 
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
+	b2StepContext* context = island->context;
+	b2Joint** joints = context->activeJoints;
 
-	const b2StepContext* step = island->step;
 	b2Vec2 gravity = world->gravity;
 
-	float h = step->dt;
+	float h = context->dt;
 
 	// Integrate velocities and apply damping. Initialize the body state.
 	for (int32_t i = 0; i < island->bodyCount; ++i)
@@ -316,19 +329,27 @@ void b2SolveIsland(b2Island* island)
 	// Solver data
 	b2ContactSolver_Initialize(island->contactSolver);
 	
-	//for (int32_t i = 0; i < island->jointCount; ++i)
-	//{
-	//	b2InitVelocityConstraints(island->joints[i], &context);
-	//}
+	for (int32_t i = 0; i < island->jointCount; ++i)
+	{
+		int32_t jointIndex = island->jointIndices[i];
+		assert(0 <= jointIndex && jointIndex < context->activeJointCount);
+
+		b2Joint* joint = joints[jointIndex];
+		b2InitVelocityConstraints(joint, context);
+	}
 
 	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorCadetBlue, true);
 	// Solve velocity constraints
-	for (int32_t i = 0; i < step->velocityIterations; ++i)
+	for (int32_t i = 0; i < context->velocityIterations; ++i)
 	{
-		//for (int32_t j = 0; j < island->jointCount; ++j)
-		//{
-		//	b2SolveVelocityConstraints(island->joints[j], &context);
-		//}
+		for (int32_t j = 0; j < island->jointCount; ++j)
+		{
+			int32_t jointIndex = island->jointIndices[j];
+			assert(0 <= jointIndex && jointIndex < context->activeJointCount);
+
+			b2Joint* joint = joints[jointIndex];
+			b2SolveVelocityConstraints(joint, context);
+		}
 
 		b2ContactSolver_SolveVelocityConstraints(island->contactSolver);
 	}
@@ -379,16 +400,21 @@ void b2SolveIsland(b2Island* island)
 
 	// Solve position constraints
 	bool positionSolved = false;
-	for (int32_t i = 0; i < step->positionIterations; ++i)
+	for (int32_t i = 0; i < context->positionIterations; ++i)
 	{
 		bool contactsOkay = b2ContactSolver_SolvePositionConstraintsBlock(island->contactSolver);
 
 		bool jointsOkay = true;
-		//for (int32_t j = 0; j < island->jointCount; ++j)
-		//{
-		//	bool jointOkay = b2SolvePositionConstraints(island->joints[j], &context);
-		//	jointsOkay = jointsOkay && jointOkay;
-		//}
+		for (int32_t j = 0; j < island->jointCount; ++j)
+		{
+			int32_t jointIndex = island->jointIndices[j];
+			assert(0 <= jointIndex && jointIndex < context->activeJointCount);
+
+			b2Joint* joint = joints[jointIndex];
+
+			bool jointOkay = b2SolvePositionConstraints(joint, context);
+			jointsOkay = jointsOkay && jointOkay;
+		}
 
 		if (contactsOkay && jointsOkay)
 		{
@@ -494,8 +520,8 @@ void b2SolveIsland(b2Island* island)
 			w *= 1.0f / (1.0f + h * b->angularDamping);
 
 			// Stage 3 - predict new transforms
-			b->speculativePosition = b2MulAdd(b->position, step->dt, v);
-			b->speculativeAngle = b->angle + step->dt * w;
+			b->speculativePosition = b2MulAdd(b->position, context->dt, v);
+			b->speculativeAngle = b->angle + context->dt * w;
 
 			// Update shapes AABBs
 			int32_t shapeIndex = b->shapeIndex;

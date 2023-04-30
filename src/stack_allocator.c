@@ -12,6 +12,7 @@
 typedef struct b2StackEntry
 {
 	char* data;
+	const char* name;
 	int32_t size;
 	bool usedMalloc;
 } b2StackEntry;
@@ -53,10 +54,11 @@ void b2DestroyStackAllocator(b2StackAllocator* allocator)
 	b2Free(allocator);
 }
 
-void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size)
+void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* name)
 {
 	b2StackEntry entry;
 	entry.size = size;
+	entry.name = name;
 	if (alloc->index + size > alloc->capacity)
 	{
 		// fall back to the heap (undesirable)
