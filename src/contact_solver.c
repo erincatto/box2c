@@ -1,18 +1,18 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
 #include "stack_allocator.h"
+#include "world.h"
 
 #include <assert.h>
 
 // Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned
 // effective mass matrix.
 #define B2_DEBUG_SOLVER 0
-
-bool g_velocityBlockSolve = true;
 
 typedef struct b2VelocityConstraintPoint
 {
@@ -32,13 +32,10 @@ typedef struct b2ContactVelocityConstraint
 	b2Vec2 normal;
 	b2Mat22 normalMass;
 	b2Mat22 K;
-	int32_t indexA;
-	int32_t indexB;
 	float friction;
 	float restitution;
 	float tangentSpeed;
 	int32_t pointCount;
-	int32_t contactIndex;
 } b2ContactVelocityConstraint;
 
 typedef struct b2ContactPositionConstraint
@@ -48,8 +45,6 @@ typedef struct b2ContactPositionConstraint
 	float separations[2];
 	float lambdas[2];
 	b2Vec2 normal;
-	int32_t indexA;
-	int32_t indexB;
 	int32_t pointCount;
 } b2ContactPositionConstraint;
 
@@ -57,13 +52,11 @@ b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverD
 {
 	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver));
 	solver->step = def->step;
+	solver->contactIndices = def->contactIndices;
 	solver->count = def->count;
 	solver->positionConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactPositionConstraint));
 	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactVelocityConstraint));
-	solver->bodyData = def->bodyData;
-	solver->positions = def->positions;
-	solver->velocities = def->velocities;
-	solver->contacts = def->contacts;
+	solver->world = def->world;
 	return solver;
 }
 
@@ -77,24 +70,27 @@ void b2DestroyContactSolver(b2StackAllocator* alloc, b2ContactSolver* solver)
 void b2ContactSolver_Initialize(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
-	b2TimeStep step = *solver->step;
+	const int32_t* contactIndices = solver->contactIndices;
+
+	b2StepContext step = *solver->step;
+	b2World* world = solver->world;
+	const b2Contact** contacts = world->activeContacts;
+
+	b2Body* bodies = world->bodies;
 
 	// Initialize position independent portions of the constraints.
 	for (int32_t i = 0; i < count; ++i)
 	{
-		b2Contact* contact = solver->contacts[i];
+		int32_t index = contactIndices[i];
+		assert(0 <= index && index < world->activeContactCount);
+		const b2Contact* contact = contacts[index];
 
-		int32_t indexA = contact->islandIndexA;
-		int32_t indexB = contact->islandIndexB;
+		int32_t indexA = contact->edgeB.otherBodyIndex;
+		int32_t indexB = contact->edgeA.otherBodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
 
-		const b2BodyData* bodyA = solver->bodyData + indexA;
-		const b2BodyData* bodyB = solver->bodyData + indexB;
-		const b2Position* positionA = solver->positions + indexA;
-		const b2Position* positionB = solver->positions + indexB;
-		const b2Velocity* velocityA = solver->velocities + indexA;
-		const b2Velocity* velocityB = solver->velocities + indexB;
-		
-		b2Manifold* manifold = &contact->manifold;
+		const b2Manifold* manifold = &contact->manifold;
 
 		int32_t pointCount = manifold->pointCount;
 		assert(pointCount > 0);
@@ -104,16 +100,11 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 		vc->friction = contact->friction;
 		vc->restitution = contact->restitution;
 		vc->tangentSpeed = contact->tangentSpeed;
-		vc->indexA = indexA;
-		vc->indexB = indexB;
-		vc->contactIndex = i;
 		vc->pointCount = pointCount;
 		vc->K = b2Mat22_zero;
 		vc->normalMass = b2Mat22_zero;
 
 		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
-		pc->indexA = indexA;
-		pc->indexB = indexB;
 		pc->normal = manifold->normal;
 		pc->pointCount = pointCount;
 
@@ -122,19 +113,19 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 		float mB = bodyB->invMass;
 		float iB = bodyB->invI;
 
-		b2Rot qA = b2MakeRot(positionA->a);
-		b2Vec2 cA = positionA->c;
-		b2Rot qB = b2MakeRot(positionB->a);
-		b2Vec2 cB = positionB->c;
+		b2Rot qA = bodyA->transform.q;
+		b2Vec2 cA = bodyA->position;
+		b2Rot qB = bodyB->transform.q;
+		b2Vec2 cB = bodyB->position;
 
-		b2Vec2 vA = velocityA->v;
-		float wA = velocityA->w;
-		b2Vec2 vB = velocityB->v;
-		float wB = velocityB->w;
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
 
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
-			b2ManifoldPoint* cp = manifold->points + j;
+			const b2ManifoldPoint* cp = manifold->points + j;
 			b2VelocityConstraintPoint* vcp = vc->points + j;
 
 			if (step.warmStarting)
@@ -182,7 +173,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 		}
 
 		// If we have two points, then prepare the block solver.
-		if (vc->pointCount == 2 && g_velocityBlockSolve)
+		if (vc->pointCount == 2)
 		{
 			b2VelocityConstraintPoint* vcp1 = vc->points + 0;
 			b2VelocityConstraintPoint* vcp2 = vc->points + 1;
@@ -219,20 +210,27 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	{
 		for (int32_t i = 0; i < count; ++i)
 		{
+			int32_t index = contactIndices[i];
+			assert(0 <= index && index < world->activeContactCount);
+			const b2Contact* contact = contacts[index];
+
+			int32_t indexA = contact->edgeB.otherBodyIndex;
+			int32_t indexB = contact->edgeA.otherBodyIndex;
+			b2Body* bodyA = bodies + indexA;
+			b2Body* bodyB = bodies + indexB;
+
 			b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
 
-			int32_t indexA = vc->indexA;
-			int32_t indexB = vc->indexB;
-			float mA = solver->bodyData[indexA].invMass;
-			float iA = solver->bodyData[indexA].invI;
-			float mB = solver->bodyData[indexB].invMass;
-			float iB = solver->bodyData[indexB].invI;
+			float mA = bodyA->invMass;
+			float iA = bodyA->invI;
+			float mB = bodyB->invMass;
+			float iB = bodyB->invI;
 			int32_t pointCount = vc->pointCount;
 
-			b2Vec2 vA = solver->velocities[indexA].v;
-			float wA = solver->velocities[indexA].w;
-			b2Vec2 vB = solver->velocities[indexB].v;
-			float wB = solver->velocities[indexB].w;
+			b2Vec2 vA = bodyA->linearVelocity;
+			float wA = bodyA->angularVelocity;
+			b2Vec2 vB = bodyB->linearVelocity;
+			float wB = bodyB->angularVelocity;
 
 			b2Vec2 normal = vc->normal;
 			b2Vec2 tangent = b2CrossVS(normal, 1.0f);
@@ -247,10 +245,10 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 				vB = b2MulAdd(vB, mB, P);
 			}
 
-			solver->velocities[indexA].v = vA;
-			solver->velocities[indexA].w = wA;
-			solver->velocities[indexB].v = vB;
-			solver->velocities[indexB].w = wB;
+			bodyA->linearVelocity = vA;
+			bodyA->angularVelocity = wA;
+			bodyB->linearVelocity = vB;
+			bodyB->angularVelocity = wB;
 		}
 	}
 }
@@ -258,23 +256,35 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
+	const int32_t* contactIndices = solver->contactIndices;
+
+	b2World* world = solver->world;
+	const b2Contact** contacts = world->activeContacts;
+	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
+		int32_t index = contactIndices[i];
+		assert(0 <= index && index < world->activeContactCount);
+		const b2Contact* contact = contacts[index];
+
+		int32_t indexA = contact->edgeB.otherBodyIndex;
+		int32_t indexB = contact->edgeA.otherBodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
 		b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
 
-		int32_t indexA = vc->indexA;
-		int32_t indexB = vc->indexB;
-		float mA = solver->bodyData[indexA].invMass;
-		float iA = solver->bodyData[indexA].invI;
-		float mB = solver->bodyData[indexB].invMass;
-		float iB = solver->bodyData[indexB].invI;
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
 		int32_t pointCount = vc->pointCount;
 
-		b2Vec2 vA = solver->velocities[indexA].v;
-		float wA = solver->velocities[indexA].w;
-		b2Vec2 vB = solver->velocities[indexB].v;
-		float wB = solver->velocities[indexB].w;
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
 
 		b2Vec2 normal = vc->normal;
 		b2Vec2 tangent = b2CrossVS(normal, 1.0f);
@@ -314,7 +324,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 		}
 
 		// Solve normal constraints
-		if (pointCount == 1 || g_velocityBlockSolve == false)
+		if (pointCount == 1)
 		{
 			for (int32_t j = 0; j < pointCount; ++j)
 			{
@@ -572,20 +582,34 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 			}
 		}
 
-		solver->velocities[indexA].v = vA;
-		solver->velocities[indexA].w = wA;
-		solver->velocities[indexB].v = vB;
-		solver->velocities[indexB].w = wB;
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
 	}
 }
 
 void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
+	const int32_t* contactIndices = solver->contactIndices;
 	float threshold = solver->step->restitutionThreshold;
+
+	b2World* world = solver->world;
+	const b2Contact** contacts = world->activeContacts;
+	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
+		int32_t index = contactIndices[i];
+		assert(0 <= index && index < world->activeContactCount);
+		const b2Contact* contact = contacts[index];
+
+		int32_t indexA = contact->edgeB.otherBodyIndex;
+		int32_t indexB = contact->edgeA.otherBodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
 		b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
 
 		if (vc->restitution == 0.0f)
@@ -593,18 +617,16 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 			continue;
 		}
 
-		int32_t indexA = vc->indexA;
-		int32_t indexB = vc->indexB;
-		float mA = solver->bodyData[indexA].invMass;
-		float iA = solver->bodyData[indexA].invI;
-		float mB = solver->bodyData[indexB].invMass;
-		float iB = solver->bodyData[indexB].invI;
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
 		int32_t pointCount = vc->pointCount;
 
-		b2Vec2 vA = solver->velocities[indexA].v;
-		float wA = solver->velocities[indexA].w;
-		b2Vec2 vB = solver->velocities[indexB].v;
-		float wB = solver->velocities[indexB].w;
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
 
 		b2Vec2 normal = vc->normal;
 
@@ -636,21 +658,29 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 			wB += iB * b2Cross(vcp->rB, P);
 		}
 
-		solver->velocities[indexA].v = vA;
-		solver->velocities[indexA].w = wA;
-		solver->velocities[indexB].v = vB;
-		solver->velocities[indexB].w = wB;
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
 	}
 }
 
 void b2ContactSolver_StoreImpulses(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
+	const int32_t* contactIndices = solver->contactIndices;
+
+	b2World* world = solver->world;
+	b2Contact** contacts = world->activeContacts;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
+		int32_t index = contactIndices[i];
+		assert(0 <= index && index < world->activeContactCount);
+		b2Contact* contact = contacts[index];
+
 		b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
-		b2Manifold* manifold = &solver->contacts[vc->contactIndex]->manifold;
+		b2Manifold* manifold = &contact->manifold;
 
 		for (int32_t j = 0; j < vc->pointCount; ++j)
 		{
@@ -660,181 +690,43 @@ void b2ContactSolver_StoreImpulses(b2ContactSolver* solver)
 	}
 }
 
-// Sequential solver.
-bool b2ContactSolver_SolvePositionConstraints_lambda(b2ContactSolver* solver)
-{
-	float minSeparation = 0.0f;
-	int32_t count = solver->count;
-
-	for (int32_t i = 0; i < count; ++i)
-	{
-		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
-
-		int32_t indexA = pc->indexA;
-		int32_t indexB = pc->indexB;
-		float mA = solver->bodyData[indexA].invMass;
-		float iA = solver->bodyData[indexA].invI;
-		float mB = solver->bodyData[indexB].invMass;
-		float iB = solver->bodyData[indexB].invI;
-		int32_t pointCount = pc->pointCount;
-
-		b2Vec2 cA = solver->positions[indexA].c;
-		float aA = solver->positions[indexA].a;
-
-		b2Vec2 cB = solver->positions[indexB].c;
-		float aB = solver->positions[indexB].a;
-
-		b2Vec2 normal = pc->normal;
-
-		// Solve normal constraints
-		for (int32_t j = 0; j < pointCount; ++j)
-		{
-			b2Rot qA = b2MakeRot(aA);
-			b2Rot qB = b2MakeRot(aB);
-
-			b2Vec2 rA = b2RotateVector(qA, pc->localAnchorsA[j]);
-			b2Vec2 rB = b2RotateVector(qB, pc->localAnchorsB[j]);
-
-			// Current separation
-			b2Vec2 d = b2Sub(b2Add(cB, rB), b2Add(cA, rA));
-			float separation = b2Dot(d, normal) + pc->separations[j];
-
-			// Track max constraint error.
-			minSeparation = B2_MIN(minSeparation, separation);
-
-			// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
-			// This improves stacking stability significantly.
-			float C = b2_baumgarte * separation;
-
-			// Compute the effective mass.
-			float rnA = b2Cross(rA, normal);
-			float rnB = b2Cross(rB, normal);
-			float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
-
-			// Compute normal impulse
-			float impulse = K > 0.0f ? -C / K : 0.0f;
-
-			// Clamp the accumulated impulse
-			float newLambda = B2_MAX(pc->lambdas[j] + impulse, 0.0f);
-			impulse = newLambda - pc->lambdas[j];
-			pc->lambdas[j] = impulse;
-
-			b2Vec2 P = b2MulSV(impulse, normal);
-
-			cA = b2MulSub(cA, mA, P);
-			aA -= iA * b2Cross(rA, P);
-
-			cB = b2MulAdd(cB, mB, P);
-			aB += iB * b2Cross(rB, P);
-		}
-
-		solver->positions[indexA].c = cA;
-		solver->positions[indexA].a = aA;
-		solver->positions[indexB].c = cB;
-		solver->positions[indexB].a = aB;
-	}
-
-	// We can't expect minSpeparation >= -b2_linearSlop because we don't
-	// push the separation above -b2_linearSlop.
-	return minSeparation >= -3.0f * b2_linearSlop;
-}
-
-bool b2ContactSolver_SolvePositionConstraintsSingle(b2ContactSolver* solver)
-{
-	float minSeparation = 0.0f;
-	int32_t count = solver->count;
-	float slop = b2_linearSlop;
-
-	for (int32_t i = 0; i < count; ++i)
-	{
-		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
-
-		int32_t indexA = pc->indexA;
-		int32_t indexB = pc->indexB;
-		float mA = solver->bodyData[indexA].invMass;
-		float iA = solver->bodyData[indexA].invI;
-		float mB = solver->bodyData[indexB].invMass;
-		float iB = solver->bodyData[indexB].invI;
-		int32_t pointCount = pc->pointCount;
-
-		b2Vec2 cA = solver->positions[indexA].c;
-		float aA = solver->positions[indexA].a;
-
-		b2Vec2 cB = solver->positions[indexB].c;
-		float aB = solver->positions[indexB].a;
-
-		b2Vec2 normal = pc->normal;
-
-		// Solve normal constraints
-		for (int32_t j = 0; j < pointCount; ++j)
-		{
-			b2Rot qA = b2MakeRot(aA);
-			b2Rot qB = b2MakeRot(aB);
-
-			b2Vec2 rA = b2RotateVector(qA, pc->localAnchorsA[j]);
-			b2Vec2 rB = b2RotateVector(qB, pc->localAnchorsB[j]);
-
-			// Current separation
-			b2Vec2 d = b2Sub(b2Add(cB, rB), b2Add(cA, rA));
-			float separation = b2Dot(d, normal) + pc->separations[j];
-
-			// Track max constraint error.
-			minSeparation = B2_MIN(minSeparation, separation);
-
-			// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
-			// This improves stacking stability significantly.
-			float C = B2_CLAMP(b2_baumgarte * (separation + slop), -b2_maxLinearCorrection, 0.0f);
-
-			// Compute the effective mass.
-			float rnA = b2Cross(rA, normal);
-			float rnB = b2Cross(rB, normal);
-			float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
-
-			// Compute normal impulse
-			float impulse = K > 0.0f ? -C / K : 0.0f;
-
-			b2Vec2 P = b2MulSV(impulse, normal);
-
-			cA = b2MulSub(cA, mA, P);
-			aA -= iA * b2Cross(rA, P);
-
-			cB = b2MulAdd(cB, mB, P);
-			aB += iB * b2Cross(rB, P);
-		}
-
-		solver->positions[indexA].c = cA;
-		solver->positions[indexA].a = aA;
-		solver->positions[indexB].c = cB;
-		solver->positions[indexB].a = aB;
-	}
-
-	// We can't expect minSpeparation >= -b2_linearSlop because we don't
-	// push the separation above -b2_linearSlop.
-	return minSeparation >= -3.0f * b2_linearSlop;
-}
-
 bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
+	const int32_t* contactIndices = solver->contactIndices;
 	float slop = b2_linearSlop;
+
+	b2World* world = solver->world;
+	const b2Contact** contacts = world->activeContacts;
+
+	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
+		int32_t index = contactIndices[i];
+		assert(0 <= index && index < world->activeContactCount);
+		const b2Contact* contact = contacts[index];
+
+		int32_t indexA = contact->edgeB.otherBodyIndex;
+		int32_t indexB = contact->edgeA.otherBodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
 		b2ContactPositionConstraint* pc = solver->positionConstraints + i;
 
-		int32_t indexA = pc->indexA;
-		int32_t indexB = pc->indexB;
-		float mA = solver->bodyData[indexA].invMass;
-		float iA = solver->bodyData[indexA].invI;
-		float mB = solver->bodyData[indexB].invMass;
-		float iB = solver->bodyData[indexB].invI;
-		int32_t pointCount = pc->pointCount;
-		b2Vec2 cA = solver->positions[indexA].c;
-		float aA = solver->positions[indexA].a;
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
 
-		b2Vec2 cB = solver->positions[indexB].c;
-		float aB = solver->positions[indexB].a;
+		int32_t pointCount = pc->pointCount;
+
+		b2Vec2 cA = bodyA->position;
+		float aA = bodyA->angle;
+		b2Vec2 cB = bodyB->position;
+		float aB = bodyB->angle;
+		
 		b2Vec2 normal = pc->normal;
 
 		if (pointCount == 2)
@@ -1015,10 +907,10 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 			}
 		}
 
-		solver->positions[indexA].c = cA;
-		solver->positions[indexA].a = aA;
-		solver->positions[indexB].c = cB;
-		solver->positions[indexB].a = aB;
+		bodyA->position = cA;
+		bodyA->angle = aA;
+		bodyB->position = cB;
+		bodyB->angle = aB;
 	}
 
 	// We can't expect minSpeparation >= -b2_linearSlop because we don't

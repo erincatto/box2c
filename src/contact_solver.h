@@ -11,23 +11,19 @@ typedef struct b2StackAllocator b2StackAllocator;
 
 typedef struct b2ContactSolverDef
 {
-	const b2TimeStep* step;
-	struct b2Contact** contacts;
+	const b2StepContext* step;
+	struct b2World* world;
+	int32_t* contactIndices;
 	int32_t count;
-	b2BodyData* bodyData;
-	b2Position* positions;
-	b2Velocity* velocities;
 } b2ContactSolverDef;
 
 typedef struct b2ContactSolver
 {
-	const b2TimeStep* step;
-	const b2BodyData* bodyData;
-	b2Position* positions;
-	b2Velocity* velocities;
+	const b2StepContext* step;
+	struct b2World* world;
 	struct b2ContactPositionConstraint* positionConstraints;
 	struct b2ContactVelocityConstraint* velocityConstraints;
-	struct b2Contact** contacts;
+	int32_t* contactIndices;
 	int32_t count;
 } b2ContactSolver;
 
@@ -39,4 +35,3 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver);
 void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver);
 void b2ContactSolver_StoreImpulses(b2ContactSolver* solver);
 bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver);
-bool b2ContactSolver_SolvePositionConstraintsSingle(b2ContactSolver* solver);

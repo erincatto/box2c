@@ -8,9 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API bool g_velocityBlockSolve;
-BOX2D_API bool g_positionBlockSolve;
-
 class BenchmarkPyramid : public Sample
 {
 public:
@@ -98,9 +95,6 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
-
-		ImGui::Checkbox("Vel Block Solve", &g_velocityBlockSolve);
-		ImGui::Checkbox("Pos Block Solve", &g_positionBlockSolve);
 
 		bool changed = false;
 		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, e_maxBaseCount);

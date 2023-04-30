@@ -25,7 +25,7 @@ void b2InitializeRevolute(b2Joint* base, b2SolverContext* context)
 {
 	assert(base->type == b2_revoluteJoint);
 
-	const b2TimeStep* step = context->step;
+	const b2StepContext* step = context->step;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 	int32_t indexA = base->islandIndexA;
@@ -131,7 +131,7 @@ void b2InitializeRevolute(b2Joint* base, b2SolverContext* context)
 void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* context)
 {
 	assert(base->type == b2_revoluteJoint);
-	const b2TimeStep* step = context->step;
+	const b2StepContext* step = context->step;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 	int32_t indexA = base->islandIndexA;

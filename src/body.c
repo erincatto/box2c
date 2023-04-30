@@ -11,6 +11,8 @@
 #include "world.h"
 #include "shape.h"
 
+#include "atomic.inl"
+
 #include <assert.h>
 
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
@@ -75,10 +77,10 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (b->isAwake)
 	{
-		int32_t awakeIndex = world->awakeCount;
+		int32_t awakeIndex = atomic_load_long(&world->awakeCount);
 		b->awakeIndex = awakeIndex;
 		world->awakeBodies[awakeIndex] = b->object.index;
-		world->awakeCount += 1;
+		atomic_fetch_add_long(&world->awakeCount, 1);
 	}
 	else
 	{
@@ -123,6 +125,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	}
 	b->m_jointList = nullptr;
 #endif
+
 	// Delete the attached contacts
 	b2ContactEdge* ce = body->contacts;
 	while (ce)
@@ -193,7 +196,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			world->awakeBodies[awakeIndex] = otherBodyIndex;
 		}
 
-		world->awakeCount -= 1;
+		atomic_fetch_sub_long(&world->awakeCount, 1);
 	}
 
 	b2FreeObject(&world->bodyPool, &body->object);
@@ -520,10 +523,11 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 	{
 		body->sleepTime = 0.0f;
 		assert(body->awakeIndex == B2_NULL_INDEX);
-		assert(world->awakeCount < world->bodyCapacity);
-		body->awakeIndex = world->awakeCount;
+		long awakeCount = atomic_load_long(&world->awakeCount);
+		assert(awakeCount < world->bodyCapacity);
+		body->awakeIndex = awakeCount;
 		world->awakeBodies[body->awakeIndex] = body->object.index;
-		world->awakeCount += 1;
+		atomic_fetch_add_long(&world->awakeCount, 1);
 	}
 	else
 	{
@@ -534,8 +538,8 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		body->torque = 0.0f;
 
 		int32_t awakeIndex = body->awakeIndex;
-		int32_t awakeCount = world->awakeCount;
-		assert(0 <= awakeIndex && awakeIndex < world->awakeCount);
+		int32_t awakeCount = atomic_load_long(&world->awakeCount);
+		assert(0 <= awakeIndex && awakeIndex < awakeCount);
 
 		// Swap in last body
 		if (awakeIndex < awakeCount - 1)
@@ -548,7 +552,7 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		}
 
 		body->awakeIndex = B2_NULL_INDEX;
-		world->awakeCount -= 1;
+		atomic_fetch_sub_long(&world->awakeCount, 1);
 	}
 }
 

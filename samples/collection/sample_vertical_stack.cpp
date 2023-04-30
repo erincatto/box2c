@@ -8,8 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API bool g_velocityBlockSolve;
-
 class VerticalStack : public Sample
 {
 public:
@@ -196,8 +194,6 @@ public:
 			DestroyBullets();
 			FireBullets();
 		}
-
-		ImGui::Checkbox("Block Solve", &g_velocityBlockSolve);
 
 		changed = changed || ImGui::Button("Reset Stack");
 

@@ -46,29 +46,42 @@ void b2DestroyIslandBuilder(b2IslandBuilder* builder)
 	b2Free(builder->links);
 }
 
-void b2StartIslands(b2IslandBuilder* builder, int32_t contactCapacity, int32_t jointCount, b2StackAllocator* allocator)
+void b2StartIslands(b2IslandBuilder* builder, int32_t bodyCapacity, int32_t jointCapacity, int32_t contactCapacity, b2StackAllocator* allocator)
 {
-	builder->jointCount = jointCount;
-	builder->jointLinks = b2AllocateStackItem(allocator, jointCount * sizeof(int32_t));
+	if (bodyCapacity > builder->bodyCapacity)
+	{
+		b2BodyLink* newLinks = b2Alloc(bodyCapacity * sizeof(b2BodyLink));
+		memcpy(newLinks, builder->links, builder->bodyCapacity * sizeof(b2BodyLink));
+		for (int32_t i = builder->bodyCapacity; i < bodyCapacity; ++i)
+		{
+			atomic_store_long(&newLinks[i].parent, i);
+		}
+
+		b2Free(builder->links);
+		builder->links = newLinks;
+		builder->bodyCapacity = bodyCapacity;
+	}
+
+	builder->jointCapacity = jointCapacity;
+	builder->jointLinks = b2AllocateStackItem(allocator, jointCapacity * sizeof(int32_t));
 
 	builder->contactCapacity = contactCapacity;
 	builder->contactLinks = b2AllocateStackItem(allocator, contactCapacity * sizeof(int32_t));
 }
 
 // body union
-void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB)
+void b2LinkBodies(b2IslandBuilder* builder, int32_t awakeIndexA, int32_t awakeIndexB)
 {
-	// TODO_ERIN this should be an assert
-	if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
+	if (awakeIndexA == B2_NULL_INDEX || awakeIndexB == B2_NULL_INDEX)
 	{
 		return;
 	}
 
-	assert(indexA < builder->bodyCapacity);
-	assert(indexB < builder->bodyCapacity);
+	assert(awakeIndexA < builder->bodyCapacity);
+	assert(awakeIndexB < builder->bodyCapacity);
 
-	int32_t rootA = indexA;
-	int32_t rootB = indexB;
+	int32_t rootA = awakeIndexA;
+	int32_t rootB = awakeIndexB;
 	
 	b2BodyLink* links = builder->links;
 
@@ -100,16 +113,19 @@ void b2LinkBodies(b2IslandBuilder* builder, int32_t indexA, int32_t indexB)
 
 		// Path compression
 		int32_t lowest = B2_MIN(rootA, rootB);
-		b2AtomicStoreMin(&links[indexA].parent, lowest);
-		b2AtomicStoreMin(&links[indexB].parent, lowest);
+		b2AtomicStoreMin(&links[awakeIndexA].parent, lowest);
+		b2AtomicStoreMin(&links[awakeIndexB].parent, lowest);
 
 		break;
 	}
 }
 
-void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t indexA, int32_t indexB)
+void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t awakeIndexA, int32_t awakeIndexB)
 {
-	b2LinkBodies(builder, indexA, indexB);
+	b2LinkBodies(builder, awakeIndexA, awakeIndexB);
+
+	// Max to ensure awake body (static bodies are never awake)
+	assert(indexA != B2_NULL_INDEX || indexB != B2_NULL_INDEX);
 	builder->jointLinks[jointIndex] = B2_MAX(indexA, indexB);
 }
 

@@ -44,18 +44,25 @@ typedef struct b2World
 	// that index into this array.
 	struct b2Contact** activeContacts;
 
-	// This atomic allows contacts to be added to the active contact array and to b2IslandBuilder
-	// from multiple threads.
-	B2_ATOMIC long activeContactCount;
-
 	// Fixed capacity array of contacts with shapes that no longer have overlapping bounding boxes
 	struct b2Contact** invalidContacts;
-	B2_ATOMIC long invalidContactCount;
 
+	// This atomic allows active contacts to be added to the active contact array and to b2IslandBuilder
+	// from multiple threads. Padding to avoid sharing cache lines with other atomics.
+	B2_ATOMIC long activeContactCount;
+	char padding1[64 - sizeof(long)];
+
+	// This atomic allows invalid contacts to be added to the invalid contact array from multiple threads
+	B2_ATOMIC long invalidContactCount;
+	char padding2[64 - sizeof(long)];
+
+	// Atomic count of the number of awake bodies. Recomputed each step.
+	B2_ATOMIC long awakeCount;
+	char padding3[64 - sizeof(long)];
+	
 	// Awake body array holds indices into bodies array (bodyPool).
 	// This is a dense fixed capacity array (bodyCapacity) that is rebuilt every time step.
 	int32_t* awakeBodies;
-	int32_t awakeCount;
 	struct b2Mutex* awakeMutex;
 
 	b2Vec2 gravity;

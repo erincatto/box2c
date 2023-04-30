@@ -100,16 +100,16 @@ typedef struct b2WorldDef
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
 
-	/// Capacity for bodies
+	/// Capacity for bodies. This may not be exceeded.
 	int32_t bodyCapacity;
 
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
 
-	/// Capacity for contacts
+	/// Capacity for contacts. This may not be exceeded.
 	int32_t contactCapacity;
 
-	/// initial capacity for joints
+	/// Capacity for joints
 	int32_t jointCapacity;
 
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
