@@ -11,6 +11,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int32_t b2GetLowestBodyIndex(const b2BodyLink* links, int32_t index)
 {
