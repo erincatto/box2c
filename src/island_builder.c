@@ -80,8 +80,8 @@ static void b2LinkBodies(b2IslandBuilder* builder, int32_t awakeIndexA, int32_t 
 	assert(awakeIndexA < builder->bodyCapacity);
 	assert(awakeIndexB < builder->bodyCapacity);
 
-	int32_t rootA = awakeIndexA;
-	int32_t rootB = awakeIndexB;
+	long rootA = awakeIndexA;
+	long rootB = awakeIndexB;
 	
 	b2BodyLink* links = builder->links;
 

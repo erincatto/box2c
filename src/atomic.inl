@@ -5,32 +5,30 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-typedef long atomic_long;
-
 // Returns the initial value
-static inline int32_t atomic_fetch_add_long(volatile atomic_long* obj, int32_t val)
+static inline long atomic_fetch_add_long(volatile long* obj, long val)
 {
 	return InterlockedExchangeAdd(obj, val);
 }
 
 // Returns the initial value
-static inline int32_t atomic_fetch_sub_long(volatile atomic_long* obj, int32_t val)
+static inline long atomic_fetch_sub_long(volatile long* obj, long val)
 {
 	return InterlockedExchangeAdd(obj, -val);
 }
 
 // Returns the initial value
-static inline int32_t atomic_store_long(volatile atomic_long* obj, int32_t val)
+static inline long atomic_store_long(volatile long* obj, long val)
 {
 	return InterlockedExchange(obj, val);
 }
 
-static inline int32_t atomic_load_long(const volatile atomic_long* obj)
+static inline long atomic_load_long(const volatile long* obj)
 {
 	return *obj;
 }
 
-static inline bool atomic_compare_exchange_weak_long(volatile atomic_long* obj, int32_t* expected, int32_t desired)
+static inline bool atomic_compare_exchange_weak_long(volatile long* obj, long* expected, int32_t desired)
 {
 	long current = InterlockedCompareExchange(obj, desired, *expected);
 	if (current == *expected)
@@ -56,9 +54,9 @@ static inline bool atomic_compare_exchange_weak_long(volatile atomic_long* obj, 
 
 // Atomically store the minimum two values
 // *ptr = min(*ptr, b)
-static inline void b2AtomicStoreMin(atomic_long* ptr, int32_t b)
+static inline void b2AtomicStoreMin(B2_ATOMIC long* ptr, long b)
 {
-	int32_t a = atomic_load_long(ptr);
+	long a = atomic_load_long(ptr);
 	while (a > b)
 	{
 		bool success = atomic_compare_exchange_weak_long(ptr, &a, b);
