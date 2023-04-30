@@ -582,7 +582,7 @@ void b2CompleteIsland(b2Island* island)
 	}
 
 	// Report impulses
-	const b2Contact** contacts = world->contactArray;
+	b2Contact** contacts = world->contactArray;
 
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
