@@ -62,6 +62,10 @@ typedef struct b2World
 	B2_ATOMIC long awakeCount;
 	char padding3[64 - sizeof(long)];
 	
+	// Atomic count of the number of awake bodies sent to collision tasks.
+	B2_ATOMIC long baseAwakeCount;
+	char padding4[64 - sizeof(long)];
+
 	// Awake body array holds indices into bodies array (bodyPool).
 	// This is a dense fixed capacity array (bodyCapacity) that is rebuilt every time step.
 	int32_t* awakeBodies;

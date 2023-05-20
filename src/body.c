@@ -70,12 +70,11 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->userData = def->userData;
 	b->world = worldId.index;
 	b->islandId = 0;
-	b->isAwake = b->type == b2_staticBody ? false : def->isAwake;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
 
-	if (b->isAwake)
+	if (def->isAwake && def->type != b2_staticBody)
 	{
 		int32_t awakeIndex = atomic_load_long(&world->awakeCount);
 		b->awakeIndex = awakeIndex;
@@ -184,7 +183,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	{
 		int32_t awakeCount = world->awakeCount;
 
-		assert(body->isAwake);
 		assert(0 <= awakeIndex && awakeIndex < awakeCount);
 		assert(world->awakeBodies[awakeIndex] == body->object.index);
 
@@ -512,14 +510,7 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		return;
 	}
 
-	if (body->isAwake == flag)
-	{
-		return;
-	}
-
-	body->isAwake = flag;
-
-	if (flag)
+	if (flag == true && body->awakeIndex == B2_NULL_INDEX)
 	{
 		body->sleepTime = 0.0f;
 		assert(body->awakeIndex == B2_NULL_INDEX);
@@ -529,7 +520,7 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		world->awakeBodies[body->awakeIndex] = body->object.index;
 		atomic_fetch_add_long(&world->awakeCount, 1);
 	}
-	else
+	else if (flag == false && body->awakeIndex != B2_NULL_INDEX)
 	{
 		body->sleepTime = 0.0f;
 		body->linearVelocity = b2Vec2_zero;

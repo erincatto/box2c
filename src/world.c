@@ -359,7 +359,11 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 	assert(startIndex < endIndex);
 	assert(endIndex <= world->awakeCount);
 
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	long baseCount = atomic_load_long(&world->baseAwakeCount);
+	int32_t basedStartIndex = startIndex + baseCount;
+	int32_t basedEndIndex = endIndex + baseCount;
+
+	for (int32_t i = basedStartIndex; i < basedEndIndex; ++i)
 	{
 		int32_t bodyIndex = awakeBodies[i];
 		if (bodyIndex == B2_NULL_INDEX)
@@ -376,13 +380,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 		assert(body->type != b2_staticBody);
 
 		b2ContactEdge* ce = body->contacts;
-		while (ce != NULL)
+		for (; ce != NULL; ce = ce->next)
 		{
 			b2Body* otherBody = world->bodies + ce->otherBodyIndex;
 			if (otherBody->awakeIndex != B2_NULL_INDEX && bodyIndex > ce->otherBodyIndex)
 			{
 				// avoid double evaluation
-				ce = ce->next;
 				continue;
 			}
 
@@ -411,38 +414,82 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 				// Update contact respecting shape/body order (A,B)
 				b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 
-				if (contact->flags & b2_contactTouchingFlag)
+				if ((contact->flags & b2_contactTouchingFlag) == 0)
 				{
-					// Relaxed
-					int32_t index = atomic_fetch_add_long(&world->activeContactCount, 1);
-					assert(0 <= index && index < world->contactCapacity);
-					world->activeContacts[index] = contact;
-
-					if (otherBody->type != b2_staticBody && otherBody->awakeIndex == B2_NULL_INDEX)
-					{
-						// If the other body is asleep then I have to wake it and append to the awake array.
-						// This must be done under a lock to guard the awake array and the body's awake
-						// index simultaneously.
-						b2LockMutex(world->awakeMutex);
-
-						// TODO_ERIN this should cause more collision tasks
-						otherBody->sleepTime = 0.0f;
-						long awakeIndex = atomic_load_long(&world->awakeCount);
-						assert(awakeIndex < world->bodyCapacity);
-						otherBody->awakeIndex = awakeIndex;
-						world->awakeBodies[awakeIndex] = otherBody->object.index;
-						atomic_fetch_add_long(&world->awakeCount, 1);
-
-						b2UnlockMutex(world->awakeMutex);
-					}
-
-					b2LinkContact(&world->islandBuilder, index, i, otherBody->awakeIndex);
+					continue;
 				}
-			}
 
-			ce = ce->next;
+				// Add to array of active contacts
+				int32_t index = atomic_fetch_add_long(&world->activeContactCount, 1);
+				assert(0 <= index && index < world->contactCapacity);
+				world->activeContacts[index] = contact;
+
+				// Don't link static bodies into island
+				if (otherBody->type == b2_staticBody)
+				{
+					continue;
+				}
+
+				// Link the with the other body if it is awake
+				long otherAwakeIndex = atomic_load_long(&otherBody->awakeIndex);
+				if (otherAwakeIndex >= 0)
+				{
+					b2LinkContact(&world->islandBuilder, index, i, otherBody->awakeIndex);
+					continue;
+				}
+
+				// Tag the body as being worked on. -2 is just used temporarily as a
+				// value that is not -1, before figuring out the actual index to assign it.
+				// (relax, relax)
+				long otherAwakeIndexExpected = B2_NULL_INDEX;
+				long otherAwakeIndexDesired = -2;
+				bool shouldWake = atomic_compare_exchange_strong_long(&otherBody->awakeIndex, &otherAwakeIndexExpected, otherAwakeIndexDesired);
+
+				// Is this the thread to wake it?
+				if (shouldWake)
+				{
+					// Wake the body
+					otherBody->sleepTime = 0.0f;
+
+					// (relax)
+					long awakeIndex = atomic_fetch_add_long(&world->awakeCount, 1);
+					
+					assert(awakeIndex < world->bodyCapacity);
+					
+					// (relax)
+					atomic_store_long(&otherBody->awakeIndex, awakeIndex);
+
+					world->awakeBodies[awakeIndex] = otherBody->object.index;
+				}
+
+				// TODO_ERIN race condition: no guarantee the otherBody has a valid awake index yet
+				b2LinkContact(&world->islandBuilder, index, i, atomic_load_long(&otherBody->awakeIndex));
+			}
 		}
 	}
+
+	//// These can only increase and base is always less or equal
+	//long baseAwakeCount = atomic_load_long(&world->baseAwakeCount);
+	//long awakeCount = atomic_load_long(&world->awakeCount);
+
+	//while (awakeCount > baseAwakeCount)
+	//{
+	//	long start = baseAwakeCount;
+	//	long count = B2_MIN(8, awakeCount - baseAwakeCount);
+	//	while (atomic_compare_exchange_weak_long(&world->baseAwakeCount, &baseAwakeCount, count) == false && count > 0)
+	//	{
+	//		awakeCount = atomic_load_long(&world->awakeCount);
+	//		start = baseAwakeCount;
+	//		count = B2_MIN(8, awakeCount - baseAwakeCount);
+	//	}
+
+	//	if (count > 0)
+	//	{
+	//		// TODO_ERIN need to feed baseAwakeCount to job
+	//		int32_t minRange = 8;
+	//		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+	//	}
+	//}
 
 	b2TracyCZoneEnd(collide_task);
 }
@@ -451,7 +498,9 @@ static void b2Collide(b2World* world)
 {
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	int32_t count = world->awakeCount;
+	int32_t count = atomic_load_long(&world->awakeCount);
+	atomic_store_long(&world->baseAwakeCount, 0);
+
 	assert(world->activeContactCount == 0);
 	assert(world->invalidContactCount == 0);
 
@@ -464,8 +513,17 @@ static void b2Collide(b2World* world)
 	if (g_parallel)
 	{
 		int32_t minRange = 8;
-		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
-		world->finishTasks(world->userTaskContext);
+		int32_t baseCount = 0;
+		while (baseCount < count)
+		{
+			world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+			world->finishTasks(world->userTaskContext);
+
+			atomic_store_long(&world->baseAwakeCount, count);
+			baseCount = count;
+
+			count = atomic_load_long(&world->awakeCount);
+		}
 	}
 	else
 	{
@@ -809,7 +867,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.9f, 1.0f});
 				}
-				else if (b->isAwake == false)
+				else if (b->awakeIndex == B2_NULL_INDEX)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.6f, 0.6f, 0.6f, 1.0f});
 				}

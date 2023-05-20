@@ -426,7 +426,7 @@ void b2SolveIsland(b2Island* island)
 
 	b2TracyCZoneNC(sleep, "Sleep", b2_colorSalmon2, true);
 
-	// Copy state buffers back to the bodies
+	// Reset body sleep and update transform
 	for (int32_t i = 0; i < island->bodyCount; ++i)
 	{
 		b2Body* body = bodies + island->bodyIndices[i];
@@ -434,7 +434,6 @@ void b2SolveIsland(b2Island* island)
 		{
 			body->awakeIndex = B2_NULL_INDEX;
 
-			// Update body transform
 			body->transform.q = b2MakeRot(body->angle);
 			body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
 		}
@@ -479,7 +478,6 @@ void b2SolveIsland(b2Island* island)
 			for (int32_t i = 0; i < island->bodyCount; ++i)
 			{
 				b2Body* b = bodies + island->bodyIndices[i];
-				b->isAwake = false;
 				b->sleepTime = 0.0f;
 				b->linearVelocity = b2Vec2_zero;
 				b->angularVelocity = 0.0f;
