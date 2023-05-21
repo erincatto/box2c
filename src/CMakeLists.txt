@@ -82,8 +82,8 @@ set_target_properties(box2d PROPERTIES
 )
 
 if (MSVC)
-	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
-	# target_compile_options(box2d PRIVATE /W4 /WX)
+	# target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
+	target_compile_options(box2d PRIVATE /W4 /WX)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

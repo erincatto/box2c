@@ -329,8 +329,13 @@ void b2FinishIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32
 
 void b2ResetIslands(b2IslandBuilder* builder, b2StackAllocator *allocator)
 {
-	b2FreeStackItem(allocator, builder->sortedIslands);
-	builder->sortedIslands = NULL;
+	// Some of this stuff is NULL if the time step is zero.
+
+	if (builder->sortedIslands != NULL)
+	{
+		b2FreeStackItem(allocator, builder->sortedIslands);
+		builder->sortedIslands = NULL;
+	}
 
 	if (builder->contactIslands != NULL)
 	{
@@ -348,10 +353,13 @@ void b2ResetIslands(b2IslandBuilder* builder, b2StackAllocator *allocator)
 		builder->jointIslands = NULL;
 	}
 	
-	b2FreeStackItem(allocator, builder->bodyIslandEnds);
-	builder->bodyIslandEnds = NULL;
-	b2FreeStackItem(allocator, builder->bodyIslands);
-	builder->bodyIslands = NULL;
+	if (builder->bodyIslands != NULL)
+	{
+		b2FreeStackItem(allocator, builder->bodyIslandEnds);
+		builder->bodyIslandEnds = NULL;
+		b2FreeStackItem(allocator, builder->bodyIslands);
+		builder->bodyIslands = NULL;
+	}
 
 	b2FreeStackItem(allocator, builder->contactLinks);
 	builder->contactLinks = NULL;
