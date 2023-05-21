@@ -37,6 +37,7 @@ public:
 		}
 
 		m_baseCount = g_sampleDebug ? 10 : e_maxBaseCount;
+		m_bodyCount = 0;
 
 		CreateScene();
 	}
@@ -88,6 +89,8 @@ public:
 				index += 1;
 			}
 		}
+
+		m_bodyCount = index;
 	}
 
 	void UpdateUI() override
@@ -101,6 +104,11 @@ public:
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
+
+		if (ImGui::Button("Wake Top"))
+		{
+			b2Body_SetAwake(m_bodies[m_bodyCount - 1], true);
+		}
 
 		if (changed)
 		{
@@ -116,6 +124,7 @@ public:
 	}
 
 	b2BodyId m_bodies[e_maxBodyCount];
+	int32_t m_bodyCount;
 	int32_t m_baseCount;
 	float m_round;
 	float m_groundThickness;

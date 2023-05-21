@@ -347,122 +347,6 @@ static void b2LinkActiveJoints(b2World* world, b2StepContext* context)
 	b2TracyCZoneEnd(link_joint_task);
 }
 
-#if 1
-static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
-{
-	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
-
-	b2World* world = taskContext;
-	b2Shape* shapes = world->shapes;
-	b2Body* bodies = world->bodies;
-
-	// Loop awake bodies
-	const int32_t* awakeBodies = world->awakeBodies;
-
-	assert(startIndex < endIndex);
-	assert(endIndex <= world->awakeCount);
-
-	for (int32_t i = startIndex; i < endIndex; ++i)
-	{
-		int32_t bodyIndex = awakeBodies[i];
-		if (bodyIndex == B2_NULL_INDEX)
-		{
-			// Body was destroyed or put to sleep
-			continue;
-		}
-
-		assert(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
-
-		b2Body* body = world->bodies + bodyIndex;
-
-		assert(body->object.index == bodyIndex && body->object.index == body->object.next);
-		assert(body->type != b2_staticBody);
-
-		b2ContactEdge* ce = body->contacts;
-		while (ce != NULL)
-		{
-			b2Body* otherBody = world->bodies + ce->otherBodyIndex;
-			if (otherBody->awakeIndex != B2_NULL_INDEX && bodyIndex > ce->otherBodyIndex)
-			{
-				// avoid double evaluation
-				ce = ce->next;
-				continue;
-			}
-
-			b2Contact* contact = ce->contact;
-
-			b2Shape* shapeA = shapes + contact->shapeIndexA;
-			b2Shape* shapeB = shapes + contact->shapeIndexB;
-			b2Body* bodyA = bodies + shapeA->bodyIndex;
-			b2Body* bodyB = bodies + shapeB->bodyIndex;
-
-			int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
-			int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
-
-			// Do proxies still overlap?
-			// TODO_ERIN if we keep fat aabbs on shapes we don't need to dive into the broadphase here
-			bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
-			if (overlap == false)
-			{
-				// Safely add to array of invalid contacts to be destroyed serially. Relaxed.
-				int32_t index = atomic_fetch_add_long(&world->invalidContactCount, 1);
-				assert(0 <= index && index < world->contactCapacity);
-				world->invalidContacts[index] = contact;
-			}
-			else
-			{
-				// Update contact respecting shape/body order (A,B)
-				b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
-
-				if (contact->flags & b2_contactTouchingFlag)
-				{
-					// Relaxed
-					int32_t index = atomic_fetch_add_long(&world->activeContactCount, 1);
-					assert(0 <= index && index < world->contactCapacity);
-
-					assert(0 <= index && index < b2Array(world->contactArray).count);
-#if B2_VALIDATE == 1
-					int32_t contactCount = b2Array(world->contactArray).count;
-					B2_MAYBE_UNUSED(contactCount);
-					for (long j = 0; j < index; ++j)
-					{
-						assert(world->activeContacts[j] != contact);
-					}
-#endif
-
-					world->activeContacts[index] = contact;
-
-					if (otherBody->type != b2_staticBody && otherBody->awakeIndex == B2_NULL_INDEX)
-					{
-						// If the other body is asleep then I have to wake it and append to the awake array.
-						// This must be done under a lock to guard the awake array and the body's awake
-						// index simultaneously.
-						b2LockMutex(world->awakeMutex);
-
-						// TODO_ERIN this should cause more collision tasks
-						otherBody->sleepTime = 0.0f;
-						long awakeIndex = atomic_load_long(&world->awakeCount);
-						assert(awakeIndex < world->bodyCapacity);
-						otherBody->awakeIndex = awakeIndex;
-						world->awakeBodies[awakeIndex] = otherBody->object.index;
-						atomic_fetch_add_long(&world->awakeCount, 1);
-
-						b2UnlockMutex(world->awakeMutex);
-					}
-
-					b2LinkContact(&world->islandBuilder, index, i, otherBody->awakeIndex);
-				}
-			}
-
-			ce = ce->next;
-		}
-	}
-
-	b2TracyCZoneEnd(collide_task);
-}
-
-#elif 0
-
 // Locked version
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
@@ -506,7 +390,6 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 
 			// (acquire)
 			long otherAwakeIndex = atomic_load_long(&otherBody->awakeIndex);
-			//if (otherAwakeIndex != B2_NULL_INDEX && bodyIndex > ce->otherBodyIndex)
 			if (otherAwakeIndex != B2_NULL_INDEX && otherAwakeIndex < awakeIndex)
 			{
 				// avoid double evaluation but don't skip sleeping bodies
@@ -515,6 +398,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 				ce = ce->next;
 				continue;
 			}
+
+			// It is possible that another thread will wake this body, however it will acquire a larger awake index
 
 			b2Contact* contact = ce->contact;
 
@@ -601,6 +486,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 						b2UnlockMutex(world->awakeMutex);
 					}
 
+					assert(otherBody->type == b2_staticBody || awakeIndex < otherAwakeIndex);
+
 					// This is called even if the other body is static
 					b2LinkContact(&world->islandBuilder, activeContactIndex, awakeIndex, otherAwakeIndex);
 				}
@@ -610,6 +497,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 		}
 	}
 
+	// Consider kicking off a job from here for all the bodies that were added to the awake bodies array
+	
 	//// These can only increase and base is always less or equal
 	//long baseAwakeCount = atomic_load_long(&world->baseAwakeCount);
 	//long awakeCount = atomic_load_long(&world->awakeCount);
@@ -636,8 +525,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 	b2TracyCZoneEnd(collide_task);
 }
 
-#else 
-
+#if 0
 // Lockfree version (has race)
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
@@ -810,7 +698,7 @@ static void b2Collide(b2World* world)
 {
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	int32_t count = atomic_load_long(&world->awakeCount);
+	int32_t awakeCount = atomic_load_long(&world->awakeCount);
 	atomic_store_long(&world->baseAwakeCount, 0);
 
 	int32_t contactCount = b2Array(world->contactArray).count;
@@ -819,7 +707,11 @@ static void b2Collide(b2World* world)
 	assert(world->activeContactCount == 0);
 	assert(world->invalidContactCount == 0);
 
-	if (count == 0)
+#if B2_VALIDATE == 1
+	memset(world->activeContacts, 0, world->contactCapacity * sizeof(b2Contact*));
+#endif
+
+	if (awakeCount == 0)
 	{
 		b2TracyCZoneEnd(collide);
 		return;
@@ -828,23 +720,23 @@ static void b2Collide(b2World* world)
 	if (g_parallel)
 	{
 		int32_t minRange = 8;
-		//int32_t baseCount = 0;
-		//while (baseCount < count)
+		int32_t baseCount = 0;
+		while (baseCount < awakeCount)
 		{
-			world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+			world->enqueueTask(&b2CollideTask, awakeCount - baseCount, minRange, world, world->userTaskContext);
 			world->finishTasks(world->userTaskContext);
 
 			// (relaxed)
-			//atomic_store_long(&world->baseAwakeCount, count);
-			//baseCount = count;
+			atomic_store_long(&world->baseAwakeCount, awakeCount);
+			baseCount = awakeCount;
 
-			//// (relaxed)
-			//count = atomic_load_long(&world->awakeCount);
+			// (relaxed)
+			awakeCount = atomic_load_long(&world->awakeCount);
 		}
 	}
 	else
 	{
-		b2CollideTask(0, count, world);
+		b2CollideTask(0, awakeCount, world);
 	}
 
 	// Serially destroy contacts
