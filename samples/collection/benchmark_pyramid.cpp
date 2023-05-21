@@ -57,7 +57,7 @@ public:
 		float rad = 0.5f;
 		float shift = rad * 2.0f;
 		float centerx = shift * count / 2.0f;
-		float centery = shift / 2.0f + m_groundThickness + rad * 1.5f;
+		float centery = shift / 2.0f + m_groundThickness;//		+rad * 1.5f;
 
 		b2BodyDef bd = b2DefaultBodyDef();
 		bd.type = b2_dynamicBody;

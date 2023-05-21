@@ -9,6 +9,7 @@
 #include "world.h"
 
 #include <assert.h>
+#include <stdlib.h>
 
 // Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned
 // effective mass matrix.
@@ -67,14 +68,27 @@ void b2DestroyContactSolver(b2StackAllocator* alloc, b2ContactSolver* solver)
 	b2FreeStackItem(alloc, solver);
 }
 
+// TODO_ERIN MSVC wants a different argument order versus: https://en.cppreference.com/w/c/algorithm/qsort
+static int b2CompareContacts(void* context, const void* a, const void* b)
+{
+	const int32_t* indexA = a;
+	const int32_t* indexB = b;
+
+	b2Contact** contacts = context;
+	return contacts[*indexA]->index - contacts[*indexB]->index;
+}
+
 void b2ContactSolver_Initialize(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
-	const int32_t* contactIndices = solver->contactIndices;
+	int32_t* contactIndices = solver->contactIndices;
 
-	b2StepContext context = *solver->context;
 	b2World* world = solver->world;
 	b2Contact** contacts = world->activeContacts;
+
+	//qsort_s(contactIndices, count, sizeof(int32_t), b2CompareContacts, contacts); 
+
+	b2StepContext context = *solver->context;
 
 	b2Body* bodies = world->bodies;
 

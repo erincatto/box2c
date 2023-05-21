@@ -383,6 +383,7 @@ bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifo
 	long startCount = m_pointCount.fetch_add(manifold->pointCount);
 	if (startCount >= k_maxContactPoints)
 	{
+		m_pointCount.store(k_maxContactPoints);
 		return true;
 	}
 
