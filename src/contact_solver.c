@@ -15,6 +15,8 @@
 // effective mass matrix.
 #define B2_DEBUG_SOLVER 0
 
+bool g_sortContacts = true;
+
 typedef struct b2VelocityConstraintPoint
 {
 	b2Vec2 rA;
@@ -75,7 +77,26 @@ static int b2CompareContacts(void* context, const void* a, const void* b)
 	const int32_t* indexB = b;
 
 	b2Contact** contacts = context;
-	return contacts[*indexA]->index - contacts[*indexB]->index;
+	b2Contact* contactA = contacts[*indexA];
+	b2Contact* contactB = contacts[*indexB];
+
+	int32_t minBodyA = B2_MIN(contactA->edgeA.otherBodyIndex, contactA->edgeB.otherBodyIndex);
+	int32_t minBodyB = B2_MIN(contactB->edgeA.otherBodyIndex, contactB->edgeB.otherBodyIndex);
+
+	if (minBodyA != minBodyB)
+	{
+		return minBodyA - minBodyB;
+	}
+
+	int32_t maxBodyA = B2_MAX(contactA->edgeA.otherBodyIndex, contactA->edgeB.otherBodyIndex);
+	int32_t maxBodyB = B2_MAX(contactB->edgeA.otherBodyIndex, contactB->edgeB.otherBodyIndex);
+
+	if (maxBodyA != maxBodyB)
+	{
+		return maxBodyA - maxBodyB;
+	}
+
+	return contactA->index - contactB->index;
 }
 
 void b2ContactSolver_Initialize(b2ContactSolver* solver)
@@ -86,7 +107,10 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	b2World* world = solver->world;
 	b2Contact** contacts = world->activeContacts;
 
-	//qsort_s(contactIndices, count, sizeof(int32_t), b2CompareContacts, contacts); 
+	if (g_sortContacts)
+	{
+		qsort_s(contactIndices, count, sizeof(int32_t), b2CompareContacts, contacts); 
+	}
 
 	b2StepContext context = *solver->context;
 
@@ -127,10 +151,15 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 		float mB = bodyB->invMass;
 		float iB = bodyB->invI;
 
+
 		b2Rot qA = bodyA->transform.q;
 		b2Vec2 cA = bodyA->position;
 		b2Rot qB = bodyB->transform.q;
 		b2Vec2 cB = bodyB->position;
+
+		// TODO_ERIN testing
+		//qA = b2MakeRot(bodyA->angle);
+		//qB = b2MakeRot(bodyB->angle);
 
 		b2Vec2 vA = bodyA->linearVelocity;
 		float wA = bodyA->angularVelocity;

@@ -84,7 +84,7 @@ typedef struct b2World
 	int32_t groundBodyIndex;
 
 	b2Profile profile;
-	int32_t contactPointCount;
+	B2_ATOMIC long contactPointCount;
 
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;

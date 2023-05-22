@@ -352,6 +352,7 @@ static void ScrollCallback(GLFWwindow* window, double dx, double dy)
 }
 
 BOX2D_API bool g_parallel;
+BOX2D_API bool g_sortContacts;
 
 static void UpdateUI()
 {
@@ -378,6 +379,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Warm Starting", &s_settings.m_enableWarmStarting);
 				ImGui::Checkbox("Continuous", &s_settings.m_enableContinuous);
 				ImGui::Checkbox("Parallel", &g_parallel);
+				ImGui::Checkbox("Sort Contacts", &g_sortContacts);
 
 				ImGui::Separator();
 

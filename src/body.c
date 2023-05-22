@@ -76,14 +76,13 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (def->isAwake && def->type != b2_staticBody)
 	{
-		int32_t awakeIndex = atomic_load_long(&world->awakeCount);
-		b->awakeIndex = awakeIndex;
+		int32_t awakeIndex = atomic_fetch_add_long(&world->awakeCount, 1);
+		atomic_store_long(&b->awakeIndex, awakeIndex);
 		world->awakeBodies[awakeIndex] = b->object.index;
-		atomic_fetch_add_long(&world->awakeCount, 1);
 	}
 	else
 	{
-		b->awakeIndex = B2_NULL_INDEX;
+		atomic_store_long(&b->awakeIndex, B2_NULL_INDEX);
 	}
 
 	b2BodyId id = {b->object.index, worldId.index, b->object.revision};

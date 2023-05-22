@@ -429,6 +429,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 
 				if (contact->flags & b2_contactTouchingFlag)
 				{
+					atomic_fetch_add_long(&world->contactPointCount, contact->manifold.pointCount);
+
 					// Add to array of active contacts
 					// (relaxed)
 					long activeContactIndex = atomic_fetch_add_long(&world->activeContactCount, 1);
@@ -698,6 +700,8 @@ static void b2Collide(b2World* world)
 {
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
+	atomic_store_long(&world->contactPointCount, 0);
+
 	int32_t awakeCount = atomic_load_long(&world->awakeCount);
 	atomic_store_long(&world->baseAwakeCount, 0);
 
@@ -798,8 +802,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(island_builder, "Finish Islands", b2_colorDarkSalmon, true);
 
 	b2Timer timer = b2CreateTimer();
-
-	world->contactPointCount = 0;
 
 	// Finish building islands
 	b2IslandBuilder* builder = &world->islandBuilder;
