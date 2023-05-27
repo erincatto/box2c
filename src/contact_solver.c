@@ -99,6 +99,8 @@ static int b2CompareContacts(void* context, const void* a, const void* b)
 	return contactA->index - contactB->index;
 }
 
+extern void b2SortContacts(b2Contact** contacts, int32_t* indices, int32_t count);
+
 void b2ContactSolver_Initialize(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
@@ -109,7 +111,8 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 
 	if (g_sortContacts)
 	{
-		qsort_s(contactIndices, count, sizeof(int32_t), b2CompareContacts, contacts); 
+		//qsort_s(contactIndices, count, sizeof(int32_t), b2CompareContacts, contacts); 
+		b2SortContacts(contacts, contactIndices, count);
 	}
 
 	b2StepContext context = *solver->context;
