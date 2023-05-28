@@ -48,7 +48,7 @@ typedef struct b2Body
 
 	B2_ATOMIC long awakeIndex;
 
-	uint64_t islandId;
+	int32_t islandNodeId;
 
 	float mass, invMass;
 

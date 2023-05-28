@@ -19,6 +19,77 @@
 #include <float.h>
 #include <string.h>
 
+static b2IslandManager s_defaultManager = {0};
+
+b2IslandManager* b2CreateIslandManager(int32_t nodeCapacity, int32_t edgeCapacity)
+{
+	b2IslandManager* manager = b2Alloc(sizeof(b2IslandManager));
+	*manager = s_defaultManager;
+	manager->nodePool = b2CreatePool(sizeof(b2IslandNode), nodeCapacity);
+	manager->edgePool = b2CreatePool(sizeof(b2IslandEdge), edgeCapacity);
+	manager->islandPool = b2CreatePool(sizeof(b2PersistentIsland), 16);
+}
+
+void b2DestroyIslandManager(b2IslandManager* manager)
+{
+	b2DestroyPool(&manager->nodePool);
+	b2DestroyPool(&manager->edgePool);
+	b2DestroyPool(&manager->islandPool);
+	manager->nodes = NULL;
+	manager->edges = NULL;
+	manager->islands = NULL;
+	b2Free(manager);
+}
+
+int32_t b2AllocateIsland(b2IslandManager* manager)
+{
+	b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&manager->islandPool);
+	manager->islands = (b2PersistentIsland*)manager->islandPool.memory;
+	island->nodeList = B2_NULL_INDEX;
+	island->edgeList = B2_NULL_INDEX;
+	return island->object.index;
+}
+
+void b2FreeIsland(b2IslandManager* manager, b2PersistentIsland* island)
+{
+	b2FreeObject(&manager->islandPool, island);
+}
+
+int32_t b2AddIslandNode(b2IslandManager* manager, int32_t bodyIndex)
+{
+	b2IslandNode* node = (b2IslandNode*)b2AllocObject(&manager->nodePool);
+	manager->nodes = (b2IslandNode*)manager->nodePool.memory;
+
+	b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&manager->islandPool);
+	manager->islands = (b2PersistentIsland*)manager->islandPool.memory;
+
+	node->bodyIndex = bodyIndex;
+	node->islandIndex = island->object.index;
+	node->prevNode = B2_NULL_INDEX;
+	node->nextNode = B2_NULL_INDEX;
+
+	island->nodeList = node->object.index;
+	island->edgeList = B2_NULL_INDEX;
+
+	return node->object.index;
+}
+
+void b2RemoveIslandNode(b2IslandManager* manager, int32_t nodeIndex)
+{
+
+	if (nodeIndex == manager->nodeCount - 1)
+	{
+	}
+}
+
+int32_t b2AddIslandEdge(b2IslandManager* manager, int32_t contactIndex, int32_t node1, int32_t node2)
+{
+}
+
+void b2RemoveIslandEdge(b2IslandManager* manager, int32_t edgeIndex)
+{
+}
+
 /*
 Position Correction Notes
 =========================

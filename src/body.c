@@ -173,7 +173,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		// TODO_ERIN destroy contacts
 
 		b2FreeObject(&world->shapePool, &shape->object);
-		world->shapes = (b2Shape*)world->shapePool.memory;
 	}
 
 	// Remove awake body

@@ -62,10 +62,7 @@ typedef struct b2Contact
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
-	uint64_t islandId;
-
-	int32_t islandIndexA;
-	int32_t islandIndexB;
+	int32_t islandEdgeId;
 
 	// Mixed friction and restitution
 	float friction;
