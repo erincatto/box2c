@@ -19,6 +19,9 @@
 #include <float.h>
 #include <string.h>
 
+// https://en.wikipedia.org/wiki/Component_(graph_theory)
+// https://en.wikipedia.org/wiki/Dynamic_connectivity
+
 static b2IslandManager s_defaultManager = {0};
 
 b2IslandManager* b2CreateIslandManager(int32_t nodeCapacity, int32_t edgeCapacity)
@@ -55,6 +58,7 @@ void b2FreeIsland(b2IslandManager* manager, b2PersistentIsland* island)
 	b2FreeObject(&manager->islandPool, island);
 }
 
+// Note: no static bodies
 int32_t b2AddIslandNode(b2IslandManager* manager, int32_t bodyIndex)
 {
 	b2IslandNode* node = (b2IslandNode*)b2AllocObject(&manager->nodePool);
@@ -67,6 +71,8 @@ int32_t b2AddIslandNode(b2IslandManager* manager, int32_t bodyIndex)
 	node->islandIndex = island->object.index;
 	node->prevNode = B2_NULL_INDEX;
 	node->nextNode = B2_NULL_INDEX;
+
+	node->edgeList = B2_NULL_INDEX;
 
 	island->nodeList = node->object.index;
 	island->edgeList = B2_NULL_INDEX;

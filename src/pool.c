@@ -9,6 +9,43 @@
 #include <string.h>
 
 #define B2_NULL_INDEX (-1)
+#define B2_VALIDATE 1
+
+b2IndexPool b2CreateIndexPool(int32_t capacity)
+{
+	// The free index array starts empty
+	b2IndexPool pool;
+	pool.freeIndexArray = b2CreateArray(sizeof(int32_t), capacity);
+	pool.index = 0;
+	return pool;
+}
+
+void b2DestroyIndexPool(b2IndexPool* pool)
+{
+	b2DestroyArray(pool->freeIndexArray);
+}
+
+int32_t b2AllocIndex(b2IndexPool* pool)
+{
+	// First check free list
+	if (b2Array(pool->freeIndexArray).count > 0)
+	{
+		int32_t index = b2Array_Last(pool->freeIndexArray);
+		b2Array_Pop(pool->freeIndexArray);
+		return index;
+	}
+
+	// Free list is empty
+	int32_t index = pool->index;
+	pool->index += 1;
+	return index;
+}
+
+void b2FreeIndex(b2IndexPool* pool, int32_t index)
+{
+	assert(index < pool->index);
+	b2Array_Push(pool->freeIndexArray, index);
+}
 
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 {

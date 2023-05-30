@@ -31,6 +31,8 @@ void b2Array_Grow(void** a, int32_t elementSize);
 	a[index] = a[b2Array(a).count - 1]; \
 	b2Array(a).count--
 
+#define b2Array_Last(a) (a)[b2Array(a).count - 1];
+
 #define b2Array_Pop(a) \
 	assert(0 < b2Array(a).count); \
 	b2Array(a).count--

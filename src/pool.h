@@ -3,8 +3,25 @@
 
 #pragma once
 
+#include "array.h"
+
 #include <stdbool.h>
 #include <stdint.h>
+
+typedef struct b2IndexPool
+{
+	int32_t* freeIndexArray;
+
+	// This is the highest index to be allocated + 1. This allows many indices
+	// to be allocated without using the array.
+	int32_t index;
+} b2IndexPool;
+
+b2IndexPool b2CreateIndexPool(int32_t capacity);
+void b2DestroyIndexPool(b2IndexPool* pool);
+
+int32_t b2AllocIndex(b2IndexPool* pool);
+void b2FreeIndex(b2IndexPool* pool, int32_t index);
 
 // Any pooled struct must have this as the first member.
 typedef struct b2Object
@@ -34,3 +51,4 @@ static inline bool b2ObjectValid(const b2Object* object)
 	// this means the object is not on the free list
 	return object->index == object->next;
 }
+

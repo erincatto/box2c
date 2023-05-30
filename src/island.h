@@ -16,6 +16,7 @@ typedef struct b2IslandNode
 	// B2_NULL_INDEX if free
 	int32_t bodyIndex;
 	int32_t prevNode, nextNode;
+	int32_t edgeList;
 	int32_t islandIndex;
 } b2IslandNode;
 
@@ -29,6 +30,7 @@ typedef struct b2IslandEdge
 	// B2_NULL_INDEX if static
 	int32_t node1, node2;
 	int32_t prevEdge, nextEdge;
+	int32_t 
 } b2IslandEdge;
 
 // TODO_ERIN eventually b2Island
