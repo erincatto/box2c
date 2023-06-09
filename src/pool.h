@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Index pool allows for SoA pools, the only requirement
+// is that the associated arrays have sufficient capacity.
 typedef struct b2IndexPool
 {
 	int32_t* freeIndexArray;

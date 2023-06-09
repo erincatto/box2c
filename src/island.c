@@ -19,6 +19,7 @@
 #include <float.h>
 #include <string.h>
 
+// Persistent island manager
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
 
@@ -28,19 +29,29 @@ b2IslandManager* b2CreateIslandManager(int32_t nodeCapacity, int32_t edgeCapacit
 {
 	b2IslandManager* manager = b2Alloc(sizeof(b2IslandManager));
 	*manager = s_defaultManager;
-	manager->nodePool = b2CreatePool(sizeof(b2IslandNode), nodeCapacity);
-	manager->edgePool = b2CreatePool(sizeof(b2IslandEdge), edgeCapacity);
+	
 	manager->islandPool = b2CreatePool(sizeof(b2PersistentIsland), 16);
+	manager->islands = (b2PersistentIsland*)manager->islandPool.memory;
+
+	manager->nodeIndexPool = b2CreateIndexPool(nodeCapacity);
+	manager->nodeArray = b2CreateArray(sizeof(b2IslandNode), nodeCapacity);
+
+	manager->edgeIndexPool = b2CreateIndexPool(edgeCapacity);
+	manager->edgeArray = b2CreateArray(sizeof(b2IslandEdge), edgeCapacity);
+	manager->halfEdgeArray = b2CreateArray(sizeof(b2IslandHalfEdge), 2 * edgeCapacity);
 }
 
 void b2DestroyIslandManager(b2IslandManager* manager)
 {
-	b2DestroyPool(&manager->nodePool);
-	b2DestroyPool(&manager->edgePool);
 	b2DestroyPool(&manager->islandPool);
-	manager->nodes = NULL;
-	manager->edges = NULL;
-	manager->islands = NULL;
+	
+	b2DestroyIndexPool(&manager->nodeIndexPool);
+	b2DestroyArray(&manager->nodeArray);
+
+	b2DestroyIndexPool(&manager->edgeIndexPool);
+	b2DestroyArray(&manager->edgeArray);
+	b2DestroyArray(&manager->halfEdgeArray);
+
 	b2Free(manager);
 }
 
@@ -61,8 +72,10 @@ void b2FreeIsland(b2IslandManager* manager, b2PersistentIsland* island)
 // Note: no static bodies
 int32_t b2AddIslandNode(b2IslandManager* manager, int32_t bodyIndex)
 {
-	b2IslandNode* node = (b2IslandNode*)b2AllocObject(&manager->nodePool);
-	manager->nodes = (b2IslandNode*)manager->nodePool.memory;
+	int32_t nodeIndex = b2AllocIndex(&manager->nodeIndexPool);
+
+	b2Array_Check(&manager->nodeArray, nodeIndex);
+	b2IslandNode* node = manager->nodeArray + nodeIndex;
 
 	b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&manager->islandPool);
 	manager->islands = (b2PersistentIsland*)manager->islandPool.memory;
@@ -72,12 +85,15 @@ int32_t b2AddIslandNode(b2IslandManager* manager, int32_t bodyIndex)
 	node->prevNode = B2_NULL_INDEX;
 	node->nextNode = B2_NULL_INDEX;
 
-	node->edgeList = B2_NULL_INDEX;
+	node->halfEdgeList = B2_NULL_INDEX;
 
-	island->nodeList = node->object.index;
+	island->nodeList = nodeIndex;
 	island->edgeList = B2_NULL_INDEX;
 
-	return node->object.index;
+	island->prevIsland = B2_NULL_INDEX;
+	island->nextIsland = B2_NULL_INDEX;
+
+	return nodeIndex;
 }
 
 void b2RemoveIslandNode(b2IslandManager* manager, int32_t nodeIndex)
