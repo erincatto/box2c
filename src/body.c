@@ -7,6 +7,7 @@
 #include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
+#include "island.h"
 #include "joint.h"
 #include "world.h"
 #include "shape.h"
@@ -22,12 +23,6 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (world->locked)
 	{
-		return b2_nullBodyId;
-	}
-
-	if (world->bodyPool.count == world->bodyPool.capacity)
-	{
-		assert(false);
 		return b2_nullBodyId;
 	}
 
@@ -57,7 +52,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->torque = 0.0f;
 	b->shapeIndex = B2_NULL_INDEX;
 	b->jointIndex = B2_NULL_INDEX;
-	b->contacts = NULL;
+	b->contactList = B2_NULL_INDEX;
 	b->contactCount = 0;
 	b->mass = 0.0f;
 	b->invMass = 0.0f;
@@ -69,20 +64,29 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->sleepTime = 0.0f;
 	b->userData = def->userData;
 	b->world = worldId.index;
-	b->islandId = 0;
+	b->islandIndex = 0;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
 
-	if (def->isAwake && def->type != b2_staticBody)
+	b->islandIndex = B2_NULL_INDEX;
+	b->islandPrev = B2_NULL_INDEX;
+	b->islandNext = B2_NULL_INDEX;
+
+	if (b->type != b2_staticBody)
 	{
-		int32_t awakeIndex = atomic_fetch_add_long(&world->awakeCount, 1);
-		atomic_store_long(&b->awakeIndex, awakeIndex);
-		world->awakeBodies[awakeIndex] = b->object.index;
-	}
-	else
-	{
-		atomic_store_long(&b->awakeIndex, B2_NULL_INDEX);
+		// Every new body gets a new island. Islands get merged during simulation.
+		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
+		world->islands = (b2Body*)world->bodyPool.memory;
+
+		b->islandIndex = island->object.index;
+		island->bodyList = b->object.index;
+
+		if (def->isAwake)
+		{
+			island->awakeIndex = b2Array(world->awakeIslandArray).count;
+			b2Array_Push(world->awakeIslandArray, island->object.index);
+		}
 	}
 
 	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
@@ -124,7 +128,49 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b->m_jointList = nullptr;
 #endif
 
+	if (body->islandIndex != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* island = world->islands + body->islandIndex;
+		island->isDirty = true;
+
+		// Fix the island's linked list of bodies
+		if (body->islandPrev != B2_NULL_INDEX)
+		{
+			world->bodies[body->islandPrev].islandNext = body->islandNext;
+		}
+
+		if (body->islandNext != B2_NULL_INDEX)
+		{
+			world->bodies[body->islandNext].islandPrev = body->islandPrev;
+		}
+
+		if (island->bodyList = body->object.index)
+		{
+			island->bodyList = body->islandNext;
+
+			if (island->bodyList == B2_NULL_INDEX)
+			{
+				// Destroy empty island
+				if (island->awakeIndex != B2_NULL_INDEX)
+				{
+					int32_t islandCount = b2Array(world->awakeIslandArray).count;
+					b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
+					if (island->awakeIndex < islandCount - 1)
+					{
+						// Fix awake index on swapped island
+						int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
+						world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
+					}
+				}
+
+				b2FreeObject(&world->islandPool, &island->object);
+			}
+		}
+
+	}
 	// Delete the attached contacts
+	int32_t edgeIndex = body->contactList;
+
 	b2ContactEdge* ce = body->contacts;
 	while (ce)
 	{
@@ -508,14 +554,11 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		return;
 	}
 
+	b2PersistentIsland* island = world->islands + body->islandIndex;
+
 	if (flag == true && body->awakeIndex == B2_NULL_INDEX)
 	{
 		body->sleepTime = 0.0f;
-		assert(body->awakeIndex == B2_NULL_INDEX);
-		long awakeCount = atomic_load_long(&world->awakeCount);
-		assert(awakeCount < world->bodyCapacity);
-		body->awakeIndex = awakeCount;
-		world->awakeBodies[body->awakeIndex] = body->object.index;
 		atomic_fetch_add_long(&world->awakeCount, 1);
 	}
 	else if (flag == false && body->awakeIndex != B2_NULL_INDEX)

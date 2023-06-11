@@ -14,13 +14,11 @@ typedef struct b2World b2World;
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list
 // maintained in each attached body. Each contact has two contact
-// nodes, one for each attached body.
+// edges, one for each attached body.
 typedef struct b2ContactEdge
 {
-	int32_t otherBodyIndex;
-	struct b2Contact* contact;
-	struct b2ContactEdge* prev;
-	struct b2ContactEdge* next;
+	int32_t prevEdge;
+	int32_t nextEdge;
 } b2ContactEdge;
 
 // Flags stored in b2Contact::flags
@@ -46,12 +44,9 @@ enum b2ContactFlags
 /// that has no contact points.
 typedef struct b2Contact
 {
-	int32_t index;
-	uint32_t flags;
+	b2Object object;
 
-	// Edges for connecting shapes (and thus bodies). These are the edges in the body-contact graph.
-	b2ContactEdge edgeA;
-	b2ContactEdge edgeB;
+	uint32_t flags;
 
 	int32_t shapeIndexA;
 	int32_t shapeIndexB;
@@ -62,7 +57,8 @@ typedef struct b2Contact
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
-	int32_t islandEdgeId;
+	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
+	int32_t islandIndex;
 
 	// Mixed friction and restitution
 	float friction;

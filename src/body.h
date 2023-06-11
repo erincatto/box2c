@@ -43,12 +43,16 @@ typedef struct b2Body
 	int32_t shapeIndex;
 	int32_t jointIndex;
 
-	struct b2ContactEdge* contacts;
+	// Index into b2ContactEdge array
+	int32_t contactList;
 	int32_t contactCount;
 
-	B2_ATOMIC long awakeIndex;
+	// A non-static body is always in an island. B2_NULL_INDEX for static bodies.
+	int32_t islandIndex;
 
-	int32_t islandNodeId;
+	// Doubly linked island list
+	int32_t islandPrev;
+	int32_t islandNext;
 
 	float mass, invMass;
 

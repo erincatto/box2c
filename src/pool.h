@@ -25,6 +25,8 @@ void b2DestroyIndexPool(b2IndexPool* pool);
 int32_t b2AllocIndex(b2IndexPool* pool);
 void b2FreeIndex(b2IndexPool* pool, int32_t index);
 
+// A pooled object has a stable index, but not a stable pointer.
+ 
 // Any pooled struct must have this as the first member.
 typedef struct b2Object
 {

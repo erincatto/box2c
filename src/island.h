@@ -9,63 +9,37 @@
 typedef struct b2IslandBuilder b2IslandBuilder;
 typedef struct b2StepContext b2StepContext;
 
-typedef struct b2IslandNode
-{
-	// B2_NULL_INDEX if free
-	int32_t bodyIndex;
-	int32_t prevNode, nextNode;
-	int32_t halfEdgeList;
-	int32_t islandIndex;
-} b2IslandNode;
+// Deterministic solver
+// 
+// Collide all awake contacts
+// Use bit array to emit start/stop touching events in defined order, per thread. Try using contact index, assuming contacts are created in a deterministic order.
+// bit-wise OR together bit arrays and issue changes:
+// - start touching: merge islands - temporary linked list - mark root island dirty - wake all - largest island is root
+// - stop touching: mark island dirty - wake island
+// Reserve island jobs
+// - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
-typedef struct b2IslandEdge
-{
-	// B2_NULL_INDEX if free
-	int32_t contactIndex;
-
-	// B2_NULL_INDEX if static
-	int32_t node1, node2;
-	int32_t prevEdge, nextEdge;
-} b2IslandEdge;
-
-// For node edge list
-typedef struct b2IslandHalfEdge
-{
-	int32_t prevHalfEdge, nextHalfEdge;
-} b2IslandHalfEdge;
-
+// Persistent island
+// https://en.wikipedia.org/wiki/Component_(graph_theory)
+// https://en.wikipedia.org/wiki/Dynamic_connectivity
 // TODO_ERIN eventually b2Island
 typedef struct b2PersistentIsland
 {
 	b2Object object;
 
-	// B2_NULL_INDEX if free
-	int32_t nodeList;
-	int32_t edgeList;
+	int32_t bodyList;
+	int32_t contactList;
 
 	// This allow islands to be linked during a merge
 	int32_t prevIsland;
 	int32_t nextIsland;
+
+	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
+	int32_t awakeIndex;
+
+	// A dirty island may need to be split
+	bool isDirty;
 } b2PersistentIsland;
-
-typedef struct b2IslandManager
-{
-	b2Pool islandPool;
-	b2PersistentIsland* islands;
-
-	b2IndexPool nodeIndexPool;
-	b2IslandNode* nodeArray;
-
-	b2IndexPool edgeIndexPool;
-	b2IslandEdge* edgeArray;
-	b2IslandHalfEdge* halfEdgeArray;
-} b2IslandManager;
-
-int32_t b2AddIslandNode(b2IslandManager* manager, int32_t bodyIndex);
-void b2RemoveIslandNode(b2IslandManager* manager, int32_t nodeIndex);
-
-int32_t b2AddIslandEdge(b2IslandManager* manager, int32_t contactIndex, int32_t node1, int32_t node2);
-void b2RemoveIslandEdge(b2IslandManager* manager, int32_t edgeIndex);
 
 typedef struct b2Island
 {
