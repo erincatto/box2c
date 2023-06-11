@@ -19,6 +19,8 @@
 #include <float.h>
 #include <string.h>
 
+#define B2_VALIDATE 0
+
 /*
 Position Correction Notes
 =========================
@@ -162,12 +164,12 @@ b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b
 
 		if (builder->contactCount > 0)
 		{
-			island->contactIndices = builder->contactIslands;
+			island->contactElements = builder->contactIslands;
 			island->contactCount = builder->contactIslandEnds[0];
 		}
 		else
 		{
-			island->contactIndices = NULL;
+			island->contactElements = NULL;
 			island->contactCount = 0;
 		}
 	}
@@ -192,15 +194,18 @@ b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b
 		if (builder->contactCount > 0)
 		{
 			int32_t contactStartIndex = builder->contactIslandEnds[islandIndex - 1];
-			island->contactIndices = builder->contactIslands + contactStartIndex;
+			island->contactElements = builder->contactIslands + contactStartIndex;
 			island->contactCount = builder->contactIslandEnds[islandIndex] - contactStartIndex;
 		}
 		else
 		{
-			island->contactIndices = NULL;
+			island->contactElements = NULL;
 			island->contactCount = 0;
 		}
 	}
+
+	island->counters = b2AllocateStackItem(alloc, (island->bodyCount + 1) * sizeof(int32_t), "counts");
+	island->sortedContacts = b2AllocateStackItem(alloc, island->contactCount * sizeof(int32_t), "sorted contacts");
 
 	island->world = world;
 	island->context = context;
@@ -208,7 +213,7 @@ b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->context;
 	contactSolverDef.world = world;
-	contactSolverDef.contactIndices = island->contactIndices;
+	contactSolverDef.contactElements = island->contactElements;
 	contactSolverDef.count = island->contactCount;
 	island->contactSolver = b2CreateContactSolver(alloc, &contactSolverDef);
 
@@ -220,6 +225,8 @@ void b2DestroyIsland(b2Island* island)
 	// Destroy in reverse order
 	b2StackAllocator* alloc = island->world->stackAllocator;
 	b2DestroyContactSolver(alloc, island->contactSolver);
+	b2FreeStackItem(alloc, island->sortedContacts);
+	b2FreeStackItem(alloc, island->counters);
 	b2FreeStackItem(alloc, island);
 }
 
@@ -274,8 +281,6 @@ if (island->bodyCount > 16)
 			clusterCenters[j] = b2Add(clusterCenters[j], b->position);
 			clusterCounts[j] += 1;
 		}
-
-
 	}
 }
 #endif
@@ -293,7 +298,8 @@ void b2SolveIsland(b2Island* island)
 	float h = context->dt;
 
 	// Integrate velocities and apply damping. Initialize the body state.
-	for (int32_t i = 0; i < island->bodyCount; ++i)
+	int32_t bodyCount = island->bodyCount;
+	for (int32_t i = 0; i < bodyCount; ++i)
 	{
 		b2Body* b = bodies + island->bodyIndices[i];
 
@@ -322,10 +328,116 @@ void b2SolveIsland(b2Island* island)
 			b->linearVelocity = v;
 			b->angularVelocity = w;
 		}
+
+		b->islandIndex = i;
 	}
 
+	#if 0
+	// Sort contacts for determinism
+	// TODO_ERIN consider shape index
+	// TODO_ERIN this is not deterministic because the island body indices are not in deterministic order
+	// https://en.wikipedia.org/wiki/Counting_sort
+	b2Contact** contacts = world->activeContacts;
+	int32_t* counters = island->counters;
+	int32_t* contactIndices = island->contactIndices;
+	int32_t contactCount = island->contactCount;
+	int32_t* sortedContacts = island->sortedContacts;
+
+	memset(counters, 0, (bodyCount + 1)* sizeof(int32_t));
+
+	for (int32_t i = 0; i < contactCount; ++i)
+	{
+		int32_t contactIndex = contactIndices[i];
+		int32_t globalBodyIndexB = contacts[contactIndex]->edgeA.otherBodyIndex;
+		int32_t localBodyIndexB = bodies[globalBodyIndexB].islandIndex + 1;
+		
+		assert(0 <= localBodyIndexB && localBodyIndexB <= island->bodyCount);
+		counters[localBodyIndexB] += 1;
+	}
+
+	for (int32_t i = 1; i <= bodyCount; ++i)
+	{
+		counters[i] += counters[i - 1];
+	}
+
+	for (int32_t i = contactCount - 1; i >= 0; --i)
+	{
+		int32_t contactIndex = contactIndices[i];
+		int32_t globalBodyIndexB = contacts[contactIndex]->edgeA.otherBodyIndex;
+		int32_t localBodyIndexB = bodies[globalBodyIndexB].islandIndex + 1;
+
+		assert(0 <= localBodyIndexB && localBodyIndexB <= island->bodyCount);
+		counters[localBodyIndexB] -= 1;
+		int32_t j = counters[localBodyIndexB];
+		assert(0 <= j && j < contactCount);
+		sortedContacts[j] = contactIndices[i];
+	}
+
+	#if B2_VALIDATE == 1
+	for (int32_t i = 1; i < contactCount; ++i)
+	{
+		int32_t c1 = sortedContacts[i - 1];
+		int32_t gb1 = contacts[c1]->edgeA.otherBodyIndex;
+		int32_t b1 = bodies[gb1].islandIndex + 1;
+
+		int32_t c2 = sortedContacts[i];
+		int32_t gb2 = contacts[c2]->edgeA.otherBodyIndex;
+		int32_t b2 = bodies[gb2].islandIndex + 1;
+
+		assert(b1 <= b2);
+	}
+	#endif
+
+	memset(counters, 0, (bodyCount + 1) * sizeof(int32_t));
+
+	for (int32_t i = 0; i < contactCount; ++i)
+	{
+		int32_t contactIndex = sortedContacts[i];
+		int32_t globalBodyIndexA = contacts[contactIndex]->edgeB.otherBodyIndex;
+		int32_t localBodyIndexA = bodies[globalBodyIndexA].islandIndex + 1;
+
+		assert(0 <= localBodyIndexA && localBodyIndexA <= island->bodyCount);
+		counters[localBodyIndexA] += 1;
+	}
+
+	for (int32_t i = 1; i <= bodyCount; ++i)
+	{
+		counters[i] += counters[i - 1];
+	}
+
+	for (int32_t i = contactCount - 1; i >= 0; --i)
+	{
+		int32_t contactIndex = sortedContacts[i];
+		int32_t globalBodyIndexA = contacts[contactIndex]->edgeB.otherBodyIndex;
+		int32_t localBodyIndexA = bodies[globalBodyIndexA].islandIndex + 1;
+
+		assert(0 <= localBodyIndexA && localBodyIndexA <= island->bodyCount);
+		counters[localBodyIndexA] -= 1;
+		int32_t j = counters[localBodyIndexA];
+		assert(0 <= j && j < contactCount);
+		contactIndices[j] = sortedContacts[i];
+	}
+
+	#if B2_VALIDATE == 1
+	for (int32_t i = 1; i < contactCount; ++i)
+	{
+		int32_t c1 = contactIndices[i - 1];
+		int32_t gb1 = contacts[c1]->edgeB.otherBodyIndex;
+		int32_t b1 = bodies[gb1].islandIndex + 1;
+
+		int32_t c2 = contactIndices[i];
+		int32_t gb2 = contacts[c2]->edgeB.otherBodyIndex;
+		int32_t b2 = bodies[gb2].islandIndex + 1;
+
+		assert(b1 <= b2);
+	}
+	#endif
+	#endif
+
 	// Solver data
+	b2TracyCZoneNC(initc, "Init Contacts", b2_colorSeashell2, true);
 	b2ContactSolver_Initialize(island->contactSolver);
+	b2TracyCZoneEnd(initc);
 	
 	for (int32_t i = 0; i < island->jointCount; ++i)
 	{
@@ -580,21 +692,17 @@ void b2CompleteIsland(b2Island* island)
 	}
 
 	// Report impulses
-	b2Contact** contacts = world->contactArray;
-
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
 	{
 		int16_t worldIndex = world->index;
 		int32_t count = island->contactCount;
-		const int32_t* contactIndices = island->contactIndices;
+		const b2ContactElement* elements = island->contactElements;
 		const b2Shape* shapes = world->shapes;
 
 		for (int32_t i = 0; i < count; ++i)
 		{
-			int32_t index = contactIndices[i];
-			b2Array_Check(world->contactArray, index);
-			const b2Contact* contact = contacts[index];
+			const b2Contact* contact = elements[i].contact;
 
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;
 			const b2Shape* shapeB = shapes + contact->shapeIndexB;

@@ -7,13 +7,14 @@
 
 #include "solver_data.h"
 
+typedef struct b2ContactElement b2ContactElement;
 typedef struct b2StackAllocator b2StackAllocator;
 
 typedef struct b2ContactSolverDef
 {
 	const b2StepContext* context;
 	struct b2World* world;
-	int32_t* contactIndices;
+	b2ContactElement* contactElements;
 	int32_t count;
 } b2ContactSolverDef;
 
@@ -23,7 +24,7 @@ typedef struct b2ContactSolver
 	struct b2World* world;
 	struct b2ContactPositionConstraint* positionConstraints;
 	struct b2ContactVelocityConstraint* velocityConstraints;
-	int32_t* contactIndices;
+	b2ContactElement* contactElements;
 	int32_t count;
 } b2ContactSolver;
 

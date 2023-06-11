@@ -55,7 +55,7 @@ b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverD
 {
 	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver), "contact solver");
 	solver->context = def->context;
-	solver->contactIndices = def->contactIndices;
+	solver->contactElements = def->contactElements;
 	solver->count = def->count;
 	solver->positionConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactPositionConstraint), "position constraints");
 	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactVelocityConstraint), "velocity constraints");
@@ -99,20 +99,19 @@ static int b2CompareContacts(void* context, const void* a, const void* b)
 	return contactA->index - contactB->index;
 }
 
-extern void b2SortContacts(b2Contact** contacts, int32_t* indices, int32_t count);
+extern void b2SortContacts(b2ContactElement* elements, int32_t count);
 
 void b2ContactSolver_Initialize(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
-	int32_t* contactIndices = solver->contactIndices;
+	b2ContactElement* elements = solver->contactElements;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->activeContacts;
 
 	if (g_sortContacts)
 	{
 		//qsort_s(contactIndices, count, sizeof(int32_t), b2CompareContacts, contacts); 
-		b2SortContacts(contacts, contactIndices, count);
+		b2SortContacts(elements, count);
 	}
 
 	b2StepContext context = *solver->context;
@@ -122,9 +121,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	// Initialize position independent portions of the constraints.
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t index = contactIndices[i];
-		assert(0 <= index && index < world->activeContactCount);
-		const b2Contact* contact = contacts[index];
+		const b2Contact* contact = elements[i].contact;
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -153,7 +150,6 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 		float iA = bodyA->invI;
 		float mB = bodyB->invMass;
 		float iB = bodyB->invI;
-
 
 		b2Rot qA = bodyA->transform.q;
 		b2Vec2 cA = bodyA->position;
@@ -256,9 +252,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	{
 		for (int32_t i = 0; i < count; ++i)
 		{
-			int32_t index = contactIndices[i];
-			assert(0 <= index && index < world->activeContactCount);
-			const b2Contact* contact = contacts[index];
+			const b2Contact* contact = elements[i].contact;
 
 			int32_t indexA = contact->edgeB.otherBodyIndex;
 			int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -302,17 +296,14 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
-	const int32_t* contactIndices = solver->contactIndices;
+	const b2ContactElement* elements = solver->contactElements;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->activeContacts;
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t index = contactIndices[i];
-		assert(0 <= index && index < world->activeContactCount);
-		const b2Contact* contact = contacts[index];
+		const b2Contact* contact = elements[i].contact;
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -638,18 +629,15 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
-	const int32_t* contactIndices = solver->contactIndices;
+	const b2ContactElement* elements = solver->contactElements;
 	float threshold = solver->context->restitutionThreshold;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->activeContacts;
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t index = contactIndices[i];
-		assert(0 <= index && index < world->activeContactCount);
-		const b2Contact* contact = contacts[index];
+		const b2Contact* contact = elements[i].contact;
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;
@@ -714,16 +702,11 @@ void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver)
 void b2ContactSolver_StoreImpulses(b2ContactSolver* solver)
 {
 	int32_t count = solver->count;
-	const int32_t* contactIndices = solver->contactIndices;
-
-	b2World* world = solver->world;
-	b2Contact** contacts = world->activeContacts;
+	b2ContactElement* elements = solver->contactElements;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t index = contactIndices[i];
-		assert(0 <= index && index < world->activeContactCount);
-		b2Contact* contact = contacts[index];
+		b2Contact* contact = elements[i].contact;
 
 		b2ContactVelocityConstraint* vc = solver->velocityConstraints + i;
 		b2Manifold* manifold = &contact->manifold;
@@ -740,19 +723,15 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 {
 	float minSeparation = 0.0f;
 	int32_t count = solver->count;
-	const int32_t* contactIndices = solver->contactIndices;
+	const b2ContactElement* elements = solver->contactElements;
 	float slop = b2_linearSlop;
 
 	b2World* world = solver->world;
-	b2Contact** contacts = world->activeContacts;
-
 	b2Body* bodies = world->bodies;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t index = contactIndices[i];
-		assert(0 <= index && index < world->activeContactCount);
-		const b2Contact* contact = contacts[index];
+		const b2Contact* contact = elements[i].contact;
 
 		int32_t indexA = contact->edgeB.otherBodyIndex;
 		int32_t indexB = contact->edgeA.otherBodyIndex;

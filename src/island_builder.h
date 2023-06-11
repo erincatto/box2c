@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 typedef struct b2StackAllocator b2StackAllocator;
+typedef struct b2Contact b2Contact;
 
 // Union-find link with extra data
 typedef struct b2BodyLink
@@ -22,6 +23,15 @@ typedef struct b2IslandIndex
 	int32_t index;
 	int32_t constraintCount;
 } b2IslandIndex;
+
+typedef struct b2ContactElement
+{
+	b2Contact* contact;
+
+	// sort key is shapeIndexA << 32 | shapeIndexB
+	// needed to sort contacts for determinism
+	uint64_t sortKey;
+} b2ContactElement;
 
 // Parallel Union-Find island builder based Jorrit Rouwe's presentation:
 // https://gdcvault.com/play/1027560/Architecting-Jolt-Physics-for-Horizon
@@ -55,7 +65,8 @@ typedef struct b2IslandBuilder
 	
 	// Contact indices ordered by island. Index into b2World::activeContacts
 	// TODO_ERIN makes this an array of b2Contact*?
-	int32_t* contactIslands;
+	b2ContactElement* contactElements;
+	b2ContactElement* contactIslands;
 
 	// End contact index for each island
 	int32_t* contactIslandEnds;
@@ -85,7 +96,7 @@ void b2StartIslands(b2IslandBuilder* builder, int32_t bodyCapacity, int32_t join
 void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t awakeIndexA, int32_t awakeIndexB);
 
 // Link a contact given the index into the active contact array and the awake body array indices
-void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeIndexA, int32_t awakeIndexB);
+void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, b2Contact* contact, uint64_t sortKey, int32_t awakeIndexA, int32_t awakeIndexB);
 
 // single-thread calls
 void b2FinishIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32_t bodyCount, int32_t jointCount, int32_t contactCount, b2StackAllocator* allocator);

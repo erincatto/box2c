@@ -491,7 +491,10 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 					assert(otherBody->type == b2_staticBody || awakeIndex < otherAwakeIndex);
 
 					// This is called even if the other body is static
-					b2LinkContact(&world->islandBuilder, activeContactIndex, awakeIndex, otherAwakeIndex);
+					uint64_t keyA = contact->shapeIndexA;
+					uint64_t keyB = contact->shapeIndexB;
+					uint64_t sortKey = keyA << 32 | keyB;
+					b2LinkContact(&world->islandBuilder, activeContactIndex, contact, sortKey, awakeIndex, otherAwakeIndex);
 				}
 			}
 

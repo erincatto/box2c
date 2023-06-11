@@ -47,6 +47,7 @@ void b2DestroyIslandBuilder(b2IslandBuilder* builder)
 	b2Free(builder->links);
 }
 
+// TODO_ERIN this shouldn't use the stack allocator. Instead it should grow capacity as needed.
 void b2StartIslands(b2IslandBuilder* builder, int32_t bodyCapacity, int32_t jointCapacity, int32_t contactCapacity, b2StackAllocator* allocator)
 {
 	if (bodyCapacity > builder->bodyCapacity)
@@ -68,6 +69,13 @@ void b2StartIslands(b2IslandBuilder* builder, int32_t bodyCapacity, int32_t join
 
 	builder->contactCapacity = contactCapacity;
 	builder->contactLinks = b2AllocateStackItem(allocator, contactCapacity * sizeof(int32_t), "contact links");
+	builder->contactElements = b2AllocateStackItem(allocator, contactCapacity * sizeof(b2ContactElement), "contact elements");
+
+	builder->contactIslandEnds = NULL;
+	builder->contactIslands = NULL;
+
+	builder->jointIslandEnds = NULL;
+	builder->jointIslands = NULL;
 }
 
 // body union
@@ -132,7 +140,7 @@ void b2LinkJoint(b2IslandBuilder* builder, int32_t jointIndex, int32_t awakeInde
 	builder->jointLinks[jointIndex] = B2_MAX(awakeIndexA, awakeIndexB);
 }
 
-void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awakeIndexA, int32_t awakeIndexB)
+void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, b2Contact* contact, uint64_t sortKey, int32_t awakeIndexA, int32_t awakeIndexB)
 {
 	assert(awakeIndexA != B2_NULL_INDEX || awakeIndexB != B2_NULL_INDEX);
 	assert(contactIndex < builder->contactCapacity);
@@ -141,6 +149,8 @@ void b2LinkContact(b2IslandBuilder* builder, int32_t contactIndex, int32_t awake
 
 	// Max to ensure awake body (static bodies are never awake)
 	builder->contactLinks[contactIndex] = B2_MAX(awakeIndexA, awakeIndexB);
+	builder->contactElements[contactIndex].contact = contact;
+	builder->contactElements[contactIndex].sortKey = sortKey;
 }
 
 static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32_t bodyCount, b2StackAllocator* allocator)
@@ -207,7 +217,7 @@ static void b2BuildBodyIslands(b2IslandBuilder* builder, const int32_t* awakeBod
 	builder->bodyIslands = bodyIslands;
 }
 
-static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* constraintToBody, int32_t constraintCount, int32_t** outConstraints, int32_t** outConstraintsEnd, b2StackAllocator* allocator)
+static void b2BuildJointIslands(b2IslandBuilder* builder, const int32_t* constraintToBody, int32_t constraintCount, int32_t** outConstraints, int32_t** outConstraintsEnd, b2StackAllocator* allocator)
 {
 	if (constraintCount == 0)
 	{
@@ -220,33 +230,105 @@ static void b2BuildConstraintIslands(b2IslandBuilder* builder, const int32_t* co
 	int32_t* constraints = b2AllocateStackItem(allocator, constraintCount * sizeof(int32_t), "constraint islands");
 	int32_t* constraintEnds = b2AllocateStackItem(allocator, (islandCount + 1) * sizeof(int32_t), "constraint island ends");
 
-	for (int32_t i = 0; i <= islandCount; ++i)
-	{
-		constraintEnds[i] = 0;
-	}
+	// Counting sort constraints by island index with adjustment to keep end index array
+	// https://en.wikipedia.org/wiki/Counting_sort
+
+	// Over sized by 1
+	memset(constraintEnds, 0, (islandCount + 1) * sizeof(int32_t));
 
 	for (int32_t i = 0; i < constraintCount; ++i)
 	{
 		int32_t bodyIndex = constraintToBody[i];
-		int32_t nextIslandIndex = links[bodyIndex].islandIndex + 1;
-		assert(nextIslandIndex <= islandCount);
-		constraintEnds[nextIslandIndex]++;
+		int32_t islandIndex = links[bodyIndex].islandIndex;
+		assert(islandIndex < islandCount);
+
+		// Keeping a 0 at index 0
+		constraintEnds[islandIndex + 1] += 1;
 	}
+
+	assert(constraintEnds[0] == 0);
 
 	for (int32_t i = 1; i < islandCount; ++i)
 	{
 		constraintEnds[i] += constraintEnds[i - 1];
 	}
 
+	// Note: this would need to be reverse to keep the sort stable
 	for (int32_t i = 0; i < constraintCount; ++i)
 	{
 		int32_t bodyIndex = constraintToBody[i];
 		int32_t islandIndex = links[bodyIndex].islandIndex;
-		constraints[constraintEnds[islandIndex]++] = i;
+		int32_t j = constraintEnds[islandIndex];
+		constraints[j] = i;
+		constraintEnds[islandIndex] = j + 1;
 	}
+
+	// Now constraintEnds holds the end index for each constraint island (and implicitly the count)
+	// For example:
+	// [3, 5, 6]
+	// means the constraints have these islands:
+	// [0 0 0 1 1 2] 
 
 	*outConstraints = constraints;
 	*outConstraintsEnd = constraintEnds;
+}
+
+static void b2BuildContactIslands(b2IslandBuilder* builder, b2StackAllocator* allocator)
+{
+	int32_t contactCount = builder->contactCount;
+	if (contactCount == 0)
+	{
+		return;
+	}
+
+	const int32_t islandCount = builder->islandCount;
+	const b2BodyLink* links = builder->links;
+	const int32_t* contactLinks = builder->contactLinks;
+
+	b2ContactElement* contactIslands = b2AllocateStackItem(allocator, contactCount * sizeof(b2ContactElement), "contact islands");
+	int32_t* islandEnds = b2AllocateStackItem(allocator, (islandCount + 1) * sizeof(int32_t), "contact island ends");
+
+	// Counting sort constraints by island index with adjustment to keep end index array
+	// https://en.wikipedia.org/wiki/Counting_sort
+
+	// Over sized by 1
+	memset(islandEnds, 0, (islandCount + 1) * sizeof(int32_t));
+
+	// Count the number of contacts in each island
+	for (int32_t i = 0; i < contactCount; ++i)
+	{
+		int32_t bodyIndex = contactLinks[i];
+		int32_t islandIndex = links[bodyIndex].islandIndex;
+		assert(islandIndex < islandCount);
+
+		// Keeping a 0 at index 0
+		islandEnds[islandIndex + 1] += 1;
+	}
+
+	assert(islandEnds[0] == 0);
+
+	for (int32_t i = 1; i < islandCount; ++i)
+	{
+		islandEnds[i] += islandEnds[i - 1];
+	}
+
+	// Note: this would need to be reverse to keep the sort stable
+	for (int32_t i = 0; i < contactCount; ++i)
+	{
+		int32_t bodyIndex = contactLinks[i];
+		int32_t islandIndex = links[bodyIndex].islandIndex;
+		int32_t j = islandEnds[islandIndex];
+		contactIslands[j] = builder->contactElements[i];
+		islandEnds[islandIndex] = j + 1;
+	}
+
+	// Now constraintEnds holds the end index for each constraint island (and implicitly the count)
+	// For example:
+	// [3, 5, 6]
+	// means the constraints have these islands:
+	// [0 0 0 1 1 2]
+	builder->contactIslandEnds = islandEnds;
+	builder->contactIslands = contactIslands;
 }
 
 static int b2CompareIslands(const void* index1, const void* index2)
@@ -318,10 +400,10 @@ void b2FinishIslands(b2IslandBuilder* builder, const int32_t* awakeBodies, int32
 	b2BuildBodyIslands(builder, awakeBodies, bodyCount, allocator);
 
 	// Joints
-	b2BuildConstraintIslands(builder, builder->jointLinks, jointCount, &builder->jointIslands, &builder->jointIslandEnds, allocator);
+	b2BuildJointIslands(builder, builder->jointLinks, jointCount, &builder->jointIslands, &builder->jointIslandEnds, allocator);
 	
 	// Contacts
-	b2BuildConstraintIslands(builder, builder->contactLinks, contactCount, &builder->contactIslands, &builder->contactIslandEnds, allocator);
+	b2BuildContactIslands(builder, allocator);
 
 	// Sort islands so largest islands come first
 	b2SortIslands(builder, allocator);
@@ -360,6 +442,9 @@ void b2ResetIslands(b2IslandBuilder* builder, b2StackAllocator *allocator)
 		b2FreeStackItem(allocator, builder->bodyIslands);
 		builder->bodyIslands = NULL;
 	}
+
+	b2FreeStackItem(allocator, builder->contactElements);
+	builder->contactElements = NULL;
 
 	b2FreeStackItem(allocator, builder->contactLinks);
 	builder->contactLinks = NULL;

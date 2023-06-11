@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 
+typedef struct b2ContactElement b2ContactElement;
 typedef struct b2IslandBuilder b2IslandBuilder;
 typedef struct b2StepContext b2StepContext;
 
@@ -18,12 +19,18 @@ typedef struct b2Island
 	int32_t bodyCount;
 
 	// Indices into b2World::activeContacts
-	int32_t* contactIndices;
+	b2ContactElement* contactElements;
 	int32_t contactCount;
 
 	// Indices into b2StepContext::activeJoints
 	int32_t* jointIndices;
 	int32_t jointCount;
+
+	// Auxiliary array for counting sort (bodyCount + 1)
+	int32_t* counters;
+
+	// Sorted contact indices for determinism (countactCount)
+	int32_t* sortedContacts;
 
 	struct b2ContactSolver* contactSolver;
 
