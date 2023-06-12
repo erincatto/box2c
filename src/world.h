@@ -24,7 +24,6 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
-	b2IslandBuilder islandBuilder;
 
 	b2Pool bodyPool;
 	b2Pool contactPool;
@@ -39,14 +38,17 @@ typedef struct b2World
 	struct b2Shape* shapes;
 	struct b2PersistentIsland* islands;
 
-	int32_t bodyCapacity;
-	int32_t contactCapacity;
+	// Awake contacts. Updated every frame from the island jobs. Scrambled order.
+	int32_t* awakeContacts;
+	int32_t awakeContactCapacity;
+	B2_ATOMIC long awakeContactCount;
 
-	// This array is twice the size of the contact pool
-	struct b2ContactEdge* edgeArray;
+	bool* contactBitArray;
+
+	struct b2TaskContext* taskContextArray;
 
 	// Awake island array holds indices into the island array (islandPool).
-	// This is a dense array that is rebuild every time step.
+	// This is a dense array that is rebuilt every time step.
 	int32_t* awakeIslandArray;
 
 	b2Vec2 gravity;
@@ -83,3 +85,6 @@ b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(int16_t index);
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id);
+
+void b2AddAwakeContact(b2World* world, b2Contact* contact);
+void b2RemoveAwakeContact(b2Contact* contact);

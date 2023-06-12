@@ -40,10 +40,9 @@ typedef struct b2Body
 	b2Vec2 force;
 	float torque;
 
-	int32_t shapeIndex;
-	int32_t jointIndex;
+	int32_t shapeList;
+	int32_t jointList;
 
-	// Index into b2ContactEdge array
 	int32_t contactList;
 	int32_t contactCount;
 

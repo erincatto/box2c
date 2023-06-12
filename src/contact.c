@@ -93,12 +93,6 @@ void b2InitializeContactRegisters()
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
 {
-	if (b2Array(world->contactArray).count == b2Array(world->contactArray).capacity)
-	{
-		assert(false);
-		return;
-	}
-
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
 
@@ -112,11 +106,13 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	if (s_registers[type1][type2].primary == false)
 	{
+		// flip order
 		b2CreateContact(world, shapeB, childB, shapeA, childA);
 		return;
 	}
 
-	b2Contact* c = (b2Contact*)b2AllocBlock(world->blockAllocator, sizeof(b2Contact));
+	b2Contact* c = (b2Contact*)b2AllocObject(&world->contactPool);
+	world->contacts = (b2Contact*)world->contactPool.memory;
 
 	c->flags = b2_contactEnabledFlag;
 
@@ -131,101 +127,113 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->childB = childB;
 	c->cache = b2_emptyDistanceCache;
 	c->manifold = b2_emptyManifold;
-	c->islandId = 0;
+	c->islandIndex = B2_NULL_INDEX;
+	c->awakeIndex = B2_NULL_INDEX;
 	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	c->tangentSpeed = 0.0f;
 
-	// Insert into the world
-	c->index = b2Array(world->contactArray).count;
-	b2Array_Push(world->contactArray, c);
-
-	// Connect to island graph
-	c->edgeA = (b2ContactEdge){shapeB->bodyIndex, c, NULL, NULL};
-	c->edgeB = (b2ContactEdge){shapeA->bodyIndex, c, NULL, NULL};
-
-	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
-
 	// Connect to body A
-	c->edgeA.contact = c;
-
-	c->edgeA.prev = NULL;
-	c->edgeA.next = bodyA->contacts;
-	if (bodyA->contacts != NULL)
 	{
-		bodyA->contacts->prev = &c->edgeA;
+		b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+		c->edges[0].bodyIndex = shapeA->bodyIndex;
+		c->edges[0].prevKey = B2_NULL_INDEX;
+		c->edges[0].nextKey = bodyA->contactList;
+
+		int32_t keyA = (c->object.index << 1) | 0;
+		if (bodyA->contactList != B2_NULL_INDEX)
+		{
+			b2Contact* contactA = world->contacts + (bodyA->contactList >> 1);
+			b2ContactEdge* edgeA = contactA->edges + (bodyA->contactList & 1);
+			edgeA->prevKey = keyA;
+		}
+		bodyA->contactList = keyA;
+		bodyA->contactCount += 1;
 	}
-	bodyA->contacts = &c->edgeA;
-	bodyA->contactCount += 1;
 
 	// Connect to body B
-	c->edgeB.contact = c;
-
-	c->edgeB.prev = NULL;
-	c->edgeB.next = bodyB->contacts;
-	if (bodyB->contacts != NULL)
 	{
-		bodyB->contacts->prev = &c->edgeB;
+		b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+		c->edges[1].bodyIndex = shapeB->bodyIndex;
+		c->edges[1].prevKey = B2_NULL_INDEX;
+		c->edges[1].nextKey = bodyB->contactList;
+
+		int32_t keyB = (c->object.index << 1) | 1;
+		if (bodyB->contactList != B2_NULL_INDEX)
+		{
+			b2Contact* contactB = world->contacts + (bodyB->contactList >> 1);
+			b2ContactEdge* edgeB = contactB->edges + (bodyB->contactList & 1);
+			edgeB->prevKey = keyB;
+		}
+		bodyB->contactList = keyB;
+		bodyB->contactCount += 1;
 	}
-	bodyB->contacts = &c->edgeB;
-	bodyB->contactCount += 1;
+
+	// TODO_ERIN add to island?
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
-	b2Body* bodyA = world->bodies + contact->edgeB.otherBodyIndex;
-	b2Body* bodyB = world->bodies + contact->edgeA.otherBodyIndex;
+	b2ContactEdge* edgeA = contact->edges + 0;
+	b2ContactEdge* edgeB = contact->edges + 1;
+
+	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
+	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
 
 	// if (contactListener && contact->IsTouching())
 	//{
 	//	contactListener->EndContact(contact);
 	// }
 
-	int32_t count = b2Array(world->contactArray).count;
-	int32_t index = contact->index;
-	b2Array_RemoveSwap(world->contactArray, index);
-	if (index < count - 1)
-	{
-		// Fix swapped contact index
-		world->contactArray[index]->index = index;
-	}
-
 	// Remove from body A
-	if (contact->edgeA.prev)
+	if (edgeA->prevKey != B2_NULL_INDEX)
 	{
-		contact->edgeA.prev->next = contact->edgeA.next;
+		b2Contact* prevContact = world->contacts + (edgeA->prevKey >> 1);
+		b2ContactEdge* prevEdge = prevContact->edges + (edgeA->prevKey & 1);
+		prevEdge->nextKey = edgeA->nextKey;
 	}
 
-	if (contact->edgeA.next)
+	if (edgeA->nextKey != B2_NULL_INDEX)
 	{
-		contact->edgeA.next->prev = contact->edgeA.prev;
+		b2Contact* nextContact = world->contacts + (edgeA->nextKey >> 1);
+		b2ContactEdge* nextEdge = nextContact->edges + (edgeA->nextKey & 1);
+		nextEdge->prevKey = edgeA->prevKey;
 	}
 
-	if (&contact->edgeA == bodyA->contacts)
+	int32_t edgeKeyA = (contact->object.index << 1) | 0;
+	if (bodyA->contactList == edgeKeyA)
 	{
-		bodyA->contacts = contact->edgeA.next;
+		bodyA->contactList = edgeA->nextKey;
 	}
 
 	bodyA->contactCount -= 1;
 
 	// Remove from body B
-	if (contact->edgeB.prev)
+	if (edgeB->prevKey != B2_NULL_INDEX)
 	{
-		contact->edgeB.prev->next = contact->edgeB.next;
+		b2Contact* prevContact = world->contacts + (edgeB->prevKey >> 1);
+		b2ContactEdge* prevEdge = prevContact->edges + (edgeB->prevKey & 1);
+		prevEdge->nextKey = edgeB->nextKey;
 	}
 
-	if (contact->edgeB.next)
+	if (edgeB->nextKey != B2_NULL_INDEX)
 	{
-		contact->edgeB.next->prev = contact->edgeB.prev;
+		b2Contact* nextContact = world->contacts + (edgeB->nextKey >> 1);
+		b2ContactEdge* nextEdge = nextContact->edges + (edgeB->nextKey & 1);
+		nextEdge->prevKey = edgeB->prevKey;
 	}
 
-	if (&contact->edgeB == bodyB->contacts)
+	int32_t edgeKeyB = (contact->object.index << 1) | 1;
+	if (bodyB->contactList == edgeKeyB)
 	{
-		bodyB->contacts = contact->edgeB.next;
+		bodyB->contactList = edgeB->nextKey;
 	}
 
-	b2FreeBlock(world->blockAllocator, contact, sizeof(b2Contact));
+	bodyB->contactCount -= 1;
+
+	// TODO_ERIN remove from island?
+
+	b2FreeObject(&world->contactPool, &contact->object);
 }
 
 bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)

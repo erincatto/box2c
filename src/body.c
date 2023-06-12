@@ -50,8 +50,8 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->angularVelocity = def->angularVelocity;
 	b->force = b2Vec2_zero;
 	b->torque = 0.0f;
-	b->shapeIndex = B2_NULL_INDEX;
-	b->jointIndex = B2_NULL_INDEX;
+	b->shapeList = B2_NULL_INDEX;
+	b->jointList = B2_NULL_INDEX;
 	b->contactList = B2_NULL_INDEX;
 	b->contactCount = 0;
 	b->mass = 0.0f;
@@ -77,7 +77,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	{
 		// Every new body gets a new island. Islands get merged during simulation.
 		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
-		world->islands = (b2Body*)world->bodyPool.memory;
+		world->islands = (b2PersistentIsland*)world->islandPool.memory;
 
 		b->islandIndex = island->object.index;
 		island->bodyList = b->object.index;
@@ -128,76 +128,61 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b->m_jointList = nullptr;
 #endif
 
-	if (body->islandIndex != B2_NULL_INDEX)
+	// Destroy the attached contacts
+	int32_t edgeKey = body->contactList;
+	while (edgeKey != B2_NULL_INDEX)
 	{
-		b2PersistentIsland* island = world->islands + body->islandIndex;
-		island->isDirty = true;
+		int32_t contactIndex = edgeKey >> 1;
+		int32_t edgeIndex = edgeKey & 1;
 
-		// Fix the island's linked list of bodies
-		if (body->islandPrev != B2_NULL_INDEX)
+		int32_t twinKey = edgeKey ^ 1;
+		int32_t twinIndex = twinKey & 1;
+
+		b2Contact* contact = world->contacts + contactIndex;
+		b2ContactEdge* twin = contact->edges + twinIndex;
+
+		// Remove contact from other body's doubly linked list
+		if (twin->prevKey != B2_NULL_INDEX)
 		{
-			world->bodies[body->islandPrev].islandNext = body->islandNext;
+			b2Contact* prevContact = world->contacts + (twin->prevKey >> 1);
+			b2ContactEdge* prevEdge = prevContact->edges + (twin->prevKey & 1);
+			prevEdge->nextKey = twin->nextKey;
 		}
 
-		if (body->islandNext != B2_NULL_INDEX)
+		if (twin->nextKey != B2_NULL_INDEX)
 		{
-			world->bodies[body->islandNext].islandPrev = body->islandPrev;
+			b2Contact* nextContact = world->contacts + (twin->nextKey >> 1);
+			b2ContactEdge* nextEdge = nextContact->edges + (twin->nextKey & 1);
+			nextEdge->prevKey = twin->prevKey;
 		}
 
-		if (island->bodyList = body->object.index)
+		// Check other body's list head
+		b2Body* other = world->bodies + twin->bodyIndex;
+		if (other->contactList == twinKey)
 		{
-			island->bodyList = body->islandNext;
-
-			if (island->bodyList == B2_NULL_INDEX)
-			{
-				// Destroy empty island
-				if (island->awakeIndex != B2_NULL_INDEX)
-				{
-					int32_t islandCount = b2Array(world->awakeIslandArray).count;
-					b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
-					if (island->awakeIndex < islandCount - 1)
-					{
-						// Fix awake index on swapped island
-						int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
-						world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
-					}
-				}
-
-				b2FreeObject(&world->islandPool, &island->object);
-			}
+			other->contactList = twin->nextKey;
 		}
 
+		assert(other->contactCount > 0);
+		other->contactCount -= 1;
+
+		// TODO_ERIN remove from island?
+
+		// Remove from awake contact array
+		if (contact->awakeIndex != B2_NULL_INDEX)
+		{
+			b2RemoveAwakeContact(world, contact);
+		}
+
+		// Free contact
+		b2FreeObject(&world->contactPool, &contact->object);
+
+		b2ContactEdge* edge = contact->edges + edgeIndex;
+		edgeKey = edge->nextKey;
 	}
-	// Delete the attached contacts
-	int32_t edgeIndex = body->contactList;
-
-	b2ContactEdge* ce = body->contacts;
-	while (ce)
-	{
-		b2Contact* contact = ce->contact;
-
-		// TODO_ERIN EndContact callback?
-
-		b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-		b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-		bool isSensor = shapeA->isSensor || shapeB->isSensor;
-
-		if (contact->manifold.pointCount > 0 && isSensor == false)
-		{
-			b2Body* otherBody = world->bodies + ce->otherBodyIndex;
-			b2SetAwake(world, otherBody, true);
-		}
-
-		b2ContactEdge* ce0 = ce;
-		ce = ce->next;
-
-		// Careful because this modifies the contact edge list
-		b2DestroyContact(world, ce0->contact);
-	}
-	body->contacts = NULL;
 
 	// Delete the attached shapes. This destroys broad-phase proxies.
-	int32_t shapeIndex = body->shapeIndex;
+	int32_t shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
@@ -221,26 +206,51 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b2FreeObject(&world->shapePool, &shape->object);
 	}
 
-	// Remove awake body
-	int32_t awakeIndex = body->awakeIndex;
-	if (awakeIndex != B2_NULL_INDEX)
+	// Remove from island
+	if (body->islandIndex != B2_NULL_INDEX)
 	{
-		int32_t awakeCount = world->awakeCount;
+		b2PersistentIsland* island = world->islands + body->islandIndex;
+		island->isDirty = true;
 
-		assert(0 <= awakeIndex && awakeIndex < awakeCount);
-		assert(world->awakeBodies[awakeIndex] == body->object.index);
-
-		if (awakeIndex < awakeCount - 1)
+		// Fix the island's linked list of bodies
+		if (body->islandPrev != B2_NULL_INDEX)
 		{
-			// Fix awake index on body that got swapped
-			int32_t otherBodyIndex = world->awakeBodies[awakeCount - 1];
-			world->bodies[otherBodyIndex].awakeIndex = awakeIndex;
-			world->awakeBodies[awakeIndex] = otherBodyIndex;
+			world->bodies[body->islandPrev].islandNext = body->islandNext;
 		}
 
-		atomic_fetch_sub_long(&world->awakeCount, 1);
+		if (body->islandNext != B2_NULL_INDEX)
+		{
+			world->bodies[body->islandNext].islandPrev = body->islandPrev;
+		}
+
+		if (island->bodyList == body->object.index)
+		{
+			island->bodyList = body->islandNext;
+
+			if (island->bodyList == B2_NULL_INDEX)
+			{
+				// Destroy empty island
+
+				// Remove from awake islands array
+				if (island->awakeIndex != B2_NULL_INDEX)
+				{
+					int32_t islandCount = b2Array(world->awakeIslandArray).count;
+					b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
+					if (island->awakeIndex < islandCount - 1)
+					{
+						// Fix awake index on swapped island
+						int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
+						world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
+					}
+				}
+
+				// Free the island
+				b2FreeObject(&world->islandPool, &island->object);
+			}
+		}
 	}
 
+	// Free body
 	b2FreeObject(&world->bodyPool, &body->object);
 }
 
@@ -264,7 +274,7 @@ static void b2ComputeMass(b2World* w, b2Body* b)
 
 	// Accumulate mass over all shapes.
 	b2Vec2 localCenter = b2Vec2_zero;
-	int32_t shapeIndex = b->shapeIndex;
+	int32_t shapeIndex = b->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		const b2Shape* s = w->shapes + shapeIndex;
@@ -356,8 +366,8 @@ b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Ci
 	}
 
 	// Add to shape linked list
-	shape->nextShapeIndex = body->shapeIndex;
-	body->shapeIndex = shape->object.index;
+	shape->nextShapeIndex = body->shapeList;
+	body->shapeList = shape->object.index;
 
 	if (shape->density)
 	{
@@ -414,8 +424,8 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	}
 
 	// Add to shape linked list
-	shape->nextShapeIndex = body->shapeIndex;
-	body->shapeIndex = shape->object.index;
+	shape->nextShapeIndex = body->shapeList;
+	body->shapeList = shape->object.index;
 
 	if (shape->density)
 	{
@@ -448,7 +458,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	b2Body* body = world->bodies + shape->bodyIndex;
 
 	// Remove the shape from the body's singly linked list.
-	int32_t* shapeIndex = &body->shapeIndex;
+	int32_t* shapeIndex = &body->shapeList;
 	bool found = false;
 	while (*shapeIndex != B2_NULL_INDEX)
 	{
@@ -470,6 +480,8 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 
 	const float density = shape->density;
 
+	// TODO_ERIN
+	assert(false);
 	// Destroy any contacts associated with the fixture.
 	//b2ContactEdge* edge = m_contactList;
 	//while (edge)
@@ -547,6 +559,7 @@ void b2Body_SetAwake(b2BodyId bodyId, bool awake)
 }
 
 // This should NOT be called from island code which is using awake array double buffering.
+#if 0
 void b2SetAwake(b2World* world, b2Body* body, bool flag)
 {
 	if (body->type == b2_staticBody)
@@ -587,13 +600,14 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		atomic_fetch_sub_long(&world->awakeCount, 1);
 	}
 }
+#endif
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
 	int32_t indexA = bodyA->object.index;
 	int32_t indexB = bodyB->object.index;
 
-	int32_t jointIndex = bodyB->jointIndex;
+	int32_t jointIndex = bodyB->jointList;
 	while (jointIndex != B2_NULL_INDEX)
 	{
 		b2Joint* joint = world->joints + jointIndex;
