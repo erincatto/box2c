@@ -77,9 +77,9 @@ class SampleTask : public enki::ITaskSet
 public:
 	SampleTask() = default;
 
-	void ExecuteRange(enki::TaskSetPartition range, uint32_t) override
+	void ExecuteRange(enki::TaskSetPartition range, uint32_t threadIndex) override
 	{
-		m_task(range.start, range.end, m_taskContext);
+		m_task(range.start, range.end, threadIndex, m_taskContext);
 	}
 
 	b2TaskCallback* m_task = nullptr;

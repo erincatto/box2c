@@ -40,7 +40,7 @@ enum b2ContactFlags
 	b2_contactSensorFlag = 0x0010,
 
 	// This contact no longer has overlapping AABBs
-	b2_contactMovedAway = 0x0020,
+	b2_contactDisjoint = 0x0020,
 
 	// This contact started touching
 	b2_contactStartedTouching = 0x0040,

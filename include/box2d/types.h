@@ -82,7 +82,7 @@ typedef struct b2RayCastOutput
 
 /// Task interface
 /// This is prototype for a Box2D task
-typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, void* context);
+typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context);
 
 /// These functions can be provided to Box2D to invoke a task system
 typedef void b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);

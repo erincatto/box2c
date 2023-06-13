@@ -29,12 +29,5 @@ typedef struct b2StepContext
 	b2Body* bodies;
 	int32_t bodyCapacity;
 
-	// Stack allocated array of active joints
-	struct b2Joint** activeJoints;
-
-	// Atomic count of the number of active joints. Recomputed each step.
-	B2_ATOMIC long activeJointCount;
-	char padding4[64 - sizeof(long)];
-
 	bool warmStarting;
 } b2StepContext;

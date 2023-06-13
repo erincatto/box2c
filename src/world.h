@@ -38,7 +38,7 @@ typedef struct b2World
 	struct b2Shape* shapes;
 	struct b2PersistentIsland* islands;
 
-	// Awake contacts. Updated every frame from the island jobs. Scrambled order.
+	// Awake contacts. Scrambled order.
 	int32_t* awakeContacts;
 	int32_t awakeContactCapacity;
 	B2_ATOMIC long awakeContactCount;

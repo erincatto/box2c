@@ -43,7 +43,7 @@ static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRang
 		SampleTask& sampleTask = sample->m_tasks[sample->m_taskCount];
 		sampleTask.m_SetSize = itemCount;
 		sampleTask.m_MinRange = minRange;
-		sampleTask.m_task= task;
+		sampleTask.m_task = task;
 		sampleTask.m_taskContext = taskContext;
 		sample->m_scheduler.AddTaskSetToPipe(&sampleTask);
 		++sample->m_taskCount;
