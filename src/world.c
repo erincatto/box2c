@@ -275,6 +275,20 @@ void b2DestroyWorld(b2WorldId id)
 	memset(world, 0, sizeof(b2World));
 }
 
+static void b2AddAwakeIsland(b2World* world, b2PersistentIsland* island)
+{
+	assert(island->awakeIndex == B2_NULL_INDEX);
+	island->awakeIndex = b2Array(world->awakeIslandArray).count;
+	b2Array_Push(world->awakeIslandArray, island->object.index);
+}
+
+static void b2RemoveAwakeIsland(b2World* world, b2PersistentIsland* island)
+{
+	int32_t awakeIndex = island->awakeIndex;
+	assert(awakeIndex != B2_NULL_INDEX && awakeIndex < b2Array(world->awakeIslandArray).count);
+	world->awakeIslandArray[awakeIndex] = B2_NULL_INDEX;
+}
+
 // Locked version
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {
@@ -356,7 +370,40 @@ static void b2StartContact(b2World* world, b2Contact* contact)
 	b2Body* bodyA = world->bodies + contact->edges[0].bodyIndex;
 	b2Body* bodyB = world->bodies + contact->edges[1].bodyIndex;
 
-	// connect islands (union find)
+	if (bodyA->type == b2_staticBody || bodyB->type == b2_staticBody)
+	{
+		// TODO_ERIN still need to add contact to island
+		return;
+	}
+
+	int32_t islandIndexA = bodyA->islandIndex;
+	int32_t islandIndexB = bodyB->islandIndex;
+
+	assert(islandIndexA != B2_NULL_INDEX && islandIndexB != B2_NULL_INDEX);
+
+	if (islandIndexA == islandIndexB)
+	{
+		contact->islandIndex = islandIndexA;
+		return;
+	}
+
+	b2PersistentIsland* islandA = world->islands + islandIndexA;
+	b2PersistentIsland* islandB = world->islands + islandIndexB;
+
+	if (islandA->bodyCount >= islandB->bodyCount)
+	{
+		islandB->nextIsland = islandA->nextIsland;
+		islandA->nextIsland = islandIndexB;
+
+		b2RemoveAwakeIsland(world, islandB);
+	}
+	else
+	{
+		islandA->nextIsland = islandB->nextIsland;
+		islandB->nextIsland = islandIndexA;
+
+		b2RemoveAwakeIsland(world, islandB);
+	}
 }
 
 static void b2StopContact(b2World* world, b2Contact* contact)
@@ -365,7 +412,9 @@ static void b2StopContact(b2World* world, b2Contact* contact)
 	b2Body* bodyB = world->bodies + contact->edges[1].bodyIndex;
 	
 	assert(bodyA->islandIndex == bodyB->islandIndex);
-	// dirty island
+
+	b2PersistentIsland* island = world->islands + bodyA->islandIndex;
+	island->isDirty = true;
 }
 
 static void b2Collide(b2World* world)

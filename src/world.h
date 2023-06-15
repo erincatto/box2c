@@ -87,4 +87,4 @@ b2World* b2GetWorldFromIndex(int16_t index);
 bool b2IsBodyIdValid(b2World* world, b2BodyId id);
 
 void b2AddAwakeContact(b2World* world, b2Contact* contact);
-void b2RemoveAwakeContact(b2Contact* contact);
+void b2RemoveAwakeContact(b2World* world, b2Contact* contact);

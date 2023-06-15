@@ -27,11 +27,15 @@ typedef struct b2PersistentIsland
 {
 	b2Object object;
 
-	int32_t bodyList;
-	int32_t contactList;
+	int32_t headBody;
+	int32_t tailBody;
+	int32_t bodyCount;
+
+	int32_t headContact;
+	int32_t tailContact;
+	int32_t contactCount;
 
 	// This allow islands to be linked during a merge
-	int32_t prevIsland;
 	int32_t nextIsland;
 
 	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
