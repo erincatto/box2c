@@ -137,6 +137,40 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
+void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
+{
+	island->stepContext = stepContext;
+
+	int32_t bodyCount = island->bodyCount;
+	int32_t contactCount = island->contactCount;
+	int32_t jointCount = island->jointCount;
+
+	b2World* world = island->world;
+
+	int32_t nextIndex = island->nextIsland;
+	while (nextIndex != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* nextIsland = world->islands + island->nextIsland;
+		bodyCount += nextIsland->bodyCount;
+		contactCount += nextIsland->contactCount;
+		jointCount += nextIsland->jointCount;
+	}
+
+	b2StackAllocator* alloc = world->stackAllocator;
+
+	island->bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "body indices");
+	island->contactIndices = b2AllocateStackItem(alloc, contactCount * sizeof(int32_t), "contact indices");
+	island->jointIndices = b2AllocateStackItem(alloc, jointCount * sizeof(int32_t), "joint indices");
+
+	b2ContactSolverDef contactSolverDef;
+	contactSolverDef.context = island->stepContext;
+	contactSolverDef.world = world;
+	contactSolverDef.contactIndices = island->contactIndices;
+	contactSolverDef.count = island->contactCount;
+	island->contactSolver = b2CreateContactSolver(&contactSolverDef);
+}
+
+#if 0
 // This just allocates data doing the minimal amount of single threaded work
 b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b2World* world, b2StepContext* context)
 {
@@ -222,6 +256,7 @@ void b2DestroyIsland(b2Island* island)
 	b2DestroyContactSolver(alloc, island->contactSolver);
 	b2FreeStackItem(alloc, island);
 }
+#endif
 
 #if 0
 if (island->bodyCount > 16)
@@ -274,26 +309,71 @@ if (island->bodyCount > 16)
 			clusterCenters[j] = b2Add(clusterCenters[j], b->position);
 			clusterCounts[j] += 1;
 		}
-
-
 	}
 }
 #endif
 
-// This must be thread safe
-void b2SolveIsland(b2Island* island)
+void b2ConnectIsland(b2PersistentIsland* island)
 {
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
-	b2StepContext* context = island->context;
-	b2Joint** joints = context->activeJoints;
+	b2Contact* contacts = world->contacts;
+	b2Joint* joints = world->joints;
+
+	int32_t nextIndex = island->nextIsland;
+	while (nextIndex != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* nextIsland = world->islands + island->nextIsland;
+		island->bodyCount += nextIsland->bodyCount;
+		island->contactCount += nextIsland->contactCount;
+		island->jointCount += nextIsland->jointCount;
+
+		b2Body* tailBody = bodies + island->tailBody;
+		b2Body* headBody = bodies + nextIsland->headBody;
+
+		tailBody->islandNext = nextIsland->headBody;
+		headBody->islandPrev = island->tailBody;
+
+		island->tailBody = nextIsland->tailBody;
+
+		// TODO_ERIN contacts can be null
+		b2Contact* tailContact = contacts + island->tailContact;
+		b2Contact* headContact = contacts + nextIsland->headContact;
+
+		tailContact->islandNext = nextIsland->headContact;
+		headContact->islandPrev = island->tailContact;
+
+		island->tailContact = nextIsland->tailContact;
+
+		// TODO_ERIN joints can be null
+		b2Joint* tailJoint = joints + island->tailJoint;
+		b2Joint* headJoint = joints + nextIsland->headJoint;
+
+		tailJoint->islandNext = nextIsland->headJoint;
+		headJoint->islandPrev = island->tailJoint;
+
+		island->tailJoint = nextIsland->tailJoint;
+	}
+
+	// Fill body, contact, joint index arrays. Maybe check for contacts touching
+	// Note: I'm not sure the arrays are worthwhile. maybe use the linked lists or arrays of pointers
+}
+
+// This must be thread safe
+void b2SolveIsland(b2PersistentIsland* island)
+{
+	b2World* world = island->world;
+	b2Body* bodies = world->bodies;
+	b2StepContext* context = island->stepContext;
+	b2Joint* joints = world->joints;
 
 	b2Vec2 gravity = world->gravity;
 
 	float h = context->dt;
 
 	// Integrate velocities and apply damping. Initialize the body state.
-	for (int32_t i = 0; i < island->bodyCount; ++i)
+	int32_t bodyCount = island->bodyCount;
+	for (int32_t i = 0; i < bodyCount; ++i)
 	{
 		b2Body* b = bodies + island->bodyIndices[i];
 
@@ -541,7 +621,7 @@ void b2SolveIsland(b2Island* island)
 }
 
 // Single threaded work
-void b2CompleteIsland(b2Island* island)
+void b2CompleteIsland(b2PersistentIsland* island)
 {
 	if (island->isAwake == false)
 	{
@@ -604,4 +684,9 @@ void b2CompleteIsland(b2Island* island)
 			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
 		}
 	}
+
+	// Destroy in reverse order
+	b2StackAllocator* alloc = island->world->stackAllocator;
+	b2DestroyContactSolver(alloc, island->contactSolver);
+	b2FreeStackItem(alloc, island);
 }

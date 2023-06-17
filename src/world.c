@@ -56,7 +56,7 @@ static void b2DefaultAddTaskFcn(b2TaskCallback* task, int32_t count, int32_t min
 {
 	B2_MAYBE_UNUSED(minRange);
 	B2_MAYBE_UNUSED(userContext);
-	task(0, count, taskContext);
+	task(0, count, 0, taskContext);
 }
 
 static void b2DefaultFinishTasksFcn(void* userContext)
@@ -247,7 +247,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contactBitArray = b2CreateArray(sizeof(bool), world->contactPool.capacity);
 	
 	world->taskContextArray = b2CreateArray(sizeof(b2TaskContext), world->workerCount);
-	for (int32_t i = 0; i < world->workerCount; ++i)
+	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		world->taskContextArray[i].world = world;
 		world->taskContextArray[i].contactBitArray = b2CreateArray(sizeof(bool), world->contactPool.capacity);
@@ -425,13 +425,13 @@ static void b2Collide(b2World* world)
 
 	if (count == 0)
 	{
-		return 0;
+		return;
 	}
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
 	memset(world->contactBitArray, 0, count * sizeof(bool));
-	for (int32_t i = 0; i < world->workerCount; ++i)
+	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		memset(world->taskContextArray[i].contactBitArray, 0, count * sizeof(bool));
 	}
@@ -451,7 +451,7 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
 
 	bool* bitArray = world->contactBitArray;
-	for (int32_t i = 0; i < world->workerCount; ++i)
+	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		bool* threadBits = world->taskContextArray[i].contactBitArray;
 		for (int32_t j = 0; j < count; ++j)
@@ -496,20 +496,24 @@ static void b2Collide(b2World* world)
 }
 
 
-static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* taskContext)
+static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
 {
 	B2_MAYBE_UNUSED(startIndex);
 	B2_MAYBE_UNUSED(endIndex);
+	B2_MAYBE_UNUSED(threadIndex);
 
 	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
 
-	b2Island** islands = taskContext;
+	b2World* world = taskContext;
 
 	assert(startIndex < endIndex);
+	assert(startIndex < b2Array(world->awakeIslandArray).count);
+	assert(endIndex <= b2Array(world->awakeIslandArray).count);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2SolveIsland(islands[i]);
+		int32_t index = world->awakeIslandArray[i];
+		b2SolveIsland(world->islands + index);
 	}
 
 	b2TracyCZoneEnd(island_task);
@@ -534,8 +538,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		awakeIslands[i] = index;
 
 		b2PersistentIsland* island = world->islands + index;
-		// TODO_ERIN
-		// b2PrepareIsland(island, world, context);
+		b2PrepareIsland(island, world, context);
 	}
 
 	b2TracyCZoneEnd(prepare_islands);
@@ -754,8 +757,14 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
+			bool isAwake = false;
+			if (b->islandIndex != B2_NULL_INDEX)
+			{
+				isAwake = world->islands[b->islandIndex].awakeIndex != B2_NULL_INDEX;
+			}
+
 			b2Transform xf = b->transform;
-			int32_t shapeIndex = b->shapeIndex;
+			int32_t shapeIndex = b->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
@@ -776,13 +785,13 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.9f, 1.0f});
 				}
-				else if (b->awakeIndex == B2_NULL_INDEX)
+				else if (isAwake)
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.6f, 0.6f, 0.6f, 1.0f});
+					b2DrawShape(draw, shape, xf, (b2Color){0.9f, 0.7f, 0.7f, 1.0f});
 				}
 				else
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.9f, 0.7f, 0.7f, 1.0f});
+					b2DrawShape(draw, shape, xf, (b2Color){0.6f, 0.6f, 0.6f, 1.0f});
 				}
 
 				shapeIndex = shape->nextShapeIndex;
@@ -835,7 +844,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
-			int32_t shapeIndex = b->shapeIndex;
+			int32_t shapeIndex = b->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
@@ -926,7 +935,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	b2World* world = b2GetWorldFromId(worldId);
 	b2Statistics s = {0};
 	s.bodyCount = world->bodyPool.count;
-	s.contactCount = b2Array(world->contactArray).count;
+	s.contactCount = world->contactPool.count;
 	s.jointCount = world->jointPool.count;
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
@@ -935,14 +944,6 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.contactPointCount = world->contactPointCount;
 	s.maxStackAllocation = b2GetMaxStackAllocation(world->stackAllocator);
 	return s;
-}
-
-b2BodyId b2World_GetGroundBodyId(b2WorldId worldId)
-{
-	b2World* world = b2GetWorldFromId(worldId);
-	b2Body* body = world->bodies + world->groundBodyIndex;
-	b2BodyId bodyId = {world->groundBodyIndex, world->index, body->object.revision};
-	return bodyId;
 }
 
 #if 0

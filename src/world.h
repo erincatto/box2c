@@ -70,7 +70,7 @@ typedef struct b2World
 	b2PostSolveFcn* postSolveFcn;
 	void* postSolveContext;
 
-	int32_t workerCount;
+	uint32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTask;
 	b2FinishTasksCallback* finishTasks;
 	void* userTaskContext;

@@ -69,6 +69,9 @@ typedef struct b2Contact
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
+	int32_t islandPrev;
+	int32_t islandNext;
+
 	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
 	int32_t islandIndex;
 

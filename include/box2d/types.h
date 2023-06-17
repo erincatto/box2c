@@ -118,7 +118,7 @@ typedef struct b2WorldDef
 	int32_t stackAllocatorCapacity;
 
 	/// task system hookup
-	int32_t workerCount;
+	uint32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTask;
 	b2FinishTasksCallback* finishTasks;
 	void* userTaskContext;

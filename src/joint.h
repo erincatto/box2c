@@ -99,7 +99,9 @@ typedef struct b2Joint
 	b2JointEdge edgeA;
 	b2JointEdge edgeB;
 
-	uint64_t islandId;
+	int32_t islandIndex;
+	int32_t islandPrev;
+	int32_t islandNext;
 
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;

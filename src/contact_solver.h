@@ -27,8 +27,8 @@ typedef struct b2ContactSolver
 	int32_t count;
 } b2ContactSolver;
 
-b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverDef* def);
-void b2DestroyContactSolver(b2StackAllocator* alloc, b2ContactSolver* solver);
+b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def);
+void b2DestroyContactSolver(b2ContactSolver* solver);
 
 void b2ContactSolver_Initialize(b2ContactSolver* solver);
 void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver);

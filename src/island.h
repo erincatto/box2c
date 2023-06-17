@@ -27,6 +27,8 @@ typedef struct b2PersistentIsland
 {
 	b2Object object;
 
+	struct b2World* world;
+
 	int32_t headBody;
 	int32_t tailBody;
 	int32_t bodyCount;
@@ -34,6 +36,10 @@ typedef struct b2PersistentIsland
 	int32_t headContact;
 	int32_t tailContact;
 	int32_t contactCount;
+
+	int32_t headJoint;
+	int32_t tailJoint;
+	int32_t jointCount;
 
 	// This allow islands to be linked during a merge
 	int32_t nextIsland;
@@ -43,6 +49,14 @@ typedef struct b2PersistentIsland
 
 	// A dirty island may need to be split
 	bool isDirty;
+
+	// Transient solver data
+	b2StepContext* stepContext;
+	int32_t* bodyIndices;
+	int32_t* contactIndices;
+	int32_t* jointIndices;
+	struct b2ContactSolver* contactSolver;
+
 } b2PersistentIsland;
 
 typedef struct b2Island
@@ -67,8 +81,10 @@ typedef struct b2Island
 	bool isAwake;
 } b2Island;
 
-b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t index, struct b2World* world, b2StepContext* step);
-void b2DestroyIsland(b2Island* island);
+//b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t index, struct b2World* world, b2StepContext* step);
+//void b2DestroyIsland(b2Island* island);
 
-void b2SolveIsland(b2Island* island);
-void b2CompleteIsland(b2Island* island);
+void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* step);
+
+void b2SolveIsland(b2PersistentIsland* island);
+void b2CompleteIsland(b2PersistentIsland* island);

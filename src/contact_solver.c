@@ -51,8 +51,10 @@ typedef struct b2ContactPositionConstraint
 	int32_t pointCount;
 } b2ContactPositionConstraint;
 
-b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverDef* def)
+b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def)
 {
+	b2StackAllocator* alloc = def->world->stackAllocator;
+
 	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver), "contact solver");
 	solver->context = def->context;
 	solver->contactIndices = def->contactIndices;
@@ -63,8 +65,10 @@ b2ContactSolver* b2CreateContactSolver(b2StackAllocator* alloc, b2ContactSolverD
 	return solver;
 }
 
-void b2DestroyContactSolver(b2StackAllocator* alloc, b2ContactSolver* solver)
+void b2DestroyContactSolver(b2ContactSolver* solver)
 {
+	b2StackAllocator* alloc = solver->world->stackAllocator;
+
 	b2FreeStackItem(alloc, solver->velocityConstraints);
 	b2FreeStackItem(alloc, solver->positionConstraints);
 	b2FreeStackItem(alloc, solver);
