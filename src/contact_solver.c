@@ -57,7 +57,7 @@ b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def)
 
 	b2ContactSolver* solver = b2AllocateStackItem(alloc, sizeof(b2ContactSolver), "contact solver");
 	solver->context = def->context;
-	solver->contactIndices = def->contactIndices;
+	solver->contactList = def->contactList;
 	solver->count = def->count;
 	solver->positionConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactPositionConstraint), "position constraints");
 	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->count * sizeof(b2ContactVelocityConstraint), "velocity constraints");

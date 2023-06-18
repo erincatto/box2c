@@ -137,6 +137,25 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
+void b2ClearIsland(b2PersistentIsland* island)
+{
+	island->world = NULL;
+	island->headBody = B2_NULL_INDEX;
+	island->tailBody = B2_NULL_INDEX;
+	island->bodyCount = 0;
+	island->headContact = B2_NULL_INDEX;
+	island->tailContact = B2_NULL_INDEX;
+	island->contactCount = 0;
+	island->headJoint = B2_NULL_INDEX;
+	island->tailJoint = B2_NULL_INDEX;
+	island->jointCount = 0;
+	island->nextIsland = B2_NULL_INDEX;
+	island->awakeIndex = B2_NULL_INDEX;
+	island->isDirty = false;
+	island->stepContext = NULL;
+	island->contactSolver = NULL;
+}
+
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
@@ -158,14 +177,10 @@ void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 
 	b2StackAllocator* alloc = world->stackAllocator;
 
-	island->bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "body indices");
-	island->contactIndices = b2AllocateStackItem(alloc, contactCount * sizeof(int32_t), "contact indices");
-	island->jointIndices = b2AllocateStackItem(alloc, jointCount * sizeof(int32_t), "joint indices");
-
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->stepContext;
 	contactSolverDef.world = world;
-	contactSolverDef.contactIndices = island->contactIndices;
+	contactSolverDef.contactList = island->headContact;
 	contactSolverDef.count = island->contactCount;
 	island->contactSolver = b2CreateContactSolver(&contactSolverDef);
 }
@@ -354,9 +369,235 @@ void b2ConnectIsland(b2PersistentIsland* island)
 
 		island->tailJoint = nextIsland->tailJoint;
 	}
+}
 
-	// Fill body, contact, joint index arrays. Maybe check for contacts touching
-	// Note: I'm not sure the arrays are worthwhile. maybe use the linked lists or arrays of pointers
+// Split an island because some contacts and/or joints have been removed
+static void b2SplitIsland(b2PersistentIsland* baseIsland)
+{
+	b2World* world = baseIsland->world;
+	int32_t bodyCount = baseIsland->bodyCount;
+	int32_t contactCount = baseIsland->contactCount;
+	int32_t jointCount = baseIsland->jointCount;
+
+	b2Body* bodies = world->bodies;
+
+	b2StackAllocator* alloc = world->stackAllocator;
+
+	// TODO_ERIN lock?
+	int32_t* stack = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "island stack");
+	int32_t* bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "body indices");
+
+	int32_t index = 0;
+	int32_t nextBody = baseIsland->headBody;
+	while (nextBody != B2_NULL_INDEX)
+	{
+		bodyIndices[index++] = nextBody;
+		nextBody = bodies[nextBody].islandIndex;
+	}
+	assert(index == bodyCount);
+
+	b2PersistentIsland* islandList = NULL;
+	int32_t islandCount = 0;
+
+	// Each island is found as a depth first search starting from a seed body
+	for (int32_t i = 0; i < bodyCount; ++i)
+	{
+		int32_t seedIndex = bodyIndices[i];
+		b2Body* seed = bodies + seedIndex;
+		assert(seed->object.next == seedIndex);
+		assert(seed->isEnabled);
+		assert(seed->type != b2_staticBody);
+
+		if (seed->isMarked)
+		{
+			// The body has already been traversed
+			continue;
+		}
+
+		int32_t stackCount = 0;
+		stack[stackCount++] = seedIndex;
+
+		// TODO_ERIN lock?
+		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
+		b2ClearIsland(island);
+
+		seed->isMarked = true;
+		island->headBody = seedIndex;
+		island->tailBody = seedIndex;
+		island->bodyCount = 1;
+
+		// Perform a depth first search (DFS) on the constraint graph.
+		while (stackCount > 0)
+		{
+			// Grab the next body off the stack and add it to the island.
+			int32_t bodyIndex = stack[--stackCount];
+			b2Body* b = bodies + bodyIndex;
+			assert(b->type != b2_staticBody);
+
+			// Attack body to island
+			b->islandIndex = B2_NULL_INDEX;
+			if (island->tailBody != B2_NULL_INDEX)
+			{
+				bodies[island->tailBody].islandNext = bodyIndex;
+			}
+			b->islandPrev = island->tailBody;
+			b->islandNext = B2_NULL_INDEX;
+			island->tailBody = bodyIndex;
+
+			// Search all contacts connected to this body.
+			int32_t contactKey = b->contactList;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				b2Contact* contact = ce->contact;
+
+				// Has this contact already been added to this island?
+				if (contact->islandId == seed->islandId)
+				{
+					continue;
+				}
+
+				// Skip sensors
+				if (contact->flags & b2_contactSensorFlag)
+				{
+					continue;
+				}
+
+				// Is this contact solid and touching?
+				if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
+				{
+					continue;
+				}
+
+				int32_t otherBodyIndex = ce->otherBodyIndex;
+				b2Body* otherBody = world->bodies + otherBodyIndex;
+
+				// Maybe add other body to island
+				if (otherBody->islandId != islandId)
+				{
+					otherBody->islandId = islandId;
+					islandIndices[otherBodyIndex] = bodyCount;
+					bodies[bodyCount++] = otherBody;
+					assert(otherBody->isEnabled == true);
+
+					if (otherBody->type != b2_staticBody)
+					{
+						assert(stackCount < bodyCapacity);
+						stack[stackCount++] = otherBodyIndex;
+					}
+				}
+
+				world->contactPointCount += contact->manifold.pointCount;
+
+				// Add contact to island
+				contact->islandId = islandId;
+				if (ce == &contact->edgeA)
+				{
+					contact->islandIndexA = islandIndices[bodyIndex];
+					contact->islandIndexB = islandIndices[otherBodyIndex];
+				}
+				else
+				{
+					contact->islandIndexA = islandIndices[otherBodyIndex];
+					contact->islandIndexB = islandIndices[bodyIndex];
+				}
+
+				assert(0 <= contact->islandIndexA && contact->islandIndexA < world->bodyPool.capacity);
+				assert(0 <= contact->islandIndexB && contact->islandIndexB < world->bodyPool.capacity);
+
+				contacts[contactCount++] = contact;
+			}
+
+			// Search all joints connect to this body.
+			int32_t jointIndex = b->jointIndex;
+			while (jointIndex != B2_NULL_INDEX)
+			{
+				b2Joint* joint = world->joints + jointIndex;
+				assert(joint->object.index == jointIndex);
+
+				bool isBodyA;
+				int32_t otherBodyIndex;
+				if (joint->edgeA.bodyIndex == b->object.index)
+				{
+					jointIndex = joint->edgeA.nextJointIndex;
+					otherBodyIndex = joint->edgeB.bodyIndex;
+					isBodyA = true;
+				}
+				else
+				{
+					assert(joint->edgeB.bodyIndex == b->object.index);
+					jointIndex = joint->edgeB.nextJointIndex;
+					otherBodyIndex = joint->edgeA.bodyIndex;
+					isBodyA = false;
+				}
+
+				// Has this joint already been added to this island?
+				if (joint->islandId == islandId)
+				{
+					continue;
+				}
+
+				b2Body* otherBody = world->bodies + otherBodyIndex;
+
+				// Don't simulate joints connected to disabled bodies.
+				if (otherBody->isEnabled == false)
+				{
+					continue;
+				}
+
+				// Maybe add other body to island
+				if (otherBody->islandId != islandId)
+				{
+					otherBody->islandId = islandId;
+					islandIndices[otherBodyIndex] = bodyCount;
+					bodies[bodyCount++] = otherBody;
+					assert(otherBody->isEnabled == true);
+
+					if (otherBody->type != b2_staticBody)
+					{
+						assert(stackCount < bodyCapacity);
+						stack[stackCount++] = otherBodyIndex;
+					}
+				}
+
+				// Add joint to island
+				joint->islandId = islandId;
+				if (isBodyA)
+				{
+					joint->islandIndexA = islandIndices[bodyIndex];
+					joint->islandIndexB = islandIndices[otherBodyIndex];
+				}
+				else
+				{
+					joint->islandIndexA = islandIndices[otherBodyIndex];
+					joint->islandIndexB = islandIndices[bodyIndex];
+				}
+
+				assert(0 <= joint->islandIndexA && joint->islandIndexA < world->bodyPool.capacity);
+				assert(0 <= joint->islandIndexB && joint->islandIndexB < world->bodyPool.capacity);
+
+				joints[jointCount++] = joint;
+			}
+		}
+
+		// Create island and add to linked list
+		b2Island* island = b2CreateIsland(bodies, bodyCount, contacts, contactCount, joints, jointCount, world, step);
+		island->nextIsland = islandList;
+		islandList = island;
+
+#if B2_ISLAND_PARALLEL_FOR == 0
+		if (g_parallelIslands)
+		{
+			world->enqueueTask(&b2IslandTask, 1, 1, island, world->userTaskContext);
+		}
+		else
+		{
+			b2IslandTask(0, 1, island);
+		}
+#else
+		assert(islandCount < world->bodyPool.capacity);
+		islands[islandCount++] = island;
+#endif
+	}
 }
 
 // This must be thread safe

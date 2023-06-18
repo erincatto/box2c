@@ -70,6 +70,7 @@ typedef struct b2Body
 	bool enableSleep;
 	bool fixedRotation;
 	bool isEnabled;
+	bool isMarked;
 } b2Body;
 
 void b2SetAwake(b2World* world, b2Body* body, bool flag);

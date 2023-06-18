@@ -628,8 +628,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	context.dtRatio = world->inv_dt0 * timeStep;
 	context.restitutionThreshold = world->restitutionThreshold;
 	context.warmStarting = world->warmStarting;
-	context.bodies = world->bodies;
-	context.bodyCapacity = world->bodyPool.capacity;
 
 	// Update contacts
 	{
