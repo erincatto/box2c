@@ -35,7 +35,8 @@ typedef enum b2JointType
 typedef struct b2JointEdge
 {
 	int32_t bodyIndex;
-	int32_t nextJointIndex;
+	int32_t prevKey;
+	int32_t nextKey;
 } b2JointEdge;
 
 typedef struct b2MouseJoint
@@ -96,8 +97,7 @@ typedef struct b2Joint
 
 	b2JointType type;
 
-	b2JointEdge edgeA;
-	b2JointEdge edgeB;
+	b2JointEdge edges[2];
 
 	int32_t islandIndex;
 	int32_t islandPrev;

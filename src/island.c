@@ -372,6 +372,8 @@ void b2ConnectIsland(b2PersistentIsland* island)
 }
 
 // Split an island because some contacts and/or joints have been removed
+// Note: contacts/joints connecting to static bodies must belong to an island but don't affect island connectivity
+// Note: static bodies are never in an island
 static void b2SplitIsland(b2PersistentIsland* baseIsland)
 {
 	b2World* world = baseIsland->world;
@@ -380,6 +382,8 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 	int32_t jointCount = baseIsland->jointCount;
 
 	b2Body* bodies = world->bodies;
+	b2Contact* contacts = world->contacts;
+	b2Joint* joints = world->joints;
 
 	b2StackAllocator* alloc = world->stackAllocator;
 
@@ -421,6 +425,8 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
 		b2ClearIsland(island);
 
+		int32_t islandIndex = island->object.index;
+
 		seed->isMarked = true;
 		island->headBody = seedIndex;
 		island->tailBody = seedIndex;
@@ -431,27 +437,34 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		{
 			// Grab the next body off the stack and add it to the island.
 			int32_t bodyIndex = stack[--stackCount];
-			b2Body* b = bodies + bodyIndex;
-			assert(b->type != b2_staticBody);
+			b2Body* body = bodies + bodyIndex;
+			assert(body->type != b2_staticBody);
 
-			// Attack body to island
-			b->islandIndex = B2_NULL_INDEX;
+			// Add body to island
+			// TODO_ERIN this is probably wrong
+			body->islandIndex = islandIndex;
 			if (island->tailBody != B2_NULL_INDEX)
 			{
 				bodies[island->tailBody].islandNext = bodyIndex;
 			}
-			b->islandPrev = island->tailBody;
-			b->islandNext = B2_NULL_INDEX;
+			body->islandPrev = island->tailBody;
+			body->islandNext = B2_NULL_INDEX;
 			island->tailBody = bodyIndex;
 
 			// Search all contacts connected to this body.
-			int32_t contactKey = b->contactList;
+			int32_t contactKey = body->contactList;
 			while (contactKey != B2_NULL_INDEX)
 			{
-				b2Contact* contact = ce->contact;
+				int32_t contactIndex = contactKey >> 1;
+				int32_t edgeIndex = contactKey & 1;
+
+				b2Contact* contact = contacts + contactIndex;
+
+				// Next key
+				contactKey = contact->edges[edgeIndex].nextKey;
 
 				// Has this contact already been added to this island?
-				if (contact->islandId == seed->islandId)
+				if (contact->flags & b2_contactIslandFlag)
 				{
 					continue;
 				}
@@ -462,49 +475,35 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 					continue;
 				}
 
-				// Is this contact solid and touching?
+				// Is this contact enabled and touching?
 				if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
 				{
 					continue;
 				}
 
-				int32_t otherBodyIndex = ce->otherBodyIndex;
+				contact->flags |= b2_contactIslandFlag;
+
+				int32_t otherEdgeIndex = edgeIndex ^ 1;
+				int32_t otherBodyIndex = contact->edges[otherEdgeIndex].bodyIndex;
 				b2Body* otherBody = world->bodies + otherBodyIndex;
 
-				// Maybe add other body to island
-				if (otherBody->islandId != islandId)
+				// Maybe add other body to stack
+				if (otherBody->isMarked == false && otherBody->type != b2_staticBody)
 				{
-					otherBody->islandId = islandId;
-					islandIndices[otherBodyIndex] = bodyCount;
-					bodies[bodyCount++] = otherBody;
-					assert(otherBody->isEnabled == true);
-
-					if (otherBody->type != b2_staticBody)
-					{
-						assert(stackCount < bodyCapacity);
-						stack[stackCount++] = otherBodyIndex;
-					}
+					assert(stackCount < bodyCount);
+					stack[stackCount++] = otherBodyIndex;
 				}
-
-				world->contactPointCount += contact->manifold.pointCount;
 
 				// Add contact to island
-				contact->islandId = islandId;
-				if (ce == &contact->edgeA)
+				// TODO_ERIN this is probably wrong
+				contact->islandIndex = islandIndex;
+				if (island->tailContact != B2_NULL_INDEX)
 				{
-					contact->islandIndexA = islandIndices[bodyIndex];
-					contact->islandIndexB = islandIndices[otherBodyIndex];
+					contacts[island->tailContact].islandNext = contactIndex;
 				}
-				else
-				{
-					contact->islandIndexA = islandIndices[otherBodyIndex];
-					contact->islandIndexB = islandIndices[bodyIndex];
-				}
-
-				assert(0 <= contact->islandIndexA && contact->islandIndexA < world->bodyPool.capacity);
-				assert(0 <= contact->islandIndexB && contact->islandIndexB < world->bodyPool.capacity);
-
-				contacts[contactCount++] = contact;
+				contact->islandPrev = island->tailBody;
+				contact->islandNext = B2_NULL_INDEX;
+				island->tailContact = contactIndex;
 			}
 
 			// Search all joints connect to this body.

@@ -46,7 +46,9 @@ enum b2ContactFlags
 	b2_contactStartedTouching = 0x0040,
 
 	// This contact stopped touching
-	b2_contactStoppedTouching = 0x0080
+	b2_contactStoppedTouching = 0x0080,
+
+	b2_contactIslandFlag = 0x0100
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
