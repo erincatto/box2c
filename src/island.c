@@ -459,6 +459,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 				int32_t edgeIndex = contactKey & 1;
 
 				b2Contact* contact = contacts + contactIndex;
+				assert(contact->object.index == contactIndex);
 
 				// Next key
 				contactKey = contact->edges[edgeIndex].nextKey;
@@ -501,40 +502,32 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 				{
 					contacts[island->tailContact].islandNext = contactIndex;
 				}
-				contact->islandPrev = island->tailBody;
+				contact->islandPrev = island->tailJoint;
 				contact->islandNext = B2_NULL_INDEX;
 				island->tailContact = contactIndex;
 			}
 
 			// Search all joints connect to this body.
-			int32_t jointIndex = b->jointIndex;
-			while (jointIndex != B2_NULL_INDEX)
+			int32_t jointKey = body->jointList;
+			while (jointKey != B2_NULL_INDEX)
 			{
+				int32_t jointIndex = jointKey >> 1;
+				int32_t edgeIndex = jointKey & 1;
+
 				b2Joint* joint = world->joints + jointIndex;
 				assert(joint->object.index == jointIndex);
 
-				bool isBodyA;
-				int32_t otherBodyIndex;
-				if (joint->edgeA.bodyIndex == b->object.index)
-				{
-					jointIndex = joint->edgeA.nextJointIndex;
-					otherBodyIndex = joint->edgeB.bodyIndex;
-					isBodyA = true;
-				}
-				else
-				{
-					assert(joint->edgeB.bodyIndex == b->object.index);
-					jointIndex = joint->edgeB.nextJointIndex;
-					otherBodyIndex = joint->edgeA.bodyIndex;
-					isBodyA = false;
-				}
+				// Next key
+				jointKey = joint->edges[edgeIndex].nextKey;
 
 				// Has this joint already been added to this island?
-				if (joint->islandId == islandId)
+				if (joint->isMarked)
 				{
 					continue;
 				}
 
+				int32_t otherEdgeIndex = edgeIndex ^ 1;
+				int32_t otherBodyIndex = joint->edges[otherEdgeIndex].bodyIndex;
 				b2Body* otherBody = world->bodies + otherBodyIndex;
 
 				// Don't simulate joints connected to disabled bodies.
@@ -543,59 +536,29 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 					continue;
 				}
 
-				// Maybe add other body to island
-				if (otherBody->islandId != islandId)
+				// Maybe add other body to stack
+				if (otherBody->isMarked == false && otherBody->type != b2_staticBody)
 				{
-					otherBody->islandId = islandId;
-					islandIndices[otherBodyIndex] = bodyCount;
-					bodies[bodyCount++] = otherBody;
-					assert(otherBody->isEnabled == true);
-
-					if (otherBody->type != b2_staticBody)
-					{
-						assert(stackCount < bodyCapacity);
-						stack[stackCount++] = otherBodyIndex;
-					}
+					assert(stackCount < bodyCount);
+					stack[stackCount++] = otherBodyIndex;
 				}
 
-				// Add joint to island
-				joint->islandId = islandId;
-				if (isBodyA)
+				// Add contact to island
+				// TODO_ERIN this is probably wrong
+				joint->islandIndex = islandIndex;
+				if (island->tailJoint != B2_NULL_INDEX)
 				{
-					joint->islandIndexA = islandIndices[bodyIndex];
-					joint->islandIndexB = islandIndices[otherBodyIndex];
+					joints[island->tailJoint].islandNext = jointIndex;
 				}
-				else
-				{
-					joint->islandIndexA = islandIndices[otherBodyIndex];
-					joint->islandIndexB = islandIndices[bodyIndex];
-				}
-
-				assert(0 <= joint->islandIndexA && joint->islandIndexA < world->bodyPool.capacity);
-				assert(0 <= joint->islandIndexB && joint->islandIndexB < world->bodyPool.capacity);
-
-				joints[jointCount++] = joint;
+				joint->islandPrev = island->tailJoint;
+				joint->islandNext = B2_NULL_INDEX;
+				island->tailJoint = jointIndex;
 			}
 		}
 
-		// Create island and add to linked list
-		b2Island* island = b2CreateIsland(bodies, bodyCount, contacts, contactCount, joints, jointCount, world, step);
-		island->nextIsland = islandList;
-		islandList = island;
-
-#if B2_ISLAND_PARALLEL_FOR == 0
-		if (g_parallelIslands)
-		{
-			world->enqueueTask(&b2IslandTask, 1, 1, island, world->userTaskContext);
-		}
-		else
-		{
-			b2IslandTask(0, 1, island);
-		}
-#else
-		assert(islandCount < world->bodyPool.capacity);
-		islands[islandCount++] = island;
-#endif
+		// add island to linked list
+		island->nextIsland = baseIsland->nextIsland;
+		baseIsland->nextIsland = islandIndex;
 	}
 }
 
@@ -612,10 +575,10 @@ void b2SolveIsland(b2PersistentIsland* island)
 	float h = context->dt;
 
 	// Integrate velocities and apply damping. Initialize the body state.
-	int32_t bodyCount = island->bodyCount;
-	for (int32_t i = 0; i < bodyCount; ++i)
+	int32_t bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
 	{
-		b2Body* b = bodies + island->bodyIndices[i];
+		b2Body* b = bodies + bodyIndex;
 
 		float invMass = b->invMass;
 		float invI = b->invI;
@@ -642,31 +605,31 @@ void b2SolveIsland(b2PersistentIsland* island)
 			b->linearVelocity = v;
 			b->angularVelocity = w;
 		}
+
+		bodyIndex = b->islandNext;
 	}
 
 	// Solver data
 	b2ContactSolver_Initialize(island->contactSolver);
 	
-	for (int32_t i = 0; i < island->jointCount; ++i)
+	int32_t jointIndex = island->headJoint;
+	while (jointIndex != B2_NULL_INDEX)
 	{
-		int32_t jointIndex = island->jointIndices[i];
-		assert(0 <= jointIndex && jointIndex < context->activeJointCount);
-
-		b2Joint* joint = joints[jointIndex];
+		b2Joint* joint = joints + jointIndex;
 		b2InitVelocityConstraints(joint, context);
+		jointIndex = joint->islandNext;
 	}
 
 	b2TracyCZoneNC(velc, "Velocity Constraints", b2_colorCadetBlue, true);
 	// Solve velocity constraints
 	for (int32_t i = 0; i < context->velocityIterations; ++i)
 	{
-		for (int32_t j = 0; j < island->jointCount; ++j)
+		jointIndex = island->headJoint;
+		while (jointIndex != B2_NULL_INDEX)
 		{
-			int32_t jointIndex = island->jointIndices[j];
-			assert(0 <= jointIndex && jointIndex < context->activeJointCount);
-
-			b2Joint* joint = joints[jointIndex];
+			b2Joint* joint = joints + jointIndex;
 			b2SolveVelocityConstraints(joint, context);
+			jointIndex = joint->islandNext;
 		}
 
 		b2ContactSolver_SolveVelocityConstraints(island->contactSolver);
@@ -680,9 +643,10 @@ void b2SolveIsland(b2PersistentIsland* island)
 	b2ContactSolver_StoreImpulses(island->contactSolver);
 
 	// Integrate positions
-	for (int32_t i = 0; i < island->bodyCount; ++i)
+	bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
 	{
-		b2Body* b = bodies + island->bodyIndices[i];
+		b2Body* b = bodies + bodyIndex;
 
 		b2Vec2 c = b->position;
 		float a = b->angle;
@@ -712,6 +676,8 @@ void b2SolveIsland(b2PersistentIsland* island)
 		b->angle = a;
 		b->linearVelocity = v;
 		b->angularVelocity = w;
+
+		bodyIndex = b->islandNext;
 	}
 
 	b2TracyCZoneNC(posc, "Position Constraints", b2_colorBurlywood, true);
@@ -723,15 +689,15 @@ void b2SolveIsland(b2PersistentIsland* island)
 		bool contactsOkay = b2ContactSolver_SolvePositionConstraintsBlock(island->contactSolver);
 
 		bool jointsOkay = true;
-		for (int32_t j = 0; j < island->jointCount; ++j)
+		jointIndex = island->headJoint;
+		while (jointIndex != B2_NULL_INDEX)
 		{
-			int32_t jointIndex = island->jointIndices[j];
-			assert(0 <= jointIndex && jointIndex < context->activeJointCount);
-
-			b2Joint* joint = joints[jointIndex];
+			b2Joint* joint = joints + jointIndex;
 
 			bool jointOkay = b2SolvePositionConstraints(joint, context);
 			jointsOkay = jointsOkay && jointOkay;
+
+			jointIndex = joint->islandNext;
 		}
 
 		if (contactsOkay && jointsOkay)
@@ -746,17 +712,14 @@ void b2SolveIsland(b2PersistentIsland* island)
 
 	b2TracyCZoneNC(sleep, "Sleep", b2_colorSalmon2, true);
 
-	// Reset body sleep and update transform
-	for (int32_t i = 0; i < island->bodyCount; ++i)
+	// Update transform
+	bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
 	{
-		b2Body* body = bodies + island->bodyIndices[i];
-		if (body->type != b2_staticBody)
-		{
-			body->awakeIndex = B2_NULL_INDEX;
-
-			body->transform.q = b2MakeRot(body->angle);
-			body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
-		}
+		b2Body* body = bodies + bodyIndex;
+		body->transform.q = b2MakeRot(body->angle);
+		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+		body->islandNext;
 	}
 
 	// Update sleep
@@ -769,13 +732,10 @@ void b2SolveIsland(b2PersistentIsland* island)
 		const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
 		const float angTolSqr = b2_angularSleepTolerance * b2_angularSleepTolerance;
 
-		for (int32_t i = 0; i < island->bodyCount; ++i)
+		bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
 		{
-			b2Body* b = bodies + island->bodyIndices[i];
-			if (b->type == b2_staticBody)
-			{
-				continue;
-			}
+			b2Body* b = bodies + bodyIndex;
 
 			if (b->enableSleep == false ||
 				b->angularVelocity * b->angularVelocity > angTolSqr ||
@@ -789,15 +749,18 @@ void b2SolveIsland(b2PersistentIsland* island)
 				b->sleepTime += h;
 				minSleepTime = B2_MIN(minSleepTime, b->sleepTime);
 			}
+
+			bodyIndex = b->islandNext;
 		}
 
 		if (minSleepTime >= b2_timeToSleep && positionSolved)
 		{
 			isIslandAwake = false;
 
-			for (int32_t i = 0; i < island->bodyCount; ++i)
+			bodyIndex = island->headBody;
+			while (bodyIndex != B2_NULL_INDEX)
 			{
-				b2Body* b = bodies + island->bodyIndices[i];
+				b2Body* b = bodies + bodyIndex;
 				b->sleepTime = 0.0f;
 				b->linearVelocity = b2Vec2_zero;
 				b->angularVelocity = 0.0f;
@@ -805,11 +768,14 @@ void b2SolveIsland(b2PersistentIsland* island)
 				b->speculativeAngle = b->angle;
 				b->force = b2Vec2_zero;
 				b->torque = 0.0f;
+
+				bodyIndex = b->islandNext;
 			}
 		}
 	}
 
-	island->isAwake = isIslandAwake;
+	// TODO_ERIN this has to be single threaded for determinism
+	//island->awakeIndex = isIslandAwake;
 	
 	// Speculative transform
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?

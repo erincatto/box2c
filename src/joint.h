@@ -112,6 +112,7 @@ typedef struct b2Joint
 		b2RevoluteJoint revoluteJoint;
 	};
 
+	bool isMarked;
 	bool collideConnected;
 } b2Joint;
 
