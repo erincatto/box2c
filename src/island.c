@@ -175,8 +175,6 @@ void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 		jointCount += nextIsland->jointCount;
 	}
 
-	b2StackAllocator* alloc = world->stackAllocator;
-
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->stepContext;
 	contactSolverDef.world = world;
@@ -378,8 +376,6 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 {
 	b2World* world = baseIsland->world;
 	int32_t bodyCount = baseIsland->bodyCount;
-	int32_t contactCount = baseIsland->contactCount;
-	int32_t jointCount = baseIsland->jointCount;
 
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
@@ -399,9 +395,6 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		nextBody = bodies[nextBody].islandIndex;
 	}
 	assert(index == bodyCount);
-
-	b2PersistentIsland* islandList = NULL;
-	int32_t islandCount = 0;
 
 	// Each island is found as a depth first search starting from a seed body
 	for (int32_t i = 0; i < bodyCount; ++i)
@@ -781,13 +774,10 @@ void b2SolveIsland(b2PersistentIsland* island)
 	// TODO_ERIN using old forces? Should be at the beginning of the time step?
 	if (isIslandAwake)
 	{
-		for (int32_t i = 0; i < island->bodyCount; ++i)
+		bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
 		{
-			b2Body* b = bodies + island->bodyIndices[i];
-			if (b->type == b2_staticBody)
-			{
-				continue;
-			}
+			b2Body* b = bodies + bodyIndex;
 
 			b->force = b2Vec2_zero;
 			b->torque = 0.0f;
@@ -806,7 +796,7 @@ void b2SolveIsland(b2PersistentIsland* island)
 			b->speculativeAngle = b->angle + context->dt * w;
 
 			// Update shapes AABBs
-			int32_t shapeIndex = b->shapeIndex;
+			int32_t shapeIndex = b->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
@@ -820,6 +810,8 @@ void b2SolveIsland(b2PersistentIsland* island)
 
 				shapeIndex = shape->nextShapeIndex;
 			}
+
+			bodyIndex = b->islandNext;
 		}
 	}
 
@@ -829,7 +821,7 @@ void b2SolveIsland(b2PersistentIsland* island)
 // Single threaded work
 void b2CompleteIsland(b2PersistentIsland* island)
 {
-	if (island->isAwake == false)
+	if (island->awakeIndex == B2_NULL_INDEX)
 	{
 		return;
 	}
@@ -837,21 +829,13 @@ void b2CompleteIsland(b2PersistentIsland* island)
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
 
-	for (int32_t i = 0; i < island->bodyCount; ++i)
+	int32_t bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
 	{
-		b2Body* b = bodies + island->bodyIndices[i];
-		if (b->type == b2_staticBody)
-		{
-			continue;
-		}
-
-		assert(b->awakeIndex == B2_NULL_INDEX);
-		b->awakeIndex = world->awakeCount;
-		world->awakeBodies[b->awakeIndex] = b->object.index;
-		world->awakeCount += 1;
+		b2Body* b = bodies + bodyIndex;
 
 		// Update shapes (for broad-phase).
-		int32_t shapeIndex = b->shapeIndex;
+		int32_t shapeIndex = b->shapeList;
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
@@ -863,24 +847,22 @@ void b2CompleteIsland(b2PersistentIsland* island)
 
 			shapeIndex = shape->nextShapeIndex;
 		}
+
+		bodyIndex = b->islandNext;
 	}
 
 	// Report impulses
-	b2Contact** contacts = world->contactArray;
-
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
 	{
+		b2Contact* contacts = world->contacts;
 		int16_t worldIndex = world->index;
-		int32_t count = island->contactCount;
-		const int32_t* contactIndices = island->contactIndices;
 		const b2Shape* shapes = world->shapes;
 
-		for (int32_t i = 0; i < count; ++i)
+		int32_t contactIndex = island->headContact;
+		while (contactIndex != B2_NULL_INDEX)
 		{
-			int32_t index = contactIndices[i];
-			b2Array_Check(world->contactArray, index);
-			const b2Contact* contact = contacts[index];
+			const b2Contact* contact = contacts + contactIndex;
 
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;
 			const b2Shape* shapeB = shapes + contact->shapeIndexB;
@@ -892,7 +874,5 @@ void b2CompleteIsland(b2PersistentIsland* island)
 	}
 
 	// Destroy in reverse order
-	b2StackAllocator* alloc = island->world->stackAllocator;
-	b2DestroyContactSolver(alloc, island->contactSolver);
-	b2FreeStackItem(alloc, island);
+	b2DestroyContactSolver(island->contactSolver);
 }

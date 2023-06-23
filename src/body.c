@@ -78,9 +78,12 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		// Every new body gets a new island. Islands get merged during simulation.
 		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
 		world->islands = (b2PersistentIsland*)world->islandPool.memory;
+		b2ClearIsland(island);
 
 		b->islandIndex = island->object.index;
-		island->bodyList = b->object.index;
+		island->headBody = b->object.index;
+		island->tailBody = b->object.index;
+		island->bodyCount = 1;
 
 		if (def->isAwake)
 		{
@@ -223,11 +226,11 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			world->bodies[body->islandNext].islandPrev = body->islandPrev;
 		}
 
-		if (island->bodyList == body->object.index)
+		if (island->headBody == body->object.index)
 		{
-			island->bodyList = body->islandNext;
+			island->headBody = body->islandNext;
 
-			if (island->bodyList == B2_NULL_INDEX)
+			if (island->headBody == B2_NULL_INDEX)
 			{
 				// Destroy empty island
 
@@ -604,30 +607,32 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
-	int32_t indexA = bodyA->object.index;
-	int32_t indexB = bodyB->object.index;
-
-	int32_t jointIndex = bodyB->jointList;
-	while (jointIndex != B2_NULL_INDEX)
+	int32_t jointKey;
+	int32_t otherBodyIndex;
+	if (bodyA->jointCount < bodyB->jointCount)
 	{
+		jointKey = bodyA->jointList;
+		otherBodyIndex = bodyB->object.index;
+	}
+	else
+	{
+		jointKey = bodyB->jointList;
+		otherBodyIndex = bodyA->object.index;
+	}
+
+	while (jointKey != B2_NULL_INDEX)
+	{
+		int32_t jointIndex = jointKey >> 1;
+		int32_t edgeIndex = jointKey & 1;
+		int32_t otherEdgeIndex = edgeIndex ^ 1;
+
 		b2Joint* joint = world->joints + jointIndex;
-		if (joint->edgeA.bodyIndex == indexB)
+		if (joint->edges[otherEdgeIndex].bodyIndex == otherBodyIndex)
 		{
-			if (joint->edgeB.bodyIndex == indexA)
-			{
-				return false;
-			}
-			jointIndex = joint->edgeA.nextJointIndex;
+			return false;
 		}
-		else
-		{
-			if (joint->edgeA.bodyIndex == indexA)
-			{
-				return false;
-			}
-			assert(joint->edgeB.bodyIndex == indexB);
-			jointIndex = joint->edgeB.nextJointIndex;
-		}
+
+		jointKey = joint->edges[edgeIndex].nextKey;
 	}
 
 	return true;

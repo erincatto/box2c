@@ -41,7 +41,10 @@ typedef struct b2Body
 	float torque;
 
 	int32_t shapeList;
+
+	// This is a key: [jointIndex:31, edgeIndex:1]
 	int32_t jointList;
+	int32_t jointCount;
 
 	int32_t contactList;
 	int32_t contactCount;
