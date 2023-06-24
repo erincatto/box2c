@@ -179,97 +179,9 @@ void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 	contactSolverDef.context = island->stepContext;
 	contactSolverDef.world = world;
 	contactSolverDef.contactList = island->headContact;
-	contactSolverDef.count = island->contactCount;
+	contactSolverDef.contactCount = island->contactCount;
 	island->contactSolver = b2CreateContactSolver(&contactSolverDef);
 }
-
-#if 0
-// This just allocates data doing the minimal amount of single threaded work
-b2Island* b2CreateIsland(b2IslandBuilder* builder, int32_t islandIndex, struct b2World* world, b2StepContext* context)
-{
-	b2StackAllocator* alloc = world->stackAllocator;
-
-	b2Island* island = b2AllocateStackItem(alloc, sizeof(b2Island), "island");
-
-	if (islandIndex == 0)
-	{
-		island->bodyIndices = builder->bodyIslands;
-		island->bodyCount = builder->bodyIslandEnds[0];
-
-		if (builder->jointCount > 0)
-		{
-			island->jointIndices = builder->jointIslands;
-			island->jointCount = builder->jointIslandEnds[0];
-		}
-		else
-		{
-			island->jointIndices = NULL;
-			island->jointCount = 0;
-		}
-
-		if (builder->contactCount > 0)
-		{
-			island->contactIndices = builder->contactIslands;
-			island->contactCount = builder->contactIslandEnds[0];
-		}
-		else
-		{
-			island->contactIndices = NULL;
-			island->contactCount = 0;
-		}
-	}
-	else
-	{
-		int32_t bodyStartIndex = builder->bodyIslandEnds[islandIndex - 1];
-		island->bodyIndices = builder->bodyIslands + bodyStartIndex;
-		island->bodyCount = builder->bodyIslandEnds[islandIndex] - bodyStartIndex;
-
-		if (builder->jointCount > 0)
-		{
-			int32_t jointStartIndex = builder->jointIslandEnds[islandIndex - 1];
-			island->jointIndices = builder->jointIslands + jointStartIndex;
-			island->jointCount = builder->jointIslandEnds[islandIndex] - jointStartIndex;
-		}
-		else
-		{
-			island->jointIndices = NULL;
-			island->jointCount = 0;
-		}
-
-		if (builder->contactCount > 0)
-		{
-			int32_t contactStartIndex = builder->contactIslandEnds[islandIndex - 1];
-			island->contactIndices = builder->contactIslands + contactStartIndex;
-			island->contactCount = builder->contactIslandEnds[islandIndex] - contactStartIndex;
-		}
-		else
-		{
-			island->contactIndices = NULL;
-			island->contactCount = 0;
-		}
-	}
-
-	island->world = world;
-	island->context = context;
-
-	b2ContactSolverDef contactSolverDef;
-	contactSolverDef.context = island->context;
-	contactSolverDef.world = world;
-	contactSolverDef.contactIndices = island->contactIndices;
-	contactSolverDef.count = island->contactCount;
-	island->contactSolver = b2CreateContactSolver(alloc, &contactSolverDef);
-
-	return island;
-}
-
-void b2DestroyIsland(b2Island* island)
-{
-	// Destroy in reverse order
-	b2StackAllocator* alloc = island->world->stackAllocator;
-	b2DestroyContactSolver(alloc, island->contactSolver);
-	b2FreeStackItem(alloc, island);
-}
-#endif
 
 #if 0
 if (island->bodyCount > 16)

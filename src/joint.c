@@ -76,6 +76,46 @@ void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, 
 	*damping = 2.0f * I * dampingRatio * omega;
 }
 
+b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
+{
+	b2Joint* joint = (b2Joint*)b2AllocObject(&world->jointPool);
+	world->joints = (b2Joint*)world->jointPool.memory;
+	
+	int32_t jointIndex = joint->object.index;
+
+	// Doubly linked list on bodyA
+	joint->edges[0].bodyIndex = bodyA->object.index;
+	joint->edges[0].prevKey = B2_NULL_INDEX;
+	joint->edges[0].nextKey = bodyA->jointList;
+
+	int32_t keyA = (jointIndex << 1) | 0;
+	if (bodyA->jointList != B2_NULL_INDEX)
+	{
+		b2Joint* jointA = world->joints + (bodyA->jointList >> 1);
+		b2JointEdge* edgeA = jointA->edges + (bodyA->jointList & 1);
+		edgeA->prevKey = keyA;
+	}
+	bodyA->jointList = keyA;
+	bodyA->jointCount += 1;
+
+	// Doubly linked list on bodyB
+	joint->edges[1].bodyIndex = bodyB->object.index;
+	joint->edges[1].prevKey = B2_NULL_INDEX;
+	joint->edges[1].nextKey = bodyB->jointList;
+
+	int32_t keyB = (jointIndex << 1) | 1;
+	if (bodyB->jointList != B2_NULL_INDEX)
+	{
+		b2Joint* jointB = world->joints + (bodyB->jointList >> 1);
+		b2JointEdge* edgeB = jointB->edges + (bodyB->jointList & 1);
+		edgeB->prevKey = keyB;
+	}
+	bodyB->jointList = keyB;
+	bodyB->jointCount += 1;
+
+	return joint;
+}
+
 b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -87,27 +127,19 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 		return b2_nullJointId;
 	}
 
-	assert(b2IsBodyIdValid(world, def->bodyId));
+	assert(b2IsBodyIdValid(world, def->bodyIdA));
+	assert(b2IsBodyIdValid(world, def->bodyIdB));
 
-	b2Joint* joint = (b2Joint*)b2AllocObject(&world->jointPool);
-	world->joints = (b2Joint*)world->jointPool.memory;
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_mouseJoint;
-	joint->edgeA.bodyIndex = world->groundBodyIndex;
-	joint->edgeB.bodyIndex = def->bodyId.index;
 	joint->collideConnected = false;
-	joint->islandId = 0;
+	joint->isMarked = false;
 
-	b2Body* bodyA = world->bodies + joint->edgeA.bodyIndex;
-	b2Body* bodyB = world->bodies + joint->edgeB.bodyIndex;
-
-	joint->edgeA.nextJointIndex = bodyA->jointIndex;
-	bodyA->jointIndex = joint->object.index;
-
-	joint->edgeB.nextJointIndex = bodyB->jointIndex;
-	bodyB->jointIndex = joint->object.index;
-
-	joint->localAnchorA = b2Vec2_zero;
+	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
 	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
 
 	b2MouseJoint empty = {0};

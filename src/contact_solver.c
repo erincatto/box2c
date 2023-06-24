@@ -82,7 +82,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 {
 	b2World* world = solver->world;
 	b2Contact* contacts = world->contacts;
-	b2StepContext* context = solver->context;
+	const b2StepContext* context = solver->context;
 	b2Body* bodies = world->bodies;
 
 	// Initialize position independent portions of the constraints.
@@ -90,7 +90,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	int32_t contactIndex = solver->contactList;
 	while (contactIndex != B2_NULL_INDEX)
 	{
-		const b2Contact* contact = contacts + contactIndex;
+		b2Contact* contact = contacts + contactIndex;
 		contactIndex = contact->islandNext;
 
 		const b2Manifold* manifold = &contact->manifold;
