@@ -475,6 +475,9 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 
 							assert(otherAwakeIndex < world->bodyCapacity);
 
+							// What if this was a heap (sorted)? Nope: other indices must be stable
+							// What if we held a bit map per thread that is used to append bodies in order? Nope: need otherAwakeIndex below
+							// What if we sort the tail of the awakeBodies? Nope: need otherAwakeIndex below
 							world->awakeBodies[otherAwakeIndex] = otherBody->object.index;
 
 							// (release)
