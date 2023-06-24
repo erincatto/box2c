@@ -12,6 +12,7 @@
 
 #include "TaskScheduler.h"
 
+#include <atomic>
 #include <stdlib.h>
 
 struct Settings;
@@ -118,7 +119,7 @@ public:
 
 	b2BodyId m_groundBodyId;
 	ContactPoint m_points[k_maxContactPoints];
-	int32_t m_pointCount;
+	std::atomic<long> m_pointCount;
 	//DestructionListener m_destructionListener;
 	int32_t m_textLine;
 	b2WorldId m_worldId;

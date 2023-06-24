@@ -23,7 +23,12 @@
 #include <assert.h>
 #include <string.h>
 
+#include "atomic.inl"
+
+#define B2_VALIDATE 1
+
 b2World g_worlds[b2_maxWorlds];
+bool g_parallel = true;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -169,9 +174,13 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
+	world->islandBuilder = b2CreateIslandBuilder(def->bodyCapacity);
 
 	// pools
-	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
+	int32_t bodyCapacity = B2_MAX(def->bodyCapacity, 1);
+	world->bodyCapacity = bodyCapacity;
+
+	world->bodyPool = b2CreatePool(sizeof(b2Body), bodyCapacity);
 	world->bodies = (b2Body*)world->bodyPool.memory;
 
 	world->jointPool = b2CreatePool(sizeof(b2Joint), B2_MAX(def->jointCapacity, 1));
@@ -180,14 +189,21 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
 
-	world->contacts = NULL;
-	world->contactCount = 0;
+	int32_t contactCapacity = B2_MAX(def->contactCapacity, 1);
+	world->contactCapacity = contactCapacity;
 
-	world->invalidContactMutex = b2CreateMutex("Invalid Contact");
-	world->invalidContacts = b2CreateArray(sizeof(b2Contact*), 16);
+	world->contactArray = b2CreateArray(sizeof(b2Contact*), contactCapacity);
 
-	world->awakeBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
-	world->seedBodies = b2CreateArray(sizeof(int32_t), def->bodyCapacity);
+	world->activeContacts = b2Alloc(contactCapacity * sizeof(b2Contact*));
+	atomic_store_long(&world->activeContactCount, 0);
+
+	// Unlikely but possible that all contacts become invalid in one step
+	world->invalidContacts = b2Alloc(contactCapacity * sizeof(b2Contact*));
+	atomic_store_long(&world->invalidContactCount, 0);
+
+	world->awakeBodies = b2Alloc(bodyCapacity * sizeof(int32_t));
+	world->awakeCount = 0;
+	world->awakeMutex = b2CreateMutex("Awake");
 
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
@@ -234,16 +250,15 @@ void b2DestroyWorld(b2WorldId id)
 {
 	b2World* world = b2GetWorldFromId(id);
 
-	b2DestroyArray(world->awakeBodies);
+	b2Free(world->awakeBodies);
 	world->awakeBodies = NULL;
 
-	b2DestroyArray(world->seedBodies);
-	world->seedBodies = NULL;
+	b2DestroyMutex(world->awakeMutex);
 
-	b2DestroyMutex(world->invalidContactMutex);
-	world->invalidContactMutex = NULL;
-	b2DestroyArray(world->invalidContacts);
-	world->invalidContacts = NULL;
+	b2Free(world->activeContacts);
+	b2Free(world->invalidContacts);
+
+	b2DestroyArray(world->contactArray);
 
 	b2DestroyPool(&world->shapePool);
 	world->shapes = NULL;
@@ -255,6 +270,7 @@ void b2DestroyWorld(b2WorldId id)
 	world->bodies = NULL;
 
 	b2BroadPhase_Destroy(&world->broadPhase);
+	b2DestroyIslandBuilder(&world->islandBuilder);
 
 	b2DestroyBlockAllocator(world->blockAllocator);
 	world->blockAllocator = NULL;
@@ -263,19 +279,281 @@ void b2DestroyWorld(b2WorldId id)
 	world->stackAllocator = NULL;
 }
 
+// Builds the array of active joints, wakes bodies, and links bodies in island builder
+static void b2LinkActiveJoints(b2World* world, b2StepContext* context)
+{
+	b2TracyCZoneNC(link_joint_task, "Link Joints", b2_colorSalmon2, true);
+
+	b2IslandBuilder* builder = &world->islandBuilder;
+
+	int32_t jointCount = world->jointPool.count;
+
+	b2Joint* joints = world->joints;
+	b2Body* bodies = world->bodies;
+	int32_t activeJointCount = 0;
+
+	// Add joints to island builder
+	// TODO_ERIN this could be a parallel-for
+	for (int32_t i = 0; i < jointCount; ++i)
+	{
+		b2Joint* joint = joints + i;
+		if (joint->object.next != joint->object.index)
+		{
+			// joint is on the free list
+			continue;
+		}
+
+		int32_t indexA = joint->edgeA.bodyIndex;
+		int32_t indexB = joint->edgeB.bodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
+		assert(bodyA->object.index == bodyA->object.next);
+		assert(bodyB->object.index == bodyB->object.next);
+
+		// Joint is active if bodyA or bodyB is awake
+		if (bodyA->awakeIndex != B2_NULL_INDEX)
+		{
+			if (bodyB->awakeIndex == B2_NULL_INDEX && bodyB->type != b2_staticBody)
+			{
+				bodyB->sleepTime = 0.0f;
+				bodyB->awakeIndex = atomic_load_long(&world->awakeCount);
+				world->awakeBodies[bodyB->awakeIndex] = indexB;
+				atomic_fetch_add_long(&world->awakeCount, 1);
+			}
+
+			b2LinkJoint(builder, activeJointCount, bodyA->awakeIndex, bodyB->awakeIndex);
+			context->activeJoints[activeJointCount] = joint;
+			activeJointCount += 1;
+		}
+		else if (bodyB->awakeIndex != B2_NULL_INDEX)
+		{
+			if (bodyA->awakeIndex == B2_NULL_INDEX && bodyA->type != b2_staticBody)
+			{
+				bodyA->sleepTime = 0.0f;
+				bodyA->awakeIndex = atomic_load_long(&world->awakeCount);
+				world->awakeBodies[bodyA->awakeIndex] = indexA;
+				atomic_fetch_add_long(&world->awakeCount, 1);
+			}
+
+			b2LinkJoint(builder, activeJointCount, bodyA->awakeIndex, bodyB->awakeIndex);
+			context->activeJoints[activeJointCount] = joint;
+			activeJointCount += 1;
+		}
+	}
+
+	atomic_store_long(&context->activeJointCount, activeJointCount);
+
+	b2TracyCZoneEnd(link_joint_task);
+}
+
+// Locked version
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
 {
-	b2TracyCZoneC(collide_task, b2_colorYellow, true);
+	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
 
 	b2World* world = taskContext;
+	b2Shape* shapes = world->shapes;
+	b2Body* bodies = world->bodies;
 
 	// Loop awake bodies
 	const int32_t* awakeBodies = world->awakeBodies;
 
 	assert(startIndex < endIndex);
-	assert(endIndex <= b2Array(awakeBodies).count);
+	assert(endIndex <= world->awakeCount);
 
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	long baseCount = atomic_load_long(&world->baseAwakeCount);
+	int32_t basedStartIndex = startIndex + baseCount;
+	int32_t basedEndIndex = endIndex + baseCount;
+
+	for (int32_t awakeIndex = basedStartIndex; awakeIndex < basedEndIndex; ++awakeIndex)
+	{
+		int32_t bodyIndex = awakeBodies[awakeIndex];
+		if (bodyIndex == B2_NULL_INDEX)
+		{
+			// Body was destroyed or put to sleep
+			continue;
+		}
+
+		assert(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+
+		b2Body* body = world->bodies + bodyIndex;
+
+		assert(body->awakeIndex == awakeIndex);
+		assert(body->object.index == bodyIndex && body->object.index == body->object.next);
+		assert(body->type != b2_staticBody);
+
+		b2ContactEdge* ce = body->contacts;
+		while (ce != NULL)
+		{
+			b2Body* otherBody = bodies + ce->otherBodyIndex;
+
+			// (acquire)
+			long otherAwakeIndex = atomic_load_long(&otherBody->awakeIndex);
+			if (otherAwakeIndex != B2_NULL_INDEX && otherAwakeIndex < awakeIndex)
+			{
+				// avoid double evaluation but don't skip sleeping bodies
+				// as sleeping bodies are woken up they are added to the end of the awake body array
+				// and they have already been collided with the lower index body that woke them up
+				ce = ce->next;
+				continue;
+			}
+
+			// It is possible that another thread will wake this body, however it will acquire a larger awake index
+
+			b2Contact* contact = ce->contact;
+
+			b2Shape* shapeA = shapes + contact->shapeIndexA;
+			b2Shape* shapeB = shapes + contact->shapeIndexB;
+			b2Body* bodyA = bodies + shapeA->bodyIndex;
+			b2Body* bodyB = bodies + shapeB->bodyIndex;
+
+			int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
+			int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
+
+			// Do proxies still overlap?
+			// TODO_ERIN if we keep fat aabbs on shapes we don't need to dive into the broadphase here
+			bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
+			if (overlap == false)
+			{
+				// Safely add to array of invalid contacts to be destroyed serially.
+				// (relaxed)
+				long index = atomic_fetch_add_long(&world->invalidContactCount, 1);
+				assert(0 <= index && index < b2Array(world->contactArray).count);
+				world->invalidContacts[index] = contact;
+			}
+			else
+			{
+				// Update contact respecting shape/body order (A,B)
+				b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
+
+				if (contact->flags & b2_contactTouchingFlag)
+				{
+					atomic_fetch_add_long(&world->contactPointCount, contact->manifold.pointCount);
+
+					// Add to array of active contacts
+					// (relaxed)
+					long activeContactIndex = atomic_fetch_add_long(&world->activeContactCount, 1);
+					assert(0 <= activeContactIndex && activeContactIndex < b2Array(world->contactArray).count);
+#if B2_VALIDATE == 1
+					int32_t contactCount = b2Array(world->contactArray).count;
+					B2_MAYBE_UNUSED(contactCount);
+					for (long j = 0; j < activeContactIndex; ++j)
+					{
+						assert(world->activeContacts[j] != contact);
+					}
+#endif
+					world->activeContacts[activeContactIndex] = contact;
+
+					// Is the other body asleep?
+					// https://en.wikipedia.org/wiki/Double-checked_locking
+					if (otherBody->type != b2_staticBody && otherAwakeIndex == B2_NULL_INDEX)
+					{
+						b2LockMutex(world->awakeMutex);
+
+						// There are two values that need to be consistent
+						// We need to allocate an awake index while incrementing the awake count
+						// step 1: long index = word->awakeCount++;
+						// And this needs to be stored in the body
+						// step 2: otherBody->awakeIndex = index;
+						// However between steps 1 and 2, another thread could reach step 2
+						// This leaves awakeCount too large and world->awakeBodies can have duplicates
+						// We can tag otherBody->awakeIndex with -2 so other threads will not attempt
+						// to wake it. However other threads may need to acquire a valid awake index
+						// in order to link the body in the union-find.
+
+						// Is this the thread to wake it?
+						// (relaxed)
+						otherAwakeIndex = atomic_load_long(&otherBody->awakeIndex);
+						if (otherAwakeIndex == B2_NULL_INDEX)
+						{
+							// Wake the body
+							otherBody->sleepTime = 0.0f;
+
+							// (relaxed)
+							otherAwakeIndex = atomic_fetch_add_long(&world->awakeCount, 1);
+
+							assert(otherAwakeIndex < world->bodyCapacity);
+
+							// What if this was a heap (sorted)? Nope: other indices must be stable
+							// What if we held a bit map per thread that is used to append bodies in order? Nope: need otherAwakeIndex below
+							// What if we sort the tail of the awakeBodies? Nope: need otherAwakeIndex below
+							world->awakeBodies[otherAwakeIndex] = otherBody->object.index;
+
+							// (release)
+							atomic_store_long(&otherBody->awakeIndex, otherAwakeIndex);
+						}
+						else
+						{
+							otherAwakeIndex += 0;
+						}
+
+						b2UnlockMutex(world->awakeMutex);
+					}
+
+					assert(otherBody->type == b2_staticBody || awakeIndex < otherAwakeIndex);
+
+					// This is called even if the other body is static
+					uint64_t keyA = contact->shapeIndexA;
+					uint64_t keyB = contact->shapeIndexB;
+					uint64_t sortKey = keyA << 32 | keyB;
+					b2LinkContact(&world->islandBuilder, activeContactIndex, contact, sortKey, awakeIndex, otherAwakeIndex);
+				}
+			}
+
+			ce = ce->next;
+		}
+	}
+
+	// Consider kicking off a job from here for all the bodies that were added to the awake bodies array
+	
+	//// These can only increase and base is always less or equal
+	//long baseAwakeCount = atomic_load_long(&world->baseAwakeCount);
+	//long awakeCount = atomic_load_long(&world->awakeCount);
+
+	//while (awakeCount > baseAwakeCount)
+	//{
+	//	long start = baseAwakeCount;
+	//	long count = B2_MIN(8, awakeCount - baseAwakeCount);
+	//	while (atomic_compare_exchange_weak_long(&world->baseAwakeCount, &baseAwakeCount, count) == false && count > 0)
+	//	{
+	//		awakeCount = atomic_load_long(&world->awakeCount);
+	//		start = baseAwakeCount;
+	//		count = B2_MIN(8, awakeCount - baseAwakeCount);
+	//	}
+
+	//	if (count > 0)
+	//	{
+	//		// TODO_ERIN need to feed baseAwakeCount to job
+	//		int32_t minRange = 8;
+	//		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+	//	}
+	//}
+
+	b2TracyCZoneEnd(collide_task);
+}
+
+#if 0
+// Lockfree version (has race)
+static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContext)
+{
+	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
+
+	b2World* world = taskContext;
+	b2Shape* shapes = world->shapes;
+	b2Body* bodies = world->bodies;
+
+	// Loop awake bodies
+	const int32_t* awakeBodies = world->awakeBodies;
+
+	assert(startIndex < endIndex);
+	assert(endIndex <= world->awakeCount);
+
+	long baseCount = atomic_load_long(&world->baseAwakeCount);
+	int32_t basedStartIndex = startIndex + baseCount;
+	int32_t basedEndIndex = endIndex + baseCount;
+
+	for (int32_t i = basedStartIndex; i < basedEndIndex; ++i)
 	{
 		int32_t bodyIndex = awakeBodies[i];
 		if (bodyIndex == B2_NULL_INDEX)
@@ -292,22 +570,25 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 		assert(body->type != b2_staticBody);
 
 		b2ContactEdge* ce = body->contacts;
-		while (ce != NULL)
+		for (; ce != NULL; ce = ce->next)
 		{
 			b2Body* otherBody = world->bodies + ce->otherBodyIndex;
-			if (otherBody->awakeIndex != B2_NULL_INDEX && bodyIndex > ce->otherBodyIndex)
+			long otherAwakeIndex = atomic_load_long(&otherBody->awakeIndex);
+
+			if (otherAwakeIndex != B2_NULL_INDEX && i < otherAwakeIndex)
 			{
 				// avoid double evaluation
-				ce = ce->next;
+				// as sleeping bodies are woken up they are added to the end of the awake body array
+				// and they have already been collided with the lower index body that woke them up
 				continue;
 			}
 
 			b2Contact* contact = ce->contact;
 
-			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-			b2Body* bodyA = world->bodies + shapeA->bodyIndex;
-			b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+			b2Shape* shapeA = shapes + contact->shapeIndexA;
+			b2Shape* shapeB = shapes + contact->shapeIndexB;
+			b2Body* bodyA = bodies + shapeA->bodyIndex;
+			b2Body* bodyB = bodies + shapeB->bodyIndex;
 
 			int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
 			int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
@@ -317,53 +598,168 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, void* taskContex
 			bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
 			if (overlap == false)
 			{
-				ce = ce->next;
-
-				// Safely make array of invalid contacts to be destroyed serially
-				b2LockMutex(world->invalidContactMutex);
-				b2Array_Push(world->invalidContacts, contact);
-				b2UnlockMutex(world->invalidContactMutex);
-
-				continue;
+				// Safely add to array of invalid contacts to be destroyed serially. Relaxed.
+				int32_t index = atomic_fetch_add_long(&world->invalidContactCount, 1);
+				assert(0 <= index && index < world->contactCapacity);
+				world->invalidContacts[index] = contact;
 			}
+			else
+			{
+				// Update contact respecting shape/body order (A,B)
+				b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 
-			// Update contact respecting shape/body order (A,B)
-			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
+				if ((contact->flags & b2_contactTouchingFlag) == 0)
+				{
+					continue;
+				}
 
-			ce = ce->next;
+				// Add to array of active contacts
+				int32_t index = atomic_fetch_add_long(&world->activeContactCount, 1);
+				assert(0 <= index && index < world->contactCapacity);
+				world->activeContacts[index] = contact;
+
+				// Don't link static bodies into island
+				if (otherBody->type == b2_staticBody)
+				{
+					continue;
+				}
+
+				// Link the with the other body if it is awake
+				long otherAwakeIndex = atomic_load_long(&otherBody->awakeIndex);
+				if (otherAwakeIndex >= 0)
+				{
+					b2LinkContact(&world->islandBuilder, index, i, otherBody->awakeIndex);
+					continue;
+				}
+
+				// There are two values that need to be consistent
+				// We need to allocate an awake index while incrementing the awake count
+				// step 1: long index = word->awakeCount++;
+				// And this needs to be stored in the body
+				// step 2: otherBody->awakeIndex = index;
+				// However between steps 1 and 2, another thread could reach step 2
+				// This leaves awakeCount too large and world->awakeBodies can have duplicates
+				// We can tag otherBody->awakeIndex with -2 so other threads will not attempt
+				// to wake it. However other threads may need to acquire a valid awake index
+				// in order to link the body in the union-find.
+
+				// Tag the body as being worked on. -2 is just used temporarily as a
+				// value that is not -1, before figuring out the actual index to assign it.
+				// (relax, relax)
+				long otherAwakeIndexExpected = B2_NULL_INDEX;
+				long otherAwakeIndexDesired = -2;
+				bool shouldWake =
+					atomic_compare_exchange_strong_long(&otherBody->awakeIndex, &otherAwakeIndexExpected, otherAwakeIndexDesired);
+
+				// Is this the thread to wake it?
+				if (shouldWake)
+				{
+					// Wake the body
+					otherBody->sleepTime = 0.0f;
+
+					// (relax)
+					long awakeIndex = atomic_fetch_add_long(&world->awakeCount, 1);
+
+					assert(awakeIndex < world->bodyCapacity);
+
+					// (relax)
+					atomic_store_long(&otherBody->awakeIndex, awakeIndex);
+
+					world->awakeBodies[awakeIndex] = otherBody->object.index;
+				}
+
+				// TODO_ERIN race condition: no guarantee the otherBody has a valid awake index yet
+				// I could spin here or I could use a mutex above, which I know already works fine
+				b2LinkContact(&world->islandBuilder, index, i, atomic_load_long(&otherBody->awakeIndex));
+			}
 		}
 	}
 
+	//// These can only increase and base is always less or equal
+	// long baseAwakeCount = atomic_load_long(&world->baseAwakeCount);
+	// long awakeCount = atomic_load_long(&world->awakeCount);
+
+	// while (awakeCount > baseAwakeCount)
+	//{
+	//	long start = baseAwakeCount;
+	//	long count = B2_MIN(8, awakeCount - baseAwakeCount);
+	//	while (atomic_compare_exchange_weak_long(&world->baseAwakeCount, &baseAwakeCount, count) == false && count > 0)
+	//	{
+	//		awakeCount = atomic_load_long(&world->awakeCount);
+	//		start = baseAwakeCount;
+	//		count = B2_MIN(8, awakeCount - baseAwakeCount);
+	//	}
+
+	//	if (count > 0)
+	//	{
+	//		// TODO_ERIN need to feed baseAwakeCount to job
+	//		int32_t minRange = 8;
+	//		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+	//	}
+	//}
+
 	b2TracyCZoneEnd(collide_task);
 }
+#endif
 
 static void b2Collide(b2World* world)
 {
-	b2TracyCZoneC(collide, b2_colorDarkOrchid, true);
+	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	const int32_t* awakeBodies = world->awakeBodies;
-	int32_t count = b2Array(awakeBodies).count;
+	atomic_store_long(&world->contactPointCount, 0);
 
-	if (count == 0)
+	int32_t awakeCount = atomic_load_long(&world->awakeCount);
+	atomic_store_long(&world->baseAwakeCount, 0);
+
+	int32_t contactCount = b2Array(world->contactArray).count;
+	B2_MAYBE_UNUSED(contactCount);
+
+	assert(world->activeContactCount == 0);
+	assert(world->invalidContactCount == 0);
+
+#if B2_VALIDATE == 1
+	memset(world->activeContacts, 0, world->contactCapacity * sizeof(b2Contact*));
+#endif
+
+	if (awakeCount == 0)
 	{
 		b2TracyCZoneEnd(collide);
 		return;
 	}
 
-	int32_t minRange = 16;
+	if (g_parallel)
+	{
+		int32_t minRange = 8;
+		int32_t baseCount = 0;
+		while (baseCount < awakeCount)
+		{
+			world->enqueueTask(&b2CollideTask, awakeCount - baseCount, minRange, world, world->userTaskContext);
+			world->finishTasks(world->userTaskContext);
 
-	world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
-	world->finishTasks(world->userTaskContext);
+			// (relaxed)
+			atomic_store_long(&world->baseAwakeCount, awakeCount);
+			baseCount = awakeCount;
+
+			// (relaxed)
+			awakeCount = atomic_load_long(&world->awakeCount);
+		}
+	}
+	else
+	{
+		b2CollideTask(0, awakeCount, world);
+	}
 
 	// Serially destroy contacts
 	b2TracyCZoneNC(destroy_contacts, "Destroy Contact", b2_colorCoral, true);
-	int32_t invalidContactCount = b2Array(world->invalidContacts).count;
+
+	// Relaxed
+	int32_t invalidContactCount = atomic_load_long(&world->invalidContactCount);
 	for (int32_t i = 0; i < invalidContactCount; ++i)
 	{
 		b2Contact* contact = world->invalidContacts[i];
 		b2DestroyContact(world, contact);
 	}
-	b2Array_Clear(world->invalidContacts);
+	atomic_store_long(&world->invalidContactCount, 0);
 	b2TracyCZoneEnd(destroy_contacts);
 
 	b2TracyCZoneEnd(collide);
@@ -405,284 +801,35 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, void* 
 }
 #endif
 
-bool g_parallelIslands = true;
-
-// Find islands, integrate equations of motion and solve constraints.
-// Also reports contact results and updates sleep.
-static void b2Solve(b2World* world, const b2TimeStep* step)
+// Solve with union-find islands
+static void b2Solve(b2World* world, b2StepContext* context)
 {
-	b2TracyCZoneC(solve, b2_colorMistyRose, true);
-	b2TracyCZoneNC(island_builder, "Island Builder", b2_colorDarkSalmon, true);
+	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
+	b2TracyCZoneNC(island_builder, "Finish Islands", b2_colorDarkSalmon, true);
 
 	b2Timer timer = b2CreateTimer();
 
-	world->contactPointCount = 0;
-
-	// Island buffers
-	const int32_t bodyCapacity = world->bodyPool.count;
-	const int32_t jointCapacity = world->jointPool.count;
-	const int32_t contactCapacity = world->contactCount;
-
-	// Body island indices could be stored in b2Body, but they are only used in this scope. Also
-	// this is safer because static bodies can have multiple island indices within this scope.
-	int32_t* islandIndices = b2AllocateStackItem(world->stackAllocator, world->bodyPool.capacity * sizeof(int32_t));
-	b2Island** islands = b2AllocateStackItem(world->stackAllocator, world->bodyPool.capacity * sizeof(b2Island*));
-
-	b2Body** bodies = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(b2Body*));
-	b2Joint** joints = b2AllocateStackItem(world->stackAllocator, jointCapacity * sizeof(b2Joint*));
-	b2Contact** contacts = b2AllocateStackItem(world->stackAllocator, contactCapacity * sizeof(b2Contact*));
-
-#if defined(_DEBUG)
-	b2ArrayHeader* header = (b2ArrayHeader*)world->awakeBodies - 1;
-	B2_MAYBE_UNUSED(header);
-
-	// Validate awake bodies
+	// Finish building islands
+	b2IslandBuilder* builder = &world->islandBuilder;
+	int32_t jointCount = atomic_load_long(&context->activeJointCount);
+	assert(jointCount <= world->jointPool.count);
+	int32_t contactCount = atomic_load_long(&world->activeContactCount);
+	assert(contactCount <= b2Array(world->contactArray).count);
+	int32_t awakeCount = atomic_load_long(&world->awakeCount);
+	assert(awakeCount <= builder->bodyCapacity);
+	b2StackAllocator* allocator = world->stackAllocator;
+	b2FinishIslands(builder, world->awakeBodies, awakeCount, jointCount, contactCount, allocator);
+	int32_t islandCount = builder->islandCount;
+	if (islandCount == 0)
 	{
-		int32_t N = b2Array(world->awakeBodies).count;
-		int32_t awakeCount = 0;
-		for (int32_t i = 0; i < N; ++i)
-		{
-			int32_t bodyIndex = world->awakeBodies[i];
-			if (bodyIndex != B2_NULL_INDEX)
-			{
-				++awakeCount;
-				assert(bodyIndex < world->bodyPool.capacity);
-				b2Body* body = world->bodies + bodyIndex;
-				assert(body->isAwake);
-				assert(body->awakeIndex == i);
-			}
-		}
-		assert(awakeCount <= world->bodyPool.count);
-	}
-#endif
-
-	// Swap awake body buffer
-	{
-		int32_t* temp = world->awakeBodies;
-		world->awakeBodies = world->seedBodies;
-		world->seedBodies = temp;
+		return;
 	}
 
-	// The awake bodies are the seeds for the island depth first search
-	const int32_t* seedBuffer = world->seedBodies;
-	b2Array_Clear(world->awakeBodies);
-
-	int32_t seedCount = b2Array(seedBuffer).count;
-
-	uint64_t baseId = world->islandId;
-	uint64_t islandId = baseId;
-
-	// Build and simulate all awake islands.
-	int32_t* stack = (int32_t*)b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t));
-	b2Island* islandList = NULL;
-
-#if B2_ISLAND_PARALLEL_FOR == 1
-	int32_t islandCount = 0;
-#endif
-
-	// Each island is found as a depth first search starting from a seed body
-	for (int32_t i = 0; i < seedCount; ++i)
+	// Now create the island solvers
+	b2Island** islands = b2AllocateStackItem(allocator, islandCount * sizeof(b2Island*), "islands");
+	for (int32_t i = 0; i < islandCount; ++i)
 	{
-		int32_t seedIndex = seedBuffer[i];
-		if (seedIndex == B2_NULL_INDEX)
-		{
-			// body was destroyed, manually put to sleep, or disabled
-			continue;
-		}
-
-		b2Body* seed = world->bodies + seedIndex;
-		assert(seed->object.next == seedIndex);
-		assert(seed->isEnabled);
-		assert(seed->type != b2_staticBody);
-
-		if (seed->islandId > baseId)
-		{
-			// The body is already in an island
-			continue;
-		}
-
-		assert(seed->isAwake);
-
-		// Reset stack, bump island id
-		int32_t stackCount = 0;
-		stack[stackCount++] = seedIndex;
-		++islandId;
-
-		// Add seed to island
-		seed->islandId = islandId;
-		islandIndices[seedIndex] = 0;
-		bodies[0] = seed;
-
-		int32_t bodyCount = 1;
-		int32_t jointCount = 0;
-		int32_t contactCount = 0;
-
-		// Perform a depth first search (DFS) on the constraint graph.
-		while (stackCount > 0)
-		{
-			// Grab the next body off the stack and add it to the island.
-			int32_t bodyIndex = stack[--stackCount];
-			b2Body* b = world->bodies + bodyIndex;
-			assert(b->type != b2_staticBody);
-
-			// The awake body array is being rebuilt so the awake index is no longer valid
-			b->awakeIndex = B2_NULL_INDEX;
-
-			// Make sure the body is awake (without resetting sleep timer).
-			b->isAwake = true;
-
-			// Search all contacts connected to this body.
-			for (b2ContactEdge* ce = b->contacts; ce; ce = ce->next)
-			{
-				b2Contact* contact = ce->contact;
-
-				// Has this contact already been added to this island?
-				if (contact->islandId == seed->islandId)
-				{
-					continue;
-				}
-
-				// Skip sensors
-				if (contact->flags & b2_contactSensorFlag)
-				{
-					continue;
-				}
-
-				// Is this contact solid and touching?
-				if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
-				{
-					continue;
-				}
-
-				int32_t otherBodyIndex = ce->otherBodyIndex;
-				b2Body* otherBody = world->bodies + otherBodyIndex;
-
-				// Maybe add other body to island
-				if (otherBody->islandId != islandId)
-				{
-					otherBody->islandId = islandId;
-					islandIndices[otherBodyIndex] = bodyCount;
-					bodies[bodyCount++] = otherBody;
-					assert(otherBody->isEnabled == true);
-
-					if (otherBody->type != b2_staticBody)
-					{
-						assert(stackCount < bodyCapacity);
-						stack[stackCount++] = otherBodyIndex;
-					}
-				}
-
-				world->contactPointCount += contact->manifold.pointCount;
-
-				// Add contact to island
-				contact->islandId = islandId;
-				if (ce == &contact->edgeA)
-				{
-					contact->islandIndexA = islandIndices[bodyIndex];
-					contact->islandIndexB = islandIndices[otherBodyIndex];
-				}
-				else
-				{
-					contact->islandIndexA = islandIndices[otherBodyIndex];
-					contact->islandIndexB = islandIndices[bodyIndex];
-				}
-
-				assert(0 <= contact->islandIndexA && contact->islandIndexA < world->bodyPool.capacity);
-				assert(0 <= contact->islandIndexB && contact->islandIndexB < world->bodyPool.capacity);
-
-				contacts[contactCount++] = contact;
-			}
-
-			// Search all joints connect to this body.
-			int32_t jointIndex = b->jointIndex;
-			while (jointIndex != B2_NULL_INDEX)
-			{
-				b2Joint* joint = world->joints + jointIndex;
-				assert(joint->object.index == jointIndex);
-
-				bool isBodyA;
-				int32_t otherBodyIndex;
-				if (joint->edgeA.bodyIndex == b->object.index)
-				{
-					jointIndex = joint->edgeA.nextJointIndex;
-					otherBodyIndex = joint->edgeB.bodyIndex;
-					isBodyA = true;
-				}
-				else
-				{
-					assert(joint->edgeB.bodyIndex == b->object.index);
-					jointIndex = joint->edgeB.nextJointIndex;
-					otherBodyIndex = joint->edgeA.bodyIndex;
-					isBodyA = false;
-				}
-
-				// Has this joint already been added to this island?
-				if (joint->islandId == islandId)
-				{
-					continue;
-				}
-
-				b2Body* otherBody = world->bodies + otherBodyIndex;
-
-				// Don't simulate joints connected to disabled bodies.
-				if (otherBody->isEnabled == false)
-				{
-					continue;
-				}
-
-				// Maybe add other body to island
-				if (otherBody->islandId != islandId)
-				{
-					otherBody->islandId = islandId;
-					islandIndices[otherBodyIndex] = bodyCount;
-					bodies[bodyCount++] = otherBody;
-					assert(otherBody->isEnabled == true);
-
-					if (otherBody->type != b2_staticBody)
-					{
-						assert(stackCount < bodyCapacity);
-						stack[stackCount++] = otherBodyIndex;
-					}
-				}
-
-				// Add joint to island
-				joint->islandId = islandId;
-				if (isBodyA)
-				{
-					joint->islandIndexA = islandIndices[bodyIndex];
-					joint->islandIndexB = islandIndices[otherBodyIndex];
-				}
-				else
-				{
-					joint->islandIndexA = islandIndices[otherBodyIndex];
-					joint->islandIndexB = islandIndices[bodyIndex];
-				}
-
-				assert(0 <= joint->islandIndexA && joint->islandIndexA < world->bodyPool.capacity);
-				assert(0 <= joint->islandIndexB && joint->islandIndexB < world->bodyPool.capacity);
-
-				joints[jointCount++] = joint;
-			}
-		}
-
-		// Create island and add to linked list
-		b2Island* island = b2CreateIsland(bodies, bodyCount, contacts, contactCount, joints, jointCount, world, step);
-		island->nextIsland = islandList;
-		islandList = island;
-
-#if B2_ISLAND_PARALLEL_FOR == 0
-		if (g_parallelIslands)
-		{
-			world->enqueueTask(&b2IslandTask, 1, 1, island, world->userTaskContext);
-		}
-		else
-		{
-			b2IslandTask(0, 1, island);
-		}
-#else
-		assert(islandCount < world->bodyPool.capacity);
-		islands[islandCount++] = island;
-#endif
+		islands[i] = b2CreateIsland(builder, i, world, context);
 	}
 
 	b2TracyCZoneEnd(island_builder);
@@ -692,9 +839,10 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
 #if B2_ISLAND_PARALLEL_FOR == 1
-	if (g_parallelIslands)
+	if (g_parallel)
 	{
-		world->enqueueTask(&b2IslandParallelForTask, islandCount, 1, islands, world->userTaskContext);
+		int32_t minRange = 1;
+		world->enqueueTask(&b2IslandParallelForTask, islandCount, minRange, islands, world->userTaskContext);
 	}
 	else
 	{
@@ -710,28 +858,20 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
-	// Complete and destroy islands in reverse order
-	b2Island* island = islandList;
-	while (island)
+	// Complete and destroy islands (reverse order for stack allocator)
+	// This rebuilds the awake body array
+	world->awakeCount = 0;
+	for (int32_t i = islandCount - 1; i >= 0; --i)
 	{
+		b2Island* island = islands[i];
 		b2CompleteIsland(island);
-		b2Island* next = island->nextIsland;
 		b2DestroyIsland(island);
-		island = next;
 	}
 
-	b2FreeStackItem(world->stackAllocator, stack);
-	b2FreeStackItem(world->stackAllocator, contacts);
-	b2FreeStackItem(world->stackAllocator, joints);
-	b2FreeStackItem(world->stackAllocator, bodies);
-	b2FreeStackItem(world->stackAllocator, islands);
-	b2FreeStackItem(world->stackAllocator, islandIndices);
+	b2FreeStackItem(allocator, islands);
 
 	// Look for new contacts
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
-
-	// Store new island id
-	world->islandId = islandId;
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
@@ -742,7 +882,7 @@ static void b2Solve(b2World* world, const b2TimeStep* step)
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
-	b2TracyCZoneC(step_ctx, b2_colorChartreuse, true);
+	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
 	assert(world->locked == false);
@@ -765,24 +905,36 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// TODO_ERIN atomic
 	world->locked = true;
 
-	b2TimeStep step;
-	step.dt = timeStep;
-	step.velocityIterations = velocityIterations;
-	step.positionIterations = positionIterations;
+	b2StepContext context = {0};
+	context.dt = timeStep;
+	context.velocityIterations = velocityIterations;
+	context.positionIterations = positionIterations;
 	if (timeStep > 0.0f)
 	{
-		step.inv_dt = 1.0f / timeStep;
+		context.inv_dt = 1.0f / timeStep;
 	}
 	else
 	{
-		step.inv_dt = 0.0f;
+		context.inv_dt = 0.0f;
 	}
 
-	step.dtRatio = world->inv_dt0 * timeStep;
-	step.restitutionThreshold = world->restitutionThreshold;
-	step.warmStarting = world->warmStarting;
+	context.dtRatio = world->inv_dt0 * timeStep;
+	context.restitutionThreshold = world->restitutionThreshold;
+	context.warmStarting = world->warmStarting;
+	context.bodies = world->bodies;
+	context.bodyCapacity = world->bodyPool.capacity;
+	context.activeJoints = b2AllocateStackItem(world->stackAllocator, world->jointPool.capacity * sizeof(b2Joint*), "active joints");
 
-	// Update contacts. This is where some contacts are destroyed.
+	// Start island builder with maximal capacities
+	const int32_t bodyCapacity = world->bodyPool.count;
+	const int32_t jointCapacity = world->jointPool.count;
+	const int32_t contactCapacity = b2Array(world->contactArray).count;
+	b2StartIslands(&world->islandBuilder, bodyCapacity, jointCapacity, contactCapacity, world->stackAllocator);
+
+	// Link active joints into island builder
+	b2LinkActiveJoints(world, &context);
+
+	// Update contacts. Builds contact islands. Destroy invalid contacts.
 	{
 		b2Timer timer = b2CreateTimer();
 		b2Collide(world);
@@ -790,28 +942,24 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	}
 
 	// Integrate velocities, solve velocity constraints, and integrate positions.
-	if (step.dt > 0.0f)
+	if (context.dt > 0.0f)
 	{
 		b2Timer timer = b2CreateTimer();
-		b2Solve(world, &step);
+		b2Solve(world, &context);
 		world->profile.solve = b2GetMilliseconds(&timer);
 	}
 
-	if (step.dt > 0.0f)
+	// TODO_ERIN crash if paused
+	b2ResetIslands(&world->islandBuilder, world->stackAllocator);
+	b2FreeStackItem(world->stackAllocator, context.activeJoints);
+
+	if (context.dt > 0.0f)
 	{
-		world->inv_dt0 = step.inv_dt;
+		world->inv_dt0 = context.inv_dt;
 	}
 
-	// TODO_ERIN clear forces in island solver on last sub-step
-	// if (m_clearForces)
-	//{
-	int32_t count = world->bodyPool.capacity;
-	for (int32_t i = 0; i < count; ++i)
-	{
-		world->bodies[i].force = b2Vec2_zero;
-		world->bodies[i].torque = 0.0f;
-	}
-	//}
+	// Reset active contacts
+	atomic_store_long(&world->activeContactCount, 0);
 
 	world->locked = false;
 
@@ -819,7 +967,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	assert(b2GetStackAllocation(world->stackAllocator) == 0);
 
-	b2TracyCZoneEnd(step_ctx);
+	b2TracyCZoneEnd(world_step);
 }
 
 static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Color color)
@@ -941,7 +1089,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.9f, 1.0f});
 				}
-				else if (b->isAwake == false)
+				else if (b->awakeIndex == B2_NULL_INDEX)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.6f, 0.6f, 0.6f, 1.0f});
 				}
@@ -1080,10 +1228,10 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 	}
 }
 
-b2Profile* b2World_GetProfile(b2WorldId worldId)
+b2Profile b2World_GetProfile(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	return &world->profile;
+	return world->profile;
 }
 
 b2Statistics b2World_GetStatistics(b2WorldId worldId)
@@ -1091,7 +1239,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	b2World* world = b2GetWorldFromId(worldId);
 	b2Statistics s = {0};
 	s.bodyCount = world->bodyPool.count;
-	s.contactCount = world->contactCount;
+	s.contactCount = b2Array(world->contactArray).count;
 	s.jointCount = world->jointPool.count;
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;

@@ -17,6 +17,9 @@ if (MSVC AND WIN32)
     # Enable edit and continue only in debug due to perf hit in release
     add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)
     add_compile_options($<$<CONFIG:Debug>:/ZI>)
+	
+	# this seems useless because it crashes in KernalBase.dll
+	# add_compile_options(/fsanitize=address)
 endif()
 
 if (BOX2D_PROFILE)

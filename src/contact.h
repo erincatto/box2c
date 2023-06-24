@@ -46,10 +46,8 @@ enum b2ContactFlags
 /// that has no contact points.
 typedef struct b2Contact
 {
+	int32_t index;
 	uint32_t flags;
-
-	struct b2Contact* prev;
-	struct b2Contact* next;
 
 	// Edges for connecting shapes (and thus bodies). These are the edges in the body-contact graph.
 	b2ContactEdge edgeA;

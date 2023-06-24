@@ -21,19 +21,21 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-void b2InitializeRevolute(b2Joint* base, b2SolverContext* context)
+void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
 {
 	assert(base->type == b2_revoluteJoint);
 
-	const b2TimeStep* step = context->step;
+	int32_t indexA = base->edgeA.bodyIndex;
+	int32_t indexB = base->edgeB.bodyIndex;
+	assert(0 <= indexA && indexA < context->bodyCapacity);
+	assert(0 <= indexB && indexB < context->bodyCapacity);
+
+	b2Body* bodyA = context->bodies + indexA;
+	b2Body* bodyB = context->bodies + indexB;
+	assert(bodyA->object.index == bodyA->object.next);
+	assert(bodyB->object.index == bodyB->object.next);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
-	int32_t indexA = base->islandIndexA;
-	int32_t indexB = base->islandIndexB;
-
-	const b2BodyData* bodyA = context->bodyData + indexA;
-	const b2BodyData* bodyB = context->bodyData + indexB;
-
 	joint->localCenterA = bodyA->localCenter;
 	joint->invMassA = bodyA->invMass;
 	joint->invIA = bodyA->invI;
@@ -42,13 +44,13 @@ void b2InitializeRevolute(b2Joint* base, b2SolverContext* context)
 	joint->invMassB = bodyB->invMass;
 	joint->invIB = bodyB->invI;
 
-	float aA = context->positions[indexA].a;
-	b2Vec2 vA = context->velocities[indexA].v;
-	float wA = context->velocities[indexA].w;
+	float aA = bodyA->angle;
+	b2Vec2 vA = bodyA->linearVelocity;
+	float wA = bodyA->angularVelocity;
 
-	float aB = context->positions[indexB].a;
-	b2Vec2 vB = context->velocities[indexB].v;
-	float wB = context->velocities[indexB].w;
+	float aB = bodyB->angle;
+	b2Vec2 vB = bodyB->linearVelocity;
+	float wB = bodyB->angularVelocity;
 
 	b2Rot qA = b2MakeRot(aA);
 	b2Rot qB = b2MakeRot(aB);
@@ -95,9 +97,9 @@ void b2InitializeRevolute(b2Joint* base, b2SolverContext* context)
 		joint->motorImpulse = 0.0f;
 	}
 
-	if (context->step->warmStarting)
+	if (context->warmStarting)
 	{
-		float dtRatio = step->dtRatio;
+		float dtRatio = context->dtRatio;
 
 		// Scale impulses to support a variable time step.
 		joint->impulse = b2MulSV(dtRatio, joint->impulse);
@@ -122,25 +124,25 @@ void b2InitializeRevolute(b2Joint* base, b2SolverContext* context)
 		joint->upperImpulse = 0.0f;
 	}
 
-	context->velocities[indexA].v = vA;
-	context->velocities[indexA].w = wA;
-	context->velocities[indexB].v = vB;
-	context->velocities[indexB].w = wB;
+	bodyA->linearVelocity = vA;
+	bodyA->angularVelocity = wA;
+	bodyB->linearVelocity = vB;
+	bodyB->angularVelocity = wB;
 }
 
-void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* context)
+void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context)
 {
 	assert(base->type == b2_revoluteJoint);
-	const b2TimeStep* step = context->step;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
-	int32_t indexA = base->islandIndexA;
-	int32_t indexB = base->islandIndexB;
 
-	b2Vec2 vA = context->velocities[indexA].v;
-	float wA = context->velocities[indexA].w;
-	b2Vec2 vB = context->velocities[indexB].v;
-	float wB = context->velocities[indexB].w;
+	b2Body* bodyA = context->bodies + base->edgeA.bodyIndex;
+	b2Body* bodyB = context->bodies + base->edgeB.bodyIndex;
+
+	b2Vec2 vA = bodyA->linearVelocity;
+	float wA = bodyA->angularVelocity;
+	b2Vec2 vB = bodyB->linearVelocity;
+	float wB = bodyB->angularVelocity;
 
 	float mA = joint->invMassA, mB = joint->invMassB;
 	float iA = joint->invIA, iB = joint->invIB;
@@ -153,7 +155,7 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* context)
 		float Cdot = wB - wA - joint->motorSpeed;
 		float impulse = -joint->axialMass * Cdot;
 		float oldImpulse = joint->motorImpulse;
-		float maxImpulse = step->dt * joint->maxMotorTorque;
+		float maxImpulse = context->dt * joint->maxMotorTorque;
 		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 
@@ -167,7 +169,7 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* context)
 		{
 			float C = joint->angle - joint->lowerAngle;
 			float Cdot = wB - wA;
-			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * step->inv_dt);
+			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * context->inv_dt);
 			float oldImpulse = joint->lowerImpulse;
 			joint->lowerImpulse = B2_MAX(joint->lowerImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
@@ -182,7 +184,7 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* context)
 		{
 			float C = joint->upperAngle - joint->angle;
 			float Cdot = wA - wB;
-			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * step->inv_dt);
+			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * context->inv_dt);
 			float oldImpulse = joint->upperImpulse;
 			joint->upperImpulse = B2_MAX(joint->upperImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
@@ -207,24 +209,25 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* context)
 		wB += iB * b2Cross(joint->rB, impulse);
 	}
 
-	context->velocities[indexA].v = vA;
-	context->velocities[indexA].w = wA;
-	context->velocities[indexB].v = vB;
-	context->velocities[indexB].w = wB;
+	bodyA->linearVelocity = vA;
+	bodyA->angularVelocity = wA;
+	bodyB->linearVelocity = vB;
+	bodyB->angularVelocity = wB;
 }
 
-bool b2SolveRevolutePosition(b2Joint* base, b2SolverContext* context)
+bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* context)
 {
 	assert(base->type == b2_revoluteJoint);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
-	int32_t indexA = base->islandIndexA;
-	int32_t indexB = base->islandIndexB;
 
-	b2Vec2 cA = context->positions[indexA].c;
-	float aA = context->positions[indexA].a;
-	b2Vec2 cB = context->positions[indexB].c;
-	float aB = context->positions[indexB].a;
+	b2Body* bodyA = context->bodies + base->edgeA.bodyIndex;
+	b2Body* bodyB = context->bodies + base->edgeB.bodyIndex;
+
+	b2Vec2 cA = bodyA->position;
+	float aA = bodyA->angle;
+	b2Vec2 cB = bodyB->position;
+	float aB = bodyB->angle;
 
 	b2Rot qA = b2MakeRot(aA), qB = b2MakeRot(aB);
 
@@ -289,10 +292,10 @@ bool b2SolveRevolutePosition(b2Joint* base, b2SolverContext* context)
 		aB += iB * b2Cross(rB, impulse);
 	}
 
-	context->positions[indexA].c = cA;
-	context->positions[indexA].a = aA;
-	context->positions[indexB].c = cB;
-	context->positions[indexB].a = aB;
+	bodyA->position = cA;
+	bodyA->angle = aA;
+	bodyB->position = cB;
+	bodyB->angle = aB;
 
 	return positionError <= b2_linearSlop && angularError <= b2_angularSlop;
 }

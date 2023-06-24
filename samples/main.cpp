@@ -17,6 +17,7 @@
 #include "settings.h"
 
 #include "box2d/allocate.h"
+#include "box2d/api.h"
 #include "box2d/constants.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
@@ -350,6 +351,9 @@ static void ScrollCallback(GLFWwindow* window, double dx, double dy)
 	}
 }
 
+BOX2D_API bool g_parallel;
+BOX2D_API bool g_sortContacts;
+
 static void UpdateUI()
 {
 	float menuWidth = 180.0f;
@@ -374,6 +378,8 @@ static void UpdateUI()
 				ImGui::Checkbox("Sleep", &s_settings.m_enableSleep);
 				ImGui::Checkbox("Warm Starting", &s_settings.m_enableWarmStarting);
 				ImGui::Checkbox("Continuous", &s_settings.m_enableContinuous);
+				ImGui::Checkbox("Parallel", &g_parallel);
+				ImGui::Checkbox("Sort Contacts", &g_sortContacts);
 
 				ImGui::Separator();
 
@@ -518,7 +524,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	sprintf(buffer, "Box2D Version %d.%d.%d", b2_version.major, b2_version.minor, b2_version.revision);
+	sprintf(buffer, "Box2D Version %d.%d.%d UF", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{

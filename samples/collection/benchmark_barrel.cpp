@@ -8,8 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API bool g_velocityBlockSolve;
-
 class BenchmarkBarrel : public Sample
 {
 public:
@@ -131,8 +129,6 @@ public:
 		int shapeType = int(m_shapeType);
 		changed = changed || ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
 		m_shapeType = ShapeType(shapeType);
-
-		ImGui::Checkbox("Block Solve", &g_velocityBlockSolve);
 
 		changed = changed || ImGui::Button("Reset Scene");
 

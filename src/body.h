@@ -46,9 +46,9 @@ typedef struct b2Body
 	struct b2ContactEdge* contacts;
 	int32_t contactCount;
 
-	int32_t awakeIndex;
+	B2_ATOMIC long awakeIndex;
 
-	uint64_t islandId;
+	int32_t islandIndex;
 
 	float mass, invMass;
 
@@ -64,7 +64,6 @@ typedef struct b2Body
 	void* userData;
 	int16_t world;
 
-	bool isAwake;
 	bool enableSleep;
 	bool fixedRotation;
 	bool isEnabled;

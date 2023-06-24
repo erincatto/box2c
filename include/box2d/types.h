@@ -21,6 +21,13 @@
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 #define B2_NULL_INDEX (-1)
 
+// TODO_ERIN temp until github updates MSVC
+#if defined(_MSC_VER) && !defined(__clang__)
+#define B2_ATOMIC
+#else
+#define B2_ATOMIC _Atomic
+#endif
+
 /// 2D vector
 typedef struct b2Vec2
 {
@@ -93,14 +100,17 @@ typedef struct b2WorldDef
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
 
-	/// initial capacity for bodies
+	/// Capacity for bodies. This may not be exceeded.
 	int32_t bodyCapacity;
-
-	/// initial capacity for joints
-	int32_t jointCapacity;
 
 	/// initial capacity for shapes
 	int32_t shapeCapacity;
+
+	/// Capacity for contacts. This may not be exceeded.
+	int32_t contactCapacity;
+
+	/// Capacity for joints
+	int32_t jointCapacity;
 
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
 	/// Larger worlds require more space. b2Statistics can be used to determine a good capacity for your
@@ -228,8 +238,9 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.enableSleep = true;
 	def.bodyCapacity = 8;
-	def.jointCapacity = 8;
 	def.shapeCapacity = 8;
+	def.contactCapacity = 8;
+	def.jointCapacity = 8;
 	def.stackAllocatorCapacity = 1024 * 1024;
 	return def;
 }

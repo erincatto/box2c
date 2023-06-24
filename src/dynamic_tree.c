@@ -932,6 +932,8 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 {
 	b2Vec2 p1 = input->p1;
 	b2Vec2 p2 = input->p2;
+	b2Vec2 extension = {input->radius, input->radius};
+
 	b2Vec2 r = b2Normalize(b2Sub(p2, p1));
 
 	// v is perpendicular to the segment.
@@ -946,9 +948,12 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 	// Build a bounding box for the segment.
 	b2AABB segmentAABB;
 	{
+		// t is the endpoint of the ray
 		b2Vec2 t = b2MulAdd(p1, maxFraction, b2Sub(p2, p1));
-		segmentAABB.lowerBound = b2Min(p1, t);
-		segmentAABB.upperBound = b2Max(p1, t);
+
+		// Add radius extension
+		segmentAABB.lowerBound = b2Sub(b2Min(p1, t), extension);
+		segmentAABB.upperBound = b2Sub(b2Max(p1, t), extension);
 	}
 
 	int32_t stack[b2_treeStackSize];
@@ -964,7 +969,6 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		}
 
 		const b2TreeNode* node = tree->nodes + nodeId;
-
 		if (b2AABB_Overlaps(node->aabb, segmentAABB) == false ||
 			(node->categoryBits & maskBits) == 0)
 		{
@@ -973,8 +977,9 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 
 		// Separating axis for segment (Gino, p80).
 		// |dot(v, p1 - c)| > dot(|v|, h)
+		// radius extension is added to the node in this case
 		b2Vec2 c = b2AABB_Center(node->aabb);
-		b2Vec2 h = b2AABB_Extents(node->aabb);
+		b2Vec2 h = b2Add(b2AABB_Extents(node->aabb), extension);
 		float term1 = B2_ABS(b2Dot(v, b2Sub(p1, c)));
 		float term2 = b2Dot(abs_v, h);
 		if (term2 < term1)
@@ -1003,8 +1008,8 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 				// Update segment bounding box.
 				maxFraction = value;
 				b2Vec2 t = b2MulAdd(p1, maxFraction, b2Sub(p2, p1));
-				segmentAABB.lowerBound = b2Min(p1, t);
-				segmentAABB.upperBound = b2Max(p1, t);
+				segmentAABB.lowerBound = b2Sub(b2Min(p1, t), extension);
+				segmentAABB.upperBound = b2Sub(b2Max(p1, t), extension);
 			}
 		}
 		else

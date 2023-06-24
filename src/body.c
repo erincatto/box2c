@@ -11,6 +11,8 @@
 #include "world.h"
 #include "shape.h"
 
+#include "atomic.inl"
+
 #include <assert.h>
 
 b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
@@ -20,6 +22,12 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (world->locked)
 	{
+		return b2_nullBodyId;
+	}
+
+	if (world->bodyPool.count == world->bodyPool.capacity)
+	{
+		assert(false);
 		return b2_nullBodyId;
 	}
 
@@ -61,20 +69,20 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->sleepTime = 0.0f;
 	b->userData = def->userData;
 	b->world = worldId.index;
-	b->islandId = 0;
-	b->isAwake = b->type == b2_staticBody ? false : def->isAwake;
+	b->islandIndex = B2_NULL_INDEX;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
 
-	if (b->isAwake)
+	if (def->isAwake && def->type != b2_staticBody)
 	{
-		b->awakeIndex = b2Array(world->awakeBodies).count;
-		b2Array_Push(world->awakeBodies, b->object.index);
+		int32_t awakeIndex = atomic_fetch_add_long(&world->awakeCount, 1);
+		atomic_store_long(&b->awakeIndex, awakeIndex);
+		world->awakeBodies[awakeIndex] = b->object.index;
 	}
 	else
 	{
-		b->awakeIndex = B2_NULL_INDEX;
+		atomic_store_long(&b->awakeIndex, B2_NULL_INDEX);
 	}
 
 	b2BodyId id = {b->object.index, worldId.index, b->object.revision};
@@ -96,6 +104,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b2Body* body = world->bodies + bodyId.index;
 
 #if 0
+	// TODO_ERIN eliminate joint graph?
 	// Delete the attached joints.
 	b2JointEdge* je = b->m_jointList;
 	while (je)
@@ -114,6 +123,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	}
 	b->m_jointList = nullptr;
 #endif
+
 	// Delete the attached contacts
 	b2ContactEdge* ce = body->contacts;
 	while (ce)
@@ -147,7 +157,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
 
-
 		// if (m_destructionListener)
 		//{
 		//	m_destructionListener->SayGoodbye(f0);
@@ -167,16 +176,24 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		world->shapes = (b2Shape*)world->shapePool.memory;
 	}
 
-	// Remove awake body.
-	// Must do this after destroying contacts because that might wake this body.
-	if (body->awakeIndex != B2_NULL_INDEX)
+	// Remove awake body
+	int32_t awakeIndex = body->awakeIndex;
+	if (awakeIndex != B2_NULL_INDEX)
 	{
-		assert(body->isAwake);
-		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
-		assert(world->awakeBodies[body->awakeIndex] == body->object.index);
+		int32_t awakeCount = world->awakeCount;
 
-		// Elements of the awake list cannot be moved around, so nullify this element
-		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+		assert(0 <= awakeIndex && awakeIndex < awakeCount);
+		assert(world->awakeBodies[awakeIndex] == body->object.index);
+
+		if (awakeIndex < awakeCount - 1)
+		{
+			// Fix awake index on body that got swapped
+			int32_t otherBodyIndex = world->awakeBodies[awakeCount - 1];
+			world->bodies[otherBodyIndex].awakeIndex = awakeIndex;
+			world->awakeBodies[awakeIndex] = otherBodyIndex;
+		}
+
+		atomic_fetch_sub_long(&world->awakeCount, 1);
 	}
 
 	b2FreeObject(&world->bodyPool, &body->object);
@@ -492,21 +509,17 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		return;
 	}
 
-	if (body->isAwake == flag)
-	{
-		return;
-	}
-
-	body->isAwake = flag;
-
-	if (flag)
+	if (flag == true && body->awakeIndex == B2_NULL_INDEX)
 	{
 		body->sleepTime = 0.0f;
 		assert(body->awakeIndex == B2_NULL_INDEX);
-		body->awakeIndex = b2Array(world->awakeBodies).count;
-		b2Array_Push(world->awakeBodies, body->object.index);
+		long awakeCount = atomic_load_long(&world->awakeCount);
+		assert(awakeCount < world->bodyCapacity);
+		body->awakeIndex = awakeCount;
+		world->awakeBodies[body->awakeIndex] = body->object.index;
+		atomic_fetch_add_long(&world->awakeCount, 1);
 	}
-	else
+	else if (flag == false && body->awakeIndex != B2_NULL_INDEX)
 	{
 		body->sleepTime = 0.0f;
 		body->linearVelocity = b2Vec2_zero;
@@ -514,9 +527,22 @@ void b2SetAwake(b2World* world, b2Body* body, bool flag)
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
 
-		assert(0 <= body->awakeIndex && body->awakeIndex < b2Array(world->awakeBodies).count);
-		world->awakeBodies[body->awakeIndex] = B2_NULL_INDEX;
+		int32_t awakeIndex = body->awakeIndex;
+		int32_t awakeCount = atomic_load_long(&world->awakeCount);
+		assert(0 <= awakeIndex && awakeIndex < awakeCount);
+
+		// Swap in last body
+		if (awakeIndex < awakeCount - 1)
+		{
+			int32_t endIndex = world->awakeBodies[awakeCount - 1];
+			world->awakeBodies[awakeIndex] = endIndex;
+			assert(world->bodies[endIndex].awakeIndex == awakeCount - 1);
+			assert(world->bodies[endIndex].object.next == world->bodies[endIndex].object.index);
+			world->bodies[endIndex].awakeIndex = awakeIndex;
+		}
+
 		body->awakeIndex = B2_NULL_INDEX;
+		atomic_fetch_sub_long(&world->awakeCount, 1);
 	}
 }
 

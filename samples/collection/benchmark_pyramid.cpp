@@ -8,9 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API bool g_velocityBlockSolve;
-BOX2D_API bool g_positionBlockSolve;
-
 class BenchmarkPyramid : public Sample
 {
 public:
@@ -39,7 +36,8 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_baseCount = g_sampleDebug ? 10 : e_maxBaseCount;
+		m_baseCount = g_sampleDebug ? 2 : 100;
+		m_bodyCount = 0;
 
 		CreateScene();
 	}
@@ -59,7 +57,7 @@ public:
 		float rad = 0.5f;
 		float shift = rad * 2.0f;
 		float centerx = shift * count / 2.0f;
-		float centery = shift / 2.0f + m_groundThickness + rad * 1.5f;
+		float centery = shift / 2.0f + m_groundThickness;//		+rad * 1.5f;
 
 		b2BodyDef bd = b2DefaultBodyDef();
 		bd.type = b2_dynamicBody;
@@ -91,6 +89,8 @@ public:
 				index += 1;
 			}
 		}
+
+		m_bodyCount = index;
 	}
 
 	void UpdateUI() override
@@ -99,14 +99,16 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
-		ImGui::Checkbox("Vel Block Solve", &g_velocityBlockSolve);
-		ImGui::Checkbox("Pos Block Solve", &g_positionBlockSolve);
-
 		bool changed = false;
 		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, e_maxBaseCount);
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
+
+		if (ImGui::Button("Wake Top"))
+		{
+			b2Body_SetAwake(m_bodies[m_bodyCount - 1], true);
+		}
 
 		if (changed)
 		{
@@ -122,6 +124,7 @@ public:
 	}
 
 	b2BodyId m_bodies[e_maxBodyCount];
+	int32_t m_bodyCount;
 	int32_t m_baseCount;
 	float m_round;
 	float m_groundThickness;

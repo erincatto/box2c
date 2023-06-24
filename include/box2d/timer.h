@@ -6,6 +6,7 @@
 #include "types.h"
 
 /// Profiling data. Times are in milliseconds.
+/// TODO_ERIN change to ticks due to variable frequency
 typedef struct b2Profile
 {
 	float step;

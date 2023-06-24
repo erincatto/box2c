@@ -15,12 +15,15 @@ set(BOX2D_SOURCE_FILES
 	contact.h
 	contact_solver.c
 	contact_solver.h
+	contact_sorter.cpp
 	distance.c
 	dynamic_tree.c
 	geometry.c
 	hull.c
 	island.c
 	island.h
+	island_builder.c
+	island_builder.h
 	joint.c
 	joint.h
 	manifold.c
@@ -75,13 +78,13 @@ set_target_properties(box2d PROPERTIES
 	CMAKE_COMPILE_WARNING_AS_ERROR ON
 	C_STANDARD 17
 	C_STANDARD_REQUIRED YES
-	C_EXTENSIONS NO
+	C_EXTENSIONS YES
 	CXX_STANDARD 17
 )
 
 if (MSVC)
-	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
-	# target_compile_options(box2d PRIVATE /W4 /WX)
+	# target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
+	target_compile_options(box2d PRIVATE /W4 /WX)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

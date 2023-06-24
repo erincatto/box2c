@@ -289,10 +289,10 @@ void b2World_DestroyJoint(b2JointId jointId)
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
-extern void b2InitializeMouse(b2Joint* base, b2SolverContext* data);
-extern void b2InitializeRevolute(b2Joint* base, b2SolverContext* data);
+extern void b2InitializeMouse(b2Joint* base, b2StepContext* data);
+extern void b2InitializeRevolute(b2Joint* base, b2StepContext* data);
 
-void b2InitVelocityConstraints(b2Joint* joint, b2SolverContext* data)
+void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data)
 {
 	switch (joint->type)
 	{
@@ -309,10 +309,10 @@ void b2InitVelocityConstraints(b2Joint* joint, b2SolverContext* data)
 	}
 }
 
-extern void b2SolveMouseVelocity(b2Joint* base, b2SolverContext* data);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2SolverContext* data);
+extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* data);
+extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* data);
 
-void b2SolveVelocityConstraints(b2Joint* joint, b2SolverContext* data)
+void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data)
 {
 	switch (joint->type)
 	{
@@ -329,10 +329,10 @@ void b2SolveVelocityConstraints(b2Joint* joint, b2SolverContext* data)
 	}
 }
 
-extern bool b2SolveRevolutePosition(b2Joint* base, b2SolverContext* data);
+extern bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* data);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2SolverContext* data)
+bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data)
 {
 	switch (joint->type)
 	{

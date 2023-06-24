@@ -93,6 +93,12 @@ void b2InitializeContactRegisters()
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
 {
+	if (b2Array(world->contactArray).count == b2Array(world->contactArray).capacity)
+	{
+		assert(false);
+		return;
+	}
+
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
 
@@ -131,14 +137,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->tangentSpeed = 0.0f;
 
 	// Insert into the world
-	c->prev = NULL;
-	c->next = world->contacts;
-	if (world->contacts != NULL)
-	{
-		world->contacts->prev = c;
-	}
-	world->contacts = c;
-	world->contactCount += 1;
+	c->index = b2Array(world->contactArray).count;
+	b2Array_Push(world->contactArray, c);
 
 	// Connect to island graph
 	c->edgeA = (b2ContactEdge){shapeB->bodyIndex, c, NULL, NULL};
@@ -182,20 +182,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	//	contactListener->EndContact(contact);
 	// }
 
-	// Remove from the world.
-	if (contact->prev)
+	int32_t count = b2Array(world->contactArray).count;
+	int32_t index = contact->index;
+	b2Array_RemoveSwap(world->contactArray, index);
+	if (index < count - 1)
 	{
-		contact->prev->next = contact->next;
-	}
-
-	if (contact->next)
-	{
-		contact->next->prev = contact->prev;
-	}
-
-	if (contact == world->contacts)
-	{
-		world->contacts = contact->next;
+		// Fix swapped contact index
+		world->contactArray[index]->index = index;
 	}
 
 	// Remove from body A
@@ -233,9 +226,6 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	}
 
 	b2FreeBlock(world->blockAllocator, contact, sizeof(b2Contact));
-
-	world->contactCount -= 1;
-	assert(world->contactCount >= 0);
 }
 
 bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
@@ -341,6 +331,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 
 		if (touching && world->preSolveFcn)
 		{
+			// TODO_ERIN this call assumes thread safety
 			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
 			if (collide == false)
 			{
