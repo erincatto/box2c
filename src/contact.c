@@ -9,6 +9,7 @@
 #include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
+#include "island.h"
 #include "shape.h"
 #include "world.h"
 
@@ -133,9 +134,11 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	c->tangentSpeed = 0.0f;
 
+	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
+	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
+
 	// Connect to body A
 	{
-		b2Body* bodyA = world->bodies + shapeA->bodyIndex;
 		c->edges[0].bodyIndex = shapeA->bodyIndex;
 		c->edges[0].prevKey = B2_NULL_INDEX;
 		c->edges[0].nextKey = bodyA->contactList;
@@ -153,7 +156,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	// Connect to body B
 	{
-		b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 		c->edges[1].bodyIndex = shapeB->bodyIndex;
 		c->edges[1].prevKey = B2_NULL_INDEX;
 		c->edges[1].nextKey = bodyB->contactList;
@@ -169,7 +171,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 		bodyB->contactCount += 1;
 	}
 
-	// TODO_ERIN add to island?
+
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
@@ -231,7 +233,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	bodyB->contactCount -= 1;
 
-	// TODO_ERIN remove from island?
+	b2UnlinkContact(world, contact);
 
 	b2FreeObject(&world->contactPool, &contact->object);
 }

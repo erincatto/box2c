@@ -149,11 +149,124 @@ void b2ClearIsland(b2PersistentIsland* island)
 	island->headJoint = B2_NULL_INDEX;
 	island->tailJoint = B2_NULL_INDEX;
 	island->jointCount = 0;
-	island->nextIsland = B2_NULL_INDEX;
+	island->parentIsland = B2_NULL_INDEX;
 	island->awakeIndex = B2_NULL_INDEX;
 	island->isDirty = false;
 	island->stepContext = NULL;
 	island->contactSolver = NULL;
+}
+
+static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2Contact* contact)
+{
+	assert(contact->islandIndex == B2_NULL_INDEX);
+	assert(contact->islandPrev == B2_NULL_INDEX);
+	assert(contact->islandNext == B2_NULL_INDEX);
+
+	if (island->headContact != B2_NULL_INDEX)
+	{
+		contact->islandNext = island->headContact;
+		b2Contact* headContact = world->contacts + island->headContact;
+		headContact->islandPrev = contact->object.index;
+	}
+
+	island->headContact = contact->object.index;
+	if (island->tailContact == B2_NULL_INDEX)
+	{
+		island->tailContact = island->headContact;
+	}
+
+	island->contactCount += 1;
+	contact->islandIndex = island->object.index;
+}
+
+// https://en.wikipedia.org/wiki/Disjoint-set_data_structure
+void b2LinkContact(b2World* world, b2Contact* contact)
+{
+	b2Body* bodyA = world->bodies + contact->edges[0].bodyIndex;
+	b2Body* bodyB = world->bodies + contact->edges[1].bodyIndex;
+
+	int32_t islandIndexA = bodyA->islandIndex;
+	int32_t islandIndexB = bodyB->islandIndex;
+	assert(islandIndexA != B2_NULL_INDEX && islandIndexB != B2_NULL_INDEX);
+
+	if (islandIndexA == islandIndexB)
+	{
+		b2AddContactToIsland(world, world->islands + islandIndexA, contact);
+		return;
+	}
+
+	// Union-find
+	b2PersistentIsland* islandA = world->islands + islandIndexA;
+	while (islandA->parentIsland != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* parent = world->islands + islandA->parentIsland;
+		if (parent->parentIsland != B2_NULL_INDEX)
+		{
+			// path compression
+			islandA->parentIsland = parent->parentIsland;
+		}
+
+		islandA = parent;
+	}
+
+	b2PersistentIsland* islandB = world->islands + islandIndexB;
+	while (islandB->parentIsland != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* parent = world->islands + islandB->parentIsland;
+		if (parent->parentIsland != B2_NULL_INDEX)
+		{
+			// path compression
+			islandB->parentIsland = parent->parentIsland;
+		}
+
+		islandB = parent;
+	}
+
+	if (islandA != islandB)
+	{
+		assert(islandB->parentIsland == B2_NULL_INDEX);
+		islandB->parentIsland = islandA->object.index;
+	}
+
+	b2AddContactToIsland(world, islandA, contact);
+}
+
+void b2UnlinkContact(b2World* world, b2Contact* contact)
+{
+	// remove from island
+	// mark island dirty
+}
+
+static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joint* joint)
+{
+	assert(joint->islandIndex == B2_NULL_INDEX);
+	assert(joint->islandPrev == B2_NULL_INDEX);
+	assert(joint->islandNext == B2_NULL_INDEX);
+
+	if (island->headJoint != B2_NULL_INDEX)
+	{
+		joint->islandNext = island->headJoint;
+		b2Contact* headJoint = world->joints + island->headJoint;
+		headJoint->islandPrev = joint->object.index;
+	}
+
+	island->headJoint = joint->object.index;
+	if (island->tailJoint == B2_NULL_INDEX)
+	{
+		island->tailJoint = island->headJoint;
+	}
+
+	island->jointCount += 1;
+	joint->islandIndex = island->object.index;
+}
+
+void b2LinkJoint(b2World* world, b2Joint* joint)
+{
+}
+
+
+void b2UnlinkJoint(b2World* world, b2Joint* joint)
+{
 }
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)

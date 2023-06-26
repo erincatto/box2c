@@ -41,8 +41,8 @@ typedef struct b2PersistentIsland
 	int32_t tailJoint;
 	int32_t jointCount;
 
-	// This allow islands to be linked during a merge
-	int32_t nextIsland;
+	// Union find
+	int32_t parentIsland;
 
 	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
 	int32_t awakeIndex;
@@ -56,6 +56,12 @@ typedef struct b2PersistentIsland
 } b2PersistentIsland;
 
 void b2ClearIsland(b2PersistentIsland* island);
+
+void b2LinkContact(b2PersistentIsland* island, b2Contact* contact);
+void b2UnlinkContact(b2PersistentIsland* island, b2Contact* contact);
+
+void b2LinkJoint(b2PersistentIsland* island, b2Joint* joint);
+void b2UnlinkJoint(b2PersistentIsland* island, b2Joint* joint);
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* step);
 
