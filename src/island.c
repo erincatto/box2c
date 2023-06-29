@@ -179,9 +179,24 @@ static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2C
 	contact->islandIndex = island->object.index;
 }
 
+static void b2WakeIsland(b2World* world, b2PersistentIsland* island)
+{
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		assert(world->awakeIslandArray[island->awakeIndex] == island->object.index);
+		return;
+	}
+
+	island->awakeIndex = b2Array(world->awakeIslandArray).count;
+	b2Array_Push(world->awakeIslandArray, island->object.index);
+}
+
+// TODO_ERIN handle static-to-dynamic
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
 {
+	assert(contact->manifold.pointCount > 0);
+
 	b2Body* bodyA = world->bodies + contact->edges[0].bodyIndex;
 	b2Body* bodyB = world->bodies + contact->edges[1].bodyIndex;
 
@@ -197,6 +212,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 
 	// Union-find
 	b2PersistentIsland* islandA = world->islands + islandIndexA;
+	b2WakeIsland(world, islandA);
 	while (islandA->parentIsland != B2_NULL_INDEX)
 	{
 		b2PersistentIsland* parent = world->islands + islandA->parentIsland;
@@ -207,9 +223,11 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 		}
 
 		islandA = parent;
+		b2WakeIsland(world, islandA);
 	}
 
 	b2PersistentIsland* islandB = world->islands + islandIndexB;
+	b2WakeIsland(world, islandB);
 	while (islandB->parentIsland != B2_NULL_INDEX)
 	{
 		b2PersistentIsland* parent = world->islands + islandB->parentIsland;
@@ -220,6 +238,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 		}
 
 		islandB = parent;
+		b2WakeIsland(world, islandA);
 	}
 
 	if (islandA != islandB)
@@ -231,10 +250,43 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	b2AddContactToIsland(world, islandA, contact);
 }
 
+// This is called when a contact no longer has contact points
 void b2UnlinkContact(b2World* world, b2Contact* contact)
 {
+	assert(contact->islandIndex != B2_NULL_INDEX);
+
 	// remove from island
-	// mark island dirty
+	b2PersistentIsland* island = world->islands + contact->islandIndex;
+
+	if (contact->islandPrev != B2_NULL_INDEX)
+	{
+		b2Contact* prevContact = world->contacts + contact->islandPrev;
+		assert(prevContact->islandNext = contact->object.index);
+		prevContact->islandNext = contact->islandNext;
+	}
+
+	if (contact->islandNext != B2_NULL_INDEX)
+	{
+		b2Contact* nextContact = world->contacts + contact->islandNext;
+		assert(nextContact->islandPrev = contact->object.index);
+		nextContact->islandPrev = contact->islandPrev;
+	}
+
+	if (island->headContact == contact->object.index)
+	{
+		island->headContact = contact->islandNext;
+	}
+
+	if (island->tailContact == contact->object.index)
+	{
+		island->tailContact = contact->islandPrev;
+	}
+
+	assert(island->contactCount > 0);
+	island->contactCount -= 1;
+
+	// mark island dirty so it can be split later
+	island->isDirty;
 }
 
 static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joint* joint)
@@ -246,7 +298,7 @@ static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joi
 	if (island->headJoint != B2_NULL_INDEX)
 	{
 		joint->islandNext = island->headJoint;
-		b2Contact* headJoint = world->joints + island->headJoint;
+		b2Joint* headJoint = world->joints + island->headJoint;
 		headJoint->islandPrev = joint->object.index;
 	}
 
@@ -262,11 +314,121 @@ static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joi
 
 void b2LinkJoint(b2World* world, b2Joint* joint)
 {
+	B2_MAYBE_UNUSED(world);
+	B2_MAYBE_UNUSED(joint);
 }
-
 
 void b2UnlinkJoint(b2World* world, b2Joint* joint)
 {
+	B2_MAYBE_UNUSED(world);
+	B2_MAYBE_UNUSED(joint);
+}
+
+bool b2MergeIsland(b2PersistentIsland* island)
+{
+	if (island->parentIsland == B2_NULL_INDEX)
+	{
+		return false;
+	}
+
+	b2World* world = island->world;
+	b2Body* bodies = world->bodies;
+	b2Contact* contacts = world->contacts;
+	b2Joint* joints = world->joints;
+
+	b2PersistentIsland* rootIsland = world->islands + island->parentIsland;
+	while (rootIsland->parentIsland != B2_NULL_INDEX)
+	{
+		rootIsland = world->islands + rootIsland->parentIsland;
+	}
+
+	int32_t rootIndex = rootIsland->object.index;
+
+	// remap island indices
+	int32_t bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
+	{
+		b2Body* body = bodies + bodyIndex;
+		body->islandIndex = rootIndex;
+		bodyIndex = body->islandNext;
+	}
+
+	int32_t contactIndex = island->headContact;
+	while (contactIndex != B2_NULL_INDEX)
+	{
+		b2Contact* contact = contacts + contactIndex;
+		contact->islandIndex = rootIndex;
+		contactIndex = contact->islandNext;
+	}
+
+	int32_t jointIndex = island->headJoint;
+	while (jointIndex != B2_NULL_INDEX)
+	{
+		b2Joint* joint = joints + jointIndex;
+		joint->islandIndex = rootIndex;
+		jointIndex = joint->islandNext;
+	}
+
+	// connect body lists
+	assert(rootIsland->tailBody != B2_NULL_INDEX);
+	b2Body* tailBody = bodies + rootIsland->tailBody;
+	assert(tailBody->islandNext == B2_NULL_INDEX);
+	tailBody->islandNext = island->headBody;
+
+	assert(island->headBody != B2_NULL_INDEX);
+	b2Body* headBody = bodies + island->headBody;
+	assert(headBody->islandPrev == B2_NULL_INDEX);
+	headBody->islandPrev = rootIsland->tailBody;
+
+	rootIsland->tailBody = island->tailBody;
+	rootIsland->bodyCount += island->bodyCount;
+
+	// connect contact lists
+	if (rootIsland->headContact == B2_NULL_INDEX)
+	{
+		// Root island has no contacts
+		assert(rootIsland->tailContact == B2_NULL_INDEX && rootIsland->contactCount == 0);
+		rootIsland->headContact = island->headContact;
+		rootIsland->tailContact = island->tailContact;
+		rootIsland->contactCount = island->contactCount;
+	}
+	else if (island->headContact != B2_NULL_INDEX)
+	{
+		// Both islands have contacts
+		assert(island->tailContact != B2_NULL_INDEX && island->contactCount > 0);
+		assert(rootIsland->tailContact != B2_NULL_INDEX && rootIsland->contactCount > 0);
+		
+		b2Contact* tailContact = contacts + rootIsland->tailContact;
+		assert(tailContact->islandNext == B2_NULL_INDEX);
+		tailContact->islandNext = island->headContact;
+
+		b2Contact* headContact = contacts + island->headContact;
+		assert(headContact->islandPrev == B2_NULL_INDEX);
+		headContact->islandPrev = rootIsland->tailContact;
+
+		rootIsland->tailContact = island->tailContact;
+		rootIsland->contactCount += island->contactCount;
+	}
+
+	// TODO_ERIN joints
+	assert(island->jointCount == 0 && rootIsland->jointCount == 0);
+
+	// Merging a dirty islands means that splitting may still be needed
+	rootIsland->isDirty = rootIsland->isDirty || island->isDirty;
+
+	return true;
+}
+
+void b2MergeAwakeIslands(b2World* world)
+{
+	B2_MAYBE_UNUSED(world);
+
+	// TODO_ERIN iterate over all awake islands and merge any that need merging
+	// Islands that get merged into a root island will be removed from the awake island array
+	// and returned to the pool. I need to keep these islands around during this process so
+	// any decedents can climb through them to the root.
+
+	// After all the islands are merged, the awake islands can be solved.
 }
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)

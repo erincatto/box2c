@@ -4,7 +4,7 @@
 #pragma once
 
 #include "broad_phase.h"
-#include "island_builder.h"
+#include "island.h"
 #include "pool.h"
 #include "thread.h"
 

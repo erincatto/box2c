@@ -22,8 +22,6 @@ set(BOX2D_SOURCE_FILES
 	hull.c
 	island.c
 	island.h
-	island_builder.c
-	island_builder.h
 	joint.c
 	joint.h
 	manifold.c

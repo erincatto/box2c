@@ -6,7 +6,8 @@
 #include "pool.h"
 #include <stdint.h>
 
-typedef struct b2IslandBuilder b2IslandBuilder;
+typedef struct b2Contact b2Contact;
+typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 
 // Deterministic solver
@@ -57,11 +58,17 @@ typedef struct b2PersistentIsland
 
 void b2ClearIsland(b2PersistentIsland* island);
 
-void b2LinkContact(b2PersistentIsland* island, b2Contact* contact);
-void b2UnlinkContact(b2PersistentIsland* island, b2Contact* contact);
+// Link contacts into the island graph when it starts having contact points
+void b2LinkContact(b2World* world, b2Contact* contact);
 
-void b2LinkJoint(b2PersistentIsland* island, b2Joint* joint);
-void b2UnlinkJoint(b2PersistentIsland* island, b2Joint* joint);
+// Unlink contact from the island graph when it stops having contact points
+void b2UnlinkContact(b2World* world, b2Contact* contact);
+
+// Link a joint into the island graph when it is created
+void b2LinkJoint(b2World* world, b2Joint* joint);
+
+// Unlink a joint from the island graph when it is destroyed
+void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* step);
 
