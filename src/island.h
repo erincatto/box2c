@@ -70,6 +70,8 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 // Unlink a joint from the island graph when it is destroyed
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
+bool b2MergeIsland(b2PersistentIsland* island);
+
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* step);
 
 void b2SolveIsland(b2PersistentIsland* island);
