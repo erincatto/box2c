@@ -13,7 +13,8 @@
 class SampleDistance : public Sample
 {
 public:
-	SampleDistance()
+	SampleDistance(const Settings& settings)
+		: Sample(settings)
 	{
 		m_circle1 = {{0.0f, 0.0f}, 0.5f};
 		m_circle2 = {{0.0f, 0.0f}, 1.0f};
@@ -407,9 +408,9 @@ public:
 		#endif
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new SampleDistance;
+		return new SampleDistance(settings);
 	}
 
 	b2Polygon m_box;

@@ -92,7 +92,7 @@ class Sample
 {
 public:
 
-	Sample();
+	Sample(const Settings& settings);
 	virtual ~Sample();
 
 	void DrawTitle(const char* string);
@@ -130,7 +130,7 @@ public:
 	b2Profile m_totalProfile;
 };
 
-typedef Sample* SampleCreateFcn();
+typedef Sample* SampleCreateFcn(const Settings& settings);
 
 int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn);
 

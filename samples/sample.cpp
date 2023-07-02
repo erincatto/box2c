@@ -50,7 +50,7 @@ static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRang
 	}
 	else
 	{
-		task(0, itemCount, taskContext);
+		task(0, itemCount, 0, taskContext);
 	}
 }
 
@@ -61,7 +61,7 @@ static void FinishTasks(void* userContext)
 	sample->m_taskCount = 0;
 }
 
-Sample::Sample()
+Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
@@ -72,12 +72,13 @@ Sample::Sample()
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = maxThreads;
-	worldDef.enqueueTask = &EnqueueTask;
-	worldDef.finishTasks = &FinishTasks;
+	//worldDef.enqueueTask = &EnqueueTask;
+	//worldDef.finishTasks = &FinishTasks;
 	worldDef.bodyCapacity = 10 * 1024;
 	worldDef.contactCapacity = 4 * 10 * 1024;
 	worldDef.userTaskContext = this;
 	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
+	worldDef.enableSleep = settings.m_enableSleep;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
@@ -166,17 +167,16 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			float dampingRatio = 0.7f;
 			float mass = b2Body_GetMass(queryContext.bodyId);
 
-			b2BodyId groundBodyId = b2World_GetGroundBodyId(m_worldId);
-
 			b2MouseJointDef jd;
-			jd.bodyId = queryContext.bodyId;
+			jd.bodyIdA = m_groundBodyId;
+			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;
 			jd.maxForce = 1000.0f * mass;
-			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, groundBodyId, queryContext.bodyId);
+			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, m_groundBodyId, queryContext.bodyId);
 
 			m_mouseJointId = b2World_CreateMouseJoint(m_worldId, &jd);
 
-			b2Body_SetAwake(queryContext.bodyId, true);
+			b2Body_Wake(queryContext.bodyId);
 		}
 	}
 }

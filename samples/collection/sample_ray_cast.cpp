@@ -15,7 +15,8 @@
 class RayCast : public Sample
 {
 public:
-	RayCast()
+	RayCast(const Settings& settings)
+		: Sample(settings)
 	{
 		m_circle = {{0.0f, 0.0f}, 2.0f};
 		m_capsule = {{-1.0f, 1.0f}, {1.0f, -1.0f}, 1.5f};
@@ -328,9 +329,9 @@ public:
 		DrawRay(&output);
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new RayCast;
+		return new RayCast(settings);
 	}
 
 	b2Polygon m_box;

@@ -25,8 +25,8 @@ void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
 {
 	assert(base->type == b2_revoluteJoint);
 
-	int32_t indexA = base->edgeA.bodyIndex;
-	int32_t indexB = base->edgeB.bodyIndex;
+	int32_t indexA = base->edges[0].bodyIndex;
+	int32_t indexB = base->edges[1].bodyIndex;
 	assert(0 <= indexA && indexA < context->bodyCapacity);
 	assert(0 <= indexB && indexB < context->bodyCapacity);
 
@@ -136,8 +136,8 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	b2Body* bodyA = context->bodies + base->edgeA.bodyIndex;
-	b2Body* bodyB = context->bodies + base->edgeB.bodyIndex;
+	b2Body* bodyA = context->bodies + base->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + base->edges[1].bodyIndex;
 
 	b2Vec2 vA = bodyA->linearVelocity;
 	float wA = bodyA->angularVelocity;
@@ -221,8 +221,8 @@ bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* context)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	b2Body* bodyA = context->bodies + base->edgeA.bodyIndex;
-	b2Body* bodyB = context->bodies + base->edgeB.bodyIndex;
+	b2Body* bodyA = context->bodies + base->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + base->edges[1].bodyIndex;
 
 	b2Vec2 cA = bodyA->position;
 	float aA = bodyA->angle;

@@ -76,12 +76,13 @@ typedef struct b2Body
 	bool isMarked;
 } b2Body;
 
-void b2SetAwake(b2World* world, b2Body* body, bool flag);
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 void b2Body_DestroyShape(b2ShapeId shapeId);
+
+bool b2IsBodyAwake(b2World* world, b2Body* body);
 
 static inline b2Sweep b2Body_GetSweep(const b2Body* body)
 {

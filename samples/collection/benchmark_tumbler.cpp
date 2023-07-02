@@ -9,7 +9,8 @@ class BenchmarkTumbler : public Sample
 {
 public:
 
-	BenchmarkTumbler()
+	BenchmarkTumbler(const Settings& settings)
+		: Sample(settings)
 	{
 		b2BodyId groundId;
 		{
@@ -74,9 +75,9 @@ public:
 		}
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new BenchmarkTumbler;
+		return new BenchmarkTumbler(settings);
 	}
 
 	int32_t m_maxCount;

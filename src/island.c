@@ -179,8 +179,10 @@ static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2C
 	contact->islandIndex = island->object.index;
 }
 
-static void b2WakeIsland(b2World* world, b2PersistentIsland* island)
+void b2WakeIsland(b2PersistentIsland* island)
 {
+	b2World* world = island->world;
+
 	if (island->awakeIndex != B2_NULL_INDEX)
 	{
 		assert(world->awakeIslandArray[island->awakeIndex] == island->object.index);
@@ -212,7 +214,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 
 	// Union-find
 	b2PersistentIsland* islandA = world->islands + islandIndexA;
-	b2WakeIsland(world, islandA);
+	b2WakeIsland(islandA);
 	while (islandA->parentIsland != B2_NULL_INDEX)
 	{
 		b2PersistentIsland* parent = world->islands + islandA->parentIsland;
@@ -223,11 +225,11 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 		}
 
 		islandA = parent;
-		b2WakeIsland(world, islandA);
+		b2WakeIsland(islandA);
 	}
 
 	b2PersistentIsland* islandB = world->islands + islandIndexB;
-	b2WakeIsland(world, islandB);
+	b2WakeIsland(islandB);
 	while (islandB->parentIsland != B2_NULL_INDEX)
 	{
 		b2PersistentIsland* parent = world->islands + islandB->parentIsland;
@@ -238,7 +240,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 		}
 
 		islandB = parent;
-		b2WakeIsland(world, islandA);
+		b2WakeIsland(islandA);
 	}
 
 	if (islandA != islandB)
@@ -261,14 +263,14 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	if (contact->islandPrev != B2_NULL_INDEX)
 	{
 		b2Contact* prevContact = world->contacts + contact->islandPrev;
-		assert(prevContact->islandNext = contact->object.index);
+		assert(prevContact->islandNext == contact->object.index);
 		prevContact->islandNext = contact->islandNext;
 	}
 
 	if (contact->islandNext != B2_NULL_INDEX)
 	{
 		b2Contact* nextContact = world->contacts + contact->islandNext;
-		assert(nextContact->islandPrev = contact->object.index);
+		assert(nextContact->islandPrev == contact->object.index);
 		nextContact->islandPrev = contact->islandPrev;
 	}
 
@@ -324,25 +326,18 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 	B2_MAYBE_UNUSED(joint);
 }
 
-bool b2MergeIsland(b2PersistentIsland* island)
+static void b2MergeIsland(b2PersistentIsland* island)
 {
-	if (island->parentIsland == B2_NULL_INDEX)
-	{
-		return false;
-	}
+	assert(island->parentIsland != B2_NULL_INDEX);
 
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
 	b2Joint* joints = world->joints;
 
-	b2PersistentIsland* rootIsland = world->islands + island->parentIsland;
-	while (rootIsland->parentIsland != B2_NULL_INDEX)
-	{
-		rootIsland = world->islands + rootIsland->parentIsland;
-	}
-
-	int32_t rootIndex = rootIsland->object.index;
+	int32_t rootIndex = island->parentIsland;
+	b2PersistentIsland* rootIsland = world->islands + rootIndex;
+	assert(rootIsland->parentIsland == B2_NULL_INDEX);
 
 	// remap island indices
 	int32_t bodyIndex = island->headBody;
@@ -415,44 +410,72 @@ bool b2MergeIsland(b2PersistentIsland* island)
 
 	// Merging a dirty islands means that splitting may still be needed
 	rootIsland->isDirty = rootIsland->isDirty || island->isDirty;
-
-	return true;
 }
 
+// Iterate over all awake islands and merge any that need merging
+// Islands that get merged into a root island will be removed from the awake island array
+// and returned to the pool.
 void b2MergeAwakeIslands(b2World* world)
 {
-	B2_MAYBE_UNUSED(world);
+	int32_t awakeIslandCount = b2Array(world->awakeIslandArray).count;
+	b2PersistentIsland* islands = world->islands;
 
-	// TODO_ERIN iterate over all awake islands and merge any that need merging
-	// Islands that get merged into a root island will be removed from the awake island array
-	// and returned to the pool. I need to keep these islands around during this process so
-	// any decedents can climb through them to the root.
+	// Step 1: Ensure every child island points to its root island. This avoids merging a child island with
+	// a parent island that has already been merged with a grand-parent island.
+	for (int32_t i = 0; i < awakeIslandCount; ++i)
+	{
+		int32_t islandIndex = world->awakeIslandArray[i];
+		b2PersistentIsland* island = islands + islandIndex;
 
-	// After all the islands are merged, the awake islands can be solved.
+		int32_t rootIndex = B2_NULL_INDEX;
+		b2PersistentIsland* rootIsland = island;
+		while (rootIsland->parentIsland != B2_NULL_INDEX)
+		{
+			b2PersistentIsland* parent = world->islands + rootIsland->parentIsland;
+			if (parent->parentIsland != B2_NULL_INDEX)
+			{
+				// path compression
+				rootIndex = parent->parentIsland;
+				rootIsland->parentIsland = rootIndex;
+			}
+
+			rootIsland = parent;
+		}
+
+		island->parentIsland = rootIndex;
+	}
+
+	// Step 2: merge every awake island into its parent (which must be a root island)
+	// Reverse to support removal from awake array.
+	for (int32_t i = awakeIslandCount - 1; i >= 0; --i)
+	{
+		int32_t islandIndex = world->awakeIslandArray[i];
+		b2PersistentIsland* island = islands + islandIndex;
+
+		if (island->parentIsland == B2_NULL_INDEX)
+		{
+			continue;
+		}
+
+		b2MergeIsland(island);
+
+		b2Array_RemoveSwap(world->awakeIslandArray, i);
+		b2FreeObject(&world->islandPool, &island->object);
+	}
 }
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
 
-	int32_t bodyCount = island->bodyCount;
-	int32_t contactCount = island->contactCount;
-	int32_t jointCount = island->jointCount;
-
-	b2World* world = island->world;
-
-	int32_t nextIndex = island->nextIsland;
-	while (nextIndex != B2_NULL_INDEX)
+	if (island->isDirty)
 	{
-		b2PersistentIsland* nextIsland = world->islands + island->nextIsland;
-		bodyCount += nextIsland->bodyCount;
-		contactCount += nextIsland->contactCount;
-		jointCount += nextIsland->jointCount;
+		// TODO_ERIN prepare island for splitting
 	}
 
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->stepContext;
-	contactSolverDef.world = world;
+	contactSolverDef.world = island->world;
 	contactSolverDef.contactList = island->headContact;
 	contactSolverDef.contactCount = island->contactCount;
 	island->contactSolver = b2CreateContactSolver(&contactSolverDef);
@@ -513,6 +536,7 @@ if (island->bodyCount > 16)
 }
 #endif
 
+#if 0
 void b2ConnectIsland(b2PersistentIsland* island)
 {
 	b2World* world = island->world;
@@ -555,10 +579,12 @@ void b2ConnectIsland(b2PersistentIsland* island)
 		island->tailJoint = nextIsland->tailJoint;
 	}
 }
+#endif
 
 // Split an island because some contacts and/or joints have been removed
 // Note: contacts/joints connecting to static bodies must belong to an island but don't affect island connectivity
 // Note: static bodies are never in an island
+// TODO_ERIN finish implementation
 static void b2SplitIsland(b2PersistentIsland* baseIsland)
 {
 	b2World* world = baseIsland->world;
@@ -571,6 +597,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 	b2StackAllocator* alloc = world->stackAllocator;
 
 	// TODO_ERIN lock?
+	// idea: only one island split per step, so no lock needed
 	int32_t* stack = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "island stack");
 	int32_t* bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "body indices");
 
@@ -737,8 +764,8 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		}
 
 		// add island to linked list
-		island->nextIsland = baseIsland->nextIsland;
-		baseIsland->nextIsland = islandIndex;
+		//island->nextIsland = baseIsland->nextIsland;
+		//baseIsland->nextIsland = islandIndex;
 	}
 }
 
@@ -899,7 +926,7 @@ void b2SolveIsland(b2PersistentIsland* island)
 		b2Body* body = bodies + bodyIndex;
 		body->transform.q = b2MakeRot(body->angle);
 		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
-		body->islandNext;
+		bodyIndex = body->islandNext;
 	}
 
 	// Update sleep
@@ -954,13 +981,15 @@ void b2SolveIsland(b2PersistentIsland* island)
 		}
 	}
 
-	// TODO_ERIN this has to be single threaded for determinism
-	//island->awakeIndex = isIslandAwake;
-	
-	// Speculative transform
-	// TODO_ERIN using old forces? Should be at the beginning of the time step?
-	if (isIslandAwake)
+	if (isIslandAwake == false)
 	{
+		// This signals that this island should not be added to awake island array
+		island->awakeIndex = B2_NULL_INDEX;
+	}
+	else
+	{
+		// Speculative transform
+		// TODO_ERIN using old forces? Should be at the beginning of the time step?
 		bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
@@ -1008,11 +1037,6 @@ void b2SolveIsland(b2PersistentIsland* island)
 // Single threaded work
 void b2CompleteIsland(b2PersistentIsland* island)
 {
-	if (island->awakeIndex == B2_NULL_INDEX)
-	{
-		return;
-	}
-
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
 
@@ -1062,4 +1086,10 @@ void b2CompleteIsland(b2PersistentIsland* island)
 
 	// Destroy in reverse order
 	b2DestroyContactSolver(island->contactSolver);
+
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		island->awakeIndex = B2_NULL_INDEX;
+		b2WakeIsland(island);
+	}
 }

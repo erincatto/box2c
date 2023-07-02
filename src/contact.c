@@ -112,38 +112,40 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 		return;
 	}
 
-	b2Contact* c = (b2Contact*)b2AllocObject(&world->contactPool);
+	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
 	world->contacts = (b2Contact*)world->contactPool.memory;
 
-	c->flags = b2_contactEnabledFlag;
+	contact->flags = b2_contactEnabledFlag;
 
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
-		c->flags |= b2_contactSensorFlag;
+		contact->flags |= b2_contactSensorFlag;
 	}
 
-	c->shapeIndexA = shapeA->object.index;
-	c->shapeIndexB = shapeB->object.index;
-	c->childA = childA;
-	c->childB = childB;
-	c->cache = b2_emptyDistanceCache;
-	c->manifold = b2_emptyManifold;
-	c->islandIndex = B2_NULL_INDEX;
-	c->awakeIndex = B2_NULL_INDEX;
-	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
-	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
-	c->tangentSpeed = 0.0f;
+	contact->shapeIndexA = shapeA->object.index;
+	contact->shapeIndexB = shapeB->object.index;
+	contact->childA = childA;
+	contact->childB = childB;
+	contact->cache = b2_emptyDistanceCache;
+	contact->manifold = b2_emptyManifold;
+	contact->awakeIndex = B2_NULL_INDEX;
+	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
+	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
+	contact->tangentSpeed = 0.0f;
+	contact->islandIndex = B2_NULL_INDEX;
+	contact->islandPrev = B2_NULL_INDEX;
+	contact->islandNext = B2_NULL_INDEX;
 
 	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
 	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 
 	// Connect to body A
 	{
-		c->edges[0].bodyIndex = shapeA->bodyIndex;
-		c->edges[0].prevKey = B2_NULL_INDEX;
-		c->edges[0].nextKey = bodyA->contactList;
+		contact->edges[0].bodyIndex = shapeA->bodyIndex;
+		contact->edges[0].prevKey = B2_NULL_INDEX;
+		contact->edges[0].nextKey = bodyA->contactList;
 
-		int32_t keyA = (c->object.index << 1) | 0;
+		int32_t keyA = (contact->object.index << 1) | 0;
 		if (bodyA->contactList != B2_NULL_INDEX)
 		{
 			b2Contact* contactA = world->contacts + (bodyA->contactList >> 1);
@@ -156,11 +158,11 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	// Connect to body B
 	{
-		c->edges[1].bodyIndex = shapeB->bodyIndex;
-		c->edges[1].prevKey = B2_NULL_INDEX;
-		c->edges[1].nextKey = bodyB->contactList;
+		contact->edges[1].bodyIndex = shapeB->bodyIndex;
+		contact->edges[1].prevKey = B2_NULL_INDEX;
+		contact->edges[1].nextKey = bodyB->contactList;
 
-		int32_t keyB = (c->object.index << 1) | 1;
+		int32_t keyB = (contact->object.index << 1) | 1;
 		if (bodyB->contactList != B2_NULL_INDEX)
 		{
 			b2Contact* contactB = world->contacts + (bodyB->contactList >> 1);
@@ -171,7 +173,10 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 		bodyB->contactCount += 1;
 	}
 
-
+	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
+	{
+		b2AddAwakeContact(world, contact);
+	}
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
@@ -234,6 +239,11 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	bodyB->contactCount -= 1;
 
 	b2UnlinkContact(world, contact);
+
+	if (contact->awakeIndex != B2_NULL_INDEX)
+	{
+		b2RemoveAwakeContact(world, contact);
+	}
 
 	b2FreeObject(&world->contactPool, &contact->object);
 }

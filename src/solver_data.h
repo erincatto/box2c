@@ -26,8 +26,8 @@ typedef struct b2StepContext
 	float restitutionThreshold;
 
 	// From b2World::bodies for convenience
-	//b2Body* bodies;
-	//int32_t bodyCapacity;
+	b2Body* bodies;
+	int32_t bodyCapacity;
 
 	bool warmStarting;
 } b2StepContext;

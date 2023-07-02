@@ -365,58 +365,6 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2TracyCZoneEnd(collide_task);
 }
 
-static void b2StartContact(b2World* world, b2Contact* contact)
-{
-	b2Body* bodyA = world->bodies + contact->edges[0].bodyIndex;
-	b2Body* bodyB = world->bodies + contact->edges[1].bodyIndex;
-
-	if (bodyA->type == b2_staticBody || bodyB->type == b2_staticBody)
-	{
-		// TODO_ERIN still need to add contact to island
-		return;
-	}
-
-	int32_t islandIndexA = bodyA->islandIndex;
-	int32_t islandIndexB = bodyB->islandIndex;
-
-	assert(islandIndexA != B2_NULL_INDEX && islandIndexB != B2_NULL_INDEX);
-
-	if (islandIndexA == islandIndexB)
-	{
-		contact->islandIndex = islandIndexA;
-		return;
-	}
-
-	b2PersistentIsland* islandA = world->islands + islandIndexA;
-	b2PersistentIsland* islandB = world->islands + islandIndexB;
-
-	if (islandA->bodyCount >= islandB->bodyCount)
-	{
-		islandB->nextIsland = islandA->nextIsland;
-		islandA->nextIsland = islandIndexB;
-
-		b2RemoveAwakeIsland(world, islandB);
-	}
-	else
-	{
-		islandA->nextIsland = islandB->nextIsland;
-		islandB->nextIsland = islandIndexA;
-
-		b2RemoveAwakeIsland(world, islandB);
-	}
-}
-
-static void b2StopContact(b2World* world, b2Contact* contact)
-{
-	b2Body* bodyA = world->bodies + contact->edges[0].bodyIndex;
-	b2Body* bodyB = world->bodies + contact->edges[1].bodyIndex;
-	
-	assert(bodyA->islandIndex == bodyB->islandIndex);
-
-	b2PersistentIsland* island = world->islands + bodyA->islandIndex;
-	island->isDirty = true;
-}
-
 static void b2Collide(b2World* world)
 {
 	world->contactPointCount = 0;
@@ -477,15 +425,14 @@ static void b2Collide(b2World* world)
 		else if (contact->flags & b2_contactStartedTouching)
 		{
 			// TODO_ERIN
-			// b2StartContact(contact);
+			b2LinkContact(world, contact);
 			contact->flags |= ~b2_contactStartedTouching;
 		}
 		else
 		{
 			assert(contact->flags & b2_contactStoppedTouching);
 
-			// TODO_ERIN
-			// b2StopContact(contact);
+			b2UnlinkContact(world, contact);
 			contact->flags |= ~b2_contactStoppedTouching;
 		}
 	}
@@ -527,6 +474,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2Timer timer = b2CreateTimer();
 
+	b2MergeAwakeIslands(world);
+
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
 	int32_t* awakeIslands = b2AllocateStackItem(world->stackAllocator, count * sizeof(int32_t), "awake islands");
@@ -538,7 +487,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		awakeIslands[i] = index;
 
 		b2PersistentIsland* island = world->islands + index;
-		b2PrepareIsland(island, world, context);
+		b2PrepareIsland(island, context);
 	}
 
 	b2TracyCZoneEnd(prepare_islands);
@@ -908,16 +857,16 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 	world->enableSleep = flag;
 	if (flag == false)
 	{
-		int32_t count = world->bodyPool.capacity;
+		int32_t count = world->islandPool.capacity;
 		for (int32_t i = 0; i < count; ++i)
 		{
-			b2Body* b = world->bodies + i;
-			if (b->object.next != i)
+			b2PersistentIsland* island = world->islands + i;
+			if (island->object.next != i)
 			{
 				continue;
 			}
 
-			b2SetAwake(world, b, true);
+			b2WakeIsland(island);
 		}
 	}
 }

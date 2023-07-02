@@ -15,7 +15,6 @@ set(BOX2D_SOURCE_FILES
 	contact.h
 	contact_solver.c
 	contact_solver.h
-	contact_sorter.cpp
 	distance.c
 	dynamic_tree.c
 	geometry.c

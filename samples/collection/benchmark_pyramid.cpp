@@ -18,7 +18,8 @@ public:
 		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
 	};
 
-	BenchmarkPyramid()
+	BenchmarkPyramid(const Settings& settings)
+		: Sample(settings)
 	{
 		float groundSize = 100.0f;
 		m_groundThickness = 1.0f;
@@ -36,7 +37,7 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_baseCount = g_sampleDebug ? 10 : 80;
+		m_baseCount = g_sampleDebug ? 1 : 80;
 		m_bodyCount = 0;
 
 		CreateScene();
@@ -75,7 +76,7 @@ public:
 
 		for (int32_t i = 0; i < count; ++i)
 		{
-			float y = i * shift + centery;
+			float y = 1.0f + i * shift + centery;
 
 			for (int32_t j = i; j < count; ++j)
 			{
@@ -107,7 +108,7 @@ public:
 
 		if (ImGui::Button("Wake Top"))
 		{
-			b2Body_SetAwake(m_bodies[m_bodyCount - 1], true);
+			b2Body_Wake(m_bodies[m_bodyCount - 1]);
 		}
 
 		if (changed)
@@ -118,9 +119,9 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new BenchmarkPyramid;
+		return new BenchmarkPyramid(settings);
 	}
 
 	b2BodyId m_bodies[e_maxBodyCount];

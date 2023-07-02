@@ -14,7 +14,8 @@ public:
 		e_vertexCount = 8
 	};
 
-	ShapeCast()
+	ShapeCast(const Settings& settings)
+		: Sample(settings)
 	{
 #if 1
 		m_vAs[0] = { -0.5f, 1.0f };
@@ -68,9 +69,9 @@ public:
 #endif
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new ShapeCast;
+		return new ShapeCast(settings);
 	}
 
 	void Step(Settings& settings) override

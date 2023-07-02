@@ -25,7 +25,8 @@ public:
 		e_boxShape
 	};
 
-	VerticalStack()
+	VerticalStack(const Settings& settings)
+		: Sample(settings)
 	{
 		{
 			b2BodyDef bd = b2DefaultBodyDef();
@@ -206,9 +207,9 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new VerticalStack;
+		return new VerticalStack(settings);
 	}
 
 	b2BodyId m_bullets[e_maxBullets];

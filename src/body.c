@@ -79,6 +79,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
 		world->islands = (b2PersistentIsland*)world->islandPool.memory;
 		b2ClearIsland(island);
+		island->world = world;
 
 		b->islandIndex = island->object.index;
 		island->headBody = b->object.index;
@@ -169,7 +170,11 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		assert(other->contactCount > 0);
 		other->contactCount -= 1;
 
-		// TODO_ERIN remove from island?
+		// Disconnect contact from island graph
+		if (contact->islandIndex != B2_NULL_INDEX)
+		{
+			b2UnlinkContact(world, contact);
+		}
 
 		// Remove from awake contact array
 		if (contact->awakeIndex != B2_NULL_INDEX)
@@ -238,6 +243,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 				if (island->awakeIndex != B2_NULL_INDEX)
 				{
 					int32_t islandCount = b2Array(world->awakeIslandArray).count;
+					assert(islandCount > 0);
 					b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
 					if (island->awakeIndex < islandCount - 1)
 					{
@@ -519,6 +525,18 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	}
 }
 
+bool b2IsBodyAwake(b2World* world, b2Body* body)
+{
+	if (body->islandIndex != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* island = world->islands + body->islandIndex;
+		return island->awakeIndex != B2_NULL_INDEX;
+	}
+
+	assert(body->type == b2_staticBody);
+	return false;
+}
+
 b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
@@ -554,56 +572,21 @@ float b2Body_GetMass(b2BodyId bodyId)
 	return world->bodies[bodyId.index].mass;
 }
 
-void b2Body_SetAwake(b2BodyId bodyId, bool awake)
+void b2Body_Wake(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	assert(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
-	b2SetAwake(world, world->bodies + bodyId.index, awake);
-}
-
-// This should NOT be called from island code which is using awake array double buffering.
-#if 0
-void b2SetAwake(b2World* world, b2Body* body, bool flag)
-{
+	b2Body* body = world->bodies + bodyId.index;
 	if (body->type == b2_staticBody)
 	{
 		return;
 	}
 
-	b2PersistentIsland* island = world->islands + body->islandIndex;
+	int32_t islandIndex = body->islandIndex;
+	assert(0 <= islandIndex && islandIndex < world->islandPool.capacity);
 
-	if (flag == true && body->awakeIndex == B2_NULL_INDEX)
-	{
-		body->sleepTime = 0.0f;
-		atomic_fetch_add_long(&world->awakeCount, 1);
-	}
-	else if (flag == false && body->awakeIndex != B2_NULL_INDEX)
-	{
-		body->sleepTime = 0.0f;
-		body->linearVelocity = b2Vec2_zero;
-		body->angularVelocity = 0.0f;
-		body->force = b2Vec2_zero;
-		body->torque = 0.0f;
-
-		int32_t awakeIndex = body->awakeIndex;
-		int32_t awakeCount = atomic_load_long(&world->awakeCount);
-		assert(0 <= awakeIndex && awakeIndex < awakeCount);
-
-		// Swap in last body
-		if (awakeIndex < awakeCount - 1)
-		{
-			int32_t endIndex = world->awakeBodies[awakeCount - 1];
-			world->awakeBodies[awakeIndex] = endIndex;
-			assert(world->bodies[endIndex].awakeIndex == awakeCount - 1);
-			assert(world->bodies[endIndex].object.next == world->bodies[endIndex].object.index);
-			world->bodies[endIndex].awakeIndex = awakeIndex;
-		}
-
-		body->awakeIndex = B2_NULL_INDEX;
-		atomic_fetch_sub_long(&world->awakeCount, 1);
-	}
+	b2WakeIsland(world->islands + islandIndex);
 }
-#endif
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {

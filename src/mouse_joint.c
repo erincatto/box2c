@@ -36,7 +36,7 @@ void b2InitializeMouse(b2Joint* base, b2StepContext* context)
 {
 	assert(base->type == b2_mouseJoint);
 
-	int32_t indexB = base->edgeB.bodyIndex;
+	int32_t indexB = base->edges[1].bodyIndex;
 	assert(0 <= indexB && indexB < context->bodyCapacity);
 
 	b2Body* bodyB = context->bodies + indexB;
@@ -106,7 +106,7 @@ void b2InitializeMouse(b2Joint* base, b2StepContext* context)
 void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context)
 {
 	b2MouseJoint* joint = &base->mouseJoint;
-	b2Body* bodyB = context->bodies + base->edgeB.bodyIndex;
+	b2Body* bodyB = context->bodies + base->edges[1].bodyIndex;
 
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;

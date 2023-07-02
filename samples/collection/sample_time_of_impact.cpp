@@ -14,11 +14,14 @@ int32_t b2_toiMaxIters, b2_toiMaxRootIters;
 class TimeOfImpact : public Sample
 {
 public:
-	TimeOfImpact() = default;
-
-	static Sample* Create()
+	TimeOfImpact(const Settings& settings)
+		: Sample(settings)
 	{
-		return new TimeOfImpact;
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new TimeOfImpact(settings);
 	}
 
 	void Step(Settings& settings) override

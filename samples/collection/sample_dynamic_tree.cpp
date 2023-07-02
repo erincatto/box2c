@@ -26,7 +26,8 @@ static float RayCallback(const b2RayCastInput* input, int32_t proxyId, void* use
 class DynamicTree : public Sample
 {
 public:
-	DynamicTree()
+	DynamicTree(const Settings& settings)
+		: Sample(settings)
 	{
 		m_fill = 1.0f;
 		m_moveFraction = 0.0f;
@@ -248,9 +249,9 @@ public:
 		m_timeStamp += 1;
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new DynamicTree;
+		return new DynamicTree(settings);
 	}
 
 	b2DynamicTree m_tree;

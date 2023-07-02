@@ -58,7 +58,9 @@ typedef struct b2PersistentIsland
 
 void b2ClearIsland(b2PersistentIsland* island);
 
-// Link contacts into the island graph when it starts having contact points
+void b2WakeIsland(b2PersistentIsland* island);
+
+	// Link contacts into the island graph when it starts having contact points
 void b2LinkContact(b2World* world, b2Contact* contact);
 
 // Unlink contact from the island graph when it stops having contact points
@@ -70,9 +72,9 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 // Unlink a joint from the island graph when it is destroyed
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
-bool b2MergeIsland(b2PersistentIsland* island);
+void b2MergeAwakeIslands(b2World* world);
 
-void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* step);
+void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext);
 
 void b2SolveIsland(b2PersistentIsland* island);
 void b2CompleteIsland(b2PersistentIsland* island);

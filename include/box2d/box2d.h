@@ -38,8 +38,6 @@ BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
 
 BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
 
-BOX2D_API b2BodyId b2World_GetGroundBodyId(b2WorldId worldId);
-
 /// Create a rigid body given a definition. No reference to the definition is retained.
 /// @warning This function is locked during callbacks.
 BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
@@ -54,7 +52,7 @@ BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
 
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
-BOX2D_API void b2Body_SetAwake(b2BodyId bodyId, bool awake);
+BOX2D_API void b2Body_Wake(b2BodyId bodyId);
 
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.

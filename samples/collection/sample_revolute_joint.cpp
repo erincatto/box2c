@@ -12,7 +12,8 @@
 class RevoluteJoint : public Sample
 {
 public:
-	RevoluteJoint()
+	RevoluteJoint(const Settings& settings)
+		: Sample(settings)
 	{
 		b2BodyId ground = b2_nullBodyId;
 		{
@@ -138,9 +139,9 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new RevoluteJoint;
+		return new RevoluteJoint(settings);
 	}
 
 	b2BodyId m_ball;

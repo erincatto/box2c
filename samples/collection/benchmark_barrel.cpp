@@ -23,7 +23,8 @@ public:
 		e_maxRows = 130,
 	};
 
-	BenchmarkBarrel()
+	BenchmarkBarrel(const Settings& settings)
+		: Sample(settings)
 	{
 		float groundSize = 25.0f;
 
@@ -140,9 +141,9 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new BenchmarkBarrel;
+		return new BenchmarkBarrel(settings);
 	}
 
 	b2BodyId m_bodies[e_maxRows * e_maxColumns];
