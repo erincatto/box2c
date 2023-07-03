@@ -251,7 +251,7 @@ void Sample::Step(Settings& settings)
 	{
 		b2Statistics s = b2World_GetStatistics(m_worldId);
 
-		g_draw.DrawString(5, m_textLine, "bodies/contacts/joints = %d/%d/%d", s.bodyCount, s.contactCount,
+		g_draw.DrawString(5, m_textLine, "islands/bodies/contacts/joints = %d/%d/%d/%d", s.islandCount, s.bodyCount, s.contactCount,
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 

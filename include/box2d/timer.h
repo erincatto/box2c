@@ -21,6 +21,7 @@ static const b2Profile b2_emptyProfile = {0};
 
 typedef struct b2Statistics
 {
+	int32_t islandCount;
 	int32_t bodyCount;
 	int32_t contactCount;
 	int32_t jointCount;

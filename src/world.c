@@ -346,18 +346,15 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			// State changes that affect island connectivity
-			if (bodyA->type != b2_staticBody && bodyB->type != b2_staticBody)
+			if ((contact->flags & b2_contactTouchingFlag) != 0 && wasTouching == false)
 			{
-				if ((contact->flags & b2_contactTouchingFlag) != 0 && wasTouching == false)
-				{
-					contact->flags |= b2_contactStartedTouching;
-					taskContext->contactBitArray[awakeIndex] = true;
-				}
-				else if ((contact->flags & b2_contactTouchingFlag) == 0 && wasTouching == true)
-				{
-					contact->flags |= b2_contactStoppedTouching;
-					taskContext->contactBitArray[awakeIndex] = true;
-				}
+				contact->flags |= b2_contactStartedTouching;
+				taskContext->contactBitArray[awakeIndex] = true;
+			}
+			else if ((contact->flags & b2_contactTouchingFlag) == 0 && wasTouching == true)
+			{
+				contact->flags |= b2_contactStoppedTouching;
+				taskContext->contactBitArray[awakeIndex] = true;
 			}
 		}
 	}
@@ -408,6 +405,7 @@ static void b2Collide(b2World* world)
 		}
 	}
 
+	// Process contact state changes
 	for (int32_t i = 0; i < count; ++i)
 	{
 		if (bitArray[i] == false)
@@ -478,6 +476,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
+	// Stores awake islands since the main array will be rebuilt.
 	int32_t* awakeIslands = b2AllocateStackItem(world->stackAllocator, count * sizeof(int32_t), "awake islands");
 
 	// Now create the island solvers
@@ -577,6 +576,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	context.dtRatio = world->inv_dt0 * timeStep;
 	context.restitutionThreshold = world->restitutionThreshold;
 	context.warmStarting = world->warmStarting;
+	context.bodies = world->bodies;
+	context.bodyCapacity = world->bodyPool.capacity;
 
 	// Update contacts
 	{
@@ -881,6 +882,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	b2Statistics s = {0};
+	s.islandCount = world->islandPool.count;
 	s.bodyCount = world->bodyPool.count;
 	s.contactCount = world->contactPool.count;
 	s.jointCount = world->jointPool.count;

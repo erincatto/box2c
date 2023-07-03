@@ -193,7 +193,6 @@ void b2WakeIsland(b2PersistentIsland* island)
 	b2Array_Push(world->awakeIslandArray, island->object.index);
 }
 
-// TODO_ERIN handle static-to-dynamic
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
 {
@@ -204,52 +203,77 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 
 	int32_t islandIndexA = bodyA->islandIndex;
 	int32_t islandIndexB = bodyB->islandIndex;
-	assert(islandIndexA != B2_NULL_INDEX && islandIndexB != B2_NULL_INDEX);
+
+	// Static bodies have null island indices
+	assert(bodyA->type != b2_staticBody || islandIndexA == B2_NULL_INDEX);
+	assert(bodyB->type != b2_staticBody || islandIndexB == B2_NULL_INDEX);
+	assert(islandIndexA != B2_NULL_INDEX || islandIndexB != B2_NULL_INDEX);
 
 	if (islandIndexA == islandIndexB)
 	{
+		// Contact in same island
 		b2AddContactToIsland(world, world->islands + islandIndexA, contact);
 		return;
 	}
 
-	// Union-find
-	b2PersistentIsland* islandA = world->islands + islandIndexA;
-	b2WakeIsland(islandA);
-	while (islandA->parentIsland != B2_NULL_INDEX)
+	// Union-find root of islandA
+	b2PersistentIsland* islandA = NULL;
+	if (islandIndexA != B2_NULL_INDEX)
 	{
-		b2PersistentIsland* parent = world->islands + islandA->parentIsland;
-		if (parent->parentIsland != B2_NULL_INDEX)
-		{
-			// path compression
-			islandA->parentIsland = parent->parentIsland;
-		}
-
-		islandA = parent;
+		islandA = world->islands + islandIndexA;
 		b2WakeIsland(islandA);
+		while (islandA->parentIsland != B2_NULL_INDEX)
+		{
+			b2PersistentIsland* parent = world->islands + islandA->parentIsland;
+			if (parent->parentIsland != B2_NULL_INDEX)
+			{
+				// path compression
+				islandA->parentIsland = parent->parentIsland;
+			}
+
+			islandA = parent;
+			b2WakeIsland(islandA);
+		}
 	}
 
-	b2PersistentIsland* islandB = world->islands + islandIndexB;
-	b2WakeIsland(islandB);
-	while (islandB->parentIsland != B2_NULL_INDEX)
+	// Union-find root of islandB
+	b2PersistentIsland* islandB = NULL;
+	if (islandIndexB != B2_NULL_INDEX)
 	{
-		b2PersistentIsland* parent = world->islands + islandB->parentIsland;
-		if (parent->parentIsland != B2_NULL_INDEX)
+		islandB = world->islands + islandIndexB;
+		b2WakeIsland(islandB);
+		while (islandB->parentIsland != B2_NULL_INDEX)
 		{
-			// path compression
-			islandB->parentIsland = parent->parentIsland;
-		}
+			b2PersistentIsland* parent = world->islands + islandB->parentIsland;
+			if (parent->parentIsland != B2_NULL_INDEX)
+			{
+				// path compression
+				islandB->parentIsland = parent->parentIsland;
+			}
 
-		islandB = parent;
-		b2WakeIsland(islandA);
+			islandB = parent;
+			b2WakeIsland(islandA);
+		}
 	}
 
-	if (islandA != islandB)
+	assert(islandA != NULL || islandB != NULL);
+
+	// Union-Find link island roots
+	if (islandA != islandB && islandA != NULL && islandB != NULL)
 	{
+		assert(islandA != islandB);
 		assert(islandB->parentIsland == B2_NULL_INDEX);
 		islandB->parentIsland = islandA->object.index;
 	}
 
-	b2AddContactToIsland(world, islandA, contact);
+	if (islandA != NULL)
+	{
+		b2AddContactToIsland(world, islandA, contact);
+	}
+	else
+	{
+		b2AddContactToIsland(world, islandB, contact);
+	}
 }
 
 // This is called when a contact no longer has contact points
@@ -427,22 +451,23 @@ void b2MergeAwakeIslands(b2World* world)
 		int32_t islandIndex = world->awakeIslandArray[i];
 		b2PersistentIsland* island = islands + islandIndex;
 
-		int32_t rootIndex = B2_NULL_INDEX;
 		b2PersistentIsland* rootIsland = island;
 		while (rootIsland->parentIsland != B2_NULL_INDEX)
 		{
-			b2PersistentIsland* parent = world->islands + rootIsland->parentIsland;
+			b2PersistentIsland* parent = islands + rootIsland->parentIsland;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
-				rootIndex = parent->parentIsland;
-				rootIsland->parentIsland = rootIndex;
+				rootIsland->parentIsland = parent->parentIsland;
 			}
 
 			rootIsland = parent;
 		}
 
-		island->parentIsland = rootIndex;
+		if (rootIsland != island)
+		{
+			island->parentIsland = rootIsland->object.index;
+		}
 	}
 
 	// Step 2: merge every awake island into its parent (which must be a root island)

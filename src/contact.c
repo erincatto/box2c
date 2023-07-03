@@ -238,7 +238,10 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	bodyB->contactCount -= 1;
 
-	b2UnlinkContact(world, contact);
+	if (contact->islandIndex != B2_NULL_INDEX)
+	{
+		b2UnlinkContact(world, contact);
+	}
 
 	if (contact->awakeIndex != B2_NULL_INDEX)
 	{
