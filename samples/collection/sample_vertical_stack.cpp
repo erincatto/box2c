@@ -128,6 +128,24 @@ public:
 		}
 	}
 
+	void DestroyBody()
+	{
+		for (int32_t j = 0; j < m_columnCount; ++j)
+		{
+			for (int32_t i = 0; i < m_rowCount; ++i)
+			{
+				int32_t n = j * m_rowCount + i;
+				
+				if (B2_NON_NULL(m_bodies[i]))
+				{
+					b2World_DestroyBody(m_bodies[i]);
+					m_bodies[i] = b2_nullBodyId;
+					break;
+				}
+			}
+		}
+	}
+
 	void DestroyBullets()
 	{
 		for (int32_t i = 0; i < e_maxBullets; ++i)
@@ -194,6 +212,11 @@ public:
 		{
 			DestroyBullets();
 			FireBullets();
+		}
+
+		if (ImGui::Button("Destroy Body"))
+		{
+			DestroyBody();
 		}
 
 		changed = changed || ImGui::Button("Reset Stack");

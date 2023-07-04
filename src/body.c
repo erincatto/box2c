@@ -182,11 +182,11 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
 		}
 
-		// Free contact
-		b2FreeObject(&world->contactPool, &contact->object);
-
 		b2ContactEdge* edge = contact->edges + edgeIndex;
 		edgeKey = edge->nextKey;
+
+		// Free contact
+		b2FreeObject(&world->contactPool, &contact->object);
 	}
 
 	// Delete the attached shapes. This destroys broad-phase proxies.
@@ -230,6 +230,10 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			world->bodies[body->islandNext].islandPrev = body->islandPrev;
 		}
 
+		assert(island->bodyCount > 0);
+		island->bodyCount -= 1;
+		bool islandDestroyed = false;
+
 		if (island->headBody == body->object.index)
 		{
 			island->headBody = body->islandNext;
@@ -237,6 +241,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			if (island->headBody == B2_NULL_INDEX)
 			{
 				// Destroy empty island
+				assert(island->bodyCount == 0);
 
 				// Remove from awake islands array
 				if (island->awakeIndex != B2_NULL_INDEX)
@@ -254,7 +259,17 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 				// Free the island
 				b2FreeObject(&world->islandPool, &island->object);
+				islandDestroyed = true;
 			}
+			else if (island->tailBody == body->object.index)
+			{
+				island->tailBody = body->islandPrev;
+			}
+		}
+
+		if (islandDestroyed == false)
+		{
+			b2ValidateIsland(island);
 		}
 	}
 

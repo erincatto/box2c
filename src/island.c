@@ -179,6 +179,8 @@ static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2C
 
 	island->contactCount += 1;
 	contact->islandIndex = island->object.index;
+
+	b2ValidateIsland(island);
 }
 
 void b2WakeIsland(b2PersistentIsland* island)
@@ -611,7 +613,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 	while (nextBody != B2_NULL_INDEX)
 	{
 		bodyIndices[index++] = nextBody;
-		nextBody = bodies[nextBody].islandIndex;
+		nextBody = bodies[nextBody].islandNext;
 	}
 	assert(index == bodyCount);
 
@@ -1268,5 +1270,53 @@ void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake)
 
 			bodyIndex = b->islandNext;
 		}
+	}
+}
+
+void b2ValidateIsland(b2PersistentIsland* island)
+{
+	b2World* world = island->world;
+	b2Body* bodies = world->bodies;
+
+	int32_t islandIndex = island->object.index;
+	assert(island->object.index == island->object.next);
+
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		b2Array_Check(world->awakeIslandArray, island->awakeIndex);
+		assert(world->awakeIslandArray[island->awakeIndex] == islandIndex);
+	}
+
+	if (island->headBody != B2_NULL_INDEX)
+	{
+		assert(island->tailBody != B2_NULL_INDEX);
+		assert(island->bodyCount > 0);
+		if (island->bodyCount > 1)
+		{
+			assert(island->tailBody != island->headBody);
+		}
+		assert(island->bodyCount <= world->bodyPool.count);
+
+		int32_t count = 0;
+		int32_t bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
+		{
+			b2Body* body = bodies + bodyIndex;
+			assert(body->islandIndex == islandIndex);
+			count += 1;
+
+			if (count == island->bodyCount)
+			{
+				assert(bodyIndex == island->tailBody);
+			}
+
+			bodyIndex = body->islandNext;
+		}
+		assert(count == island->bodyCount);
+	}
+	else
+	{
+		assert(island->tailBody == B2_NULL_INDEX);
+		assert(island->bodyCount == 0);
 	}
 }

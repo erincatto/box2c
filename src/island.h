@@ -86,3 +86,5 @@ void b2SolveIsland(b2PersistentIsland* island);
 void b2CompleteIsland(b2PersistentIsland* island);
 void b2CompleteBaseSplitIsland(b2PersistentIsland* island);
 void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake);
+
+void b2ValidateIsland(b2PersistentIsland* island);
