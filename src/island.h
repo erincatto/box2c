@@ -51,6 +51,9 @@ typedef struct b2PersistentIsland
 	// A dirty island may need to be split
 	bool isDirty;
 
+	// This island has been chosen to split
+	bool maySplit;
+
 	// Transient solver data
 	b2StepContext* stepContext;
 	struct b2ContactSolver* contactSolver;
@@ -73,6 +76,7 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
+void b2SortIslands(b2PersistentIsland** islands, int32_t count);
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext);
 

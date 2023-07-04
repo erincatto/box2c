@@ -17,6 +17,7 @@
 
 #include <assert.h>
 #include <float.h>
+#include <stdlib.h>
 #include <string.h>
 
 /*
@@ -152,6 +153,7 @@ void b2ClearIsland(b2PersistentIsland* island)
 	island->parentIsland = B2_NULL_INDEX;
 	island->awakeIndex = B2_NULL_INDEX;
 	island->isDirty = false;
+	island->maySplit = false;
 	island->stepContext = NULL;
 	island->contactSolver = NULL;
 }
@@ -489,6 +491,29 @@ void b2MergeAwakeIslands(b2World* world)
 	}
 }
 
+static int b2CompareIslands(const void* A, const void* B)
+{
+	const b2PersistentIsland* islandA = *(const b2PersistentIsland**)A;
+	const b2PersistentIsland* islandB = *(const b2PersistentIsland**)B;
+	return islandB->bodyCount - islandA->bodyCount;
+}
+
+void b2SortIslands(b2PersistentIsland** islands, int32_t count)
+{
+	// Sort descending order (largest island first)
+	qsort(islands, count, sizeof(b2PersistentIsland*), b2CompareIslands);
+
+	for (int32_t i = 0; i < count; ++i)
+	{
+		if (islands[i]->isDirty)
+		{
+			// This and only this island may split this time step
+			islands[i]->maySplit = true;
+			break;
+		}
+	}
+}
+
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
@@ -557,51 +582,6 @@ if (island->bodyCount > 16)
 			clusterCenters[j] = b2Add(clusterCenters[j], b->position);
 			clusterCounts[j] += 1;
 		}
-	}
-}
-#endif
-
-#if 0
-void b2ConnectIsland(b2PersistentIsland* island)
-{
-	b2World* world = island->world;
-	b2Body* bodies = world->bodies;
-	b2Contact* contacts = world->contacts;
-	b2Joint* joints = world->joints;
-
-	int32_t nextIndex = island->nextIsland;
-	while (nextIndex != B2_NULL_INDEX)
-	{
-		b2PersistentIsland* nextIsland = world->islands + island->nextIsland;
-		island->bodyCount += nextIsland->bodyCount;
-		island->contactCount += nextIsland->contactCount;
-		island->jointCount += nextIsland->jointCount;
-
-		b2Body* tailBody = bodies + island->tailBody;
-		b2Body* headBody = bodies + nextIsland->headBody;
-
-		tailBody->islandNext = nextIsland->headBody;
-		headBody->islandPrev = island->tailBody;
-
-		island->tailBody = nextIsland->tailBody;
-
-		// TODO_ERIN contacts can be null
-		b2Contact* tailContact = contacts + island->tailContact;
-		b2Contact* headContact = contacts + nextIsland->headContact;
-
-		tailContact->islandNext = nextIsland->headContact;
-		headContact->islandPrev = island->tailContact;
-
-		island->tailContact = nextIsland->tailContact;
-
-		// TODO_ERIN joints can be null
-		b2Joint* tailJoint = joints + island->tailJoint;
-		b2Joint* headJoint = joints + nextIsland->headJoint;
-
-		tailJoint->islandNext = nextIsland->headJoint;
-		headJoint->islandPrev = island->tailJoint;
-
-		island->tailJoint = nextIsland->tailJoint;
 	}
 }
 #endif
@@ -957,7 +937,7 @@ void b2SolveIsland(b2PersistentIsland* island)
 	// Update sleep
 	bool isIslandAwake = true;
 
-	if (world->enableSleep)
+	if (world->enableSleep && island->maySplit == false)
 	{
 		float minSleepTime = FLT_MAX;
 
@@ -1056,6 +1036,11 @@ void b2SolveIsland(b2PersistentIsland* island)
 		}
 	}
 
+	if (island->maySplit)
+	{
+		b2SplitIsland(island);
+	}
+
 	b2TracyCZoneEnd(sleep);
 }
 
@@ -1065,6 +1050,7 @@ void b2CompleteIsland(b2PersistentIsland* island)
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
 
+	// Move body proxies, even if asleep
 	int32_t bodyIndex = island->headBody;
 	while (bodyIndex != B2_NULL_INDEX)
 	{
@@ -1112,9 +1098,58 @@ void b2CompleteIsland(b2PersistentIsland* island)
 	// Destroy in reverse order
 	b2DestroyContactSolver(island->contactSolver);
 
+	// Wake island and contacts
+	b2Contact* contacts = world->contacts;
+	uint64_t worldStepId = world->stepId;
+
 	if (island->awakeIndex != B2_NULL_INDEX)
 	{
 		island->awakeIndex = B2_NULL_INDEX;
 		b2WakeIsland(island);
+
+		// Update awake contacts which may include contacts that are not in the island.
+		bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
+		{
+			b2Body* b = bodies + bodyIndex;
+
+			int32_t contactKey = b->contactList;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				int32_t contactIndex = contactKey >> 1;
+				int32_t edgeIndex = contactKey & 1;
+				b2Contact* contact = contacts + contactIndex;
+				if (contact->stepId < worldStepId)
+				{
+					contact->awakeIndex = b2Array(world->awakeContactArray).count;
+					b2Array_Push(world->awakeContactArray, contactIndex);
+					contact->stepId = worldStepId;
+				}
+				contactKey = contact->edges[edgeIndex].nextKey;
+			}
+
+			bodyIndex = b->islandNext;
+		}
+	}
+	else
+	{
+		// Reset awake index on sleeping contacts
+		bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
+		{
+			b2Body* b = bodies + bodyIndex;
+
+			int32_t contactKey = b->contactList;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				int32_t contactIndex = contactKey >> 1;
+				int32_t edgeIndex = contactKey & 1;
+				b2Contact* contact = contacts + contactIndex;
+				contact->awakeIndex = B2_NULL_INDEX;
+				contactKey = contact->edges[edgeIndex].nextKey;
+			}
+
+			bodyIndex = b->islandNext;
+		}
 	}
 }

@@ -58,6 +58,9 @@ typedef struct b2Contact
 {
 	b2Object object;
 
+	// The last step this contact was added to the awake contact array
+	uint64_t stepId;
+
 	uint32_t flags;
 
 	b2ContactEdge edges[2];

@@ -179,7 +179,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		// Remove from awake contact array
 		if (contact->awakeIndex != B2_NULL_INDEX)
 		{
-			b2RemoveAwakeContact(world, contact);
+			world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
 		}
 
 		// Free contact

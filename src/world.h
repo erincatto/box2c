@@ -38,18 +38,19 @@ typedef struct b2World
 	struct b2Shape* shapes;
 	struct b2PersistentIsland* islands;
 
-	// Awake contacts. Scrambled order.
-	int32_t* awakeContacts;
-	int32_t awakeContactCapacity;
-	B2_ATOMIC long awakeContactCount;
-
-	bool* contactBitArray;
-
+	// Per thread storage
 	struct b2TaskContext* taskContextArray;
 
 	// Awake island array holds indices into the island array (islandPool).
 	// This is a dense array that is rebuilt every time step.
 	int32_t* awakeIslandArray;
+
+	// Awake contact array holds contacts that should be updated.
+	// This is a dense array that is rebuilt every time step.
+	int32_t* awakeContactArray;
+
+	// Id that is incremented every time step
+	uint64_t stepId;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;
@@ -85,6 +86,3 @@ b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(int16_t index);
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id);
-
-void b2AddAwakeContact(b2World* world, b2Contact* contact);
-void b2RemoveAwakeContact(b2World* world, b2Contact* contact);

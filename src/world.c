@@ -30,9 +30,11 @@
 b2World g_worlds[b2_maxWorlds];
 bool g_parallel = true;
 
+// Per thread task storage
 typedef struct b2TaskContext
 {
-	b2World* world;
+	// These bits align with the awake contact array and signal change in contact status
+	// that affects the island graph.
 	bool* contactBitArray;
 } b2TaskContext;
 
@@ -208,10 +210,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->islands = (b2PersistentIsland*)world->islandPool.memory;
 
 	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
+	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
 
-	world->awakeContactCapacity = world->contactPool.capacity;
-	world->awakeContacts = b2Alloc(world->awakeContactCapacity * sizeof(int32_t));
-	world->awakeContactCount = 0;
+	world->stepId = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
@@ -243,14 +244,11 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->finishTasks = b2DefaultFinishTasksFcn;
 		world->userTaskContext = NULL;
 	}
-
-	world->contactBitArray = b2CreateArray(sizeof(bool), world->contactPool.capacity);
 	
 	world->taskContextArray = b2CreateArray(sizeof(b2TaskContext), world->workerCount);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		world->taskContextArray[i].world = world;
-		world->taskContextArray[i].contactBitArray = b2CreateArray(sizeof(bool), world->contactPool.capacity);
+		world->taskContextArray[i].contactBitArray = b2CreateArray(sizeof(bool), def->contactCapacity);
 	}
 
 	return id;
@@ -260,6 +258,13 @@ void b2DestroyWorld(b2WorldId id)
 {
 	b2World* world = b2GetWorldFromId(id);
 
+	for (uint32_t i = 0; i < world->workerCount; ++i)
+	{
+		b2DestroyArray(world->taskContextArray[i].contactBitArray);
+	}
+	b2DestroyArray(world->taskContextArray);
+
+	b2DestroyArray(world->awakeContactArray);
 	b2DestroyArray(world->awakeIslandArray);
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
@@ -301,14 +306,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
 
-	const int32_t* awakeContacts = world->awakeContacts;
-
 	assert(startIndex < endIndex);
-	assert(endIndex <= world->awakeContactCount);
+	assert(endIndex <= b2Array(world->awakeContactArray).count);
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
-		int32_t contactIndex = awakeContacts[awakeIndex];
+		int32_t contactIndex = world->awakeContactArray[awakeIndex];
 		if (contactIndex == B2_NULL_INDEX)
 		{
 			// Contact was destroyed or put to sleep
@@ -366,54 +369,54 @@ static void b2Collide(b2World* world)
 {
 	world->contactPointCount = 0;
 
-	int32_t count = world->awakeContactCount;
+	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
 
-	if (count == 0)
+	if (awakeContactCount == 0)
 	{
 		return;
 	}
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	memset(world->contactBitArray, 0, count * sizeof(bool));
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		memset(world->taskContextArray[i].contactBitArray, 0, count * sizeof(bool));
+		memset(world->taskContextArray[i].contactBitArray, 0, awakeContactCount * sizeof(bool));
 	}
 
 	if (g_parallel)
 	{
 		int32_t minRange = 8;
-		world->enqueueTask(&b2CollideTask, count, minRange, world, world->userTaskContext);
+		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
 	else
 	{
-		b2CollideTask(0, count, 0, world);
+		b2CollideTask(0, awakeContactCount, 0, world);
 	}
 
 	// Serially update contact state
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
 
-	bool* bitArray = world->contactBitArray;
-	for (uint32_t i = 0; i < world->workerCount; ++i)
+	// Bitwise OR all contact bits
+	bool* bitArray = world->taskContextArray[0].contactBitArray;
+	for (uint32_t i = 1; i < world->workerCount; ++i)
 	{
 		bool* threadBits = world->taskContextArray[i].contactBitArray;
-		for (int32_t j = 0; j < count; ++j)
+		for (int32_t j = 0; j < awakeContactCount; ++j)
 		{
 			bitArray[j] |= threadBits[j];
 		}
 	}
 
 	// Process contact state changes
-	for (int32_t i = 0; i < count; ++i)
+	for (int32_t i = 0; i < awakeContactCount; ++i)
 	{
 		if (bitArray[i] == false)
 		{
 			continue;
 		}
 
-		int32_t index = world->awakeContacts[i];
+		int32_t index = world->awakeContactArray[i];
 		b2Contact* contact = world->contacts + index;
 
 		if (contact->flags & b2_contactDisjoint)
@@ -472,21 +475,24 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2Timer timer = b2CreateTimer();
 
+	world->stepId += 1;
+
 	b2MergeAwakeIslands(world);
 
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
-	// Stores awake islands since the main array will be rebuilt.
-	int32_t* awakeIslands = b2AllocateStackItem(world->stackAllocator, count * sizeof(int32_t), "awake islands");
+	b2PersistentIsland** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2PersistentIsland*), "island array");
+	for (int32_t i = 0; i < count; ++i)
+	{
+		islands[i] = world->islands + world->awakeIslandArray[i];
+	}
+
+	b2SortIslands(islands, count);
 
 	// Now create the island solvers
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t index = world->awakeIslandArray[i];
-		awakeIslands[i] = index;
-
-		b2PersistentIsland* island = world->islands + index;
-		b2PrepareIsland(island, context);
+		b2PrepareIsland(islands[i], context);
 	}
 
 	b2TracyCZoneEnd(prepare_islands);
@@ -516,14 +522,15 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Complete islands (reverse order for stack allocator)
 	// This rebuilds the awake island array and awake contact array
 	b2Array_Clear(world->awakeIslandArray);
+	b2Array_Clear(world->awakeContactArray);
+
 	for (int32_t i = count - 1; i >= 0; --i)
 	{
-		int32_t index = awakeIslands[i];
 		b2PersistentIsland* island = world->islands + index;
 		b2CompleteIsland(island);
 	}
 
-	b2FreeStackItem(world->stackAllocator, awakeIslands);
+	b2FreeStackItem(world->stackAllocator, islands);
 
 	// Look for new contacts
 	b2BroadPhase_UpdatePairs(&world->broadPhase);
@@ -1429,21 +1436,6 @@ bool b2IsBodyIdValid(b2World* world, b2BodyId id)
 	}
 
 	return true;
-}
-
-void b2AddAwakeContact(b2World* world, b2Contact* contact)
-{
-	long index = atomic_fetch_add_long(&world->awakeContactCount, 1);
-	assert(index < world->awakeContactCapacity);
-	world->awakeContacts[index] = contact->object.index;
-	contact->awakeIndex = index;
-}
-
-void b2RemoveAwakeContact(b2World* world, b2Contact* contact)
-{
-	int32_t awakeIndex = contact->awakeIndex;
-	assert(awakeIndex != B2_NULL_INDEX && awakeIndex < world->awakeContactCount);
-	world->awakeContacts[awakeIndex] = B2_NULL_INDEX;
 }
 
 void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context)

@@ -115,6 +115,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
 	world->contacts = (b2Contact*)world->contactPool.memory;
 
+	contact->stepId = 0;
 	contact->flags = b2_contactEnabledFlag;
 
 	if (shapeA->isSensor || shapeB->isSensor)
@@ -175,7 +176,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 	{
-		b2AddAwakeContact(world, contact);
+		contact->awakeIndex = b2Array(world->awakeContactArray).count;
+		b2Array_Push(world->awakeContactArray, contact->object.index);
 	}
 }
 
@@ -245,7 +247,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	if (contact->awakeIndex != B2_NULL_INDEX)
 	{
-		b2RemoveAwakeContact(world, contact);
+		world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
 	}
 
 	b2FreeObject(&world->contactPool, &contact->object);
