@@ -522,7 +522,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	sprintf(buffer, "Box2D Version %d.%d.%d UF", b2_version.major, b2_version.minor, b2_version.revision);
+	sprintf(buffer, "Box2D Version %d.%d.%d PI", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{

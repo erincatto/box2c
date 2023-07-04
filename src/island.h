@@ -48,10 +48,11 @@ typedef struct b2PersistentIsland
 	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
 	int32_t awakeIndex;
 
-	// A dirty island may need to be split
-	bool isDirty;
+	// Keeps track of how many contacts have been removed from this island.
+	int32_t contactRemoveCount;
 
-	// This island has been chosen to split
+	// This island has been chosen to be split up into smaller islands because a sufficient
+	// number of contacts have been removed.
 	bool maySplit;
 
 	// Transient solver data
@@ -76,9 +77,12 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
-void b2SortIslands(b2PersistentIsland** islands, int32_t count);
+void b2SortIslands(b2World* world, b2PersistentIsland** islands, int32_t count);
 
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext);
 
 void b2SolveIsland(b2PersistentIsland* island);
+
 void b2CompleteIsland(b2PersistentIsland* island);
+void b2CompleteBaseSplitIsland(b2PersistentIsland* island);
+void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake);

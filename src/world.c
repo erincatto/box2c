@@ -210,8 +210,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->islands = (b2PersistentIsland*)world->islandPool.memory;
 
 	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
+	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
 
+	world->splitIslandIndex = B2_NULL_INDEX;
 	world->stepId = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
@@ -266,6 +268,7 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyArray(world->awakeContactArray);
 	b2DestroyArray(world->awakeIslandArray);
+	b2DestroyArray(world->splitIslandArray);
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
 	b2DestroyPool(&world->contactPool);
@@ -454,8 +457,8 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32
 
 	b2World* world = taskContext;
 
-	assert(startIndex < endIndex);
-	assert(startIndex < b2Array(world->awakeIslandArray).count);
+	assert(startIndex <= endIndex);
+	assert(startIndex <= b2Array(world->awakeIslandArray).count);
 	assert(endIndex <= b2Array(world->awakeIslandArray).count);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
@@ -475,10 +478,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2Timer timer = b2CreateTimer();
 
+	b2Array_Clear(world->splitIslandArray);
 	world->stepId += 1;
 
 	b2MergeAwakeIslands(world);
 
+	// Careful, this is modified by island merging
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
 	b2PersistentIsland** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2PersistentIsland*), "island array");
@@ -487,7 +492,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		islands[i] = world->islands + world->awakeIslandArray[i];
 	}
 
-	b2SortIslands(islands, count);
+	// Sort islands to improve task distribution
+	b2SortIslands(world, islands, count);
 
 	// Now create the island solvers
 	for (int32_t i = 0; i < count; ++i)
@@ -526,8 +532,33 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	for (int32_t i = count - 1; i >= 0; --i)
 	{
-		b2PersistentIsland* island = world->islands + index;
-		b2CompleteIsland(island);
+		b2PersistentIsland* island = islands[i];
+		if (island->object.index == world->splitIslandIndex)
+		{
+			b2CompleteBaseSplitIsland(island);
+		}
+		else
+		{
+			b2CompleteIsland(island);
+		}
+	}
+
+	// Handle islands created from splitting
+	if (world->splitIslandIndex != B2_NULL_INDEX)
+	{
+		b2PersistentIsland* baseIsland = world->islands + world->splitIslandIndex;
+		bool isAwake = baseIsland->awakeIndex != B2_NULL_INDEX;
+
+		int32_t splitCount = b2Array(world->splitIslandArray).count;
+		for (int32_t i = 0; i < splitCount; ++i)
+		{
+			int32_t index = world->splitIslandArray[i];
+			b2PersistentIsland* splitIsland = world->islands + index;
+			b2CompleteSplitIsland(splitIsland, isAwake);
+		}
+
+		// Done with the base split island.
+		b2FreeObject(&world->islandPool, &baseIsland->object);
 	}
 
 	b2FreeStackItem(world->stackAllocator, islands);

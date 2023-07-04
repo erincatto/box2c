@@ -152,7 +152,7 @@ void b2ClearIsland(b2PersistentIsland* island)
 	island->jointCount = 0;
 	island->parentIsland = B2_NULL_INDEX;
 	island->awakeIndex = B2_NULL_INDEX;
-	island->isDirty = false;
+	island->contactRemoveCount = 0;
 	island->maySplit = false;
 	island->stepContext = NULL;
 	island->contactSolver = NULL;
@@ -254,7 +254,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 			}
 
 			islandB = parent;
-			b2WakeIsland(islandA);
+			b2WakeIsland(islandB);
 		}
 	}
 
@@ -313,8 +313,7 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	assert(island->contactCount > 0);
 	island->contactCount -= 1;
 
-	// mark island dirty so it can be split later
-	island->isDirty;
+	island->contactRemoveCount += 1;
 }
 
 static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joint* joint)
@@ -435,7 +434,7 @@ static void b2MergeIsland(b2PersistentIsland* island)
 	assert(island->jointCount == 0 && rootIsland->jointCount == 0);
 
 	// Merging a dirty islands means that splitting may still be needed
-	rootIsland->isDirty = rootIsland->isDirty || island->isDirty;
+	rootIsland->contactRemoveCount += island->contactRemoveCount;
 }
 
 // Iterate over all awake islands and merge any that need merging
@@ -498,17 +497,24 @@ static int b2CompareIslands(const void* A, const void* B)
 	return islandB->bodyCount - islandA->bodyCount;
 }
 
-void b2SortIslands(b2PersistentIsland** islands, int32_t count)
+#define B2_CONTACT_REMOVE_THRESHOLD 1
+
+// Sort islands so that the largest islands are solved first to avoid
+// long tails in the island parallel-for loop.
+void b2SortIslands(b2World* world, b2PersistentIsland** islands, int32_t count)
 {
 	// Sort descending order (largest island first)
 	qsort(islands, count, sizeof(b2PersistentIsland*), b2CompareIslands);
 
+	// Look for an island to split. Large islands have priority.
+	world->splitIslandIndex = B2_NULL_INDEX;
 	for (int32_t i = 0; i < count; ++i)
 	{
-		if (islands[i]->isDirty)
+		if (islands[i]->contactRemoveCount > B2_CONTACT_REMOVE_THRESHOLD)
 		{
 			// This and only this island may split this time step
 			islands[i]->maySplit = true;
+			world->splitIslandIndex = islands[i]->object.index;
 			break;
 		}
 	}
@@ -517,11 +523,6 @@ void b2SortIslands(b2PersistentIsland** islands, int32_t count)
 void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
-
-	if (island->isDirty)
-	{
-		// TODO_ERIN prepare island for splitting
-	}
 
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->stepContext;
@@ -601,8 +602,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 
 	b2StackAllocator* alloc = world->stackAllocator;
 
-	// TODO_ERIN lock?
-	// idea: only one island split per step, so no lock needed
+	// No lock is needed because only one island can split per time step.
 	int32_t* stack = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "island stack");
 	int32_t* bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "body indices");
 
@@ -633,7 +633,10 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		int32_t stackCount = 0;
 		stack[stackCount++] = seedIndex;
 
-		// TODO_ERIN lock?
+		// No lock needed because only a single island can split per time step
+		// However, it is not safe to cause the island pool to grow because other islands are being processed.
+		// So this allocation must come from the free list.
+		assert(world->islandPool.capacity > world->islandPool.count);
 		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
 		b2ClearIsland(island);
 
@@ -768,10 +771,11 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 			}
 		}
 
-		// add island to linked list
-		//island->nextIsland = baseIsland->nextIsland;
-		//baseIsland->nextIsland = islandIndex;
+		b2Array_Push(world->splitIslandArray, island->object.index);
 	}
+
+	b2FreeStackItem(alloc, bodyIndices);
+	b2FreeStackItem(alloc, stack);
 }
 
 // This must be thread safe
@@ -1103,6 +1107,119 @@ void b2CompleteIsland(b2PersistentIsland* island)
 	uint64_t worldStepId = world->stepId;
 
 	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		island->awakeIndex = B2_NULL_INDEX;
+		b2WakeIsland(island);
+
+		// Update awake contacts which may include contacts that are not in the island.
+		bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
+		{
+			b2Body* b = bodies + bodyIndex;
+
+			int32_t contactKey = b->contactList;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				int32_t contactIndex = contactKey >> 1;
+				int32_t edgeIndex = contactKey & 1;
+				b2Contact* contact = contacts + contactIndex;
+				if (contact->stepId < worldStepId)
+				{
+					contact->awakeIndex = b2Array(world->awakeContactArray).count;
+					b2Array_Push(world->awakeContactArray, contactIndex);
+					contact->stepId = worldStepId;
+				}
+				contactKey = contact->edges[edgeIndex].nextKey;
+			}
+
+			bodyIndex = b->islandNext;
+		}
+	}
+	else
+	{
+		// Reset awake index on sleeping contacts
+		bodyIndex = island->headBody;
+		while (bodyIndex != B2_NULL_INDEX)
+		{
+			b2Body* b = bodies + bodyIndex;
+
+			int32_t contactKey = b->contactList;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				int32_t contactIndex = contactKey >> 1;
+				int32_t edgeIndex = contactKey & 1;
+				b2Contact* contact = contacts + contactIndex;
+				contact->awakeIndex = B2_NULL_INDEX;
+				contactKey = contact->edges[edgeIndex].nextKey;
+			}
+
+			bodyIndex = b->islandNext;
+		}
+	}
+}
+
+// This island was just split. Handle any remaining single threaded cleanup.
+void b2CompleteBaseSplitIsland(b2PersistentIsland* island)
+{
+	b2DestroyContactSolver(island->contactSolver);
+}
+
+// This island was just created through splitting. Handle single thread work.
+void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake)
+{
+	b2World* world = island->world;
+	b2Body* bodies = world->bodies;
+
+	// Move body proxies, even if asleep
+	int32_t bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
+	{
+		b2Body* b = bodies + bodyIndex;
+
+		// Update shapes (for broad-phase).
+		int32_t shapeIndex = b->shapeList;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+			for (int32_t j = 0; j < shape->proxyCount; ++j)
+			{
+				b2ShapeProxy* proxy = shape->proxies + j;
+				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
+
+		bodyIndex = b->islandNext;
+	}
+
+	// Report impulses
+	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
+	if (postSolveFcn != NULL)
+	{
+		b2Contact* contacts = world->contacts;
+		int16_t worldIndex = world->index;
+		const b2Shape* shapes = world->shapes;
+
+		int32_t contactIndex = island->headContact;
+		while (contactIndex != B2_NULL_INDEX)
+		{
+			const b2Contact* contact = contacts + contactIndex;
+
+			const b2Shape* shapeA = shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = shapes + contact->shapeIndexB;
+
+			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
+			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
+			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
+		}
+	}
+
+	// Wake island and contacts
+	b2Contact* contacts = world->contacts;
+	uint64_t worldStepId = world->stepId;
+
+	if (isAwake == true)
 	{
 		island->awakeIndex = B2_NULL_INDEX;
 		b2WakeIsland(island);

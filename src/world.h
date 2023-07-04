@@ -49,6 +49,12 @@ typedef struct b2World
 	// This is a dense array that is rebuilt every time step.
 	int32_t* awakeContactArray;
 
+	// This transient array holds islands created from splitting a larger island.
+	int32_t* splitIslandArray;
+
+	// Transient index of the island being split this time step. May be B2_NULL_INDEX.
+	int32_t splitIslandIndex;
+
 	// Id that is incremented every time step
 	uint64_t stepId;
 

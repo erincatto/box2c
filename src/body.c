@@ -218,7 +218,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	if (body->islandIndex != B2_NULL_INDEX)
 	{
 		b2PersistentIsland* island = world->islands + body->islandIndex;
-		island->isDirty = true;
 
 		// Fix the island's linked list of bodies
 		if (body->islandPrev != B2_NULL_INDEX)
