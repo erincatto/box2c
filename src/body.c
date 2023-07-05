@@ -68,7 +68,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
-
+	b->isMarked = false;
 	b->islandIndex = B2_NULL_INDEX;
 	b->islandPrev = B2_NULL_INDEX;
 	b->islandNext = B2_NULL_INDEX;
@@ -241,7 +241,10 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			if (island->headBody == B2_NULL_INDEX)
 			{
 				// Destroy empty island
+				assert(island->tailBody == body->object.index);
 				assert(island->bodyCount == 0);
+				assert(island->contactCount == 0);
+				assert(island->jointCount == 0);
 
 				// Remove from awake islands array
 				if (island->awakeIndex != B2_NULL_INDEX)
@@ -261,10 +264,10 @@ void b2World_DestroyBody(b2BodyId bodyId)
 				b2FreeObject(&world->islandPool, &island->object);
 				islandDestroyed = true;
 			}
-			else if (island->tailBody == body->object.index)
-			{
-				island->tailBody = body->islandPrev;
-			}
+		}
+		else if (island->tailBody == body->object.index)
+		{
+			island->tailBody = body->islandPrev;
 		}
 
 		if (islandDestroyed == false)
