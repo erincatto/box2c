@@ -272,6 +272,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 		if (islandDestroyed == false)
 		{
+			b2WakeIsland(island);
 			b2ValidateIsland(island);
 		}
 	}

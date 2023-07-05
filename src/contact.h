@@ -27,26 +27,26 @@ enum b2ContactFlags
 {
 	// Set when the shapes are touching.
 	// TODO_ERIN sensor only? Overlap?
-	b2_contactTouchingFlag = 0x0002,
+	b2_contactTouchingFlag = 0x00000002,
 
 	// This contact can be disabled (by user)
-	b2_contactEnabledFlag = 0x0004,
+	b2_contactEnabledFlag = 0x00000004,
 
 	// This contact needs filtering because a fixture filter was changed.
 	// TODO_ERIN don't defer this anymore
-	b2_contactFilterFlag = 0x0008,
+	b2_contactFilterFlag = 0x00000008,
 
 	// One of the shapes is a sensor
-	b2_contactSensorFlag = 0x0010,
+	b2_contactSensorFlag = 0x00000010,
 
 	// This contact no longer has overlapping AABBs
-	b2_contactDisjoint = 0x0020,
+	b2_contactDisjoint = 0x00000020,
 
 	// This contact started touching
-	b2_contactStartedTouching = 0x0040,
+	b2_contactStartedTouching = 0x00000040,
 
 	// This contact stopped touching
-	b2_contactStoppedTouching = 0x0080,
+	b2_contactStoppedTouching = 0x00000080,
 
 	b2_contactIslandFlag = 0x0100
 };
@@ -74,13 +74,13 @@ typedef struct b2Contact
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
+	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
 	int32_t islandPrev;
 	int32_t islandNext;
-
-	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
 	int32_t islandIndex;
 
-	// Awake contacts are attached to awake bodies in awake islands. It does not mean the contact has contact points.
+	// Awake contacts are associated with bodies in awake islands.
+	// The contact does not need to be touching or be in an island to be awake.
 	int32_t awakeIndex;
 
 	// Mixed friction and restitution

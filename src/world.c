@@ -308,13 +308,15 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Shape* shapes = world->shapes;
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
+	int32_t awakeCount = b2Array(world->awakeContactArray).count;
 
 	assert(startIndex < endIndex);
-	assert(endIndex <= b2Array(world->awakeContactArray).count);
+	assert(endIndex <= awakeCount);
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
 		int32_t contactIndex = world->awakeContactArray[awakeIndex];
+
 		if (contactIndex == B2_NULL_INDEX)
 		{
 			// Contact was destroyed or put to sleep
@@ -322,11 +324,14 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		}
 
 		assert(0 <= contactIndex && contactIndex < world->contactPool.capacity);
-
 		b2Contact* contact = contacts + contactIndex;
 
 		assert(contact->awakeIndex == awakeIndex);
 		assert(contact->object.index == contactIndex && contact->object.index == contact->object.next);
+
+		// Reset contact awake index. Contacts must be added to the awake contact array
+		// each time step in the island solver.
+		contact->awakeIndex = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
@@ -347,17 +352,20 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		else
 		{
 			bool wasTouching = (contact->flags & b2_contactTouchingFlag);
+			assert(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
 			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 
+			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
+
 			// State changes that affect island connectivity
-			if ((contact->flags & b2_contactTouchingFlag) != 0 && wasTouching == false)
+			if (touching == true && wasTouching == false)
 			{
 				contact->flags |= b2_contactStartedTouching;
 				taskContext->contactBitArray[awakeIndex] = true;
 			}
-			else if ((contact->flags & b2_contactTouchingFlag) == 0 && wasTouching == true)
+			else if (touching == false && wasTouching == true)
 			{
 				contact->flags |= b2_contactStoppedTouching;
 				taskContext->contactBitArray[awakeIndex] = true;
@@ -428,16 +436,16 @@ static void b2Collide(b2World* world)
 		}
 		else if (contact->flags & b2_contactStartedTouching)
 		{
-			// TODO_ERIN
+			assert(contact->islandIndex == B2_NULL_INDEX);
 			b2LinkContact(world, contact);
-			contact->flags |= ~b2_contactStartedTouching;
+			contact->flags &= ~b2_contactStartedTouching;
 		}
 		else
 		{
 			assert(contact->flags & b2_contactStoppedTouching);
 
 			b2UnlinkContact(world, contact);
-			contact->flags |= ~b2_contactStoppedTouching;
+			contact->flags &= ~b2_contactStoppedTouching;
 		}
 	}
 
@@ -489,6 +497,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2PersistentIsland** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2PersistentIsland*), "island array");
 	for (int32_t i = 0; i < count; ++i)
 	{
+		b2PersistentIsland* island = world->islands + world->awakeIslandArray[i];
+		assert(island->awakeIndex == i);
 		islands[i] = world->islands + world->awakeIslandArray[i];
 	}
 

@@ -56,8 +56,8 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = g_sampleDebug ? 2 : 50;
-		m_columnCount = g_sampleDebug ? 1 : 200;
+		m_rowCount = g_sampleDebug ? 4 : 50;
+		m_columnCount = g_sampleDebug ? 2 : 200;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -136,10 +136,10 @@ public:
 			{
 				int32_t n = j * m_rowCount + i;
 				
-				if (B2_NON_NULL(m_bodies[i]))
+				if (B2_NON_NULL(m_bodies[n]))
 				{
-					b2World_DestroyBody(m_bodies[i]);
-					m_bodies[i] = b2_nullBodyId;
+					b2World_DestroyBody(m_bodies[n]);
+					m_bodies[n] = b2_nullBodyId;
 					break;
 				}
 			}
@@ -176,7 +176,7 @@ public:
 			b2BodyDef bd = b2DefaultBodyDef();
 			bd.type = b2_dynamicBody;
 			bd.position = {-25.0f - i, 5.0f};
-			bd.linearVelocity = {400.0f, 0.0f};
+			bd.linearVelocity = {50.0f, 0.0f};
 
 			b2BodyId bullet = b2World_CreateBody(m_worldId, &bd);
 			b2Body_CreatePolygon(bullet, &sd, &box);

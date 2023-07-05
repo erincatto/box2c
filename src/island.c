@@ -314,8 +314,11 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 
 	assert(island->contactCount > 0);
 	island->contactCount -= 1;
-
 	island->contactRemoveCount += 1;
+
+	contact->islandIndex = B2_NULL_INDEX;
+	contact->islandPrev = B2_NULL_INDEX;
+	contact->islandNext = B2_NULL_INDEX;
 }
 
 static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joint* joint)
@@ -487,7 +490,16 @@ void b2MergeAwakeIslands(b2World* world)
 
 		b2MergeIsland(island);
 
-		b2Array_RemoveSwap(world->awakeIslandArray, i);
+		int32_t count = b2Array(world->awakeIslandArray).count;
+		int32_t awakeIndex = island->awakeIndex;
+		b2Array_RemoveSwap(world->awakeIslandArray, awakeIndex);
+		if (awakeIndex < count - 1)
+		{
+			// Fix awake index on swapped island
+			int32_t swappedIslandIndex = world->awakeIslandArray[awakeIndex];
+			world->islands[swappedIslandIndex].awakeIndex = awakeIndex;
+		}
+
 		b2FreeObject(&world->islandPool, &island->object);
 	}
 }
@@ -595,6 +607,8 @@ if (island->bodyCount > 16)
 // TODO_ERIN finish implementation
 static void b2SplitIsland(b2PersistentIsland* baseIsland)
 {
+	b2ValidateIsland(baseIsland);
+
 	b2World* world = baseIsland->world;
 	int32_t bodyCount = baseIsland->bodyCount;
 
@@ -624,6 +638,25 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 	}
 	assert(index == bodyCount);
 
+	// Clear contact island flags. Only need to consider contacts
+	// already in the base island.
+	int32_t nextContact = baseIsland->headContact;
+	while (nextContact != B2_NULL_INDEX)
+	{
+		b2Contact* contact = contacts + nextContact;
+		contact->flags &= ~b2_contactIslandFlag;
+		nextContact = contact->islandNext;
+	}
+
+	// Clear joint island flags.
+	int32_t nextJoint = baseIsland->headJoint;
+	while (nextJoint != B2_NULL_INDEX)
+	{
+		b2Joint* joint = joints + nextJoint;
+		joint->isMarked = false;
+		nextJoint = joint->islandNext;
+	}
+
 	// Each island is found as a depth first search starting from a seed body
 	for (int32_t i = 0; i < bodyCount; ++i)
 	{
@@ -641,6 +674,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 
 		int32_t stackCount = 0;
 		stack[stackCount++] = seedIndex;
+		seed->isMarked = true;
 
 		// Create new island
 		// No lock needed because only a single island can split per time step
@@ -652,7 +686,6 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		island->world = world;
 
 		int32_t islandIndex = island->object.index;
-		seed->isMarked = true;
 
 		// Perform a depth first search (DFS) on the constraint graph.
 		while (stackCount > 0)
@@ -661,6 +694,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 			int32_t bodyIndex = stack[--stackCount];
 			b2Body* body = bodies + bodyIndex;
 			assert(body->type != b2_staticBody);
+			assert(body->isMarked == true);
 
 			// Add body to island
 			body->islandIndex = islandIndex;
@@ -721,6 +755,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 				{
 					assert(stackCount < bodyCount);
 					stack[stackCount++] = otherBodyIndex;
+					otherBody->isMarked = true;
 				}
 
 				// Add contact to island
@@ -775,6 +810,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 				{
 					assert(stackCount < bodyCount);
 					stack[stackCount++] = otherBodyIndex;
+					otherBody->isMarked = true;
 				}
 
 				// Add contact to island
@@ -1084,10 +1120,10 @@ void b2CompleteIsland(b2PersistentIsland* island)
 	int32_t bodyIndex = island->headBody;
 	while (bodyIndex != B2_NULL_INDEX)
 	{
-		b2Body* b = bodies + bodyIndex;
+		b2Body* body = bodies + bodyIndex;
 
 		// Update shapes (for broad-phase).
-		int32_t shapeIndex = b->shapeList;
+		int32_t shapeIndex = body->shapeList;
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
@@ -1100,7 +1136,7 @@ void b2CompleteIsland(b2PersistentIsland* island)
 			shapeIndex = shape->nextShapeIndex;
 		}
 
-		bodyIndex = b->islandNext;
+		bodyIndex = body->islandNext;
 	}
 
 	// Report impulses
@@ -1138,18 +1174,21 @@ void b2CompleteIsland(b2PersistentIsland* island)
 		island->awakeIndex = B2_NULL_INDEX;
 		b2WakeIsland(island);
 
-		// Update awake contacts which may include contacts that are not in the island.
+		// Add awake contacts which may include contacts that are not in an island.
+		// Contacts that don't touch are not in an island.
 		bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
-			b2Body* b = bodies + bodyIndex;
+			b2Body* body = bodies + bodyIndex;
 
-			int32_t contactKey = b->contactList;
+			int32_t contactKey = body->contactList;
 			while (contactKey != B2_NULL_INDEX)
 			{
 				int32_t contactIndex = contactKey >> 1;
 				int32_t edgeIndex = contactKey & 1;
 				b2Contact* contact = contacts + contactIndex;
+
+				// TODO_ERIN could just check awakeIndex?
 				if (contact->stepId < worldStepId)
 				{
 					contact->awakeIndex = b2Array(world->awakeContactArray).count;
@@ -1159,23 +1198,28 @@ void b2CompleteIsland(b2PersistentIsland* island)
 				contactKey = contact->edges[edgeIndex].nextKey;
 			}
 
-			bodyIndex = b->islandNext;
+			bodyIndex = body->islandNext;
 		}
 	}
+	#if 0
+	// TODO_ERIN contact awake index is reset in collide task
 	else
 	{
-		// Reset awake index on sleeping contacts
+		// Reset awake index on sleeping contacts.
+		// Careful because a contact is awake if either body is awake.
 		bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
-			b2Body* b = bodies + bodyIndex;
+			b2Body* body = bodies + bodyIndex;
 
-			int32_t contactKey = b->contactList;
+			int32_t contactKey = body->contactList;
 			while (contactKey != B2_NULL_INDEX)
 			{
 				int32_t contactIndex = contactKey >> 1;
 				int32_t edgeIndex = contactKey & 1;
+				int32_t twinIndex = edgeIndex ^ 1;
 				b2Contact* contact = contacts + contactIndex;
+				int32_t otherBodyIndex = 
 				contact->awakeIndex = B2_NULL_INDEX;
 				contactKey = contact->edges[edgeIndex].nextKey;
 			}
@@ -1183,6 +1227,7 @@ void b2CompleteIsland(b2PersistentIsland* island)
 			bodyIndex = b->islandNext;
 		}
 	}
+	#endif
 }
 
 // This island was just split. Handle any remaining single threaded cleanup.

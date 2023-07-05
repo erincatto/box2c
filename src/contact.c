@@ -176,6 +176,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 	{
+		// A contact does not need to be in an island to be awake.
 		contact->awakeIndex = b2Array(world->awakeContactArray).count;
 		b2Array_Push(world->awakeContactArray, contact->object.index);
 	}
