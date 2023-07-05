@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define B2_VALIDATE 1
+
 /*
 Position Correction Notes
 =========================
@@ -152,7 +154,7 @@ void b2ClearIsland(b2PersistentIsland* island)
 	island->jointCount = 0;
 	island->parentIsland = B2_NULL_INDEX;
 	island->awakeIndex = B2_NULL_INDEX;
-	island->contactRemoveCount = 0;
+	island->constraintRemoveCount = 0;
 	island->maySplit = false;
 	island->stepContext = NULL;
 	island->contactSolver = NULL;
@@ -183,6 +185,8 @@ static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2C
 	b2ValidateIsland(island);
 }
 
+// Wake a persistent island. Contacts do not need to be woken because
+// they save the manifold from when it went to sleep.
 void b2WakeIsland(b2PersistentIsland* island)
 {
 	b2World* world = island->world;
@@ -314,7 +318,7 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 
 	assert(island->contactCount > 0);
 	island->contactCount -= 1;
-	island->contactRemoveCount += 1;
+	island->constraintRemoveCount += 1;
 
 	contact->islandIndex = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
@@ -342,18 +346,128 @@ static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joi
 
 	island->jointCount += 1;
 	joint->islandIndex = island->object.index;
+
+	b2ValidateIsland(island);
 }
 
 void b2LinkJoint(b2World* world, b2Joint* joint)
 {
-	B2_MAYBE_UNUSED(world);
-	B2_MAYBE_UNUSED(joint);
+	b2Body* bodyA = world->bodies + joint->edges[0].bodyIndex;
+	b2Body* bodyB = world->bodies + joint->edges[1].bodyIndex;
+
+	int32_t islandIndexA = bodyA->islandIndex;
+	int32_t islandIndexB = bodyB->islandIndex;
+
+	// Static bodies have null island indices
+	assert(bodyA->type != b2_staticBody || islandIndexA == B2_NULL_INDEX);
+	assert(bodyB->type != b2_staticBody || islandIndexB == B2_NULL_INDEX);
+	assert(islandIndexA != B2_NULL_INDEX || islandIndexB != B2_NULL_INDEX);
+
+	if (islandIndexA == islandIndexB)
+	{
+		// Joint in same island
+		b2AddJointToIsland(world, world->islands + islandIndexA, joint);
+		return;
+	}
+
+	// Union-find root of islandA
+	b2PersistentIsland* islandA = NULL;
+	if (islandIndexA != B2_NULL_INDEX)
+	{
+		islandA = world->islands + islandIndexA;
+		b2WakeIsland(islandA);
+		while (islandA->parentIsland != B2_NULL_INDEX)
+		{
+			b2PersistentIsland* parent = world->islands + islandA->parentIsland;
+			if (parent->parentIsland != B2_NULL_INDEX)
+			{
+				// path compression
+				islandA->parentIsland = parent->parentIsland;
+			}
+
+			islandA = parent;
+			b2WakeIsland(islandA);
+		}
+	}
+
+	// Union-find root of islandB
+	b2PersistentIsland* islandB = NULL;
+	if (islandIndexB != B2_NULL_INDEX)
+	{
+		islandB = world->islands + islandIndexB;
+		b2WakeIsland(islandB);
+		while (islandB->parentIsland != B2_NULL_INDEX)
+		{
+			b2PersistentIsland* parent = world->islands + islandB->parentIsland;
+			if (parent->parentIsland != B2_NULL_INDEX)
+			{
+				// path compression
+				islandB->parentIsland = parent->parentIsland;
+			}
+
+			islandB = parent;
+			b2WakeIsland(islandB);
+		}
+	}
+
+	assert(islandA != NULL || islandB != NULL);
+
+	// Union-Find link island roots
+	if (islandA != islandB && islandA != NULL && islandB != NULL)
+	{
+		assert(islandA != islandB);
+		assert(islandB->parentIsland == B2_NULL_INDEX);
+		islandB->parentIsland = islandA->object.index;
+	}
+
+	if (islandA != NULL)
+	{
+		b2AddJointToIsland(world, islandA, joint);
+	}
+	else
+	{
+		b2AddJointToIsland(world, islandB, joint);
+	}
 }
 
 void b2UnlinkJoint(b2World* world, b2Joint* joint)
 {
-	B2_MAYBE_UNUSED(world);
-	B2_MAYBE_UNUSED(joint);
+	assert(joint->islandIndex != B2_NULL_INDEX);
+
+	// remove from island
+	b2PersistentIsland* island = world->islands + joint->islandIndex;
+
+	if (joint->islandPrev != B2_NULL_INDEX)
+	{
+		b2Joint* prevJoint = world->joints + joint->islandPrev;
+		assert(prevJoint->islandNext == joint->object.index);
+		prevJoint->islandNext = joint->islandNext;
+	}
+
+	if (joint->islandNext != B2_NULL_INDEX)
+	{
+		b2Joint* nextJoint = world->joints + joint->islandNext;
+		assert(nextJoint->islandPrev == joint->object.index);
+		nextJoint->islandPrev = joint->islandPrev;
+	}
+
+	if (island->headJoint == joint->object.index)
+	{
+		island->headJoint = joint->islandNext;
+	}
+
+	if (island->tailJoint == joint->object.index)
+	{
+		island->tailJoint = joint->islandPrev;
+	}
+
+	assert(island->jointCount > 0);
+	island->jointCount -= 1;
+	island->constraintRemoveCount += 1;
+
+	joint->islandIndex = B2_NULL_INDEX;
+	joint->islandPrev = B2_NULL_INDEX;
+	joint->islandNext = B2_NULL_INDEX;
 }
 
 static void b2MergeIsland(b2PersistentIsland* island)
@@ -435,11 +549,36 @@ static void b2MergeIsland(b2PersistentIsland* island)
 		rootIsland->contactCount += island->contactCount;
 	}
 
-	// TODO_ERIN joints
-	assert(island->jointCount == 0 && rootIsland->jointCount == 0);
+	if (rootIsland->headJoint == B2_NULL_INDEX)
+	{
+		// Root island has no joints
+		assert(rootIsland->tailJoint == B2_NULL_INDEX && rootIsland->jointCount == 0);
+		rootIsland->headJoint = island->headJoint;
+		rootIsland->tailJoint = island->tailJoint;
+		rootIsland->jointCount = island->jointCount;
+	}
+	else if (island->headJoint != B2_NULL_INDEX)
+	{
+		// Both islands have joints
+		assert(island->tailJoint != B2_NULL_INDEX && island->jointCount > 0);
+		assert(rootIsland->tailJoint != B2_NULL_INDEX && rootIsland->jointCount > 0);
+
+		b2Joint* tailJoint = joints + rootIsland->tailJoint;
+		assert(tailJoint->islandNext == B2_NULL_INDEX);
+		tailJoint->islandNext = island->headJoint;
+
+		b2Joint* headJoint = joints + island->headJoint;
+		assert(headJoint->islandPrev == B2_NULL_INDEX);
+		headJoint->islandPrev = rootIsland->tailJoint;
+
+		rootIsland->tailJoint = island->tailJoint;
+		rootIsland->jointCount += island->jointCount;
+	}
 
 	// Merging a dirty islands means that splitting may still be needed
-	rootIsland->contactRemoveCount += island->contactRemoveCount;
+	rootIsland->constraintRemoveCount += island->constraintRemoveCount;
+
+	b2ValidateIsland(rootIsland);
 }
 
 // Iterate over all awake islands and merge any that need merging
@@ -524,7 +663,7 @@ void b2SortIslands(b2World* world, b2PersistentIsland** islands, int32_t count)
 	world->splitIslandIndex = B2_NULL_INDEX;
 	for (int32_t i = 0; i < count; ++i)
 	{
-		if (islands[i]->contactRemoveCount > B2_CONTACT_REMOVE_THRESHOLD)
+		if (islands[i]->constraintRemoveCount >= B2_CONTACT_REMOVE_THRESHOLD)
 		{
 			// This and only this island may split this time step
 			islands[i]->maySplit = true;
@@ -813,7 +952,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 					otherBody->isMarked = true;
 				}
 
-				// Add contact to island
+				// Add joint to island
 				joint->islandIndex = islandIndex;
 				if (island->tailJoint != B2_NULL_INDEX)
 				{
@@ -1344,6 +1483,8 @@ void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake)
 	}
 }
 
+#if defined(_DEBUG) && B2_VALIDATE == 1
+
 void b2ValidateIsland(b2PersistentIsland* island)
 {
 	b2World* world = island->world;
@@ -1455,3 +1596,12 @@ void b2ValidateIsland(b2PersistentIsland* island)
 		assert(island->jointCount == 0);
 	}
 }
+
+#else
+
+void b2ValidateIsland(b2PersistentIsland* island)
+{
+	B2_MAYBE_UNUSED(island);
+}
+
+#endif

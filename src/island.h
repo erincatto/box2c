@@ -49,7 +49,7 @@ typedef struct b2PersistentIsland
 	int32_t awakeIndex;
 
 	// Keeps track of how many contacts have been removed from this island.
-	int32_t contactRemoveCount;
+	int32_t constraintRemoveCount;
 
 	// This island has been chosen to be split up into smaller islands because a sufficient
 	// number of contacts have been removed.

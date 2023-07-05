@@ -52,6 +52,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->torque = 0.0f;
 	b->shapeList = B2_NULL_INDEX;
 	b->jointList = B2_NULL_INDEX;
+	b->jointCount = B2_NULL_INDEX;
 	b->contactList = B2_NULL_INDEX;
 	b->contactCount = 0;
 	b->mass = 0.0f;

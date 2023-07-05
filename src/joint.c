@@ -76,7 +76,7 @@ void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, 
 	*damping = 2.0f * I * dampingRatio * omega;
 }
 
-b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
+static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
 	b2Joint* joint = (b2Joint*)b2AllocObject(&world->jointPool);
 	world->joints = (b2Joint*)world->jointPool.memory;
@@ -112,6 +112,14 @@ b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	}
 	bodyB->jointList = keyB;
 	bodyB->jointCount += 1;
+
+	joint->islandIndex = B2_NULL_INDEX;
+	joint->islandPrev = B2_NULL_INDEX;
+	joint->islandNext = B2_NULL_INDEX;
+
+	joint->isMarked = false;
+
+	b2LinkJoint(world, joint);
 
 	return joint;
 }
@@ -169,8 +177,6 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_mouseJoint;
-	joint->collideConnected = false;
-	joint->isMarked = false;
 
 	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
 	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
@@ -207,8 +213,6 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_revoluteJoint;
-	joint->collideConnected = false;
-	joint->isMarked = false;
 
 	joint->localAnchorA = def->localAnchorA;
 	joint->localAnchorB = def->localAnchorB;
@@ -310,8 +314,7 @@ void b2World_DestroyJoint(b2JointId jointId)
 
 	bodyB->jointCount -= 1;
 
-
-	// TODO_ERIN remove from island
+	b2UnlinkJoint(world, joint);
 
 	b2FreeObject(&world->jointPool, &joint->object);
 }

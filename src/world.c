@@ -310,6 +310,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Contact* contacts = world->contacts;
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
 
+	B2_MAYBE_UNUSED(awakeCount);
 	assert(startIndex < endIndex);
 	assert(endIndex <= awakeCount);
 
@@ -499,7 +500,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	{
 		b2PersistentIsland* island = world->islands + world->awakeIslandArray[i];
 		assert(island->awakeIndex == i);
-		islands[i] = world->islands + world->awakeIslandArray[i];
+		islands[i] = island;
 	}
 
 	// Sort islands to improve task distribution
