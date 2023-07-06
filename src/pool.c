@@ -11,42 +11,6 @@
 #define B2_NULL_INDEX (-1)
 #define B2_VALIDATE 1
 
-b2IndexPool b2CreateIndexPool(int32_t capacity)
-{
-	// The free index array starts empty
-	b2IndexPool pool;
-	pool.freeIndexArray = b2CreateArray(sizeof(int32_t), capacity);
-	pool.index = 0;
-	return pool;
-}
-
-void b2DestroyIndexPool(b2IndexPool* pool)
-{
-	b2DestroyArray(pool->freeIndexArray);
-}
-
-int32_t b2AllocIndex(b2IndexPool* pool)
-{
-	// First check free list
-	if (b2Array(pool->freeIndexArray).count > 0)
-	{
-		int32_t index = b2Array_Last(pool->freeIndexArray);
-		b2Array_Pop(pool->freeIndexArray);
-		return index;
-	}
-
-	// Free list is empty
-	int32_t index = pool->index;
-	pool->index += 1;
-	return index;
-}
-
-void b2FreeIndex(b2IndexPool* pool, int32_t index)
-{
-	assert(index < pool->index);
-	b2Array_Push(pool->freeIndexArray, index);
-}
-
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 {
 	assert(objectSize >= sizeof(b2Object));
@@ -82,6 +46,37 @@ void b2DestroyPool(b2Pool* pool)
 	pool->count = 0;
 	pool->freeList = B2_NULL_INDEX;
 	pool->objectSize = 0;
+}
+
+void b2GrowPool(b2Pool* pool, int32_t capacity)
+{
+	int32_t oldCapacity = pool->capacity;
+	if (oldCapacity >= capacity)
+	{
+		return;
+	}
+
+	int32_t newCapacity = capacity > 2 ? capacity : 2;
+	pool->capacity = newCapacity;
+	char* newMemory = (char*)b2Alloc(pool->capacity * pool->objectSize);
+	memcpy(newMemory, pool->memory, oldCapacity * pool->objectSize);
+	b2Free(pool->memory);
+	pool->memory = newMemory;
+
+	pool->freeList = oldCapacity;
+	for (int32_t i = oldCapacity; i < newCapacity - 1; ++i)
+	{
+		b2Object* object = (b2Object*)(pool->memory + i * pool->objectSize);
+		object->index = i;
+		object->next = i + 1;
+		object->revision = 0;
+	}
+
+	// Tail of free list
+	b2Object* object = (b2Object*)(pool->memory + (newCapacity - 1) * pool->objectSize);
+	object->index = newCapacity - 1;
+	object->next = B2_NULL_INDEX;
+	object->revision = 0;
 }
 
 b2Object* b2AllocObject(b2Pool* pool)

@@ -470,7 +470,9 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 	joint->islandNext = B2_NULL_INDEX;
 }
 
-static void b2MergeIsland(b2Island* island)
+// Merge an island into its root island.
+// Returns the body count of the merged island.
+static int32_t b2MergeIsland(b2Island* island)
 {
 	assert(island->parentIsland != B2_NULL_INDEX);
 
@@ -577,8 +579,9 @@ static void b2MergeIsland(b2Island* island)
 
 	// Merging a dirty islands means that splitting may still be needed
 	rootIsland->constraintRemoveCount += island->constraintRemoveCount;
-
 	b2ValidateIsland(rootIsland);
+
+	return rootIsland->bodyCount;
 }
 
 // Iterate over all awake islands and merge any that need merging
@@ -617,6 +620,7 @@ void b2MergeAwakeIslands(b2World* world)
 
 	// Step 2: merge every awake island into its parent (which must be a root island)
 	// Reverse to support removal from awake array.
+	int32_t maxBodyCount = 0;
 	for (int32_t i = awakeIslandCount - 1; i >= 0; --i)
 	{
 		int32_t islandIndex = world->awakeIslandArray[i];
@@ -624,10 +628,12 @@ void b2MergeAwakeIslands(b2World* world)
 
 		if (island->parentIsland == B2_NULL_INDEX)
 		{
+			maxBodyCount = B2_MAX(maxBodyCount, island->bodyCount);
 			continue;
 		}
 
-		b2MergeIsland(island);
+		int32_t mergedBodyCount = b2MergeIsland(island);
+		maxBodyCount = B2_MAX(maxBodyCount, mergedBodyCount);
 
 		int32_t count = b2Array(world->awakeIslandArray).count;
 		int32_t awakeIndex = island->awakeIndex;
@@ -641,6 +647,9 @@ void b2MergeAwakeIslands(b2World* world)
 
 		b2FreeObject(&world->islandPool, &island->object);
 	}
+
+	// Step 3: ensure island pool has sufficient space to split the largest island
+	b2GrowPool(&world->islandPool, world->islandPool.count + maxBodyCount);
 }
 
 static int b2CompareIslands(const void* A, const void* B)
