@@ -283,20 +283,6 @@ void b2DestroyWorld(b2WorldId id)
 	memset(world, 0, sizeof(b2World));
 }
 
-static void b2AddAwakeIsland(b2World* world, b2Island* island)
-{
-	assert(island->awakeIndex == B2_NULL_INDEX);
-	island->awakeIndex = b2Array(world->awakeIslandArray).count;
-	b2Array_Push(world->awakeIslandArray, island->object.index);
-}
-
-static void b2RemoveAwakeIsland(b2World* world, b2Island* island)
-{
-	int32_t awakeIndex = island->awakeIndex;
-	assert(awakeIndex != B2_NULL_INDEX && awakeIndex < b2Array(world->awakeIslandArray).count);
-	world->awakeIslandArray[awakeIndex] = B2_NULL_INDEX;
-}
-
 // Locked version
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {

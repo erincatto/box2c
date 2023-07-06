@@ -210,8 +210,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 		b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
 
-		// TODO_ERIN destroy contacts
-
 		b2FreeObject(&world->shapePool, &shape->object);
 	}
 
