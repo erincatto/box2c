@@ -36,7 +36,7 @@ typedef struct b2World
 	struct b2Contact* contacts;
 	struct b2Joint* joints;
 	struct b2Shape* shapes;
-	struct b2PersistentIsland* islands;
+	struct b2Island* islands;
 
 	// Per thread storage
 	struct b2TaskContext* taskContextArray;

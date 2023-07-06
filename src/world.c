@@ -206,8 +206,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->jointPool = b2CreatePool(sizeof(b2Joint), B2_MAX(def->jointCapacity, 1));
 	world->joints = (b2Joint*)world->jointPool.memory;
 
-	world->islandPool = b2CreatePool(sizeof(b2PersistentIsland), B2_MAX(def->bodyCapacity, 1));
-	world->islands = (b2PersistentIsland*)world->islandPool.memory;
+	world->islandPool = b2CreatePool(sizeof(b2Island), B2_MAX(def->bodyCapacity, 1));
+	world->islands = (b2Island*)world->islandPool.memory;
 
 	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
@@ -283,14 +283,14 @@ void b2DestroyWorld(b2WorldId id)
 	memset(world, 0, sizeof(b2World));
 }
 
-static void b2AddAwakeIsland(b2World* world, b2PersistentIsland* island)
+static void b2AddAwakeIsland(b2World* world, b2Island* island)
 {
 	assert(island->awakeIndex == B2_NULL_INDEX);
 	island->awakeIndex = b2Array(world->awakeIslandArray).count;
 	b2Array_Push(world->awakeIslandArray, island->object.index);
 }
 
-static void b2RemoveAwakeIsland(b2World* world, b2PersistentIsland* island)
+static void b2RemoveAwakeIsland(b2World* world, b2Island* island)
 {
 	int32_t awakeIndex = island->awakeIndex;
 	assert(awakeIndex != B2_NULL_INDEX && awakeIndex < b2Array(world->awakeIslandArray).count);
@@ -495,10 +495,10 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Careful, this is modified by island merging
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
-	b2PersistentIsland** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2PersistentIsland*), "island array");
+	b2Island** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2Island*), "island array");
 	for (int32_t i = 0; i < count; ++i)
 	{
-		b2PersistentIsland* island = world->islands + world->awakeIslandArray[i];
+		b2Island* island = world->islands + world->awakeIslandArray[i];
 		assert(island->awakeIndex == i);
 		islands[i] = island;
 	}
@@ -543,7 +543,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	for (int32_t i = count - 1; i >= 0; --i)
 	{
-		b2PersistentIsland* island = islands[i];
+		b2Island* island = islands[i];
 		if (island->object.index == world->splitIslandIndex)
 		{
 			b2CompleteBaseSplitIsland(island);
@@ -557,14 +557,14 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Handle islands created from splitting
 	if (world->splitIslandIndex != B2_NULL_INDEX)
 	{
-		b2PersistentIsland* baseIsland = world->islands + world->splitIslandIndex;
+		b2Island* baseIsland = world->islands + world->splitIslandIndex;
 		bool isAwake = baseIsland->awakeIndex != B2_NULL_INDEX;
 
 		int32_t splitCount = b2Array(world->splitIslandArray).count;
 		for (int32_t i = 0; i < splitCount; ++i)
 		{
 			int32_t index = world->splitIslandArray[i];
-			b2PersistentIsland* splitIsland = world->islands + index;
+			b2Island* splitIsland = world->islands + index;
 			b2CompleteSplitIsland(splitIsland, isAwake);
 		}
 
@@ -910,7 +910,7 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 		int32_t count = world->islandPool.capacity;
 		for (int32_t i = 0; i < count; ++i)
 		{
-			b2PersistentIsland* island = world->islands + i;
+			b2Island* island = world->islands + i;
 			if (island->object.next != i)
 			{
 				continue;

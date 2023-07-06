@@ -119,7 +119,11 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	joint->isMarked = false;
 
-	b2LinkJoint(world, joint);
+	if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
+	{
+		// Add edge to island graph
+		b2LinkJoint(world, joint);
+	}
 
 	return joint;
 }

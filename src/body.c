@@ -77,8 +77,8 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	if (b->type != b2_staticBody)
 	{
 		// Every new body gets a new island. Islands get merged during simulation.
-		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
-		world->islands = (b2PersistentIsland*)world->islandPool.memory;
+		b2Island* island = (b2Island*)b2AllocObject(&world->islandPool);
+		world->islands = (b2Island*)world->islandPool.memory;
 		b2ClearIsland(island);
 		island->world = world;
 
@@ -218,7 +218,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	// Remove from island
 	if (body->islandIndex != B2_NULL_INDEX)
 	{
-		b2PersistentIsland* island = world->islands + body->islandIndex;
+		b2Island* island = world->islands + body->islandIndex;
 
 		// Fix the island's linked list of bodies
 		if (body->islandPrev != B2_NULL_INDEX)
@@ -548,7 +548,7 @@ bool b2IsBodyAwake(b2World* world, b2Body* body)
 {
 	if (body->islandIndex != B2_NULL_INDEX)
 	{
-		b2PersistentIsland* island = world->islands + body->islandIndex;
+		b2Island* island = world->islands + body->islandIndex;
 		return island->awakeIndex != B2_NULL_INDEX;
 	}
 

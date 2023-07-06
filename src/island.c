@@ -140,7 +140,7 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
-void b2ClearIsland(b2PersistentIsland* island)
+void b2ClearIsland(b2Island* island)
 {
 	island->world = NULL;
 	island->headBody = B2_NULL_INDEX;
@@ -160,7 +160,7 @@ void b2ClearIsland(b2PersistentIsland* island)
 	island->contactSolver = NULL;
 }
 
-static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2Contact* contact)
+static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* contact)
 {
 	assert(contact->islandIndex == B2_NULL_INDEX);
 	assert(contact->islandPrev == B2_NULL_INDEX);
@@ -187,7 +187,7 @@ static void b2AddContactToIsland(b2World* world, b2PersistentIsland* island, b2C
 
 // Wake a persistent island. Contacts do not need to be woken because
 // they save the manifold from when it went to sleep.
-void b2WakeIsland(b2PersistentIsland* island)
+void b2WakeIsland(b2Island* island)
 {
 	b2World* world = island->world;
 
@@ -225,14 +225,14 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	}
 
 	// Union-find root of islandA
-	b2PersistentIsland* islandA = NULL;
+	b2Island* islandA = NULL;
 	if (islandIndexA != B2_NULL_INDEX)
 	{
 		islandA = world->islands + islandIndexA;
 		b2WakeIsland(islandA);
 		while (islandA->parentIsland != B2_NULL_INDEX)
 		{
-			b2PersistentIsland* parent = world->islands + islandA->parentIsland;
+			b2Island* parent = world->islands + islandA->parentIsland;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
@@ -245,14 +245,14 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	}
 
 	// Union-find root of islandB
-	b2PersistentIsland* islandB = NULL;
+	b2Island* islandB = NULL;
 	if (islandIndexB != B2_NULL_INDEX)
 	{
 		islandB = world->islands + islandIndexB;
 		b2WakeIsland(islandB);
 		while (islandB->parentIsland != B2_NULL_INDEX)
 		{
-			b2PersistentIsland* parent = world->islands + islandB->parentIsland;
+			b2Island* parent = world->islands + islandB->parentIsland;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
@@ -290,7 +290,7 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	assert(contact->islandIndex != B2_NULL_INDEX);
 
 	// remove from island
-	b2PersistentIsland* island = world->islands + contact->islandIndex;
+	b2Island* island = world->islands + contact->islandIndex;
 
 	if (contact->islandPrev != B2_NULL_INDEX)
 	{
@@ -325,7 +325,7 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	contact->islandNext = B2_NULL_INDEX;
 }
 
-static void b2AddJointToIsland(b2World* world, b2PersistentIsland* island, b2Joint* joint)
+static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
 {
 	assert(joint->islandIndex == B2_NULL_INDEX);
 	assert(joint->islandPrev == B2_NULL_INDEX);
@@ -371,14 +371,14 @@ void b2LinkJoint(b2World* world, b2Joint* joint)
 	}
 
 	// Union-find root of islandA
-	b2PersistentIsland* islandA = NULL;
+	b2Island* islandA = NULL;
 	if (islandIndexA != B2_NULL_INDEX)
 	{
 		islandA = world->islands + islandIndexA;
 		b2WakeIsland(islandA);
 		while (islandA->parentIsland != B2_NULL_INDEX)
 		{
-			b2PersistentIsland* parent = world->islands + islandA->parentIsland;
+			b2Island* parent = world->islands + islandA->parentIsland;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
@@ -391,14 +391,14 @@ void b2LinkJoint(b2World* world, b2Joint* joint)
 	}
 
 	// Union-find root of islandB
-	b2PersistentIsland* islandB = NULL;
+	b2Island* islandB = NULL;
 	if (islandIndexB != B2_NULL_INDEX)
 	{
 		islandB = world->islands + islandIndexB;
 		b2WakeIsland(islandB);
 		while (islandB->parentIsland != B2_NULL_INDEX)
 		{
-			b2PersistentIsland* parent = world->islands + islandB->parentIsland;
+			b2Island* parent = world->islands + islandB->parentIsland;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
@@ -435,7 +435,7 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 	assert(joint->islandIndex != B2_NULL_INDEX);
 
 	// remove from island
-	b2PersistentIsland* island = world->islands + joint->islandIndex;
+	b2Island* island = world->islands + joint->islandIndex;
 
 	if (joint->islandPrev != B2_NULL_INDEX)
 	{
@@ -470,7 +470,7 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 	joint->islandNext = B2_NULL_INDEX;
 }
 
-static void b2MergeIsland(b2PersistentIsland* island)
+static void b2MergeIsland(b2Island* island)
 {
 	assert(island->parentIsland != B2_NULL_INDEX);
 
@@ -480,7 +480,7 @@ static void b2MergeIsland(b2PersistentIsland* island)
 	b2Joint* joints = world->joints;
 
 	int32_t rootIndex = island->parentIsland;
-	b2PersistentIsland* rootIsland = world->islands + rootIndex;
+	b2Island* rootIsland = world->islands + rootIndex;
 	assert(rootIsland->parentIsland == B2_NULL_INDEX);
 
 	// remap island indices
@@ -587,19 +587,19 @@ static void b2MergeIsland(b2PersistentIsland* island)
 void b2MergeAwakeIslands(b2World* world)
 {
 	int32_t awakeIslandCount = b2Array(world->awakeIslandArray).count;
-	b2PersistentIsland* islands = world->islands;
+	b2Island* islands = world->islands;
 
 	// Step 1: Ensure every child island points to its root island. This avoids merging a child island with
 	// a parent island that has already been merged with a grand-parent island.
 	for (int32_t i = 0; i < awakeIslandCount; ++i)
 	{
 		int32_t islandIndex = world->awakeIslandArray[i];
-		b2PersistentIsland* island = islands + islandIndex;
+		b2Island* island = islands + islandIndex;
 
-		b2PersistentIsland* rootIsland = island;
+		b2Island* rootIsland = island;
 		while (rootIsland->parentIsland != B2_NULL_INDEX)
 		{
-			b2PersistentIsland* parent = islands + rootIsland->parentIsland;
+			b2Island* parent = islands + rootIsland->parentIsland;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
@@ -620,7 +620,7 @@ void b2MergeAwakeIslands(b2World* world)
 	for (int32_t i = awakeIslandCount - 1; i >= 0; --i)
 	{
 		int32_t islandIndex = world->awakeIslandArray[i];
-		b2PersistentIsland* island = islands + islandIndex;
+		b2Island* island = islands + islandIndex;
 
 		if (island->parentIsland == B2_NULL_INDEX)
 		{
@@ -645,8 +645,8 @@ void b2MergeAwakeIslands(b2World* world)
 
 static int b2CompareIslands(const void* A, const void* B)
 {
-	const b2PersistentIsland* islandA = *(const b2PersistentIsland**)A;
-	const b2PersistentIsland* islandB = *(const b2PersistentIsland**)B;
+	const b2Island* islandA = *(const b2Island**)A;
+	const b2Island* islandB = *(const b2Island**)B;
 	return islandB->bodyCount - islandA->bodyCount;
 }
 
@@ -654,10 +654,10 @@ static int b2CompareIslands(const void* A, const void* B)
 
 // Sort islands so that the largest islands are solved first to avoid
 // long tails in the island parallel-for loop.
-void b2SortIslands(b2World* world, b2PersistentIsland** islands, int32_t count)
+void b2SortIslands(b2World* world, b2Island** islands, int32_t count)
 {
 	// Sort descending order (largest island first)
-	qsort(islands, count, sizeof(b2PersistentIsland*), b2CompareIslands);
+	qsort(islands, count, sizeof(b2Island*), b2CompareIslands);
 
 	// Look for an island to split. Large islands have priority.
 	world->splitIslandIndex = B2_NULL_INDEX;
@@ -673,7 +673,7 @@ void b2SortIslands(b2World* world, b2PersistentIsland** islands, int32_t count)
 	}
 }
 
-void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext)
+void b2PrepareIsland(b2Island* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
 
@@ -744,7 +744,7 @@ if (island->bodyCount > 16)
 // Note: contacts/joints connecting to static bodies must belong to an island but don't affect island connectivity
 // Note: static bodies are never in an island
 // TODO_ERIN finish implementation
-static void b2SplitIsland(b2PersistentIsland* baseIsland)
+static void b2SplitIsland(b2Island* baseIsland)
 {
 	b2ValidateIsland(baseIsland);
 
@@ -820,7 +820,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 		// However, it is not safe to cause the island pool to grow because other islands are being processed.
 		// So this allocation must come from the free list.
 		assert(world->islandPool.capacity > world->islandPool.count);
-		b2PersistentIsland* island = (b2PersistentIsland*)b2AllocObject(&world->islandPool);
+		b2Island* island = (b2Island*)b2AllocObject(&world->islandPool);
 		b2ClearIsland(island);
 		island->world = world;
 
@@ -934,6 +934,8 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 					continue;
 				}
 
+				joint->isMarked = true;
+
 				int32_t otherEdgeIndex = edgeIndex ^ 1;
 				int32_t otherBodyIndex = joint->edges[otherEdgeIndex].bodyIndex;
 				b2Body* otherBody = world->bodies + otherBodyIndex;
@@ -980,7 +982,7 @@ static void b2SplitIsland(b2PersistentIsland* baseIsland)
 }
 
 // This must be thread safe
-void b2SolveIsland(b2PersistentIsland* island)
+void b2SolveIsland(b2Island* island)
 {
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
@@ -1250,7 +1252,7 @@ void b2SolveIsland(b2PersistentIsland* island)
 }
 
 // Single threaded work
-void b2CompleteIsland(b2PersistentIsland* island)
+void b2CompleteIsland(b2Island* island)
 {
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
@@ -1370,14 +1372,14 @@ void b2CompleteIsland(b2PersistentIsland* island)
 }
 
 // This island was just split. Handle any remaining single threaded cleanup.
-void b2CompleteBaseSplitIsland(b2PersistentIsland* island)
+void b2CompleteBaseSplitIsland(b2Island* island)
 {
 	b2DestroyContactSolver(island->contactSolver);
 	island->contactSolver = NULL;
 }
 
 // This island was just created through splitting. Handle single thread work.
-void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake)
+void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 {
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
@@ -1485,7 +1487,7 @@ void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake)
 
 #if defined(_DEBUG) && B2_VALIDATE == 1
 
-void b2ValidateIsland(b2PersistentIsland* island)
+void b2ValidateIsland(b2Island* island)
 {
 	b2World* world = island->world;
 
@@ -1599,7 +1601,7 @@ void b2ValidateIsland(b2PersistentIsland* island)
 
 #else
 
-void b2ValidateIsland(b2PersistentIsland* island)
+void b2ValidateIsland(b2Island* island)
 {
 	B2_MAYBE_UNUSED(island);
 }

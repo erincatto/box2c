@@ -24,7 +24,7 @@ typedef struct b2StepContext b2StepContext;
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
 // TODO_ERIN eventually b2Island
-typedef struct b2PersistentIsland
+typedef struct b2Island
 {
 	b2Object object;
 
@@ -58,11 +58,11 @@ typedef struct b2PersistentIsland
 	// Transient solver data
 	b2StepContext* stepContext;
 	struct b2ContactSolver* contactSolver;
-} b2PersistentIsland;
+} b2Island;
 
-void b2ClearIsland(b2PersistentIsland* island);
+void b2ClearIsland(b2Island* island);
 
-void b2WakeIsland(b2PersistentIsland* island);
+void b2WakeIsland(b2Island* island);
 
 	// Link contacts into the island graph when it starts having contact points
 void b2LinkContact(b2World* world, b2Contact* contact);
@@ -77,14 +77,14 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
-void b2SortIslands(b2World* world, b2PersistentIsland** islands, int32_t count);
+void b2SortIslands(b2World* world, b2Island** islands, int32_t count);
 
-void b2PrepareIsland(b2PersistentIsland* island, b2StepContext* stepContext);
+void b2PrepareIsland(b2Island* island, b2StepContext* stepContext);
 
-void b2SolveIsland(b2PersistentIsland* island);
+void b2SolveIsland(b2Island* island);
 
-void b2CompleteIsland(b2PersistentIsland* island);
-void b2CompleteBaseSplitIsland(b2PersistentIsland* island);
-void b2CompleteSplitIsland(b2PersistentIsland* island, bool isAwake);
+void b2CompleteIsland(b2Island* island);
+void b2CompleteBaseSplitIsland(b2Island* island);
+void b2CompleteSplitIsland(b2Island* island, bool isAwake);
 
-void b2ValidateIsland(b2PersistentIsland* island);
+void b2ValidateIsland(b2Island* island);
