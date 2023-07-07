@@ -1,47 +1,6 @@
 #include <stdint.h>
 
-#if defined(_MSC_VER) && !defined(__clang__)
-
-#if 0
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-// Returns the initial value
-static inline long atomic_fetch_add_long(volatile long* obj, long val)
-{
-	return InterlockedExchangeAdd(obj, val);
-}
-
-// Returns the initial value
-static inline long atomic_fetch_sub_long(volatile long* obj, long val)
-{
-	return InterlockedExchangeAdd(obj, -val);
-}
-
-// Returns the initial value
-static inline long atomic_store_long(volatile long* obj, long val)
-{
-	return InterlockedExchange(obj, val);
-}
-
-static inline long atomic_load_long(const volatile long* obj)
-{
-	return *obj;
-}
-
-static inline bool atomic_compare_exchange_weak_long(volatile long* obj, long* expected, int32_t desired)
-{
-	long current = InterlockedCompareExchange(obj, desired, *expected);
-	if (current == *expected)
-	{
-		return true;
-	}
-
-	*expected = current;
-	return false;
-}
-
-#else
+#if 0 && defined(_MSC_VER) && !defined(__clang__)
 
 #include <intrin.h>
 
@@ -91,7 +50,6 @@ static inline bool atomic_compare_exchange_weak_long(volatile long* obj, long* e
 	*expected = current;
 	return false;
 }
-#endif
 
 #else
 

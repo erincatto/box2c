@@ -112,26 +112,8 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 	b2Body* body = world->bodies + bodyId.index;
 
-#if 0
-	// TODO_ERIN eliminate joint graph?
-	// Delete the attached joints.
-	b2JointEdge* je = b->m_jointList;
-	while (je)
-	{
-		b2JointEdge* je0 = je;
-		je = je->next;
-
-		if (m_destructionListener)
-		{
-			m_destructionListener->SayGoodbye(je0->joint);
-		}
-
-		DestroyJoint(je0->joint);
-
-		b->m_jointList = je;
-	}
-	b->m_jointList = nullptr;
-#endif
+	// User must destroy joints before destroying bodies
+	assert(body->jointList == B2_NULL_INDEX && body->jointCount == 0);
 
 	// Destroy the attached contacts
 	int32_t edgeKey = body->contactList;
@@ -196,11 +178,6 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
-
-		// if (m_destructionListener)
-		//{
-		//	m_destructionListener->SayGoodbye(f0);
-		// }
 
 		// The broad-phase proxies only exist if the body is enabled
 		if (body->isEnabled)
@@ -508,7 +485,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 
 	// TODO_ERIN
 	assert(false);
-	// Destroy any contacts associated with the fixture.
+	// Destroy any contacts associated with the shape.
 	//b2ContactEdge* edge = m_contactList;
 	//while (edge)
 	//{

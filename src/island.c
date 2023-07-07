@@ -752,7 +752,6 @@ if (island->bodyCount > 16)
 // Split an island because some contacts and/or joints have been removed
 // Note: contacts/joints connecting to static bodies must belong to an island but don't affect island connectivity
 // Note: static bodies are never in an island
-// TODO_ERIN finish implementation
 static void b2SplitIsland(b2Island* baseIsland)
 {
 	b2ValidateIsland(baseIsland);
@@ -1351,33 +1350,6 @@ void b2CompleteIsland(b2Island* island)
 			bodyIndex = body->islandNext;
 		}
 	}
-	#if 0
-	// TODO_ERIN contact awake index is reset in collide task
-	else
-	{
-		// Reset awake index on sleeping contacts.
-		// Careful because a contact is awake if either body is awake.
-		bodyIndex = island->headBody;
-		while (bodyIndex != B2_NULL_INDEX)
-		{
-			b2Body* body = bodies + bodyIndex;
-
-			int32_t contactKey = body->contactList;
-			while (contactKey != B2_NULL_INDEX)
-			{
-				int32_t contactIndex = contactKey >> 1;
-				int32_t edgeIndex = contactKey & 1;
-				int32_t twinIndex = edgeIndex ^ 1;
-				b2Contact* contact = contacts + contactIndex;
-				int32_t otherBodyIndex = 
-				contact->awakeIndex = B2_NULL_INDEX;
-				contactKey = contact->edges[edgeIndex].nextKey;
-			}
-
-			bodyIndex = b->islandNext;
-		}
-	}
-	#endif
 }
 
 // This island was just split. Handle any remaining single threaded cleanup.

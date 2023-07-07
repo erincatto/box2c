@@ -23,7 +23,6 @@ typedef struct b2StepContext b2StepContext;
 // Persistent island
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
-// TODO_ERIN eventually b2Island
 typedef struct b2Island
 {
 	b2Object object;
