@@ -20,6 +20,7 @@ b2Timer b2CreateTimer()
 	if (s_invFrequency == 0.0)
 	{
 		QueryPerformanceFrequency(&largeInteger);
+
 		s_invFrequency = (double)largeInteger.QuadPart;
 		if (s_invFrequency > 0.0)
 		{

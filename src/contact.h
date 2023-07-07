@@ -14,13 +14,12 @@ typedef struct b2World b2World;
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list
 // maintained in each attached body. Each contact has two contact
-// nodes, one for each attached body.
+// edges, one for each attached body.
 typedef struct b2ContactEdge
 {
-	int32_t otherBodyIndex;
-	struct b2Contact* contact;
-	struct b2ContactEdge* prev;
-	struct b2ContactEdge* next;
+	int32_t bodyIndex;
+	int32_t prevKey;
+	int32_t nextKey;
 } b2ContactEdge;
 
 // Flags stored in b2Contact::flags
@@ -28,17 +27,28 @@ enum b2ContactFlags
 {
 	// Set when the shapes are touching.
 	// TODO_ERIN sensor only? Overlap?
-	b2_contactTouchingFlag = 0x0002,
+	b2_contactTouchingFlag = 0x00000002,
 
 	// This contact can be disabled (by user)
-	b2_contactEnabledFlag = 0x0004,
+	b2_contactEnabledFlag = 0x00000004,
 
 	// This contact needs filtering because a fixture filter was changed.
 	// TODO_ERIN don't defer this anymore
-	b2_contactFilterFlag = 0x0008,
+	b2_contactFilterFlag = 0x00000008,
 
 	// One of the shapes is a sensor
-	b2_contactSensorFlag = 0x0010
+	b2_contactSensorFlag = 0x00000010,
+
+	// This contact no longer has overlapping AABBs
+	b2_contactDisjoint = 0x00000020,
+
+	// This contact started touching
+	b2_contactStartedTouching = 0x00000040,
+
+	// This contact stopped touching
+	b2_contactStoppedTouching = 0x00000080,
+
+	b2_contactIslandFlag = 0x0100
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
@@ -46,14 +56,14 @@ enum b2ContactFlags
 /// that has no contact points.
 typedef struct b2Contact
 {
+	b2Object object;
+
+	// The last step this contact was added to the awake contact array
+	uint64_t stepId;
+
 	uint32_t flags;
 
-	struct b2Contact* prev;
-	struct b2Contact* next;
-
-	// Edges for connecting shapes (and thus bodies). These are the edges in the body-contact graph.
-	b2ContactEdge edgeA;
-	b2ContactEdge edgeB;
+	b2ContactEdge edges[2];
 
 	int32_t shapeIndexA;
 	int32_t shapeIndexB;
@@ -64,10 +74,14 @@ typedef struct b2Contact
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
-	uint64_t islandId;
+	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
+	int32_t islandPrev;
+	int32_t islandNext;
+	int32_t islandIndex;
 
-	int32_t islandIndexA;
-	int32_t islandIndexB;
+	// Awake contacts are associated with bodies in awake islands.
+	// The contact does not need to be touching or be in an island to be awake.
+	int32_t awakeIndex;
 
 	// Mixed friction and restitution
 	float friction;
@@ -86,4 +100,3 @@ bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);
 
 void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
 	b2Body* bodyB);
-

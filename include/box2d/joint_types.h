@@ -5,7 +5,6 @@
 
 #include "box2d/types.h"
 
-
 /// A mouse joint is used to make a point on a body track a
 /// specified world point. This a soft constraint with a maximum
 /// force. This allows the constraint to stretch without
@@ -15,11 +14,13 @@
 /// use the mouse joint, look at the samples app.
 typedef struct b2MouseJointDef
 {
-	/// The attached body. It should be dynamic.
-	b2BodyId bodyId;
+	/// The first attached body.
+	b2BodyId bodyIdA;
 
-	/// The initial world target point. This is assumed
-	/// to coincide with the body anchor initially.
+	/// The second attached body.
+	b2BodyId bodyIdB;
+
+	/// The initial target point in world space
 	b2Vec2 target;
 
 	/// The maximum constraint force that can be exerted
@@ -37,7 +38,8 @@ typedef struct b2MouseJointDef
 static inline struct b2MouseJointDef b2DefaultMouseJointDef()
 {
 	b2MouseJointDef def = {0};
-	def.bodyId = b2_nullBodyId;
+	def.bodyIdA = b2_nullBodyId;
+	def.bodyIdB = b2_nullBodyId;
 	def.target = B2_LITERAL(b2Vec2){0.0f, 0.0f};
 	def.maxForce = 0.0f;
 	def.stiffness = 0.0f;

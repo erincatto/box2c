@@ -5,7 +5,8 @@
 
 #include "box2d/types.h"
 
-typedef struct b2TimeStep
+// Context for a time step. Recreated each time step.
+typedef struct b2StepContext
 {
 	// time step
 	float dt;
@@ -24,33 +25,9 @@ typedef struct b2TimeStep
 
 	float restitutionThreshold;
 
-	// For testing
+	// From b2World::bodies for convenience
+	b2Body* bodies;
+	int32_t bodyCapacity;
+
 	bool warmStarting;
-} b2TimeStep;
-
-typedef struct b2BodyData
-{
-	b2Vec2 localCenter;
-	float invMass;
-	float invI;
-} b2BodyData;
-
-typedef struct b2Position
-{
-	b2Vec2 c;
-	float a;
-} b2Position;
-
-typedef struct b2Velocity
-{
-	b2Vec2 v;
-	float w;
-} b2Velocity;
-
-typedef struct b2SolverContext
-{
-	const b2TimeStep* step;
-	const b2BodyData* bodyData;
-	b2Position* positions;
-	b2Velocity* velocities;
-} b2SolverContext;
+} b2StepContext;

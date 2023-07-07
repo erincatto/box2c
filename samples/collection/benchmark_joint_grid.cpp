@@ -11,7 +11,8 @@
 class BenchmarkJointGrid : public Sample
 {
 public:
-	BenchmarkJointGrid()
+	BenchmarkJointGrid(const Settings& settings)
+		: Sample(settings)
 	{
 		constexpr float rad = 0.4f;
 		constexpr int32_t numi = g_sampleDebug ? 10 : 100;
@@ -79,9 +80,9 @@ public:
 		b2Free(bodies);
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new BenchmarkJointGrid;
+		return new BenchmarkJointGrid(settings);
 	}
 };
 

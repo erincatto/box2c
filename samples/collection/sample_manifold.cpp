@@ -15,7 +15,8 @@
 class Manifold : public Sample
 {
 public:
-	Manifold()
+	Manifold(const Settings& settings)
+		: Sample(settings)
 	{
 		m_capcapCache = b2_emptyDistanceCache;
 		m_capboxCache = b2_emptyDistanceCache;
@@ -496,9 +497,9 @@ public:
 		}
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new Manifold;
+		return new Manifold(settings);
 	}
 
 	b2DistanceCache m_capcapCache;

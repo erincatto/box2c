@@ -15,7 +15,8 @@ public:
 		e_count = b2_maxPolygonVertices
 	};
 
-	ConvexHull()
+	ConvexHull(const Settings& settings)
+		: Sample(settings)
 	{
 		m_generation = 0;
 		m_auto = false;
@@ -175,9 +176,9 @@ public:
 		}
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new ConvexHull;
+		return new ConvexHull(settings);
 	}
 
 	b2Vec2 m_points[b2_maxPolygonVertices];

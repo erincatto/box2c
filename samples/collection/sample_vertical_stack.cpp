@@ -8,9 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API bool g_velocityBlockSolve;
-BOX2D_API bool g_parallelIslands;
-
 class VerticalStack : public Sample
 {
 public:
@@ -28,7 +25,8 @@ public:
 		e_boxShape
 	};
 
-	VerticalStack()
+	VerticalStack(const Settings& settings)
+		: Sample(settings)
 	{
 		{
 			b2BodyDef bd = b2DefaultBodyDef();
@@ -58,7 +56,7 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = g_sampleDebug ? 1 : 50;
+		m_rowCount = g_sampleDebug ? 2 : 50;
 		m_columnCount = g_sampleDebug ? 1 : 200;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
@@ -130,6 +128,24 @@ public:
 		}
 	}
 
+	void DestroyBody()
+	{
+		for (int32_t j = 0; j < m_columnCount; ++j)
+		{
+			for (int32_t i = 0; i < m_rowCount; ++i)
+			{
+				int32_t n = j * m_rowCount + i;
+				
+				if (B2_NON_NULL(m_bodies[n]))
+				{
+					b2World_DestroyBody(m_bodies[n]);
+					m_bodies[n] = b2_nullBodyId;
+					break;
+				}
+			}
+		}
+	}
+
 	void DestroyBullets()
 	{
 		for (int32_t i = 0; i < e_maxBullets; ++i)
@@ -160,7 +176,7 @@ public:
 			b2BodyDef bd = b2DefaultBodyDef();
 			bd.type = b2_dynamicBody;
 			bd.position = {-25.0f - i, 5.0f};
-			bd.linearVelocity = {400.0f, 0.0f};
+			bd.linearVelocity = {50.0f, 0.0f};
 
 			b2BodyId bullet = b2World_CreateBody(m_worldId, &bd);
 			b2Body_CreatePolygon(bullet, &sd, &box);
@@ -198,8 +214,10 @@ public:
 			FireBullets();
 		}
 
-		ImGui::Checkbox("Block Solve", &g_velocityBlockSolve);
-		ImGui::Checkbox("Parallel Islands", &g_parallelIslands);
+		if (ImGui::Button("Destroy Body"))
+		{
+			DestroyBody();
+		}
 
 		changed = changed || ImGui::Button("Reset Stack");
 
@@ -212,9 +230,9 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create()
+	static Sample* Create(const Settings& settings)
 	{
-		return new VerticalStack;
+		return new VerticalStack(settings);
 	}
 
 	b2BodyId m_bullets[e_maxBullets];

@@ -40,15 +40,21 @@ typedef struct b2Body
 	b2Vec2 force;
 	float torque;
 
-	int32_t shapeIndex;
-	int32_t jointIndex;
+	int32_t shapeList;
 
-	struct b2ContactEdge* contacts;
+	// This is a key: [jointIndex:31, edgeIndex:1]
+	int32_t jointList;
+	int32_t jointCount;
+
+	int32_t contactList;
 	int32_t contactCount;
 
-	int32_t awakeIndex;
+	// A non-static body is always in an island. B2_NULL_INDEX for static bodies.
+	int32_t islandIndex;
 
-	uint64_t islandId;
+	// Doubly linked island list
+	int32_t islandPrev;
+	int32_t islandNext;
 
 	float mass, invMass;
 
@@ -64,18 +70,19 @@ typedef struct b2Body
 	void* userData;
 	int16_t world;
 
-	bool isAwake;
 	bool enableSleep;
 	bool fixedRotation;
 	bool isEnabled;
+	bool isMarked;
 } b2Body;
 
-void b2SetAwake(b2World* world, b2Body* body, bool flag);
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 void b2Body_DestroyShape(b2ShapeId shapeId);
+
+bool b2IsBodyAwake(b2World* world, b2Body* body);
 
 static inline b2Sweep b2Body_GetSweep(const b2Body* body)
 {

@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define B2_NULL_INDEX (-1)
+#define B2_VALIDATE 1
 
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 {
@@ -45,6 +46,37 @@ void b2DestroyPool(b2Pool* pool)
 	pool->count = 0;
 	pool->freeList = B2_NULL_INDEX;
 	pool->objectSize = 0;
+}
+
+void b2GrowPool(b2Pool* pool, int32_t capacity)
+{
+	int32_t oldCapacity = pool->capacity;
+	if (oldCapacity >= capacity)
+	{
+		return;
+	}
+
+	int32_t newCapacity = capacity > 2 ? capacity : 2;
+	pool->capacity = newCapacity;
+	char* newMemory = (char*)b2Alloc(pool->capacity * pool->objectSize);
+	memcpy(newMemory, pool->memory, oldCapacity * pool->objectSize);
+	b2Free(pool->memory);
+	pool->memory = newMemory;
+
+	pool->freeList = oldCapacity;
+	for (int32_t i = oldCapacity; i < newCapacity - 1; ++i)
+	{
+		b2Object* object = (b2Object*)(pool->memory + i * pool->objectSize);
+		object->index = i;
+		object->next = i + 1;
+		object->revision = 0;
+	}
+
+	// Tail of free list
+	b2Object* object = (b2Object*)(pool->memory + (newCapacity - 1) * pool->objectSize);
+	object->index = newCapacity - 1;
+	object->next = B2_NULL_INDEX;
+	object->revision = 0;
 }
 
 b2Object* b2AllocObject(b2Pool* pool)

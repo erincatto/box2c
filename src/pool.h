@@ -3,9 +3,13 @@
 
 #pragma once
 
+#include "array.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
+// A pooled object has a stable index, but not a stable pointer.
+ 
 // Any pooled struct must have this as the first member.
 typedef struct b2Object
 {
@@ -29,8 +33,11 @@ void b2DestroyPool(b2Pool* pool);
 b2Object* b2AllocObject(b2Pool* pool);
 void b2FreeObject(b2Pool* pool, b2Object* object);
 
+void b2GrowPool(b2Pool* pool, int32_t capacity);
+
 static inline bool b2ObjectValid(const b2Object* object)
 {
 	// this means the object is not on the free list
 	return object->index == object->next;
 }
+

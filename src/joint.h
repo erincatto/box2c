@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2SolverContext b2SolverContext;
+typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
 typedef enum b2JointType
@@ -35,7 +35,8 @@ typedef enum b2JointType
 typedef struct b2JointEdge
 {
 	int32_t bodyIndex;
-	int32_t nextJointIndex;
+	int32_t prevKey;
+	int32_t nextKey;
 } b2JointEdge;
 
 typedef struct b2MouseJoint
@@ -96,13 +97,11 @@ typedef struct b2Joint
 
 	b2JointType type;
 
-	b2JointEdge edgeA;
-	b2JointEdge edgeB;
+	b2JointEdge edges[2];
 
-	uint64_t islandId;
-
-	int32_t islandIndexA;
-	int32_t islandIndexB;
+	int32_t islandIndex;
+	int32_t islandPrev;
+	int32_t islandNext;
 
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
@@ -113,13 +112,14 @@ typedef struct b2Joint
 		b2RevoluteJoint revoluteJoint;
 	};
 
+	bool isMarked;
 	bool collideConnected;
 } b2Joint;
 
-void b2InitVelocityConstraints(b2Joint* joint, b2SolverContext* data);
-void b2SolveVelocityConstraints(b2Joint* joint, b2SolverContext* data);
+void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data);
+void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2SolverContext* data);
+bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

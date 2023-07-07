@@ -17,6 +17,7 @@
 #include "settings.h"
 
 #include "box2d/allocate.h"
+#include "box2d/api.h"
 #include "box2d/constants.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
@@ -80,7 +81,7 @@ static void SortTests()
 static void RestartTest()
 {
 	delete s_sample;
-	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn();
+	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn(s_settings);
 }
 
 static void CreateUI(GLFWwindow* window, const char* glslVersion)
@@ -350,6 +351,8 @@ static void ScrollCallback(GLFWwindow* window, double dx, double dy)
 	}
 }
 
+BOX2D_API bool g_parallel;
+
 static void UpdateUI()
 {
 	float menuWidth = 180.0f;
@@ -374,6 +377,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Sleep", &s_settings.m_enableSleep);
 				ImGui::Checkbox("Warm Starting", &s_settings.m_enableWarmStarting);
 				ImGui::Checkbox("Continuous", &s_settings.m_enableContinuous);
+				ImGui::Checkbox("Parallel", &g_parallel);
 
 				ImGui::Separator();
 
@@ -518,7 +522,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	sprintf(buffer, "Box2D Version %d.%d.%d", b2_version.major, b2_version.minor, b2_version.revision);
+	sprintf(buffer, "Box2D Version %d.%d.%d PI", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{
@@ -579,7 +583,7 @@ int main(int, char**)
 
 	s_settings.m_sampleIndex = B2_CLAMP(s_settings.m_sampleIndex, 0, g_sampleCount - 1);
 	s_selection = s_settings.m_sampleIndex;
-	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn();
+	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn(s_settings);
 
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
@@ -656,7 +660,7 @@ int main(int, char**)
 		{
 			s_settings.m_sampleIndex = s_selection;
 			delete s_sample;
-			s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn();
+			s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn(s_settings);
 			g_camera.ResetView();
 		}
 

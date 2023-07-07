@@ -12,6 +12,7 @@
 
 #include "TaskScheduler.h"
 
+#include <atomic>
 #include <stdlib.h>
 
 struct Settings;
@@ -76,9 +77,9 @@ class SampleTask : public enki::ITaskSet
 public:
 	SampleTask() = default;
 
-	void ExecuteRange(enki::TaskSetPartition range, uint32_t) override
+	void ExecuteRange(enki::TaskSetPartition range, uint32_t threadIndex) override
 	{
-		m_task(range.start, range.end, m_taskContext);
+		m_task(range.start, range.end, threadIndex, m_taskContext);
 	}
 
 	b2TaskCallback* m_task = nullptr;
@@ -91,7 +92,7 @@ class Sample
 {
 public:
 
-	Sample();
+	Sample(const Settings& settings);
 	virtual ~Sample();
 
 	void DrawTitle(const char* string);
@@ -118,7 +119,7 @@ public:
 
 	b2BodyId m_groundBodyId;
 	ContactPoint m_points[k_maxContactPoints];
-	int32_t m_pointCount;
+	std::atomic<long> m_pointCount;
 	//DestructionListener m_destructionListener;
 	int32_t m_textLine;
 	b2WorldId m_worldId;
@@ -129,7 +130,7 @@ public:
 	b2Profile m_totalProfile;
 };
 
-typedef Sample* SampleCreateFcn();
+typedef Sample* SampleCreateFcn(const Settings& settings);
 
 int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn);
 

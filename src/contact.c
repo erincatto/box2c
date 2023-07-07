@@ -9,6 +9,7 @@
 #include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
+#include "island.h"
 #include "shape.h"
 #include "world.h"
 
@@ -106,136 +107,151 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	if (s_registers[type1][type2].primary == false)
 	{
+		// flip order
 		b2CreateContact(world, shapeB, childB, shapeA, childA);
 		return;
 	}
 
-	b2Contact* c = (b2Contact*)b2AllocBlock(world->blockAllocator, sizeof(b2Contact));
+	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
+	world->contacts = (b2Contact*)world->contactPool.memory;
 
-	c->flags = b2_contactEnabledFlag;
+	contact->stepId = 0;
+	contact->flags = b2_contactEnabledFlag;
 
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
-		c->flags |= b2_contactSensorFlag;
+		contact->flags |= b2_contactSensorFlag;
 	}
 
-	c->shapeIndexA = shapeA->object.index;
-	c->shapeIndexB = shapeB->object.index;
-	c->childA = childA;
-	c->childB = childB;
-	c->cache = b2_emptyDistanceCache;
-	c->manifold = b2_emptyManifold;
-	c->islandId = 0;
-	c->friction = b2MixFriction(shapeA->friction, shapeB->friction);
-	c->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
-	c->tangentSpeed = 0.0f;
-
-	// Insert into the world
-	c->prev = NULL;
-	c->next = world->contacts;
-	if (world->contacts != NULL)
-	{
-		world->contacts->prev = c;
-	}
-	world->contacts = c;
-	world->contactCount += 1;
-
-	// Connect to island graph
-	c->edgeA = (b2ContactEdge){shapeB->bodyIndex, c, NULL, NULL};
-	c->edgeB = (b2ContactEdge){shapeA->bodyIndex, c, NULL, NULL};
+	contact->shapeIndexA = shapeA->object.index;
+	contact->shapeIndexB = shapeB->object.index;
+	contact->childA = childA;
+	contact->childB = childB;
+	contact->cache = b2_emptyDistanceCache;
+	contact->manifold = b2_emptyManifold;
+	contact->awakeIndex = B2_NULL_INDEX;
+	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
+	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
+	contact->tangentSpeed = 0.0f;
+	contact->islandIndex = B2_NULL_INDEX;
+	contact->islandPrev = B2_NULL_INDEX;
+	contact->islandNext = B2_NULL_INDEX;
 
 	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
 	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
 
 	// Connect to body A
-	c->edgeA.contact = c;
-
-	c->edgeA.prev = NULL;
-	c->edgeA.next = bodyA->contacts;
-	if (bodyA->contacts != NULL)
 	{
-		bodyA->contacts->prev = &c->edgeA;
+		contact->edges[0].bodyIndex = shapeA->bodyIndex;
+		contact->edges[0].prevKey = B2_NULL_INDEX;
+		contact->edges[0].nextKey = bodyA->contactList;
+
+		int32_t keyA = (contact->object.index << 1) | 0;
+		if (bodyA->contactList != B2_NULL_INDEX)
+		{
+			b2Contact* contactA = world->contacts + (bodyA->contactList >> 1);
+			b2ContactEdge* edgeA = contactA->edges + (bodyA->contactList & 1);
+			edgeA->prevKey = keyA;
+		}
+		bodyA->contactList = keyA;
+		bodyA->contactCount += 1;
 	}
-	bodyA->contacts = &c->edgeA;
-	bodyA->contactCount += 1;
 
 	// Connect to body B
-	c->edgeB.contact = c;
-
-	c->edgeB.prev = NULL;
-	c->edgeB.next = bodyB->contacts;
-	if (bodyB->contacts != NULL)
 	{
-		bodyB->contacts->prev = &c->edgeB;
+		contact->edges[1].bodyIndex = shapeB->bodyIndex;
+		contact->edges[1].prevKey = B2_NULL_INDEX;
+		contact->edges[1].nextKey = bodyB->contactList;
+
+		int32_t keyB = (contact->object.index << 1) | 1;
+		if (bodyB->contactList != B2_NULL_INDEX)
+		{
+			b2Contact* contactB = world->contacts + (bodyB->contactList >> 1);
+			b2ContactEdge* edgeB = contactB->edges + (bodyB->contactList & 1);
+			edgeB->prevKey = keyB;
+		}
+		bodyB->contactList = keyB;
+		bodyB->contactCount += 1;
 	}
-	bodyB->contacts = &c->edgeB;
-	bodyB->contactCount += 1;
+
+	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
+	{
+		// A contact does not need to be in an island to be awake.
+		contact->awakeIndex = b2Array(world->awakeContactArray).count;
+		b2Array_Push(world->awakeContactArray, contact->object.index);
+	}
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
-	b2Body* bodyA = world->bodies + contact->edgeB.otherBodyIndex;
-	b2Body* bodyB = world->bodies + contact->edgeA.otherBodyIndex;
+	b2ContactEdge* edgeA = contact->edges + 0;
+	b2ContactEdge* edgeB = contact->edges + 1;
+
+	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
+	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
 
 	// if (contactListener && contact->IsTouching())
 	//{
 	//	contactListener->EndContact(contact);
 	// }
 
-	// Remove from the world.
-	if (contact->prev)
-	{
-		contact->prev->next = contact->next;
-	}
-
-	if (contact->next)
-	{
-		contact->next->prev = contact->prev;
-	}
-
-	if (contact == world->contacts)
-	{
-		world->contacts = contact->next;
-	}
-
 	// Remove from body A
-	if (contact->edgeA.prev)
+	if (edgeA->prevKey != B2_NULL_INDEX)
 	{
-		contact->edgeA.prev->next = contact->edgeA.next;
+		b2Contact* prevContact = world->contacts + (edgeA->prevKey >> 1);
+		b2ContactEdge* prevEdge = prevContact->edges + (edgeA->prevKey & 1);
+		prevEdge->nextKey = edgeA->nextKey;
 	}
 
-	if (contact->edgeA.next)
+	if (edgeA->nextKey != B2_NULL_INDEX)
 	{
-		contact->edgeA.next->prev = contact->edgeA.prev;
+		b2Contact* nextContact = world->contacts + (edgeA->nextKey >> 1);
+		b2ContactEdge* nextEdge = nextContact->edges + (edgeA->nextKey & 1);
+		nextEdge->prevKey = edgeA->prevKey;
 	}
 
-	if (&contact->edgeA == bodyA->contacts)
+	int32_t edgeKeyA = (contact->object.index << 1) | 0;
+	if (bodyA->contactList == edgeKeyA)
 	{
-		bodyA->contacts = contact->edgeA.next;
+		bodyA->contactList = edgeA->nextKey;
 	}
 
 	bodyA->contactCount -= 1;
 
 	// Remove from body B
-	if (contact->edgeB.prev)
+	if (edgeB->prevKey != B2_NULL_INDEX)
 	{
-		contact->edgeB.prev->next = contact->edgeB.next;
+		b2Contact* prevContact = world->contacts + (edgeB->prevKey >> 1);
+		b2ContactEdge* prevEdge = prevContact->edges + (edgeB->prevKey & 1);
+		prevEdge->nextKey = edgeB->nextKey;
 	}
 
-	if (contact->edgeB.next)
+	if (edgeB->nextKey != B2_NULL_INDEX)
 	{
-		contact->edgeB.next->prev = contact->edgeB.prev;
+		b2Contact* nextContact = world->contacts + (edgeB->nextKey >> 1);
+		b2ContactEdge* nextEdge = nextContact->edges + (edgeB->nextKey & 1);
+		nextEdge->prevKey = edgeB->prevKey;
 	}
 
-	if (&contact->edgeB == bodyB->contacts)
+	int32_t edgeKeyB = (contact->object.index << 1) | 1;
+	if (bodyB->contactList == edgeKeyB)
 	{
-		bodyB->contacts = contact->edgeB.next;
+		bodyB->contactList = edgeB->nextKey;
 	}
 
-	b2FreeBlock(world->blockAllocator, contact, sizeof(b2Contact));
+	bodyB->contactCount -= 1;
 
-	world->contactCount -= 1;
-	assert(world->contactCount >= 0);
+	if (contact->islandIndex != B2_NULL_INDEX)
+	{
+		b2UnlinkContact(world, contact);
+	}
+
+	if (contact->awakeIndex != B2_NULL_INDEX)
+	{
+		world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
+	}
+
+	b2FreeObject(&world->contactPool, &contact->object);
 }
 
 bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
@@ -341,6 +357,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 
 		if (touching && world->preSolveFcn)
 		{
+			// TODO_ERIN this call assumes thread safety
 			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
 			if (collide == false)
 			{

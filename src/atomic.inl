@@ -1,34 +1,82 @@
 #include <stdint.h>
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0 && defined(_MSC_VER) && !defined(__clang__)
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <intrin.h>
 
-typedef int32_t atomic_int32_t;
-
-static inline int32_t atomic_fetch_add_int32_t(volatile atomic_int32_t* obj, int32_t val)
+// Returns the initial value
+static inline long atomic_fetch_add_long(volatile long* obj, long val)
 {
-	return InterlockedExchangeAdd(obj, val);
+	return _InterlockedExchangeAdd(obj, val);
 }
 
-static inline int32_t atomic_store_int32_t(volatile atomic_int32_t* obj, int32_t val)
+// Returns the initial value
+static inline long atomic_fetch_sub_long(volatile long* obj, long val)
 {
-	return InterlockedExchange(obj, val);
+	return _InterlockedExchangeAdd(obj, -val);
 }
 
-static inline int32_t atomice_load_int32_t(volatile atomic_int32_t* obj)
+// Returns the initial value
+static inline long atomic_store_long(volatile long* obj, long val)
 {
-	return InterlockedOr(obj, 0);
+	return _InterlockedExchange(obj, val);
 }
 
-static inline bool atomic_compare_exchange_weak_int32_t(volatile atomic_int32_t* obj, int32_t* expected, int32_t desired)
+static inline long atomic_load_long(const volatile long* obj)
 {
-	return InterlockedCompareExchange((volatile long*)obj, desired, *expected) == *(long*)expected;
+	return *obj;
+}
+
+static inline bool atomic_compare_exchange_strong_long(volatile long* obj, long* expected, int32_t desired)
+{
+	long current = _InterlockedCompareExchange(obj, desired, *expected);
+	if (current == *expected)
+	{
+		return true;
+	}
+
+	*expected = current;
+	return false;
+}
+
+static inline bool atomic_compare_exchange_weak_long(volatile long* obj, long* expected, int32_t desired)
+{
+	long current = _InterlockedCompareExchange(obj, desired, *expected);
+	if (current == *expected)
+	{
+		return true;
+	}
+
+	*expected = current;
+	return false;
 }
 
 #else
 
 #include <stdatomic.h>
 
+#define atomic_fetch_add_long atomic_fetch_add
+#define atomic_fetch_sub_long atomic_fetch_sub
+#define atomic_store_long atomic_store
+#define atomic_load_long atomic_load
+#define atomic_compare_exchange_strong_long atomic_compare_exchange_strong
+#define atomic_compare_exchange_weak_long atomic_compare_exchange_weak
+
 #endif
+
+// Atomically store the minimum two values
+// *ptr = min(*ptr, b)
+static inline void b2AtomicStoreMin(B2_ATOMIC long* ptr, long b)
+{
+	long a = atomic_load_long(ptr);
+	while (a > b)
+	{
+		bool success = atomic_compare_exchange_weak_long(ptr, &a, b);
+		if (success)
+		{
+			return;
+		}
+
+		// otherwise `a` now holds the current value stored in `ptr`
+	}
+}

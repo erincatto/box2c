@@ -43,14 +43,14 @@ static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRang
 		SampleTask& sampleTask = sample->m_tasks[sample->m_taskCount];
 		sampleTask.m_SetSize = itemCount;
 		sampleTask.m_MinRange = minRange;
-		sampleTask.m_task= task;
+		sampleTask.m_task = task;
 		sampleTask.m_taskContext = taskContext;
 		sample->m_scheduler.AddTaskSetToPipe(&sampleTask);
 		++sample->m_taskCount;
 	}
 	else
 	{
-		task(0, itemCount, taskContext);
+		task(0, itemCount, 0, taskContext);
 	}
 }
 
@@ -61,7 +61,7 @@ static void FinishTasks(void* userContext)
 	sample->m_taskCount = 0;
 }
 
-Sample::Sample()
+Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
@@ -74,8 +74,11 @@ Sample::Sample()
 	worldDef.workerCount = maxThreads;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTasks = &FinishTasks;
+	worldDef.bodyCapacity = 10 * 1024;
+	worldDef.contactCapacity = 4 * 10 * 1024;
 	worldDef.userTaskContext = this;
 	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
+	worldDef.enableSleep = settings.m_enableSleep;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
@@ -164,17 +167,16 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			float dampingRatio = 0.7f;
 			float mass = b2Body_GetMass(queryContext.bodyId);
 
-			b2BodyId groundBodyId = b2World_GetGroundBodyId(m_worldId);
-
 			b2MouseJointDef jd;
-			jd.bodyId = queryContext.bodyId;
+			jd.bodyIdA = m_groundBodyId;
+			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;
 			jd.maxForce = 1000.0f * mass;
-			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, groundBodyId, queryContext.bodyId);
+			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, m_groundBodyId, queryContext.bodyId);
 
 			m_mouseJointId = b2World_CreateMouseJoint(m_worldId, &jd);
 
-			b2Body_SetAwake(queryContext.bodyId, true);
+			b2Body_Wake(queryContext.bodyId);
 		}
 	}
 }
@@ -234,7 +236,10 @@ void Sample::Step(Settings& settings)
 
 	m_pointCount = 0;
 
-	b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+	for (int32_t i = 0; i < 1; ++i)
+	{
+		b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+	}
 	b2World_Draw(m_worldId, &g_draw.m_debugDraw);
 
 	if (timeStep > 0.0f)
@@ -246,7 +251,7 @@ void Sample::Step(Settings& settings)
 	{
 		b2Statistics s = b2World_GetStatistics(m_worldId);
 
-		g_draw.DrawString(5, m_textLine, "bodies/contacts/joints = %d/%d/%d", s.bodyCount, s.contactCount,
+		g_draw.DrawString(5, m_textLine, "islands/bodies/contacts/joints = %d/%d/%d/%d", s.islandCount, s.bodyCount, s.contactCount,
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
@@ -260,25 +265,25 @@ void Sample::Step(Settings& settings)
 
 	// Track maximum profile times
 	{
-		const b2Profile* p = b2World_GetProfile(m_worldId);
-		m_maxProfile.step = B2_MAX(m_maxProfile.step, p->step);
-		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p->collide);
-		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p->solve);
-		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p->buildIslands);
-		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p->solveIslands);
-		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p->broadphase);
+		b2Profile p = b2World_GetProfile(m_worldId);
+		m_maxProfile.step = B2_MAX(m_maxProfile.step, p.step);
+		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p.collide);
+		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
+		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
+		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p.solveIslands);
+		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 
-		m_totalProfile.step += p->step;
-		m_totalProfile.collide += p->collide;
-		m_totalProfile.solve += p->solve;
-		m_totalProfile.buildIslands += p->buildIslands;
-		m_totalProfile.solveIslands += p->solveIslands;
-		m_totalProfile.broadphase += p->broadphase;
+		m_totalProfile.step += p.step;
+		m_totalProfile.collide += p.collide;
+		m_totalProfile.solve += p.solve;
+		m_totalProfile.buildIslands += p.buildIslands;
+		m_totalProfile.solveIslands += p.solveIslands;
+		m_totalProfile.broadphase += p.broadphase;
 	}
 
 	if (settings.m_drawProfile)
 	{
-		const b2Profile* p = b2World_GetProfile(m_worldId);
+		b2Profile p = b2World_GetProfile(m_worldId);
 
 		b2Profile aveProfile;
 		memset(&aveProfile, 0, sizeof(b2Profile));
@@ -293,22 +298,22 @@ void Sample::Step(Settings& settings)
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
-		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->step, aveProfile.step,
+		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step,
 						  m_maxProfile.step);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->collide, aveProfile.collide,
+		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solve, aveProfile.solve,
+		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve,
 						  m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->buildIslands, aveProfile.buildIslands,
+		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands, aveProfile.buildIslands,
 						  m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->solveIslands,
+		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveIslands,
 						  aveProfile.solveIslands, m_maxProfile.solveIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p->broadphase,
+		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase,
 						  aveProfile.broadphase, m_maxProfile.broadphase);
 		m_textLine += m_textIncrement;
 	}
@@ -372,20 +377,31 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	// m_world->ShiftOrigin(newOrigin);
 }
 
+// Thread-safe callback
 bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
 {
-	for (int32_t i = 0; i < manifold->pointCount && m_pointCount < k_maxContactPoints; ++i)
+	long startCount = m_pointCount.fetch_add(manifold->pointCount);
+	if (startCount >= k_maxContactPoints)
 	{
-		ContactPoint* cp = m_points + m_pointCount;
+		m_pointCount.store(k_maxContactPoints);
+		return true;
+	}
+
+	long endCount = B2_MIN(k_maxContactPoints, startCount + manifold->pointCount);
+
+	int32_t j = 0;
+	for (long i = startCount; i < endCount; ++i)
+	{
+		ContactPoint* cp = m_points + i;
 		cp->shapeIdA = shapeIdA;
 		cp->shapeIdB = shapeIdB;
 		cp->normal = manifold->normal;
-		cp->position = manifold->points[i].point;
-		cp->separation = manifold->points[i].separation;
-		cp->normalImpulse = manifold->points[i].normalImpulse;
-		cp->tangentImpulse = manifold->points[i].tangentImpulse;
-		cp->persisted = manifold->points[i].persisted;
-		++m_pointCount;
+		cp->position = manifold->points[j].point;
+		cp->separation = manifold->points[j].separation;
+		cp->normalImpulse = manifold->points[j].normalImpulse;
+		cp->tangentImpulse = manifold->points[j].tangentImpulse;
+		cp->persisted = manifold->points[j].persisted;
+		++j;
 	}
 
 	return true;
