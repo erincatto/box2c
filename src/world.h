@@ -69,7 +69,9 @@ typedef struct b2World
 	uint16_t revision;
 
 	b2Profile profile;
-	B2_ATOMIC long contactPointCount;
+
+	// TODO_ERIN not used
+	_Atomic long contactPointCount;
 
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;

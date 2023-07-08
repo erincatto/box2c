@@ -8,6 +8,7 @@
 #include "box2d/timer.h"
 
 #include "array.h"
+#include "bitset.h"
 #include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
@@ -35,7 +36,7 @@ typedef struct b2TaskContext
 {
 	// These bits align with the awake contact array and signal change in contact status
 	// that affects the island graph.
-	bool* contactBitArray;
+	b2BitSet contactBitSet;
 } b2TaskContext;
 
 b2World* b2GetWorldFromId(b2WorldId id)
@@ -250,7 +251,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->taskContextArray = b2CreateArray(sizeof(b2TaskContext), world->workerCount);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		world->taskContextArray[i].contactBitArray = b2CreateArray(sizeof(bool), def->contactCapacity);
+		world->taskContextArray[i].contactBitSet = b2CreateBitSet(def->contactCapacity);
 	}
 
 	return id;
@@ -262,7 +263,7 @@ void b2DestroyWorld(b2WorldId id)
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2DestroyArray(world->taskContextArray[i].contactBitArray);
+		b2DestroyBitSet(&world->taskContextArray[i].contactBitSet);
 	}
 	b2DestroyArray(world->taskContextArray);
 
@@ -334,7 +335,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		if (overlap == false)
 		{
 			contact->flags |= b2_contactDisjoint;
-			taskContext->contactBitArray[awakeIndex] = true;
+			b2SetBit(&taskContext->contactBitSet, awakeIndex);
 		}
 		else
 		{
@@ -350,12 +351,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			if (touching == true && wasTouching == false)
 			{
 				contact->flags |= b2_contactStartedTouching;
-				taskContext->contactBitArray[awakeIndex] = true;
+				b2SetBit(&taskContext->contactBitSet, awakeIndex);
 			}
 			else if (touching == false && wasTouching == true)
 			{
 				contact->flags |= b2_contactStoppedTouching;
-				taskContext->contactBitArray[awakeIndex] = true;
+				b2SetBit(&taskContext->contactBitSet, awakeIndex);
 			}
 		}
 	}
@@ -378,7 +379,7 @@ static void b2Collide(b2World* world)
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		memset(world->taskContextArray[i].contactBitArray, 0, awakeContactCount * sizeof(bool));
+		b2SetBitCountAndClear(&world->taskContextArray[i].contactBitSet, awakeContactCount);
 	}
 
 	if (g_parallel)
@@ -396,23 +397,16 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
 
 	// Bitwise OR all contact bits
-	bool* bitArray = world->taskContextArray[0].contactBitArray;
+	b2BitSet* bitSet = &world->taskContextArray[0].contactBitSet;
 	for (uint32_t i = 1; i < world->workerCount; ++i)
 	{
-		bool* threadBits = world->taskContextArray[i].contactBitArray;
-		for (int32_t j = 0; j < awakeContactCount; ++j)
-		{
-			bitArray[j] |= threadBits[j];
-		}
+		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactBitSet);
 	}
 
 	// Process contact state changes
-	for (int32_t i = 0; i < awakeContactCount; ++i)
+	
+	for (uint32_t i = 0; b2GetNextSetBitIndex(bitSet, &i); ++i)
 	{
-		if (bitArray[i] == false)
-		{
-			continue;
-		}
 
 		int32_t index = world->awakeContactArray[i];
 		b2Contact* contact = world->contacts + index;
