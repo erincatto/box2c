@@ -76,7 +76,7 @@ public:
 
 		for (int32_t i = 0; i < count; ++i)
 		{
-			float y = 1.0f + i * shift + centery;
+			float y = i * shift + centery;
 
 			for (int32_t j = i; j < count; ++j)
 			{

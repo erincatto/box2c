@@ -4,6 +4,8 @@ set(BOX2D_SOURCE_FILES
 	array.c
 	array.h
 	atomic.inl
+	bitset.c
+	bitset.h
 	block_allocator.c
 	block_allocator.h
 	body.c
