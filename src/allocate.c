@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #endif
 
+#include <stdint.h>
 #include <stdatomic.h>
 
 #ifdef BOX2D_PROFILE
