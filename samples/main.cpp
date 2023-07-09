@@ -4,24 +4,20 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS 1
 
-#include <glad/glad.h>
-
-#include <GLFW/glfw3.h>
-
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-
-#include "draw.h"
-#include "sample.h"
-#include "settings.h"
-
-#include "box2d/allocate.h"
 #include "box2d/api.h"
 #include "box2d/constants.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
+#include "draw.h"
+#include "sample.h"
+#include "settings.h"
 
+#include <glad/glad.h>
+// Keep glad.h before glfw3.h
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <stdio.h>
 #include <stdlib.h>
 

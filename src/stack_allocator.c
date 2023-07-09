@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
-
-#include "array.h"
 #include "stack_allocator.h"
+
+#include "allocate.h"
+#include "array.h"
 
 #include <assert.h>
 #include <stdbool.h>

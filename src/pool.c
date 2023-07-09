@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
-
 #include "pool.h"
+
+#include "allocate.h"
 
 #include <assert.h>
 #include <string.h>
@@ -20,7 +20,7 @@ b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 	pool.capacity = capacity > 1 ? capacity : 1;
 	pool.count = 0;
 	pool.memory = (char*)b2Alloc(pool.capacity * objectSize);
-	
+
 	pool.freeList = 0;
 	for (int32_t i = 0; i < pool.capacity - 1; ++i)
 	{

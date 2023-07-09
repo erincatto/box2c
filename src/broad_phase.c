@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/aabb.h"
-#include "box2d/allocate.h"
-#include "box2d/timer.h"
-
 #include "broad_phase.h"
+
+#include "allocate.h"
+#include "box2d/aabb.h"
+#include "box2d/timer.h"
 
 #include <string.h>
 
@@ -58,8 +58,7 @@ static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 	++bp->moveCount;
 }
 
-int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits,
-								 void* userData)
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, void* userData)
 {
 	assert(0 <= bodyType && bodyType < b2_bodyTypeCount);
 	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, userData);

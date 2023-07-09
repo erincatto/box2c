@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
+#include "allocate.h"
+#include "box2d/api.h"
 
 #if defined(_WIN32)
 #define _CRTDBG_MAP_ALLOC

@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "draw.h"
+
 #include "box2d/constants.h"
 #include "box2d/math.h"
-
-#include "draw.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -625,21 +625,18 @@ struct GLRenderRoundedTriangles
 	void Create()
 	{
 		const char* vs = SHADER_TEXT(
-			layout(location = 0) in vec2 position; layout(location = 1) in vec2 uv;
-			layout(location = 2) in float radius; layout(location = 3) in vec4 fillColor;
-			layout(location = 4) in vec4 outlineColor;
+			layout(location = 0) in vec2 position; layout(location = 1) in vec2 uv; layout(location = 2) in float radius;
+			layout(location = 3) in vec4 fillColor; layout(location = 4) in vec4 outlineColor;
 
 			uniform mat4 projectionMatrix;
 
-			out struct
-			{
+			out struct {
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
 			} Frag;
 
-			void main()
-			{
+			void main() {
 				gl_Position = projectionMatrix * vec4(position + radius * uv, 0, 1);
 				Frag.uv = uv;
 				Frag.fillColor = fillColor;
@@ -647,17 +644,15 @@ struct GLRenderRoundedTriangles
 			});
 
 		const char* fs = SHADER_TEXT(
-			in struct
-		{
+			in struct {
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
 			} Frag;
 
 			out vec4 outColor;
-			
-			void main()
-			{
+
+			void main() {
 				// length of 1 is the circular border of the rounded edge
 				float len = length(Frag.uv);
 				vec2 df = vec2(dFdx(len), dFdy(len));
@@ -825,8 +820,7 @@ void DrawSolidPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color,
 	static_cast<Draw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
 }
 
-void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor,
-						   b2Color lineColor, void* context)
+void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor, b2Color lineColor, void* context)
 {
 	static_cast<Draw*>(context)->DrawRoundedPolygon(vertices, vertexCount, radius, fillColor, lineColor);
 }
@@ -962,8 +956,7 @@ void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color
 // Outline needs 4*count triangles.
 #define MAX_POLY_INDEXES (3 * (5 * MAX_POLY_VERTEXES - 2))
 
-void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radius, b2Color fillColor,
-							  b2Color outlineColor)
+void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radius, b2Color fillColor, b2Color outlineColor)
 {
 	assert(count <= MAX_POLY_VERTEXES);
 
@@ -1002,17 +995,17 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 	// Inset so that zero radius polygons still get a border
 	float r = radius;
 	float inset = 0.0f;
-	//constexpr float minRadius = 0.04f;
-	//if (radius < minRadius)
+	// constexpr float minRadius = 0.04f;
+	// if (radius < minRadius)
 	//{
 	//	inset = radius - minRadius;
 	//	r = radius - inset;
-	//}
+	// }
 
-	//constexpr float lineScale = 0.05f;
-	//float inset = -B2_MAX(0, 2.0f * lineScale - radius);
-	//float outset = radius + lineScale;
-	//float r = outset - inset;
+	// constexpr float lineScale = 0.05f;
+	// float inset = -B2_MAX(0, 2.0f * lineScale - radius);
+	// float outset = radius + lineScale;
+	// float r = outset - inset;
 
 	Vertex* vertexes = m_roundedTriangles->AllocVertices(4 * count, indices, 3 * (5 * count - 2));
 	for (int i = 0; i < count; ++i)

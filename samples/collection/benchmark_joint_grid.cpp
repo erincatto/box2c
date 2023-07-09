@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "sample.h"

@@ -24,7 +24,7 @@ constexpr bool g_sampleDebug = true;
 constexpr bool g_sampleDebug = false;
 #endif
 
-#define	RAND_LIMIT 32767
+#define RAND_LIMIT 32767
 
 /// Random number in range [-1,1]
 inline float RandomFloat()
@@ -74,7 +74,7 @@ struct ContactPoint
 
 class SampleTask : public enki::ITaskSet
 {
-public:
+  public:
 	SampleTask() = default;
 
 	void ExecuteRange(enki::TaskSetPartition range, uint32_t threadIndex) override
@@ -90,16 +90,21 @@ constexpr int32_t maxTasks = 1024;
 
 class Sample
 {
-public:
-
+  public:
 	Sample(const Settings& settings);
 	virtual ~Sample();
 
 	void DrawTitle(const char* string);
 	virtual void Step(Settings& settings);
-	virtual void UpdateUI() {}
-	virtual void Keyboard(int) { }
-	virtual void KeyboardUp(int) { }
+	virtual void UpdateUI()
+	{
+	}
+	virtual void Keyboard(int)
+	{
+	}
+	virtual void KeyboardUp(int)
+	{
+	}
 	virtual void MouseDown(b2Vec2 p, int button, int mod);
 	virtual void MouseUp(b2Vec2 p, int button);
 	virtual void MouseMove(b2Vec2 p);
@@ -120,7 +125,7 @@ public:
 	b2BodyId m_groundBodyId;
 	ContactPoint m_points[k_maxContactPoints];
 	std::atomic<long> m_pointCount;
-	//DestructionListener m_destructionListener;
+	// DestructionListener m_destructionListener;
 	int32_t m_textLine;
 	b2WorldId m_worldId;
 	b2JointId m_mouseJointId;

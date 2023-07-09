@@ -1,6 +1,7 @@
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	allocate.c
+	allocate.h
 	array.c
 	array.h
 	atomic.inl
@@ -47,7 +48,6 @@ set(BOX2D_SOURCE_FILES
 
 set(BOX2D_API_FILES
 	../include/box2d/aabb.h
-	../include/box2d/allocate.h
 	../include/box2d/api.h
 	../include/box2d/box2d.h
 	../include/box2d/callbacks.h
