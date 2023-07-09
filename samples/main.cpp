@@ -33,6 +33,17 @@
 
 #if defined(_WIN32)
 #include <crtdbg.h>
+static int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
+					   int lineNumber)
+{
+	// This hook can help find leaks
+	if (size == 33660)
+	{
+		size += 0;
+	}
+
+	return 1;
+}
 #endif
 
 GLFWwindow* g_mainWindow = nullptr;
@@ -130,6 +141,13 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 	}
 }
 
+static void DestroyUI()
+{
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+}
+
 static void ResizeWindowCallback(GLFWwindow*, int width, int height)
 {
 	g_camera.m_width = int(width / s_windowScale);
@@ -150,115 +168,115 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 	{
 		switch (key)
 		{
-			case GLFW_KEY_ESCAPE:
-				// Quit
-				glfwSetWindowShouldClose(g_mainWindow, GL_TRUE);
-				break;
+		case GLFW_KEY_ESCAPE:
+			// Quit
+			glfwSetWindowShouldClose(g_mainWindow, GL_TRUE);
+			break;
 
-			case GLFW_KEY_LEFT:
-				// Pan left
-				if (mods == GLFW_MOD_CONTROL)
-				{
-					b2Vec2 newOrigin = {2.0f, 0.0f};
-					s_sample->ShiftOrigin(newOrigin);
-				}
-				else
-				{
-					g_camera.m_center.x -= 0.5f;
-				}
-				break;
+		case GLFW_KEY_LEFT:
+			// Pan left
+			if (mods == GLFW_MOD_CONTROL)
+			{
+				b2Vec2 newOrigin = {2.0f, 0.0f};
+				s_sample->ShiftOrigin(newOrigin);
+			}
+			else
+			{
+				g_camera.m_center.x -= 0.5f;
+			}
+			break;
 
-			case GLFW_KEY_RIGHT:
-				// Pan right
-				if (mods == GLFW_MOD_CONTROL)
-				{
-					b2Vec2 newOrigin = {-2.0f, 0.0f};
-					s_sample->ShiftOrigin(newOrigin);
-				}
-				else
-				{
-					g_camera.m_center.x += 0.5f;
-				}
-				break;
+		case GLFW_KEY_RIGHT:
+			// Pan right
+			if (mods == GLFW_MOD_CONTROL)
+			{
+				b2Vec2 newOrigin = {-2.0f, 0.0f};
+				s_sample->ShiftOrigin(newOrigin);
+			}
+			else
+			{
+				g_camera.m_center.x += 0.5f;
+			}
+			break;
 
-			case GLFW_KEY_DOWN:
-				// Pan down
-				if (mods == GLFW_MOD_CONTROL)
-				{
-					b2Vec2 newOrigin = {0.0f, 2.0f};
-					s_sample->ShiftOrigin(newOrigin);
-				}
-				else
-				{
-					g_camera.m_center.y -= 0.5f;
-				}
-				break;
+		case GLFW_KEY_DOWN:
+			// Pan down
+			if (mods == GLFW_MOD_CONTROL)
+			{
+				b2Vec2 newOrigin = {0.0f, 2.0f};
+				s_sample->ShiftOrigin(newOrigin);
+			}
+			else
+			{
+				g_camera.m_center.y -= 0.5f;
+			}
+			break;
 
-			case GLFW_KEY_UP:
-				// Pan up
-				if (mods == GLFW_MOD_CONTROL)
-				{
-					b2Vec2 newOrigin = {0.0f, -2.0f};
-					s_sample->ShiftOrigin(newOrigin);
-				}
-				else
-				{
-					g_camera.m_center.y += 0.5f;
-				}
-				break;
+		case GLFW_KEY_UP:
+			// Pan up
+			if (mods == GLFW_MOD_CONTROL)
+			{
+				b2Vec2 newOrigin = {0.0f, -2.0f};
+				s_sample->ShiftOrigin(newOrigin);
+			}
+			else
+			{
+				g_camera.m_center.y += 0.5f;
+			}
+			break;
 
-			case GLFW_KEY_HOME:
-				g_camera.ResetView();
-				break;
+		case GLFW_KEY_HOME:
+			g_camera.ResetView();
+			break;
 
-			case GLFW_KEY_Z:
-				// Zoom out
-				g_camera.m_zoom = B2_MIN(1.1f * g_camera.m_zoom, 20.0f);
-				break;
+		case GLFW_KEY_Z:
+			// Zoom out
+			g_camera.m_zoom = B2_MIN(1.1f * g_camera.m_zoom, 20.0f);
+			break;
 
-			case GLFW_KEY_X:
-				// Zoom in
-				g_camera.m_zoom = B2_MAX(0.9f * g_camera.m_zoom, 0.02f);
-				break;
+		case GLFW_KEY_X:
+			// Zoom in
+			g_camera.m_zoom = B2_MAX(0.9f * g_camera.m_zoom, 0.02f);
+			break;
 
-			case GLFW_KEY_R:
-				RestartTest();
-				break;
+		case GLFW_KEY_R:
+			RestartTest();
+			break;
 
-			case GLFW_KEY_O:
-				s_settings.m_singleStep = true;
-				break;
+		case GLFW_KEY_O:
+			s_settings.m_singleStep = true;
+			break;
 
-			case GLFW_KEY_P:
-				s_settings.m_pause = !s_settings.m_pause;
-				break;
+		case GLFW_KEY_P:
+			s_settings.m_pause = !s_settings.m_pause;
+			break;
 
-			case GLFW_KEY_LEFT_BRACKET:
-				// Switch to previous test
-				--s_selection;
-				if (s_selection < 0)
-				{
-					s_selection = g_sampleCount - 1;
-				}
-				break;
+		case GLFW_KEY_LEFT_BRACKET:
+			// Switch to previous test
+			--s_selection;
+			if (s_selection < 0)
+			{
+				s_selection = g_sampleCount - 1;
+			}
+			break;
 
-			case GLFW_KEY_RIGHT_BRACKET:
-				// Switch to next test
-				++s_selection;
-				if (s_selection == g_sampleCount)
-				{
-					s_selection = 0;
-				}
-				break;
+		case GLFW_KEY_RIGHT_BRACKET:
+			// Switch to next test
+			++s_selection;
+			if (s_selection == g_sampleCount)
+			{
+				s_selection = 0;
+			}
+			break;
 
-			case GLFW_KEY_TAB:
-				g_draw.m_showUI = !g_draw.m_showUI;
+		case GLFW_KEY_TAB:
+			g_draw.m_showUI = !g_draw.m_showUI;
 
-			default:
-				if (s_sample)
-				{
-					s_sample->Keyboard(key);
-				}
+		default:
+			if (s_sample)
+			{
+				s_sample->Keyboard(key);
+			}
 		}
 	}
 	else if (action == GLFW_RELEASE)
@@ -361,8 +379,7 @@ static void UpdateUI()
 		ImGui::SetNextWindowPos({g_camera.m_width - menuWidth - 10.0f, 10.0f});
 		ImGui::SetNextWindowSize({menuWidth, g_camera.m_height - 20.0f});
 
-		ImGui::Begin("Tools", &g_draw.m_showUI,
-					 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+		ImGui::Begin("Tools", &g_draw.m_showUI, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
 		if (ImGui::BeginTabBar("ControlTabs", ImGuiTabBarFlags_None))
 		{
@@ -446,8 +463,7 @@ static void UpdateUI()
 							{
 								selectionFlags = ImGuiTreeNodeFlags_Selected;
 							}
-							ImGui::TreeNodeEx((void*)(intptr_t)i, leafNodeFlags | selectionFlags, "%s",
-											  g_sampleEntries[i].name);
+							ImGui::TreeNodeEx((void*)(intptr_t)i, leafNodeFlags | selectionFlags, "%s", g_sampleEntries[i].name);
 							if (ImGui::IsItemClicked())
 							{
 								s_selection = i;
@@ -486,7 +502,15 @@ int main(int, char**)
 {
 #if defined(_WIN32)
 	// Enable memory-leak reports
-	_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
+	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
+	_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	_CrtSetAllocHook(MyAllocHook);
+	//_CrtSetBreakAlloc(196);
 #endif
 
 	// Install memory hooks
@@ -536,13 +560,12 @@ int main(int, char**)
 	bool fullscreen = false;
 	if (fullscreen)
 	{
-		g_mainWindow = glfwCreateWindow(int(1920 * s_windowScale), int(1080 * s_windowScale), buffer,
-										glfwGetPrimaryMonitor(), nullptr);
+		g_mainWindow = glfwCreateWindow(int(1920 * s_windowScale), int(1080 * s_windowScale), buffer, glfwGetPrimaryMonitor(), nullptr);
 	}
 	else
 	{
-		g_mainWindow = glfwCreateWindow(int(g_camera.m_width * s_windowScale), int(g_camera.m_height * s_windowScale),
-										buffer, nullptr, nullptr);
+		g_mainWindow =
+			glfwCreateWindow(int(g_camera.m_width * s_windowScale), int(g_camera.m_height * s_windowScale), buffer, nullptr, nullptr);
 	}
 
 	if (g_mainWindow == nullptr)
@@ -626,8 +649,8 @@ int main(int, char**)
 			ImGui::SetNextWindowSize(ImVec2(float(g_camera.m_width), float(g_camera.m_height)));
 			ImGui::SetNextWindowBgAlpha(0.0f);
 			ImGui::Begin("Overlay", nullptr,
-						 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs |
-						ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+						 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+							 ImGuiWindowFlags_NoScrollbar);
 			ImGui::End();
 
 			const SampleEntry& entry = g_sampleEntries[s_settings.m_sampleIndex];
@@ -689,8 +712,8 @@ int main(int, char**)
 	s_sample = nullptr;
 
 	g_draw.Destroy();
-	ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
+
+	DestroyUI();
 	glfwTerminate();
 
 	s_settings.Save();

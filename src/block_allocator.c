@@ -73,8 +73,7 @@ typedef struct b2Block
 	struct b2Block* next;
 } b2Block;
 
-// This is a small object allocator used for allocating small
-// objects that persist for more than one time step.
+// This is a small object allocator used for allocating small objects that persist for more than one time step.
 // See: http://www.codeproject.com/useritems/Small_Block_Allocator.asp
 typedef struct b2BlockAllocator
 {
@@ -110,10 +109,11 @@ void b2DestroyBlockAllocator(b2BlockAllocator* allocator)
 {
 	for (int32_t i = 0; i < allocator->chunkCount; ++i)
 	{
-		b2Free(allocator->chunks[i].blocks);
+		b2Free(allocator->chunks[i].blocks, b2_chunkSize);
 	}
 
-	b2Free(allocator->chunks);
+	b2Free(allocator->chunks, allocator->chunkSpace * sizeof(b2Chunk));
+	b2Free(allocator, sizeof(b2BlockAllocator));
 }
 
 void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
@@ -144,11 +144,12 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
 		if (allocator->chunkCount == allocator->chunkSpace)
 		{
 			b2Chunk* oldChunks = allocator->chunks;
+			int32_t oldSize = allocator->chunkSpace * sizeof(b2Chunk);
 			allocator->chunkSpace += b2_chunkArrayIncrement;
 			allocator->chunks = (b2Chunk*)b2Alloc(allocator->chunkSpace * sizeof(b2Chunk));
 			memcpy(allocator->chunks, oldChunks, allocator->chunkCount * sizeof(b2Chunk));
 			memset(allocator->chunks + allocator->chunkCount, 0, b2_chunkArrayIncrement * sizeof(b2Chunk));
-			b2Free(oldChunks);
+			b2Free(oldChunks, oldSize);
 		}
 
 		b2Chunk* chunk = allocator->chunks + allocator->chunkCount;
@@ -187,7 +188,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 
 	if (size > b2_maxBlockSize)
 	{
-		b2Free(p);
+		b2Free(p, size);
 		return;
 	}
 

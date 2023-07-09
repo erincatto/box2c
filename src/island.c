@@ -650,6 +650,7 @@ void b2MergeAwakeIslands(b2World* world)
 
 	// Step 3: ensure island pool has sufficient space to split the largest island
 	b2GrowPool(&world->islandPool, world->islandPool.count + maxBodyCount);
+	world->islands = (b2Island*)world->islandPool.memory;
 }
 
 static int b2CompareIslands(const void* A, const void* B)

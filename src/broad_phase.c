@@ -33,7 +33,12 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 
 void b2BroadPhase_Destroy(b2BroadPhase* bp)
 {
-	b2Free(bp->moveBuffer);
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Destroy(bp->trees + i);
+	}
+
+	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
 	memset(bp, 0, sizeof(b2BroadPhase));
 }
 
@@ -42,10 +47,11 @@ static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 	if (bp->moveCount == bp->moveCapacity)
 	{
 		int32_t* oldBuffer = bp->moveBuffer;
+		int32_t oldCapacity = bp->moveCapacity;
 		bp->moveCapacity += bp->moveCapacity >> 1;
 		bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
 		memcpy(bp->moveBuffer, oldBuffer, bp->moveCount * sizeof(int32_t));
-		b2Free(oldBuffer);
+		b2Free(oldBuffer, oldCapacity * sizeof(int32_t));
 	}
 
 	bp->moveBuffer[bp->moveCount] = proxyKey;

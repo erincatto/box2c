@@ -49,9 +49,9 @@ b2StackAllocator* b2CreateStackAllocator(int32_t capacity)
 
 void b2DestroyStackAllocator(b2StackAllocator* allocator)
 {
-	b2DestroyArray(allocator->entries);
-	b2Free(allocator->data);
-	b2Free(allocator);
+	b2DestroyArray(allocator->entries, sizeof(b2StackEntry));
+	b2Free(allocator->data, allocator->capacity);
+	b2Free(allocator, sizeof(b2StackAllocator));
 }
 
 void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* name)
@@ -91,7 +91,7 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 	assert(mem == entry->data);
 	if (entry->usedMalloc)
 	{
-		b2Free(mem);
+		b2Free(mem, entry->size);
 	}
 	else
 	{
@@ -99,6 +99,11 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 	}
 	alloc->allocation -= entry->size;
 	b2Array_Pop(alloc->entries);
+}
+
+int32_t b2GetStackCapacity(b2StackAllocator* alloc)
+{
+	return alloc->capacity;
 }
 
 int32_t b2GetStackAllocation(b2StackAllocator* alloc)

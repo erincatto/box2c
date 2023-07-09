@@ -74,10 +74,10 @@ Sample::Sample(const Settings& settings)
 	worldDef.workerCount = maxThreads;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTasks = &FinishTasks;
-	worldDef.bodyCapacity = 10 * 1024;
-	worldDef.contactCapacity = 4 * 10 * 1024;
+	worldDef.bodyCapacity = 1024;
+	worldDef.contactCapacity = 4 * 1024;
 	worldDef.userTaskContext = this;
-	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
+	worldDef.stackAllocatorCapacity = 20 * 1024;
 	worldDef.enableSleep = settings.m_enableSleep;
 
 	m_worldId = b2CreateWorld(&worldDef);
@@ -255,11 +255,13 @@ void Sample::Step(Settings& settings)
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight,
-						  s.contactPointCount);
+		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight, s.contactPointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "max stack allocator bytes = %d", s.maxStackAllocation);
+		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);
 		m_textLine += m_textIncrement;
 	}
 
@@ -298,23 +300,21 @@ void Sample::Step(Settings& settings)
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 		}
 
-		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step,
-						  m_maxProfile.step);
+		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve,
-						  m_maxProfile.solve);
+		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve, m_maxProfile.solve);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands, aveProfile.buildIslands,
 						  m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveIslands,
-						  aveProfile.solveIslands, m_maxProfile.solveIslands);
+		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveIslands, aveProfile.solveIslands,
+						  m_maxProfile.solveIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase,
-						  aveProfile.broadphase, m_maxProfile.broadphase);
+		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
+						  m_maxProfile.broadphase);
 		m_textLine += m_textIncrement;
 	}
 
