@@ -16,9 +16,11 @@ void* b2CreateArray(int32_t elementSize, int32_t capacity)
 	return result;
 }
 
-void b2DestroyArray(void* a)
+void b2DestroyArray(void* a, int32_t elementSize)
 {
-	b2Free(((b2ArrayHeader*)a) - 1);
+	int32_t capacity = b2Array(a).capacity;
+	int32_t size = sizeof(b2ArrayHeader) + elementSize * capacity;
+	b2Free(((b2ArrayHeader*)a) - 1, size);
 }
 
 void b2Array_Grow(void** a, int32_t elementSize)
@@ -34,5 +36,5 @@ void b2Array_Grow(void** a, int32_t elementSize)
 	b2Array(*a).capacity = newCapacity;
 	b2Array(*a).count = capacity;
 	memcpy(*a, tmp, capacity * elementSize);
-	b2DestroyArray(tmp);
+	b2DestroyArray(tmp, elementSize);
 }

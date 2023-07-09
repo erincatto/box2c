@@ -20,7 +20,7 @@ public:
 		constexpr float shift = 1.0f;
 
 		// Allocate to avoid huge stack usage
-		b2BodyId* bodies = static_cast<b2BodyId*>(b2Alloc(numi * numk * sizeof(b2BodyId)));
+		b2BodyId* bodies = static_cast<b2BodyId*>(malloc(numi * numk * sizeof(b2BodyId)));
 		int32_t index = 0;
 
 		b2ShapeDef sd = b2DefaultShapeDef();
@@ -77,7 +77,7 @@ public:
 			}
 		}
 
-		b2Free(bodies);
+		free(bodies);
 	}
 
 	static Sample* Create(const Settings& settings)

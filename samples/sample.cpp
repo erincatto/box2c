@@ -74,10 +74,10 @@ Sample::Sample(const Settings& settings)
 	worldDef.workerCount = maxThreads;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTasks = &FinishTasks;
-	worldDef.bodyCapacity = 10 * 1024;
-	worldDef.contactCapacity = 4 * 10 * 1024;
+	worldDef.bodyCapacity = 1024;
+	worldDef.contactCapacity = 4 * 1024;
 	worldDef.userTaskContext = this;
-	worldDef.stackAllocatorCapacity = 20 * 1024 * 1024;
+	worldDef.stackAllocatorCapacity = 20 * 1024;
 	worldDef.enableSleep = settings.m_enableSleep;
 
 	m_worldId = b2CreateWorld(&worldDef);
@@ -259,7 +259,10 @@ void Sample::Step(Settings& settings)
 						  s.contactPointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "max stack allocator bytes = %d", s.maxStackAllocation);
+		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);
 		m_textLine += m_textIncrement;
 	}
 

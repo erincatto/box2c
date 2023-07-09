@@ -40,7 +40,7 @@ b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 
 void b2DestroyPool(b2Pool* pool)
 {
-	b2Free(pool->memory);
+	b2Free(pool->memory, pool->capacity * pool->objectSize);
 	pool->memory = NULL;
 	pool->capacity = 0;
 	pool->count = 0;
@@ -60,7 +60,7 @@ void b2GrowPool(b2Pool* pool, int32_t capacity)
 	pool->capacity = newCapacity;
 	char* newMemory = (char*)b2Alloc(pool->capacity * pool->objectSize);
 	memcpy(newMemory, pool->memory, oldCapacity * pool->objectSize);
-	b2Free(pool->memory);
+	b2Free(pool->memory, oldCapacity * pool->objectSize);
 	pool->memory = newMemory;
 
 	pool->freeList = oldCapacity;
@@ -98,7 +98,7 @@ b2Object* b2AllocObject(b2Pool* pool)
 		pool->capacity = newCapacity;
 		char* newMemory = (char*)b2Alloc(pool->capacity * pool->objectSize);
 		memcpy(newMemory, pool->memory, oldCapacity * pool->objectSize);
-		b2Free(pool->memory);
+		b2Free(pool->memory, oldCapacity * pool->objectSize);
 		pool->memory = newMemory;
 
 		newObject = (b2Object*)(pool->memory + oldCapacity * pool->objectSize);

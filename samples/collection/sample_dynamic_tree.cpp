@@ -54,17 +54,17 @@ public:
 
 	~DynamicTree()
 	{
-		b2Free(m_proxies);
+		free(m_proxies);
 		b2DynamicTree_Destroy(&m_tree);
 	}
 
 	void BuildTree()
 	{
 		b2DynamicTree_Destroy(&m_tree);
-		b2Free(m_proxies);
+		free(m_proxies);
 
 		m_proxyCapacity = m_rowCount * m_columnCount;
-		m_proxies = static_cast<Proxy*>(b2Alloc(m_proxyCapacity * sizeof(Proxy)));
+		m_proxies = static_cast<Proxy*>(malloc(m_proxyCapacity * sizeof(Proxy)));
 		m_proxyCount = 0;
 
 		float y = -4.0f;

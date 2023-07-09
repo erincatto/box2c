@@ -21,7 +21,7 @@ b2BitSet b2CreateBitSet(uint32_t bitCapacity)
 
 void b2DestroyBitSet(b2BitSet* bitSet)
 {
-	b2Free(bitSet->bits);
+	b2Free(bitSet->bits, bitSet->wordCapacity * sizeof(uint64_t));
 	bitSet->wordCapacity = 0;
 	bitSet->wordCount = 0;
 	bitSet->bits = NULL;
@@ -35,7 +35,6 @@ void b2SetBitCountAndClear(b2BitSet* bitSet, uint32_t bitCount)
 		b2DestroyBitSet(bitSet);
 		uint32_t newBitCapacity = bitCount + (bitCount >> 1);
 		*bitSet = b2CreateBitSet(newBitCapacity);
-		return;
 	}
 
 	bitSet->wordCount = wordCount;
@@ -51,78 +50,3 @@ void b2InPlaceUnion(b2BitSet* setA, const b2BitSet* setB)
 		setA->bits[i] |= setB->bits[i];
 	}
 }
-
-
-#if defined(_MSC_VER) && !defined(__clang__)
-#include <intrin.h>
-
-// https://en.wikipedia.org/wiki/Find_first_set
-static inline uint32_t b2CTZ(uint64_t word)
-{
-	unsigned long index;
-
-#ifdef _WIN64
-	_BitScanForward64(&index, word);
-#else
-	// 32-bit fall back
-	if ((uint32_t)word != 0)
-	{
-		_BitScanForward(&index, (uint32_t)word);
-	}
-	else
-	{
-		_BitScanForward(&index, (uint32_t)(word >> 32));
-		index += 32;
-	}
-#endif
-
-	return index;
-}
-
-#else
-
-static inline uint32_t b2CTZ(uint64_t word)
-{
-	return __builtin_ctzll(word);
-}
-
-#endif
-
-
-// Iterate over the set bits
-// https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
-bool b2GetNextSetBitIndex(const b2BitSet* bitset, uint32_t* bitIndexPtr)
-{
-	uint32_t bitIndex = *bitIndexPtr;
-	uint32_t wordIndex = bitIndex / 64;
-	if (wordIndex >= bitset->wordCount)
-	{
-		return false;
-	}
-
-	uint64_t word = bitset->bits[wordIndex];
-	word >>= (bitIndex & 63);
-
-	if (word != 0)
-	{
-		*bitIndexPtr += b2CTZ(word);
-		return true;
-	}
-
-	wordIndex += 1;
-
-	while (wordIndex < bitset->wordCount)
-	{
-		word = bitset->bits[wordIndex];
-		if (word != 0)
-		{
-			*bitIndexPtr = 64 * wordIndex + b2CTZ(word);
-			return true;
-		}
-
-		wordIndex += 1;
-	}
-
-	return false;
-}
-

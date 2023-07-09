@@ -1,12 +1,11 @@
 ﻿cmake_minimum_required(VERSION 3.23)
 include(FetchContent)
 
-message(STATUS "cmake tool chain: ${CMAKE_TOOLCHAIN_FILE}")
 message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
 
 project(box2d LANGUAGES C CXX)
 
-option(BOX2D_BUILD_SAMPLES "Build the Box2D samples application" ON)
+option(BOX2D_BUILD_SAMPLES "Build the Box2D samples application" OFF)
 option(BOX2D_PROFILE "Enable profiling with Tracy" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -39,7 +38,6 @@ add_subdirectory(test)
 add_subdirectory(src)
 
 if (BOX2D_BUILD_SAMPLES)
-
 	add_subdirectory(samples)
 
 	# default startup project for Visual Studio

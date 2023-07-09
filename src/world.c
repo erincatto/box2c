@@ -160,6 +160,8 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	//{
 	//	return;
 	//}
+	//_Thread_local int test;
+	//test = 1;
 
 	b2CreateContact(world, shapeA, childA, shapeB, childB);
 }
@@ -265,11 +267,11 @@ void b2DestroyWorld(b2WorldId id)
 	{
 		b2DestroyBitSet(&world->taskContextArray[i].contactBitSet);
 	}
-	b2DestroyArray(world->taskContextArray);
+	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
 
-	b2DestroyArray(world->awakeContactArray);
-	b2DestroyArray(world->awakeIslandArray);
-	b2DestroyArray(world->splitIslandArray);
+	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
+	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
+	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
 	b2DestroyPool(&world->contactPool);
@@ -403,30 +405,40 @@ static void b2Collide(b2World* world)
 		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactBitSet);
 	}
 
-	// Process contact state changes
-	
-	for (uint32_t i = 0; b2GetNextSetBitIndex(bitSet, &i); ++i)
+	// Process contact state changes. Iterate over set bits
+	uint64_t word;
+	for (uint32_t k = 0; k < bitSet->wordCount; ++k)
 	{
-
-		int32_t index = world->awakeContactArray[i];
-		b2Contact* contact = world->contacts + index;
-
-		if (contact->flags & b2_contactDisjoint)
+		word = bitSet->bits[k];
+		while (word != 0)
 		{
-			b2DestroyContact(world, contact);
-		}
-		else if (contact->flags & b2_contactStartedTouching)
-		{
-			assert(contact->islandIndex == B2_NULL_INDEX);
-			b2LinkContact(world, contact);
-			contact->flags &= ~b2_contactStartedTouching;
-		}
-		else
-		{
-			assert(contact->flags & b2_contactStoppedTouching);
+			uint32_t ctz = b2CTZ(word);
+			uint32_t awakeIndex = 64 * k + ctz;
+			assert(awakeIndex < (uint32_t)awakeContactCount);
 
-			b2UnlinkContact(world, contact);
-			contact->flags &= ~b2_contactStoppedTouching;
+			int32_t contactIndex = world->awakeContactArray[awakeIndex];
+			b2Contact* contact = world->contacts + contactIndex;
+
+			if (contact->flags & b2_contactDisjoint)
+			{
+				b2DestroyContact(world, contact);
+			}
+			else if (contact->flags & b2_contactStartedTouching)
+			{
+				assert(contact->islandIndex == B2_NULL_INDEX);
+				b2LinkContact(world, contact);
+				contact->flags &= ~b2_contactStartedTouching;
+			}
+			else
+			{
+				assert(contact->flags & b2_contactStoppedTouching);
+
+				b2UnlinkContact(world, contact);
+				contact->flags &= ~b2_contactStoppedTouching;
+			}
+
+			// Clear the smallest set bit
+			word = word & (word - 1);
 		}
 	}
 
@@ -434,7 +446,6 @@ static void b2Collide(b2World* world)
 
 	b2TracyCZoneEnd(collide);
 }
-
 
 static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
 {
@@ -920,7 +931,9 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.proxyCount = tree->nodeCount;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
 	s.contactPointCount = world->contactPointCount;
-	s.maxStackAllocation = b2GetMaxStackAllocation(world->stackAllocator);
+	s.stackCapacity = b2GetStackAllocation(world->stackAllocator);
+	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
+	s.byteCount = b2GetByteCount();
 	return s;
 }
 

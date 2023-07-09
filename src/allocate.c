@@ -11,10 +11,25 @@
 #include <stdlib.h>
 #endif
 
+#include <stdatomic.h>
+
+#ifdef BOX2D_PROFILE
+
+#include <tracy/TracyC.h>
+#define b2TracyCAlloc(ptr, size) TracyCAlloc(ptr, size)
+#define b2TracyCFree(ptr) TracyCFree(ptr)
+
+#else
+
+#define b2TracyCAlloc(ptr, size)
+#define b2TracyCFree(ptr)
+
+#endif
+
 b2AllocFcn* b2_allocFcn = NULL;
 b2FreeFcn* b2_freeFcn = NULL;
 
-int32_t b2_byteCount;
+_Atomic int32_t b2_byteCount;
 
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
@@ -24,19 +39,24 @@ void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 
 void* b2Alloc(int32_t size)
 {
-	// TODO_ERIN atomic
-	b2_byteCount += size;
+	atomic_fetch_add_explicit(&b2_byteCount, size, memory_order_relaxed);
 
 	if (b2_allocFcn != NULL)
 	{
-		return b2_allocFcn(size);
+		void* ptr = b2_allocFcn(size);
+		b2TracyCAlloc(ptr, size);
+		return ptr;
 	}
 
-	return malloc(size);
+	void* ptr = malloc(size);
+	b2TracyCAlloc(ptr, size);
+	return ptr;
 }
 
-void b2Free(void* mem)
+void b2Free(void* mem, int32_t size)
 {
+	b2TracyCFree(mem);
+
 	if (b2_freeFcn != NULL)
 	{
 		b2_freeFcn(mem);
@@ -46,6 +66,10 @@ void b2Free(void* mem)
 		free(mem);
 	}
 
-	// TODO_ERIN atomic
-	--b2_byteCount;
+	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);
+}
+
+int32_t b2GetByteCount()
+{
+	return atomic_load_explicit(&b2_byteCount, memory_order_relaxed);
 }

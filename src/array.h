@@ -14,7 +14,7 @@ typedef struct b2ArrayHeader
 #define b2Array(a) ((b2ArrayHeader*)(a))[-1]
 
 void* b2CreateArray(int32_t elementSize, int32_t capacity);
-void b2DestroyArray(void* a);
+void b2DestroyArray(void* a, int32_t elementSize);
 void b2Array_Grow(void** a, int32_t elementSize);
 
 #define b2Array_Check(a, index) assert(0 <= index && index < b2Array(a).count)
