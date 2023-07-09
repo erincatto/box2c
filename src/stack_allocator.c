@@ -101,6 +101,19 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 	b2Array_Pop(alloc->entries);
 }
 
+void b2GrowStack(b2StackAllocator* alloc)
+{
+	// Stack must not be in use
+	assert(alloc->allocation == 0);
+
+	if (alloc->maxAllocation > alloc->capacity)
+	{
+		b2Free(alloc->data, alloc->capacity);
+		alloc->capacity = alloc->maxAllocation + alloc->maxAllocation / 2;
+		alloc->data = b2Alloc(alloc->capacity);
+	}
+}
+
 int32_t b2GetStackCapacity(b2StackAllocator* alloc)
 {
 	return alloc->capacity;

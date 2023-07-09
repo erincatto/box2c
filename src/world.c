@@ -645,6 +645,9 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	assert(b2GetStackAllocation(world->stackAllocator) == 0);
 
+	// Ensure stack is large enough
+	b2GrowStack(world->stackAllocator);
+
 	b2TracyCZoneEnd(world_step);
 }
 
