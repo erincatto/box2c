@@ -122,7 +122,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		int32_t twinIndex = edgeIndex ^ 1;
 
 		b2Contact* contact = world->contacts + contactIndex;
-		
+
 		b2ContactEdge* edge = contact->edges + edgeIndex;
 		b2ContactEdge* twin = contact->edges + twinIndex;
 
@@ -161,7 +161,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	//	return;
 	//}
 	//_Thread_local int test;
-	//test = 1;
+	// test = 1;
 
 	b2CreateContact(world, shapeA, childA, shapeB, childB);
 }
@@ -249,7 +249,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->finishTasks = b2DefaultFinishTasksFcn;
 		world->userTaskContext = NULL;
 	}
-	
+
 	world->taskContextArray = b2CreateArray(sizeof(b2TaskContext), world->workerCount);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
@@ -652,76 +652,76 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 {
 	switch (shape->type)
 	{
-		case b2_circleShape:
+	case b2_circleShape:
+	{
+		b2Circle* circle = &shape->circle;
+
+		b2Vec2 center = b2TransformPoint(xf, circle->point);
+		float radius = circle->radius;
+		b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
+
+		draw->DrawSolidCircle(center, radius, axis, color, draw->context);
+	}
+	break;
+
+		// case b2_segmentShape:
+		//{
+		// b2EdgeShape* edge = (b2EdgeShape*)shape->GetShape();
+		// b2Vec2 v1 = b2Mul(xf, edge->m_vertex1);
+		// b2Vec2 v2 = b2Mul(xf, edge->m_vertex2);
+		// m_debugDraw->DrawSegment(v1, v2, color);
+
+		// if (edge->m_oneSided == false)
+		//{
+		//	m_debugDraw->DrawPoint(v1, 4.0f, color);
+		//	m_debugDraw->DrawPoint(v2, 4.0f, color);
+		// }
+		// }
+		// break;
+
+		// case b2Shape::e_chain:
+		//{
+		// b2ChainShape* chain = (b2ChainShape*)shape->GetShape();
+		// int32 count = chain->m_count;
+		// const b2Vec2* vertices = chain->m_vertices;
+
+		// b2Vec2 v1 = b2Mul(xf, vertices[0]);
+		// for (int32 i = 1; i < count; ++i)
+		//{
+		//	b2Vec2 v2 = b2Mul(xf, vertices[i]);
+		//	m_debugDraw->DrawSegment(v1, v2, color);
+		//	v1 = v2;
+		// }
+		// }
+		// break;
+
+	case b2_polygonShape:
+	{
+		b2Polygon* poly = &shape->polygon;
+		int32_t count = poly->count;
+		assert(count <= b2_maxPolygonVertices);
+		b2Vec2 vertices[b2_maxPolygonVertices];
+
+		for (int32_t i = 0; i < count; ++i)
 		{
-			b2Circle* circle = &shape->circle;
-
-			b2Vec2 center = b2TransformPoint(xf, circle->point);
-			float radius = circle->radius;
-			b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
-
-			draw->DrawSolidCircle(center, radius, axis, color, draw->context);
+			vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
 		}
-		break;
 
-			// case b2_segmentShape:
-			//{
-			// b2EdgeShape* edge = (b2EdgeShape*)shape->GetShape();
-			// b2Vec2 v1 = b2Mul(xf, edge->m_vertex1);
-			// b2Vec2 v2 = b2Mul(xf, edge->m_vertex2);
-			// m_debugDraw->DrawSegment(v1, v2, color);
+		b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
 
-			// if (edge->m_oneSided == false)
-			//{
-			//	m_debugDraw->DrawPoint(v1, 4.0f, color);
-			//	m_debugDraw->DrawPoint(v2, 4.0f, color);
-			// }
-			// }
-			// break;
-
-			// case b2Shape::e_chain:
-			//{
-			// b2ChainShape* chain = (b2ChainShape*)shape->GetShape();
-			// int32 count = chain->m_count;
-			// const b2Vec2* vertices = chain->m_vertices;
-
-			// b2Vec2 v1 = b2Mul(xf, vertices[0]);
-			// for (int32 i = 1; i < count; ++i)
-			//{
-			//	b2Vec2 v2 = b2Mul(xf, vertices[i]);
-			//	m_debugDraw->DrawSegment(v1, v2, color);
-			//	v1 = v2;
-			// }
-			// }
-			// break;
-
-		case b2_polygonShape:
+		if (poly->radius > 0.0f)
 		{
-			b2Polygon* poly = &shape->polygon;
-			int32_t count = poly->count;
-			assert(count <= b2_maxPolygonVertices);
-			b2Vec2 vertices[b2_maxPolygonVertices];
-
-			for (int32_t i = 0; i < count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
-			}
-
-			b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-
-			if (poly->radius > 0.0f)
-			{
-				draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
-			}
-			else
-			{
-				draw->DrawSolidPolygon(vertices, count, color, draw->context);
-			}
+			draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
 		}
-		break;
+		else
+		{
+			draw->DrawSolidPolygon(vertices, count, color, draw->context);
+		}
+	}
+	break;
 
-		default:
-			break;
+	default:
+		break;
 	}
 }
 
