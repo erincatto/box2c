@@ -4,11 +4,9 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "sample.h"
+#include "settings.h"
 
-#include <GLFW/glfw3.h>
-#include <imgui.h>
-
-class BenchmarkPyramid : public Sample
+class BenchmarkCreateDestroy : public Sample
 {
   public:
 	enum
@@ -17,16 +15,14 @@ class BenchmarkPyramid : public Sample
 		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
 	};
 
-	BenchmarkPyramid(const Settings& settings) : Sample(settings)
+	BenchmarkCreateDestroy(const Settings& settings) : Sample(settings)
 	{
 		float groundSize = 100.0f;
-		m_groundThickness = 1.0f;
-		m_round = 0.0f;
 
 		b2BodyDef bd = b2DefaultBodyDef();
 		b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
 
-		b2Polygon box = b2MakeBox(groundSize, m_groundThickness);
+		b2Polygon box = b2MakeBox(groundSize, 1.0f);
 		b2ShapeDef sd = b2DefaultShapeDef();
 		b2Body_CreatePolygon(groundId, &sd, &box);
 
@@ -35,10 +31,9 @@ class BenchmarkPyramid : public Sample
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_baseCount = g_sampleDebug ? 2 : 80;
+		m_baseCount = g_sampleDebug ? 40 : 100;
+		m_iterations = g_sampleDebug ? 1 : 10;
 		m_bodyCount = 0;
-
-		CreateScene();
 	}
 
 	void CreateScene()
@@ -56,8 +51,8 @@ class BenchmarkPyramid : public Sample
 		float rad = 0.5f;
 		float shift = rad * 2.0f;
 		float centerx = shift * count / 2.0f;
-		float centery = shift / 2.0f + m_groundThickness; //		+rad * 1.5f;
-
+		float centery = shift / 2.0f + 1.0f;
+		
 		b2BodyDef bd = b2DefaultBodyDef();
 		bd.type = b2_dynamicBody;
 
@@ -65,10 +60,8 @@ class BenchmarkPyramid : public Sample
 		sd.density = 1.0f;
 		sd.friction = 0.5f;
 
-		// b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
-		// b2Polygon cuboid = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
-		float h = 0.5f - m_round;
-		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
+		float h = 0.5f;
+		b2Polygon cuboid = b2MakeRoundedBox(h, h, 0.0f);
 
 		int32_t index = 0;
 
@@ -92,41 +85,28 @@ class BenchmarkPyramid : public Sample
 		m_bodyCount = index;
 	}
 
-	void UpdateUI() override
+	void Step(Settings& settings) override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
-		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
+		float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : float(0.0f);
 
-		bool changed = false;
-		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, e_maxBaseCount);
-
-		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
-		changed = changed || ImGui::Button("Reset Scene");
-
-		if (ImGui::Button("Wake Top"))
-		{
-			b2Body_Wake(m_bodies[m_bodyCount - 1]);
-		}
-
-		if (changed)
+		for (int32_t i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
+			b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
 		}
 
-		ImGui::End();
+		Sample::Step(settings);
 	}
 
 	static Sample* Create(const Settings& settings)
 	{
-		return new BenchmarkPyramid(settings);
+		return new BenchmarkCreateDestroy(settings);
 	}
 
 	b2BodyId m_bodies[e_maxBodyCount];
 	int32_t m_bodyCount;
 	int32_t m_baseCount;
-	float m_round;
-	float m_groundThickness;
+	int32_t m_iterations;
 };
 
-static int sampleIndex = RegisterSample("Benchmark", "Pyramid", BenchmarkPyramid::Create);
+static int sampleIndex = RegisterSample("Benchmark", "CreateDestroy", BenchmarkCreateDestroy::Create);

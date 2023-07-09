@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "block_allocator.h"
-#include "box2d/allocate.h"
+#include "allocate.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -13,22 +13,21 @@
 #define b2_chunkArrayIncrement 128
 
 // These are the supported object sizes. Actual allocations are rounded up the next size.
-static const int32_t b2_blockSizes[] =
-{
-	16,		// 0
-	32,		// 1
-	64,		// 2
-	96,		// 3
-	128,	// 4
-	160,	// 5
-	192,	// 6
-	224,	// 7
-	256,	// 8
-	320,	// 9
-	384,	// 10
-	448,	// 11
-	512,	// 12
-	640,	// 13
+static const int32_t b2_blockSizes[] = {
+	16,	 // 0
+	32,	 // 1
+	64,	 // 2
+	96,	 // 3
+	128, // 4
+	160, // 5
+	192, // 6
+	224, // 7
+	256, // 8
+	320, // 9
+	384, // 10
+	448, // 11
+	512, // 12
+	640, // 13
 };
 
 #define b2_blockSizeCount B2_ARRAY_COUNT(b2_blockSizes)
@@ -98,7 +97,7 @@ b2BlockAllocator* b2CreateBlockAllocator()
 	allocator->chunkSpace = b2_chunkArrayIncrement;
 	allocator->chunkCount = 0;
 	allocator->chunks = (b2Chunk*)b2Alloc(allocator->chunkSpace * sizeof(b2Chunk));
-	
+
 	memset(allocator->chunks, 0, allocator->chunkSpace * sizeof(b2Chunk));
 	memset(allocator->freeLists, 0, sizeof(allocator->freeLists));
 
@@ -204,8 +203,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 		b2Chunk* chunk = allocator->chunks + i;
 		if (chunk->blockSize != blockSize)
 		{
-			assert(	(int8_t*)p + blockSize <= (int8_t*)chunk->blocks ||
-						(int8_t*)chunk->blocks + b2_chunkSize <= (int8_t*)p);
+			assert((int8_t*)p + blockSize <= (int8_t*)chunk->blocks || (int8_t*)chunk->blocks + b2_chunkSize <= (int8_t*)p);
 		}
 		else
 		{

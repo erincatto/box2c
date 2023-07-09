@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
+#include "box2d/dynamic_tree.h"
+
+#include "allocate.h"
 #include "box2d/aabb.h"
 #include "box2d/constants.h"
-#include "box2d/dynamic_tree.h"
 
 #include <float.h>
 #include <string.h>
@@ -21,7 +22,8 @@ typedef struct b2TreeNode
 
 	uint32_t categoryBits;
 
-	union {
+	union
+	{
 		int32_t parent;
 		int32_t next;
 	};
@@ -818,7 +820,7 @@ void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree)
 		child1->parent = parentIndex;
 		child2->parent = parentIndex;
 
-		nodes[jMin] = nodes[count-1];
+		nodes[jMin] = nodes[count - 1];
 		nodes[iMin] = parentIndex;
 		--count;
 	}
@@ -844,8 +846,7 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 
 #define b2_treeStackSize 256
 
-void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
-								 b2TreeQueryCallbackFcn* callback, void* context)
+void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback, void* context)
 {
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
@@ -929,7 +930,8 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCall
 	}
 }
 
-void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2TreeRayCastCallbackFcn* callback, void* context)
+void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2TreeRayCastCallbackFcn* callback,
+						   void* context)
 {
 	b2Vec2 p1 = input->p1;
 	b2Vec2 p2 = input->p2;
@@ -970,8 +972,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		}
 
 		const b2TreeNode* node = tree->nodes + nodeId;
-		if (b2AABB_Overlaps(node->aabb, segmentAABB) == false ||
-			(node->categoryBits & maskBits) == 0)
+		if (b2AABB_Overlaps(node->aabb, segmentAABB) == false || (node->categoryBits & maskBits) == 0)
 		{
 			continue;
 		}

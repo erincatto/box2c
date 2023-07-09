@@ -1,22 +1,18 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "sample.h"
-
-#include "box2d/allocate.h"
+#include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
-#include "box2d/geometry.h"
+#include "sample.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-
 class RayCast : public Sample
 {
-public:
-	RayCast(const Settings& settings)
-		: Sample(settings)
+  public:
+	RayCast(const Settings& settings) : Sample(settings)
 	{
 		m_circle = {{0.0f, 0.0f}, 2.0f};
 		m_capsule = {{-1.0f, 1.0f}, {1.0f, -1.0f}, 1.5f};
@@ -42,7 +38,7 @@ public:
 		m_rayDrag = false;
 		m_translating = false;
 		m_rotating = false;
-		
+
 		m_showFraction = false;
 	}
 
@@ -269,7 +265,6 @@ public:
 				maxFraction = localOutput.fraction;
 			}
 
-
 			offset = b2Add(offset, increment);
 		}
 
@@ -297,7 +292,6 @@ public:
 				maxFraction = localOutput.fraction;
 			}
 
-
 			offset = b2Add(offset, increment);
 		}
 
@@ -322,10 +316,9 @@ public:
 				maxFraction = localOutput.fraction;
 			}
 
-
 			offset = b2Add(offset, increment);
 		}
-	
+
 		DrawRay(&output);
 	}
 
@@ -342,7 +335,7 @@ public:
 
 	b2Transform m_transform;
 	float m_angle;
-	
+
 	b2Vec2 m_rayStart;
 	b2Vec2 m_rayEnd;
 	float m_rayRadius;

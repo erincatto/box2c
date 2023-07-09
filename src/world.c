@@ -1,16 +1,18 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
+#include "world.h"
+
+#include "allocate.h"
+#include "array.h"
+#include "atomic.inl"
+#include "bitset.h"
+#include "block_allocator.h"
+#include "body.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"
 #include "box2d/timer.h"
-
-#include "array.h"
-#include "bitset.h"
-#include "block_allocator.h"
-#include "body.h"
 #include "contact.h"
 #include "island.h"
 #include "joint.h"
@@ -19,12 +21,9 @@
 #include "solver_data.h"
 #include "stack_allocator.h"
 #include "thread.h"
-#include "world.h"
 
 #include <assert.h>
 #include <string.h>
-
-#include "atomic.inl"
 
 #define B2_VALIDATE 1
 
@@ -386,7 +385,7 @@ static void b2Collide(b2World* world)
 
 	if (g_parallel)
 	{
-		int32_t minRange = 8;
+		int32_t minRange = 32;
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -593,8 +592,12 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// If new shapes were added, we need to find the new contacts.
 	if (world->newContacts)
 	{
+		b2TracyCZoneNC(new_contacts, "New Contacts", b2_colorFuchsia, true);
+
 		b2BroadPhase_UpdatePairs(&world->broadPhase);
 		world->newContacts = false;
+
+		b2TracyCZoneEnd(new_contacts);
 	}
 
 	// TODO_ERIN atomic
@@ -644,6 +647,9 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
 	assert(b2GetStackAllocation(world->stackAllocator) == 0);
+
+	// Ensure stack is large enough
+	b2GrowStack(world->stackAllocator);
 
 	b2TracyCZoneEnd(world_step);
 }

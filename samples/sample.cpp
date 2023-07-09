@@ -1,19 +1,19 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "sample.h"
+
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
 #include "box2d/joint_util.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
-
-#include "sample.h"
 #include "settings.h"
-#include <stdio.h>
-#include <string.h>
 
 #include <GLFW/glfw3.h>
+#include <stdio.h>
+#include <string.h>
 
 #if 0
 void DestructionListener::SayGoodbye(b2Joint* joint)

@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/allocate.h"
-
-#include "array.h"
 #include "stack_allocator.h"
+
+#include "allocate.h"
+#include "array.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -99,6 +99,19 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 	}
 	alloc->allocation -= entry->size;
 	b2Array_Pop(alloc->entries);
+}
+
+void b2GrowStack(b2StackAllocator* alloc)
+{
+	// Stack must not be in use
+	assert(alloc->allocation == 0);
+
+	if (alloc->maxAllocation > alloc->capacity)
+	{
+		b2Free(alloc->data, alloc->capacity);
+		alloc->capacity = alloc->maxAllocation + alloc->maxAllocation / 2;
+		alloc->data = b2Alloc(alloc->capacity);
+	}
 }
 
 int32_t b2GetStackCapacity(b2StackAllocator* alloc)
