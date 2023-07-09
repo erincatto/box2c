@@ -33,6 +33,17 @@
 
 #if defined(_WIN32)
 #include <crtdbg.h>
+static int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
+				int lineNumber)
+{
+	// This hook can help find leaks
+	if (size == 33660)
+	{
+		size += 0;
+	}
+
+	return 1;
+}
 #endif
 
 GLFWwindow* g_mainWindow = nullptr;
@@ -128,6 +139,13 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		fontConfig.RasterizerMultiply = s_windowScale * s_framebufferScale;
 		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 14.0f, &fontConfig);
 	}
+}
+
+static void DestroyUI()
+{
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 }
 
 static void ResizeWindowCallback(GLFWwindow*, int width, int height)
@@ -486,7 +504,15 @@ int main(int, char**)
 {
 #if defined(_WIN32)
 	// Enable memory-leak reports
-	_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
+	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
+	_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	_CrtSetAllocHook(MyAllocHook);
+	//_CrtSetBreakAlloc(196);
 #endif
 
 	// Install memory hooks
@@ -689,8 +715,8 @@ int main(int, char**)
 	s_sample = nullptr;
 
 	g_draw.Destroy();
-	ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
+
+	DestroyUI();
 	glfwTerminate();
 
 	s_settings.Save();

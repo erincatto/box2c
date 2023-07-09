@@ -33,6 +33,11 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 
 void b2BroadPhase_Destroy(b2BroadPhase* bp)
 {
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Destroy(bp->trees + i);
+	}
+
 	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
 	memset(bp, 0, sizeof(b2BroadPhase));
 }

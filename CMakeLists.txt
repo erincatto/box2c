@@ -14,10 +14,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 if (MSVC AND WIN32)
     # Enable edit and continue only in debug due to perf hit in release
-    add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)
-    add_compile_options($<$<CONFIG:Debug>:/ZI>)
-	
-	# this seems useless because it crashes in KernalBase.dll
+    # add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)
+    # add_compile_options($<$<CONFIG:Debug>:/ZI>)
 	# add_compile_options(/fsanitize=address)
 endif()
 

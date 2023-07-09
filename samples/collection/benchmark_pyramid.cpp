@@ -37,7 +37,7 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_baseCount = g_sampleDebug ? 80 : 80;
+		m_baseCount = g_sampleDebug ? 2 : 80;
 		m_bodyCount = 0;
 
 		CreateScene();
