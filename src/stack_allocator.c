@@ -101,6 +101,11 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 	b2Array_Pop(alloc->entries);
 }
 
+int32_t b2GetStackCapacity(b2StackAllocator* alloc)
+{
+	return alloc->capacity;
+}
+
 int32_t b2GetStackAllocation(b2StackAllocator* alloc)
 {
 	return alloc->allocation;

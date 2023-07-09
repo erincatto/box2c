@@ -931,7 +931,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.proxyCount = tree->nodeCount;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
 	s.contactPointCount = world->contactPointCount;
-	s.stackCapacity = b2GetStackAllocation(world->stackAllocator);
+	s.stackCapacity = b2GetStackCapacity(world->stackAllocator);
 	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	return s;
