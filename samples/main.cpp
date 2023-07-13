@@ -496,7 +496,7 @@ static void UpdateUI()
 //
 int main(int, char**)
 {
-#if defined(_WIN32)
+#if 0 && defined(_WIN32)
 	// Enable memory-leak reports
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);

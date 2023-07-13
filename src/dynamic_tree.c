@@ -47,7 +47,7 @@ typedef struct b2TreeNode
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {
-	return node->height == B2_NULL_INDEX;
+	return node->child1 == B2_NULL_INDEX;
 }
 
 b2DynamicTree b2DynamicTree_Create()
@@ -1154,10 +1154,11 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 	}
 
 	assert(tree->nodeCount < tree->nodeCapacity);
-	int32_t nodeIndex = tree->nodeCount++;
+	int32_t nodeIndex = tree->nodeCount;
 	b2TreeNode* node = nodes + nodeIndex;
 	node->aabb = b2AABB_Union(planes[bestPlane].leftAABB, planes[bestPlane].rightAABB);
 	node->parent = parentIndex;
+	tree->nodeCount += 1;
 
 	int32_t i1 = -1;
 	for (int32_t i2 = 0; i2 < count; ++i2)
@@ -1249,17 +1250,21 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 		// Store proxy index in child2 to remap user ids
 		// TODO_ERIN prefer stack allocator so child2 can be put in union
 		nodes[nodeCount].child2 = k;
+		nodes[nodeCount].parent = B2_NULL_INDEX;
+		nodes[nodeCount].moved = false;
 
 		nodeCount += 1;
+		k += 1;
 	}
 
 	assert(nodeCount == proxyCount);
-
-	tree->freeList = B2_NULL_INDEX;
+	tree->nodeCount = nodeCount;
 
 	b2TreeBin bins[B2_BIN_COUNT];
 	b2TreePlane planes[B2_BIN_COUNT - 1];
 	tree->root = b2BinSortBoxes(tree, B2_NULL_INDEX, nodes, nodeCount, bins, planes);
+
+	nodeCount = tree->nodeCount;
 
 	// Create a map for proxy nodes so the uses can get the new index
 	for (int32_t i = 0; i < nodeCount; ++i)
