@@ -1219,12 +1219,13 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 	{
 		b2TreeNode* oldNodes = tree->nodes;
 		int32_t oldCapcity = tree->nodeCapacity;
+
+		// Additional capacity for next rebuild
 		tree->nodeCapacity = requiredCapacity + requiredCapacity / 2;
+		
 		tree->nodes = (b2TreeNode*)b2Alloc(tree->nodeCapacity * sizeof(b2TreeNode));
 		memcpy(tree->nodes, oldNodes, tree->nodeCount * sizeof(b2TreeNode));
 		b2Free(oldNodes, oldCapcity * sizeof(b2TreeNode));
-
-		// TODO_ERIN free list built below
 	}
 
 	// Copy all leaf nodes to the beginning of the array
@@ -1260,14 +1261,35 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 	b2TreePlane planes[B2_BIN_COUNT - 1];
 	tree->root = b2BinSortBoxes(tree, B2_NULL_INDEX, nodes, nodeCount, bins, planes);
 
-	assert(tree->nodeCount == tree->nodeCapacity);
-
-	for (int32_t i = 0; i < tree->nodeCount; ++i)
+	// Create a map for proxy nodes so the uses can get the new index
+	for (int32_t i = 0; i < nodeCount; ++i)
 	{
 		b2TreeNode* n = nodes + i;
-		assert(0 <= n->child2 && n->child2 < count);
-		proxies[n->child2] = i;
-		n->child2 = B2_NULL_INDEX;
+		if (n->height == 0)
+		{
+			assert(0 <= n->child2 && n->child2 < proxyCount);
+			mapArray[n->child2].newIndex = i;
+			mapArray[n->child2].userData = n->userData;
+			n->child2 = B2_NULL_INDEX;
+		}
+	}
+
+	// Fill free list
+	int32_t newCapacity = tree->nodeCapacity;
+	if (nodeCount < newCapacity)
+	{
+		for (int32_t i = nodeCount; i < newCapacity - 1; ++i)
+		{
+			tree->nodes[i].next = i + 1;
+			tree->nodes[i].height = -1;
+		}
+		tree->nodes[tree->nodeCapacity - 1].next = B2_NULL_INDEX;
+		tree->nodes[tree->nodeCapacity - 1].height = -1;
+		tree->freeList = tree->nodeCount;
+	}
+	else
+	{
+		tree->freeList = B2_NULL_INDEX;
 	}
 
 	b2DynamicTree_Validate(tree);
