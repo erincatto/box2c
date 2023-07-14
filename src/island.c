@@ -755,6 +755,8 @@ if (island->bodyCount > 16)
 // Note: static bodies are never in an island
 static void b2SplitIsland(b2Island* baseIsland)
 {
+	b2TracyCZoneNC(split, "Split Island", b2_colorHoneydew2, true);
+
 	b2ValidateIsland(baseIsland);
 
 	b2World* world = baseIsland->world;
@@ -988,6 +990,8 @@ static void b2SplitIsland(b2Island* baseIsland)
 
 	b2FreeStackItem(alloc, bodyIndices);
 	b2FreeStackItem(alloc, stack);
+
+	b2TracyCZoneEnd(split);
 }
 
 // This must be thread safe

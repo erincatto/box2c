@@ -38,8 +38,8 @@ public:
 		m_wx = 0.5f;
 		m_wy = 0.5f;
 
-		m_rowCount = 1;
-		m_columnCount = 2;
+		m_rowCount = 20;
+		m_columnCount = 20;
 		memset(&m_tree, 0, sizeof(m_tree));
 		BuildTree();
 		m_timeStamp = 0;
@@ -48,7 +48,7 @@ public:
 		m_endPoint = {0.0f, 0.0f};
 		m_queryDrag = false;
 		m_rayDrag = false;
-
+		m_topDown = false;
 		m_validate = true;
 	}
 
@@ -99,21 +99,23 @@ public:
 
 			y += m_wy;
 		}
+
+		m_topDown = false;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 220.0f));
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 250.0f));
 		ImGui::Begin("Tree Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		if (ImGui::SliderInt("rows", &m_rowCount, 0, 20, "%d"))
+		if (ImGui::SliderInt("rows", &m_rowCount, 0, 200, "%d"))
 		{
 			changed = true;
 		}
 
-		if (ImGui::SliderInt("columns", &m_columnCount, 0, 20, "%d"))
+		if (ImGui::SliderInt("columns", &m_columnCount, 0, 200, "%d"))
 		{
 			changed = true;
 		}
@@ -142,8 +144,9 @@ public:
 			for (int32_t i = 0; i < m_proxyCount; ++i)
 			{
 				Proxy* proxy = static_cast<Proxy*>(m_mapArray[i].userData);
-				proxy->proxyId = m_mapArray[i].newIndex;
+				proxy->proxyId = i;
 			}
+			m_topDown = true;
 		}
 
 		ImGui::Separator();
@@ -260,6 +263,17 @@ public:
 			b2DynamicTree_Validate(&m_tree);
 		}
 
+		if (m_topDown)
+		{
+			g_draw.DrawString(5, m_textLine, "top down");
+			m_textLine += m_textIncrement;
+		}
+		else
+		{
+			g_draw.DrawString(5, m_textLine, "incremental");
+			m_textLine += m_textIncrement;
+		}
+
 		m_timeStamp += 1;
 	}
 
@@ -286,6 +300,7 @@ public:
 	bool m_rayDrag;
 	bool m_queryDrag;
 	bool m_validate;
+	bool m_topDown;
 };
 
 static bool QueryCallback(int32_t proxyId, void* userData, void* context)

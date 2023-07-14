@@ -102,7 +102,6 @@ void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
 struct b2ProxyMap
 {
 	void* userData;
-	int32_t newIndex;
 };
 
 /// Get the number of proxies created

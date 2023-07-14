@@ -21,32 +21,41 @@
 //		int32_t child2;
 //	} Children;
 //};
+// 43 bytes
+// could be 34
 typedef struct b2TreeNode
 {
-	void* userData;
+	void* userData; // 8
 
 	// Enlarged AABB
-	b2AABB aabb;
+	b2AABB aabb; // 16
 
-	uint32_t categoryBits;
+	// If we put the most common bits in the first 16 bits, this could be 2 bytes and expanded
+	// to 0xFFFF0000 | bits. Then we get partial culling in the tree traversal.
+	uint32_t categoryBits; // 4
 
 	union
 	{
 		int32_t parent;
 		int32_t next;
-	};
+	}; // 4
 
-	int32_t child1;
-	int32_t child2;
+	int32_t child1; // 4
+	int32_t child2; // 4
 
 	// leaf = 0, free node = -1
-	int32_t height;
+	// If the height is more than 32k we are in big trouble
+	int16_t height; // 2
 
-	bool moved;
+	bool moved; // 1
 } b2TreeNode;
+
+static b2TreeNode b2_defaultTreeNode = {NULL, {{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX,
+										false};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {
+	// TODO_ERIN this should work with height == 0
 	return node->child1 == B2_NULL_INDEX;
 }
 
@@ -113,13 +122,7 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 	int32_t nodeId = tree->freeList;
 	b2TreeNode* node = tree->nodes + nodeId;
 	tree->freeList = node->next;
-	node->parent = B2_NULL_INDEX;
-	node->child1 = B2_NULL_INDEX;
-	node->child2 = B2_NULL_INDEX;
-	node->categoryBits = 0;
-	node->height = 0;
-	node->userData = 0;
-	node->moved = false;
+	*node = b2_defaultTreeNode;
 	++tree->nodeCount;
 	return nodeId;
 }
@@ -1041,7 +1044,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 	}
 }
 
-#define B2_BIN_COUNT 64
+#define B2_BIN_COUNT 32
 
 typedef struct b2TreeBin
 {
@@ -1156,6 +1159,7 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 	assert(tree->nodeCount < tree->nodeCapacity);
 	int32_t nodeIndex = tree->nodeCount;
 	b2TreeNode* node = nodes + nodeIndex;
+	*node = b2_defaultTreeNode;
 	node->aabb = b2AABB_Union(planes[bestPlane].leftAABB, planes[bestPlane].rightAABB);
 	node->parent = parentIndex;
 	tree->nodeCount += 1;
@@ -1194,6 +1198,7 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 	const b2TreeNode* child1 = nodes + node->child1;
 	const b2TreeNode* child2 = nodes + node->child2;
 
+	node->categoryBits = child1->categoryBits | child2->categoryBits;
 	node->height = 1 + B2_MAX(child1->height, child2->height);
 
 	return nodeIndex;
@@ -1246,10 +1251,6 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 
 		assert(nodes[k].height == 0);
 		nodes[nodeCount] = nodes[k];
-		
-		// Store proxy index in child2 to remap user ids
-		// TODO_ERIN prefer stack allocator so child2 can be put in union
-		nodes[nodeCount].child2 = k;
 		nodes[nodeCount].parent = B2_NULL_INDEX;
 		nodes[nodeCount].moved = false;
 
@@ -1267,16 +1268,11 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 	nodeCount = tree->nodeCount;
 
 	// Create a map for proxy nodes so the uses can get the new index
-	for (int32_t i = 0; i < nodeCount; ++i)
+	for (int32_t i = 0; i < proxyCount; ++i)
 	{
 		b2TreeNode* n = nodes + i;
-		if (n->height == 0)
-		{
-			assert(0 <= n->child2 && n->child2 < proxyCount);
-			mapArray[n->child2].newIndex = i;
-			mapArray[n->child2].userData = n->userData;
-			n->child2 = B2_NULL_INDEX;
-		}
+		assert(n->userData != NULL);
+		mapArray[i].userData = n->userData;
 	}
 
 	// Fill free list
@@ -1299,7 +1295,6 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 
 	b2DynamicTree_Validate(tree);
 }
-
 
 // TODO_ERIN test this as inlined
 void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
