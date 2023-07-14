@@ -498,13 +498,26 @@ int main(int, char**)
 {
 #if defined(_WIN32)
 	// Enable memory-leak reports
-	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
-	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
-	_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+	//_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+	//_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
+	//_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+	//_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
+	{
+		// Get the current bits
+		//int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+
+		// Clear the upper 16 bits and OR in the desired frequency
+		//tmp = (tmp & 0x0000FFFF) | _CRTDBG_CHECK_EVERY_16_DF;
+
+		// Set the new bits
+		//_CrtSetDbgFlag(tmp);
+
+		//_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF | _CRTDBG_DELAY_FREE_MEM_DF | _CRTDBG_CHECK_CRT_DF | _CRTDBG_LEAK_CHECK_DF);
+		//_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF | _CRTDBG_DELAY_FREE_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+		//_CrtSetDbgFlag(_CRTDBG_DELAY_FREE_MEM_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+	}
 	_CrtSetAllocHook(MyAllocHook);
 	//_CrtSetBreakAlloc(196);
 #endif

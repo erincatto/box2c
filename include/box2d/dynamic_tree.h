@@ -31,7 +31,7 @@ typedef struct b2DynamicTree
 	int32_t nodeCount;
 	int32_t nodeCapacity;
 	int32_t freeList;
-	int32_t insertionCount;
+	int32_t proxyCount;
 } b2DynamicTree;
 
 /// Constructing the tree initializes the node pool.
@@ -98,6 +98,19 @@ float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree);
 
 /// Build an optimal tree. Very expensive. For testing.
 void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
+
+struct b2ProxyMap
+{
+	void* userData;
+};
+
+/// Get the number of proxies created
+int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
+
+/// Rebuild a the tree top down using the surface area heuristic. The provide map array must have length equal
+/// to the proxy count. This map allows you to update your proxy indices since this operation invalidates the original indices.
+/// See b2DynamicTree_GetProxyCount.
+void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* mapArray, int32_t mapCount);
 
 /// Shift the world origin. Useful for large worlds.
 /// The shift formula is: position -= newOrigin
