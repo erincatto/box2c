@@ -50,7 +50,7 @@ typedef struct b2TreeNode
 	bool moved; // 1
 } b2TreeNode;
 
-static b2TreeNode b2_defaultTreeNode = {NULL, {{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX,
+static b2TreeNode b2_defaultTreeNode = {NULL, {{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX,
 										false};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
