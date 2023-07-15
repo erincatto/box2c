@@ -584,6 +584,70 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 	return true;
 }
 
+bool b2DynamicTree_MoveProxy2(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
+{
+	b2TreeNode* nodes = tree->nodes;
+
+	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+
+	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	assert(b2IsLeaf(tree->nodes + proxyId));
+
+	// Extend AABB
+	b2AABB fatAABB;
+	b2Vec2 r = {b2_aabbExtension, b2_aabbExtension};
+	fatAABB.lowerBound = b2Sub(aabb.lowerBound, r);
+	fatAABB.upperBound = b2Add(aabb.upperBound, r);
+
+	b2AABB treeAABB = nodes[proxyId].aabb;
+	if (b2AABB_Contains(treeAABB, aabb))
+	{
+		// The tree AABB still contains the object, but the tree AABB might be too large.
+		// Perhaps the object was moving fast but has since gone to sleep.
+		// The huge AABB is larger than the new fat AABB.
+		b2AABB hugeAABB;
+		hugeAABB.lowerBound = b2MulAdd(fatAABB.lowerBound, -4.0f, r);
+		hugeAABB.upperBound = b2MulAdd(fatAABB.upperBound, 4.0f, r);
+
+		if (b2AABB_Contains(hugeAABB, treeAABB))
+		{
+			// The tree AABB contains the object AABB and the tree AABB is
+			// not too large. No tree update needed.
+			return false;
+		}
+
+		// Otherwise the tree AABB is huge and needs to be shrunk
+	}
+
+	nodes[proxyId].aabb = fatAABB;
+
+	// TODO_ERIN atomics
+	int32_t parentIndex = nodes[proxyId].parent;
+	while (parentIndex != B2_NULL_INDEX)
+	{
+		b2TreeNode* parent = nodes + parentIndex;
+		if (b2AABB_Contains(parent->aabb, fatAABB))
+		{
+			break;
+		}
+
+		parent->aabb = b2AABB_Union(parent->aabb, fatAABB);
+	}
+
+	bool alreadyMoved = tree->nodes[proxyId].moved;
+	tree->nodes[proxyId].moved = true;
+
+	if (alreadyMoved)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree)
 {
 	if (tree->root == B2_NULL_INDEX)

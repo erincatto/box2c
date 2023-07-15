@@ -28,6 +28,10 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		bp->trees[i] = b2DynamicTree_Create();
+		bp->rebuildTrees[i] = b2DynamicTree_Create();
+		bp->dirtyFlags[i] = false;
+		bp->proxyMaps[i] = NULL;
+		bp->proxyMapCapacities[i] = 0;
 	}
 }
 
@@ -36,6 +40,8 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp)
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Destroy(bp->trees + i);
+		b2DynamicTree_Destroy(bp->rebuildTrees + i);
+		b2Free(bp->proxyMaps[i], bp->proxyMapCapacities[i] * sizeof(struct b2ProxyMap));
 	}
 
 	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
@@ -93,18 +99,29 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(0 <= typeIndex && typeIndex <= b2_bodyTypeCount);
+	assert(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
 	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)
 	{
 		b2BufferMove(bp, proxyKey);
+		bp->dirtyFlags[typeIndex] = true;
 	}
 }
 
-void b2BroadPhase_TouchProxy(b2BroadPhase* bp, int32_t proxyKey)
+void b2BroadPhase_MoveProxy2(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
-	b2BufferMove(bp, proxyKey);
+	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
+	int32_t proxyId = B2_PROXY_ID(proxyKey);
+
+	assert(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
+
+	bool buffer = b2DynamicTree_MoveProxy2(bp->trees + typeIndex, proxyId, aabb);
+	if (buffer)
+	{
+		b2BufferMove(bp, proxyKey);
+		bp->dirtyFlags[typeIndex] = true;
+	}
 }
 
 // This is called from b2DynamicTree::Query when we are gathering pairs.
@@ -146,6 +163,8 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 	return true;
 }
 
+// TODO_ERIN these queries could be done in parallel in the island solver. Use a hash table to skip existing pairs.
+// then any truly new pairs can be added in serially when island is completed.
 void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 {
 	// Perform tree queries for all moving proxies. This fills the pair buffer.
@@ -217,3 +236,13 @@ bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t
 	b2AABB aabbB = b2DynamicTree_GetFatAABB(bp->trees + typeIndexB, proxyIdB);
 	return b2AABB_Overlaps(aabbA, aabbB);
 }
+
+//void b2BroadPhase_RebuildTrees(b2BroadPhase* bp)
+//{
+//
+//}
+//
+//void b2BroadPhase_SwapTrees(b2BroadPhase* bp)
+//{
+//
+//}
