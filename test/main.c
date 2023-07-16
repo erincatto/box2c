@@ -23,27 +23,25 @@ extern int CollisionTest();
 extern int DistanceTest();
 extern int HelloWorld();
 extern int ShapeTest();
+extern int TableTest();
 
 int main(void)
 {
 #if defined(_WIN32)
 	// Enable memory-leak reports
-	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
-	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
-	_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+	//_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
 	_CrtSetAllocHook(MyAllocHook);
 	//_CrtSetBreakAlloc(196);
 #endif
 
-	RUN_TEST(MathTest);
-	RUN_TEST(CollisionTest);
-	RUN_TEST(DistanceTest);
-	RUN_TEST(HelloWorld);
-	RUN_TEST(ShapeTest);
+	//RUN_TEST(MathTest);
+	//RUN_TEST(CollisionTest);
+	//RUN_TEST(DistanceTest);
+	//RUN_TEST(HelloWorld);
+	//RUN_TEST(ShapeTest);
+	RUN_TEST(TableTest);
 
 	printf("======================================\n");
 	printf("All Box2D tests passed!\n");

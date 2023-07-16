@@ -3,25 +3,28 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
-typedef struct b2ProxyPair
+#define B2_PROXY_PAIR_KEY(K1, K2) K1 < K2 ? (uint64_t)K1 << 32 | (uint64_t)K2 : (uint64_t)K2 << 32 | (uint64_t)K1
+
+typedef struct b2SetItem
 {
-	struct b2ShapeProxy* proxy1;
-	struct b2ShapeProxy* proxy2;
-	uint64_t pairKey;
-} b2ProxyPair;
+	uint64_t key;
+	uint32_t hash;
+} b2SetItem;
 
-typedef struct b2ProxyTable
+typedef struct b2Set
 {
-	b2ProxyPair* pairs;
-	int32_t capacity;
-	int32_t count;
-} b2ProxyTable;
+	b2SetItem* items;
+	uint32_t capacity;
+	uint32_t count;
+} b2Set;
 
-b2ProxyTable b2CreateProxyTable(int32_t capacity);
-void b2DestroyProxyTable(b2ProxyTable* table);
+b2Set b2CreateSet(int32_t capacity);
+void b2DestroySet(b2Set* set);
 
-void b2AddProxyPair(b2ProxyTable* table, b2ShapeProxy* proxy1, b2ShapeProxy* proxy2);
-b2ProxyPair* b2DestroyProxyPair(b2ProxyTable* table, const b2ShapeProxy* proxy1, const b2ShapeProxy* proxy2);
-b2ProxyPair* b2FindProxyPair(const b2ProxyTable* table, const b2ShapeProxy* proxy1, const b2ShapeProxy* proxy2);
+void b2AddKey(b2Set* set, uint64_t key);
+void b2RemoveKey(b2Set* set, uint64_t key);
+
+bool b2ContainsKey(const b2Set* set, uint64_t key);
