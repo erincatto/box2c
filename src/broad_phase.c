@@ -18,6 +18,9 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	bp->moveCount = 0;
 	bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
 
+	// TODO_ERIN initial size from b2WorldDef
+	bp->pairSet = b2CreateSet(32);
+
 	bp->addPairFcn = fcn;
 	bp->fcnContext = fcnContext;
 
@@ -45,6 +48,9 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp)
 	}
 
 	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
+	
+	b2DestroySet(&bp->pairSet);
+
 	memset(bp, 0, sizeof(b2BroadPhase));
 }
 
@@ -109,6 +115,7 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	}
 }
 
+// TODO_ERIN grow ancestors
 void b2BroadPhase_MoveProxy2(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
@@ -143,6 +150,15 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 		// Both proxies are moving. Avoid duplicate pairs.
 		return true;
 	}
+
+#if BP_PAIR_SET == 1
+	uint64_t pairKey = B2_PROXY_PAIR_KEY(proxyKey, bp->queryProxyKey);
+	if (b2ContainsKey(&bp->pairSet, pairKey))
+	{
+		// contact exists
+		return true;
+	}
+#endif
 
 	void* userDataA;
 	void* userDataB;

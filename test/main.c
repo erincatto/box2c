@@ -36,11 +36,11 @@ int main(void)
 	//_CrtSetBreakAlloc(196);
 #endif
 
-	//RUN_TEST(MathTest);
-	//RUN_TEST(CollisionTest);
-	//RUN_TEST(DistanceTest);
-	//RUN_TEST(HelloWorld);
-	//RUN_TEST(ShapeTest);
+	RUN_TEST(MathTest);
+	RUN_TEST(CollisionTest);
+	RUN_TEST(DistanceTest);
+	RUN_TEST(HelloWorld);
+	RUN_TEST(ShapeTest);
 	RUN_TEST(TableTest);
 
 	printf("======================================\n");

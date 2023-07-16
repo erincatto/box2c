@@ -67,6 +67,8 @@ void b2DestroySet(b2Set* set)
 	set->capacity = 0;
 }
 
+// I need a good hash because the keys are built from pairs of increasing integers.
+// A simple hash like hash = (integer1 XOR integer2) has many collisions.
 // https://lemire.me/blog/2018/08/15/fast-strongly-universal-64-bit-hashing-everywhere/
 // https://preshing.com/20130107/this-hash-set-is-faster-than-a-judy-array/
 static inline uint32_t b2KeyHash(uint64_t key)
@@ -85,7 +87,6 @@ static inline uint32_t b2KeyHash(uint64_t key)
 int32_t g_probeCount;
 #endif
 
-// https://en.wikipedia.org/wiki/
 int32_t b2FindSlot(const b2Set* set, uint64_t key, uint32_t hash)
 {
 	uint32_t capacity = set->capacity;
@@ -172,6 +173,7 @@ void b2AddKey(b2Set* set, uint64_t key)
 	b2AddKeyHaveCapacity(set, key, hash);
 }
 
+// See https://en.wikipedia.org/wiki/Open_addressing
 // TODO_ERIN assert on double remove?
 void b2RemoveKey(b2Set* set, uint64_t key)
 {
@@ -181,7 +183,6 @@ void b2RemoveKey(b2Set* set, uint64_t key)
 	if (items[i].hash == 0)
 	{
 		// Not in set
-		assert(items[i].hash == hash && items[i].key == key);
 		return;
 	}
 

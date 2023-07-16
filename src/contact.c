@@ -11,6 +11,7 @@
 #include "contact.h"
 #include "island.h"
 #include "shape.h"
+#include "table.h"
 #include "world.h"
 
 #include <assert.h>
@@ -180,10 +181,24 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 		contact->awakeIndex = b2Array(world->awakeContactArray).count;
 		b2Array_Push(world->awakeContactArray, contact->object.index);
 	}
+
+	// Add to pair set for fast lookup
+	int32_t proxyKeyA = shapeA->proxies[childA].proxyKey;
+	int32_t proxyKeyB = shapeB->proxies[childB].proxyKey;
+	uint64_t pairKey = B2_PROXY_PAIR_KEY(proxyKeyA, proxyKeyB);
+	b2AddKey(&world->broadPhase.pairSet, pairKey);
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
+	// Remove pair from set
+	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+	b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+	int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
+	int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
+	uint64_t pairKey = B2_PROXY_PAIR_KEY(proxyKeyA, proxyKeyB);
+	b2RemoveKey(&world->broadPhase.pairSet, pairKey);
+
 	b2ContactEdge* edgeA = contact->edges + 0;
 	b2ContactEdge* edgeB = contact->edges + 1;
 

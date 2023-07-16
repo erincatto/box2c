@@ -4,6 +4,9 @@
 #pragma once
 
 #include "box2d/dynamic_tree.h"
+#include "table.h"
+
+#define BP_PAIR_SET 1
 
 typedef struct b2Pair
 {
@@ -34,6 +37,8 @@ typedef struct b2BroadPhase
 	int32_t* moveBuffer;
 	int32_t moveCapacity;
 	int32_t moveCount;
+
+	b2Set pairSet;
 
 	b2AddPairFcn* addPairFcn;
 	void* fcnContext;

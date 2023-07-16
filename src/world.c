@@ -96,6 +96,10 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	b2Body* bodyA = world->bodies + bodyIndexA;
 	b2Body* bodyB = world->bodies + bodyIndexB;
 
+	int32_t childA = proxyA->childIndex;
+	int32_t childB = proxyB->childIndex;
+
+#if BP_PAIR_SET == 0
 	// Search contacts on body with the fewest contacts.
 	// TODO_ERIN use hash table
 	int32_t edgeKey;
@@ -110,9 +114,6 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 		edgeKey = bodyB->contactList;
 		secondaryBodyIndex = bodyIndexA;
 	}
-
-	int32_t childA = proxyA->childIndex;
-	int32_t childB = proxyB->childIndex;
 
 	while (edgeKey != B2_NULL_INDEX)
 	{
@@ -147,6 +148,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 
 		edgeKey = edge->nextKey;
 	}
+#endif
 
 	// Does a joint override collision? Is at least one body dynamic?
 	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
