@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/callbacks.h"
-#include "box2d/timer.h"
+#include "island.h"
 
 #include "array.h"
 #include "body.h"
+#include "box2d/callbacks.h"
+#include "box2d/timer.h"
 #include "contact.h"
 #include "contact_solver.h"
-#include "island.h"
 #include "joint.h"
 #include "shape.h"
 #include "solver_data.h"
@@ -538,7 +538,7 @@ static int32_t b2MergeIsland(b2Island* island)
 		// Both islands have contacts
 		assert(island->tailContact != B2_NULL_INDEX && island->contactCount > 0);
 		assert(rootIsland->tailContact != B2_NULL_INDEX && rootIsland->contactCount > 0);
-		
+
 		b2Contact* tailContact = contacts + rootIsland->tailContact;
 		assert(tailContact->islandNext == B2_NULL_INDEX);
 		tailContact->islandNext = island->headContact;
@@ -753,6 +753,7 @@ if (island->bodyCount > 16)
 // Split an island because some contacts and/or joints have been removed
 // Note: contacts/joints connecting to static bodies must belong to an island but don't affect island connectivity
 // Note: static bodies are never in an island
+// TODO_ERIN I think this can be done during collision
 static void b2SplitIsland(b2Island* baseIsland)
 {
 	b2TracyCZoneNC(split, "Split Island", b2_colorHoneydew2, true);
@@ -1043,7 +1044,7 @@ void b2SolveIsland(b2Island* island)
 
 	// Solver data
 	b2ContactSolver_Initialize(island->contactSolver);
-	
+
 	int32_t jointIndex = island->headJoint;
 	while (jointIndex != B2_NULL_INDEX)
 	{
@@ -1169,8 +1170,7 @@ void b2SolveIsland(b2Island* island)
 		{
 			b2Body* b = bodies + bodyIndex;
 
-			if (b->enableSleep == false ||
-				b->angularVelocity * b->angularVelocity > angTolSqr ||
+			if (b->enableSleep == false || b->angularVelocity * b->angularVelocity > angTolSqr ||
 				b2Dot(b->linearVelocity, b->linearVelocity) > linTolSqr)
 			{
 				b->sleepTime = 0.0f;
@@ -1284,7 +1284,11 @@ void b2CompleteIsland(b2Island* island)
 			for (int32_t j = 0; j < shape->proxyCount; ++j)
 			{
 				b2ShapeProxy* proxy = shape->proxies + j;
+#if B2_REBUILD_TREE == 1
+				b2BroadPhase_GrowProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+#else
 				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+#endif
 			}
 
 			shapeIndex = shape->nextShapeIndex;
@@ -1309,8 +1313,8 @@ void b2CompleteIsland(b2Island* island)
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;
 			const b2Shape* shapeB = shapes + contact->shapeIndexB;
 
-			b2ShapeId idA = { shapeA->object.index, worldIndex, shapeA->object.revision };
-			b2ShapeId idB = { shapeB->object.index, worldIndex, shapeB->object.revision };
+			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
+			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
 			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
 		}
 	}
@@ -1384,7 +1388,11 @@ void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 			for (int32_t j = 0; j < shape->proxyCount; ++j)
 			{
 				b2ShapeProxy* proxy = shape->proxies + j;
+#if B2_REBUILD_TREE == 1
+				b2BroadPhase_GrowProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+#else
 				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+#endif
 			}
 
 			shapeIndex = shape->nextShapeIndex;

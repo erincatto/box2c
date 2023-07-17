@@ -71,6 +71,7 @@ void b2DestroySet(b2Set* set)
 // A simple hash like hash = (integer1 XOR integer2) has many collisions.
 // https://lemire.me/blog/2018/08/15/fast-strongly-universal-64-bit-hashing-everywhere/
 // https://preshing.com/20130107/this-hash-set-is-faster-than-a-judy-array/
+// TODO_ERIN try: https://www.jandrewrogers.com/2019/02/12/fast-perfect-hashing/
 static inline uint32_t b2KeyHash(uint64_t key)
 {
 	uint64_t h = key;

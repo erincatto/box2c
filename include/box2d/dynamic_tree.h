@@ -46,12 +46,18 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 /// Destroy a proxy. This asserts if the id is invalid.
 void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
 
-/// Move a proxy with a swepted AABB. If the proxy has moved outside of its
+// Clone one tree to another, reusing storage in the outTree if possible
+void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
+
+/// Move a proxy to a new AABB. If the proxy has moved outside of its
 /// fattened AABB, then the proxy is removed from the tree and re-inserted.
 /// Otherwise the function returns immediately.
 /// @return true if the proxy was re-inserted and the moved flag was previously false
 bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
-bool b2DynamicTree_MoveProxy2(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
+
+/// Grow a proxy atomically and inflate ancestors as necessary.
+/// @return true if the internal bounds grew
+bool b2DynamicTree_GrowProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
@@ -111,7 +117,8 @@ int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
 /// Rebuild a the tree top down using the surface area heuristic. The provide map array must have length equal
 /// to the proxy count. This map allows you to update your proxy indices since this operation invalidates the original indices.
 /// See b2DynamicTree_GetProxyCount.
-void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* mapArray, int32_t mapCount);
+/// Warning: mapArray must have capacity of at least 
+void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* mapArray);
 
 /// Shift the world origin. Useful for large worlds.
 /// The shift formula is: position -= newOrigin

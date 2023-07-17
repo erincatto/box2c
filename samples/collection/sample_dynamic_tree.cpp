@@ -32,7 +32,7 @@ public:
 		m_moveFraction = 0.0f;
 		m_moveDelta = 0.1f;
 		m_proxies = nullptr;
-		m_mapArray = nullptr;
+		m_proxyMap = nullptr;
 		m_proxyCount = 0;
 		m_proxyCapacity = 0;
 		m_wx = 0.5f;
@@ -55,7 +55,7 @@ public:
 	~DynamicTree()
 	{
 		free(m_proxies);
-		free(m_mapArray);
+		free(m_proxyMap);
 		b2DynamicTree_Destroy(&m_tree);
 	}
 
@@ -63,11 +63,11 @@ public:
 	{
 		b2DynamicTree_Destroy(&m_tree);
 		free(m_proxies);
-		free(m_mapArray);
+		free(m_proxyMap);
 
 		m_proxyCapacity = m_rowCount * m_columnCount;
 		m_proxies = static_cast<Proxy*>(malloc(m_proxyCapacity * sizeof(Proxy)));
-		m_mapArray = static_cast<struct b2ProxyMap*>(malloc(m_proxyCapacity * sizeof(struct b2ProxyMap)));
+		m_proxyMap = static_cast<struct b2ProxyMap*>(malloc(m_proxyCapacity * sizeof(struct b2ProxyMap)));
 		m_proxyCount = 0;
 
 		float y = -4.0f;
@@ -140,10 +140,10 @@ public:
 		if (ImGui::Button("Rebuild Top Down"))
 		{
 			assert(m_proxyCount == b2DynamicTree_GetProxyCount(&m_tree));
-			b2DynamicTree_RebuildTopDownSAH(&m_tree, m_mapArray, m_proxyCount);
+			b2DynamicTree_RebuildTopDownSAH(&m_tree, m_proxyMap);
 			for (int32_t i = 0; i < m_proxyCount; ++i)
 			{
-				Proxy* proxy = static_cast<Proxy*>(m_mapArray[i].userData);
+				Proxy* proxy = static_cast<Proxy*>(m_proxyMap[i].userData);
 				proxy->proxyId = i;
 			}
 			m_topDown = true;
@@ -285,7 +285,7 @@ public:
 	b2DynamicTree m_tree;
 	int m_rowCount, m_columnCount;
 	Proxy* m_proxies;
-	struct b2ProxyMap* m_mapArray;
+	struct b2ProxyMap* m_proxyMap;
 	int m_proxyCapacity;
 	int m_proxyCount;
 	int m_timeStamp;

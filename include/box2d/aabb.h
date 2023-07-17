@@ -50,6 +50,38 @@ static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 	return c;
 }
 
+/// Union of two AABBs.
+/// @return true if the AABB grew
+static inline bool b2AABB_UnionInPlace(b2AABB* a, b2AABB b)
+{
+	bool changed = false;
+	if (b.lowerBound.x < a->lowerBound.x)
+	{
+		a->lowerBound.x = b.lowerBound.x;
+		changed = true;
+	}
+
+	if (b.lowerBound.y < a->lowerBound.y)
+	{
+		a->lowerBound.y = b.lowerBound.y;
+		changed = true;
+	}
+
+	if (a->upperBound.x < b.upperBound.x)
+	{
+		a->upperBound.x = b.upperBound.x;
+		changed = true;
+	}
+
+	if (a->upperBound.y < b.upperBound.y)
+	{
+		a->upperBound.y = b.upperBound.y;
+		changed = true;
+	}
+
+	return changed;
+}
+
 /// Does a fully contain b
 static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
 {

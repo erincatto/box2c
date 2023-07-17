@@ -6,7 +6,7 @@
 #include "box2d/dynamic_tree.h"
 #include "table.h"
 
-#define BP_PAIR_SET 1
+#define B2_REBUILD_TREE 1
 
 typedef struct b2Pair
 {
@@ -21,17 +21,28 @@ typedef void b2AddPairFcn(void* userDataA, void* userDataB, void* context);
 #define B2_PROXY_ID(KEY) ((KEY) >> 4)
 #define B2_PROXY_KEY(ID, TYPE) (((ID) << 4) | (TYPE))
 
+typedef enum b2TreeState
+{
+	b2_treeReady,
+	b2_treeSwap,
+	b2_treeDirty
+} b2TreeState;
+
 /// The broad-phase is used for computing pairs and performing volume queries and ray casts.
 /// This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
 /// It is up to the client to consume the new pairs and to track subsequent overlap.
 typedef struct b2BroadPhase
 {
 	b2DynamicTree trees[b2_bodyTypeCount];
-	b2DynamicTree rebuildTrees[b2_bodyTypeCount];
-	bool dirtyFlags[b2_bodyTypeCount];
-	struct b2ProxyMap* proxyMaps[b2_bodyTypeCount];
-	int32_t proxyMapCapacities[b2_bodyTypeCount];
-	
+	b2TreeState treeStates[b2_bodyTypeCount];
+
+	b2DynamicTree altDynamicTree;
+	b2DynamicTree altKinematicTree;
+	struct b2ProxyMap* dynamicProxyMap;
+	struct b2ProxyMap* kinematicProxyMap;
+	int32_t dynamicMapCapacity;
+	int32_t kinematicMapCapacity;
+
 	int32_t proxyCount;
 
 	int32_t* moveBuffer;
@@ -53,8 +64,10 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp);
 int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits,
 								 void* userData);
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey);
+
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
-void b2BroadPhase_MoveProxy2(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
+
+void b2BroadPhase_GrowProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
 
 void b2BroadPhase_RebuildTrees(b2BroadPhase* bp);
 void b2BroadPhase_SwapTrees(b2BroadPhase* bp);

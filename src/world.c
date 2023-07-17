@@ -92,63 +92,8 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 
 	int32_t bodyIndexA = shapeA->bodyIndex;
 	int32_t bodyIndexB = shapeB->bodyIndex;
-
 	b2Body* bodyA = world->bodies + bodyIndexA;
 	b2Body* bodyB = world->bodies + bodyIndexB;
-
-	int32_t childA = proxyA->childIndex;
-	int32_t childB = proxyB->childIndex;
-
-#if BP_PAIR_SET == 0
-	// Search contacts on body with the fewest contacts.
-	// TODO_ERIN use hash table
-	int32_t edgeKey;
-	int32_t secondaryBodyIndex;
-	if (bodyA->contactCount < bodyB->contactCount)
-	{
-		edgeKey = bodyA->contactList;
-		secondaryBodyIndex = bodyIndexB;
-	}
-	else
-	{
-		edgeKey = bodyB->contactList;
-		secondaryBodyIndex = bodyIndexA;
-	}
-
-	while (edgeKey != B2_NULL_INDEX)
-	{
-		int32_t contactIndex = edgeKey >> 1;
-		int32_t edgeIndex = edgeKey & 1;
-		int32_t twinIndex = edgeIndex ^ 1;
-
-		b2Contact* contact = world->contacts + contactIndex;
-
-		b2ContactEdge* edge = contact->edges + edgeIndex;
-		b2ContactEdge* twin = contact->edges + twinIndex;
-
-		if (twin->bodyIndex == secondaryBodyIndex)
-		{
-			int32_t sA = contact->shapeIndexA;
-			int32_t sB = contact->shapeIndexB;
-			int32_t cA = contact->childA;
-			int32_t cB = contact->childB;
-
-			if (sA == shapeIndexA && sB == shapeIndexB && cA == childA && cB == childB)
-			{
-				// A contact already exists.
-				return;
-			}
-
-			if (sA == shapeIndexB && sB == shapeIndexB && cA == childB && cB == childA)
-			{
-				// A contact already exists.
-				return;
-			}
-		}
-
-		edgeKey = edge->nextKey;
-	}
-#endif
 
 	// Does a joint override collision? Is at least one body dynamic?
 	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
@@ -163,7 +108,8 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	//}
 	//_Thread_local int test;
 	// test = 1;
-
+	int32_t childA = proxyA->childIndex;
+	int32_t childB = proxyB->childIndex;
 	b2CreateContact(world, shapeA, childA, shapeB, childB);
 }
 
@@ -367,6 +313,20 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2TracyCZoneEnd(collide_task);
 }
 
+static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
+{
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2TracyCZoneNC(tree_task, "Rebuild Trees", b2_colorSnow1, true);
+
+	b2World* world = context;
+	b2BroadPhase_RebuildTrees(&world->broadPhase);
+
+	b2TracyCZoneEnd(tree_task);
+}
+
 static void b2Collide(b2World* world)
 {
 	world->contactPointCount = 0;
@@ -379,6 +339,10 @@ static void b2Collide(b2World* world)
 	}
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
+
+#if B2_REBUILD_TREE == 1
+	b2UpdateTreesTask(0, 0, 0, world);
+#endif
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
@@ -444,6 +408,10 @@ static void b2Collide(b2World* world)
 	}
 
 	b2TracyCZoneEnd(contact_state);
+
+#if B2_REBUILD_TREE == 1
+	b2BroadPhase_SwapTrees(&world->broadPhase);
+#endif
 
 	b2TracyCZoneEnd(collide);
 }

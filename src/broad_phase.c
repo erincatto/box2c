@@ -4,6 +4,8 @@
 #include "broad_phase.h"
 
 #include "allocate.h"
+#include "array.h"
+#include "shape.h"
 #include "box2d/aabb.h"
 #include "box2d/timer.h"
 
@@ -31,11 +33,15 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		bp->trees[i] = b2DynamicTree_Create();
-		bp->rebuildTrees[i] = b2DynamicTree_Create();
 		bp->dirtyFlags[i] = false;
-		bp->proxyMaps[i] = NULL;
-		bp->proxyMapCapacities[i] = 0;
 	}
+	
+	bp->altDynamicTree = b2DynamicTree_Create();
+	bp->altKinematicTree = b2DynamicTree_Create();
+	bp->dynamicProxyMap = NULL;
+	bp->kinematicProxyMap = NULL;
+	bp->dynamicMapCapacity = 0;
+	bp->kinematicMapCapacity = 0;
 }
 
 void b2BroadPhase_Destroy(b2BroadPhase* bp)
@@ -43,9 +49,13 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp)
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Destroy(bp->trees + i);
-		b2DynamicTree_Destroy(bp->rebuildTrees + i);
-		b2Free(bp->proxyMaps[i], bp->proxyMapCapacities[i] * sizeof(struct b2ProxyMap));
 	}
+
+	b2DynamicTree_Destroy(&bp->altDynamicTree);
+	b2DynamicTree_Destroy(&bp->altKinematicTree);
+
+	b2Free(bp->dynamicProxyMap, bp->dynamicMapCapacity * sizeof(struct b2ProxyMap));
+	b2Free(bp->kinematicProxyMap, bp->kinematicMapCapacity * sizeof(struct b2ProxyMap));
 
 	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
 	
@@ -115,15 +125,14 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	}
 }
 
-// TODO_ERIN grow ancestors
-void b2BroadPhase_MoveProxy2(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+void b2BroadPhase_GrowProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	assert(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool buffer = b2DynamicTree_MoveProxy2(bp->trees + typeIndex, proxyId, aabb);
+	bool buffer = b2DynamicTree_GrowProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)
 	{
 		b2BufferMove(bp, proxyKey);
@@ -151,14 +160,12 @@ static bool b2QueryCallback(int32_t proxyId, void* userData, void* context)
 		return true;
 	}
 
-#if BP_PAIR_SET == 1
 	uint64_t pairKey = B2_PROXY_PAIR_KEY(proxyKey, bp->queryProxyKey);
 	if (b2ContainsKey(&bp->pairSet, pairKey))
 	{
 		// contact exists
 		return true;
 	}
-#endif
 
 	void* userDataA;
 	void* userDataB;
@@ -253,12 +260,68 @@ bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t
 	return b2AABB_Overlaps(aabbA, aabbB);
 }
 
-//void b2BroadPhase_RebuildTrees(b2BroadPhase* bp)
-//{
-//
-//}
-//
-//void b2BroadPhase_SwapTrees(b2BroadPhase* bp)
-//{
-//
-//}
+void b2BroadPhase_RebuildTrees(b2BroadPhase* bp)
+{
+	if (bp->dirtyFlags[b2_dynamicBody] == true)
+	{
+		b2DynamicTree_Clone(&bp->altDynamicTree, bp->trees + b2_dynamicBody);
+
+		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_dynamicBody);
+		if (proxyCount > bp->dynamicMapCapacity)
+		{
+			b2Free(bp->dynamicProxyMap, bp->dynamicMapCapacity * sizeof(struct b2ProxyMap));
+			bp->dynamicMapCapacity = B2_MAX(16, bp->dynamicMapCapacity + bp->dynamicMapCapacity / 2);
+			bp->dynamicProxyMap = b2Alloc(bp->dynamicMapCapacity * sizeof(struct b2ProxyMap));
+		}
+
+		b2DynamicTree_RebuildTopDownSAH(&bp->altDynamicTree, bp->dynamicProxyMap);
+
+		// Update proxy keys
+		for (int32_t i = 0; i < proxyCount; ++i)
+		{
+			b2ShapeProxy* proxy = bp->dynamicProxyMap[i].userData;
+			proxy->proxyKey = B2_PROXY_KEY(i, b2_dynamicBody);
+		}
+
+		bp->dirtyFlags[b2_dynamicBody] = false;
+	}
+
+	if (bp->dirtyFlags[b2_kinematicBody] == true)
+	{
+		b2DynamicTree_Clone(&bp->altKinematicTree, bp->trees + b2_kinematicBody);
+
+		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_kinematicBody);
+		if (proxyCount > bp->kinematicMapCapacity)
+		{
+			b2Free(bp->kinematicProxyMap, bp->kinematicMapCapacity * sizeof(struct b2ProxyMap));
+			bp->kinematicMapCapacity = B2_MAX(16, bp->kinematicMapCapacity + bp->kinematicMapCapacity / 2);
+			bp->kinematicProxyMap = b2Alloc(bp->kinematicMapCapacity * sizeof(struct b2ProxyMap));
+		}
+
+		b2DynamicTree_RebuildTopDownSAH(&bp->altKinematicTree, bp->kinematicProxyMap);
+
+		// Update proxy keys
+		for (int32_t i = 0; i < proxyCount; ++i)
+		{
+			b2ShapeProxy* proxy = bp->kinematicProxyMap[i].userData;
+			proxy->proxyKey = B2_PROXY_KEY(i, b2_kinematicBody);
+		}
+
+		bp->dirtyFlags[b2_kinematicBody] = false;
+	}
+}
+
+void b2BroadPhase_SwapTrees(b2BroadPhase* bp)
+{
+	{
+		b2DynamicTree temp = bp->trees[b2_dynamicBody];
+		bp->trees[b2_dynamicBody] = bp->altDynamicTree;
+		bp->altDynamicTree = temp;
+	}
+
+	{
+		b2DynamicTree temp = bp->trees[b2_kinematicBody];
+		bp->trees[b2_kinematicBody] = bp->altKinematicTree;
+		bp->altKinematicTree = temp;
+	}
+}

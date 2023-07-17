@@ -4,6 +4,7 @@
 #include "box2d/dynamic_tree.h"
 
 #include "allocate.h"
+#include "array.h"
 #include "box2d/aabb.h"
 #include "box2d/constants.h"
 
@@ -90,6 +91,39 @@ void b2DynamicTree_Destroy(b2DynamicTree* tree)
 	memset(tree, 0, sizeof(b2DynamicTree));
 }
 
+void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree)
+{
+	if (outTree->nodeCapacity < inTree->nodeCapacity)
+	{
+		b2Free(outTree->nodes, outTree->nodeCapacity * sizeof(b2TreeNode));
+		outTree->nodeCapacity = inTree->nodeCapacity;
+		outTree->nodes = (b2TreeNode*)b2Alloc(outTree->nodeCapacity * sizeof(b2TreeNode));
+	}
+
+	memcpy(outTree->nodes, inTree->nodes, inTree->nodeCapacity * sizeof(b2TreeNode));
+	outTree->root = inTree->root;
+	outTree->nodeCount = inTree->nodeCount;
+	outTree->freeList = inTree->freeList;
+	outTree->proxyCount = inTree->proxyCount;
+
+	// Hook up free list.
+	// TODO_ERIN make this optional?
+	// TODO_ERIN perhaps find tail of existing free list and append
+	int32_t inCapacity = inTree->nodeCapacity;
+	int32_t outCapacity = outTree->nodeCapacity;
+	if (outCapacity > inCapacity)
+	{
+		for (int32_t i = inCapacity; i < outCapacity - 1; ++i)
+		{
+			outTree->nodes[i].next = i + 1;
+			outTree->nodes[i].height = -1;
+		}
+		outTree->nodes[outCapacity - 1].next = outTree->freeList;
+		outTree->nodes[outCapacity - 1].height = -1;
+		outTree->freeList = inCapacity;
+	}
+}
+
 // Allocate a node from the pool. Grow the pool if necessary.
 static int32_t b2AllocateNode(b2DynamicTree* tree)
 {
@@ -119,12 +153,12 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 	}
 
 	// Peel a node off the free list.
-	int32_t nodeId = tree->freeList;
-	b2TreeNode* node = tree->nodes + nodeId;
+	int32_t nodeIndex = tree->freeList;
+	b2TreeNode* node = tree->nodes + nodeIndex;
 	tree->freeList = node->next;
 	*node = b2_defaultTreeNode;
 	++tree->nodeCount;
-	return nodeId;
+	return nodeIndex;
 }
 
 // Return a node to the pool.
@@ -584,7 +618,7 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 	return true;
 }
 
-bool b2DynamicTree_MoveProxy2(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
+bool b2DynamicTree_GrowProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 {
 	b2TreeNode* nodes = tree->nodes;
 
@@ -596,45 +630,27 @@ bool b2DynamicTree_MoveProxy2(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	assert(b2IsLeaf(tree->nodes + proxyId));
 
-	// Extend AABB
+	if (b2AABB_Contains(nodes[proxyId].aabb, aabb))
+	{
+		return false;
+	}
+
 	b2AABB fatAABB;
 	b2Vec2 r = {b2_aabbExtension, b2_aabbExtension};
 	fatAABB.lowerBound = b2Sub(aabb.lowerBound, r);
 	fatAABB.upperBound = b2Add(aabb.upperBound, r);
-
-	b2AABB treeAABB = nodes[proxyId].aabb;
-	if (b2AABB_Contains(treeAABB, aabb))
-	{
-		// The tree AABB still contains the object, but the tree AABB might be too large.
-		// Perhaps the object was moving fast but has since gone to sleep.
-		// The huge AABB is larger than the new fat AABB.
-		b2AABB hugeAABB;
-		hugeAABB.lowerBound = b2MulAdd(fatAABB.lowerBound, -4.0f, r);
-		hugeAABB.upperBound = b2MulAdd(fatAABB.upperBound, 4.0f, r);
-
-		if (b2AABB_Contains(hugeAABB, treeAABB))
-		{
-			// The tree AABB contains the object AABB and the tree AABB is
-			// not too large. No tree update needed.
-			return false;
-		}
-
-		// Otherwise the tree AABB is huge and needs to be shrunk
-	}
-
 	nodes[proxyId].aabb = fatAABB;
 
-	// TODO_ERIN atomics
 	int32_t parentIndex = nodes[proxyId].parent;
 	while (parentIndex != B2_NULL_INDEX)
 	{
-		b2TreeNode* parent = nodes + parentIndex;
-		if (b2AABB_Contains(parent->aabb, fatAABB))
+		bool changed = b2AABB_UnionInPlace(&nodes[parentIndex].aabb, fatAABB);
+		if (changed == false)
 		{
 			break;
 		}
 
-		parent->aabb = b2AABB_Union(parent->aabb, fatAABB);
+		parentIndex = nodes[parentIndex].parent;
 	}
 
 	bool alreadyMoved = tree->nodes[proxyId].moved;
@@ -1273,13 +1289,8 @@ int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree)
 	return tree->proxyCount;
 }
 
-void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* mapArray, int32_t mapCount)
+void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* proxyMap)
 {
-	B2_MAYBE_UNUSED(mapCount);
-	assert(mapCount == tree->proxyCount);
-
-	// need a way to map proxies
-	
 	int32_t proxyCount = tree->proxyCount;
 	int32_t initialCapacity = tree->nodeCapacity;
 	
@@ -1336,7 +1347,7 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* map
 	{
 		b2TreeNode* n = nodes + i;
 		assert(n->userData != NULL);
-		mapArray[i].userData = n->userData;
+		proxyMap[i].userData = n->userData;
 	}
 
 	// Fill free list
