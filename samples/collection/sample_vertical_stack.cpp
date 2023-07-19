@@ -57,7 +57,7 @@ public:
 
 		m_shapeType = e_boxShape;
 		m_rowCount = g_sampleDebug ? 2 : 50;
-		m_columnCount = g_sampleDebug ? 1 : 200;
+		m_columnCount = g_sampleDebug ? 2 : 200;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -111,7 +111,8 @@ public:
 				int32_t n = j * m_rowCount + i;
 
 				float shift = (i % 2 == 0 ? -offset : offset);
-				bd.position = {x + shift, 0.505f + 1.01f * i};
+				//bd.position = {x + shift, 0.505f + 1.01f * i};
+				bd.position = {x + shift, 2.0f + 1.51f * i};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;

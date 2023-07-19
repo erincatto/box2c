@@ -165,6 +165,10 @@ void b2World_DestroyBody(b2BodyId bodyId)
 			world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
 		}
 
+		// Remove pair from set
+		uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
+		b2RemoveKey(&world->broadPhase.pairSet, pairKey);
+
 		b2ContactEdge* edge = contact->edges + edgeIndex;
 		edgeKey = edge->nextKey;
 
@@ -182,10 +186,8 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		// The broad-phase proxies only exist if the body is enabled
 		if (body->isEnabled)
 		{
-			b2Shape_DestroyProxies(shape, &world->broadPhase);
+			b2Shape_DestroyProxy(shape, &world->broadPhase);
 		}
-
-		b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
 
 		b2FreeObject(&world->shapePool, &shape->object);
 	}
@@ -356,16 +358,9 @@ b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Ci
 	shape->circle = *circle;
 	shape->reportContacts = false;
 
-	shape->proxyCount = 1;
-	shape->proxies = (b2ShapeProxy*)b2AllocBlock(w->blockAllocator, sizeof(b2ShapeProxy));
-	shape->proxies[0].aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
-	shape->proxies[0].childIndex = 0;
-	shape->proxies[0].proxyKey = B2_NULL_INDEX;
-	shape->proxies[0].shapeIndex = shape->object.index;
-
 	if (body->isEnabled)
 	{
-		b2Shape_CreateProxies(shape, &w->broadPhase, body->type, body->transform);
+		b2Shape_CreateProxy(shape, &w->broadPhase, body->type, body->transform);
 	}
 
 	// Add to shape linked list
@@ -414,16 +409,9 @@ b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const str
 	shape->polygon = *polygon;
 	shape->reportContacts = false;
 
-	shape->proxyCount = 1;
-	shape->proxies = (b2ShapeProxy*)b2AllocBlock(w->blockAllocator, sizeof(b2ShapeProxy));
-	shape->proxies[0].aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
-	shape->proxies[0].childIndex = 0;
-	shape->proxies[0].proxyKey = B2_NULL_INDEX;
-	shape->proxies[0].shapeIndex = shape->object.index;
-
 	if (body->isEnabled)
 	{
-		b2Shape_CreateProxies(shape, &w->broadPhase, body->type, body->transform);
+		b2Shape_CreateProxy(shape, &w->broadPhase, body->type, body->transform);
 	}
 
 	// Add to shape linked list
@@ -505,10 +493,8 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 
 	if (body->isEnabled)
 	{
-		b2Shape_DestroyProxies(shape, &world->broadPhase);
+		b2Shape_DestroyProxy(shape, &world->broadPhase);
 	}
-
-	b2FreeBlock(world->blockAllocator, shape->proxies, shape->proxyCount * sizeof(b2ShapeProxy));
 
 	b2FreeObject(&world->shapePool, &shape->object);
 

@@ -12,22 +12,8 @@
 #include <string.h>
 
 // A node in the dynamic tree. The client does not interact with this directly.
-// TODO_ERIN
-//union
-//{
-//	void* userData;
-//	struct
-//	{
-//		int32_t child1;
-//		int32_t child2;
-//	} Children;
-//};
-// 43 bytes
-// could be 34
 typedef struct b2TreeNode
 {
-	void* userData; // 8
-
 	// Enlarged AABB
 	b2AABB aabb; // 16
 
@@ -44,6 +30,8 @@ typedef struct b2TreeNode
 	int32_t child1; // 4
 	int32_t child2; // 4
 
+	int32_t userData; // 4
+
 	// leaf = 0, free node = -1
 	// If the height is more than 32k we are in big trouble
 	int16_t height; // 2
@@ -51,7 +39,7 @@ typedef struct b2TreeNode
 	bool moved; // 1
 } b2TreeNode;
 
-static b2TreeNode b2_defaultTreeNode = {NULL, {{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX,
+static b2TreeNode b2_defaultTreeNode = {{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -1,
 										false};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
@@ -410,7 +398,7 @@ static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf)
 	int32_t oldParent = tree->nodes[sibling].parent;
 	int32_t newParent = b2AllocateNode(tree);
 	tree->nodes[newParent].parent = oldParent;
-	tree->nodes[newParent].userData = 0;
+	tree->nodes[newParent].userData = -1;
 	tree->nodes[newParent].aabb = b2AABB_Union(leafAABB, tree->nodes[sibling].aabb);
 	tree->nodes[newParent].categoryBits = tree->nodes[leaf].categoryBits | tree->nodes[sibling].categoryBits;
 	tree->nodes[newParent].height = tree->nodes[sibling].height + 1;
@@ -527,7 +515,7 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 // Create a proxy in the tree as a leaf node. We return the index
 // of the node instead of a pointer so that we can grow
 // the node pool.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData)
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData)
 {
 	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
 	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
@@ -1289,7 +1277,7 @@ int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree)
 	return tree->proxyCount;
 }
 
-void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* proxyMap)
+void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 {
 	int32_t proxyCount = tree->proxyCount;
 	int32_t initialCapacity = tree->nodeCapacity;
@@ -1346,7 +1334,6 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* pro
 	for (int32_t i = 0; i < proxyCount; ++i)
 	{
 		b2TreeNode* n = nodes + i;
-		assert(n->userData != NULL);
 		proxyMap[i].userData = n->userData;
 	}
 
@@ -1372,7 +1359,7 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* pro
 }
 
 // TODO_ERIN test this as inlined
-void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
+int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 {
 	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].userData;

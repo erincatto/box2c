@@ -66,15 +66,12 @@ static void b2DefaultFinishTasksFcn(void* userContext)
 	B2_MAYBE_UNUSED(userContext);
 }
 
-static void b2AddPair(void* userDataA, void* userDataB, void* context)
+static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
 {
 	b2World* world = (b2World*)context;
 
-	b2ShapeProxy* proxyA = (b2ShapeProxy*)userDataA;
-	b2ShapeProxy* proxyB = (b2ShapeProxy*)userDataB;
-
-	int32_t shapeIndexA = proxyA->shapeIndex;
-	int32_t shapeIndexB = proxyB->shapeIndex;
+	assert(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
+	assert(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
 
 	b2Shape* shapeA = world->shapes + shapeIndexA;
 	b2Shape* shapeB = world->shapes + shapeIndexB;
@@ -108,9 +105,7 @@ static void b2AddPair(void* userDataA, void* userDataB, void* context)
 	//}
 	//_Thread_local int test;
 	// test = 1;
-	int32_t childA = proxyA->childIndex;
-	int32_t childB = proxyB->childIndex;
-	b2CreateContact(world, shapeA, childA, shapeB, childB);
+	b2CreateContact(world, shapeA, shapeB);
 }
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
@@ -272,14 +267,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
-		b2Body* bodyA = bodies + shapeA->bodyIndex;
-		b2Body* bodyB = bodies + shapeB->bodyIndex;
-
-		int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
-		int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
+		int32_t proxyKeyA = shapeA->proxyKey;
+		int32_t proxyKeyB = shapeB->proxyKey;
 
 		// Do proxies still overlap?
 		// TODO_ERIN if we keep fat bounding boxes on shapes we don't need to dive into the broadphase here
+		// TODO_ERIN invalid due to tree rebuild!!!!
 		bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
 		if (overlap == false)
 		{
@@ -292,6 +285,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			assert(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
+			b2Body* bodyA = bodies + shapeA->bodyIndex;
+			b2Body* bodyB = bodies + shapeB->bodyIndex;
 			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
@@ -324,6 +319,27 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2World* world = context;
 	b2BroadPhase_RebuildTrees(&world->broadPhase);
 
+#ifdef _DEBUG
+	assert(world->contactPool.count == (int32_t)world->broadPhase.pairSet.count);
+	int32_t contactCapacity = world->contactPool.capacity;
+	b2Contact* contacts = world->contacts;
+	for (int32_t i = 0; i < contactCapacity; ++i)
+	{
+		b2Contact* contact = contacts + i;
+		if (b2ObjectValid(&contact->object) == false)
+		{
+			// on free list
+			continue;
+		}
+
+		int32_t shapeIndexA = contact->shapeIndexA;
+		int32_t shapeIndexB = contact->shapeIndexB;
+
+		uint64_t key = B2_SHAPE_PAIR_KEY(shapeIndexA, shapeIndexB);
+		bool found = b2ContainsKey(&world->broadPhase.pairSet, key);
+		assert(found == true);
+	}
+#endif
 	b2TracyCZoneEnd(tree_task);
 }
 
@@ -410,7 +426,25 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneEnd(contact_state);
 
 #if B2_REBUILD_TREE == 1
-	b2BroadPhase_SwapTrees(&world->broadPhase);
+	b2BroadPhase_SwapTrees(&world->broadPhase, world->shapes);
+	
+#ifdef _DEBUG
+	int32_t shapeCapacity = world->shapePool.capacity;
+	b2Shape* shapes = world->shapes;
+	for (int32_t i = 0; i < shapeCapacity; ++i)
+	{
+		b2Shape* shape = shapes + i;
+		if (b2ObjectValid(&shape->object) == false)
+		{
+			// on free list
+			continue;
+		}
+
+		int32_t userData = b2BroadPhase_GetShapeIndex(&world->broadPhase, shape->proxyKey);
+		assert(userData == i);
+	}
+#endif
+
 #endif
 
 	b2TracyCZoneEnd(collide);
@@ -546,6 +580,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
+	if (timeStep == 0.0f)
+	{
+		// TODO_ERIN would be useful to still process collision while paused
+		return;
+	}
+
 	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
@@ -812,18 +852,14 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
-				for (int32_t j = 0; j < shape->proxyCount; ++j)
-				{
-					b2ShapeProxy* proxy = shape->proxies + j;
-					b2AABB aabb = b2BroadPhase_GetFatAABB(bp, proxy->proxyKey);
+				b2AABB aabb = b2BroadPhase_GetFatAABB(bp, shape->proxyKey);
 
-					b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
-									{aabb.upperBound.x, aabb.lowerBound.y},
-									{aabb.upperBound.x, aabb.upperBound.y},
-									{aabb.lowerBound.x, aabb.upperBound.y}};
+				b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
+								{aabb.upperBound.x, aabb.lowerBound.y},
+								{aabb.upperBound.x, aabb.upperBound.y},
+								{aabb.lowerBound.x, aabb.upperBound.y}};
 
-					draw->DrawPolygon(vs, 4, color, draw->context);
-				}
+				draw->DrawPolygon(vs, 4, color, draw->context);
 
 				shapeIndex = shape->nextShapeIndex;
 			}
@@ -1388,17 +1424,16 @@ typedef struct WorldQueryContext
 	void* userContext;
 } WorldQueryContext;
 
-static bool TreeQueryCallback(int32_t proxyId, void* userData, void* context)
+static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
 {
 	B2_MAYBE_UNUSED(proxyId);
 
-	b2ShapeProxy* proxy = (b2ShapeProxy*)userData;
 	WorldQueryContext* worldContext = (WorldQueryContext*)context;
 	b2World* world = worldContext->world;
 
-	assert(0 <= proxy->shapeIndex && proxy->shapeIndex < world->shapePool.capacity);
+	assert(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
 
-	b2Shape* shape = world->shapes + proxy->shapeIndex;
+	b2Shape* shape = world->shapes + shapeIndex;
 	assert(shape->object.index == shape->object.next);
 
 	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};

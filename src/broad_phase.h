@@ -8,13 +8,8 @@
 
 #define B2_REBUILD_TREE 1
 
-typedef struct b2Pair
-{
-	void* userDataA;
-	void* userDataB;
-} b2Pair;
-
-typedef void b2AddPairFcn(void* userDataA, void* userDataB, void* context);
+typedef struct b2Shape b2Shape;
+typedef void b2AddPairFcn(int32_t shapeIndexA, int32_t shapeIndexB, void* context);
 
 // Store the proxy type in the lower 4 bits of the proxy key. This leaves 28 bits for the id.
 #define B2_PROXY_TYPE(KEY) ((b2BodyType)((KEY)&0xF))
@@ -56,21 +51,21 @@ typedef struct b2BroadPhase
 
 	b2BodyType queryTreeType;
 	int32_t queryProxyKey;
-	void* queryUserData;
+	int32_t queryShapeIndex;
 } b2BroadPhase;
 
 void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext);
 void b2BroadPhase_Destroy(b2BroadPhase* bp);
-int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits,
-								 void* userData);
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex);
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey);
 
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
-
 void b2BroadPhase_GrowProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
 
 void b2BroadPhase_RebuildTrees(b2BroadPhase* bp);
-void b2BroadPhase_SwapTrees(b2BroadPhase* bp);
+void b2BroadPhase_SwapTrees(b2BroadPhase* bp, b2Shape* shapes);
+
+int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey);
 
 void b2BroadPhase_UpdatePairs(b2BroadPhase* bp);
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB);

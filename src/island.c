@@ -1241,14 +1241,7 @@ void b2SolveIsland(b2Island* island)
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
-				for (int32_t j = 0; j < shape->proxyCount; ++j)
-				{
-					b2ShapeProxy* proxy = shape->proxies + j;
-
-					// TODO_ERIN speculate
-					proxy->aabb = b2Shape_ComputeAABB(shape, b->transform, proxy->childIndex);
-				}
-
+				shape->aabb = b2Shape_ComputeAABB(shape, b->transform);
 				shapeIndex = shape->nextShapeIndex;
 			}
 
@@ -1281,16 +1274,11 @@ void b2CompleteIsland(b2Island* island)
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
-			for (int32_t j = 0; j < shape->proxyCount; ++j)
-			{
-				b2ShapeProxy* proxy = shape->proxies + j;
 #if B2_REBUILD_TREE == 1
-				b2BroadPhase_GrowProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			b2BroadPhase_GrowProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
 #else
-				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
 #endif
-			}
-
 			shapeIndex = shape->nextShapeIndex;
 		}
 
@@ -1385,16 +1373,11 @@ void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
-			for (int32_t j = 0; j < shape->proxyCount; ++j)
-			{
-				b2ShapeProxy* proxy = shape->proxies + j;
 #if B2_REBUILD_TREE == 1
-				b2BroadPhase_GrowProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			b2BroadPhase_GrowProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
 #else
-				b2BroadPhase_MoveProxy(&world->broadPhase, proxy->proxyKey, proxy->aabb);
+			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
 #endif
-			}
-
 			shapeIndex = shape->nextShapeIndex;
 		}
 

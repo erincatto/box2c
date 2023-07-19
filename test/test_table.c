@@ -24,7 +24,7 @@ int TableTest()
 		{
 			for (int32_t j = i + 1; j < N; ++j)
 			{
-				uint64_t key = B2_PROXY_PAIR_KEY(i, j);
+				uint64_t key = B2_SHAPE_PAIR_KEY(i, j);
 				b2AddKey(&set, key);
 			}
 		}
@@ -40,7 +40,7 @@ int TableTest()
 			{
 				if (j == i + 1)
 				{
-					uint64_t key = B2_PROXY_PAIR_KEY(i, j);
+					uint64_t key = B2_SHAPE_PAIR_KEY(i, j);
 					b2RemoveKey(&set, key);
 					removed[k++] = true;
 					removeCount += 1;
@@ -68,7 +68,7 @@ int TableTest()
 		{
 			for (int32_t j = i + 1; j < N; ++j)
 			{
-				uint64_t key = B2_PROXY_PAIR_KEY(j, i);
+				uint64_t key = B2_SHAPE_PAIR_KEY(j, i);
 				ENSURE(b2ContainsKey(&set, key) || removed[k]);
 				k += 1;
 			}
@@ -90,7 +90,7 @@ int TableTest()
 		{
 			for (int32_t j = i + 1; j < N; ++j)
 			{
-				uint64_t key = B2_PROXY_PAIR_KEY(i, j);
+				uint64_t key = B2_SHAPE_PAIR_KEY(i, j);
 				b2RemoveKey(&set, key);
 			}
 		}

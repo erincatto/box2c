@@ -68,9 +68,6 @@ typedef struct b2Contact
 	int32_t shapeIndexA;
 	int32_t shapeIndexB;
 
-	int32_t childA;
-	int32_t childB;
-
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
@@ -93,7 +90,7 @@ typedef struct b2Contact
 
 void b2InitializeContactRegisters();
 
-void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
+void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
 
 bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);

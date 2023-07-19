@@ -17,8 +17,8 @@ struct Proxy
 	int32_t queryStamp;
 };
 
-static bool QueryCallback(int32_t proxyId, void* userData, void* context);
-static float RayCallback(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
+static bool QueryCallback(int32_t proxyId, int32_t userData, void* context);
+static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context);
 
 // Tests the Box2D bounding volume hierarchy (BVH). The dynamic tree
 // can be used independently for as a spatial data structure.
@@ -67,7 +67,7 @@ public:
 
 		m_proxyCapacity = m_rowCount * m_columnCount;
 		m_proxies = static_cast<Proxy*>(malloc(m_proxyCapacity * sizeof(Proxy)));
-		m_proxyMap = static_cast<struct b2ProxyMap*>(malloc(m_proxyCapacity * sizeof(struct b2ProxyMap)));
+		m_proxyMap = static_cast<b2ProxyMap*>(malloc(m_proxyCapacity * sizeof(b2ProxyMap)));
 		m_proxyCount = 0;
 
 		float y = -4.0f;
@@ -88,7 +88,7 @@ public:
 					p->startPosition = {x, y};
 					p->box.lowerBound = {x, y};
 					p->box.upperBound = {x + m_wx, y + m_wy};
-					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->box, b2_defaultCategoryBits, p);
+					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->box, b2_defaultCategoryBits, m_proxyCount);
 					p->rayStamp = -1;
 					p->queryStamp = -1;
 					++m_proxyCount;
@@ -143,7 +143,7 @@ public:
 			b2DynamicTree_RebuildTopDownSAH(&m_tree, m_proxyMap);
 			for (int32_t i = 0; i < m_proxyCount; ++i)
 			{
-				Proxy* proxy = static_cast<Proxy*>(m_proxyMap[i].userData);
+				Proxy* proxy = m_proxies + m_proxyMap[i].userData;
 				proxy->proxyId = i;
 			}
 			m_topDown = true;
@@ -285,7 +285,7 @@ public:
 	b2DynamicTree m_tree;
 	int m_rowCount, m_columnCount;
 	Proxy* m_proxies;
-	struct b2ProxyMap* m_proxyMap;
+	b2ProxyMap* m_proxyMap;
 	int m_proxyCapacity;
 	int m_proxyCount;
 	int m_timeStamp;
@@ -303,19 +303,19 @@ public:
 	bool m_topDown;
 };
 
-static bool QueryCallback(int32_t proxyId, void* userData, void* context)
+static bool QueryCallback(int32_t proxyId, int32_t userData, void* context)
 {
 	DynamicTree* sample = static_cast<DynamicTree*>(context);
-	Proxy* proxy = static_cast<Proxy*>(userData);
+	Proxy* proxy = sample->m_proxies + userData;
 	assert(proxy->proxyId == proxyId);
 	proxy->queryStamp = sample->m_timeStamp;
 	return true;
 }
 
-static float RayCallback(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context)
+static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context)
 {
 	DynamicTree* sample = static_cast<DynamicTree*>(context);
-	Proxy* proxy = static_cast<Proxy*>(userData);
+	Proxy* proxy = sample->m_proxies + userData;
 	assert(proxy->proxyId == proxyId);
 	proxy->rayStamp = sample->m_timeStamp;
 	return input->maxFraction;

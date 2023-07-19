@@ -27,6 +27,7 @@ extern "C"
 typedef struct b2DynamicTree
 {
 	struct b2TreeNode* nodes;
+	struct b2TreeProxy* proxies;
 	int32_t root;
 	int32_t nodeCount;
 	int32_t nodeCapacity;
@@ -41,7 +42,7 @@ b2DynamicTree b2DynamicTree_Create();
 void b2DynamicTree_Destroy(b2DynamicTree* tree);
 
 /// Create a proxy. Provide a tight fitting AABB and a userData value.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData);
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData);
 
 /// Destroy a proxy. This asserts if the id is invalid.
 void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
@@ -61,7 +62,7 @@ bool b2DynamicTree_GrowProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
-typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, void* userData, void* context);
+typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, int32_t userData, void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
@@ -78,7 +79,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCall
 /// - return a value of 0 to terminate the ray cast
 /// - return a value less than input->maxFraction to clip the ray
 /// - return a value of input->maxFraction to continue the ray cast without clipping
-typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
+typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context);
 
 /// Ray-cast against the proxies in the tree. This relies on the callback
 /// to perform a exact ray-cast in the case were the proxy contains a shape.
@@ -106,10 +107,10 @@ float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree);
 /// Build an optimal tree. Very expensive. For testing.
 void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
 
-struct b2ProxyMap
+typedef struct b2ProxyMap
 {
-	void* userData;
-};
+	int32_t userData;
+} b2ProxyMap;
 
 /// Get the number of proxies created
 int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
@@ -118,7 +119,7 @@ int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
 /// to the proxy count. This map allows you to update your proxy indices since this operation invalidates the original indices.
 /// See b2DynamicTree_GetProxyCount.
 /// Warning: mapArray must have capacity of at least 
-void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* mapArray);
+void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* mapArray);
 
 /// Shift the world origin. Useful for large worlds.
 /// The shift formula is: position -= newOrigin
@@ -127,7 +128,7 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
 /// Get proxy user data.
 /// @return the proxy user data or 0 if the id is invalid.
-void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId);
+int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId);
 
 bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId);
 

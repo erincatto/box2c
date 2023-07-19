@@ -57,6 +57,11 @@ void* b2Alloc(int32_t size)
 
 void b2Free(void* mem, int32_t size)
 {
+	if (mem == NULL)
+	{
+		return;
+	}
+
 	b2TracyCFree(mem);
 
 	if (b2_freeFcn != NULL)

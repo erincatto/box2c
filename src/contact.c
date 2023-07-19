@@ -32,7 +32,7 @@ static inline float b2MixRestitution(float restitution1, float restitution2)
 	return restitution1 > restitution2 ? restitution1 : restitution2;
 }
 
-typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
 								 b2Transform xfB, b2DistanceCache* cache);
 
 struct b2ContactRegister
@@ -44,26 +44,23 @@ struct b2ContactRegister
 static struct b2ContactRegister s_registers[b2_shapeTypeCount][b2_shapeTypeCount];
 static bool s_initialized = false;
 
-static b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
 								   b2Transform xfB, b2DistanceCache* cache)
 {
-	B2_MAYBE_UNUSED(childIndexA);
 	B2_MAYBE_UNUSED(cache);
 	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB);
 }
 
-static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA,
+static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA,
 											 const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache)
 {
-	B2_MAYBE_UNUSED(childIndexA);
 	B2_MAYBE_UNUSED(cache);
 	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
 }
 
-static b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
 									b2Transform xfB, b2DistanceCache* cache)
 {
-	B2_MAYBE_UNUSED(childIndexA);
 	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
 }
 
@@ -93,7 +90,7 @@ void b2InitializeContactRegisters()
 	}
 }
 
-void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
+void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 {
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
@@ -109,7 +106,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	if (s_registers[type1][type2].primary == false)
 	{
 		// flip order
-		b2CreateContact(world, shapeB, childB, shapeA, childA);
+		b2CreateContact(world, shapeB, shapeA);
 		return;
 	}
 
@@ -126,8 +123,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	contact->shapeIndexA = shapeA->object.index;
 	contact->shapeIndexB = shapeB->object.index;
-	contact->childA = childA;
-	contact->childB = childB;
 	contact->cache = b2_emptyDistanceCache;
 	contact->manifold = b2_emptyManifold;
 	contact->awakeIndex = B2_NULL_INDEX;
@@ -183,20 +178,14 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	}
 
 	// Add to pair set for fast lookup
-	int32_t proxyKeyA = shapeA->proxies[childA].proxyKey;
-	int32_t proxyKeyB = shapeB->proxies[childB].proxyKey;
-	uint64_t pairKey = B2_PROXY_PAIR_KEY(proxyKeyA, proxyKeyB);
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
 	// Remove pair from set
-	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-	b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-	int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
-	int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
-	uint64_t pairKey = B2_PROXY_PAIR_KEY(proxyKeyA, proxyKeyB);
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
 	b2RemoveKey(&world->broadPhase.pairSet, pairKey);
 
 	b2ContactEdge* edgeA = contact->edges + 0;
@@ -280,12 +269,11 @@ bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
 	return collide;
 }
 
-static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transform xfA, const b2Shape* shapeB,
-							   int32_t childB, b2Transform xfB)
+static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	b2DistanceInput input;
-	input.proxyA = b2Shape_MakeDistanceProxy(shapeA, childA);
-	input.proxyB = b2Shape_MakeDistanceProxy(shapeB, childB);
+	input.proxyA = b2Shape_MakeDistanceProxy(shapeA);
+	input.proxyB = b2Shape_MakeDistanceProxy(shapeB);
 	input.transformA = xfA;
 	input.transformB = xfB;
 	input.useRadii = true;
@@ -321,13 +309,10 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	bool sensorB = shapeB->isSensor;
 	bool sensor = sensorA || sensorB;
 
-	int32_t childA = contact->childA;
-	int32_t childB = contact->childB;
-
 	// Is this contact a sensor?
 	if (sensor)
 	{
-		touching = b2TestShapeOverlap(shapeA, childA, bodyA->transform, shapeB, childB, bodyB->transform);
+		touching = b2TestShapeOverlap(shapeA, bodyA->transform, shapeB, bodyB->transform);
 
 		// Sensors don't generate manifolds.
 	}
@@ -336,7 +321,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		contact->manifold = fcn(shapeA, childA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
+		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;
 
