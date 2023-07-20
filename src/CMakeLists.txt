@@ -18,6 +18,8 @@ set(BOX2D_SOURCE_FILES
 	contact.h
 	contact_solver.c
 	contact_solver.h
+	core.c
+	core.h
 	distance.c
 	dynamic_tree.c
 	geometry.c
@@ -86,6 +88,7 @@ set_target_properties(box2d PROPERTIES
 if (MSVC)
 	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
 	# target_compile_options(box2d PRIVATE /W4 /WX)
+	target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

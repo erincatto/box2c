@@ -5,6 +5,7 @@
 
 #include "allocate.h"
 #include "array.h"
+#include "core.h"
 #include "shape.h"
 #include "box2d/aabb.h"
 #include "box2d/timer.h"
@@ -82,7 +83,7 @@ static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 
 int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex)
 {
-	assert(0 <= bodyType && bodyType < b2_bodyTypeCount);
+	B2_ASSERT(0 <= bodyType && bodyType < b2_bodyTypeCount);
 	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex);
 	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
 	b2BufferMove(bp, proxyKey);
@@ -106,7 +107,7 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(0 <= typeIndex && typeIndex <= b2_bodyTypeCount);
+	B2_ASSERT(0 <= typeIndex && typeIndex <= b2_bodyTypeCount);
 	b2DynamicTree_DestroyProxy(bp->trees + typeIndex, proxyId);
 }
 
@@ -115,7 +116,7 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
+	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
 	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)
@@ -130,7 +131,7 @@ void b2BroadPhase_GrowProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
-	assert(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
+	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
 	bool buffer = b2DynamicTree_GrowProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)
@@ -305,7 +306,7 @@ void b2BroadPhase_SwapTrees(b2BroadPhase* bp, b2Shape* shapes)
 		
 		// TODO_ERIN if I store the fat AABB in the shape, I can do this proxy update in the rebuild job
 		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_dynamicBody);
-		assert(proxyCount <= bp->dynamicMapCapacity);
+		B2_ASSERT(proxyCount <= bp->dynamicMapCapacity);
 
 		// Update proxy keys
 		for (int32_t i = 0; i < proxyCount; ++i)
@@ -323,7 +324,7 @@ void b2BroadPhase_SwapTrees(b2BroadPhase* bp, b2Shape* shapes)
 		bp->treeStates[b2_kinematicBody] = b2_treeReady;
 
 		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_dynamicBody);
-		assert(proxyCount <= bp->dynamicMapCapacity);
+		B2_ASSERT(proxyCount <= bp->dynamicMapCapacity);
 
 		// Update proxy keys
 		for (int32_t i = 0; i < proxyCount; ++i)

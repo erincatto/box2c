@@ -5,6 +5,8 @@
 
 #include "allocate.h"
 #include "array.h"
+#include "core.h"
+
 #include "box2d/aabb.h"
 #include "box2d/constants.h"
 
@@ -39,8 +41,7 @@ typedef struct b2TreeNode
 	bool moved; // 1
 } b2TreeNode;
 
-static b2TreeNode b2_defaultTreeNode = {{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -1,
-										false};
+static b2TreeNode b2_defaultTreeNode = {{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -1, false};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {
@@ -118,7 +119,7 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 	// Expand the node pool as needed.
 	if (tree->freeList == B2_NULL_INDEX)
 	{
-		assert(tree->nodeCount == tree->nodeCapacity);
+		B2_ASSERT(tree->nodeCount == tree->nodeCapacity);
 
 		// The free list is empty. Rebuild a bigger pool.
 		b2TreeNode* oldNodes = tree->nodes;
@@ -152,8 +153,8 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 // Return a node to the pool.
 static void b2FreeNode(b2DynamicTree* tree, int32_t nodeId)
 {
-	assert(0 <= nodeId && nodeId < tree->nodeCapacity);
-	assert(0 < tree->nodeCount);
+	B2_ASSERT(0 <= nodeId && nodeId < tree->nodeCapacity);
+	B2_ASSERT(0 < tree->nodeCount);
 	tree->nodes[nodeId].next = tree->freeList;
 	tree->nodes[nodeId].height = -1;
 	tree->freeList = nodeId;
@@ -164,7 +165,7 @@ static void b2FreeNode(b2DynamicTree* tree, int32_t nodeId)
 // Returns the new root index.
 int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
 {
-	assert(iA != B2_NULL_INDEX);
+	B2_ASSERT(iA != B2_NULL_INDEX);
 
 	b2TreeNode* A = tree->nodes + iA;
 	if (b2IsLeaf(A) || A->height < 2)
@@ -174,8 +175,8 @@ int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
 
 	int32_t iB = A->child1;
 	int32_t iC = A->child2;
-	assert(0 <= iB && iB < tree->nodeCapacity);
-	assert(0 <= iC && iC < tree->nodeCapacity);
+	B2_ASSERT(0 <= iB && iB < tree->nodeCapacity);
+	B2_ASSERT(0 <= iC && iC < tree->nodeCapacity);
 
 	b2TreeNode* B = tree->nodes + iB;
 	b2TreeNode* C = tree->nodes + iC;
@@ -189,8 +190,8 @@ int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
 		int32_t iG = C->child2;
 		b2TreeNode* F = tree->nodes + iF;
 		b2TreeNode* G = tree->nodes + iG;
-		assert(0 <= iF && iF < tree->nodeCapacity);
-		assert(0 <= iG && iG < tree->nodeCapacity);
+		B2_ASSERT(0 <= iF && iF < tree->nodeCapacity);
+		B2_ASSERT(0 <= iG && iG < tree->nodeCapacity);
 
 		// Swap A and C
 		C->child1 = iA;
@@ -206,7 +207,7 @@ int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
 			}
 			else
 			{
-				assert(tree->nodes[C->parent].child2 == iA);
+				B2_ASSERT(tree->nodes[C->parent].child2 == iA);
 				tree->nodes[C->parent].child2 = iC;
 			}
 		}
@@ -255,8 +256,8 @@ int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
 		int32_t iE = B->child2;
 		b2TreeNode* D = tree->nodes + iD;
 		b2TreeNode* E = tree->nodes + iE;
-		assert(0 <= iD && iD < tree->nodeCapacity);
-		assert(0 <= iE && iE < tree->nodeCapacity);
+		B2_ASSERT(0 <= iD && iD < tree->nodeCapacity);
+		B2_ASSERT(0 <= iE && iE < tree->nodeCapacity);
 
 		// Swap A and B
 		B->child1 = iA;
@@ -272,7 +273,7 @@ int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
 			}
 			else
 			{
-				assert(tree->nodes[B->parent].child2 == iA);
+				B2_ASSERT(tree->nodes[B->parent].child2 == iA);
 				tree->nodes[B->parent].child2 = iB;
 			}
 		}
@@ -439,8 +440,8 @@ static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf)
 		int32_t child1 = tree->nodes[index].child1;
 		int32_t child2 = tree->nodes[index].child2;
 
-		assert(child1 != B2_NULL_INDEX);
-		assert(child2 != B2_NULL_INDEX);
+		B2_ASSERT(child1 != B2_NULL_INDEX);
+		B2_ASSERT(child2 != B2_NULL_INDEX);
 
 		tree->nodes[index].aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
 		tree->nodes[index].categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
@@ -517,10 +518,10 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 // the node pool.
 int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData)
 {
-	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
-	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
-	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
-	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
 
 	int32_t proxyId = b2AllocateNode(tree);
 	b2TreeNode* node = tree->nodes + proxyId;
@@ -543,25 +544,25 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 
 void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	assert(b2IsLeaf(tree->nodes + proxyId));
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
 	b2RemoveLeaf(tree, proxyId);
 	b2FreeNode(tree, proxyId);
 
-	assert(tree->proxyCount > 0);
+	B2_ASSERT(tree->proxyCount > 0);
 	tree->proxyCount -= 1;
 }
 
 bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 {
-	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
-	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
-	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
-	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
 
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	assert(b2IsLeaf(tree->nodes + proxyId));
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
 	// Extend AABB
 	b2AABB fatAABB;
@@ -610,13 +611,13 @@ bool b2DynamicTree_GrowProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 {
 	b2TreeNode* nodes = tree->nodes;
 
-	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
-	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
-	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
-	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
 
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	assert(b2IsLeaf(tree->nodes + proxyId));
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
 	if (b2AABB_Contains(nodes[proxyId].aabb, aabb))
 	{
@@ -691,7 +692,7 @@ float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree)
 // Compute the height of a sub-tree.
 static int32_t b2ComputeHeight(const b2DynamicTree* tree, int32_t nodeId)
 {
-	assert(0 <= nodeId && nodeId < tree->nodeCapacity);
+	B2_ASSERT(0 <= nodeId && nodeId < tree->nodeCapacity);
 	b2TreeNode* node = tree->nodes + nodeId;
 
 	if (b2IsLeaf(node))
@@ -710,7 +711,7 @@ int32_t b2DynamicTree_ComputeHeight(const b2DynamicTree* tree)
 	return height;
 }
 
-#if defined(_DEBUG)
+#if B2_VALIDATE
 static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 {
 	if (index == B2_NULL_INDEX)
@@ -720,7 +721,7 @@ static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 
 	if (index == tree->root)
 	{
-		assert(tree->nodes[index].parent == B2_NULL_INDEX);
+		B2_ASSERT(tree->nodes[index].parent == B2_NULL_INDEX);
 	}
 
 	const b2TreeNode* node = tree->nodes + index;
@@ -730,17 +731,17 @@ static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 
 	if (b2IsLeaf(node))
 	{
-		assert(child1 == B2_NULL_INDEX);
-		assert(child2 == B2_NULL_INDEX);
-		assert(node->height == 0);
+		B2_ASSERT(child1 == B2_NULL_INDEX);
+		B2_ASSERT(child2 == B2_NULL_INDEX);
+		B2_ASSERT(node->height == 0);
 		return;
 	}
 
-	assert(0 <= child1 && child1 < tree->nodeCapacity);
-	assert(0 <= child2 && child2 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child1 && child1 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child2 && child2 < tree->nodeCapacity);
 
-	assert(tree->nodes[child1].parent == index);
-	assert(tree->nodes[child2].parent == index);
+	B2_ASSERT(tree->nodes[child1].parent == index);
+	B2_ASSERT(tree->nodes[child2].parent == index);
 
 	b2ValidateStructure(tree, child1);
 	b2ValidateStructure(tree, child2);
@@ -760,30 +761,30 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 
 	if (b2IsLeaf(node))
 	{
-		assert(child1 == B2_NULL_INDEX);
-		assert(child2 == B2_NULL_INDEX);
-		assert(node->height == 0);
+		B2_ASSERT(child1 == B2_NULL_INDEX);
+		B2_ASSERT(child2 == B2_NULL_INDEX);
+		B2_ASSERT(node->height == 0);
 		return;
 	}
 
-	assert(0 <= child1 && child1 < tree->nodeCapacity);
-	assert(0 <= child2 && child2 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child1 && child1 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child2 && child2 < tree->nodeCapacity);
 
 	int32_t height1 = tree->nodes[child1].height;
 	int32_t height2 = tree->nodes[child2].height;
 	int32_t height;
 	height = 1 + B2_MAX(height1, height2);
-	assert(node->height == height);
+	B2_ASSERT(node->height == height);
 
 	b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
 
-	assert(aabb.lowerBound.x == node->aabb.lowerBound.x);
-	assert(aabb.lowerBound.y == node->aabb.lowerBound.y);
-	assert(aabb.upperBound.x == node->aabb.upperBound.x);
-	assert(aabb.upperBound.y == node->aabb.upperBound.y);
+	B2_ASSERT(aabb.lowerBound.x == node->aabb.lowerBound.x);
+	B2_ASSERT(aabb.lowerBound.y == node->aabb.lowerBound.y);
+	B2_ASSERT(aabb.upperBound.x == node->aabb.upperBound.x);
+	B2_ASSERT(aabb.upperBound.y == node->aabb.upperBound.y);
 
 	uint32_t categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
-	assert(node->categoryBits == categoryBits);
+	B2_ASSERT(node->categoryBits == categoryBits);
 
 	b2ValidateMetrics(tree, child1);
 	b2ValidateMetrics(tree, child2);
@@ -792,7 +793,7 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 
 void b2DynamicTree_Validate(const b2DynamicTree* tree)
 {
-#if defined(_DEBUG)
+#if B2_VALIDATE
 	b2ValidateStructure(tree, tree->root);
 	b2ValidateMetrics(tree, tree->root);
 
@@ -800,16 +801,16 @@ void b2DynamicTree_Validate(const b2DynamicTree* tree)
 	int32_t freeIndex = tree->freeList;
 	while (freeIndex != B2_NULL_INDEX)
 	{
-		assert(0 <= freeIndex && freeIndex < tree->nodeCapacity);
+		B2_ASSERT(0 <= freeIndex && freeIndex < tree->nodeCapacity);
 		freeIndex = tree->nodes[freeIndex].next;
 		++freeCount;
 	}
 
 	int32_t height = b2DynamicTree_GetHeight(tree);
 	int32_t computedHeight = b2DynamicTree_ComputeHeight(tree);
-	assert(height == computedHeight);
+	B2_ASSERT(height == computedHeight);
 
-	assert(tree->nodeCount + freeCount == tree->nodeCapacity);
+	B2_ASSERT(tree->nodeCount + freeCount == tree->nodeCapacity);
 #else
 	B2_MAYBE_UNUSED(tree);
 #endif
@@ -826,7 +827,7 @@ int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree)
 			continue;
 		}
 
-		assert(b2IsLeaf(node) == false);
+		B2_ASSERT(b2IsLeaf(node) == false);
 
 		int32_t child1 = node->child1;
 		int32_t child2 = node->child2;
@@ -957,7 +958,7 @@ void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_
 			}
 			else
 			{
-				assert(stackCount <= b2_treeStackSize - 2);
+				B2_ASSERT(stackCount <= b2_treeStackSize - 2);
 				// TODO log this?
 
 				if (stackCount <= b2_treeStackSize - 2)
@@ -999,7 +1000,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCall
 			}
 			else
 			{
-				assert(stackCount <= b2_treeStackSize - 2);
+				B2_ASSERT(stackCount <= b2_treeStackSize - 2);
 				// TODO log this?
 
 				if (stackCount <= b2_treeStackSize - 2)
@@ -1079,7 +1080,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 			subInput.maxFraction = maxFraction;
 
 			float value = callback(&subInput, nodeId, node->userData, context);
-			assert(value >= 0.0f);
+			B2_ASSERT(value >= 0.0f);
 
 			if (value == 0.0f)
 			{
@@ -1098,7 +1099,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		}
 		else
 		{
-			assert(stackCount <= b2_treeStackSize - 2);
+			B2_ASSERT(stackCount <= b2_treeStackSize - 2);
 			// TODO log this?
 
 			if (stackCount <= b2_treeStackSize - 2)
@@ -1129,7 +1130,8 @@ typedef struct b2TreePlane
 } b2TreePlane;
 
 // "On Fast Construction of SAH-based Bounding Volume Hierarchies" by Ingo Wald
-static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNode* leaves, int32_t count, b2TreeBin* bins, b2TreePlane* planes)
+static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNode* leaves, int32_t count, b2TreeBin* bins,
+							  b2TreePlane* planes)
 {
 	if (count == 1)
 	{
@@ -1224,7 +1226,7 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 		}
 	}
 
-	assert(tree->nodeCount < tree->nodeCapacity);
+	B2_ASSERT(tree->nodeCount < tree->nodeCapacity);
 	int32_t nodeIndex = tree->nodeCount;
 	b2TreeNode* node = nodes + nodeIndex;
 	*node = b2_defaultTreeNode;
@@ -1281,7 +1283,7 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 {
 	int32_t proxyCount = tree->proxyCount;
 	int32_t initialCapacity = tree->nodeCapacity;
-	
+
 	// Ensure sufficient capacity
 	int32_t requiredCapacity = 2 * proxyCount - 1;
 	if (initialCapacity < 2 * proxyCount - 1)
@@ -1291,7 +1293,7 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 
 		// Additional capacity for next rebuild
 		tree->nodeCapacity = requiredCapacity + requiredCapacity / 2;
-		
+
 		tree->nodes = (b2TreeNode*)b2Alloc(tree->nodeCapacity * sizeof(b2TreeNode));
 		memcpy(tree->nodes, oldNodes, tree->nodeCount * sizeof(b2TreeNode));
 		b2Free(oldNodes, oldCapcity * sizeof(b2TreeNode));
@@ -1312,7 +1314,7 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 			break;
 		}
 
-		assert(nodes[k].height == 0);
+		B2_ASSERT(nodes[k].height == 0);
 		nodes[nodeCount] = nodes[k];
 		nodes[nodeCount].parent = B2_NULL_INDEX;
 		nodes[nodeCount].moved = false;
@@ -1321,7 +1323,7 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 		k += 1;
 	}
 
-	assert(nodeCount == proxyCount);
+	B2_ASSERT(nodeCount == proxyCount);
 	tree->nodeCount = nodeCount;
 
 	b2TreeBin bins[B2_BIN_COUNT];
@@ -1361,34 +1363,34 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 // TODO_ERIN test this as inlined
 int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].userData;
 }
 
 // TODO_ERIN test this as inlined
 bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].moved;
 }
 
 // TODO_ERIN test this as inlined
 void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	tree->nodes[proxyId].moved = false;
 }
 
 // TODO_ERIN test this as inlined
 b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].aabb;
 }
 
 // TODO_ERIN test this as inlined
 uint32_t b2DynamicTree_GetCategoryBits(const b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	return tree->nodes[proxyId].categoryBits;
 }

@@ -29,6 +29,7 @@
 
 #if defined(_WIN32)
 #include <crtdbg.h>
+
 static int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
 					   int lineNumber)
 {
@@ -59,6 +60,12 @@ void* AllocFcn(int32_t size)
 void FreeFcn(void* mem)
 {
 	free(mem);
+}
+
+int AssertFcn(const char* condition, const char* fileName, int lineNumber)
+{
+	printf("SAMPLE ASSERTION: %s, %s, line %d\n", condition, fileName, lineNumber);
+	return 1;
 }
 
 void glfwErrorCallback(int error, const char* description)
@@ -524,6 +531,7 @@ int main(int, char**)
 
 	// Install memory hooks
 	b2SetAllocator(AllocFcn, FreeFcn);
+	Box2DAssertCallback = AssertFcn;
 
 	char buffer[128];
 

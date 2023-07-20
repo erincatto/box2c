@@ -4,16 +4,34 @@
 #include "pool.h"
 
 #include "allocate.h"
+#include "core.h"
 
-#include <assert.h>
+#include "box2d/types.h"
+
 #include <string.h>
 
-#define B2_NULL_INDEX (-1)
-#define B2_VALIDATE 1
+void b2ValidatePool(const b2Pool* pool)
+{
+	int32_t freeCount = 0;
+	int32_t freeIndex = pool->freeList;
+	int32_t objectSize = pool->objectSize;
+	int32_t capacity = pool->capacity;
+
+	while (freeIndex != B2_NULL_INDEX)
+	{
+		B2_ASSERT(0 <= freeIndex && freeIndex < capacity);
+		b2Object* object = (b2Object*)(pool->memory + freeIndex * objectSize);
+		B2_ASSERT(object->next != object->index);
+		freeIndex = object->next;
+		freeCount += 1;
+	}
+
+	B2_ASSERT(freeCount + pool->count == capacity);
+}
 
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 {
-	assert(objectSize >= sizeof(b2Object));
+	B2_ASSERT(objectSize >= sizeof(b2Object));
 
 	b2Pool pool;
 	pool.objectSize = objectSize;
@@ -63,6 +81,7 @@ void b2GrowPool(b2Pool* pool, int32_t capacity)
 	b2Free(pool->memory, oldCapacity * pool->objectSize);
 	pool->memory = newMemory;
 
+	int32_t oldFreeList = pool->freeList;
 	pool->freeList = oldCapacity;
 	for (int32_t i = oldCapacity; i < newCapacity - 1; ++i)
 	{
@@ -75,8 +94,12 @@ void b2GrowPool(b2Pool* pool, int32_t capacity)
 	// Tail of free list
 	b2Object* object = (b2Object*)(pool->memory + (newCapacity - 1) * pool->objectSize);
 	object->index = newCapacity - 1;
-	object->next = B2_NULL_INDEX;
+	object->next = oldFreeList;
 	object->revision = 0;
+
+#if B2_VALIDATE
+	b2ValidatePool(pool);
+#endif
 }
 
 b2Object* b2AllocObject(b2Pool* pool)
@@ -89,6 +112,8 @@ b2Object* b2AllocObject(b2Pool* pool)
 		newObject->revision += 1;
 		pool->freeList = newObject->next;
 		newObject->next = newObject->index;
+		pool->count += 1;
+		return newObject;
 	}
 	else
 	{
@@ -119,17 +144,22 @@ b2Object* b2AllocObject(b2Pool* pool)
 		object->index = newCapacity - 1;
 		object->next = B2_NULL_INDEX;
 		object->revision = 0;
-	}
 
-	pool->count += 1;
-	return newObject;
+		pool->count += 1;
+
+#if B2_VALIDATE
+		b2ValidatePool(pool);
+#endif
+
+		return newObject;
+	}
 }
 
 void b2FreeObject(b2Pool* pool, b2Object* object)
 {
-	assert(pool->memory <= (char*)object && (char*)object < pool->memory + pool->capacity * pool->objectSize);
-	assert(object->index == object->next);
-	assert(object->index < pool->capacity);
+	B2_ASSERT(pool->memory <= (char*)object && (char*)object < pool->memory + pool->capacity * pool->objectSize);
+	B2_ASSERT(object->index == object->next);
+	B2_ASSERT(object->index < pool->capacity);
 
 	object->next = pool->freeList;
 	pool->freeList = object->index;

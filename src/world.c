@@ -9,11 +9,8 @@
 #include "bitset.h"
 #include "block_allocator.h"
 #include "body.h"
-#include "box2d/box2d.h"
-#include "box2d/constants.h"
-#include "box2d/debug_draw.h"
-#include "box2d/timer.h"
 #include "contact.h"
+#include "core.h"
 #include "island.h"
 #include "joint.h"
 #include "pool.h"
@@ -22,10 +19,12 @@
 #include "stack_allocator.h"
 #include "thread.h"
 
-#include <assert.h>
-#include <string.h>
+#include "box2d/box2d.h"
+#include "box2d/constants.h"
+#include "box2d/debug_draw.h"
+#include "box2d/timer.h"
 
-#define B2_VALIDATE 1
+#include <string.h>
 
 b2World g_worlds[b2_maxWorlds];
 bool g_parallel = true;
@@ -40,17 +39,17 @@ typedef struct b2TaskContext
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
-	assert(0 <= id.index && id.index < b2_maxWorlds);
+	B2_ASSERT(0 <= id.index && id.index < b2_maxWorlds);
 	b2World* world = g_worlds + id.index;
-	assert(id.revision == world->revision);
+	B2_ASSERT(id.revision == world->revision);
 	return world;
 }
 
 b2World* b2GetWorldFromIndex(int16_t index)
 {
-	assert(0 <= index && index < b2_maxWorlds);
+	B2_ASSERT(0 <= index && index < b2_maxWorlds);
 	b2World* world = g_worlds + index;
-	assert(world->blockAllocator != NULL);
+	B2_ASSERT(world->blockAllocator != NULL);
 	return world;
 }
 
@@ -70,8 +69,8 @@ static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
 {
 	b2World* world = (b2World*)context;
 
-	assert(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
-	assert(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
+	B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
+	B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
 
 	b2Shape* shapeA = world->shapes + shapeIndexA;
 	b2Shape* shapeB = world->shapes + shapeIndexB;
@@ -234,7 +233,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
 
 	b2World* world = context;
-	assert(threadIndex < world->workerCount);
+	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
 	b2Shape* shapes = world->shapes;
 	b2Body* bodies = world->bodies;
@@ -242,8 +241,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
 
 	B2_MAYBE_UNUSED(awakeCount);
-	assert(startIndex < endIndex);
-	assert(endIndex <= awakeCount);
+	B2_ASSERT(startIndex < endIndex);
+	B2_ASSERT(endIndex <= awakeCount);
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
@@ -255,11 +254,11 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			continue;
 		}
 
-		assert(0 <= contactIndex && contactIndex < world->contactPool.capacity);
+		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
 
-		assert(contact->awakeIndex == awakeIndex);
-		assert(contact->object.index == contactIndex && contact->object.index == contact->object.next);
+		B2_ASSERT(contact->awakeIndex == awakeIndex);
+		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
@@ -282,7 +281,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		else
 		{
 			bool wasTouching = (contact->flags & b2_contactTouchingFlag);
-			assert(wasTouching || contact->islandIndex == B2_NULL_INDEX);
+			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = bodies + shapeA->bodyIndex;
@@ -319,8 +318,8 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2World* world = context;
 	b2BroadPhase_RebuildTrees(&world->broadPhase);
 
-#ifdef _DEBUG
-	assert(world->contactPool.count == (int32_t)world->broadPhase.pairSet.count);
+#if B2_VALIDATE
+	B2_ASSERT(world->contactPool.count == (int32_t)world->broadPhase.pairSet.count);
 	int32_t contactCapacity = world->contactPool.capacity;
 	b2Contact* contacts = world->contacts;
 	for (int32_t i = 0; i < contactCapacity; ++i)
@@ -337,7 +336,7 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 
 		uint64_t key = B2_SHAPE_PAIR_KEY(shapeIndexA, shapeIndexB);
 		bool found = b2ContainsKey(&world->broadPhase.pairSet, key);
-		assert(found == true);
+		B2_ASSERT(found == true);
 	}
 #endif
 	b2TracyCZoneEnd(tree_task);
@@ -357,7 +356,7 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
 #if B2_REBUILD_TREE == 1
-	b2UpdateTreesTask(0, 0, 0, world);
+	world->enqueueTask(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
 #endif
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
@@ -395,7 +394,7 @@ static void b2Collide(b2World* world)
 		{
 			uint32_t ctz = b2CTZ(word);
 			uint32_t awakeIndex = 64 * k + ctz;
-			assert(awakeIndex < (uint32_t)awakeContactCount);
+			B2_ASSERT(awakeIndex < (uint32_t)awakeContactCount);
 
 			int32_t contactIndex = world->awakeContactArray[awakeIndex];
 			b2Contact* contact = world->contacts + contactIndex;
@@ -406,13 +405,13 @@ static void b2Collide(b2World* world)
 			}
 			else if (contact->flags & b2_contactStartedTouching)
 			{
-				assert(contact->islandIndex == B2_NULL_INDEX);
+				B2_ASSERT(contact->islandIndex == B2_NULL_INDEX);
 				b2LinkContact(world, contact);
 				contact->flags &= ~b2_contactStartedTouching;
 			}
 			else
 			{
-				assert(contact->flags & b2_contactStoppedTouching);
+				B2_ASSERT(contact->flags & b2_contactStoppedTouching);
 
 				b2UnlinkContact(world, contact);
 				contact->flags &= ~b2_contactStoppedTouching;
@@ -427,8 +426,8 @@ static void b2Collide(b2World* world)
 
 #if B2_REBUILD_TREE == 1
 	b2BroadPhase_SwapTrees(&world->broadPhase, world->shapes);
-	
-#ifdef _DEBUG
+
+#if B2_VALIDATE
 	int32_t shapeCapacity = world->shapePool.capacity;
 	b2Shape* shapes = world->shapes;
 	for (int32_t i = 0; i < shapeCapacity; ++i)
@@ -441,7 +440,7 @@ static void b2Collide(b2World* world)
 		}
 
 		int32_t userData = b2BroadPhase_GetShapeIndex(&world->broadPhase, shape->proxyKey);
-		assert(userData == i);
+		B2_ASSERT(userData == i);
 	}
 #endif
 
@@ -460,9 +459,9 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32
 
 	b2World* world = taskContext;
 
-	assert(startIndex <= endIndex);
-	assert(startIndex <= b2Array(world->awakeIslandArray).count);
-	assert(endIndex <= b2Array(world->awakeIslandArray).count);
+	B2_ASSERT(startIndex <= endIndex);
+	B2_ASSERT(startIndex <= b2Array(world->awakeIslandArray).count);
+	B2_ASSERT(endIndex <= b2Array(world->awakeIslandArray).count);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
@@ -493,7 +492,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	for (int32_t i = 0; i < count; ++i)
 	{
 		b2Island* island = world->islands + world->awakeIslandArray[i];
-		assert(island->awakeIndex == i);
+		B2_ASSERT(island->awakeIndex == i);
 		islands[i] = island;
 	}
 
@@ -589,7 +588,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
@@ -656,7 +655,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
-	assert(b2GetStackAllocation(world->stackAllocator) == 0);
+	B2_ASSERT(b2GetStackAllocation(world->stackAllocator) == 0);
 
 	// Ensure stack is large enough
 	b2GrowStack(world->stackAllocator);
@@ -715,7 +714,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 	{
 		b2Polygon* poly = &shape->polygon;
 		int32_t count = poly->count;
-		assert(count <= b2_maxPolygonVertices);
+		B2_ASSERT(count <= b2_maxPolygonVertices);
 		b2Vec2 vertices[b2_maxPolygonVertices];
 
 		for (int32_t i = 0; i < count; ++i)
@@ -744,7 +743,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
@@ -896,7 +895,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
@@ -1016,7 +1015,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 
 				b2BodyType typeA = bA->m_type;
 				b2BodyType typeB = bB->m_type;
-				assert(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
+				B2_ASSERT(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
 
 				bool activeA = bA->IsAwake() && typeA != b2_staticBody;
 				bool activeB = bB->IsAwake() && typeB != b2_staticBody;
@@ -1051,7 +1050,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 					bB->m_sweep.Advance(alpha0);
 				}
 
-				assert(alpha0 < 1.0f);
+				B2_ASSERT(alpha0 < 1.0f);
 
 				int32 indexA = c->GetChildIndexA();
 				int32 indexB = c->GetChildIndexB();
@@ -1331,7 +1330,7 @@ float b2World::GetTreeQuality() const
 
 void b2World::ShiftOrigin(const b2Vec2& newOrigin)
 {
-	assert(m_locked == false);
+	B2_ASSERT(m_locked == false);
 	if (m_locked)
 	{
 		return;
@@ -1431,10 +1430,10 @@ static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context
 	WorldQueryContext* worldContext = (WorldQueryContext*)context;
 	b2World* world = worldContext->world;
 
-	assert(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
 
 	b2Shape* shape = world->shapes + shapeIndex;
-	assert(shape->object.index == shape->object.next);
+	B2_ASSERT(shape->object.index == shape->object.next);
 
 	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
@@ -1444,7 +1443,7 @@ static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context
 void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
