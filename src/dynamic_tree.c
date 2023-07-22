@@ -39,10 +39,11 @@ typedef struct b2TreeNode
 	int16_t height; // 2
 
 	bool enlarged; // 1
-	bool moved; // 1
+	bool moved;	   // 1
 } b2TreeNode;
 
-static b2TreeNode b2_defaultTreeNode = {{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false, false};
+static b2TreeNode b2_defaultTreeNode = {
+	{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false, false};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {
@@ -1370,6 +1371,105 @@ void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* proxyMap)
 	b2DynamicTree_Validate(tree);
 }
 
+static int32_t b2PartitionMid(int32_t* indices, b2Vec2* centers, int32_t count)
+{
+	// Handle trivial case
+	if (count <= 2)
+	{
+		return count / 2;
+	}
+
+	b2Vec2 lowerBound = centers[0];
+	b2Vec2 upperBound = centers[0];
+
+	for (int32_t i = 1; i < count; ++i)
+	{
+		lowerBound = b2Min(lowerBound, centers[i]);
+		upperBound = b2Max(upperBound, centers[i]);
+	}
+
+	b2Vec2 d = b2Sub(upperBound, lowerBound);
+	b2Vec2 c = {0.5f * (lowerBound.x + upperBound.x), 0.5f * (lowerBound.y + upperBound.y)};
+
+	// Find longest axis
+	float split;
+	int start = 0, end = count;
+	if (d.x > d.y)
+	{
+		split = c.x;
+
+		while (start < end)
+		{
+			while (start < end && centers[start].x < split)
+				++start;
+
+			while (start < end && centers[end - 1].x >= split)
+				--end;
+
+			if (start < end)
+			{
+				// Swap indices
+				{
+					int32_t temp = indices[start];
+					indices[start] = indices[end - 1];
+					indices[end - 1] = temp;
+				}
+
+				// Swap centers
+				{
+					b2Vec2 temp = centers[start];
+					centers[start] = centers[end - 1];
+					centers[end - 1] = temp;
+				}
+				++start;
+				--end;
+			}
+		}
+	}
+	else
+	{
+		split = c.y;
+
+		while (start < end)
+		{
+			while (start < end && centers[start].y < split)
+				++start;
+
+			while (start < end && centers[end - 1].y >= split)
+				--end;
+
+			if (start < end)
+			{
+				// Swap indices
+				{
+					int32_t temp = indices[start];
+					indices[start] = indices[end - 1];
+					indices[end - 1] = temp;
+				}
+
+				// Swap centers
+				{
+					b2Vec2 temp = centers[start];
+					centers[start] = centers[end - 1];
+					centers[end - 1] = temp;
+				}
+				++start;
+				--end;
+			}
+		}
+	}
+	B2_ASSERT(start == end);
+
+	if (start > 0 && start < count)
+	{
+		return start;
+	}
+	else
+	{
+		return count / 2;
+	}
+}
+
 // Returns the left child count
 static int32_t b2PartitionSAH(int32_t* indices, int32_t* binIndices, b2AABB* boxes, int32_t count)
 {
@@ -1527,8 +1627,11 @@ struct b2TreeStackItem
 
 // "On Fast Construction of SAH-based Bounding Volume Hierarchies" by Ingo Wald
 // Returns root node index
-static int32_t b2BuildTreeSAH(b2DynamicTree* tree, int32_t* leafIndices, b2AABB* leafBoxes, int32_t leafCount)
+static int32_t b2BuildTreeSAH(b2DynamicTree* tree, int32_t* leafIndices, b2AABB* leafBoxes, b2Vec2* leafCenters, int32_t leafCount)
 {
+	B2_MAYBE_UNUSED(leafBoxes);
+	B2_MAYBE_UNUSED(leafCenters);
+
 	b2TreeNode* nodes = tree->nodes;
 
 	if (leafCount == 1)
@@ -1547,12 +1650,13 @@ static int32_t b2BuildTreeSAH(b2DynamicTree* tree, int32_t* leafIndices, b2AABB*
 	stack[0].childCount = -1;
 	stack[0].startIndex = 0;
 	stack[0].endIndex = leafCount;
-	stack[0].splitIndex = b2PartitionSAH(leafIndices, binIndices, leafBoxes, leafCount);
+	//stack[0].splitIndex = b2PartitionSAH(leafIndices, binIndices, leafBoxes, leafCount);
+	stack[0].splitIndex = b2PartitionMid(leafIndices, leafCenters, leafCount);
 
 	while (true)
 	{
 		struct b2TreeStackItem* item = stack + top;
-		
+
 		item->childCount += 1;
 
 		if (item->childCount == 2)
@@ -1646,7 +1750,8 @@ static int32_t b2BuildTreeSAH(b2DynamicTree* tree, int32_t* leafIndices, b2AABB*
 				newItem->childCount = -1;
 				newItem->startIndex = startIndex;
 				newItem->endIndex = endIndex;
-				newItem->splitIndex = b2PartitionSAH(leafIndices + startIndex, binIndices + startIndex, leafBoxes + startIndex, count);
+				//newItem->splitIndex = b2PartitionSAH(leafIndices + startIndex, binIndices + startIndex, leafBoxes + startIndex, count);
+				newItem->splitIndex = b2PartitionMid(leafIndices + startIndex, leafCenters + startIndex, count);
 				newItem->splitIndex += startIndex;
 			}
 		}
@@ -1680,11 +1785,12 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree)
 	// TODO_ERIN b2StackAllocator
 	int32_t* leafIndices = b2Alloc(proxyCount * sizeof(int32_t));
 	b2AABB* leafBoxes = b2Alloc(proxyCount * sizeof(b2AABB));
+	b2Vec2* leafCenters = b2Alloc(proxyCount * sizeof(b2Vec2));
 
 	int32_t leafCount = 0;
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
-	
+
 	int32_t nodeIndex = tree->root;
 	b2TreeNode* nodes = tree->nodes;
 	b2TreeNode* node = nodes + nodeIndex;
@@ -1698,6 +1804,7 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree)
 		{
 			leafIndices[leafCount] = nodeIndex;
 			leafBoxes[leafCount] = node->aabb;
+			leafCenters[leafCount] = b2AABB_Center(node->aabb);
 			leafCount += 1;
 
 			// Detach
@@ -1736,7 +1843,7 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree)
 
 	B2_ASSERT(leafCount <= proxyCount);
 
-	tree->root = b2BuildTreeSAH(tree, leafIndices, leafBoxes, leafCount);
+	tree->root = b2BuildTreeSAH(tree, leafIndices, leafBoxes, leafCenters, leafCount);
 
 	b2DynamicTree_Validate(tree);
 
