@@ -60,7 +60,7 @@ int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB a
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey);
 
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
-void b2BroadPhase_GrowProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb);
 
 void b2BroadPhase_RebuildTrees(b2BroadPhase* bp);
 void b2BroadPhase_SwapTrees(b2BroadPhase* bp, b2Shape* shapes);

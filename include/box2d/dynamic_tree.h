@@ -56,9 +56,11 @@ void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
 /// @return true if the proxy was re-inserted and the moved flag was previously false
 bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
-/// Grow a proxy atomically and inflate ancestors as necessary.
+void b2DynamicTree_ForceMoveProxy(b2DynamicTree* tree, int32_t proxyId);
+
+/// Enlarge a proxy and enlarge ancestors as necessary.
 /// @return true if the internal bounds grew
-bool b2DynamicTree_GrowProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
+bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
@@ -120,6 +122,9 @@ int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
 /// See b2DynamicTree_GetProxyCount.
 /// Warning: mapArray must have capacity of at least 
 void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, b2ProxyMap* mapArray);
+
+/// Rebuild the tree while retaining subtrees that haven't moved. Returns the number of boxes sorted.
+int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree);
 
 /// Shift the world origin. Useful for large worlds.
 /// The shift formula is: position -= newOrigin

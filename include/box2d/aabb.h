@@ -50,9 +50,9 @@ static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 	return c;
 }
 
-/// Union of two AABBs.
+/// Enlarge a to contain b
 /// @return true if the AABB grew
-static inline bool b2AABB_UnionInPlace(b2AABB* a, b2AABB b)
+static inline bool b2AABB_Enlarge(b2AABB* a, b2AABB b)
 {
 	bool changed = false;
 	if (b.lowerBound.x < a->lowerBound.x)

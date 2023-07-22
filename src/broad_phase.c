@@ -126,14 +126,14 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 	}
 }
 
-void b2BroadPhase_GrowProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool buffer = b2DynamicTree_GrowProxy(bp->trees + typeIndex, proxyId, aabb);
+	bool buffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb);
 	if (buffer)
 	{
 		b2BufferMove(bp, proxyKey);

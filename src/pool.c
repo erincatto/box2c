@@ -12,6 +12,7 @@
 
 void b2ValidatePool(const b2Pool* pool)
 {
+#if B2_VALIDATE
 	int32_t freeCount = 0;
 	int32_t freeIndex = pool->freeList;
 	int32_t objectSize = pool->objectSize;
@@ -19,7 +20,7 @@ void b2ValidatePool(const b2Pool* pool)
 
 	while (freeIndex != B2_NULL_INDEX)
 	{
-		B2_ASSERT(0 <= freeIndex && freeIndex < capacity);
+		B2_ASSERT(0 <= freeIndex && freeIndex < pool->capacity);
 		b2Object* object = (b2Object*)(pool->memory + freeIndex * objectSize);
 		B2_ASSERT(object->next != object->index);
 		freeIndex = object->next;
@@ -27,6 +28,9 @@ void b2ValidatePool(const b2Pool* pool)
 	}
 
 	B2_ASSERT(freeCount + pool->count == capacity);
+#else
+	B2_MAYBE_UNUSED(pool);
+#endif
 }
 
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
