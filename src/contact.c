@@ -258,7 +258,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2FreeObject(&world->contactPool, &contact->object);
 }
 
-bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
+bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
 {
 	if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
 	{

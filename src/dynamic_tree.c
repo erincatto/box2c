@@ -466,7 +466,7 @@ static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf)
 		index = tree->nodes[index].parent;
 	}
 
-	// Validate();
+	b2DynamicTree_Validate(tree);
 }
 
 static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
@@ -619,13 +619,13 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, 
 	b2InsertLeaf(tree, proxyId);
 
 	bool alreadyMoved = tree->nodes[proxyId].moved;
-	tree->nodes[proxyId].moved = true;
 
 	if (alreadyMoved)
 	{
 		return false;
 	}
 
+	tree->nodes[proxyId].moved = true;
 	return true;
 }
 
@@ -673,6 +673,14 @@ bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 	}
 
 	*outFatAABB = fatAABB;
+
+	bool alreadyMoved = nodes[proxyId].moved;
+	if (alreadyMoved)
+	{
+		return false;
+	}
+
+	nodes[proxyId].moved = true;
 	return true;
 }
 

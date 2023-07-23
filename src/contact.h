@@ -93,7 +93,7 @@ void b2InitializeContactRegisters();
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
 
-bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);
+bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
 void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
 	b2Body* bodyB);

@@ -27,8 +27,8 @@
 
 #include <string.h>
 
-b2World g_worlds[b2_maxWorlds];
-bool g_parallel = true;
+b2World b2_worlds[b2_maxWorlds];
+bool b2_parallel = true;
 
 // Per thread task storage
 typedef struct b2TaskContext
@@ -41,7 +41,7 @@ typedef struct b2TaskContext
 b2World* b2GetWorldFromId(b2WorldId id)
 {
 	B2_ASSERT(0 <= id.index && id.index < b2_maxWorlds);
-	b2World* world = g_worlds + id.index;
+	b2World* world = b2_worlds + id.index;
 	B2_ASSERT(id.revision == world->revision);
 	return world;
 }
@@ -49,7 +49,7 @@ b2World* b2GetWorldFromId(b2WorldId id)
 b2World* b2GetWorldFromIndex(int16_t index)
 {
 	B2_ASSERT(0 <= index && index < b2_maxWorlds);
-	b2World* world = g_worlds + index;
+	b2World* world = b2_worlds + index;
 	B2_ASSERT(world->blockAllocator != NULL);
 	return world;
 }
@@ -66,6 +66,7 @@ static void b2DefaultFinishTasksFcn(void* userContext)
 	B2_MAYBE_UNUSED(userContext);
 }
 
+#if 0
 static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
 {
 	b2World* world = (b2World*)context;
@@ -82,7 +83,7 @@ static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
 		return;
 	}
 
-	if (b2ShouldCollide(shapeA->filter, shapeB->filter) == false)
+	if (b2ShouldShapesCollide(shapeA->filter, shapeB->filter) == false)
 	{
 		return;
 	}
@@ -93,6 +94,7 @@ static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
 	b2Body* bodyB = world->bodies + bodyIndexB;
 
 	// Does a joint override collision? Is at least one body dynamic?
+	// TODO_ERIN this could be a hash set
 	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
 	{
 		return;
@@ -103,17 +105,17 @@ static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
 	//{
 	//	return;
 	//}
-	//_Thread_local int test;
-	// test = 1;
+
 	b2CreateContact(world, shapeA, shapeB);
 }
+#endif
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	b2WorldId id = b2_nullWorldId;
 	for (int16_t i = 0; i < b2_maxWorlds; ++i)
 	{
-		if (g_worlds[i].blockAllocator == NULL)
+		if (b2_worlds[i].blockAllocator == NULL)
 		{
 			id.index = i;
 			break;
@@ -128,7 +130,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2InitializeContactRegisters();
 
 	b2World empty = {0};
-	b2World* world = g_worlds + id.index;
+	b2World* world = b2_worlds + id.index;
 	*world = empty;
 
 	world->index = id.index;
@@ -136,7 +138,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
-	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
+	b2BroadPhase_Create(&world->broadPhase);
 
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -340,7 +342,7 @@ static void b2Collide(b2World* world)
 		b2SetBitCountAndClear(&world->taskContextArray[i].contactBitSet, awakeContactCount);
 	}
 
-	if (g_parallel)
+	if (b2_parallel)
 	{
 		int32_t minRange = 32;
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
@@ -465,7 +467,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
-	if (g_parallel)
+	if (b2_parallel)
 	{
 		int32_t minRange = 1;
 		world->enqueueTask(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
@@ -521,9 +523,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2FreeStackItem(world->stackAllocator, islands);
 
-	// Look for new contacts
-	b2BroadPhase_UpdatePairs(&world->broadPhase);
-
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
 	b2TracyCZoneEnd(broad_phase);
@@ -553,15 +552,11 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	b2Timer stepTimer = b2CreateTimer();
 
 	// If new shapes were added, we need to find the new contacts.
-	if (world->newContacts)
-	{
-		b2TracyCZoneNC(new_contacts, "New Contacts", b2_colorFuchsia, true);
+	b2TracyCZoneNC(new_contacts, "New Contacts", b2_colorFuchsia, true);
 
-		b2BroadPhase_UpdatePairs(&world->broadPhase);
-		world->newContacts = false;
+	b2BroadPhase_UpdatePairs(world);
 
-		b2TracyCZoneEnd(new_contacts);
-	}
+	b2TracyCZoneEnd(new_contacts);
 
 	// TODO_ERIN atomic
 	world->locked = true;

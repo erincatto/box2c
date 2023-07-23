@@ -5,14 +5,20 @@
 
 #include "allocate.h"
 #include "array.h"
+#include "body.h"
+#include "contact.h"
 #include "core.h"
+#include "shape.h"
+#include "stack_allocator.h"
+#include "world.h"
 
 #include "box2d/aabb.h"
 #include "box2d/timer.h"
 
+#include <stdatomic.h>
 #include <string.h>
 
-void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
+void b2BroadPhase_Create(b2BroadPhase* bp)
 {
 	bp->proxyCount = 0;
 
@@ -21,15 +27,13 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	bp->moveCount = 0;
 	bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
 
+	bp->moveResults = NULL;
+	bp->movePairs = NULL;
+	bp->movePairCapacity = 0;
+	bp->movePairIndex = 0;
+
 	// TODO_ERIN initial size from b2WorldDef
 	bp->pairSet = b2CreateSet(32);
-
-	bp->addPairFcn = fcn;
-	bp->fcnContext = fcnContext;
-
-	bp->queryProxyKey = B2_NULL_INDEX;
-	bp->queryTreeType = b2_dynamicBody;
-	bp->queryShapeIndex = B2_NULL_INDEX;
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
@@ -105,8 +109,8 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, b2A
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
-	if (buffer)
+	bool shouldBuffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
+	if (shouldBuffer)
 	{
 		b2BufferMove(bp, proxyKey);
 	}
@@ -119,34 +123,57 @@ void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, 
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool buffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
-	if (buffer)
+	bool shouldBuffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
+	if (shouldBuffer)
 	{
 		b2BufferMove(bp, proxyKey);
 	}
 }
 
-// This is called from b2DynamicTree::Query when we are gathering pairs.
-static bool b2QueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+typedef struct b2MovePair
 {
-	b2BroadPhase* bp = (b2BroadPhase*)context;
+	int32_t shapeIndexA;
+	int32_t shapeIndexB;
+	b2MovePair* next;
+	bool heap;
+} b2MovePair;
 
-	int32_t proxyKey = B2_PROXY_KEY(proxyId, bp->queryTreeType);
+typedef struct b2MoveResult
+{
+	b2MovePair* pairList;
+} b2MoveResult;
+
+typedef struct b2QueryPairContext
+{
+	b2World* world;
+	b2MoveResult* moveResult;
+	b2BodyType queryTreeType;
+	int32_t queryProxyKey;
+	int32_t queryShapeIndex;
+} b2QueryPairContext;
+
+// This is called from b2DynamicTree::Query when we are gathering pairs.
+static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	b2QueryPairContext* queryContext = context;
+	b2BroadPhase* bp = &queryContext->world->broadPhase;
+
+	int32_t proxyKey = B2_PROXY_KEY(proxyId, queryContext->queryTreeType);
 
 	// A proxy cannot form a pair with itself.
-	if (proxyKey == bp->queryProxyKey)
+	if (proxyKey == queryContext->queryProxyKey)
 	{
 		return true;
 	}
 
-	bool moved = b2DynamicTree_WasMoved(bp->trees + bp->queryTreeType, proxyId);
-	if (moved && proxyKey > bp->queryProxyKey)
+	bool moved = b2DynamicTree_WasMoved(bp->trees + queryContext->queryTreeType, proxyId);
+	if (moved && proxyKey > queryContext->queryProxyKey)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.
 		return true;
 	}
 
-	uint64_t pairKey = B2_SHAPE_PAIR_KEY(shapeIndex, bp->queryShapeIndex);
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(shapeIndex, queryContext->queryShapeIndex);
 	if (b2ContainsKey(&bp->pairSet, pairKey))
 	{
 		// contact exists
@@ -154,30 +181,86 @@ static bool b2QueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
 	}
 
 	int32_t shapeIndexA, shapeIndexB;
-	if (proxyKey < bp->queryProxyKey)
+	if (proxyKey < queryContext->queryProxyKey)
 	{
 		shapeIndexA = shapeIndex;
-		shapeIndexB = bp->queryShapeIndex;
+		shapeIndexB = queryContext->queryShapeIndex;
 	}
 	else
 	{
-		shapeIndexA = bp->queryShapeIndex;
+		shapeIndexA = queryContext->queryShapeIndex;
 		shapeIndexB = shapeIndex;
 	}
 
-	bp->addPairFcn(shapeIndexA, shapeIndexB, bp->fcnContext);
+	b2World* world = queryContext->world;
+
+	B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
+	B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
+
+	b2Shape* shapeA = world->shapes + shapeIndexA;
+	b2Shape* shapeB = world->shapes + shapeIndexB;
+
+	// Are the fixtures on the same body?
+	if (shapeA->bodyIndex == shapeB->bodyIndex)
+	{
+		return true;
+	}
+
+	if (b2ShouldShapesCollide(shapeA->filter, shapeB->filter) == false)
+	{
+		return true;
+	}
+
+	int32_t bodyIndexA = shapeA->bodyIndex;
+	int32_t bodyIndexB = shapeB->bodyIndex;
+	b2Body* bodyA = world->bodies + bodyIndexA;
+	b2Body* bodyB = world->bodies + bodyIndexB;
+
+	// Does a joint override collision? Is at least one body dynamic?
+	// TODO_ERIN this could be a hash set
+	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
+	{
+		return true;
+	}
+
+	int pairIndex = atomic_fetch_add(&bp->movePairIndex, 1);
+
+	b2MovePair* pair;
+	if (pairIndex < bp->movePairCapacity)
+	{
+		pair = bp->movePairs + pairIndex;
+		pair->heap = false;
+	}
+	else
+	{
+		pair = b2Alloc(sizeof(b2MovePair));
+	}
+
+	pair->shapeIndexA = shapeIndexA;
+	pair->shapeIndexB = shapeIndexB;
+	pair->next = queryContext->moveResult->pairList;
+	queryContext->moveResult->pairList = pair;
 
 	// continue the query
 	return true;
 }
 
-// TODO_ERIN these queries could be done in parallel in the island solver. Use a hash table to skip existing pairs.
-// then any truly new pairs can be added in serially when island is completed.
-void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
+void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {
-	// Perform tree queries for all moving proxies. This fills the pair buffer.
-	for (int32_t i = 0; i < bp->moveCount; ++i)
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2World* world = context;
+	b2BroadPhase* bp = &world->broadPhase;
+
+	b2QueryPairContext queryContext;
+	queryContext.world = world;
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
+		// Initialize move result for this moved proxy
+		queryContext.moveResult = bp->moveResults + i;
+		queryContext.moveResult->pairList = NULL;
+
 		int32_t proxyKey = bp->moveBuffer[i];
 		if (proxyKey == B2_NULL_INDEX)
 		{
@@ -187,34 +270,69 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 
 		int32_t proxyType = B2_PROXY_TYPE(proxyKey);
 		int32_t proxyId = B2_PROXY_ID(proxyKey);
-		bp->queryProxyKey = proxyKey;
+		queryContext.queryProxyKey = proxyKey;
 
 		const b2DynamicTree* baseTree = bp->trees + proxyType;
 
 		// We have to query the tree with the fat AABB so that
 		// we don't fail to create a contact that may touch later.
 		b2AABB fatAABB = b2DynamicTree_GetFatAABB(baseTree, proxyId);
-		bp->queryShapeIndex = b2DynamicTree_GetUserData(baseTree, proxyId);
+		queryContext.queryShapeIndex = b2DynamicTree_GetUserData(baseTree, proxyId);
 
-		// Query tree and invoke b2AddPairFcn callback. A callback inside a callback.
-		// TODO_ERIN test with filtering
+		// Query trees
 		if (proxyType == b2_dynamicBody)
 		{
-			bp->queryTreeType = b2_dynamicBody;
-			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2QueryCallback, bp);
-			bp->queryTreeType = b2_kinematicBody;
-			b2DynamicTree_Query(bp->trees + b2_kinematicBody, fatAABB, b2QueryCallback, bp);
-			bp->queryTreeType = b2_staticBody;
-			b2DynamicTree_Query(bp->trees + b2_staticBody, fatAABB, b2QueryCallback, bp);
+			queryContext.queryTreeType = b2_dynamicBody;
+			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
+			queryContext.queryTreeType = b2_kinematicBody;
+			b2DynamicTree_Query(bp->trees + b2_kinematicBody, fatAABB, b2PairQueryCallback, &queryContext);
+			queryContext.queryTreeType = b2_staticBody;
+			b2DynamicTree_Query(bp->trees + b2_staticBody, fatAABB, b2PairQueryCallback, &queryContext);
 		}
 		else if (proxyType == b2_kinematicBody)
 		{
-			bp->queryTreeType = b2_dynamicBody;
-			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2QueryCallback, bp);
+			queryContext.queryTreeType = b2_dynamicBody;
+			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
 		}
 	}
+}
 
-	// Clear move flags
+extern bool b2_parallel;
+
+void b2BroadPhase_UpdatePairs(b2World* world)
+{
+	b2BroadPhase* bp = &world->broadPhase;
+
+	int32_t moveCount = bp->moveCount;
+
+	if (moveCount == 0)
+	{
+		return;
+	}
+
+	b2StackAllocator* alloc = world->stackAllocator;
+
+	bp->moveResults = b2AllocateStackItem(alloc, moveCount * sizeof(b2MoveResult), "move results");
+	bp->movePairCapacity = 8 * moveCount;
+	bp->movePairs = b2AllocateStackItem(alloc, bp->movePairCapacity * sizeof(b2MovePair), "move pairs");
+	bp->movePairIndex = 0;
+
+	if (b2_parallel)
+	{
+		int32_t minRange = 1;
+		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
+		world->finishTasks(world->userTaskContext);
+	}
+	else
+	{
+		b2FindPairsTask(0, moveCount, 0, world);
+	}
+
+	// Single-threaded work
+	// - Clear move flags
+	// - Create contacts in deterministic order
+	b2Shape* shapes = world->shapes;
+
 	for (int32_t i = 0; i < bp->moveCount; ++i)
 	{
 		int32_t proxyKey = bp->moveBuffer[i];
@@ -227,10 +345,44 @@ void b2BroadPhase_UpdatePairs(b2BroadPhase* bp)
 		int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 		b2DynamicTree_ClearMoved(bp->trees + typeIndex, proxyId);
+
+		b2MoveResult* result = bp->moveResults + i;
+		b2MovePair* pair = result->pairList;
+		while (pair != NULL)
+		{
+			// TODO_ERIN Check user filtering.
+			// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
+			//{
+			//	return;
+			//}
+
+			int32_t shapeIndexA = pair->shapeIndexA;
+			int32_t shapeIndexB = pair->shapeIndexB;
+			B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
+			B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
+
+			b2CreateContact(world, shapes + shapeIndexA, shapes + shapeIndexB);
+
+			if (pair->heap)
+			{
+				b2MovePair* temp = pair;
+				pair = pair->next;
+				b2Free(temp, sizeof(b2MovePair));
+			}
+			else
+			{
+				pair = pair->next;
+			}
+		}
 	}
 
 	// Reset move buffer
 	bp->moveCount = 0;
+
+	b2FreeStackItem(alloc, bp->movePairs);
+	bp->movePairs = NULL;
+	b2FreeStackItem(alloc, bp->moveResults);
+	bp->moveResults = NULL;
 }
 
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB)
