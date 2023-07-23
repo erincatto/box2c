@@ -16,6 +16,7 @@
 #include "box2d/timer.h"
 
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <string.h>
 
 void b2BroadPhase_Create(b2BroadPhase* bp)
@@ -37,7 +38,8 @@ void b2BroadPhase_Create(b2BroadPhase* bp)
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
-		bp->trees[i] = b2DynamicTree_Create();
+		bool isStatic = i == b2_staticBody;
+		bp->trees[i] = b2DynamicTree_Create(isStatic);
 	}
 }
 
@@ -75,6 +77,13 @@ int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB a
 								 b2AABB* outFatAABB)
 {
 	B2_ASSERT(0 <= bodyType && bodyType < b2_bodyTypeCount);
+	if (bodyType == b2_staticBody)
+	{
+		int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex, outFatAABB);
+		int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
+		return proxyKey;
+	}
+
 	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex, outFatAABB);
 	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
 	b2BufferMove(bp, proxyKey);
@@ -393,8 +402,10 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 	b2FreeStackItem(alloc, bp->moveResults);
 	bp->moveResults = NULL;
 
+	b2ValidateNoMoved(&world->broadPhase);
+
 	b2TracyCZoneEnd(create_contacts);
-	
+
 	b2TracyCZoneEnd(update_pairs);
 }
 
@@ -428,4 +439,57 @@ void b2ValidateBroadphase(const b2BroadPhase* bp)
 {
 	b2DynamicTree_Validate(bp->trees + b2_dynamicBody);
 	b2DynamicTree_Validate(bp->trees + b2_kinematicBody);
+}
+
+void b2ValidateNoMoved(const b2BroadPhase* bp)
+{
+#if B2_VALIDATE == 1
+	for (int32_t j = 0; j < b2_bodyTypeCount; ++j)
+	{
+		const b2DynamicTree* tree = bp->trees + j;
+		int32_t capacity = tree->nodeCapacity;
+		const b2TreeNode* nodes = tree->nodes;
+		for (int32_t i = 0; i < capacity; ++i)
+		{
+			const b2TreeNode* node = nodes + i;
+			if (node->height < 0)
+			{
+				continue;
+			}
+
+			B2_ASSERT(node->moved == false);
+		}
+	}
+#else
+	B2_MAYBE_UNUSED(bp);
+#endif
+}
+
+void b2ValidateNoEnlarged(const b2BroadPhase* bp)
+{
+#if B2_VALIDATE == 1
+	for (int32_t j = 0; j < b2_bodyTypeCount; ++j)
+	{
+		const b2DynamicTree* tree = bp->trees + j;
+		int32_t capacity = tree->nodeCapacity;
+		const b2TreeNode* nodes = tree->nodes;
+		for (int32_t i = 0; i < capacity; ++i)
+		{
+			const b2TreeNode* node = nodes + i;
+			if (node->height < 0)
+			{
+				continue;
+			}
+
+			if (node->enlarged == true)
+			{
+				capacity += 0;
+			}
+
+			B2_ASSERT(node->enlarged == false);
+		}
+	}
+#else
+	B2_MAYBE_UNUSED(bp);
+#endif
 }

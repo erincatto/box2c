@@ -353,6 +353,8 @@ static void b2Collide(b2World* world)
 		b2CollideTask(0, awakeContactCount, 0, world);
 	}
 
+	b2ValidateNoEnlarged(&world->broadPhase);
+
 	// Serially update contact state
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
 

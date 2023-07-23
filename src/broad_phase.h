@@ -57,6 +57,8 @@ void b2BroadPhase_UpdatePairs(b2World* world);
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB);
 
 void b2ValidateBroadphase(const b2BroadPhase* bp);
+void b2ValidateNoMoved(const b2BroadPhase* bp);
+void b2ValidateNoEnlarged(const b2BroadPhase* bp);
 
 static inline b2AABB b2BroadPhase_GetFatAABB(b2BroadPhase* bp, int32_t proxyKey)
 {

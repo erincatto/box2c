@@ -25,7 +25,7 @@ static inline bool b2IsLeaf(const b2TreeNode* node)
 	return node->child1 == B2_NULL_INDEX;
 }
 
-b2DynamicTree b2DynamicTree_Create()
+b2DynamicTree b2DynamicTree_Create(bool isStatic)
 {
 	b2DynamicTree tree;
 	tree.root = B2_NULL_INDEX;
@@ -52,6 +52,8 @@ b2DynamicTree b2DynamicTree_Create()
 	tree.leafCenters = NULL;
 	tree.binIndices = NULL;
 	tree.rebuildCapacity = 0;
+
+	tree.isStatic = isStatic;
 
 	return tree;
 }
@@ -519,7 +521,7 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 	node->userData = userData;
 	node->categoryBits = categoryBits;
 	node->height = 0;
-	node->moved = true;
+	node->moved = !tree->isStatic;
 	*outFatAABB = node->aabb;
 
 	b2InsertLeaf(tree, proxyId);
@@ -589,6 +591,11 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, 
 
 	b2InsertLeaf(tree, proxyId);
 
+	if (tree->isStatic)
+	{
+		return true;
+	}
+
 	bool alreadyMoved = tree->nodes[proxyId].moved;
 
 	if (alreadyMoved)
@@ -622,7 +629,6 @@ bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 	fatAABB.lowerBound = b2Sub(aabb.lowerBound, r);
 	fatAABB.upperBound = b2Add(aabb.upperBound, r);
 	nodes[proxyId].aabb = fatAABB;
-	nodes[proxyId].enlarged = true;
 
 	int32_t parentIndex = nodes[proxyId].parent;
 	while (parentIndex != B2_NULL_INDEX)
@@ -639,11 +645,22 @@ bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 
 	while (parentIndex != B2_NULL_INDEX)
 	{
+		//if (nodes[parentIndex].enlarged == true)
+		//{
+		//	// early out because this ancestor was previously ascended and marked as enlarged
+		//	break;
+		//}
+
 		nodes[parentIndex].enlarged = true;
 		parentIndex = nodes[parentIndex].parent;
 	}
 
 	*outFatAABB = fatAABB;
+
+	if (tree->isStatic)
+	{
+		return true;
+	}
 
 	bool alreadyMoved = nodes[proxyId].moved;
 	if (alreadyMoved)
@@ -745,6 +762,11 @@ static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 	B2_ASSERT(tree->nodes[child1].parent == index);
 	B2_ASSERT(tree->nodes[child2].parent == index);
 
+	if (tree->nodes[child1].enlarged || tree->nodes[child2].enlarged)
+	{
+		B2_ASSERT(node->enlarged == true);
+	}
+
 	b2ValidateStructure(tree, child1);
 	b2ValidateStructure(tree, child2);
 }
@@ -778,15 +800,15 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 	height = 1 + B2_MAX(height1, height2);
 	B2_ASSERT(node->height == height);
 
-	//b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
+	// b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
 
 	B2_ASSERT(b2AABB_Contains(node->aabb, tree->nodes[child1].aabb));
 	B2_ASSERT(b2AABB_Contains(node->aabb, tree->nodes[child2].aabb));
 
-	//B2_ASSERT(aabb.lowerBound.x == node->aabb.lowerBound.x);
-	//B2_ASSERT(aabb.lowerBound.y == node->aabb.lowerBound.y);
-	//B2_ASSERT(aabb.upperBound.x == node->aabb.upperBound.x);
-	//B2_ASSERT(aabb.upperBound.y == node->aabb.upperBound.y);
+	// B2_ASSERT(aabb.lowerBound.x == node->aabb.lowerBound.x);
+	// B2_ASSERT(aabb.lowerBound.y == node->aabb.lowerBound.y);
+	// B2_ASSERT(aabb.upperBound.x == node->aabb.upperBound.x);
+	// B2_ASSERT(aabb.upperBound.y == node->aabb.upperBound.y);
 
 	uint32_t categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
 	B2_ASSERT(node->categoryBits == categoryBits);
@@ -1396,7 +1418,7 @@ static int32_t b2PartitionSAH(int32_t* indices, int32_t* binIndices, b2AABB* box
 		}
 	}
 	B2_ASSERT(i1 == i2);
-	
+
 	if (i1 > 0 && i1 < count)
 	{
 		return i1;
@@ -1639,7 +1661,6 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
 
 			// Detach
 			node->parent = B2_NULL_INDEX;
-			node->enlarged = false;
 		}
 		else
 		{
@@ -1670,6 +1691,17 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
 		nodeIndex = stack[--stackCount];
 		node = nodes + nodeIndex;
 	}
+
+	#if B2_VALIDATE == 1
+	int32_t capacity = tree->nodeCapacity;
+	for (int32_t i = 0; i < capacity; ++i)
+	{
+		if (nodes[i].height >= 0)
+		{
+			B2_ASSERT(nodes[i].enlarged == false);
+		}
+	}
+	#endif
 
 	B2_ASSERT(leafCount <= proxyCount);
 
