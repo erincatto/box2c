@@ -124,6 +124,7 @@ void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
 	bool shouldBuffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
+
 	if (shouldBuffer)
 	{
 		b2BufferMove(bp, proxyKey);
@@ -247,6 +248,8 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 
 void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {
+	b2TracyCZoneNC(pair_task, "Pair Task", b2_colorAquamarine3, true);
+
 	B2_MAYBE_UNUSED(threadIndex);
 
 	b2World* world = context;
@@ -295,6 +298,8 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
 		}
 	}
+
+	b2TracyCZoneEnd(pair_task);
 }
 
 extern bool b2_parallel;
@@ -310,16 +315,18 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 		return;
 	}
 
+	b2TracyCZoneNC(update_pairs, "Pairs", b2_colorFuchsia, true);
+
 	b2StackAllocator* alloc = world->stackAllocator;
 
 	bp->moveResults = b2AllocateStackItem(alloc, moveCount * sizeof(b2MoveResult), "move results");
-	bp->movePairCapacity = 8 * moveCount;
+	bp->movePairCapacity = 16 * moveCount;
 	bp->movePairs = b2AllocateStackItem(alloc, bp->movePairCapacity * sizeof(b2MovePair), "move pairs");
 	bp->movePairIndex = 0;
 
 	if (b2_parallel)
 	{
-		int32_t minRange = 1;
+		int32_t minRange = 8;
 		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -327,6 +334,8 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 	{
 		b2FindPairsTask(0, moveCount, 0, world);
 	}
+
+	b2TracyCZoneNC(create_contacts, "Create Contacts", b2_colorGold, true);
 
 	// Single-threaded work
 	// - Clear move flags
@@ -383,6 +392,10 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 	bp->movePairs = NULL;
 	b2FreeStackItem(alloc, bp->moveResults);
 	bp->moveResults = NULL;
+
+	b2TracyCZoneEnd(create_contacts);
+	
+	b2TracyCZoneEnd(update_pairs);
 }
 
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB)
@@ -409,4 +422,10 @@ int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey)
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	return b2DynamicTree_GetUserData(bp->trees + typeIndex, proxyId);
+}
+
+void b2ValidateBroadphase(const b2BroadPhase* bp)
+{
+	b2DynamicTree_Validate(bp->trees + b2_dynamicBody);
+	b2DynamicTree_Validate(bp->trees + b2_kinematicBody);
 }

@@ -22,3 +22,5 @@ IncludeCategories:
   - Regex:           '^".*'
     Priority:        1
 
+# this doesn't seem to work
+IndentExternBlock: NoIndent

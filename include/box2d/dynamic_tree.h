@@ -11,10 +11,34 @@
 #define b2_defaultCategoryBits (0x00000001)
 #define b2_defaultMaskBits (0xFFFFFFFF)
 
-#ifdef __cplusplus
-extern "C"
+// A node in the dynamic tree. The client does not interact with this directly.
+typedef struct b2TreeNode
 {
-#endif
+	// Enlarged AABB
+	b2AABB aabb; // 16
+
+	// If we put the most common bits in the first 16 bits, this could be 2 bytes and expanded
+	// to 0xFFFF0000 | bits. Then we get partial culling in the tree traversal.
+	uint32_t categoryBits; // 4
+
+	union
+	{
+		int32_t parent;
+		int32_t next;
+	}; // 4
+
+	int32_t child1; // 4
+	int32_t child2; // 4
+
+	int32_t userData; // 4
+
+	// leaf = 0, free node = -1
+	// If the height is more than 32k we are in big trouble
+	int16_t height; // 2
+
+	bool enlarged; // 1
+	bool moved;	   // 1
+} b2TreeNode;
 
 /// A dynamic AABB tree broad-phase, inspired by Nathanael Presson's btDbvt.
 /// A dynamic tree arranges data in a binary tree to accelerate
@@ -26,7 +50,7 @@ extern "C"
 /// Nodes are pooled and relocatable, so we use node indices rather than pointers.
 typedef struct b2DynamicTree
 {
-	struct b2TreeNode* nodes;
+	b2TreeNode* nodes;
 
 	int32_t root;
 	int32_t nodeCount;
@@ -41,99 +65,119 @@ typedef struct b2DynamicTree
 	int32_t rebuildCapacity;
 } b2DynamicTree;
 
-/// Constructing the tree initializes the node pool.
-b2DynamicTree b2DynamicTree_Create();
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-/// Destroy the tree, freeing the node pool.
-void b2DynamicTree_Destroy(b2DynamicTree* tree);
+	/// Constructing the tree initializes the node pool.
+	b2DynamicTree b2DynamicTree_Create();
 
-/// Create a proxy. Provide a tight fitting AABB and a userData value.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData, b2AABB* outFatAABB);
+	/// Destroy the tree, freeing the node pool.
+	void b2DynamicTree_Destroy(b2DynamicTree* tree);
 
-/// Destroy a proxy. This asserts if the id is invalid.
-void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
+	/// Create a proxy. Provide a tight fitting AABB and a userData value.
+	int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData, b2AABB* outFatAABB);
 
-// Clone one tree to another, reusing storage in the outTree if possible
-void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
+	/// Destroy a proxy. This asserts if the id is invalid.
+	void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
 
-/// Move a proxy to a new AABB. If the proxy has moved outside of its
-/// fattened AABB, then the proxy is removed from the tree and re-inserted.
-/// Otherwise the function returns immediately.
-/// @return true if the proxy was re-inserted and the moved flag was previously false
-bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
+	// Clone one tree to another, reusing storage in the outTree if possible
+	void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
 
-/// Enlarge a proxy and enlarge ancestors as necessary.
-/// @return true if the internal bounds grew
-bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
+	/// Move a proxy to a new AABB. If the proxy has moved outside of its
+	/// fattened AABB, then the proxy is removed from the tree and re-inserted.
+	/// Otherwise the function returns immediately.
+	/// @return true if the proxy was re-inserted and the moved flag was previously false
+	bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
 
-/// This function receives proxies found in the AABB query.
-/// @return true if the query should continue
-typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, int32_t userData, void* context);
+	/// Enlarge a proxy and enlarge ancestors as necessary.
+	/// @return true if the internal bounds grew
+	bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
 
-/// Query an AABB for overlapping proxies. The callback class
-/// is called for each proxy that overlaps the supplied AABB.
-void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
-                         void* context);
+	/// This function receives proxies found in the AABB query.
+	/// @return true if the query should continue
+	typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, int32_t userData, void* context);
 
-/// Query an AABB for overlapping proxies. The callback class
-/// is called for each proxy that overlaps the supplied AABB.
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback,
-                         void* context);
+	/// Query an AABB for overlapping proxies. The callback class
+	/// is called for each proxy that overlaps the supplied AABB.
+	void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
+									 void* context);
 
-/// This function receives clipped raycast input for a proxy. The function
-/// returns the new ray fraction.
-/// - return a value of 0 to terminate the ray cast
-/// - return a value less than input->maxFraction to clip the ray
-/// - return a value of input->maxFraction to continue the ray cast without clipping
-typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context);
+	/// Query an AABB for overlapping proxies. The callback class
+	/// is called for each proxy that overlaps the supplied AABB.
+	void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context);
 
-/// Ray-cast against the proxies in the tree. This relies on the callback
-/// to perform a exact ray-cast in the case were the proxy contains a shape.
-/// The callback also performs the any collision filtering. This has performance
-/// roughly equal to k * log(n), where k is the number of collisions and n is the
-/// number of proxies in the tree.
-/// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
-/// @param callback a callback class that is called for each proxy that is hit by the ray.
-void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
-                           b2TreeRayCastCallbackFcn* callback, void* context);
+	/// This function receives clipped raycast input for a proxy. The function
+	/// returns the new ray fraction.
+	/// - return a value of 0 to terminate the ray cast
+	/// - return a value less than input->maxFraction to clip the ray
+	/// - return a value of input->maxFraction to continue the ray cast without clipping
+	typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context);
 
-/// Validate this tree. For testing.
-void b2DynamicTree_Validate(const b2DynamicTree* tree);
+	/// Ray-cast against the proxies in the tree. This relies on the callback
+	/// to perform a exact ray-cast in the case were the proxy contains a shape.
+	/// The callback also performs the any collision filtering. This has performance
+	/// roughly equal to k * log(n), where k is the number of collisions and n is the
+	/// number of proxies in the tree.
+	/// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
+	/// @param callback a callback class that is called for each proxy that is hit by the ray.
+	void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
+							   b2TreeRayCastCallbackFcn* callback, void* context);
 
-/// Compute the height of the binary tree in O(N) time. Should not be
-/// called often.
-int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree);
+	/// Validate this tree. For testing.
+	void b2DynamicTree_Validate(const b2DynamicTree* tree);
 
-/// Get the maximum balance of the tree. The balance is the difference in height of the two children of a node.
-int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree);
+	/// Compute the height of the binary tree in O(N) time. Should not be
+	/// called often.
+	int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree);
 
-/// Get the ratio of the sum of the node areas to the root area.
-float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree);
+	/// Get the maximum balance of the tree. The balance is the difference in height of the two children of a node.
+	int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree);
 
-/// Build an optimal tree. Very expensive. For testing.
-void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
+	/// Get the ratio of the sum of the node areas to the root area.
+	float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree);
 
-/// Get the number of proxies created
-int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
+	/// Build an optimal tree. Very expensive. For testing.
+	void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
 
-/// Rebuild the tree while retaining subtrees that haven't changed. Returns the number of boxes sorted.
-int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
+	/// Get the number of proxies created
+	int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
 
-/// Shift the world origin. Useful for large worlds.
-/// The shift formula is: position -= newOrigin
-/// @param newOrigin the new origin with respect to the old origin
-void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
+	/// Rebuild the tree while retaining subtrees that haven't changed. Returns the number of boxes sorted.
+	int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
 
-/// Get proxy user data.
-/// @return the proxy user data or 0 if the id is invalid.
-int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId);
+	/// Shift the world origin. Useful for large worlds.
+	/// The shift formula is: position -= newOrigin
+	/// @param newOrigin the new origin with respect to the old origin
+	void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
-bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId);
+	/// Get proxy user data.
+	/// @return the proxy user data or 0 if the id is invalid.
+	static inline int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
+	{
+		return tree->nodes[proxyId].userData;
+	}
 
-void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId);
+	static inline bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId)
+	{
+		return tree->nodes[proxyId].moved;
+	}
 
-/// Get the enlarged (fat) AABB for a proxy.
-b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId);
+	static inline void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId)
+	{
+		tree->nodes[proxyId].moved = false;
+	}
+
+	static inline b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)
+	{
+		return tree->nodes[proxyId].aabb;
+	}
+
+	static inline uint32_t b2DynamicTree_GetCategoryBits(const b2DynamicTree* tree, int32_t proxyId)
+	{
+		return tree->nodes[proxyId].categoryBits;
+	}
 
 #ifdef __cplusplus
 }

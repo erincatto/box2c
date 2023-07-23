@@ -56,6 +56,8 @@ int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey);
 void b2BroadPhase_UpdatePairs(b2World* world);
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB);
 
+void b2ValidateBroadphase(const b2BroadPhase* bp);
+
 static inline b2AABB b2BroadPhase_GetFatAABB(b2BroadPhase* bp, int32_t proxyKey)
 {
 	b2BodyType type = B2_PROXY_TYPE(proxyKey);

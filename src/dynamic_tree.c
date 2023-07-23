@@ -16,35 +16,6 @@
 // TODO_ERIN
 // - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
 
-// A node in the dynamic tree. The client does not interact with this directly.
-typedef struct b2TreeNode
-{
-	// Enlarged AABB
-	b2AABB aabb; // 16
-
-	// If we put the most common bits in the first 16 bits, this could be 2 bytes and expanded
-	// to 0xFFFF0000 | bits. Then we get partial culling in the tree traversal.
-	uint32_t categoryBits; // 4
-
-	union
-	{
-		int32_t parent;
-		int32_t next;
-	}; // 4
-
-	int32_t child1; // 4
-	int32_t child2; // 4
-
-	int32_t userData; // 4
-
-	// leaf = 0, free node = -1
-	// If the height is more than 32k we are in big trouble
-	int16_t height; // 2
-
-	bool enlarged; // 1
-	bool moved;	   // 1
-} b2TreeNode;
-
 static b2TreeNode b2_defaultTreeNode = {
 	{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false, false};
 
@@ -807,12 +778,15 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 	height = 1 + B2_MAX(height1, height2);
 	B2_ASSERT(node->height == height);
 
-	b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
+	//b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
 
-	B2_ASSERT(aabb.lowerBound.x == node->aabb.lowerBound.x);
-	B2_ASSERT(aabb.lowerBound.y == node->aabb.lowerBound.y);
-	B2_ASSERT(aabb.upperBound.x == node->aabb.upperBound.x);
-	B2_ASSERT(aabb.upperBound.y == node->aabb.upperBound.y);
+	B2_ASSERT(b2AABB_Contains(node->aabb, tree->nodes[child1].aabb));
+	B2_ASSERT(b2AABB_Contains(node->aabb, tree->nodes[child2].aabb));
+
+	//B2_ASSERT(aabb.lowerBound.x == node->aabb.lowerBound.x);
+	//B2_ASSERT(aabb.lowerBound.y == node->aabb.lowerBound.y);
+	//B2_ASSERT(aabb.upperBound.x == node->aabb.upperBound.x);
+	//B2_ASSERT(aabb.upperBound.y == node->aabb.upperBound.y);
 
 	uint32_t categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
 	B2_ASSERT(node->categoryBits == categoryBits);
@@ -825,6 +799,11 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 void b2DynamicTree_Validate(const b2DynamicTree* tree)
 {
 #if B2_VALIDATE
+	if (tree->root == B2_NULL_INDEX)
+	{
+		return;
+	}
+
 	b2ValidateStructure(tree, tree->root);
 	b2ValidateMetrics(tree, tree->root);
 
@@ -1699,39 +1678,4 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
 	b2DynamicTree_Validate(tree);
 
 	return leafCount;
-}
-
-// TODO_ERIN test this as inlined
-int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
-{
-	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].userData;
-}
-
-// TODO_ERIN test this as inlined
-bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId)
-{
-	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].moved;
-}
-
-// TODO_ERIN test this as inlined
-void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId)
-{
-	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
-	tree->nodes[proxyId].moved = false;
-}
-
-// TODO_ERIN test this as inlined
-b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)
-{
-	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].aabb;
-}
-
-// TODO_ERIN test this as inlined
-uint32_t b2DynamicTree_GetCategoryBits(const b2DynamicTree* tree, int32_t proxyId)
-{
-	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].categoryBits;
 }

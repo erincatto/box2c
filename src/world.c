@@ -521,6 +521,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		b2FreeObject(&world->islandPool, &baseIsland->object);
 	}
 
+	b2ValidateBroadphase(&world->broadPhase);
+
 	b2FreeStackItem(world->stackAllocator, islands);
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
@@ -551,12 +553,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	b2Timer stepTimer = b2CreateTimer();
 
-	// If new shapes were added, we need to find the new contacts.
-	b2TracyCZoneNC(new_contacts, "New Contacts", b2_colorFuchsia, true);
-
 	b2BroadPhase_UpdatePairs(world);
-
-	b2TracyCZoneEnd(new_contacts);
 
 	// TODO_ERIN atomic
 	world->locked = true;
