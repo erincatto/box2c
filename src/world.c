@@ -19,6 +19,7 @@
 #include "stack_allocator.h"
 #include "thread.h"
 
+#include "box2d/aabb.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"
@@ -266,13 +267,9 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
-		int32_t proxyKeyA = shapeA->proxyKey;
-		int32_t proxyKeyB = shapeB->proxyKey;
 
 		// Do proxies still overlap?
-		// TODO_ERIN if we keep fat bounding boxes on shapes we don't need to dive into the broadphase here
-		// TODO_ERIN invalid due to tree rebuild!!!!
-		bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
+		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
 		if (overlap == false)
 		{
 			contact->flags |= b2_contactDisjoint;
@@ -318,27 +315,6 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2World* world = context;
 	b2BroadPhase_RebuildTrees(&world->broadPhase);
 
-#if B2_VALIDATE
-	B2_ASSERT(world->contactPool.count == (int32_t)world->broadPhase.pairSet.count);
-	int32_t contactCapacity = world->contactPool.capacity;
-	b2Contact* contacts = world->contacts;
-	for (int32_t i = 0; i < contactCapacity; ++i)
-	{
-		b2Contact* contact = contacts + i;
-		if (b2ObjectValid(&contact->object) == false)
-		{
-			// on free list
-			continue;
-		}
-
-		int32_t shapeIndexA = contact->shapeIndexA;
-		int32_t shapeIndexB = contact->shapeIndexB;
-
-		uint64_t key = B2_SHAPE_PAIR_KEY(shapeIndexA, shapeIndexB);
-		bool found = b2ContainsKey(&world->broadPhase.pairSet, key);
-		B2_ASSERT(found == true);
-	}
-#endif
 	b2TracyCZoneEnd(tree_task);
 }
 
@@ -423,28 +399,6 @@ static void b2Collide(b2World* world)
 	}
 
 	b2TracyCZoneEnd(contact_state);
-
-#if B2_REBUILD_TREE == 1
-	b2BroadPhase_SwapTrees(&world->broadPhase, world->shapes);
-
-#if B2_VALIDATE
-	int32_t shapeCapacity = world->shapePool.capacity;
-	b2Shape* shapes = world->shapes;
-	for (int32_t i = 0; i < shapeCapacity; ++i)
-	{
-		b2Shape* shape = shapes + i;
-		if (b2ObjectValid(&shape->object) == false)
-		{
-			// on free list
-			continue;
-		}
-
-		int32_t userData = b2BroadPhase_GetShapeIndex(&world->broadPhase, shape->proxyKey);
-		B2_ASSERT(userData == i);
-	}
-#endif
-
-#endif
 
 	b2TracyCZoneEnd(collide);
 }

@@ -6,7 +6,7 @@
 #include "allocate.h"
 #include "array.h"
 #include "core.h"
-#include "shape.h"
+
 #include "box2d/aabb.h"
 #include "box2d/timer.h"
 
@@ -34,15 +34,7 @@ void b2BroadPhase_Create(b2BroadPhase* bp, b2AddPairFcn* fcn, void* fcnContext)
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		bp->trees[i] = b2DynamicTree_Create();
-		bp->treeStates[i] = b2_treeReady;
 	}
-	
-	bp->altDynamicTree = b2DynamicTree_Create();
-	bp->altKinematicTree = b2DynamicTree_Create();
-	bp->dynamicProxyMap = NULL;
-	bp->kinematicProxyMap = NULL;
-	bp->dynamicMapCapacity = 0;
-	bp->kinematicMapCapacity = 0;
 }
 
 void b2BroadPhase_Destroy(b2BroadPhase* bp)
@@ -52,14 +44,8 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp)
 		b2DynamicTree_Destroy(bp->trees + i);
 	}
 
-	b2DynamicTree_Destroy(&bp->altDynamicTree);
-	b2DynamicTree_Destroy(&bp->altKinematicTree);
-
-	b2Free(bp->dynamicProxyMap, bp->dynamicMapCapacity * sizeof(b2ProxyMap));
-	b2Free(bp->kinematicProxyMap, bp->kinematicMapCapacity * sizeof(b2ProxyMap));
-
 	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
-	
+
 	b2DestroySet(&bp->pairSet);
 
 	memset(bp, 0, sizeof(b2BroadPhase));
@@ -81,10 +67,11 @@ static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 	++bp->moveCount;
 }
 
-int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex)
+int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex,
+								 b2AABB* outFatAABB)
 {
 	B2_ASSERT(0 <= bodyType && bodyType < b2_bodyTypeCount);
-	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex);
+	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex, outFatAABB);
 	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
 	b2BufferMove(bp, proxyKey);
 	return proxyKey;
@@ -111,33 +98,31 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
 	b2DynamicTree_DestroyProxy(bp->trees + typeIndex, proxyId);
 }
 
-void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, b2AABB* outFatAABB)
 {
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb);
+	bool buffer = b2DynamicTree_MoveProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
 	if (buffer)
 	{
 		b2BufferMove(bp, proxyKey);
-		bp->treeStates[typeIndex] = b2_treeDirty;
 	}
 }
 
-void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, b2AABB* outFatAABB)
 {
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool buffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb);
+	bool buffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
 	if (buffer)
 	{
 		b2BufferMove(bp, proxyKey);
-		bp->treeStates[typeIndex] = b2_treeDirty;
 	}
 }
 
@@ -262,77 +247,8 @@ bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t
 
 void b2BroadPhase_RebuildTrees(b2BroadPhase* bp)
 {
-	if (bp->treeStates[b2_dynamicBody] == b2_treeDirty)
-	{
-		b2DynamicTree_Clone(&bp->altDynamicTree, bp->trees + b2_dynamicBody);
-
-		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_dynamicBody);
-		if (proxyCount > bp->dynamicMapCapacity)
-		{
-			b2Free(bp->dynamicProxyMap, bp->dynamicMapCapacity * sizeof(b2ProxyMap));
-			bp->dynamicMapCapacity = B2_MAX(16, proxyCount + proxyCount / 2);
-			bp->dynamicProxyMap = b2Alloc(bp->dynamicMapCapacity * sizeof(b2ProxyMap));
-		}
-
-		b2DynamicTree_RebuildTopDownSAH(&bp->altDynamicTree, bp->dynamicProxyMap);
-		bp->treeStates[b2_dynamicBody] = b2_treeSwap;
-	}
-
-	if (bp->treeStates[b2_kinematicBody] == b2_treeDirty)
-	{
-		b2DynamicTree_Clone(&bp->altKinematicTree, bp->trees + b2_kinematicBody);
-
-		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_kinematicBody);
-		if (proxyCount > bp->kinematicMapCapacity)
-		{
-			b2Free(bp->kinematicProxyMap, bp->kinematicMapCapacity * sizeof(b2ProxyMap));
-			bp->kinematicMapCapacity = B2_MAX(16, proxyCount + proxyCount / 2);
-			bp->kinematicProxyMap = b2Alloc(bp->kinematicMapCapacity * sizeof(b2ProxyMap));
-		}
-
-		b2DynamicTree_RebuildTopDownSAH(&bp->altKinematicTree, bp->kinematicProxyMap);
-		bp->treeStates[b2_kinematicBody] = b2_treeSwap;
-	}
-}
-
-void b2BroadPhase_SwapTrees(b2BroadPhase* bp, b2Shape* shapes)
-{
-	if (bp->treeStates[b2_dynamicBody] == b2_treeSwap)
-	{
-		b2DynamicTree temp = bp->trees[b2_dynamicBody];
-		bp->trees[b2_dynamicBody] = bp->altDynamicTree;
-		bp->altDynamicTree = temp;
-		bp->treeStates[b2_dynamicBody] = b2_treeReady;
-		
-		// TODO_ERIN if I store the fat AABB in the shape, I can do this proxy update in the rebuild job
-		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_dynamicBody);
-		B2_ASSERT(proxyCount <= bp->dynamicMapCapacity);
-
-		// Update proxy keys
-		for (int32_t i = 0; i < proxyCount; ++i)
-		{
-			b2Shape* shape = shapes + bp->dynamicProxyMap[i].userData;
-			shape->proxyKey = B2_PROXY_KEY(i, b2_dynamicBody);
-		}
-	}
-
-	if (bp->treeStates[b2_kinematicBody] == b2_treeSwap)
-	{
-		b2DynamicTree temp = bp->trees[b2_kinematicBody];
-		bp->trees[b2_kinematicBody] = bp->altKinematicTree;
-		bp->altKinematicTree = temp;
-		bp->treeStates[b2_kinematicBody] = b2_treeReady;
-
-		int32_t proxyCount = b2DynamicTree_GetProxyCount(bp->trees + b2_dynamicBody);
-		B2_ASSERT(proxyCount <= bp->dynamicMapCapacity);
-
-		// Update proxy keys
-		for (int32_t i = 0; i < proxyCount; ++i)
-		{
-			b2Shape* shape = shapes + bp->dynamicProxyMap[i].userData;
-			shape->proxyKey = B2_PROXY_KEY(i, b2_dynamicBody);
-		}
-	}
+	b2DynamicTree_Rebuild(bp->trees + b2_dynamicBody, false);
+	b2DynamicTree_Rebuild(bp->trees + b2_kinematicBody, false);
 }
 
 int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey)

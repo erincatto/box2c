@@ -29,6 +29,7 @@ typedef struct b2Shape
 	float restitution;
 
 	b2AABB aabb;
+	b2AABB fatAABB;
 	int32_t proxyKey;
 
 	b2Filter filter;

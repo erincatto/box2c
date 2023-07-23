@@ -1274,9 +1274,9 @@ void b2CompleteIsland(b2Island* island)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
 #if B2_REBUILD_TREE == 1
-			b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
+			b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
 #else
-			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
+			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
 #endif
 			shapeIndex = shape->nextShapeIndex;
 		}
@@ -1373,9 +1373,9 @@ void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
 #if B2_REBUILD_TREE == 1
-			b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
+			b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
 #else
-			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb);
+			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
 #endif
 			shapeIndex = shape->nextShapeIndex;
 		}

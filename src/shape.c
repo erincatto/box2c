@@ -40,7 +40,7 @@ void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Tr
 {
 	// Create proxies in the broad-phase.
 	shape->aabb = b2Shape_ComputeAABB(shape, xf);
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->aabb, shape->filter.categoryBits, shape->object.index);
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->aabb, shape->filter.categoryBits, shape->object.index, &shape->fatAABB);
 	assert(B2_PROXY_TYPE(shape->proxyKey) < b2_bodyTypeCount);
 }
 
