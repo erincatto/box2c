@@ -133,7 +133,6 @@ void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
 	bool shouldBuffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
-
 	if (shouldBuffer)
 	{
 		b2BufferMove(bp, proxyKey);
@@ -335,7 +334,7 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 
 	if (b2_parallel)
 	{
-		int32_t minRange = 8;
+		int32_t minRange = 64;
 		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}

@@ -12,6 +12,7 @@
 #define b2_defaultMaskBits (0xFFFFFFFF)
 
 // A node in the dynamic tree. The client does not interact with this directly.
+// 16 + 16 + 8 + pad(8)
 typedef struct b2TreeNode
 {
 	// Enlarged AABB
@@ -38,6 +39,8 @@ typedef struct b2TreeNode
 
 	bool enlarged; // 1
 	bool moved;	   // 1
+
+	char pad[8];
 } b2TreeNode;
 
 /// A dynamic AABB tree broad-phase, inspired by Nathanael Presson's btDbvt.

@@ -55,7 +55,7 @@ class DynamicTree : public Sample
 		memset(&m_tree, 0, sizeof(m_tree));
 		BuildTree();
 		m_timeStamp = 0;
-		m_updateType = Update_PartialRebuild;
+		m_updateType = Update_Incremental;
 
 		m_startPoint = {0.0f, 0.0f};
 		m_endPoint = {0.0f, 0.0f};

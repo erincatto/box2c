@@ -344,7 +344,8 @@ static void b2Collide(b2World* world)
 
 	if (b2_parallel)
 	{
-		int32_t minRange = 32;
+		// Task should take at least 40us on a 4GHz CPU (10K cycles)
+		int32_t minRange = 64;
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}

@@ -50,7 +50,7 @@ void* b2Alloc(int32_t size)
 		return ptr;
 	}
 
-	void* ptr = malloc(size);
+	void* ptr = _aligned_malloc(size, 16);
 	b2TracyCAlloc(ptr, size);
 	return ptr;
 }
@@ -70,7 +70,7 @@ void b2Free(void* mem, int32_t size)
 	}
 	else
 	{
-		free(mem);
+		_aligned_free(mem);
 	}
 
 	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);

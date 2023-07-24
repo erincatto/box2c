@@ -184,8 +184,6 @@ static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* co
 	b2ValidateIsland(island);
 }
 
-// Wake a persistent island. Contacts do not need to be woken because
-// they save the manifold from when it went to sleep.
 void b2WakeIsland(b2Island* island)
 {
 	b2World* world = island->world;
@@ -1320,7 +1318,7 @@ void b2CompleteIsland(b2Island* island)
 		b2WakeIsland(island);
 
 		// Add awake contacts which may include contacts that are not in an island.
-		// Contacts that don't touch are not in an island.
+		// Contacts that don't touch are not in an island, but they still need to be updated.
 		bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
