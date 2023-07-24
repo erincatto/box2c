@@ -113,7 +113,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
 	world->contacts = (b2Contact*)world->contactPool.memory;
 
-	contact->stepId = 0;
 	contact->flags = b2_contactEnabledFlag;
 
 	if (shapeA->isSensor || shapeB->isSensor)

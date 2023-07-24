@@ -1310,7 +1310,6 @@ void b2CompleteIsland(b2Island* island)
 
 	// Wake island and contacts
 	b2Contact* contacts = world->contacts;
-	uint64_t worldStepId = world->stepId;
 
 	if (island->awakeIndex != B2_NULL_INDEX)
 	{
@@ -1331,12 +1330,11 @@ void b2CompleteIsland(b2Island* island)
 				int32_t edgeIndex = contactKey & 1;
 				b2Contact* contact = contacts + contactIndex;
 
-				// TODO_ERIN could just check awakeIndex?
-				if (contact->stepId < worldStepId)
+				// This contact could have been given an awake index by another island
+				if (contact->awakeIndex == B2_NULL_INDEX)
 				{
 					contact->awakeIndex = b2Array(world->awakeContactArray).count;
 					b2Array_Push(world->awakeContactArray, contactIndex);
-					contact->stepId = worldStepId;
 				}
 				contactKey = contact->edges[edgeIndex].nextKey;
 			}
@@ -1405,7 +1403,6 @@ void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 
 	// Wake island and contacts
 	b2Contact* contacts = world->contacts;
-	uint64_t worldStepId = world->stepId;
 
 	if (isAwake == true)
 	{
@@ -1424,33 +1421,13 @@ void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 				int32_t contactIndex = contactKey >> 1;
 				int32_t edgeIndex = contactKey & 1;
 				b2Contact* contact = contacts + contactIndex;
-				if (contact->stepId < worldStepId)
+
+				// This contact could have been given an awake index by another island
+				if (contact->awakeIndex == B2_NULL_INDEX)
 				{
 					contact->awakeIndex = b2Array(world->awakeContactArray).count;
 					b2Array_Push(world->awakeContactArray, contactIndex);
-					contact->stepId = worldStepId;
 				}
-				contactKey = contact->edges[edgeIndex].nextKey;
-			}
-
-			bodyIndex = b->islandNext;
-		}
-	}
-	else
-	{
-		// Reset awake index on sleeping contacts
-		bodyIndex = island->headBody;
-		while (bodyIndex != B2_NULL_INDEX)
-		{
-			b2Body* b = bodies + bodyIndex;
-
-			int32_t contactKey = b->contactList;
-			while (contactKey != B2_NULL_INDEX)
-			{
-				int32_t contactIndex = contactKey >> 1;
-				int32_t edgeIndex = contactKey & 1;
-				b2Contact* contact = contacts + contactIndex;
-				contact->awakeIndex = B2_NULL_INDEX;
 				contactKey = contact->edges[edgeIndex].nextKey;
 			}
 
