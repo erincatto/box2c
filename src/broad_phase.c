@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "broad_phase.h"
 
 #include "allocate.h"
@@ -19,14 +21,23 @@
 #include <stdbool.h>
 #include <string.h>
 
+//#include <stdio.h>
+
+//static FILE* s_file = NULL;
+
 void b2BroadPhase_Create(b2BroadPhase* bp)
 {
+	//if (s_file == NULL)
+	//{
+	//	s_file = fopen("pairs01.txt", "a");
+	//	fprintf(s_file, "============\n\n");
+	//}
+
 	bp->proxyCount = 0;
 
-	// TODO_ERIN maybe specify initial size in b2WorldDef?
-	bp->moveCapacity = 16;
-	bp->moveCount = 0;
-	bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
+	// TODO_ERIN initial size in b2WorldDef?
+	bp->moveSet = b2CreateSet(16);
+	bp->moveArray = b2CreateArray(sizeof(int32_t), 16);
 
 	bp->moveResults = NULL;
 	bp->movePairs = NULL;
@@ -50,55 +61,56 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp)
 		b2DynamicTree_Destroy(bp->trees + i);
 	}
 
-	b2Free(bp->moveBuffer, bp->moveCapacity * sizeof(int32_t));
-
+	b2DestroySet(&bp->moveSet);
+	b2DestroyArray(bp->moveArray, sizeof(int32_t));
 	b2DestroySet(&bp->pairSet);
 
 	memset(bp, 0, sizeof(b2BroadPhase));
+
+	//if (s_file != NULL)
+	//{
+	//	fclose(s_file);
+	//	s_file = NULL;
+	//}
 }
 
-static void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
+static inline void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 {
-	if (bp->moveCount == bp->moveCapacity)
+	bool alreadyAdded = b2AddKey(&bp->moveSet, proxyKey);
+	if (alreadyAdded == false)
 	{
-		int32_t* oldBuffer = bp->moveBuffer;
-		int32_t oldCapacity = bp->moveCapacity;
-		bp->moveCapacity += bp->moveCapacity >> 1;
-		bp->moveBuffer = (int32_t*)b2Alloc(bp->moveCapacity * sizeof(int32_t));
-		memcpy(bp->moveBuffer, oldBuffer, bp->moveCount * sizeof(int32_t));
-		b2Free(oldBuffer, oldCapacity * sizeof(int32_t));
+		b2Array_Push(bp->moveArray, proxyKey);
 	}
-
-	bp->moveBuffer[bp->moveCount] = proxyKey;
-	++bp->moveCount;
 }
 
 int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex,
 								 b2AABB* outFatAABB)
 {
 	B2_ASSERT(0 <= bodyType && bodyType < b2_bodyTypeCount);
-	if (bodyType == b2_staticBody)
-	{
-		int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex, outFatAABB);
-		int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
-		return proxyKey;
-	}
-
 	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex, outFatAABB);
 	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
-	b2BufferMove(bp, proxyKey);
+	if (bodyType != b2_staticBody)
+	{
+		b2BufferMove(bp, proxyKey);
+	}
 	return proxyKey;
 }
 
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
 {
 	// Purge from move buffer. Linear search.
-	for (int32_t i = 0; i < bp->moveCount; ++i)
+	bool found = b2RemoveKey(&bp->moveSet, proxyKey);
+
+	if (found)
 	{
-		if (bp->moveBuffer[i] == proxyKey)
+		int32_t count = b2Array(bp->moveArray).count;
+		for (int32_t i = 0; i < count; ++i)
 		{
-			bp->moveBuffer[i] = B2_NULL_INDEX;
-			break;
+			if (bp->moveArray[i] == proxyKey)
+			{
+				bp->moveArray[i] = B2_NULL_INDEX;
+				break;
+			}
 		}
 	}
 
@@ -132,11 +144,8 @@ void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, 
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	bool shouldBuffer = b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
-	if (shouldBuffer)
-	{
-		b2BufferMove(bp, proxyKey);
-	}
+	b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
+	b2BufferMove(bp, proxyKey);
 }
 
 typedef struct b2MovePair
@@ -175,7 +184,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	bool moved = b2DynamicTree_WasMoved(bp->trees + queryContext->queryTreeType, proxyId);
+	bool moved = b2ContainsKey(&bp->moveSet, proxyKey);
 	if (moved && proxyKey > queryContext->queryProxyKey)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.
@@ -272,7 +281,7 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 		queryContext.moveResult = bp->moveResults + i;
 		queryContext.moveResult->pairList = NULL;
 
-		int32_t proxyKey = bp->moveBuffer[i];
+		int32_t proxyKey = bp->moveArray[i];
 		if (proxyKey == B2_NULL_INDEX)
 		{
 			// proxy was destroyed after it moved
@@ -316,7 +325,8 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 {
 	b2BroadPhase* bp = &world->broadPhase;
 
-	int32_t moveCount = bp->moveCount;
+	int32_t moveCount = b2Array(bp->moveArray).count;
+	B2_ASSERT(moveCount == (int32_t)bp->moveSet.count);
 
 	if (moveCount == 0)
 	{
@@ -334,7 +344,8 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 
 	if (b2_parallel)
 	{
-		int32_t minRange = 64;
+		// TODO_ERIN should be 64
+		int32_t minRange = 1;
 		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -350,19 +361,10 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 	// - Create contacts in deterministic order
 	b2Shape* shapes = world->shapes;
 
-	for (int32_t i = 0; i < bp->moveCount; ++i)
+	//int32_t pairCount = 0;
+
+	for (int32_t i = 0; i < moveCount; ++i)
 	{
-		int32_t proxyKey = bp->moveBuffer[i];
-		if (proxyKey == B2_NULL_INDEX)
-		{
-			continue;
-		}
-
-		int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
-		int32_t proxyId = B2_PROXY_ID(proxyKey);
-
-		b2DynamicTree_ClearMoved(bp->trees + typeIndex, proxyId);
-
 		b2MoveResult* result = bp->moveResults + i;
 		b2MovePair* pair = result->pairList;
 		while (pair != NULL)
@@ -375,6 +377,14 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 
 			int32_t shapeIndexA = pair->shapeIndexA;
 			int32_t shapeIndexB = pair->shapeIndexB;
+
+			//if (s_file != NULL)
+			//{
+			//	fprintf(s_file, "%d %d\n", shapeIndexA, shapeIndexB);
+			//}
+
+			//++pairCount;
+
 			B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
 			B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
 
@@ -391,17 +401,28 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 				pair = pair->next;
 			}
 		}
+
+		//if (s_file != NULL)
+		//{
+		//	fprintf(s_file, "\n");
+		//}
 	}
 
+	//if (s_file != NULL)
+	//{
+	//	fprintf(s_file, "count = %d\n\n", pairCount);
+	//}
+
 	// Reset move buffer
-	bp->moveCount = 0;
+	b2Array_Clear(bp->moveArray);
+	b2ClearSet(&bp->moveSet);
 
 	b2FreeStackItem(alloc, bp->movePairs);
 	bp->movePairs = NULL;
 	b2FreeStackItem(alloc, bp->moveResults);
 	bp->moveResults = NULL;
 
-	b2ValidateNoMoved(&world->broadPhase);
+	//b2ValidateNoMoved(&world->broadPhase);
 
 	b2TracyCZoneEnd(create_contacts);
 
@@ -438,30 +459,6 @@ void b2ValidateBroadphase(const b2BroadPhase* bp)
 {
 	b2DynamicTree_Validate(bp->trees + b2_dynamicBody);
 	b2DynamicTree_Validate(bp->trees + b2_kinematicBody);
-}
-
-void b2ValidateNoMoved(const b2BroadPhase* bp)
-{
-#if B2_VALIDATE == 1
-	for (int32_t j = 0; j < b2_bodyTypeCount; ++j)
-	{
-		const b2DynamicTree* tree = bp->trees + j;
-		int32_t capacity = tree->nodeCapacity;
-		const b2TreeNode* nodes = tree->nodes;
-		for (int32_t i = 0; i < capacity; ++i)
-		{
-			const b2TreeNode* node = nodes + i;
-			if (node->height < 0)
-			{
-				continue;
-			}
-
-			B2_ASSERT(node->moved == false);
-		}
-	}
-#else
-	B2_MAYBE_UNUSED(bp);
-#endif
 }
 
 void b2ValidateNoEnlarged(const b2BroadPhase* bp)

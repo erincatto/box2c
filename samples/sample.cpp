@@ -269,6 +269,7 @@ void Sample::Step(Settings& settings)
 	{
 		b2Profile p = b2World_GetProfile(m_worldId);
 		m_maxProfile.step = B2_MAX(m_maxProfile.step, p.step);
+		m_maxProfile.pairs = B2_MAX(m_maxProfile.pairs, p.pairs);
 		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p.collide);
 		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
 		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
@@ -276,6 +277,7 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 
 		m_totalProfile.step += p.step;
+		m_totalProfile.pairs += p.pairs;
 		m_totalProfile.collide += p.collide;
 		m_totalProfile.solve += p.solve;
 		m_totalProfile.buildIslands += p.buildIslands;
@@ -293,6 +295,7 @@ void Sample::Step(Settings& settings)
 		{
 			float scale = 1.0f / m_stepCount;
 			aveProfile.step = scale * m_totalProfile.step;
+			aveProfile.pairs = scale * m_totalProfile.pairs;
 			aveProfile.collide = scale * m_totalProfile.collide;
 			aveProfile.solve = scale * m_totalProfile.solve;
 			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
@@ -301,6 +304,9 @@ void Sample::Step(Settings& settings)
 		}
 
 		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs,
+						  m_maxProfile.pairs);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);

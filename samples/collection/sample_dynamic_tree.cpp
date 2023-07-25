@@ -87,7 +87,7 @@ class DynamicTree : public Sample
 		float y = -4.0f;
 
 		bool isStatic = false;
-		m_tree = b2DynamicTree_Create(isStatic);
+		m_tree = b2DynamicTree_Create();
 
 		for (int i = 0; i < m_rowCount; ++i)
 		{

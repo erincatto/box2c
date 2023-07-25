@@ -69,15 +69,6 @@ b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def)
 	return solver;
 }
 
-void b2DestroyContactSolver(b2ContactSolver* solver)
-{
-	b2StackAllocator* alloc = solver->world->stackAllocator;
-
-	b2FreeStackItem(alloc, solver->velocityConstraints);
-	b2FreeStackItem(alloc, solver->positionConstraints);
-	b2FreeStackItem(alloc, solver);
-}
-
 void b2ContactSolver_Initialize(b2ContactSolver* solver)
 {
 	b2World* world = solver->world;

@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "allocate.h"
 #include "table.h"
+
+#include "allocate.h"
+#include "core.h"
+
 #include "box2d/types.h"
 
-#include <assert.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -52,7 +54,6 @@ b2Set b2CreateSet(int32_t capacity)
 	}
 
 	set.count = 0;
-	
 	set.items = b2Alloc(capacity * sizeof(b2SetItem));
 	memset(set.items, 0, capacity * sizeof(b2SetItem));
 
@@ -65,6 +66,12 @@ void b2DestroySet(b2Set* set)
 	set->items = NULL;
 	set->count = 0;
 	set->capacity = 0;
+}
+
+void b2ClearSet(b2Set* set)
+{
+	set->count = 0;
+	memset(set->items, 0, set->capacity * sizeof(b2SetItem));
 }
 
 // I need a good hash because the keys are built from pairs of increasing integers.
@@ -108,7 +115,7 @@ static void b2AddKeyHaveCapacity(b2Set* set, uint64_t key, uint32_t hash)
 {
 	int32_t index = b2FindSlot(set, key, hash);
 	b2SetItem* items = set->items;
-	assert(items[index].hash == 0);
+	B2_ASSERT(items[index].hash == 0);
 
 	items[index].key = key;
 	items[index].hash = hash;
@@ -122,7 +129,7 @@ static void b2GrowTable(b2Set* set)
 
 	uint32_t oldCapacity = set->capacity;
 	b2SetItem* oldItems = set->items;
-	
+
 	set->count = 0;
 	// Capacity must be a power of 2
 	set->capacity = 2 * oldCapacity;
@@ -142,7 +149,7 @@ static void b2GrowTable(b2Set* set)
 		b2AddKeyHaveCapacity(set, item->key, item->hash);
 	}
 
-	assert(set->count == oldCount);
+	B2_ASSERT(set->count == oldCount);
 
 	b2Free(oldItems, oldCapacity * sizeof(b2SetItem));
 }
@@ -154,16 +161,15 @@ bool b2ContainsKey(const b2Set* set, uint64_t key)
 	return set->items[index].key == key;
 }
 
-// TODO_ERIN assert on double add?
-void b2AddKey(b2Set* set, uint64_t key)
+bool b2AddKey(b2Set* set, uint64_t key)
 {
 	uint32_t hash = b2KeyHash(key);
 	int32_t index = b2FindSlot(set, key, hash);
 	if (set->items[index].hash != 0)
 	{
 		// Already in set
-		assert(set->items[index].hash == hash && set->items[index].key == key);
-		return;
+		B2_ASSERT(set->items[index].hash == hash && set->items[index].key == key);
+		return true;
 	}
 
 	if (2 * set->count >= set->capacity)
@@ -172,11 +178,11 @@ void b2AddKey(b2Set* set, uint64_t key)
 	}
 
 	b2AddKeyHaveCapacity(set, key, hash);
+	return false;
 }
 
 // See https://en.wikipedia.org/wiki/Open_addressing
-// TODO_ERIN assert on double remove?
-void b2RemoveKey(b2Set* set, uint64_t key)
+bool b2RemoveKey(b2Set* set, uint64_t key)
 {
 	uint32_t hash = b2KeyHash(key);
 	int32_t i = b2FindSlot(set, key, hash);
@@ -184,14 +190,14 @@ void b2RemoveKey(b2Set* set, uint64_t key)
 	if (items[i].hash == 0)
 	{
 		// Not in set
-		return;
+		return false;
 	}
 
 	// Mark item i as unoccupied
 	items[i].key = 0;
 	items[i].hash = 0;
 
-	assert(set->count > 0);
+	B2_ASSERT(set->count > 0);
 	set->count -= 1;
 
 	// Attempt to fill item i
@@ -235,4 +241,6 @@ void b2RemoveKey(b2Set* set, uint64_t key)
 
 		i = j;
 	}
+
+	return true;
 }

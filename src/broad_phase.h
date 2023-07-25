@@ -6,8 +6,6 @@
 #include "box2d/dynamic_tree.h"
 #include "table.h"
 
-#define B2_REBUILD_TREE 1
-
 typedef struct b2Shape b2Shape;
 typedef struct b2MovePair b2MovePair;
 typedef struct b2MoveResult b2MoveResult;
@@ -27,9 +25,10 @@ typedef struct b2BroadPhase
 	b2DynamicTree trees[b2_bodyTypeCount];
 	int32_t proxyCount;
 
-	int32_t* moveBuffer;
-	int32_t moveCapacity;
-	int32_t moveCount;
+	b2Set moveSet;
+
+	// TODO_ERIN perhaps just a move set?
+	int32_t* moveArray;
 
 	b2MoveResult* moveResults;
 	b2MovePair* movePairs;
@@ -57,7 +56,6 @@ void b2BroadPhase_UpdatePairs(b2World* world);
 bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB);
 
 void b2ValidateBroadphase(const b2BroadPhase* bp);
-void b2ValidateNoMoved(const b2BroadPhase* bp);
 void b2ValidateNoEnlarged(const b2BroadPhase* bp);
 
 static inline b2AABB b2BroadPhase_GetFatAABB(b2BroadPhase* bp, int32_t proxyKey)

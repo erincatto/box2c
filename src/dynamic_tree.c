@@ -24,7 +24,7 @@ static inline bool b2IsLeaf(const b2TreeNode* node)
 	return node->height == 0;
 }
 
-b2DynamicTree b2DynamicTree_Create(bool isStatic)
+b2DynamicTree b2DynamicTree_Create()
 {
 	_Static_assert((sizeof(b2TreeNode) & 0xF) == 0);
 
@@ -53,8 +53,6 @@ b2DynamicTree b2DynamicTree_Create(bool isStatic)
 	tree.leafCenters = NULL;
 	tree.binIndices = NULL;
 	tree.rebuildCapacity = 0;
-
-	tree.isStatic = isStatic;
 
 	return tree;
 }
@@ -771,7 +769,6 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 	node->userData = userData;
 	node->categoryBits = categoryBits;
 	node->height = 0;
-	node->moved = !tree->isStatic;
 	*outFatAABB = node->aabb;
 
 	bool shouldRotate = true;
@@ -843,23 +840,10 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, 
 	bool shouldRotate = false;
 	b2InsertLeaf(tree, proxyId, shouldRotate);
 
-	if (tree->isStatic)
-	{
-		return true;
-	}
-
-	bool alreadyMoved = tree->nodes[proxyId].moved;
-
-	if (alreadyMoved)
-	{
-		return false;
-	}
-
-	tree->nodes[proxyId].moved = true;
 	return true;
 }
 
-bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB)
+void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB)
 {
 	b2TreeNode* nodes = tree->nodes;
 
@@ -871,10 +855,8 @@ bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
-	if (b2AABB_Contains(nodes[proxyId].aabb, aabb))
-	{
-		return false;
-	}
+	// Caller must ensure this
+	B2_ASSERT(b2AABB_Contains(nodes[proxyId].aabb, aabb) == false);
 
 	b2AABB fatAABB;
 	b2Vec2 r = {b2_aabbExtension, b2_aabbExtension};
@@ -909,19 +891,19 @@ bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 
 	*outFatAABB = fatAABB;
 
-	if (tree->isStatic)
-	{
-		return true;
-	}
+	//if (tree->isStatic)
+	//{
+	//	return true;
+	//}
 
-	bool alreadyMoved = nodes[proxyId].moved;
-	if (alreadyMoved)
-	{
-		return false;
-	}
+	//bool alreadyMoved = nodes[proxyId].moved;
+	//if (alreadyMoved)
+	//{
+	//	return false;
+	//}
 
-	nodes[proxyId].moved = true;
-	return true;
+	//nodes[proxyId].moved = true;
+	//return true;
 }
 
 int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree)

@@ -14,6 +14,7 @@
 #include "stack_allocator.h"
 #include "world.h"
 
+#include "box2d/aabb.h"
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
@@ -1271,17 +1272,17 @@ void b2CompleteIsland(b2Island* island)
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
-#if B2_REBUILD_TREE == 1
-			b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
-#else
-			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
-#endif
+			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			{
+				b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
+			}
 			shapeIndex = shape->nextShapeIndex;
 		}
 
 		bodyIndex = body->islandNext;
 	}
 
+	#if 0
 	// Report impulses
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
@@ -1303,9 +1304,10 @@ void b2CompleteIsland(b2Island* island)
 			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
 		}
 	}
+	#endif
 
 	// Destroy in reverse order
-	b2DestroyContactSolver(island->contactSolver);
+	b2DestroyContactSolver(island->contactSolver, world->stackAllocator);
 	island->contactSolver = NULL;
 
 	// Wake island and contacts
@@ -1347,7 +1349,7 @@ void b2CompleteIsland(b2Island* island)
 // This island was just split. Handle any remaining single threaded cleanup.
 void b2CompleteBaseSplitIsland(b2Island* island)
 {
-	b2DestroyContactSolver(island->contactSolver);
+	b2DestroyContactSolver(island->contactSolver, island->world->stackAllocator);
 	island->contactSolver = NULL;
 }
 
@@ -1368,11 +1370,10 @@ void b2CompleteSplitIsland(b2Island* island, bool isAwake)
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
-#if B2_REBUILD_TREE == 1
-			b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
-#else
-			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
-#endif
+			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			{
+				b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
+			}
 			shapeIndex = shape->nextShapeIndex;
 		}
 

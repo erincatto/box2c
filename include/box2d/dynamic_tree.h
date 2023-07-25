@@ -38,9 +38,8 @@ typedef struct b2TreeNode
 	int16_t height; // 2
 
 	bool enlarged; // 1
-	bool moved;	   // 1
 
-	char pad[8];
+	char pad[9];
 } b2TreeNode;
 
 /// A dynamic AABB tree broad-phase, inspired by Nathanael Presson's btDbvt.
@@ -66,9 +65,6 @@ typedef struct b2DynamicTree
 	b2Vec2* leafCenters;
 	int32_t* binIndices;
 	int32_t rebuildCapacity;
-
-	/// A static tree never marks a node as moved
-	bool isStatic;
 } b2DynamicTree;
 
 #ifdef __cplusplus
@@ -77,7 +73,7 @@ extern "C"
 #endif
 
 	/// Constructing the tree initializes the node pool.
-	b2DynamicTree b2DynamicTree_Create(bool isStatic);
+	b2DynamicTree b2DynamicTree_Create();
 
 	/// Destroy the tree, freeing the node pool.
 	void b2DynamicTree_Destroy(b2DynamicTree* tree);
@@ -94,13 +90,12 @@ extern "C"
 	/// Move a proxy to a new AABB. If the proxy has moved outside of its
 	/// fattened AABB, then the proxy is removed from the tree and re-inserted.
 	/// Otherwise the function returns immediately.
-	/// @return true if the proxy was re-inserted and the moved flag was previously false
-	/// for a static tree this is true if the proxy was re-inserted, the move flag is not set.
+	/// @return true if the proxy was re-inserted
 	bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
 
 	/// Enlarge a proxy and enlarge ancestors as necessary.
 	/// @return true if the internal bounds grew. The node move flag is set true if the tree is non-static.
-	bool b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
+	void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
 
 	/// This function receives proxies found in the AABB query.
 	/// @return true if the query should continue
@@ -164,16 +159,6 @@ extern "C"
 	static inline int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 	{
 		return tree->nodes[proxyId].userData;
-	}
-
-	static inline bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId)
-	{
-		return tree->nodes[proxyId].moved;
-	}
-
-	static inline void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId)
-	{
-		tree->nodes[proxyId].moved = false;
 	}
 
 	static inline b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)

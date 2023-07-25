@@ -174,8 +174,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->locked = false;
 	world->warmStarting = true;
 
-	b2Profile profile = {0};
-	world->profile = profile;
+	world->profile = b2_emptyProfile;
 
 	id.revision = world->revision;
 
@@ -333,9 +332,7 @@ static void b2Collide(b2World* world)
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-#if B2_REBUILD_TREE == 1
 	world->enqueueTask(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
-#endif
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
@@ -556,7 +553,12 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	b2Timer stepTimer = b2CreateTimer();
 
-	b2BroadPhase_UpdatePairs(world);
+	// Update collision pairs and create contacts
+	{
+		b2Timer timer = b2CreateTimer();
+		b2BroadPhase_UpdatePairs(world);
+		world->profile.pairs = b2GetMilliseconds(&timer);
+	}
 
 	// TODO_ERIN atomic
 	world->locked = true;

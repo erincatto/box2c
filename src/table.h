@@ -24,7 +24,12 @@ typedef struct b2Set
 b2Set b2CreateSet(int32_t capacity);
 void b2DestroySet(b2Set* set);
 
-void b2AddKey(b2Set* set, uint64_t key);
-void b2RemoveKey(b2Set* set, uint64_t key);
+void b2ClearSet(b2Set* set);
+
+	// Returns true if key was already in set
+bool b2AddKey(b2Set* set, uint64_t key);
+
+// Returns true if the key was found
+bool b2RemoveKey(b2Set* set, uint64_t key);
 
 bool b2ContainsKey(const b2Set* set, uint64_t key);
