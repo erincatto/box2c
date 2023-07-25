@@ -9,6 +9,7 @@
 #include "bitset.h"
 #include "block_allocator.h"
 #include "body.h"
+#include "broad_phase.h"
 #include "contact.h"
 #include "core.h"
 #include "island.h"
@@ -29,14 +30,6 @@
 
 b2World b2_worlds[b2_maxWorlds];
 bool b2_parallel = true;
-
-// Per thread task storage
-typedef struct b2TaskContext
-{
-	// These bits align with the awake contact array and signal change in contact status
-	// that affects the island graph.
-	b2BitSet contactBitSet;
-} b2TaskContext;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -66,50 +59,6 @@ static void b2DefaultFinishTasksFcn(void* userContext)
 	B2_MAYBE_UNUSED(userContext);
 }
 
-#if 0
-static void b2AddPair(int32_t shapeIndexA, int32_t shapeIndexB, void* context)
-{
-	b2World* world = (b2World*)context;
-
-	B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
-	B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
-
-	b2Shape* shapeA = world->shapes + shapeIndexA;
-	b2Shape* shapeB = world->shapes + shapeIndexB;
-
-	// Are the fixtures on the same body?
-	if (shapeA->bodyIndex == shapeB->bodyIndex)
-	{
-		return;
-	}
-
-	if (b2ShouldShapesCollide(shapeA->filter, shapeB->filter) == false)
-	{
-		return;
-	}
-
-	int32_t bodyIndexA = shapeA->bodyIndex;
-	int32_t bodyIndexB = shapeB->bodyIndex;
-	b2Body* bodyA = world->bodies + bodyIndexA;
-	b2Body* bodyB = world->bodies + bodyIndexB;
-
-	// Does a joint override collision? Is at least one body dynamic?
-	// TODO_ERIN this could be a hash set
-	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
-	{
-		return;
-	}
-
-	// Check user filtering.
-	// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
-	//{
-	//	return;
-	//}
-
-	b2CreateContact(world, shapeA, shapeB);
-}
-#endif
-
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	b2WorldId id = b2_nullWorldId;
@@ -138,7 +87,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
-	b2BroadPhase_Create(&world->broadPhase);
+	b2CreateBroadPhase(&world->broadPhase);
 
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -158,7 +107,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
+
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
+	world->awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
 
 	world->splitIslandIndex = B2_NULL_INDEX;
 	world->stepId = 0;
@@ -196,7 +147,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->taskContextArray = b2CreateArray(sizeof(b2TaskContext), world->workerCount);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		world->taskContextArray[i].contactBitSet = b2CreateBitSet(def->contactCapacity);
+		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
+		world->taskContextArray[i].awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
+		world->taskContextArray[i].dynamicProxyBitSet = b2CreateBitSet(8);
+		world->taskContextArray[i].kinematicProxyBitSet = b2CreateBitSet(8);
 	}
 
 	return id;
@@ -208,20 +162,38 @@ void b2DestroyWorld(b2WorldId id)
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2DestroyBitSet(&world->taskContextArray[i].contactBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].awakeContactBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].dynamicProxyBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].kinematicProxyBitSet);
 	}
+
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
 
 	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
+	b2DestroyBitSet(&world->awakeContactBitSet);
+
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
 	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
+
+	b2Island* islands = world->islands;
+	int32_t islandCapacity = world->islandPool.capacity;
+	for (int32_t i = 0; i < islandCapacity; ++i)
+	{
+		b2Island* island = islands + i;
+		if (b2ObjectValid(&island->object) == true)
+		{
+			b2DestroyIsland(island);
+		}
+	}
+
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
 	b2DestroyPool(&world->contactPool);
 	b2DestroyPool(&world->shapePool);
 	b2DestroyPool(&world->bodyPool);
 
-	b2BroadPhase_Destroy(&world->broadPhase);
+	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyBlockAllocator(world->blockAllocator);
 	b2DestroyStackAllocator(world->stackAllocator);
@@ -250,21 +222,15 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	{
 		int32_t contactIndex = world->awakeContactArray[awakeIndex];
 
-		if (contactIndex == B2_NULL_INDEX)
-		{
-			// Contact was destroyed or put to sleep
-			continue;
-		}
-
 		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
 
-		B2_ASSERT(contact->awakeIndex == awakeIndex);
+		//B2_ASSERT(contact->awakeIndex == awakeIndex);
 		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
-		contact->awakeIndex = B2_NULL_INDEX;
+		//contact->awakeIndex = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
@@ -274,7 +240,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		if (overlap == false)
 		{
 			contact->flags |= b2_contactDisjoint;
-			b2SetBit(&taskContext->contactBitSet, awakeIndex);
+			b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
 		}
 		else
 		{
@@ -292,12 +258,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			if (touching == true && wasTouching == false)
 			{
 				contact->flags |= b2_contactStartedTouching;
-				b2SetBit(&taskContext->contactBitSet, awakeIndex);
+				b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
 			}
 			else if (touching == false && wasTouching == true)
 			{
 				contact->flags |= b2_contactStoppedTouching;
-				b2SetBit(&taskContext->contactBitSet, awakeIndex);
+				b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
 			}
 		}
 	}
@@ -336,7 +302,7 @@ static void b2Collide(b2World* world)
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].contactBitSet, awakeContactCount);
+		b2SetBitCountAndClear(&world->taskContextArray[i].contactStateBitSet, awakeContactCount);
 	}
 
 	if (b2_parallel)
@@ -357,10 +323,10 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
 
 	// Bitwise OR all contact bits
-	b2BitSet* bitSet = &world->taskContextArray[0].contactBitSet;
+	b2BitSet* bitSet = &world->taskContextArray[0].contactStateBitSet;
 	for (uint32_t i = 1; i < world->workerCount; ++i)
 	{
-		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactBitSet);
+		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactStateBitSet);
 	}
 
 	// Process contact state changes. Iterate over set bits
@@ -422,7 +388,7 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		int32_t index = world->awakeIslandArray[i];
-		b2SolveIsland(world->islands + index);
+		b2SolveIsland(world->islands + index, threadIndex);
 	}
 
 	b2TracyCZoneEnd(island_task);
@@ -438,6 +404,16 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2Array_Clear(world->splitIslandArray);
 	world->stepId += 1;
+
+	b2BroadPhase* broadPhase = &world->broadPhase;
+	b2PrepareBroadPhase(broadPhase);
+
+	int32_t contactCapacity = world->contactPool.capacity;
+	b2SetBitCountAndClear(&world->awakeContactBitSet, contactCapacity);
+	for (uint32_t i = 0; i < world->workerCount; ++i)
+	{
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
+	}
 
 	b2MergeAwakeIslands(world);
 
@@ -485,10 +461,48 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
+	b2TracyCZoneNC(enlarge_proxies, "Enlarge", b2_colorDarkTurquoise, true);
+
+	// Apply shape AABB changes to broadphase. Order doesn't matter for determinism
+	int32_t enlargeCount = broadPhase->enlargedProxyCount;
+	B2_ASSERT(enlargeCount <= broadPhase->enlargedProxyCapacity);
+	const b2EnlargedProxy* enlargedProxies = broadPhase->enlargedProxies;
+	for (int32_t i = 0; i < enlargeCount; ++i)
+	{
+		const b2EnlargedProxy* enlargedProxy = enlargedProxies + i;
+		b2BroadPhase_EnlargeProxy(broadPhase, enlargedProxy->proxyKey, enlargedProxy->aabb);
+	}
+
+	b2TracyCZoneEnd(enlarge_proxies);
+
+	// Build awake contact array
+	b2BitSet* bitSet = &world->awakeContactBitSet;
+	for (uint32_t i = 0; i < world->workerCount; ++i)
+	{
+		b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
+	}
+
+	b2Array_Clear(world->awakeContactArray);
+
+	uint64_t word;
+	for (uint32_t k = 0; k < bitSet->wordCount; ++k)
+	{
+		word = bitSet->bits[k];
+		while (word != 0)
+		{
+			uint32_t ctz = b2CTZ(word);
+			uint32_t contactIndex = 64 * k + ctz;
+
+			b2Array_Push(world->awakeContactArray, contactIndex);
+
+			// Clear the smallest set bit
+			word = word & (word - 1);
+		}
+	}
+
 	// Complete islands (reverse order for stack allocator)
 	// This rebuilds the awake island array and awake contact array
 	b2Array_Clear(world->awakeIslandArray);
-	b2Array_Clear(world->awakeContactArray);
 
 	for (int32_t i = count - 1; i >= 0; --i)
 	{
@@ -507,17 +521,16 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	if (world->splitIslandIndex != B2_NULL_INDEX)
 	{
 		b2Island* baseIsland = world->islands + world->splitIslandIndex;
-		bool isAwake = baseIsland->awakeIndex != B2_NULL_INDEX;
-
 		int32_t splitCount = b2Array(world->splitIslandArray).count;
 		for (int32_t i = 0; i < splitCount; ++i)
 		{
 			int32_t index = world->splitIslandArray[i];
 			b2Island* splitIsland = world->islands + index;
-			b2CompleteSplitIsland(splitIsland, isAwake);
+			b2CompleteSplitIsland(splitIsland);
 		}
 
 		// Done with the base split island.
+		b2DestroyIsland(baseIsland);
 		b2FreeObject(&world->islandPool, &baseIsland->object);
 	}
 
@@ -556,7 +569,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// Update collision pairs and create contacts
 	{
 		b2Timer timer = b2CreateTimer();
-		b2BroadPhase_UpdatePairs(world);
+		b2UpdateBroadPhasePairs(world);
 		world->profile.pairs = b2GetMilliseconds(&timer);
 	}
 

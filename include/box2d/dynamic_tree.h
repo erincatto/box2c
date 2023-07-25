@@ -95,7 +95,7 @@ extern "C"
 
 	/// Enlarge a proxy and enlarge ancestors as necessary.
 	/// @return true if the internal bounds grew. The node move flag is set true if the tree is non-static.
-	void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
+	void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 	/// This function receives proxies found in the AABB query.
 	/// @return true if the query should continue

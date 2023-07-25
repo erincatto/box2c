@@ -19,6 +19,7 @@
 #include "box2d/timer.h"
 
 #include <float.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -140,7 +141,7 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
-void b2ClearIsland(b2Island* island)
+void b2CreateIsland(b2Island* island)
 {
 	island->world = NULL;
 	island->headBody = B2_NULL_INDEX;
@@ -158,6 +159,11 @@ void b2ClearIsland(b2Island* island)
 	island->maySplit = false;
 	island->stepContext = NULL;
 	island->contactSolver = NULL;
+}
+
+void b2DestroyIsland(b2Island* island)
+{
+	B2_MAYBE_UNUSED(island);
 }
 
 static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* contact)
@@ -643,6 +649,7 @@ void b2MergeAwakeIslands(b2World* world)
 			world->islands[swappedIslandIndex].awakeIndex = awakeIndex;
 		}
 
+		b2DestroyIsland(island);
 		b2FreeObject(&world->islandPool, &island->object);
 	}
 
@@ -684,6 +691,11 @@ void b2SortIslands(b2World* world, b2Island** islands, int32_t count)
 void b2PrepareIsland(b2Island* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
+
+	//b2Array_Clear(island->awakeContactArray);
+
+	// TODO_ERIN 
+	// b2Array_Reserve(&island->enlargedBodyArray, island->bodyCount);
 
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->stepContext;
@@ -831,7 +843,7 @@ static void b2SplitIsland(b2Island* baseIsland)
 		// So this allocation must come from the free list.
 		B2_ASSERT(world->islandPool.capacity > world->islandPool.count);
 		b2Island* island = (b2Island*)b2AllocObject(&world->islandPool);
-		b2ClearIsland(island);
+		b2CreateIsland(island);
 		island->world = world;
 
 		int32_t islandIndex = island->object.index;
@@ -994,7 +1006,7 @@ static void b2SplitIsland(b2Island* baseIsland)
 }
 
 // This must be thread safe
-void b2SolveIsland(b2Island* island)
+void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 {
 	b2World* world = island->world;
 	b2Body* bodies = world->bodies;
@@ -1156,6 +1168,7 @@ void b2SolveIsland(b2Island* island)
 	// Update sleep
 	bool isIslandAwake = true;
 
+	// Don't allow an island that will be split to fall asleep just yet
 	if (world->enableSleep && island->maySplit == false)
 	{
 		float minSleepTime = FLT_MAX;
@@ -1211,39 +1224,67 @@ void b2SolveIsland(b2Island* island)
 	}
 	else
 	{
+		b2Contact* contacts = world->contacts;
+		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+		b2BroadPhase* broadPhase = &world->broadPhase;
+		b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
+
 		// Speculative transform
 		// TODO_ERIN using old forces? Should be at the beginning of the time step?
 		bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
-			b2Body* b = bodies + bodyIndex;
+			b2Body* body = bodies + bodyIndex;
 
-			b->force = b2Vec2_zero;
-			b->torque = 0.0f;
+			body->force = b2Vec2_zero;
+			body->torque = 0.0f;
 
-			b2Vec2 v = b->linearVelocity;
-			float w = b->angularVelocity;
+			b2Vec2 v = body->linearVelocity;
+			float w = body->angularVelocity;
 
-			v = b2Add(v, b2MulSV(h * b->invMass, b2MulAdd(b->force, b->gravityScale * b->mass, gravity)));
-			w = w + h * b->invI * b->torque;
+			v = b2Add(v, b2MulSV(h * body->invMass, b2MulAdd(body->force, body->gravityScale * body->mass, gravity)));
+			w = w + h * body->invI * body->torque;
 
-			v = b2MulSV(1.0f / (1.0f + h * b->linearDamping), v);
-			w *= 1.0f / (1.0f + h * b->angularDamping);
+			v = b2MulSV(1.0f / (1.0f + h * body->linearDamping), v);
+			w *= 1.0f / (1.0f + h * body->angularDamping);
 
 			// Stage 3 - predict new transforms
-			b->speculativePosition = b2MulAdd(b->position, context->dt, v);
-			b->speculativeAngle = b->angle + context->dt * w;
+			body->speculativePosition = b2MulAdd(body->position, context->dt, v);
+			body->speculativeAngle = body->angle + context->dt * w;
 
 			// Update shapes AABBs
-			int32_t shapeIndex = b->shapeList;
+			int32_t shapeIndex = body->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
-				shape->aabb = b2Shape_ComputeAABB(shape, b->transform);
+				shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
+				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+				{
+					shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
+					shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
+
+					int enlargeIndex = atomic_fetch_add(&broadPhase->enlargedProxyCount, 1);
+					B2_ASSERT(enlargeIndex < broadPhase->enlargedProxyCapacity);
+
+					broadPhase->enlargedProxies[enlargeIndex].aabb = shape->fatAABB;
+					broadPhase->enlargedProxies[enlargeIndex].proxyKey = shape->proxyKey;
+				}
 				shapeIndex = shape->nextShapeIndex;
 			}
 
-			bodyIndex = b->islandNext;
+			// Prepare awake contacts. May include contacts that are not touching
+			// so they may not be island contacts.
+			int32_t contactKey = body->contactList;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				int32_t contactIndex = contactKey >> 1;
+				int32_t edgeIndex = contactKey & 1;
+				b2Contact* contact = contacts + contactIndex;
+				b2SetBit(awakeContactBitSet, contactIndex);
+				contactKey = contact->edges[edgeIndex].nextKey;
+			}
+
+			bodyIndex = body->islandNext;
 		}
 	}
 
@@ -1258,32 +1299,65 @@ void b2SolveIsland(b2Island* island)
 // Single threaded work
 void b2CompleteIsland(b2Island* island)
 {
+	b2TracyCZoneNC(complete_island, "Complete Island", b2_colorBlueViolet, true);
+
 	b2World* world = island->world;
-	b2Body* bodies = world->bodies;
 
-	// Move body proxies, even if asleep
-	int32_t bodyIndex = island->headBody;
-	while (bodyIndex != B2_NULL_INDEX)
+#if 0
+	// Report impulses
+	b2PostSolveFcn* postSolveFcn = world->postSolveFcn;
+	if (postSolveFcn != NULL)
 	{
-		b2Body* body = bodies + bodyIndex;
+		b2Contact* contacts = world->contacts;
+		int16_t worldIndex = world->index;
+		const b2Shape* shapes = world->shapes;
 
-		// Update shapes (for broad-phase).
-		int32_t shapeIndex = body->shapeList;
-		while (shapeIndex != B2_NULL_INDEX)
+		int32_t contactIndex = island->headContact;
+		while (contactIndex != B2_NULL_INDEX)
 		{
-			b2Shape* shape = world->shapes + shapeIndex;
-			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
-			{
-				b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
-			}
-			shapeIndex = shape->nextShapeIndex;
-		}
+			const b2Contact* contact = contacts + contactIndex;
 
-		bodyIndex = body->islandNext;
+			const b2Shape* shapeA = shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = shapes + contact->shapeIndexB;
+
+			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
+			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
+			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
+		}
+	}
+#endif
+
+	b2TracyCZoneNC(wake_contacts, "Wake Contacts", b2_colorIvory, true);
+
+	// Destroy in reverse order
+	b2DestroyContactSolver(island->contactSolver, world->stackAllocator);
+	island->contactSolver = NULL;
+
+	// Wake island
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		island->awakeIndex = B2_NULL_INDEX;
+		b2WakeIsland(island);
 	}
 
-	#if 0
+	b2TracyCZoneEnd(wake_contacts);
+
+	b2TracyCZoneEnd(complete_island);
+}
+
+// This island was just split. Handle any remaining single threaded cleanup.
+void b2CompleteBaseSplitIsland(b2Island* island)
+{
+	b2DestroyContactSolver(island->contactSolver, island->world->stackAllocator);
+	island->contactSolver = NULL;
+}
+
+// This island was just created through splitting. Handle single thread work.
+void b2CompleteSplitIsland(b2Island* island)
+{
 	// Report impulses
+	#if 0
+	b2World* world = island->world;
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
 	{
@@ -1306,135 +1380,9 @@ void b2CompleteIsland(b2Island* island)
 	}
 	#endif
 
-	// Destroy in reverse order
-	b2DestroyContactSolver(island->contactSolver, world->stackAllocator);
-	island->contactSolver = NULL;
-
-	// Wake island and contacts
-	b2Contact* contacts = world->contacts;
-
-	if (island->awakeIndex != B2_NULL_INDEX)
-	{
-		island->awakeIndex = B2_NULL_INDEX;
-		b2WakeIsland(island);
-
-		// Add awake contacts which may include contacts that are not in an island.
-		// Contacts that don't touch are not in an island, but they still need to be updated.
-		bodyIndex = island->headBody;
-		while (bodyIndex != B2_NULL_INDEX)
-		{
-			b2Body* body = bodies + bodyIndex;
-
-			int32_t contactKey = body->contactList;
-			while (contactKey != B2_NULL_INDEX)
-			{
-				int32_t contactIndex = contactKey >> 1;
-				int32_t edgeIndex = contactKey & 1;
-				b2Contact* contact = contacts + contactIndex;
-
-				// This contact could have been given an awake index by another island
-				if (contact->awakeIndex == B2_NULL_INDEX)
-				{
-					contact->awakeIndex = b2Array(world->awakeContactArray).count;
-					b2Array_Push(world->awakeContactArray, contactIndex);
-				}
-				contactKey = contact->edges[edgeIndex].nextKey;
-			}
-
-			bodyIndex = body->islandNext;
-		}
-	}
-}
-
-// This island was just split. Handle any remaining single threaded cleanup.
-void b2CompleteBaseSplitIsland(b2Island* island)
-{
-	b2DestroyContactSolver(island->contactSolver, island->world->stackAllocator);
-	island->contactSolver = NULL;
-}
-
-// This island was just created through splitting. Handle single thread work.
-void b2CompleteSplitIsland(b2Island* island, bool isAwake)
-{
-	b2World* world = island->world;
-	b2Body* bodies = world->bodies;
-
-	// Move body proxies, even if asleep
-	int32_t bodyIndex = island->headBody;
-	while (bodyIndex != B2_NULL_INDEX)
-	{
-		b2Body* b = bodies + bodyIndex;
-
-		// Update shapes (for broad-phase).
-		int32_t shapeIndex = b->shapeList;
-		while (shapeIndex != B2_NULL_INDEX)
-		{
-			b2Shape* shape = world->shapes + shapeIndex;
-			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
-			{
-				b2BroadPhase_EnlargeProxy(&world->broadPhase, shape->proxyKey, shape->aabb, &shape->fatAABB);
-			}
-			shapeIndex = shape->nextShapeIndex;
-		}
-
-		bodyIndex = b->islandNext;
-	}
-
-	// Report impulses
-	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
-	if (postSolveFcn != NULL)
-	{
-		b2Contact* contacts = world->contacts;
-		int16_t worldIndex = world->index;
-		const b2Shape* shapes = world->shapes;
-
-		int32_t contactIndex = island->headContact;
-		while (contactIndex != B2_NULL_INDEX)
-		{
-			const b2Contact* contact = contacts + contactIndex;
-
-			const b2Shape* shapeA = shapes + contact->shapeIndexA;
-			const b2Shape* shapeB = shapes + contact->shapeIndexB;
-
-			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
-			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
-		}
-	}
-
-	// Wake island and contacts
-	b2Contact* contacts = world->contacts;
-
-	if (isAwake == true)
-	{
-		island->awakeIndex = B2_NULL_INDEX;
-		b2WakeIsland(island);
-
-		// Update awake contacts which may include contacts that are not in the island.
-		bodyIndex = island->headBody;
-		while (bodyIndex != B2_NULL_INDEX)
-		{
-			b2Body* b = bodies + bodyIndex;
-
-			int32_t contactKey = b->contactList;
-			while (contactKey != B2_NULL_INDEX)
-			{
-				int32_t contactIndex = contactKey >> 1;
-				int32_t edgeIndex = contactKey & 1;
-				b2Contact* contact = contacts + contactIndex;
-
-				// This contact could have been given an awake index by another island
-				if (contact->awakeIndex == B2_NULL_INDEX)
-				{
-					contact->awakeIndex = b2Array(world->awakeContactArray).count;
-					b2Array_Push(world->awakeContactArray, contactIndex);
-				}
-				contactKey = contact->edges[edgeIndex].nextKey;
-			}
-
-			bodyIndex = b->islandNext;
-		}
-	}
+	// Split islands are always awake (I don't let them sleep right away)
+	island->awakeIndex = B2_NULL_INDEX;
+	b2WakeIsland(island);
 }
 
 #if B2_VALIDATE

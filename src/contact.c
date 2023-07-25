@@ -18,6 +18,24 @@
 #include <float.h>
 #include <math.h>
 
+// Contacts and determinism
+// A deterministic simulation requires contacts to exist in the same order in b2Island no matter the thread count.
+// The order must reproduce from run to run. This is necessary because Gauss-Seidel is order dependent.
+// 
+// Creation:
+// - Contacts are created using results from b2UpdateBroadPhasePairs
+// - These results are ordered according to the order of the broad-phase move array
+// - The move array is ordered according to the island/shape/body order. (TODO_ERIN WRONG!!!! Use bit set)
+// - The island/shape/body order is determined by creation order
+// - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
+// 
+// Island linking:
+// - The awake contact array is built from the body-contact graph for all awake bodies in awake islands (TODO_ERIN use bit set)
+// - Awake contacts are solved in parallel and they generate contact state changes.
+// - These state changes may link islands together using union find.
+// - The state changes are ordered using a bit array that encompasses all contacts
+// - As long as contacts are created in deterministic order, island link order is deterministic
+
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.
 static inline float b2MixFriction(float friction1, float friction2)
@@ -124,7 +142,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contact->shapeIndexB = shapeB->object.index;
 	contact->cache = b2_emptyDistanceCache;
 	contact->manifold = b2_emptyManifold;
-	contact->awakeIndex = B2_NULL_INDEX;
 	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	contact->tangentSpeed = 0.0f;
@@ -172,7 +189,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 	{
 		// A contact does not need to be in an island to be awake.
-		contact->awakeIndex = b2Array(world->awakeContactArray).count;
 		b2Array_Push(world->awakeContactArray, contact->object.index);
 	}
 
@@ -249,9 +265,17 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		b2UnlinkContact(world, contact);
 	}
 
-	if (contact->awakeIndex != B2_NULL_INDEX)
+	// Remove from awake contact array
+	// TODO_ERIN perf problem?
+	int32_t contactIndex = contact->object.index;
+	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+	for (int32_t i = 0; i < awakeContactCount; ++i)
 	{
-		world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
+		if (world->awakeContactArray[i] == contactIndex)
+		{
+			b2Array_RemoveSwap(world->awakeContactArray, i);
+			break;
+		}
 	}
 
 	b2FreeObject(&world->contactPool, &contact->object);

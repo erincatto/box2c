@@ -79,7 +79,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		// Every new body gets a new island. Islands get merged during simulation.
 		b2Island* island = (b2Island*)b2AllocObject(&world->islandPool);
 		world->islands = (b2Island*)world->islandPool.memory;
-		b2ClearIsland(island);
+		b2CreateIsland(island);
 		island->world = world;
 
 		b->islandIndex = island->object.index;
@@ -160,9 +160,15 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		}
 
 		// Remove from awake contact array
-		if (contact->awakeIndex != B2_NULL_INDEX)
+		// TODO_ERIN perf problem?
+		int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+		for (int32_t i = 0; i < awakeContactCount; ++i)
 		{
-			world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
+			if (world->awakeContactArray[i] == contactIndex)
+			{
+				b2Array_RemoveSwap(world->awakeContactArray, i);
+				break;
+			}
 		}
 
 		// Remove pair from set
@@ -239,6 +245,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 				}
 
 				// Free the island
+				b2DestroyIsland(island);
 				b2FreeObject(&world->islandPool, &island->object);
 				islandDestroyed = true;
 			}

@@ -25,7 +25,7 @@
 
 //static FILE* s_file = NULL;
 
-void b2BroadPhase_Create(b2BroadPhase* bp)
+void b2CreateBroadPhase(b2BroadPhase* bp)
 {
 	//if (s_file == NULL)
 	//{
@@ -52,9 +52,13 @@ void b2BroadPhase_Create(b2BroadPhase* bp)
 		bool isStatic = i == b2_staticBody;
 		bp->trees[i] = b2DynamicTree_Create(isStatic);
 	}
+
+	bp->enlargedProxies = NULL;
+	bp->enlargedProxyCapacity = 0;
+	bp->enlargedProxyCount = 0;
 }
 
-void b2BroadPhase_Destroy(b2BroadPhase* bp)
+void b2DestroyBroadPhase(b2BroadPhase* bp)
 {
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
@@ -64,6 +68,8 @@ void b2BroadPhase_Destroy(b2BroadPhase* bp)
 	b2DestroySet(&bp->moveSet);
 	b2DestroyArray(bp->moveArray, sizeof(int32_t));
 	b2DestroySet(&bp->pairSet);
+
+	b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
 
 	memset(bp, 0, sizeof(b2BroadPhase));
 
@@ -83,6 +89,25 @@ static inline void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 	}
 }
 
+static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
+{
+	bool found = b2RemoveKey(&bp->moveSet, proxyKey);
+
+	if (found)
+	{
+		// Purge from move buffer. Linear search.
+		int32_t count = b2Array(bp->moveArray).count;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			if (bp->moveArray[i] == proxyKey)
+			{
+				b2Array_RemoveSwap(bp->moveArray, i);
+				break;
+			}
+		}
+	}
+}
+
 int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex,
 								 b2AABB* outFatAABB)
 {
@@ -98,21 +123,8 @@ int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB a
 
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
 {
-	// Purge from move buffer. Linear search.
-	bool found = b2RemoveKey(&bp->moveSet, proxyKey);
-
-	if (found)
-	{
-		int32_t count = b2Array(bp->moveArray).count;
-		for (int32_t i = 0; i < count; ++i)
-		{
-			if (bp->moveArray[i] == proxyKey)
-			{
-				bp->moveArray[i] = B2_NULL_INDEX;
-				break;
-			}
-		}
-	}
+	B2_ASSERT(b2Array(bp->moveArray).count == (int32_t)bp->moveSet.count);
+	b2UnBufferMove(bp, proxyKey);
 
 	--bp->proxyCount;
 
@@ -137,14 +149,14 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, b2A
 	}
 }
 
-void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb, b2AABB* outFatAABB)
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
 
-	b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb, outFatAABB);
+	b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb);
 	b2BufferMove(bp, proxyKey);
 }
 
@@ -321,7 +333,7 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 
 extern bool b2_parallel;
 
-void b2BroadPhase_UpdatePairs(b2World* world)
+void b2UpdateBroadPhasePairs(b2World* world)
 {
 	b2BroadPhase* bp = &world->broadPhase;
 
@@ -422,8 +434,6 @@ void b2BroadPhase_UpdatePairs(b2World* world)
 	b2FreeStackItem(alloc, bp->moveResults);
 	bp->moveResults = NULL;
 
-	//b2ValidateNoMoved(&world->broadPhase);
-
 	b2TracyCZoneEnd(create_contacts);
 
 	b2TracyCZoneEnd(update_pairs);
@@ -455,10 +465,25 @@ int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey)
 	return b2DynamicTree_GetUserData(bp->trees + typeIndex, proxyId);
 }
 
+void b2PrepareBroadPhase(b2BroadPhase* bp)
+{
+	int32_t proxyCapacity = bp->trees[b2_dynamicBody].proxyCount + bp->trees[b2_kinematicBody].proxyCount;
+	if (proxyCapacity > bp->enlargedProxyCapacity)
+	{
+		b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
+		bp->enlargedProxyCapacity = proxyCapacity + proxyCapacity / 2;
+		bp->enlargedProxies = b2Alloc(bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
+	}
+
+	bp->enlargedProxyCount = 0;
+}
+
 void b2ValidateBroadphase(const b2BroadPhase* bp)
 {
 	b2DynamicTree_Validate(bp->trees + b2_dynamicBody);
 	b2DynamicTree_Validate(bp->trees + b2_kinematicBody);
+
+	// TODO_ERIN validate every shape AABB is contained in tree AABB
 }
 
 void b2ValidateNoEnlarged(const b2BroadPhase* bp)

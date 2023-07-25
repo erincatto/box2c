@@ -843,7 +843,7 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, 
 	return true;
 }
 
-void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB)
+void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 {
 	b2TreeNode* nodes = tree->nodes;
 
@@ -858,16 +858,12 @@ void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 	// Caller must ensure this
 	B2_ASSERT(b2AABB_Contains(nodes[proxyId].aabb, aabb) == false);
 
-	b2AABB fatAABB;
-	b2Vec2 r = {b2_aabbExtension, b2_aabbExtension};
-	fatAABB.lowerBound = b2Sub(aabb.lowerBound, r);
-	fatAABB.upperBound = b2Add(aabb.upperBound, r);
-	nodes[proxyId].aabb = fatAABB;
+	nodes[proxyId].aabb = aabb;
 
 	int32_t parentIndex = nodes[proxyId].parent;
 	while (parentIndex != B2_NULL_INDEX)
 	{
-		bool changed = b2AABB_Enlarge(&nodes[parentIndex].aabb, fatAABB);
+		bool changed = b2AABB_Enlarge(&nodes[parentIndex].aabb, aabb);
 		nodes[parentIndex].enlarged = true;
 		parentIndex = nodes[parentIndex].parent;
 
@@ -888,22 +884,6 @@ void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 		nodes[parentIndex].enlarged = true;
 		parentIndex = nodes[parentIndex].parent;
 	}
-
-	*outFatAABB = fatAABB;
-
-	//if (tree->isStatic)
-	//{
-	//	return true;
-	//}
-
-	//bool alreadyMoved = nodes[proxyId].moved;
-	//if (alreadyMoved)
-	//{
-	//	return false;
-	//}
-
-	//nodes[proxyId].moved = true;
-	//return true;
 }
 
 int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree)

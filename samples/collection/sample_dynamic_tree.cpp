@@ -295,6 +295,8 @@ class DynamicTree : public Sample
 			}
 		}
 
+		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+
 		switch (m_updateType)
 		{
 		case Update_Incremental:
@@ -321,7 +323,9 @@ class DynamicTree : public Sample
 				Proxy* p = m_proxies + i;
 				if (p->moved)
 				{
-					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->box, &p->fatBox);
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
+					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
 				}
 			}
 
@@ -340,7 +344,9 @@ class DynamicTree : public Sample
 				Proxy* p = m_proxies + i;
 				if (p->moved)
 				{
-					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->box, &p->fatBox);
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
+					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
 				}
 			}
 
