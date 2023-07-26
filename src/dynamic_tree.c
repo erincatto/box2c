@@ -24,7 +24,7 @@ static inline bool b2IsLeaf(const b2TreeNode* node)
 	return node->height == 0;
 }
 
-b2DynamicTree b2DynamicTree_Create()
+b2DynamicTree b2DynamicTree_Create(void)
 {
 	_Static_assert((sizeof(b2TreeNode) & 0xF) == 0, "tree node size not a multiple of 16");
 

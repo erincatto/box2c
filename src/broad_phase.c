@@ -49,8 +49,7 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
-		bool isStatic = i == b2_staticBody;
-		bp->trees[i] = b2DynamicTree_Create(isStatic);
+		bp->trees[i] = b2DynamicTree_Create();
 	}
 }
 

@@ -17,7 +17,6 @@
 #include "shape.h"
 #include "solver_data.h"
 #include "stack_allocator.h"
-#include "thread.h"
 
 #include "box2d/aabb.h"
 #include "box2d/box2d.h"

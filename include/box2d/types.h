@@ -231,7 +231,7 @@ typedef struct b2ShapeDef
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
 /// Make a world definition with default values.
-static inline b2WorldDef b2DefaultWorldDef()
+static inline b2WorldDef b2DefaultWorldDef(void)
 {
 	b2WorldDef def = {0};
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
@@ -246,7 +246,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 }
 
 /// Make a body definition with default values.
-static inline b2BodyDef b2DefaultBodyDef()
+static inline b2BodyDef b2DefaultBodyDef(void)
 {
 	b2BodyDef def = {0};
 	def.type = b2_staticBody;
@@ -265,7 +265,7 @@ static inline b2BodyDef b2DefaultBodyDef()
 	return def;
 }
 
-static inline struct b2ShapeDef b2DefaultShapeDef()
+static inline struct b2ShapeDef b2DefaultShapeDef(void)
 {
 	b2ShapeDef def = {0};
 	def.friction = 0.6f;

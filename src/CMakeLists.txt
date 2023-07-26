@@ -41,8 +41,6 @@ set(BOX2D_SOURCE_FILES
 	stack_allocator.h
 	table.c
 	table.h
-	thread.cpp
-	thread.h
 	timer.c
 	types.c
 	world.c
@@ -76,20 +74,18 @@ target_include_directories(box2d
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-set_target_properties(box2d PROPERTIES
-	CMAKE_COMPILE_WARNING_AS_ERROR ON
-	C_STANDARD 17
-	C_STANDARD_REQUIRED YES
-	C_EXTENSIONS YES
-	CXX_STANDARD 17
-)
+message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
+message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
 
-if (MSVC)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
 	# target_compile_options(box2d PRIVATE /arch:AVX2 /fp:fast /fp:except-)
 	target_compile_options(box2d PRIVATE /arch:SSE2 /fp:except-)
 	# target_compile_options(box2d PRIVATE /W4 /WX)
 	# target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+	message(STATUS "CMake using Clang")
+	target_compile_options(box2d PRIVATE /W4 /WX /std:c17)
 else()
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

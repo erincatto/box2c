@@ -7,7 +7,6 @@
 #include "broad_phase.h"
 #include "island.h"
 #include "pool.h"
-#include "thread.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"

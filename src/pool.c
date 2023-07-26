@@ -35,7 +35,7 @@ void b2ValidatePool(const b2Pool* pool)
 
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity)
 {
-	B2_ASSERT(objectSize >= sizeof(b2Object));
+	B2_ASSERT(objectSize >= (int32_t)sizeof(b2Object));
 
 	b2Pool pool;
 	pool.objectSize = objectSize;

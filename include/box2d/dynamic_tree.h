@@ -69,7 +69,7 @@ extern "C"
 #endif
 
 	/// Constructing the tree initializes the node pool.
-	b2DynamicTree b2DynamicTree_Create();
+	b2DynamicTree b2DynamicTree_Create(void);
 
 	/// Destroy the tree, freeing the node pool.
 	void b2DynamicTree_Destroy(b2DynamicTree* tree);
