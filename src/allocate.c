@@ -7,7 +7,7 @@
 
 #include "box2d/api.h"
 
-#if defined(_WIN32)
+#if defined(B2_COMPILER_MSVC)
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
 #include <stdlib.h>
@@ -31,10 +31,10 @@
 
 #endif
 
-b2AllocFcn* b2_allocFcn = NULL;
-b2FreeFcn* b2_freeFcn = NULL;
+static b2AllocFcn* b2_allocFcn = NULL;
+static b2FreeFcn* b2_freeFcn = NULL;
 
-_Atomic int32_t b2_byteCount;
+static _Atomic int32_t b2_byteCount;
 
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
@@ -53,10 +53,11 @@ void* b2Alloc(int32_t size)
 		return ptr;
 	}
 
+	size_t size16 = ((size - 1) | 0xF) + 1;
 #ifdef B2_PLATFORM_WINDOWS
-	void* ptr = _aligned_malloc(size, 16);
+	void* ptr = _aligned_malloc(size16, 16);
 #else
-	void* ptr = aligned_alloc(16, size);
+	void* ptr = aligned_alloc(16, size16);
 #endif
 
 	b2TracyCAlloc(ptr, size);
@@ -88,7 +89,7 @@ void b2Free(void* mem, int32_t size)
 	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);
 }
 
-int32_t b2GetByteCount()
+int32_t b2GetByteCount(void)
 {
 	return atomic_load_explicit(&b2_byteCount, memory_order_relaxed);
 }

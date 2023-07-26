@@ -38,6 +38,15 @@
 #error Unsupported CPU
 #endif
 
+// Define compiler
+#if defined(__clang__)
+#define B2_COMPILER_CLANG
+#elif defined(__GNUC__)
+#define B2_COMPILER_GCC
+#elif defined(_MSC_VER)
+#define B2_COMPILER_MSVC
+#endif
+
 #if defined(B2_PLATFORM_WINDOWS)
 #define B2_BREAKPOINT __debugbreak()
 #elif defined(B2_PLATFORM_LINUX) || defined(B2_PLATFORM_ANDROID) || defined(B2_PLATFORM_MACOS) || defined(B2_PLATFORM_IOS)

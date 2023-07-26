@@ -4,13 +4,14 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS 1
 
+#include "draw.h"
+#include "sample.h"
+#include "settings.h"
+
 #include "box2d/api.h"
 #include "box2d/constants.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
-#include "draw.h"
-#include "sample.h"
-#include "settings.h"
 
 #include <glad/glad.h>
 // Keep glad.h before glfw3.h
@@ -54,12 +55,23 @@ static float s_framebufferScale = 1.0f;
 
 void* AllocFcn(int32_t size)
 {
-	return malloc(size);
+	size_t size16 = ((size - 1) | 0xF) + 1;
+	assert((size16 & 0xF) == 0);
+#if defined(_WIN64)
+	void* ptr = _aligned_malloc(size16, 16);
+#else
+	void* ptr = aligned_alloc(16, size16);
+#endif
+	return ptr;
 }
 
 void FreeFcn(void* mem)
 {
+#if defined(_WIN64)
+	_aligned_free(mem);
+#else
 	free(mem);
+#endif
 }
 
 int AssertFcn(const char* condition, const char* fileName, int lineNumber)
@@ -513,10 +525,10 @@ int main(int, char**)
 	//_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 	{
 		// Get the current bits
-		//int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+		// int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
 
 		// Clear the upper 16 bits and OR in the desired frequency
-		//tmp = (tmp & 0x0000FFFF) | _CRTDBG_CHECK_EVERY_16_DF;
+		// tmp = (tmp & 0x0000FFFF) | _CRTDBG_CHECK_EVERY_16_DF;
 
 		// Set the new bits
 		//_CrtSetDbgFlag(tmp);
