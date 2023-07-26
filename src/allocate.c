@@ -2,18 +2,21 @@
 // SPDX-License-Identifier: MIT
 
 #include "allocate.h"
+
+#include "core.h"
+
 #include "box2d/api.h"
 
 #if defined(_WIN32)
 #define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
 #include <crtdbg.h>
+#include <stdlib.h>
 #else
 #include <stdlib.h>
 #endif
 
-#include <stdint.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 #ifdef BOX2D_PROFILE
 
@@ -50,7 +53,12 @@ void* b2Alloc(int32_t size)
 		return ptr;
 	}
 
+#ifdef B2_PLATFORM_WINDOWS
 	void* ptr = _aligned_malloc(size, 16);
+#else
+	void* ptr = aligned_alloc(16, size);
+#endif
+
 	b2TracyCAlloc(ptr, size);
 	return ptr;
 }
@@ -70,7 +78,11 @@ void b2Free(void* mem, int32_t size)
 	}
 	else
 	{
+#ifdef B2_PLATFORM_WINDOWS
 		_aligned_free(mem);
+#else
+		free(mem);
+#endif
 	}
 
 	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);
