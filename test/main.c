@@ -36,6 +36,9 @@ int main(void)
 	//_CrtSetBreakAlloc(196);
 #endif
 
+	printf("Starting Box2D unit tests\n");
+	printf("======================================\n");
+
 	RUN_TEST(MathTest);
 	RUN_TEST(CollisionTest);
 	RUN_TEST(DistanceTest);
