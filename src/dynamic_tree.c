@@ -17,7 +17,7 @@
 // - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
 
 static b2TreeNode b2_defaultTreeNode = {
-	{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false, false};
+	{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {

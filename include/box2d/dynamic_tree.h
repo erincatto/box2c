@@ -15,11 +15,9 @@
 // 16 + 16 + 8 + pad(8)
 typedef struct b2TreeNode
 {
-	// Enlarged AABB
 	b2AABB aabb; // 16
 
-	// If we put the most common bits in the first 16 bits, this could be 2 bytes and expanded
-	// to 0xFFFF0000 | bits. Then we get partial culling in the tree traversal.
+	// Category bits for collision filtering
 	uint32_t categoryBits; // 4
 
 	union
@@ -31,10 +29,10 @@ typedef struct b2TreeNode
 	int32_t child1; // 4
 	int32_t child2; // 4
 
+	// TODO_ERIN could be union with child index
 	int32_t userData; // 4
 
 	// leaf = 0, free node = -1
-	// If the height is more than 32k we are in big trouble
 	int16_t height; // 2
 
 	bool enlarged; // 1
@@ -44,12 +42,10 @@ typedef struct b2TreeNode
 
 /// A dynamic AABB tree broad-phase, inspired by Nathanael Presson's btDbvt.
 /// A dynamic tree arranges data in a binary tree to accelerate
-/// queries such as volume queries and ray casts. Leafs are proxies
-/// with an AABB. In the tree we expand the proxy AABB by b2_fatAABBFactor
-/// so that the proxy AABB is bigger than the client object. This allows the client
-/// object to move by small amounts without triggering a tree update.
+/// queries such as volume queries and ray casts. Leaf nodes are proxies
+/// with an AABB. These are used to hold a user collision object, such as a reference to a b2Shape.
 ///
-/// Nodes are pooled and relocatable, so we use node indices rather than pointers.
+/// Nodes are pooled and relocatable, so I use node indices rather than pointers.
 typedef struct b2DynamicTree
 {
 	b2TreeNode* nodes;
