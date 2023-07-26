@@ -91,7 +91,7 @@ b2BlockAllocator* b2CreateBlockAllocator()
 		b2_sizeMapInitialized = true;
 	}
 
-	B2_ASSERT(b2_blockSizeCount < UCHAR_MAX);
+	_Static_assert(b2_blockSizeCount < UCHAR_MAX, "block size too large");
 
 	b2BlockAllocator* allocator = (b2BlockAllocator*)b2Alloc(sizeof(b2BlockAllocator));
 	allocator->chunkSpace = b2_chunkArrayIncrement;
