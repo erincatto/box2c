@@ -3,8 +3,8 @@
 
 #include "block_allocator.h"
 #include "allocate.h"
+#include "core.h"
 
-#include <assert.h>
 #include <limits.h>
 #include <string.h>
 
@@ -46,7 +46,7 @@ void b2SizeMap_Initialize()
 	b2_sizeMap.values[0] = 0;
 	for (int32_t i = 1; i <= b2_maxBlockSize; ++i)
 	{
-		assert(j < b2_blockSizeCount);
+		B2_ASSERT(j < b2_blockSizeCount);
 		if (i <= b2_blockSizes[j])
 		{
 			b2_sizeMap.values[i] = (uint8_t)j;
@@ -91,7 +91,7 @@ b2BlockAllocator* b2CreateBlockAllocator()
 		b2_sizeMapInitialized = true;
 	}
 
-	assert(b2_blockSizeCount < UCHAR_MAX);
+	B2_ASSERT(b2_blockSizeCount < UCHAR_MAX);
 
 	b2BlockAllocator* allocator = (b2BlockAllocator*)b2Alloc(sizeof(b2BlockAllocator));
 	allocator->chunkSpace = b2_chunkArrayIncrement;
@@ -122,7 +122,7 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
 		return NULL;
 	}
 
-	assert(0 < size);
+	B2_ASSERT(0 < size);
 
 	if (size > b2_maxBlockSize)
 	{
@@ -130,7 +130,7 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
 	}
 
 	int32_t index = b2_sizeMap.values[size];
-	assert(0 <= index && index < b2_blockSizeCount);
+	B2_ASSERT(0 <= index && index < b2_blockSizeCount);
 
 	if (allocator->freeLists[index])
 	{
@@ -159,7 +159,7 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
 		int32_t blockSize = b2_blockSizes[index];
 		chunk->blockSize = blockSize;
 		int32_t blockCount = b2_chunkSize / blockSize;
-		assert(blockCount * blockSize <= b2_chunkSize);
+		B2_ASSERT(blockCount * blockSize <= b2_chunkSize);
 		for (int32_t i = 0; i < blockCount - 1; ++i)
 		{
 			b2Block* block = (b2Block*)((int8_t*)chunk->blocks + blockSize * i);
@@ -183,7 +183,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 		return;
 	}
 
-	assert(0 < size);
+	B2_ASSERT(0 < size);
 
 	if (size > b2_maxBlockSize)
 	{
@@ -192,7 +192,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 	}
 
 	int32_t index = b2_sizeMap.values[size];
-	assert(0 <= index && index < b2_blockSizeCount);
+	B2_ASSERT(0 <= index && index < b2_blockSizeCount);
 
 #if defined(_DEBUG)
 	// Verify the memory address and size is valid.
@@ -203,7 +203,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 		b2Chunk* chunk = allocator->chunks + i;
 		if (chunk->blockSize != blockSize)
 		{
-			assert((int8_t*)p + blockSize <= (int8_t*)chunk->blocks || (int8_t*)chunk->blocks + b2_chunkSize <= (int8_t*)p);
+			B2_ASSERT((int8_t*)p + blockSize <= (int8_t*)chunk->blocks || (int8_t*)chunk->blocks + b2_chunkSize <= (int8_t*)p);
 		}
 		else
 		{
@@ -214,7 +214,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 		}
 	}
 
-	assert(found);
+	B2_ASSERT(found);
 
 	memset(p, 0xfd, blockSize);
 #endif
