@@ -161,7 +161,7 @@ extern "C"
 		return tree->nodes[proxyId].userData;
 	}
 
-	static inline b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)
+	static inline b2AABB b2DynamicTree_GetAABB(const b2DynamicTree* tree, int32_t proxyId)
 	{
 		return tree->nodes[proxyId].aabb;
 	}

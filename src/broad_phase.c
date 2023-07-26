@@ -308,7 +308,7 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 
 		// We have to query the tree with the fat AABB so that
 		// we don't fail to create a contact that may touch later.
-		b2AABB fatAABB = b2DynamicTree_GetFatAABB(baseTree, proxyId);
+		b2AABB fatAABB = b2DynamicTree_GetAABB(baseTree, proxyId);
 		queryContext.queryShapeIndex = b2DynamicTree_GetUserData(baseTree, proxyId);
 
 		// Query trees
@@ -446,8 +446,8 @@ bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t
 	int32_t typeIndexB = B2_PROXY_TYPE(proxyKeyB);
 	int32_t proxyIdB = B2_PROXY_ID(proxyKeyB);
 
-	b2AABB aabbA = b2DynamicTree_GetFatAABB(bp->trees + typeIndexA, proxyIdA);
-	b2AABB aabbB = b2DynamicTree_GetFatAABB(bp->trees + typeIndexB, proxyIdB);
+	b2AABB aabbA = b2DynamicTree_GetAABB(bp->trees + typeIndexA, proxyIdA);
+	b2AABB aabbB = b2DynamicTree_GetAABB(bp->trees + typeIndexB, proxyIdB);
 	return b2AABB_Overlaps(aabbA, aabbB);
 }
 
@@ -463,21 +463,6 @@ int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey)
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
 	return b2DynamicTree_GetUserData(bp->trees + typeIndex, proxyId);
-}
-
-void b2PrepareBroadPhase(b2BroadPhase* bp)
-{
-	B2_MAYBE_UNUSED(bp);
-
-	//int32_t proxyCapacity = bp->trees[b2_dynamicBody].proxyCount + bp->trees[b2_kinematicBody].proxyCount;
-	//if (proxyCapacity > bp->enlargedProxyCapacity)
-	//{
-	//	b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
-	//	bp->enlargedProxyCapacity = proxyCapacity + proxyCapacity / 2;
-	//	bp->enlargedProxies = b2Alloc(bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
-	//}
-
-	//bp->enlargedProxyCount = 0;
 }
 
 void b2ValidateBroadphase(const b2BroadPhase* bp)

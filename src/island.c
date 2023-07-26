@@ -103,22 +103,6 @@ Baumgarte method in performance critical scenarios.
 */
 
 /*
-Cache Performance
-
-The Box2D solvers are dominated by cache misses. Data structures are designed
-to increase the number of cache hits. Much of misses are due to random access
-to body data. The constraint structures are iterated over linearly, which leads
-to few cache misses.
-
-The bodies are not accessed during iteration. Instead read only data, such as
-the mass values are stored with the constraints. The mutable data are the constraint
-impulses and the bodies velocities/positions. The impulses are held inside the
-constraint structures. The body velocities/positions are held in compact, temporary
-arrays to increase the number of cache hits. Linear and angular velocity are
-stored in a single array since multiple arrays lead to multiple misses.
-*/
-
-/*
 2D Rotation
 
 R = [cos(theta) -sin(theta)]
@@ -1262,6 +1246,8 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 				{
 					shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
 					shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
+
+					// Bit-set to keep the move array sorted
 					b2SetBit(shapeBitSet, shapeIndex);
 				}
 				shapeIndex = shape->nextShapeIndex;
@@ -1275,6 +1261,8 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 				int32_t contactIndex = contactKey >> 1;
 				int32_t edgeIndex = contactKey & 1;
 				b2Contact* contact = contacts + contactIndex;
+
+				// Bit set to prevent duplicates
 				b2SetBit(awakeContactBitSet, contactIndex);
 				contactKey = contact->edges[edgeIndex].nextKey;
 			}
@@ -1367,7 +1355,8 @@ void b2CompleteSplitIsland(b2Island* island)
 	}
 	#endif
 
-	// Split islands are always awake (I don't let them sleep right away)
+	// Split islands are kept awake as part of the splitting process. They can
+	// fall asleep the next time step.
 	island->awakeIndex = B2_NULL_INDEX;
 	b2WakeIsland(island);
 }

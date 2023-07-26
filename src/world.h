@@ -64,7 +64,6 @@ typedef struct b2World
 	// Awake contact array holds contacts that should be updated.
 	// This is a dense array that is rebuilt every time step. Order doesn't matter for determinism
 	// but a bit set is used to prevent duplicates
-	b2BitSet awakeContactBitSet;
 	int32_t* awakeContactArray;
 
 	// This transient array holds islands created from splitting a larger island.

@@ -5,7 +5,6 @@
 
 #include "allocate.h"
 #include "array.h"
-#include "atomic.inl"
 #include "bitset.h"
 #include "block_allocator.h"
 #include "body.h"
@@ -109,7 +108,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
-	world->awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
 
 	world->splitIslandIndex = B2_NULL_INDEX;
 	world->stepId = 0;
@@ -169,7 +167,6 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
 
 	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
-	b2DestroyBitSet(&world->awakeContactBitSet);
 
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
 	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
@@ -403,12 +400,9 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2Array_Clear(world->splitIslandArray);
 	world->stepId += 1;
 
-	b2BroadPhase* broadPhase = &world->broadPhase;
-	b2PrepareBroadPhase(broadPhase);
-
+	// Prepare contact and shape bit-sets
 	int32_t contactCapacity = world->contactPool.capacity;
 	int32_t shapeCapacity = world->shapePool.capacity;
-	b2SetBitCountAndClear(&world->awakeContactBitSet, contactCapacity);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
@@ -461,10 +455,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
-	b2TracyCZoneNC(enlarge_proxies, "Enlarge", b2_colorDarkTurquoise, true);
+	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
 
 	// Enlarge broad-phase proxies and build move array
 	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+
 		// Gather bits for all shapes that have enlarged AABBs
 		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
 		for (uint32_t i = 1; i < world->workerCount; ++i)
@@ -502,8 +498,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	// Build awake contact array
 	{
-		b2BitSet* bitSet = &world->awakeContactBitSet;
-		for (uint32_t i = 0; i < world->workerCount; ++i)
+		b2BitSet* bitSet = &world->taskContextArray[0].awakeContactBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
 		{
 			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
 		}
@@ -837,7 +833,6 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	if (draw->drawAABBs)
 	{
 		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
-		b2BroadPhase* bp = &world->broadPhase;
 
 		int32_t count = world->bodyPool.capacity;
 		for (int32_t i = 0; i < count; ++i)
@@ -852,7 +847,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
-				b2AABB aabb = b2BroadPhase_GetFatAABB(bp, shape->proxyKey);
+				b2AABB aabb = shape->fatAABB;
 
 				b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
 								{aabb.upperBound.x, aabb.lowerBound.y},

@@ -25,7 +25,7 @@
 // Creation:
 // - Contacts are created using results from b2UpdateBroadPhasePairs
 // - These results are ordered according to the order of the broad-phase move array
-// - The move array is ordered according to the island/shape/body order. (TODO_ERIN BUG Use bit set)
+// - The move array is ordered according to the shape creation order using a bitset.
 // - The island/shape/body order is determined by creation order
 // - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
 // 

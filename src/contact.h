@@ -73,10 +73,6 @@ typedef struct b2Contact
 	int32_t islandNext;
 	int32_t islandIndex;
 
-	// Awake contacts are associated with bodies in awake islands.
-	// The contact does not need to be touching or be in an island to be awake.
-	//int32_t awakeIndex;
-
 	// Mixed friction and restitution
 	float friction;
 	float restitution;

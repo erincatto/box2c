@@ -4,7 +4,6 @@ set(BOX2D_SOURCE_FILES
 	allocate.h
 	array.c
 	array.h
-	atomic.inl
 	bitset.c
 	bitset.h
 	block_allocator.c
@@ -87,6 +86,8 @@ set_target_properties(box2d PROPERTIES
 
 if (MSVC)
 	target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
+	# target_compile_options(box2d PRIVATE /arch:AVX2 /fp:fast /fp:except-)
+	target_compile_options(box2d PRIVATE /arch:SSE2 /fp:except-)
 	# target_compile_options(box2d PRIVATE /W4 /WX)
 	# target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 else()
