@@ -506,6 +506,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 		b2Array_Clear(world->awakeContactArray);
 
+		// Iterate the bit set
 		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
 		// that body A or body B or both bodies wake the contact.
 		uint64_t word;
@@ -519,6 +520,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 				uint32_t ctz = b2CTZ(word);
 				uint32_t contactIndex = 64 * k + ctz;
 
+				// TODO_ERIN consider adding the awake index to the contact to speed up deletes
 				b2Array_Push(world->awakeContactArray, contactIndex);
 
 				// Clear the smallest set bit
