@@ -26,7 +26,7 @@ static inline bool b2IsLeaf(const b2TreeNode* node)
 
 b2DynamicTree b2DynamicTree_Create()
 {
-	_Static_assert((sizeof(b2TreeNode) & 0xF) == 0);
+	_Static_assert((sizeof(b2TreeNode) & 0xF) == 0, "tree node size not a multiple of 16");
 
 	b2DynamicTree tree;
 	tree.root = B2_NULL_INDEX;
