@@ -24,3 +24,7 @@ Box2D is developed by Erin Catto, and uses the [MIT license](https://en.wikipedi
 
 ## Sponsorship
 Support development of Box2D through [Github Sponsors](https://github.com/sponsors/erincatto)
+
+## Building on clang in windows
+cmake -S .. -B . -G "Visual Studio 17 2022" -A x64 -T ClangCL
+https://clang.llvm.org/docs/UsersManual.html#clang-cl

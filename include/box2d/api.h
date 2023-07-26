@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #ifdef __cplusplus
 #define BOX2D_CPP extern "C"
 #else
@@ -24,8 +22,11 @@
 #define BOX2D_API BOX2D_CPP
 #endif
 
-typedef void* b2AllocFcn(int32_t size);
+typedef void* b2AllocFcn(int size);
 typedef void b2FreeFcn(void* mem);
+
+// Return 0 to 
+typedef int b2AssertFcn(const char* condition, const char* fileName, int lineNumber);
 
 #ifdef __cplusplus
 extern "C"
@@ -36,7 +37,9 @@ extern "C"
 	void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
 	/// Total bytes allocated by Box2D
-	int32_t b2GetByteCount();
+	int b2GetByteCount();
+
+	extern b2AssertFcn* Box2DAssertCallback;
 
 #ifdef __cplusplus
 }

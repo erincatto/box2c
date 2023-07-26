@@ -4,18 +4,20 @@
 #pragma once
 
 #include "pool.h"
+
 #include <stdint.h>
 
+typedef struct b2Body b2Body;
 typedef struct b2Contact b2Contact;
 typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
 // Deterministic solver
-// 
+//
 // Collide all awake contacts
-// Use bit array to emit start/stop touching events in defined order, per thread. Try using contact index, assuming contacts are created in a deterministic order.
-// bit-wise OR together bit arrays and issue changes:
+// Use bit array to emit start/stop touching events in defined order, per thread. Try using contact index, assuming contacts are created in
+// a deterministic order. bit-wise OR together bit arrays and issue changes:
 // - start touching: merge islands - temporary linked list - mark root island dirty - wake all - largest island is root
 // - stop touching: mark island dirty - wake island
 // Reserve island jobs
@@ -29,6 +31,10 @@ typedef struct b2Island
 	b2Object object;
 
 	struct b2World* world;
+
+	// These arrays get populated in the island job to make serial work faster
+	// while maintaining determinism.
+	//b2Contact** awakeContactArray;
 
 	int32_t headBody;
 	int32_t tailBody;
@@ -60,11 +66,12 @@ typedef struct b2Island
 	struct b2ContactSolver* contactSolver;
 } b2Island;
 
-void b2ClearIsland(b2Island* island);
+void b2CreateIsland(b2Island* island);
+void b2DestroyIsland(b2Island* island);
 
 void b2WakeIsland(b2Island* island);
 
-	// Link contacts into the island graph when it starts having contact points
+// Link contacts into the island graph when it starts having contact points
 void b2LinkContact(b2World* world, b2Contact* contact);
 
 // Unlink contact from the island graph when it stops having contact points
@@ -81,10 +88,10 @@ void b2SortIslands(b2World* world, b2Island** islands, int32_t count);
 
 void b2PrepareIsland(b2Island* island, b2StepContext* stepContext);
 
-void b2SolveIsland(b2Island* island);
+void b2SolveIsland(b2Island* island, uint32_t threadIndex);
 
 void b2CompleteIsland(b2Island* island);
 void b2CompleteBaseSplitIsland(b2Island* island);
-void b2CompleteSplitIsland(b2Island* island, bool isAwake);
+void b2CompleteSplitIsland(b2Island* island);
 
 void b2ValidateIsland(b2Island* island);

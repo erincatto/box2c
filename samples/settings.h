@@ -9,8 +9,8 @@ struct Settings
 	void Load();
 
 	int m_sampleIndex = 0;
-	int m_windowWidth = 1920;
-	int m_windowHeight = 1080;
+	int m_windowWidth = 1280;
+	int m_windowHeight = 720;
 	float m_hertz = 60.0f;
 	int m_velocityIterations = 8;
 	int m_positionIterations = 3;

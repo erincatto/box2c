@@ -2,60 +2,72 @@
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
+
 #include "box2d/dynamic_tree.h"
 #include "box2d/math.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+enum UpdateType
+{
+	Update_Incremental = 0,
+	Update_FullRebuild = 1,
+	Update_PartialRebuild = 2,
+};
+
 struct Proxy
 {
 	b2AABB box;
-	b2Vec2 startPosition;
+	b2AABB fatBox;
+	b2Vec2 position;
+	b2Vec2 width;
 	int32_t proxyId;
 	int32_t rayStamp;
 	int32_t queryStamp;
+	bool moved;
 };
 
-static bool QueryCallback(int32_t proxyId, void* userData, void* context);
-static float RayCallback(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context);
+static bool QueryCallback(int32_t proxyId, int32_t userData, void* context);
+static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context);
 
 // Tests the Box2D bounding volume hierarchy (BVH). The dynamic tree
-// can be used independently for as a spatial data structure.
+// can be used independently as a spatial data structure.
 class DynamicTree : public Sample
 {
-public:
-	DynamicTree(const Settings& settings)
-		: Sample(settings)
+  public:
+	DynamicTree(const Settings& settings) : Sample(settings)
 	{
-		m_fill = 1.0f;
-		m_moveFraction = 0.0f;
+		m_fill = 0.25f;
+		m_moveFraction = 0.05f;
 		m_moveDelta = 0.1f;
 		m_proxies = nullptr;
-		m_mapArray = nullptr;
 		m_proxyCount = 0;
 		m_proxyCapacity = 0;
-		m_wx = 0.5f;
-		m_wy = 0.5f;
+		m_ratio = 5.0f;
+		m_grid = 1.0f;
 
-		m_rowCount = 20;
-		m_columnCount = 20;
+		m_moveBuffer = nullptr;
+		m_moveCount = 0;
+
+		m_rowCount = g_sampleDebug ? 100 : 1000;
+		m_columnCount = g_sampleDebug ? 100 : 1000;
 		memset(&m_tree, 0, sizeof(m_tree));
 		BuildTree();
 		m_timeStamp = 0;
+		m_updateType = Update_Incremental;
 
 		m_startPoint = {0.0f, 0.0f};
 		m_endPoint = {0.0f, 0.0f};
 		m_queryDrag = false;
 		m_rayDrag = false;
-		m_topDown = false;
 		m_validate = true;
 	}
 
 	~DynamicTree()
 	{
 		free(m_proxies);
-		free(m_mapArray);
+		free(m_moveBuffer);
 		b2DynamicTree_Destroy(&m_tree);
 	}
 
@@ -63,15 +75,18 @@ public:
 	{
 		b2DynamicTree_Destroy(&m_tree);
 		free(m_proxies);
-		free(m_mapArray);
+		free(m_moveBuffer);
 
 		m_proxyCapacity = m_rowCount * m_columnCount;
 		m_proxies = static_cast<Proxy*>(malloc(m_proxyCapacity * sizeof(Proxy)));
-		m_mapArray = static_cast<struct b2ProxyMap*>(malloc(m_proxyCapacity * sizeof(struct b2ProxyMap)));
 		m_proxyCount = 0;
+
+		m_moveBuffer = static_cast<int*>(malloc(m_proxyCapacity * sizeof(int)));
+		m_moveCount = 0;
 
 		float y = -4.0f;
 
+		bool isStatic = false;
 		m_tree = b2DynamicTree_Create();
 
 		for (int i = 0; i < m_rowCount; ++i)
@@ -85,42 +100,65 @@ public:
 				{
 					assert(m_proxyCount <= m_proxyCapacity);
 					Proxy* p = m_proxies + m_proxyCount;
-					p->startPosition = {x, y};
+					p->position = {x, y};
+
+					float ratio = RandomFloat(1.0f, m_ratio);
+					float width = RandomFloat(0.1f, 0.5f);
+					if (RandomFloat() > 0.0f)
+					{
+						p->width.x =  ratio * width;
+						p->width.y =  width;
+					}
+					else
+					{
+						p->width.x =  width;
+						p->width.y =  ratio * width;
+					}
+
 					p->box.lowerBound = {x, y};
-					p->box.upperBound = {x + m_wx, y + m_wy};
-					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->box, b2_defaultCategoryBits, p);
+					p->box.upperBound = {x + p->width.x, y + p->width.y};
+					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->box, b2_defaultCategoryBits, m_proxyCount, &p->fatBox);
 					p->rayStamp = -1;
 					p->queryStamp = -1;
+					p->moved = false;
 					++m_proxyCount;
 				}
 
-				x += m_wx;
+				x += m_grid;
 			}
 
-			y += m_wy;
+			y += m_grid;
 		}
-
-		m_topDown = false;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 250.0f));
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 340.0f));
 		ImGui::Begin("Tree Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		if (ImGui::SliderInt("rows", &m_rowCount, 0, 200, "%d"))
+		if (ImGui::SliderInt("rows", &m_rowCount, 0, 1000, "%d"))
 		{
 			changed = true;
 		}
 
-		if (ImGui::SliderInt("columns", &m_columnCount, 0, 200, "%d"))
+		if (ImGui::SliderInt("columns", &m_columnCount, 0, 1000, "%d"))
 		{
 			changed = true;
 		}
 
 		if (ImGui::SliderFloat("fill", &m_fill, 0.0f, 1.0f, "%.2f"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderFloat("grid", &m_grid, 0.5f, 2.0f, "%.2f"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderFloat("ratio", &m_ratio, 1.0f, 10.0f, "%.2f"))
 		{
 			changed = true;
 		}
@@ -133,20 +171,22 @@ public:
 		{
 		}
 
-		if (ImGui::Checkbox("validate", &m_validate))
+		if (ImGui::RadioButton("Incremental", m_updateType == Update_Incremental))
 		{
+			m_updateType = Update_Incremental;
+			changed = true;
 		}
 
-		if (ImGui::Button("Rebuild Top Down"))
+		if (ImGui::RadioButton("Full Rebuild", m_updateType == Update_FullRebuild))
 		{
-			assert(m_proxyCount == b2DynamicTree_GetProxyCount(&m_tree));
-			b2DynamicTree_RebuildTopDownSAH(&m_tree, m_mapArray, m_proxyCount);
-			for (int32_t i = 0; i < m_proxyCount; ++i)
-			{
-				Proxy* proxy = static_cast<Proxy*>(m_mapArray[i].userData);
-				proxy->proxyId = i;
-			}
-			m_topDown = true;
+			m_updateType = Update_FullRebuild;
+			changed = true;
+		}
+
+		if (ImGui::RadioButton("Partial Rebuild", m_updateType == Update_PartialRebuild))
+		{
+			m_updateType = Update_PartialRebuild;
+			changed = true;
 		}
 
 		ImGui::Separator();
@@ -205,8 +245,8 @@ public:
 			g_draw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
 		}
 
-		//m_startPoint = {-42.0f, -6.0f};
-		//m_endPoint = {-38.0f, -2.0f};
+		// m_startPoint = {-42.0f, -6.0f};
+		// m_endPoint = {-38.0f, -2.0f};
 
 		if (m_rayDrag)
 		{
@@ -239,13 +279,87 @@ public:
 			{
 				float dx = m_moveDelta * RandomFloat();
 				float dy = m_moveDelta * RandomFloat();
-				p->box.lowerBound.x = p->startPosition.x + dx;
-				p->box.lowerBound.y = p->startPosition.y + dy;
-				p->box.upperBound.x = p->startPosition.x + dx + m_wx;
-				p->box.upperBound.y = p->startPosition.y + dy + m_wy;
 
-				b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->box);
+				p->position.x += dx;
+				p->position.y += dy;
+
+				p->box.lowerBound.x = p->position.x + dx;
+				p->box.lowerBound.y = p->position.y + dy;
+				p->box.upperBound.x = p->position.x + dx + p->width.x;
+				p->box.upperBound.y = p->position.y + dy + p->width.y;
+				p->moved = true;
 			}
+			else
+			{
+				p->moved = false;
+			}
+		}
+
+		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+
+		switch (m_updateType)
+		{
+		case Update_Incremental:
+		{
+			b2Timer timer = b2CreateTimer();
+			for (int i = 0; i < m_proxyCount; ++i)
+			{
+				Proxy* p = m_proxies + i;
+				if (p->moved)
+				{
+					b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->box, &p->fatBox);
+				}
+			}
+			float ms = b2GetMilliseconds(&timer);
+			g_draw.DrawString(5, m_textLine, "incremental : %.3f ms", ms);
+			m_textLine += m_textIncrement;
+		}
+		break;
+
+		case Update_FullRebuild:
+		{
+			for (int i = 0; i < m_proxyCount; ++i)
+			{
+				Proxy* p = m_proxies + i;
+				if (p->moved)
+				{
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
+					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
+				}
+			}
+
+			b2Timer timer = b2CreateTimer();
+			int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, true);
+			float ms = b2GetMilliseconds(&timer);
+			g_draw.DrawString(5, m_textLine, "full build %d : %.3f ms", boxCount, ms);
+			m_textLine += m_textIncrement;
+		}
+		break;
+
+		case Update_PartialRebuild:
+		{
+			for (int i = 0; i < m_proxyCount; ++i)
+			{
+				Proxy* p = m_proxies + i;
+				if (p->moved)
+				{
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
+					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
+				}
+			}
+
+			b2Timer timer = b2CreateTimer();
+			int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, false);
+			float ms = b2GetMilliseconds(&timer);
+			g_draw.DrawString(5, m_textLine, "partial rebuild %d : %.3f ms", boxCount, ms);
+			m_textLine += m_textIncrement;
+		}
+		break;
+
+		default:
+			break;
 		}
 
 		int32_t height = b2DynamicTree_GetHeight(&m_tree);
@@ -255,24 +369,7 @@ public:
 		g_draw.DrawString(5, m_textLine, "proxies = %d, height = %d, hmin = %d, area ratio = %.1f", m_proxyCount, height, hmin, areaRatio);
 		m_textLine += m_textIncrement;
 
-		if (m_validate)
-		{
-			g_draw.DrawString(5, m_textLine, "validating");
-			m_textLine += m_textIncrement;
-
-			b2DynamicTree_Validate(&m_tree);
-		}
-
-		if (m_topDown)
-		{
-			g_draw.DrawString(5, m_textLine, "top down");
-			m_textLine += m_textIncrement;
-		}
-		else
-		{
-			g_draw.DrawString(5, m_textLine, "incremental");
-			m_textLine += m_textIncrement;
-		}
+		b2DynamicTree_Validate(&m_tree);
 
 		m_timeStamp += 1;
 	}
@@ -285,14 +382,17 @@ public:
 	b2DynamicTree m_tree;
 	int m_rowCount, m_columnCount;
 	Proxy* m_proxies;
-	struct b2ProxyMap* m_mapArray;
+	int* m_moveBuffer;
+	int m_moveCount;
 	int m_proxyCapacity;
 	int m_proxyCount;
 	int m_timeStamp;
+	int m_updateType;
 	float m_fill;
 	float m_moveFraction;
 	float m_moveDelta;
-	float m_wx, m_wy;
+	float m_ratio;
+	float m_grid;
 
 	b2Vec2 m_startPoint;
 	b2Vec2 m_endPoint;
@@ -300,22 +400,21 @@ public:
 	bool m_rayDrag;
 	bool m_queryDrag;
 	bool m_validate;
-	bool m_topDown;
 };
 
-static bool QueryCallback(int32_t proxyId, void* userData, void* context)
+static bool QueryCallback(int32_t proxyId, int32_t userData, void* context)
 {
 	DynamicTree* sample = static_cast<DynamicTree*>(context);
-	Proxy* proxy = static_cast<Proxy*>(userData);
+	Proxy* proxy = sample->m_proxies + userData;
 	assert(proxy->proxyId == proxyId);
 	proxy->queryStamp = sample->m_timeStamp;
 	return true;
 }
 
-static float RayCallback(const b2RayCastInput* input, int32_t proxyId, void* userData, void* context)
+static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context)
 {
 	DynamicTree* sample = static_cast<DynamicTree*>(context);
-	Proxy* proxy = static_cast<Proxy*>(userData);
+	Proxy* proxy = sample->m_proxies + userData;
 	assert(proxy->proxyId == proxyId);
 	proxy->rayStamp = sample->m_timeStamp;
 	return input->maxFraction;

@@ -3,15 +3,30 @@
 
 #pragma once
 
+#include "bitset.h"
 #include "broad_phase.h"
 #include "island.h"
 #include "pool.h"
-#include "thread.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
 typedef struct b2Contact b2Contact;
+
+// Per thread task storage
+typedef struct b2TaskContext
+{
+	// These bits align with the awake contact array and signal change in contact status
+	// that affects the island graph.
+	b2BitSet contactStateBitSet;
+
+	// Used to prevent duplicate awake contacts
+	b2BitSet awakeContactBitSet;
+
+	// Used to sort shapes that have enlarged AABBs
+	b2BitSet shapeBitSet;
+
+} b2TaskContext;
 
 /// The world class manages all physics entities, dynamic simulation,
 /// and asynchronous queries. The world also contains efficient memory
@@ -39,14 +54,15 @@ typedef struct b2World
 	struct b2Island* islands;
 
 	// Per thread storage
-	struct b2TaskContext* taskContextArray;
+	b2TaskContext* taskContextArray;
 
 	// Awake island array holds indices into the island array (islandPool).
 	// This is a dense array that is rebuilt every time step.
 	int32_t* awakeIslandArray;
 
 	// Awake contact array holds contacts that should be updated.
-	// This is a dense array that is rebuilt every time step.
+	// This is a dense array that is rebuilt every time step. Order doesn't matter for determinism
+	// but a bit set is used to prevent duplicates
 	int32_t* awakeContactArray;
 
 	// This transient array holds islands created from splitting a larger island.

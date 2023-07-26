@@ -12,6 +12,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED YES)
+set(CMAKE_C_EXTENSIONS YES)
+set(CMAKE_CXX_STANDARD 17)
+
 if (MSVC AND WIN32)
     # Enable edit and continue only in debug due to perf hit in release
     # add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)

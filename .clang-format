@@ -13,3 +13,14 @@ UseTab: Always
 # InsertNewlineAtEOF: true
 
 IncludeBlocks: Regroup
+
+IncludeCategories:
+  - Regex:           '^"(box2d\/)'
+    Priority:        2
+  - Regex:           '^<.*'
+    Priority:        3
+  - Regex:           '^".*'
+    Priority:        1
+
+# this doesn't seem to work
+IndentExternBlock: NoIndent

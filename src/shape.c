@@ -6,10 +6,8 @@
 #include "broad_phase.h"
 #include "world.h"
 
-b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf, int32_t childIndex)
+b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
 {
-	B2_MAYBE_UNUSED(childIndex);
-
 	switch (shape->type)
 	{
 		case b2_circleShape:
@@ -38,38 +36,22 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 	}
 }
 
-void b2Shape_CreateProxies(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf)
+void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf)
 {
 	// Create proxies in the broad-phase.
-	int32_t proxyCount = shape->proxyCount;
-
-	for (int32_t i = 0; i < proxyCount; ++i)
-	{
-		b2ShapeProxy* proxy = shape->proxies + i;
-		proxy->aabb = b2Shape_ComputeAABB(shape, xf, i);
-		proxy->proxyKey = b2BroadPhase_CreateProxy(bp, type, proxy->aabb, shape->filter.categoryBits, proxy);
-		assert(B2_PROXY_TYPE(proxy->proxyKey) < b2_bodyTypeCount);
-		proxy->shapeIndex = shape->object.index;
-		proxy->childIndex = i;
-	}
+	shape->aabb = b2Shape_ComputeAABB(shape, xf);
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->aabb, shape->filter.categoryBits, shape->object.index, &shape->fatAABB);
+	assert(B2_PROXY_TYPE(shape->proxyKey) < b2_bodyTypeCount);
 }
 
-void b2Shape_DestroyProxies(b2Shape* shape, b2BroadPhase* bp)
+void b2Shape_DestroyProxy(b2Shape* shape, b2BroadPhase* bp)
 {
-	int32_t proxyCount = shape->proxyCount;
-
-	for (int32_t i = 0; i < proxyCount; ++i)
-	{
-		b2ShapeProxy* proxy = shape->proxies + i;
-		b2BroadPhase_DestroyProxy(bp, proxy->proxyKey);
-		proxy->proxyKey = B2_NULL_INDEX;
-	}
+	b2BroadPhase_DestroyProxy(bp, shape->proxyKey);
+	shape->proxyKey = B2_NULL_INDEX;
 }
 
-b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child)
+b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
 {
-	B2_MAYBE_UNUSED(child);
-
 	switch (shape->type)
 	{
 		case b2_circleShape:

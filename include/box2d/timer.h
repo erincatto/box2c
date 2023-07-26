@@ -10,6 +10,7 @@
 typedef struct b2Profile
 {
 	float step;
+	float pairs;
 	float collide;
 	float solve;
 	float buildIslands;

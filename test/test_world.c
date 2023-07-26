@@ -20,6 +20,8 @@ int HelloWorld()
 
 	// Construct a world object, which will hold and simulate the rigid bodies.
 	b2WorldDef worldDef = b2DefaultWorldDef();
+	worldDef.gravity = gravity;
+
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 
 	// Define the ground body.

@@ -58,18 +58,12 @@ typedef struct b2Contact
 {
 	b2Object object;
 
-	// The last step this contact was added to the awake contact array
-	uint64_t stepId;
-
 	uint32_t flags;
 
 	b2ContactEdge edges[2];
 
 	int32_t shapeIndexA;
 	int32_t shapeIndexB;
-
-	int32_t childA;
-	int32_t childB;
 
 	b2DistanceCache cache;
 	b2Manifold manifold;
@@ -78,10 +72,6 @@ typedef struct b2Contact
 	int32_t islandPrev;
 	int32_t islandNext;
 	int32_t islandIndex;
-
-	// Awake contacts are associated with bodies in awake islands.
-	// The contact does not need to be touching or be in an island to be awake.
-	int32_t awakeIndex;
 
 	// Mixed friction and restitution
 	float friction;
@@ -93,10 +83,10 @@ typedef struct b2Contact
 
 void b2InitializeContactRegisters();
 
-void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB);
+void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
 
-bool b2ShouldCollide(b2Filter filterA, b2Filter filterB);
+bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
 void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
 	b2Body* bodyB);

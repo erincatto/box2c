@@ -18,15 +18,6 @@ typedef enum b2ShapeType
 	b2_shapeTypeCount
 } b2ShapeType;
 
-// This proxy is used to connect shapes to the broad-phase.
-typedef struct b2ShapeProxy
-{
-	b2AABB aabb;
-	int32_t shapeIndex;
-	int32_t childIndex;
-	int32_t proxyKey;
-} b2ShapeProxy;
-
 typedef struct b2Shape
 {
 	b2Object object;
@@ -37,9 +28,9 @@ typedef struct b2Shape
 	float friction;
 	float restitution;
 
-	// Chain shapes need to have multiple proxies
-	b2ShapeProxy* proxies;
-	int32_t proxyCount;
+	b2AABB aabb;
+	b2AABB fatAABB;
+	int32_t proxyKey;
 
 	b2Filter filter;
 	void* userData;
@@ -56,11 +47,11 @@ typedef struct b2Shape
 } b2Shape;
 
 b2MassData b2Shape_ComputeMass(const b2Shape* shape);
-b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf, int32_t childIndex);
+b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf);
 
-void b2Shape_CreateProxies(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
-void b2Shape_DestroyProxies(b2Shape* shape, b2BroadPhase* bp);
+void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
+void b2Shape_DestroyProxy(b2Shape* shape, b2BroadPhase* bp);
 
-b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape, int32_t child);
+b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape);
 
 float b2Shape_GetRadius(const b2Shape* shape);

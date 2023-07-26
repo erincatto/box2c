@@ -11,11 +11,30 @@
 #include "contact.h"
 #include "island.h"
 #include "shape.h"
+#include "table.h"
 #include "world.h"
 
 #include <assert.h>
 #include <float.h>
 #include <math.h>
+
+// Contacts and determinism
+// A deterministic simulation requires contacts to exist in the same order in b2Island no matter the thread count.
+// The order must reproduce from run to run. This is necessary because Gauss-Seidel is order dependent.
+// 
+// Creation:
+// - Contacts are created using results from b2UpdateBroadPhasePairs
+// - These results are ordered according to the order of the broad-phase move array
+// - The move array is ordered according to the shape creation order using a bitset.
+// - The island/shape/body order is determined by creation order
+// - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
+// 
+// Island linking:
+// - The awake contact array is built from the body-contact graph for all awake bodies in awake islands.
+// - Awake contacts are solved in parallel and they generate contact state changes.
+// - These state changes may link islands together using union find.
+// - The state changes are ordered using a bit array that encompasses all contacts
+// - As long as contacts are created in deterministic order, island link order is deterministic
 
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.
@@ -31,7 +50,7 @@ static inline float b2MixRestitution(float restitution1, float restitution2)
 	return restitution1 > restitution2 ? restitution1 : restitution2;
 }
 
-typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
 								 b2Transform xfB, b2DistanceCache* cache);
 
 struct b2ContactRegister
@@ -43,26 +62,23 @@ struct b2ContactRegister
 static struct b2ContactRegister s_registers[b2_shapeTypeCount][b2_shapeTypeCount];
 static bool s_initialized = false;
 
-static b2Manifold b2CircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
 								   b2Transform xfB, b2DistanceCache* cache)
 {
-	B2_MAYBE_UNUSED(childIndexA);
 	B2_MAYBE_UNUSED(cache);
 	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB);
 }
 
-static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA,
+static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA,
 											 const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache)
 {
-	B2_MAYBE_UNUSED(childIndexA);
 	B2_MAYBE_UNUSED(cache);
 	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
 }
 
-static b2Manifold b2PolygonManifold(const b2Shape* shapeA, int32_t childIndexA, b2Transform xfA, const b2Shape* shapeB,
+static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
 									b2Transform xfB, b2DistanceCache* cache)
 {
-	B2_MAYBE_UNUSED(childIndexA);
 	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
 }
 
@@ -92,7 +108,7 @@ void b2InitializeContactRegisters()
 	}
 }
 
-void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* shapeB, int32_t childB)
+void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 {
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
@@ -108,14 +124,13 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	if (s_registers[type1][type2].primary == false)
 	{
 		// flip order
-		b2CreateContact(world, shapeB, childB, shapeA, childA);
+		b2CreateContact(world, shapeB, shapeA);
 		return;
 	}
 
 	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
 	world->contacts = (b2Contact*)world->contactPool.memory;
 
-	contact->stepId = 0;
 	contact->flags = b2_contactEnabledFlag;
 
 	if (shapeA->isSensor || shapeB->isSensor)
@@ -125,11 +140,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 
 	contact->shapeIndexA = shapeA->object.index;
 	contact->shapeIndexB = shapeB->object.index;
-	contact->childA = childA;
-	contact->childB = childB;
 	contact->cache = b2_emptyDistanceCache;
 	contact->manifold = b2_emptyManifold;
-	contact->awakeIndex = B2_NULL_INDEX;
 	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	contact->tangentSpeed = 0.0f;
@@ -177,13 +189,20 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, int32_t childA, b2Shape* s
 	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 	{
 		// A contact does not need to be in an island to be awake.
-		contact->awakeIndex = b2Array(world->awakeContactArray).count;
 		b2Array_Push(world->awakeContactArray, contact->object.index);
 	}
+
+	// Add to pair set for fast lookup
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
+	b2AddKey(&world->broadPhase.pairSet, pairKey);
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
 {
+	// Remove pair from set
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
+	b2RemoveKey(&world->broadPhase.pairSet, pairKey);
+
 	b2ContactEdge* edgeA = contact->edges + 0;
 	b2ContactEdge* edgeB = contact->edges + 1;
 
@@ -246,15 +265,23 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		b2UnlinkContact(world, contact);
 	}
 
-	if (contact->awakeIndex != B2_NULL_INDEX)
+	// Remove from awake contact array
+	// TODO_ERIN perf problem?
+	int32_t contactIndex = contact->object.index;
+	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+	for (int32_t i = 0; i < awakeContactCount; ++i)
 	{
-		world->awakeContactArray[contact->awakeIndex] = B2_NULL_INDEX;
+		if (world->awakeContactArray[i] == contactIndex)
+		{
+			b2Array_RemoveSwap(world->awakeContactArray, i);
+			break;
+		}
 	}
 
 	b2FreeObject(&world->contactPool, &contact->object);
 }
 
-bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
+bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
 {
 	if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
 	{
@@ -265,12 +292,11 @@ bool b2ShouldCollide(b2Filter filterA, b2Filter filterB)
 	return collide;
 }
 
-static bool b2TestShapeOverlap(const b2Shape* shapeA, int32_t childA, b2Transform xfA, const b2Shape* shapeB,
-							   int32_t childB, b2Transform xfB)
+static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	b2DistanceInput input;
-	input.proxyA = b2Shape_MakeDistanceProxy(shapeA, childA);
-	input.proxyB = b2Shape_MakeDistanceProxy(shapeB, childB);
+	input.proxyA = b2Shape_MakeDistanceProxy(shapeA);
+	input.proxyB = b2Shape_MakeDistanceProxy(shapeB);
 	input.transformA = xfA;
 	input.transformB = xfB;
 	input.useRadii = true;
@@ -306,13 +332,10 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 	bool sensorB = shapeB->isSensor;
 	bool sensor = sensorA || sensorB;
 
-	int32_t childA = contact->childA;
-	int32_t childB = contact->childB;
-
 	// Is this contact a sensor?
 	if (sensor)
 	{
-		touching = b2TestShapeOverlap(shapeA, childA, bodyA->transform, shapeB, childB, bodyB->transform);
+		touching = b2TestShapeOverlap(shapeA, bodyA->transform, shapeB, bodyB->transform);
 
 		// Sensors don't generate manifolds.
 	}
@@ -321,7 +344,7 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		contact->manifold = fcn(shapeA, childA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
+		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;
 

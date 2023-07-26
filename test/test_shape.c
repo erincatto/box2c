@@ -7,7 +7,7 @@
 
 #include <float.h>
 
-static b2Capsule capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 1.0f};
+//static b2Capsule capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 1.0f};
 static b2Circle circle = {{1.0f, 0.0f}, 1.0f};
 static b2Polygon box;
 static b2Segment segment = {{0.0f, 1.0f}, {0.0f, -1.0f}};

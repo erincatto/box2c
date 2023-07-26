@@ -111,7 +111,8 @@ public:
 				int32_t n = j * m_rowCount + i;
 
 				float shift = (i % 2 == 0 ? -offset : offset);
-				bd.position = {x + shift, 0.505f + 1.01f * i};
+				//bd.position = {x + shift, 0.505f + 1.01f * i};
+				bd.position = {x + shift, 2.0f + 1.51f * i};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;

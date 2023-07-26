@@ -2,18 +2,21 @@
 // SPDX-License-Identifier: MIT
 
 #include "allocate.h"
+
+#include "core.h"
+
 #include "box2d/api.h"
 
-#if defined(_WIN32)
+#if defined(B2_COMPILER_MSVC)
 #define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
 #include <crtdbg.h>
+#include <stdlib.h>
 #else
 #include <stdlib.h>
 #endif
 
-#include <stdint.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 #ifdef BOX2D_PROFILE
 
@@ -28,10 +31,10 @@
 
 #endif
 
-b2AllocFcn* b2_allocFcn = NULL;
-b2FreeFcn* b2_freeFcn = NULL;
+static b2AllocFcn* b2_allocFcn = NULL;
+static b2FreeFcn* b2_freeFcn = NULL;
 
-_Atomic int32_t b2_byteCount;
+static _Atomic int32_t b2_byteCount;
 
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
@@ -50,13 +53,24 @@ void* b2Alloc(int32_t size)
 		return ptr;
 	}
 
-	void* ptr = malloc(size);
+	size_t size16 = ((size - 1) | 0xF) + 1;
+#ifdef B2_PLATFORM_WINDOWS
+	void* ptr = _aligned_malloc(size16, 16);
+#else
+	void* ptr = aligned_alloc(16, size16);
+#endif
+
 	b2TracyCAlloc(ptr, size);
 	return ptr;
 }
 
 void b2Free(void* mem, int32_t size)
 {
+	if (mem == NULL)
+	{
+		return;
+	}
+
 	b2TracyCFree(mem);
 
 	if (b2_freeFcn != NULL)
@@ -65,13 +79,17 @@ void b2Free(void* mem, int32_t size)
 	}
 	else
 	{
+#ifdef B2_PLATFORM_WINDOWS
+		_aligned_free(mem);
+#else
 		free(mem);
+#endif
 	}
 
 	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);
 }
 
-int32_t b2GetByteCount()
+int32_t b2GetByteCount(void)
 {
 	return atomic_load_explicit(&b2_byteCount, memory_order_relaxed);
 }

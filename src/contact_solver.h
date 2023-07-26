@@ -3,9 +3,10 @@
 
 #pragma once
 
-#include "box2d/callbacks.h"
-
 #include "solver_data.h"
+#include "stack_allocator.h"
+
+#include "box2d/callbacks.h"
 
 typedef struct b2ContactSolverDef
 {
@@ -27,7 +28,13 @@ typedef struct b2ContactSolver
 } b2ContactSolver;
 
 b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def);
-void b2DestroyContactSolver(b2ContactSolver* solver);
+
+static inline void b2DestroyContactSolver(b2ContactSolver* solver, b2StackAllocator* alloc)
+{
+	b2FreeStackItem(alloc, solver->velocityConstraints);
+	b2FreeStackItem(alloc, solver->positionConstraints);
+	b2FreeStackItem(alloc, solver);
+}
 
 void b2ContactSolver_Initialize(b2ContactSolver* solver);
 void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver);

@@ -4,63 +4,30 @@
 #include "box2d/dynamic_tree.h"
 
 #include "allocate.h"
+#include "array.h"
+#include "core.h"
+
 #include "box2d/aabb.h"
 #include "box2d/constants.h"
 
 #include <float.h>
 #include <string.h>
 
-// A node in the dynamic tree. The client does not interact with this directly.
 // TODO_ERIN
-//union
-//{
-//	void* userData;
-//	struct
-//	{
-//		int32_t child1;
-//		int32_t child2;
-//	} Children;
-//};
-// 43 bytes
-// could be 34
-typedef struct b2TreeNode
-{
-	void* userData; // 8
+// - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
 
-	// Enlarged AABB
-	b2AABB aabb; // 16
-
-	// If we put the most common bits in the first 16 bits, this could be 2 bytes and expanded
-	// to 0xFFFF0000 | bits. Then we get partial culling in the tree traversal.
-	uint32_t categoryBits; // 4
-
-	union
-	{
-		int32_t parent;
-		int32_t next;
-	}; // 4
-
-	int32_t child1; // 4
-	int32_t child2; // 4
-
-	// leaf = 0, free node = -1
-	// If the height is more than 32k we are in big trouble
-	int16_t height; // 2
-
-	bool moved; // 1
-} b2TreeNode;
-
-static b2TreeNode b2_defaultTreeNode = {NULL, {{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, B2_NULL_INDEX,
-										false};
+static b2TreeNode b2_defaultTreeNode = {{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false,
+										{0, 0, 0, 0, 0, 0, 0, 0, 0}};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {
-	// TODO_ERIN this should work with height == 0
-	return node->child1 == B2_NULL_INDEX;
+	return node->height == 0;
 }
 
-b2DynamicTree b2DynamicTree_Create()
+b2DynamicTree b2DynamicTree_Create(void)
 {
+	_Static_assert((sizeof(b2TreeNode) & 0xF) == 0, "tree node size not a multiple of 16");
+
 	b2DynamicTree tree;
 	tree.root = B2_NULL_INDEX;
 
@@ -81,13 +48,57 @@ b2DynamicTree b2DynamicTree_Create()
 
 	tree.proxyCount = 0;
 
+	tree.leafIndices = NULL;
+	tree.leafBoxes = NULL;
+	tree.leafCenters = NULL;
+	tree.binIndices = NULL;
+	tree.rebuildCapacity = 0;
+
 	return tree;
 }
 
 void b2DynamicTree_Destroy(b2DynamicTree* tree)
 {
 	b2Free(tree->nodes, tree->nodeCapacity * sizeof(b2TreeNode));
+	b2Free(tree->leafIndices, tree->rebuildCapacity * sizeof(int32_t));
+	b2Free(tree->leafBoxes, tree->rebuildCapacity * sizeof(b2AABB));
+	b2Free(tree->leafCenters, tree->rebuildCapacity * sizeof(b2Vec2));
+	b2Free(tree->binIndices, tree->rebuildCapacity * sizeof(int32_t));
+
 	memset(tree, 0, sizeof(b2DynamicTree));
+}
+
+void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree)
+{
+	if (outTree->nodeCapacity < inTree->nodeCapacity)
+	{
+		b2Free(outTree->nodes, outTree->nodeCapacity * sizeof(b2TreeNode));
+		outTree->nodeCapacity = inTree->nodeCapacity;
+		outTree->nodes = (b2TreeNode*)b2Alloc(outTree->nodeCapacity * sizeof(b2TreeNode));
+	}
+
+	memcpy(outTree->nodes, inTree->nodes, inTree->nodeCapacity * sizeof(b2TreeNode));
+	outTree->root = inTree->root;
+	outTree->nodeCount = inTree->nodeCount;
+	outTree->freeList = inTree->freeList;
+	outTree->proxyCount = inTree->proxyCount;
+
+	// Hook up free list.
+	// TODO_ERIN make this optional?
+	// TODO_ERIN perhaps find tail of existing free list and append
+	int32_t inCapacity = inTree->nodeCapacity;
+	int32_t outCapacity = outTree->nodeCapacity;
+	if (outCapacity > inCapacity)
+	{
+		for (int32_t i = inCapacity; i < outCapacity - 1; ++i)
+		{
+			outTree->nodes[i].next = i + 1;
+			outTree->nodes[i].height = -1;
+		}
+		outTree->nodes[outCapacity - 1].next = outTree->freeList;
+		outTree->nodes[outCapacity - 1].height = -1;
+		outTree->freeList = inCapacity;
+	}
 }
 
 // Allocate a node from the pool. Grow the pool if necessary.
@@ -96,7 +107,7 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 	// Expand the node pool as needed.
 	if (tree->freeList == B2_NULL_INDEX)
 	{
-		assert(tree->nodeCount == tree->nodeCapacity);
+		B2_ASSERT(tree->nodeCount == tree->nodeCapacity);
 
 		// The free list is empty. Rebuild a bigger pool.
 		b2TreeNode* oldNodes = tree->nodes;
@@ -119,183 +130,484 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 	}
 
 	// Peel a node off the free list.
-	int32_t nodeId = tree->freeList;
-	b2TreeNode* node = tree->nodes + nodeId;
+	int32_t nodeIndex = tree->freeList;
+	b2TreeNode* node = tree->nodes + nodeIndex;
 	tree->freeList = node->next;
 	*node = b2_defaultTreeNode;
 	++tree->nodeCount;
-	return nodeId;
+	return nodeIndex;
 }
 
 // Return a node to the pool.
 static void b2FreeNode(b2DynamicTree* tree, int32_t nodeId)
 {
-	assert(0 <= nodeId && nodeId < tree->nodeCapacity);
-	assert(0 < tree->nodeCount);
+	B2_ASSERT(0 <= nodeId && nodeId < tree->nodeCapacity);
+	B2_ASSERT(0 < tree->nodeCount);
 	tree->nodes[nodeId].next = tree->freeList;
 	tree->nodes[nodeId].height = -1;
 	tree->freeList = nodeId;
 	--tree->nodeCount;
 }
 
+// Greedy algorithm for sibling selection using the SAH
+// We have three nodes A-(B,C) and want to add a leaf D, there are three choices.
+// 1: make a new parent for A and D : E-(A-(B,C), D)
+// 2: associate D with B
+//   a: B is a leaf : A-(E-(B,D), C)
+//   b: B is an internal node: A-(B{D},C)
+// 3: associate D with C
+//   a: C is a leaf : A-(B, E-(C,D))
+//   b: C is an internal node: A-(B, C{D})
+// All of these have a clear cost except when B or C is an internal node. Hence we need to be greedy.
+
+// The cost for cases 1, 2a, and 3a can be computed using the sibling cost formula.
+// cost of sibling H = area(union(H, D)) + increased are of ancestors
+
+// Suppose B (or C) is an internal node, then the lowest cost would be one of two cases:
+// case1: D becomes a sibling of B
+// case2: D becomes a descendant of B along with a new internal node of area(D).
+static int32_t b2FindBestSibling(const b2DynamicTree* tree, b2AABB boxD)
+{
+	b2Vec2 centerD = b2AABB_Center(boxD);
+	float areaD = b2AABB_Perimeter(boxD);
+
+	const b2TreeNode* nodes = tree->nodes;
+	int32_t rootIndex = tree->root;
+
+	b2AABB rootBox = nodes[rootIndex].aabb;
+
+	// Area of current node
+	float areaBase = b2AABB_Perimeter(rootBox);
+
+	// Area of inflated node
+	float directCost = b2AABB_Perimeter(b2AABB_Union(rootBox, boxD));
+	float inheritedCost = 0.0f;
+
+	int32_t bestSibling = rootIndex;
+	float bestCost = directCost;
+
+	// Descend the tree from root, following a single greedy path.
+	int32_t index = rootIndex;
+	while (nodes[index].height > 0)
+	{
+		int32_t child1 = nodes[index].child1;
+		int32_t child2 = nodes[index].child2;
+
+		// Cost of creating a new parent for this node and the new leaf
+		float cost = directCost + inheritedCost;
+
+		// Sometimes there are multiple identical costs within tolerance.
+		// This breaks the ties using the centroid distance.
+		if (cost < bestCost)
+		{
+			bestSibling = index;
+			bestCost = cost;
+		}
+
+		// Inheritance cost seen by children
+		inheritedCost += directCost - areaBase;
+
+		bool leaf1 = nodes[child1].height == 0;
+		bool leaf2 = nodes[child2].height == 0;
+
+		// Cost of descending into child 1
+		float lowerCost1 = FLT_MAX;
+		b2AABB box1 = nodes[child1].aabb;
+		float directCost1 = b2AABB_Perimeter(b2AABB_Union(box1, boxD));
+		float area1 = 0.0f;
+		if (leaf1)
+		{
+			// Child 1 is a leaf
+			// Cost of creating new node and increasing area of node P
+			float cost1 = directCost1 + inheritedCost;
+
+			// Need this here due to while condition above
+			if (cost1 < bestCost)
+			{
+				bestSibling = child1;
+				bestCost = cost1;
+			}
+		}
+		else
+		{
+			// Child 1 is an internal node
+			area1 = b2AABB_Perimeter(box1);
+
+			// Lower bound cost of inserting under child 1.
+			lowerCost1 = inheritedCost + directCost1 + B2_MIN(areaD - area1, 0.0f);
+		}
+
+		// Cost of descending into child 2
+		float lowerCost2 = FLT_MAX;
+		b2AABB box2 = nodes[child2].aabb;
+		float directCost2 = b2AABB_Perimeter(b2AABB_Union(box2, boxD));
+		float area2 = 0.0f;
+		if (leaf2)
+		{
+			// Child 2 is a leaf
+			// Cost of creating new node and increasing area of node P
+			float cost2 = directCost2 + inheritedCost;
+
+			// Need this here due to while condition above
+			if (cost2 < bestCost)
+			{
+				bestSibling = child2;
+				bestCost = cost2;
+			}
+		}
+		else
+		{
+			// Child 2 is an internal node
+			area2 = b2AABB_Perimeter(box2);
+
+			// Lower bound cost of inserting under child 2. This is not the cost
+			// of child 2, it is the best we can hope for under child 2.
+			lowerCost2 = inheritedCost + directCost2 + B2_MIN(areaD - area2, 0.0f);
+		}
+
+		if (leaf1 && leaf2)
+		{
+			break;
+		}
+
+		// Can the cost possibly be decreased?
+		if (bestCost <= lowerCost1 && bestCost <= lowerCost2)
+		{
+			break;
+		}
+
+		if (lowerCost1 == lowerCost2 && leaf1 == false)
+		{
+			B2_ASSERT(lowerCost1 < FLT_MAX);
+			B2_ASSERT(lowerCost2 < FLT_MAX);
+
+			// No clear choice based on lower bound surface area. This can happen when both
+			// children fully contain D. Fall back to node distance.
+			b2Vec2 d1 = b2Sub(b2AABB_Center(box1), centerD);
+			b2Vec2 d2 = b2Sub(b2AABB_Center(box2), centerD);
+			lowerCost1 = b2LengthSquared(d1);
+			lowerCost2 = b2LengthSquared(d2);
+		}
+
+		// Descend
+		if (lowerCost1 < lowerCost2 && leaf1 == false)
+		{
+			index = child1;
+			areaBase = area1;
+			directCost = directCost1;
+		}
+		else
+		{
+			index = child2;
+			areaBase = area2;
+			directCost = directCost2;
+		}
+
+		B2_ASSERT(nodes[index].height > 0);
+	}
+
+	return bestSibling;
+}
+
+enum b2RotateType
+{
+	b2_rotateNone,
+	b2_rotateBF,
+	b2_rotateBG,
+	b2_rotateCD,
+	b2_rotateCE
+};
+
 // Perform a left or right rotation if node A is imbalanced.
 // Returns the new root index.
-int32_t b2BalanceNode(b2DynamicTree* tree, int32_t iA)
+static void b2RotateNodes(b2DynamicTree* tree, int32_t iA)
 {
-	assert(iA != B2_NULL_INDEX);
+	B2_ASSERT(iA != B2_NULL_INDEX);
 
-	b2TreeNode* A = tree->nodes + iA;
-	if (b2IsLeaf(A) || A->height < 2)
+	b2TreeNode* nodes = tree->nodes;
+
+	b2TreeNode* A = nodes + iA;
+	if (A->height < 2)
 	{
-		return iA;
+		return;
 	}
 
 	int32_t iB = A->child1;
 	int32_t iC = A->child2;
-	assert(0 <= iB && iB < tree->nodeCapacity);
-	assert(0 <= iC && iC < tree->nodeCapacity);
+	B2_ASSERT(0 <= iB && iB < tree->nodeCapacity);
+	B2_ASSERT(0 <= iC && iC < tree->nodeCapacity);
 
-	b2TreeNode* B = tree->nodes + iB;
-	b2TreeNode* C = tree->nodes + iC;
+	b2TreeNode* B = nodes + iB;
+	b2TreeNode* C = nodes + iC;
 
-	int32_t balance = C->height - B->height;
-
-	// Rotate C up
-	if (balance > 1)
+	if (B->height == 0)
 	{
+		// B is a leaf and C is internal
+		B2_ASSERT(C->height > 0);
+
 		int32_t iF = C->child1;
 		int32_t iG = C->child2;
-		b2TreeNode* F = tree->nodes + iF;
-		b2TreeNode* G = tree->nodes + iG;
-		assert(0 <= iF && iF < tree->nodeCapacity);
-		assert(0 <= iG && iG < tree->nodeCapacity);
+		b2TreeNode* F = nodes + iF;
+		b2TreeNode* G = nodes + iG;
+		B2_ASSERT(0 <= iF && iF < tree->nodeCapacity);
+		B2_ASSERT(0 <= iG && iG < tree->nodeCapacity);
 
-		// Swap A and C
-		C->child1 = iA;
-		C->parent = A->parent;
-		A->parent = iC;
+		// Base cost
+		float costBase = b2AABB_Perimeter(C->aabb);
 
-		// A's old parent should point to C
-		if (C->parent != B2_NULL_INDEX)
+		// Cost of swapping B and F
+		b2AABB aabbBG = b2AABB_Union(B->aabb, G->aabb);
+		float costBF = b2AABB_Perimeter(aabbBG);
+
+		// Cost of swapping B and G
+		b2AABB aabbBF = b2AABB_Union(B->aabb, F->aabb);
+		float costBG = b2AABB_Perimeter(aabbBF);
+
+		if (costBase < costBF && costBase < costBG)
 		{
-			if (tree->nodes[C->parent].child1 == iA)
-			{
-				tree->nodes[C->parent].child1 = iC;
-			}
-			else
-			{
-				assert(tree->nodes[C->parent].child2 == iA);
-				tree->nodes[C->parent].child2 = iC;
-			}
-		}
-		else
-		{
-			tree->root = iC;
+			// Rotation does not improve cost
+			return;
 		}
 
-		// Rotate
-		if (F->height > G->height)
+		if (costBF < costBG)
 		{
-			C->child2 = iF;
-			A->child2 = iG;
-			G->parent = iA;
-			A->aabb = b2AABB_Union(B->aabb, G->aabb);
-			C->aabb = b2AABB_Union(A->aabb, F->aabb);
+			// Swap B and F
+			A->child1 = iF;
+			C->child1 = iB;
 
-			A->categoryBits = B->categoryBits | G->categoryBits;
-			C->categoryBits = A->categoryBits | F->categoryBits;
-
-			A->height = 1 + B2_MAX(B->height, G->height);
-			C->height = 1 + B2_MAX(A->height, F->height);
-		}
-		else
-		{
-			C->child2 = iG;
-			A->child2 = iF;
+			B->parent = iC;
 			F->parent = iA;
-			A->aabb = b2AABB_Union(B->aabb, F->aabb);
-			C->aabb = b2AABB_Union(A->aabb, G->aabb);
 
-			A->categoryBits = B->categoryBits | F->categoryBits;
-			C->categoryBits = A->categoryBits | G->categoryBits;
+			C->aabb = aabbBG;
 
-			A->height = 1 + B2_MAX(B->height, F->height);
-			C->height = 1 + B2_MAX(A->height, G->height);
+			C->height = 1 + B2_MAX(B->height, G->height);
+			A->height = 1 + B2_MAX(C->height, F->height);
+			C->categoryBits = B->categoryBits | G->categoryBits;
+			A->categoryBits = C->categoryBits | F->categoryBits;
+			C->enlarged = B->enlarged || G->enlarged;
+			A->enlarged = C->enlarged || F->enlarged;
 		}
+		else
+		{
+			// Swap B and G
+			A->child1 = iG;
+			C->child2 = iB;
 
-		return iC;
+			B->parent = iC;
+			G->parent = iA;
+
+			C->aabb = aabbBF;
+
+			C->height = 1 + B2_MAX(B->height, F->height);
+			A->height = 1 + B2_MAX(C->height, G->height);
+			C->categoryBits = B->categoryBits | F->categoryBits;
+			A->categoryBits = C->categoryBits | G->categoryBits;
+			C->enlarged = B->enlarged || F->enlarged;
+			A->enlarged = C->enlarged || G->enlarged;
+		}
 	}
-
-	// Rotate B up
-	if (balance < -1)
+	else if (C->height == 0)
 	{
-		int32_t iD = B->child1;
-		int32_t iE = B->child2;
-		b2TreeNode* D = tree->nodes + iD;
-		b2TreeNode* E = tree->nodes + iE;
-		assert(0 <= iD && iD < tree->nodeCapacity);
-		assert(0 <= iE && iE < tree->nodeCapacity);
+		// C is a leaf and B is internal
+		B2_ASSERT(B->height > 0);
 
-		// Swap A and B
-		B->child1 = iA;
-		B->parent = A->parent;
-		A->parent = iB;
+		int iD = B->child1;
+		int iE = B->child2;
+		b2TreeNode* D = nodes + iD;
+		b2TreeNode* E = nodes + iE;
+		B2_ASSERT(0 <= iD && iD < tree->nodeCapacity);
+		B2_ASSERT(0 <= iE && iE < tree->nodeCapacity);
 
-		// A's old parent should point to B
-		if (B->parent != B2_NULL_INDEX)
+		// Base cost
+		float costBase = b2AABB_Perimeter(B->aabb);
+
+		// Cost of swapping C and D
+		b2AABB aabbCE = b2AABB_Union(C->aabb, E->aabb);
+		float costCD = b2AABB_Perimeter(aabbCE);
+
+		// Cost of swapping C and E
+		b2AABB aabbCD = b2AABB_Union(C->aabb, D->aabb);
+		float costCE = b2AABB_Perimeter(aabbCD);
+
+		if (costBase < costCD && costBase < costCE)
 		{
-			if (tree->nodes[B->parent].child1 == iA)
-			{
-				tree->nodes[B->parent].child1 = iB;
-			}
-			else
-			{
-				assert(tree->nodes[B->parent].child2 == iA);
-				tree->nodes[B->parent].child2 = iB;
-			}
-		}
-		else
-		{
-			tree->root = iB;
+			// Rotation does not improve cost
+			return;
 		}
 
-		// Rotate
-		if (D->height > E->height)
+		if (costCD < costCE)
 		{
-			B->child2 = iD;
-			A->child1 = iE;
-			E->parent = iA;
-			A->aabb = b2AABB_Union(C->aabb, E->aabb);
-			B->aabb = b2AABB_Union(A->aabb, D->aabb);
+			// Swap C and D
+			A->child2 = iD;
+			B->child1 = iC;
 
-			A->categoryBits = C->categoryBits | E->categoryBits;
-			B->categoryBits = A->categoryBits | D->categoryBits;
-
-			A->height = 1 + B2_MAX(C->height, E->height);
-			B->height = 1 + B2_MAX(A->height, D->height);
-		}
-		else
-		{
-			B->child2 = iE;
-			A->child1 = iD;
+			C->parent = iB;
 			D->parent = iA;
-			A->aabb = b2AABB_Union(C->aabb, D->aabb);
-			B->aabb = b2AABB_Union(A->aabb, E->aabb);
 
-			A->categoryBits = C->categoryBits | D->categoryBits;
-			B->categoryBits = A->categoryBits | E->categoryBits;
+			B->aabb = aabbCE;
 
-			A->height = 1 + B2_MAX(C->height, D->height);
-			B->height = 1 + B2_MAX(A->height, E->height);
+			B->height = 1 + B2_MAX(C->height, E->height);
+			A->height = 1 + B2_MAX(B->height, D->height);
+			B->categoryBits = C->categoryBits | E->categoryBits;
+			A->categoryBits = B->categoryBits | D->categoryBits;
+			B->enlarged = C->enlarged || E->enlarged;
+			A->enlarged = B->enlarged || D->enlarged;
+		}
+		else
+		{
+			// Swap C and E
+			A->child2 = iE;
+			B->child2 = iC;
+
+			C->parent = iB;
+			E->parent = iA;
+
+			B->aabb = aabbCD;
+			B->height = 1 + B2_MAX(C->height, D->height);
+			A->height = 1 + B2_MAX(B->height, E->height);
+			B->categoryBits = C->categoryBits | D->categoryBits;
+			A->categoryBits = B->categoryBits | E->categoryBits;
+			B->enlarged = C->enlarged || D->enlarged;
+			A->enlarged = B->enlarged || E->enlarged;
+		}
+	}
+	else
+	{
+		int iD = B->child1;
+		int iE = B->child2;
+		int iF = C->child1;
+		int iG = C->child2;
+
+		b2TreeNode* D = nodes + iD;
+		b2TreeNode* E = nodes + iE;
+		b2TreeNode* F = nodes + iF;
+		b2TreeNode* G = nodes + iG;
+
+		B2_ASSERT(0 <= iD && iD < tree->nodeCapacity);
+		B2_ASSERT(0 <= iE && iE < tree->nodeCapacity);
+		B2_ASSERT(0 <= iF && iF < tree->nodeCapacity);
+		B2_ASSERT(0 <= iG && iG < tree->nodeCapacity);
+
+		// Base cost
+		float areaB = b2AABB_Perimeter(B->aabb);
+		float areaC = b2AABB_Perimeter(C->aabb);
+		float costBase = areaB + areaC;
+		enum b2RotateType bestRotation = b2_rotateNone;
+		float bestCost = costBase;
+
+		// Cost of swapping B and F
+		b2AABB aabbBG = b2AABB_Union(B->aabb, G->aabb);
+		float costBF = areaB + b2AABB_Perimeter(aabbBG);
+		if (costBF < bestCost)
+		{
+			bestRotation = b2_rotateBF;
+			bestCost = costBF;
 		}
 
-		return iB;
-	}
+		// Cost of swapping B and G
+		b2AABB aabbBF = b2AABB_Union(B->aabb, F->aabb);
+		float costBG = areaB + b2AABB_Perimeter(aabbBF);
+		if (costBG < bestCost)
+		{
+			bestRotation = b2_rotateBG;
+			bestCost = costBG;
+		}
 
-	return iA;
+		// Cost of swapping C and D
+		b2AABB aabbCE = b2AABB_Union(C->aabb, E->aabb);
+		float costCD = areaC + b2AABB_Perimeter(aabbCE);
+		if (costCD < bestCost)
+		{
+			bestRotation = b2_rotateCD;
+			bestCost = costCD;
+		}
+
+		// Cost of swapping C and E
+		b2AABB aabbCD = b2AABB_Union(C->aabb, D->aabb);
+		float costCE = areaC + b2AABB_Perimeter(aabbCD);
+		if (costCE < bestCost)
+		{
+			bestRotation = b2_rotateCE;
+			bestCost = costCE;
+		}
+
+		switch (bestRotation)
+		{
+		case b2_rotateNone:
+			break;
+
+		case b2_rotateBF:
+			A->child1 = iF;
+			C->child1 = iB;
+
+			B->parent = iC;
+			F->parent = iA;
+
+			C->aabb = aabbBG;
+			C->height = 1 + B2_MAX(B->height, G->height);
+			A->height = 1 + B2_MAX(C->height, F->height);
+			C->categoryBits = B->categoryBits | G->categoryBits;
+			A->categoryBits = C->categoryBits | F->categoryBits;
+			C->enlarged = B->enlarged || G->enlarged;
+			A->enlarged = C->enlarged || F->enlarged;
+			break;
+
+		case b2_rotateBG:
+			A->child1 = iG;
+			C->child2 = iB;
+
+			B->parent = iC;
+			G->parent = iA;
+
+			C->aabb = aabbBF;
+			C->height = 1 + B2_MAX(B->height, F->height);
+			A->height = 1 + B2_MAX(C->height, G->height);
+			C->categoryBits = B->categoryBits | F->categoryBits;
+			A->categoryBits = C->categoryBits | G->categoryBits;
+			C->enlarged = B->enlarged || F->enlarged;
+			A->enlarged = C->enlarged || G->enlarged;
+			break;
+
+		case b2_rotateCD:
+			A->child2 = iD;
+			B->child1 = iC;
+
+			C->parent = iB;
+			D->parent = iA;
+
+			B->aabb = aabbCE;
+			B->height = 1 + B2_MAX(C->height, E->height);
+			A->height = 1 + B2_MAX(B->height, D->height);
+			B->categoryBits = C->categoryBits | E->categoryBits;
+			A->categoryBits = B->categoryBits | D->categoryBits;
+			B->enlarged = C->enlarged || E->enlarged;
+			A->enlarged = B->enlarged || D->enlarged;
+			break;
+
+		case b2_rotateCE:
+			A->child2 = iE;
+			B->child2 = iC;
+
+			C->parent = iB;
+			E->parent = iA;
+
+			B->aabb = aabbCD;
+			B->height = 1 + B2_MAX(C->height, D->height);
+			A->height = 1 + B2_MAX(B->height, E->height);
+			B->categoryBits = C->categoryBits | D->categoryBits;
+			A->categoryBits = B->categoryBits | E->categoryBits;
+			B->enlarged = C->enlarged || D->enlarged;
+			A->enlarged = B->enlarged || E->enlarged;
+			break;
+
+		default:
+			B2_ASSERT(false);
+			break;
+		}
+	}
 }
 
-static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf)
+static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf, bool shouldRotate)
 {
 	if (tree->root == B2_NULL_INDEX)
 	{
@@ -304,130 +616,71 @@ static void b2InsertLeaf(b2DynamicTree* tree, int32_t leaf)
 		return;
 	}
 
-	// Find the best sibling for this node
+	// Stage 1: find the best sibling for this node
 	b2AABB leafAABB = tree->nodes[leaf].aabb;
-	int32_t index = tree->root;
-	while (b2IsLeaf(tree->nodes + index) == false)
-	{
-		int32_t child1 = tree->nodes[index].child1;
-		int32_t child2 = tree->nodes[index].child2;
+	int32_t sibling = b2FindBestSibling(tree, leafAABB);
 
-		float area = b2AABB_Perimeter(tree->nodes[index].aabb);
-
-		b2AABB combinedAABB = b2AABB_Union(tree->nodes[index].aabb, leafAABB);
-		float combinedArea = b2AABB_Perimeter(combinedAABB);
-
-		// Cost of creating a new parent for this node and the new leaf
-		float cost = 2.0f * combinedArea;
-
-		// Minimum cost of pushing the leaf further down the tree
-		float inheritanceCost = 2.0f * (combinedArea - area);
-
-		// Cost of descending into child1
-		float cost1;
-		if (b2IsLeaf(tree->nodes + child1))
-		{
-			b2AABB aabb = b2AABB_Union(leafAABB, tree->nodes[child1].aabb);
-			cost1 = b2AABB_Perimeter(aabb) + inheritanceCost;
-		}
-		else
-		{
-			b2AABB aabb = b2AABB_Union(leafAABB, tree->nodes[child1].aabb);
-			float oldArea = b2AABB_Perimeter(tree->nodes[child1].aabb);
-			float newArea = b2AABB_Perimeter(aabb);
-			cost1 = (newArea - oldArea) + inheritanceCost;
-		}
-
-		// Cost of descending into child2
-		float cost2;
-		if (b2IsLeaf(tree->nodes + child2))
-		{
-			b2AABB aabb = b2AABB_Union(leafAABB, tree->nodes[child2].aabb);
-			cost2 = b2AABB_Perimeter(aabb) + inheritanceCost;
-		}
-		else
-		{
-			b2AABB aabb = b2AABB_Union(leafAABB, tree->nodes[child2].aabb);
-			float oldArea = b2AABB_Perimeter(tree->nodes[child2].aabb);
-			float newArea = b2AABB_Perimeter(aabb);
-			cost2 = newArea - oldArea + inheritanceCost;
-		}
-
-		// Descend according to the minimum cost.
-		if (cost < cost1 && cost < cost2)
-		{
-			break;
-		}
-
-		// Descend
-		if (cost1 < cost2)
-		{
-			index = child1;
-		}
-		else
-		{
-			index = child2;
-		}
-	}
-
-	int32_t sibling = index;
-
-	// Create a new parent.
+	// Stage 2: create a new parent for the leaf and sibling
 	int32_t oldParent = tree->nodes[sibling].parent;
 	int32_t newParent = b2AllocateNode(tree);
-	tree->nodes[newParent].parent = oldParent;
-	tree->nodes[newParent].userData = 0;
-	tree->nodes[newParent].aabb = b2AABB_Union(leafAABB, tree->nodes[sibling].aabb);
-	tree->nodes[newParent].categoryBits = tree->nodes[leaf].categoryBits | tree->nodes[sibling].categoryBits;
-	tree->nodes[newParent].height = tree->nodes[sibling].height + 1;
+
+	// warning: node pointer can change after allocation
+	b2TreeNode* nodes = tree->nodes;
+	nodes[newParent].parent = oldParent;
+	nodes[newParent].userData = -1;
+	nodes[newParent].aabb = b2AABB_Union(leafAABB, nodes[sibling].aabb);
+	nodes[newParent].categoryBits = nodes[leaf].categoryBits | nodes[sibling].categoryBits;
+	nodes[newParent].height = nodes[sibling].height + 1;
 
 	if (oldParent != B2_NULL_INDEX)
 	{
 		// The sibling was not the root.
-		if (tree->nodes[oldParent].child1 == sibling)
+		if (nodes[oldParent].child1 == sibling)
 		{
-			tree->nodes[oldParent].child1 = newParent;
+			nodes[oldParent].child1 = newParent;
 		}
 		else
 		{
-			tree->nodes[oldParent].child2 = newParent;
+			nodes[oldParent].child2 = newParent;
 		}
 
-		tree->nodes[newParent].child1 = sibling;
-		tree->nodes[newParent].child2 = leaf;
-		tree->nodes[sibling].parent = newParent;
-		tree->nodes[leaf].parent = newParent;
+		nodes[newParent].child1 = sibling;
+		nodes[newParent].child2 = leaf;
+		nodes[sibling].parent = newParent;
+		nodes[leaf].parent = newParent;
 	}
 	else
 	{
 		// The sibling was the root.
-		tree->nodes[newParent].child1 = sibling;
-		tree->nodes[newParent].child2 = leaf;
-		tree->nodes[sibling].parent = newParent;
-		tree->nodes[leaf].parent = newParent;
+		nodes[newParent].child1 = sibling;
+		nodes[newParent].child2 = leaf;
+		nodes[sibling].parent = newParent;
+		nodes[leaf].parent = newParent;
 		tree->root = newParent;
 	}
 
-	// Walk back up the tree fixing heights and AABBs
-	index = tree->nodes[leaf].parent;
+	// Stage 3: walk back up the tree fixing heights and AABBs
+	int32_t index = nodes[leaf].parent;
 	while (index != B2_NULL_INDEX)
 	{
-		index = b2BalanceNode(tree, index);
+		int32_t child1 = nodes[index].child1;
+		int32_t child2 = nodes[index].child2;
 
-		int32_t child1 = tree->nodes[index].child1;
-		int32_t child2 = tree->nodes[index].child2;
+		B2_ASSERT(child1 != B2_NULL_INDEX);
+		B2_ASSERT(child2 != B2_NULL_INDEX);
 
-		assert(child1 != B2_NULL_INDEX);
-		assert(child2 != B2_NULL_INDEX);
+		nodes[index].aabb = b2AABB_Union(nodes[child1].aabb, nodes[child2].aabb);
+		nodes[index].categoryBits = nodes[child1].categoryBits | nodes[child2].categoryBits;
+		nodes[index].height = 1 + B2_MAX(nodes[child1].height, nodes[child2].height);
+		nodes[index].enlarged = nodes[child1].enlarged || nodes[child2].enlarged;
 
-		tree->nodes[index].aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
-		tree->nodes[index].categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
-		tree->nodes[index].height = 1 + B2_MAX(tree->nodes[child1].height, tree->nodes[child2].height);
+		if (shouldRotate)
+		{
+			b2RotateNodes(tree, index);
+		}
 
-		index = tree->nodes[index].parent;
+		index = nodes[index].parent;
 	}
-
-	// Validate();
 }
 
 static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
@@ -438,46 +691,55 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 		return;
 	}
 
-	int32_t parent = tree->nodes[leaf].parent;
-	int32_t grandParent = tree->nodes[parent].parent;
+	b2TreeNode* nodes = tree->nodes;
+
+	int32_t parent = nodes[leaf].parent;
+	int32_t grandParent = nodes[parent].parent;
 	int32_t sibling;
-	if (tree->nodes[parent].child1 == leaf)
+	if (nodes[parent].child1 == leaf)
 	{
-		sibling = tree->nodes[parent].child2;
+		sibling = nodes[parent].child2;
 	}
 	else
 	{
-		sibling = tree->nodes[parent].child1;
+		sibling = nodes[parent].child1;
 	}
 
 	if (grandParent != B2_NULL_INDEX)
 	{
 		// Destroy parent and connect sibling to grandParent.
-		if (tree->nodes[grandParent].child1 == parent)
+		if (nodes[grandParent].child1 == parent)
 		{
-			tree->nodes[grandParent].child1 = sibling;
+			nodes[grandParent].child1 = sibling;
 		}
 		else
 		{
-			tree->nodes[grandParent].child2 = sibling;
+			nodes[grandParent].child2 = sibling;
 		}
-		tree->nodes[sibling].parent = grandParent;
+		nodes[sibling].parent = grandParent;
 		b2FreeNode(tree, parent);
 
 		// Adjust ancestor bounds.
 		int32_t index = grandParent;
 		while (index != B2_NULL_INDEX)
 		{
-			index = b2BalanceNode(tree, index);
+			b2TreeNode* node = nodes + index;
+			b2TreeNode* child1 = nodes + node->child1;
+			b2TreeNode* child2 = nodes + node->child2;
 
-			int32_t child1 = tree->nodes[index].child1;
-			int32_t child2 = tree->nodes[index].child2;
+			// Fast union using SSE
+			//__m128 aabb1 = _mm_load_ps(&child1->aabb.lowerBound.x);
+			//__m128 aabb2 = _mm_load_ps(&child2->aabb.lowerBound.x);
+			//__m128 lower = _mm_min_ps(aabb1, aabb2);
+			//__m128 upper = _mm_max_ps(aabb1, aabb2);
+			//__m128 aabb = _mm_shuffle_ps(lower, upper, _MM_SHUFFLE(3, 2, 1, 0));
+			//_mm_store_ps(&node->aabb.lowerBound.x, aabb);
 
-			tree->nodes[index].aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
-			tree->nodes[index].categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
-			tree->nodes[index].height = 1 + B2_MAX(tree->nodes[child1].height, tree->nodes[child2].height);
+			node->aabb = b2AABB_Union(child1->aabb, child2->aabb);
+			node->categoryBits = child1->categoryBits | child2->categoryBits;
+			node->height = 1 + B2_MAX(child1->height, child2->height);
 
-			index = tree->nodes[index].parent;
+			index = node->parent;
 		}
 	}
 	else
@@ -486,19 +748,16 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 		tree->nodes[sibling].parent = B2_NULL_INDEX;
 		b2FreeNode(tree, parent);
 	}
-
-	// Validate();
 }
 
-// Create a proxy in the tree as a leaf node. We return the index
-// of the node instead of a pointer so that we can grow
+// Create a proxy in the tree as a leaf node. We return the index of the node instead of a pointer so that we can grow
 // the node pool.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, void* userData)
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData, b2AABB* outFatAABB)
 {
-	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
-	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
-	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
-	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
 
 	int32_t proxyId = b2AllocateNode(tree);
 	b2TreeNode* node = tree->nodes + proxyId;
@@ -510,9 +769,10 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 	node->userData = userData;
 	node->categoryBits = categoryBits;
 	node->height = 0;
-	node->moved = true;
+	*outFatAABB = node->aabb;
 
-	b2InsertLeaf(tree, proxyId);
+	bool shouldRotate = true;
+	b2InsertLeaf(tree, proxyId, shouldRotate);
 
 	tree->proxyCount += 1;
 
@@ -521,25 +781,30 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 
 void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId)
 {
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	assert(b2IsLeaf(tree->nodes + proxyId));
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
 	b2RemoveLeaf(tree, proxyId);
 	b2FreeNode(tree, proxyId);
 
-	assert(tree->proxyCount > 0);
+	B2_ASSERT(tree->proxyCount > 0);
 	tree->proxyCount -= 1;
 }
 
-bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
+int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree)
 {
-	assert(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
-	assert(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
-	assert(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
-	assert(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+	return tree->proxyCount;
+}
 
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	assert(b2IsLeaf(tree->nodes + proxyId));
+bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB)
+{
+	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
 	// Extend AABB
 	b2AABB fatAABB;
@@ -570,18 +835,55 @@ bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 	b2RemoveLeaf(tree, proxyId);
 
 	tree->nodes[proxyId].aabb = fatAABB;
+	*outFatAABB = fatAABB;
 
-	b2InsertLeaf(tree, proxyId);
-
-	bool alreadyMoved = tree->nodes[proxyId].moved;
-	tree->nodes[proxyId].moved = true;
-
-	if (alreadyMoved)
-	{
-		return false;
-	}
+	bool shouldRotate = false;
+	b2InsertLeaf(tree, proxyId, shouldRotate);
 
 	return true;
+}
+
+void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
+{
+	b2TreeNode* nodes = tree->nodes;
+
+	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
+	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
+
+	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
+	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
+
+	// Caller must ensure this
+	B2_ASSERT(b2AABB_Contains(nodes[proxyId].aabb, aabb) == false);
+
+	nodes[proxyId].aabb = aabb;
+
+	int32_t parentIndex = nodes[proxyId].parent;
+	while (parentIndex != B2_NULL_INDEX)
+	{
+		bool changed = b2AABB_Enlarge(&nodes[parentIndex].aabb, aabb);
+		nodes[parentIndex].enlarged = true;
+		parentIndex = nodes[parentIndex].parent;
+
+		if (changed == false)
+		{
+			break;
+		}
+	}
+
+	while (parentIndex != B2_NULL_INDEX)
+	{
+		if (nodes[parentIndex].enlarged == true)
+		{
+			// early out because this ancestor was previously ascended and marked as enlarged
+			break;
+		}
+
+		nodes[parentIndex].enlarged = true;
+		parentIndex = nodes[parentIndex].parent;
+	}
 }
 
 int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree)
@@ -623,7 +925,7 @@ float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree)
 // Compute the height of a sub-tree.
 static int32_t b2ComputeHeight(const b2DynamicTree* tree, int32_t nodeId)
 {
-	assert(0 <= nodeId && nodeId < tree->nodeCapacity);
+	B2_ASSERT(0 <= nodeId && nodeId < tree->nodeCapacity);
 	b2TreeNode* node = tree->nodes + nodeId;
 
 	if (b2IsLeaf(node))
@@ -642,7 +944,7 @@ int32_t b2DynamicTree_ComputeHeight(const b2DynamicTree* tree)
 	return height;
 }
 
-#if defined(_DEBUG)
+#if B2_VALIDATE
 static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 {
 	if (index == B2_NULL_INDEX)
@@ -652,7 +954,7 @@ static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 
 	if (index == tree->root)
 	{
-		assert(tree->nodes[index].parent == B2_NULL_INDEX);
+		B2_ASSERT(tree->nodes[index].parent == B2_NULL_INDEX);
 	}
 
 	const b2TreeNode* node = tree->nodes + index;
@@ -662,17 +964,22 @@ static void b2ValidateStructure(const b2DynamicTree* tree, int32_t index)
 
 	if (b2IsLeaf(node))
 	{
-		assert(child1 == B2_NULL_INDEX);
-		assert(child2 == B2_NULL_INDEX);
-		assert(node->height == 0);
+		B2_ASSERT(child1 == B2_NULL_INDEX);
+		B2_ASSERT(child2 == B2_NULL_INDEX);
+		B2_ASSERT(node->height == 0);
 		return;
 	}
 
-	assert(0 <= child1 && child1 < tree->nodeCapacity);
-	assert(0 <= child2 && child2 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child1 && child1 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child2 && child2 < tree->nodeCapacity);
 
-	assert(tree->nodes[child1].parent == index);
-	assert(tree->nodes[child2].parent == index);
+	B2_ASSERT(tree->nodes[child1].parent == index);
+	B2_ASSERT(tree->nodes[child2].parent == index);
+
+	if (tree->nodes[child1].enlarged || tree->nodes[child2].enlarged)
+	{
+		B2_ASSERT(node->enlarged == true);
+	}
 
 	b2ValidateStructure(tree, child1);
 	b2ValidateStructure(tree, child2);
@@ -692,30 +999,33 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 
 	if (b2IsLeaf(node))
 	{
-		assert(child1 == B2_NULL_INDEX);
-		assert(child2 == B2_NULL_INDEX);
-		assert(node->height == 0);
+		B2_ASSERT(child1 == B2_NULL_INDEX);
+		B2_ASSERT(child2 == B2_NULL_INDEX);
+		B2_ASSERT(node->height == 0);
 		return;
 	}
 
-	assert(0 <= child1 && child1 < tree->nodeCapacity);
-	assert(0 <= child2 && child2 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child1 && child1 < tree->nodeCapacity);
+	B2_ASSERT(0 <= child2 && child2 < tree->nodeCapacity);
 
 	int32_t height1 = tree->nodes[child1].height;
 	int32_t height2 = tree->nodes[child2].height;
 	int32_t height;
 	height = 1 + B2_MAX(height1, height2);
-	assert(node->height == height);
+	B2_ASSERT(node->height == height);
 
-	b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
+	// b2AABB aabb = b2AABB_Union(tree->nodes[child1].aabb, tree->nodes[child2].aabb);
 
-	assert(aabb.lowerBound.x == node->aabb.lowerBound.x);
-	assert(aabb.lowerBound.y == node->aabb.lowerBound.y);
-	assert(aabb.upperBound.x == node->aabb.upperBound.x);
-	assert(aabb.upperBound.y == node->aabb.upperBound.y);
+	B2_ASSERT(b2AABB_Contains(node->aabb, tree->nodes[child1].aabb));
+	B2_ASSERT(b2AABB_Contains(node->aabb, tree->nodes[child2].aabb));
+
+	// B2_ASSERT(aabb.lowerBound.x == node->aabb.lowerBound.x);
+	// B2_ASSERT(aabb.lowerBound.y == node->aabb.lowerBound.y);
+	// B2_ASSERT(aabb.upperBound.x == node->aabb.upperBound.x);
+	// B2_ASSERT(aabb.upperBound.y == node->aabb.upperBound.y);
 
 	uint32_t categoryBits = tree->nodes[child1].categoryBits | tree->nodes[child2].categoryBits;
-	assert(node->categoryBits == categoryBits);
+	B2_ASSERT(node->categoryBits == categoryBits);
 
 	b2ValidateMetrics(tree, child1);
 	b2ValidateMetrics(tree, child2);
@@ -724,7 +1034,12 @@ static void b2ValidateMetrics(const b2DynamicTree* tree, int32_t index)
 
 void b2DynamicTree_Validate(const b2DynamicTree* tree)
 {
-#if defined(_DEBUG)
+#if B2_VALIDATE
+	if (tree->root == B2_NULL_INDEX)
+	{
+		return;
+	}
+
 	b2ValidateStructure(tree, tree->root);
 	b2ValidateMetrics(tree, tree->root);
 
@@ -732,16 +1047,16 @@ void b2DynamicTree_Validate(const b2DynamicTree* tree)
 	int32_t freeIndex = tree->freeList;
 	while (freeIndex != B2_NULL_INDEX)
 	{
-		assert(0 <= freeIndex && freeIndex < tree->nodeCapacity);
+		B2_ASSERT(0 <= freeIndex && freeIndex < tree->nodeCapacity);
 		freeIndex = tree->nodes[freeIndex].next;
 		++freeCount;
 	}
 
 	int32_t height = b2DynamicTree_GetHeight(tree);
 	int32_t computedHeight = b2DynamicTree_ComputeHeight(tree);
-	assert(height == computedHeight);
+	B2_ASSERT(height == computedHeight);
 
-	assert(tree->nodeCount + freeCount == tree->nodeCapacity);
+	B2_ASSERT(tree->nodeCount + freeCount == tree->nodeCapacity);
 #else
 	B2_MAYBE_UNUSED(tree);
 #endif
@@ -758,7 +1073,7 @@ int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree)
 			continue;
 		}
 
-		assert(b2IsLeaf(node) == false);
+		B2_ASSERT(b2IsLeaf(node) == false);
 
 		int32_t child1 = node->child1;
 		int32_t child2 = node->child2;
@@ -889,7 +1204,7 @@ void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_
 			}
 			else
 			{
-				assert(stackCount <= b2_treeStackSize - 2);
+				B2_ASSERT(stackCount <= b2_treeStackSize - 2);
 				// TODO log this?
 
 				if (stackCount <= b2_treeStackSize - 2)
@@ -931,7 +1246,7 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCall
 			}
 			else
 			{
-				assert(stackCount <= b2_treeStackSize - 2);
+				B2_ASSERT(stackCount <= b2_treeStackSize - 2);
 				// TODO log this?
 
 				if (stackCount <= b2_treeStackSize - 2)
@@ -1011,7 +1326,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 			subInput.maxFraction = maxFraction;
 
 			float value = callback(&subInput, nodeId, node->userData, context);
-			assert(value >= 0.0f);
+			B2_ASSERT(value >= 0.0f);
 
 			if (value == 0.0f)
 			{
@@ -1030,7 +1345,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		}
 		else
 		{
-			assert(stackCount <= b2_treeStackSize - 2);
+			B2_ASSERT(stackCount <= b2_treeStackSize - 2);
 			// TODO log this?
 
 			if (stackCount <= b2_treeStackSize - 2)
@@ -1044,7 +1359,126 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 	}
 }
 
-#define B2_BIN_COUNT 32
+// Median split == 0, Surface area heurstic == 1
+#define B2_TREE_HEURISTIC 0
+
+#if B2_TREE_HEURISTIC == 0
+
+// Median split heuristic
+static int32_t b2PartitionMid(int32_t* indices, b2Vec2* centers, int32_t count)
+{
+	// Handle trivial case
+	if (count <= 2)
+	{
+		return count / 2;
+	}
+
+	// TODO_ERIN SIMD?
+	b2Vec2 lowerBound = centers[0];
+	b2Vec2 upperBound = centers[0];
+
+	for (int32_t i = 1; i < count; ++i)
+	{
+		lowerBound = b2Min(lowerBound, centers[i]);
+		upperBound = b2Max(upperBound, centers[i]);
+	}
+
+	b2Vec2 d = b2Sub(upperBound, lowerBound);
+	b2Vec2 c = {0.5f * (lowerBound.x + upperBound.x), 0.5f * (lowerBound.y + upperBound.y)};
+
+	// Partition longest axis using the Hoare partition scheme
+	// https://en.wikipedia.org/wiki/Quicksort
+	// https://nicholasvadivelu.com/2021/01/11/array-partition/
+	int32_t i1 = 0, i2 = count;
+	if (d.x > d.y)
+	{
+		float pivot = c.x;
+
+		while (i1 < i2)
+		{
+			while (i1 < i2 && centers[i1].x < pivot)
+			{
+				i1 += 1;
+			};
+
+			while (i1 < i2 && centers[i2 - 1].x >= pivot)
+			{
+				i2 -= 1;
+			};
+
+			if (i1 < i2)
+			{
+				// Swap indices
+				{
+					int32_t temp = indices[i1];
+					indices[i1] = indices[i2 - 1];
+					indices[i2 - 1] = temp;
+				}
+
+				// Swap centers
+				{
+					b2Vec2 temp = centers[i1];
+					centers[i1] = centers[i2 - 1];
+					centers[i2 - 1] = temp;
+				}
+
+				i1 += 1;
+				i2 -= 1;
+			}
+		}
+	}
+	else
+	{
+		float pivot = c.y;
+
+		while (i1 < i2)
+		{
+			while (i1 < i2 && centers[i1].y < pivot)
+			{
+				i1 += 1;
+			};
+
+			while (i1 < i2 && centers[i2 - 1].y >= pivot)
+			{
+				i2 -= 1;
+			};
+
+			if (i1 < i2)
+			{
+				// Swap indices
+				{
+					int32_t temp = indices[i1];
+					indices[i1] = indices[i2 - 1];
+					indices[i2 - 1] = temp;
+				}
+
+				// Swap centers
+				{
+					b2Vec2 temp = centers[i1];
+					centers[i1] = centers[i2 - 1];
+					centers[i2 - 1] = temp;
+				}
+
+				i1 += 1;
+				i2 -= 1;
+			}
+		}
+	}
+	B2_ASSERT(i1 == i2);
+
+	if (i1 > 0 && i1 < count)
+	{
+		return i1;
+	}
+	else
+	{
+		return count / 2;
+	}
+}
+
+#else
+
+#define B2_BIN_COUNT 8
 
 typedef struct b2TreeBin
 {
@@ -1061,30 +1495,29 @@ typedef struct b2TreePlane
 } b2TreePlane;
 
 // "On Fast Construction of SAH-based Bounding Volume Hierarchies" by Ingo Wald
-static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNode* leaves, int32_t count, b2TreeBin* bins, b2TreePlane* planes)
+// Returns the left child count
+static int32_t b2PartitionSAH(int32_t* indices, int32_t* binIndices, b2AABB* boxes, int32_t count)
 {
-	if (count == 1)
-	{
-		leaves[0].parent = parentIndex;
-		return (int32_t)(leaves - tree->nodes);
-	}
+	B2_ASSERT(count > 0);
 
-	b2TreeNode* nodes = tree->nodes;
+	b2TreeBin bins[B2_BIN_COUNT];
+	b2TreePlane planes[B2_BIN_COUNT - 1];
 
-	b2Vec2 center = b2AABB_Center(leaves[0].aabb);
+	b2Vec2 center = b2AABB_Center(boxes[0]);
 	b2AABB centroidAABB;
 	centroidAABB.lowerBound = center;
 	centroidAABB.upperBound = center;
 
 	for (int32_t i = 1; i < count; ++i)
 	{
-		center = b2AABB_Center(leaves[i].aabb);
+		center = b2AABB_Center(boxes[i]);
 		centroidAABB.lowerBound = b2Min(centroidAABB.lowerBound, center);
 		centroidAABB.upperBound = b2Max(centroidAABB.upperBound, center);
 	}
 
 	b2Vec2 d = b2Sub(centroidAABB.upperBound, centroidAABB.lowerBound);
 
+	// Find longest axis
 	int32_t axisIndex;
 	float invD;
 	if (d.x > d.y)
@@ -1100,6 +1533,7 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 
 	invD = invD > 0.0f ? 1.0f / invD : 0.0f;
 
+	// Initialize bin bounds and count
 	for (int32_t i = 0; i < B2_BIN_COUNT; ++i)
 	{
 		bins[i].aabb.lowerBound = (b2Vec2){FLT_MAX, FLT_MAX};
@@ -1107,22 +1541,25 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 		bins[i].count = 0;
 	}
 
+	// Assign boxes to bins and compute bin boxes
+	// TODO_ERIN optimize
 	float binCount = B2_BIN_COUNT;
 	float lowerBoundArray[2] = {centroidAABB.lowerBound.x, centroidAABB.lowerBound.y};
 	float minC = lowerBoundArray[axisIndex];
 	for (int32_t i = 0; i < count; ++i)
 	{
-		b2Vec2 c = b2AABB_Center(leaves[i].aabb);
+		b2Vec2 c = b2AABB_Center(boxes[i]);
 		float cArray[2] = {c.x, c.y};
 		int32_t binIndex = (int32_t)(binCount * (cArray[axisIndex] - minC) * invD);
 		binIndex = B2_CLAMP(binIndex, 0, B2_BIN_COUNT - 1);
-		leaves[i].next = binIndex;
+		binIndices[i] = binIndex;
 		bins[binIndex].count += 1;
-		bins[binIndex].aabb = b2AABB_Union(bins[binIndex].aabb, leaves[i].aabb);
+		bins[binIndex].aabb = b2AABB_Union(bins[binIndex].aabb, boxes[i]);
 	}
 
 	int32_t planeCount = B2_BIN_COUNT - 1;
 
+	// Prepare all the left planes, candidates for left child
 	planes[0].leftCount = bins[0].count;
 	planes[0].leftAABB = bins[0].aabb;
 	for (int32_t i = 1; i < planeCount; ++i)
@@ -1131,6 +1568,7 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 		planes[i].leftAABB = b2AABB_Union(planes[i - 1].leftAABB, bins[i].aabb);
 	}
 
+	// Prepare all the right planes, candidates for right child
 	planes[planeCount - 1].rightCount = bins[planeCount].count;
 	planes[planeCount - 1].rightAABB = bins[planeCount].aabb;
 	for (int32_t i = planeCount - 2; i >= 0; --i)
@@ -1139,6 +1577,7 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 		planes[i].rightAABB = b2AABB_Union(planes[i + 1].rightAABB, bins[i + 1].aabb);
 	}
 
+	// Find best split to minimize SAH
 	float minCost = FLT_MAX;
 	int32_t bestPlane = 0;
 	for (int32_t i = 0; i < planeCount; ++i)
@@ -1156,177 +1595,333 @@ static int32_t b2BinSortBoxes(b2DynamicTree* tree, int32_t parentIndex, b2TreeNo
 		}
 	}
 
-	assert(tree->nodeCount < tree->nodeCapacity);
-	int32_t nodeIndex = tree->nodeCount;
-	b2TreeNode* node = nodes + nodeIndex;
-	*node = b2_defaultTreeNode;
-	node->aabb = b2AABB_Union(planes[bestPlane].leftAABB, planes[bestPlane].rightAABB);
-	node->parent = parentIndex;
-	tree->nodeCount += 1;
-
-	int32_t i1 = -1;
-	for (int32_t i2 = 0; i2 < count; ++i2)
+	// Partition node indices and boxes using the Hoare partition scheme
+	// https://en.wikipedia.org/wiki/Quicksort
+	// https://nicholasvadivelu.com/2021/01/11/array-partition/
+	int32_t i1 = 0, i2 = count;
+	while (i1 < i2)
 	{
-		int32_t binIndex = leaves[i2].next;
-		if (binIndex <= bestPlane)
+		while (i1 < i2 && binIndices[i1] < bestPlane)
 		{
-			++i1;
-			b2TreeNode temp = leaves[i1];
-			leaves[i1] = leaves[i2];
-			leaves[i2] = temp;
+			i1 += 1;
+		};
+
+		while (i1 < i2 && binIndices[i2 - 1] >= bestPlane)
+		{
+			i2 -= 1;
+		};
+
+		if (i1 < i2)
+		{
+			// Swap indices
+			{
+				int32_t temp = indices[i1];
+				indices[i1] = indices[i2 - 1];
+				indices[i2 - 1] = temp;
+			}
+
+			// Swap boxes
+			{
+				b2AABB temp = boxes[i1];
+				boxes[i1] = boxes[i2 - 1];
+				boxes[i2 - 1] = temp;
+			}
+
+			i1 += 1;
+			i2 -= 1;
 		}
 	}
+	B2_ASSERT(i1 == i2);
 
-	int32_t leftCount = i1 + 1;
-	int32_t rightCount = count - leftCount;
-
-	if (leftCount == 0)
+	if (i1 > 0 && i1 < count)
 	{
-		leftCount = 1;
-		rightCount -= 1;
+		return i1;
 	}
-	else if (rightCount == 0)
+	else
 	{
-		leftCount -= 1;
-		rightCount = 1;
+		return count / 2;
 	}
-
-	// Recurse
-	node->child1 = b2BinSortBoxes(tree, nodeIndex, leaves, leftCount, bins, planes);
-	node->child2 = b2BinSortBoxes(tree, nodeIndex, leaves + leftCount, rightCount, bins, planes);
-
-	const b2TreeNode* child1 = nodes + node->child1;
-	const b2TreeNode* child2 = nodes + node->child2;
-
-	node->categoryBits = child1->categoryBits | child2->categoryBits;
-	node->height = 1 + B2_MAX(child1->height, child2->height);
-
-	return nodeIndex;
 }
 
-int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree)
+#endif
+
+// Temporary data used to track the rebuild of a tree node
+struct b2RebuildItem
 {
-	return tree->proxyCount;
-}
+	int32_t nodeIndex;
+	int32_t childCount;
 
-void b2DynamicTree_RebuildTopDownSAH(b2DynamicTree* tree, struct b2ProxyMap* mapArray, int32_t mapCount)
+	// Leaf indices
+	int32_t startIndex;
+	int32_t splitIndex;
+	int32_t endIndex;
+};
+
+// Returns root node index
+static int32_t b2BuildTree(b2DynamicTree* tree, int32_t leafCount)
 {
-	B2_MAYBE_UNUSED(mapCount);
-	assert(mapCount == tree->proxyCount);
-
-	// need a way to map proxies
-	
-	int32_t proxyCount = tree->proxyCount;
-	int32_t initialCapacity = tree->nodeCapacity;
-	
-	// Ensure sufficient capacity
-	int32_t requiredCapacity = 2 * proxyCount - 1;
-	if (initialCapacity < 2 * proxyCount - 1)
-	{
-		b2TreeNode* oldNodes = tree->nodes;
-		int32_t oldCapcity = tree->nodeCapacity;
-
-		// Additional capacity for next rebuild
-		tree->nodeCapacity = requiredCapacity + requiredCapacity / 2;
-		
-		tree->nodes = (b2TreeNode*)b2Alloc(tree->nodeCapacity * sizeof(b2TreeNode));
-		memcpy(tree->nodes, oldNodes, tree->nodeCount * sizeof(b2TreeNode));
-		b2Free(oldNodes, oldCapcity * sizeof(b2TreeNode));
-	}
-
-	// Copy all leaf nodes to the beginning of the array
 	b2TreeNode* nodes = tree->nodes;
-	int32_t nodeCount = 0, k = 0;
-	while (nodeCount < proxyCount)
+	int32_t* leafIndices = tree->leafIndices;
+
+	if (leafCount == 1)
 	{
-		while (nodes[k].height != 0 && k < initialCapacity)
+		nodes[leafIndices[0]].parent = B2_NULL_INDEX;
+		return leafIndices[0];
+	}
+
+#if B2_TREE_HEURISTIC == 0
+	b2Vec2* leafCenters = tree->leafCenters;
+#else
+	b2AABB* leafBoxes = tree->leafBoxes;
+	int32_t* binIndices = tree->binIndices;
+#endif
+
+	struct b2RebuildItem stack[b2_treeStackSize];
+	int32_t top = 0;
+
+	stack[0].nodeIndex = b2AllocateNode(tree);
+	stack[0].childCount = -1;
+	stack[0].startIndex = 0;
+	stack[0].endIndex = leafCount;
+#if B2_TREE_HEURISTIC == 0
+	stack[0].splitIndex = b2PartitionMid(leafIndices, leafCenters, leafCount);
+#else
+	stack[0].splitIndex = b2PartitionSAH(leafIndices, binIndices, leafBoxes, leafCount);
+#endif
+
+	while (true)
+	{
+		struct b2RebuildItem* item = stack + top;
+
+		item->childCount += 1;
+
+		if (item->childCount == 2)
 		{
-			k += 1;
+			// This internal node has both children established
+
+			if (top == 0)
+			{
+				// all done
+				break;
+			}
+
+			struct b2RebuildItem* parentItem = stack + (top - 1);
+			b2TreeNode* parentNode = nodes + parentItem->nodeIndex;
+
+			if (parentItem->childCount == 0)
+			{
+				B2_ASSERT(parentNode->child1 == B2_NULL_INDEX);
+				parentNode->child1 = item->nodeIndex;
+			}
+			else
+			{
+				B2_ASSERT(parentItem->childCount == 1);
+				B2_ASSERT(parentNode->child2 == B2_NULL_INDEX);
+				parentNode->child2 = item->nodeIndex;
+			}
+
+			b2TreeNode* node = nodes + item->nodeIndex;
+
+			B2_ASSERT(node->parent == B2_NULL_INDEX);
+			node->parent = parentItem->nodeIndex;
+
+			B2_ASSERT(node->child1 != B2_NULL_INDEX);
+			B2_ASSERT(node->child2 != B2_NULL_INDEX);
+			b2TreeNode* child1 = nodes + node->child1;
+			b2TreeNode* child2 = nodes + node->child2;
+
+			node->aabb = b2AABB_Union(child1->aabb, child2->aabb);
+			node->height = 1 + B2_MAX(child1->height, child2->height);
+			node->categoryBits = child1->categoryBits | child2->categoryBits;
+
+			// Pop stack
+			top -= 1;
+		}
+		else
+		{
+			int32_t startIndex, endIndex;
+			if (item->childCount == 0)
+			{
+				startIndex = item->startIndex;
+				endIndex = item->splitIndex;
+			}
+			else
+			{
+				B2_ASSERT(item->childCount == 1);
+				startIndex = item->splitIndex;
+				endIndex = item->endIndex;
+			}
+
+			int32_t count = endIndex - startIndex;
+
+			if (count == 1)
+			{
+				int32_t childIndex = leafIndices[startIndex];
+				b2TreeNode* node = nodes + item->nodeIndex;
+
+				if (item->childCount == 0)
+				{
+					B2_ASSERT(node->child1 == B2_NULL_INDEX);
+					node->child1 = childIndex;
+				}
+				else
+				{
+					B2_ASSERT(item->childCount == 1);
+					B2_ASSERT(node->child2 == B2_NULL_INDEX);
+					node->child2 = childIndex;
+				}
+
+				b2TreeNode* childNode = nodes + childIndex;
+				B2_ASSERT(childNode->parent == B2_NULL_INDEX);
+				childNode->parent = item->nodeIndex;
+			}
+			else
+			{
+				B2_ASSERT(count > 0);
+				B2_ASSERT(top < b2_treeStackSize);
+
+				top += 1;
+				struct b2RebuildItem* newItem = stack + top;
+				newItem->nodeIndex = b2AllocateNode(tree);
+				newItem->childCount = -1;
+				newItem->startIndex = startIndex;
+				newItem->endIndex = endIndex;
+#if B2_TREE_HEURISTIC == 0
+				newItem->splitIndex = b2PartitionMid(leafIndices + startIndex, leafCenters + startIndex, count);
+#else
+				newItem->splitIndex = b2PartitionSAH(leafIndices + startIndex, binIndices + startIndex, leafBoxes + startIndex, count);
+#endif
+				newItem->splitIndex += startIndex;
+			}
+		}
+	}
+
+	b2TreeNode* rootNode = nodes + stack[0].nodeIndex;
+	B2_ASSERT(rootNode->parent == B2_NULL_INDEX);
+	B2_ASSERT(rootNode->child1 != B2_NULL_INDEX);
+	B2_ASSERT(rootNode->child2 != B2_NULL_INDEX);
+
+	b2TreeNode* child1 = nodes + rootNode->child1;
+	b2TreeNode* child2 = nodes + rootNode->child2;
+
+	rootNode->aabb = b2AABB_Union(child1->aabb, child2->aabb);
+	rootNode->height = 1 + B2_MAX(child1->height, child2->height);
+	rootNode->categoryBits = child1->categoryBits | child2->categoryBits;
+
+	return stack[0].nodeIndex;
+}
+
+// Not safe to access tree during this operation because it may grow
+int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
+{
+	int32_t proxyCount = tree->proxyCount;
+	if (proxyCount == 0)
+	{
+		return 0;
+	}
+
+	// Ensure capacity for rebuild space
+	if (proxyCount > tree->rebuildCapacity)
+	{
+		int32_t newCapacity = proxyCount + proxyCount / 2;
+
+		b2Free(tree->leafIndices, tree->rebuildCapacity * sizeof(int32_t));
+		tree->leafIndices = b2Alloc(newCapacity * sizeof(int32_t));
+
+#if B2_TREE_HEURISTIC == 0
+		b2Free(tree->leafCenters, tree->rebuildCapacity * sizeof(b2Vec2));
+		tree->leafCenters = b2Alloc(newCapacity * sizeof(b2Vec2));
+#else
+		b2Free(tree->leafBoxes, tree->rebuildCapacity * sizeof(b2AABB));
+		tree->leafBoxes = b2Alloc(newCapacity * sizeof(b2AABB));
+		b2Free(tree->binIndices, tree->rebuildCapacity * sizeof(int32_t));
+		tree->binIndices = b2Alloc(newCapacity * sizeof(int32_t));
+#endif
+		tree->rebuildCapacity = newCapacity;
+	}
+
+	int32_t leafCount = 0;
+	int32_t stack[b2_treeStackSize];
+	int32_t stackCount = 0;
+
+	int32_t nodeIndex = tree->root;
+	b2TreeNode* nodes = tree->nodes;
+	b2TreeNode* node = nodes + nodeIndex;
+
+	// These are the nodes that get sorted to rebuild the tree.
+	// I'm using indices because the node pool may grow during the build.
+	int32_t* leafIndices = tree->leafIndices;
+
+#if B2_TREE_HEURISTIC == 0
+	b2Vec2* leafCenters = tree->leafCenters;
+#else
+	b2AABB* leafBoxes = tree->leafBoxes;
+#endif
+
+	// Gather all proxy nodes that have grown and all internal nodes that haven't grown. Both are
+	// considered leaves in the tree rebuild.
+	// Free all internal nodes that have grown.
+	while (true)
+	{
+		if (node->height == 0 || (node->enlarged == false && fullBuild == false))
+		{
+			leafIndices[leafCount] = nodeIndex;
+#if B2_TREE_HEURISTIC == 0
+			leafCenters[leafCount] = b2AABB_Center(node->aabb);
+#else
+			leafBoxes[leafCount] = node->aabb;
+#endif
+			leafCount += 1;
+
+			// Detach
+			node->parent = B2_NULL_INDEX;
+		}
+		else
+		{
+			int32_t doomedNodeIndex = nodeIndex;
+
+			// Handle children
+			nodeIndex = node->child1;
+
+			B2_ASSERT(stackCount < b2_treeStackSize);
+			if (stackCount < b2_treeStackSize)
+			{
+				stack[stackCount++] = node->child2;
+			}
+
+			node = nodes + nodeIndex;
+
+			// Remove doomed node
+			b2FreeNode(tree, doomedNodeIndex);
+
+			continue;
 		}
 
-		if (k == initialCapacity)
+		if (stackCount == 0)
 		{
 			break;
 		}
 
-		assert(nodes[k].height == 0);
-		nodes[nodeCount] = nodes[k];
-		nodes[nodeCount].parent = B2_NULL_INDEX;
-		nodes[nodeCount].moved = false;
-
-		nodeCount += 1;
-		k += 1;
+		nodeIndex = stack[--stackCount];
+		node = nodes + nodeIndex;
 	}
 
-	assert(nodeCount == proxyCount);
-	tree->nodeCount = nodeCount;
-
-	b2TreeBin bins[B2_BIN_COUNT];
-	b2TreePlane planes[B2_BIN_COUNT - 1];
-	tree->root = b2BinSortBoxes(tree, B2_NULL_INDEX, nodes, nodeCount, bins, planes);
-
-	nodeCount = tree->nodeCount;
-
-	// Create a map for proxy nodes so the uses can get the new index
-	for (int32_t i = 0; i < proxyCount; ++i)
+	#if B2_VALIDATE == 1
+	int32_t capacity = tree->nodeCapacity;
+	for (int32_t i = 0; i < capacity; ++i)
 	{
-		b2TreeNode* n = nodes + i;
-		assert(n->userData != NULL);
-		mapArray[i].userData = n->userData;
-	}
-
-	// Fill free list
-	int32_t newCapacity = tree->nodeCapacity;
-	if (nodeCount < newCapacity)
-	{
-		for (int32_t i = nodeCount; i < newCapacity - 1; ++i)
+		if (nodes[i].height >= 0)
 		{
-			tree->nodes[i].next = i + 1;
-			tree->nodes[i].height = -1;
+			B2_ASSERT(nodes[i].enlarged == false);
 		}
-		tree->nodes[tree->nodeCapacity - 1].next = B2_NULL_INDEX;
-		tree->nodes[tree->nodeCapacity - 1].height = -1;
-		tree->freeList = tree->nodeCount;
 	}
-	else
-	{
-		tree->freeList = B2_NULL_INDEX;
-	}
+	#endif
+
+	B2_ASSERT(leafCount <= proxyCount);
+
+	tree->root = b2BuildTree(tree, leafCount);
 
 	b2DynamicTree_Validate(tree);
-}
 
-// TODO_ERIN test this as inlined
-void* b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
-{
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].userData;
-}
-
-// TODO_ERIN test this as inlined
-bool b2DynamicTree_WasMoved(const b2DynamicTree* tree, int32_t proxyId)
-{
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].moved;
-}
-
-// TODO_ERIN test this as inlined
-void b2DynamicTree_ClearMoved(b2DynamicTree* tree, int32_t proxyId)
-{
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	tree->nodes[proxyId].moved = false;
-}
-
-// TODO_ERIN test this as inlined
-b2AABB b2DynamicTree_GetFatAABB(const b2DynamicTree* tree, int32_t proxyId)
-{
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].aabb;
-}
-
-// TODO_ERIN test this as inlined
-uint32_t b2DynamicTree_GetCategoryBits(const b2DynamicTree* tree, int32_t proxyId)
-{
-	assert(0 <= proxyId && proxyId < tree->nodeCapacity);
-	return tree->nodes[proxyId].categoryBits;
+	return leafCount;
 }

@@ -5,52 +5,43 @@
 
 #include "allocate.h"
 #include "array.h"
-#include "atomic.inl"
 #include "bitset.h"
 #include "block_allocator.h"
 #include "body.h"
-#include "box2d/box2d.h"
-#include "box2d/constants.h"
-#include "box2d/debug_draw.h"
-#include "box2d/timer.h"
+#include "broad_phase.h"
 #include "contact.h"
+#include "core.h"
 #include "island.h"
 #include "joint.h"
 #include "pool.h"
 #include "shape.h"
 #include "solver_data.h"
 #include "stack_allocator.h"
-#include "thread.h"
 
-#include <assert.h>
+#include "box2d/aabb.h"
+#include "box2d/box2d.h"
+#include "box2d/constants.h"
+#include "box2d/debug_draw.h"
+#include "box2d/timer.h"
+
 #include <string.h>
 
-#define B2_VALIDATE 1
-
-b2World g_worlds[b2_maxWorlds];
-bool g_parallel = true;
-
-// Per thread task storage
-typedef struct b2TaskContext
-{
-	// These bits align with the awake contact array and signal change in contact status
-	// that affects the island graph.
-	b2BitSet contactBitSet;
-} b2TaskContext;
+b2World b2_worlds[b2_maxWorlds];
+bool b2_parallel = true;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
-	assert(0 <= id.index && id.index < b2_maxWorlds);
-	b2World* world = g_worlds + id.index;
-	assert(id.revision == world->revision);
+	B2_ASSERT(0 <= id.index && id.index < b2_maxWorlds);
+	b2World* world = b2_worlds + id.index;
+	B2_ASSERT(id.revision == world->revision);
 	return world;
 }
 
 b2World* b2GetWorldFromIndex(int16_t index)
 {
-	assert(0 <= index && index < b2_maxWorlds);
-	b2World* world = g_worlds + index;
-	assert(world->blockAllocator != NULL);
+	B2_ASSERT(0 <= index && index < b2_maxWorlds);
+	b2World* world = b2_worlds + index;
+	B2_ASSERT(world->blockAllocator != NULL);
 	return world;
 }
 
@@ -66,111 +57,12 @@ static void b2DefaultFinishTasksFcn(void* userContext)
 	B2_MAYBE_UNUSED(userContext);
 }
 
-static void b2AddPair(void* userDataA, void* userDataB, void* context)
-{
-	b2World* world = (b2World*)context;
-
-	b2ShapeProxy* proxyA = (b2ShapeProxy*)userDataA;
-	b2ShapeProxy* proxyB = (b2ShapeProxy*)userDataB;
-
-	int32_t shapeIndexA = proxyA->shapeIndex;
-	int32_t shapeIndexB = proxyB->shapeIndex;
-
-	b2Shape* shapeA = world->shapes + shapeIndexA;
-	b2Shape* shapeB = world->shapes + shapeIndexB;
-
-	// Are the fixtures on the same body?
-	if (shapeA->bodyIndex == shapeB->bodyIndex)
-	{
-		return;
-	}
-
-	if (b2ShouldCollide(shapeA->filter, shapeB->filter) == false)
-	{
-		return;
-	}
-
-	int32_t bodyIndexA = shapeA->bodyIndex;
-	int32_t bodyIndexB = shapeB->bodyIndex;
-
-	b2Body* bodyA = world->bodies + bodyIndexA;
-	b2Body* bodyB = world->bodies + bodyIndexB;
-
-	// Search contacts on body with the fewest contacts.
-	// TODO_ERIN use hash table
-	int32_t edgeKey;
-	int32_t secondaryBodyIndex;
-	if (bodyA->contactCount < bodyB->contactCount)
-	{
-		edgeKey = bodyA->contactList;
-		secondaryBodyIndex = bodyIndexB;
-	}
-	else
-	{
-		edgeKey = bodyB->contactList;
-		secondaryBodyIndex = bodyIndexA;
-	}
-
-	int32_t childA = proxyA->childIndex;
-	int32_t childB = proxyB->childIndex;
-
-	while (edgeKey != B2_NULL_INDEX)
-	{
-		int32_t contactIndex = edgeKey >> 1;
-		int32_t edgeIndex = edgeKey & 1;
-		int32_t twinIndex = edgeIndex ^ 1;
-
-		b2Contact* contact = world->contacts + contactIndex;
-
-		b2ContactEdge* edge = contact->edges + edgeIndex;
-		b2ContactEdge* twin = contact->edges + twinIndex;
-
-		if (twin->bodyIndex == secondaryBodyIndex)
-		{
-			int32_t sA = contact->shapeIndexA;
-			int32_t sB = contact->shapeIndexB;
-			int32_t cA = contact->childA;
-			int32_t cB = contact->childB;
-
-			if (sA == shapeIndexA && sB == shapeIndexB && cA == childA && cB == childB)
-			{
-				// A contact already exists.
-				return;
-			}
-
-			if (sA == shapeIndexB && sB == shapeIndexB && cA == childB && cB == childA)
-			{
-				// A contact already exists.
-				return;
-			}
-		}
-
-		edgeKey = edge->nextKey;
-	}
-
-	// Does a joint override collision? Is at least one body dynamic?
-	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
-	{
-		return;
-	}
-
-	// Check user filtering.
-	// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
-	//{
-	//	return;
-	//}
-	//_Thread_local int test;
-	// test = 1;
-
-	b2CreateContact(world, shapeA, childA, shapeB, childB);
-}
-
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	b2WorldId id = b2_nullWorldId;
 	for (int16_t i = 0; i < b2_maxWorlds; ++i)
 	{
-		if (g_worlds[i].blockAllocator == NULL)
+		if (b2_worlds[i].blockAllocator == NULL)
 		{
 			id.index = i;
 			break;
@@ -185,7 +77,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2InitializeContactRegisters();
 
 	b2World empty = {0};
-	b2World* world = g_worlds + id.index;
+	b2World* world = b2_worlds + id.index;
 	*world = empty;
 
 	world->index = id.index;
@@ -193,7 +85,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
-	b2BroadPhase_Create(&world->broadPhase, b2AddPair, world);
+	b2CreateBroadPhase(&world->broadPhase);
 
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -213,6 +105,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
+
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
 
 	world->splitIslandIndex = B2_NULL_INDEX;
@@ -229,8 +122,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->locked = false;
 	world->warmStarting = true;
 
-	b2Profile profile = {0};
-	world->profile = profile;
+	world->profile = b2_emptyProfile;
 
 	id.revision = world->revision;
 
@@ -252,7 +144,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->taskContextArray = b2CreateArray(sizeof(b2TaskContext), world->workerCount);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		world->taskContextArray[i].contactBitSet = b2CreateBitSet(def->contactCapacity);
+		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
+		world->taskContextArray[i].awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
+		world->taskContextArray[i].shapeBitSet = b2CreateBitSet(def->shapeCapacity);
 	}
 
 	return id;
@@ -264,20 +158,36 @@ void b2DestroyWorld(b2WorldId id)
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2DestroyBitSet(&world->taskContextArray[i].contactBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].awakeContactBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].shapeBitSet);
 	}
+
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
 
 	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
+
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
 	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
+
+	b2Island* islands = world->islands;
+	int32_t islandCapacity = world->islandPool.capacity;
+	for (int32_t i = 0; i < islandCapacity; ++i)
+	{
+		b2Island* island = islands + i;
+		if (b2ObjectValid(&island->object) == true)
+		{
+			b2DestroyIsland(island);
+		}
+	}
+
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
 	b2DestroyPool(&world->contactPool);
 	b2DestroyPool(&world->shapePool);
 	b2DestroyPool(&world->bodyPool);
 
-	b2BroadPhase_Destroy(&world->broadPhase);
+	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyBlockAllocator(world->blockAllocator);
 	b2DestroyStackAllocator(world->stackAllocator);
@@ -291,7 +201,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
 
 	b2World* world = context;
-	assert(threadIndex < world->workerCount);
+	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
 	b2Shape* shapes = world->shapes;
 	b2Body* bodies = world->bodies;
@@ -299,51 +209,41 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
 
 	B2_MAYBE_UNUSED(awakeCount);
-	assert(startIndex < endIndex);
-	assert(endIndex <= awakeCount);
+	B2_ASSERT(startIndex < endIndex);
+	B2_ASSERT(endIndex <= awakeCount);
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
 		int32_t contactIndex = world->awakeContactArray[awakeIndex];
 
-		if (contactIndex == B2_NULL_INDEX)
-		{
-			// Contact was destroyed or put to sleep
-			continue;
-		}
-
-		assert(0 <= contactIndex && contactIndex < world->contactPool.capacity);
+		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
 
-		assert(contact->awakeIndex == awakeIndex);
-		assert(contact->object.index == contactIndex && contact->object.index == contact->object.next);
+		//B2_ASSERT(contact->awakeIndex == awakeIndex);
+		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
-		contact->awakeIndex = B2_NULL_INDEX;
+		//contact->awakeIndex = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
-		b2Body* bodyA = bodies + shapeA->bodyIndex;
-		b2Body* bodyB = bodies + shapeB->bodyIndex;
-
-		int32_t proxyKeyA = shapeA->proxies[contact->childA].proxyKey;
-		int32_t proxyKeyB = shapeB->proxies[contact->childB].proxyKey;
 
 		// Do proxies still overlap?
-		// TODO_ERIN if we keep fat bounding boxes on shapes we don't need to dive into the broadphase here
-		bool overlap = b2BroadPhase_TestOverlap(&world->broadPhase, proxyKeyA, proxyKeyB);
+		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
 		if (overlap == false)
 		{
 			contact->flags |= b2_contactDisjoint;
-			b2SetBit(&taskContext->contactBitSet, awakeIndex);
+			b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
 		}
 		else
 		{
 			bool wasTouching = (contact->flags & b2_contactTouchingFlag);
-			assert(wasTouching || contact->islandIndex == B2_NULL_INDEX);
+			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
+			b2Body* bodyA = bodies + shapeA->bodyIndex;
+			b2Body* bodyB = bodies + shapeB->bodyIndex;
 			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
@@ -352,17 +252,31 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			if (touching == true && wasTouching == false)
 			{
 				contact->flags |= b2_contactStartedTouching;
-				b2SetBit(&taskContext->contactBitSet, awakeIndex);
+				b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
 			}
 			else if (touching == false && wasTouching == true)
 			{
 				contact->flags |= b2_contactStoppedTouching;
-				b2SetBit(&taskContext->contactBitSet, awakeIndex);
+				b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
 			}
 		}
 	}
 
 	b2TracyCZoneEnd(collide_task);
+}
+
+static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
+{
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2TracyCZoneNC(tree_task, "Rebuild Trees", b2_colorSnow1, true);
+
+	b2World* world = context;
+	b2BroadPhase_RebuildTrees(&world->broadPhase);
+
+	b2TracyCZoneEnd(tree_task);
 }
 
 static void b2Collide(b2World* world)
@@ -378,14 +292,17 @@ static void b2Collide(b2World* world)
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
+	world->enqueueTask(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].contactBitSet, awakeContactCount);
+		b2SetBitCountAndClear(&world->taskContextArray[i].contactStateBitSet, awakeContactCount);
 	}
 
-	if (g_parallel)
+	if (b2_parallel)
 	{
-		int32_t minRange = 32;
+		// Task should take at least 40us on a 4GHz CPU (10K cycles)
+		int32_t minRange = 64;
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -394,14 +311,16 @@ static void b2Collide(b2World* world)
 		b2CollideTask(0, awakeContactCount, 0, world);
 	}
 
+	b2ValidateNoEnlarged(&world->broadPhase);
+
 	// Serially update contact state
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
 
 	// Bitwise OR all contact bits
-	b2BitSet* bitSet = &world->taskContextArray[0].contactBitSet;
+	b2BitSet* bitSet = &world->taskContextArray[0].contactStateBitSet;
 	for (uint32_t i = 1; i < world->workerCount; ++i)
 	{
-		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactBitSet);
+		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactStateBitSet);
 	}
 
 	// Process contact state changes. Iterate over set bits
@@ -413,7 +332,7 @@ static void b2Collide(b2World* world)
 		{
 			uint32_t ctz = b2CTZ(word);
 			uint32_t awakeIndex = 64 * k + ctz;
-			assert(awakeIndex < (uint32_t)awakeContactCount);
+			B2_ASSERT(awakeIndex < (uint32_t)awakeContactCount);
 
 			int32_t contactIndex = world->awakeContactArray[awakeIndex];
 			b2Contact* contact = world->contacts + contactIndex;
@@ -424,13 +343,13 @@ static void b2Collide(b2World* world)
 			}
 			else if (contact->flags & b2_contactStartedTouching)
 			{
-				assert(contact->islandIndex == B2_NULL_INDEX);
+				B2_ASSERT(contact->islandIndex == B2_NULL_INDEX);
 				b2LinkContact(world, contact);
 				contact->flags &= ~b2_contactStartedTouching;
 			}
 			else
 			{
-				assert(contact->flags & b2_contactStoppedTouching);
+				B2_ASSERT(contact->flags & b2_contactStoppedTouching);
 
 				b2UnlinkContact(world, contact);
 				contact->flags &= ~b2_contactStoppedTouching;
@@ -456,14 +375,14 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32
 
 	b2World* world = taskContext;
 
-	assert(startIndex <= endIndex);
-	assert(startIndex <= b2Array(world->awakeIslandArray).count);
-	assert(endIndex <= b2Array(world->awakeIslandArray).count);
+	B2_ASSERT(startIndex <= endIndex);
+	B2_ASSERT(startIndex <= b2Array(world->awakeIslandArray).count);
+	B2_ASSERT(endIndex <= b2Array(world->awakeIslandArray).count);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		int32_t index = world->awakeIslandArray[i];
-		b2SolveIsland(world->islands + index);
+		b2SolveIsland(world->islands + index, threadIndex);
 	}
 
 	b2TracyCZoneEnd(island_task);
@@ -480,6 +399,15 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2Array_Clear(world->splitIslandArray);
 	world->stepId += 1;
 
+	// Prepare contact and shape bit-sets
+	int32_t contactCapacity = world->contactPool.capacity;
+	int32_t shapeCapacity = world->shapePool.capacity;
+	for (uint32_t i = 0; i < world->workerCount; ++i)
+	{
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
+	}
+
 	b2MergeAwakeIslands(world);
 
 	// Careful, this is modified by island merging
@@ -489,7 +417,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	for (int32_t i = 0; i < count; ++i)
 	{
 		b2Island* island = world->islands + world->awakeIslandArray[i];
-		assert(island->awakeIndex == i);
+		B2_ASSERT(island->awakeIndex == i);
 		islands[i] = island;
 	}
 
@@ -508,7 +436,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
-	if (g_parallel)
+	if (b2_parallel)
 	{
 		int32_t minRange = 1;
 		world->enqueueTask(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
@@ -526,10 +454,87 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
+	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
+
+	// Enlarge broad-phase proxies and build move array
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+
+		// Gather bits for all shapes that have enlarged AABBs
+		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
+		}
+
+		// Apply shape AABB changes to broadphase. This also create the move array which must be
+		// ordered to ensure determinism.
+		b2Shape* shapes = world->shapes;
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t shapeIndex = 64 * k + ctz;
+
+				b2Shape* shape = shapes + shapeIndex;
+				B2_ASSERT(b2ObjectValid(&shape->object));
+				b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(enlarge_proxies);
+
+	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
+
+	// Build awake contact array
+	{
+		b2BitSet* bitSet = &world->taskContextArray[0].awakeContactBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
+		}
+
+		b2Array_Clear(world->awakeContactArray);
+
+		// Iterate the bit set
+		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
+		// that body A or body B or both bodies wake the contact.
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t contactIndex = 64 * k + ctz;
+
+				// TODO_ERIN consider adding the awake index to the contact to speed up deletes
+				b2Array_Push(world->awakeContactArray, contactIndex);
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(awake_contacts);
+
+	b2TracyCZoneNC(complete_island, "Complete Island", b2_colorBlueViolet, true);
+
 	// Complete islands (reverse order for stack allocator)
 	// This rebuilds the awake island array and awake contact array
 	b2Array_Clear(world->awakeIslandArray);
-	b2Array_Clear(world->awakeContactArray);
 
 	for (int32_t i = count - 1; i >= 0; --i)
 	{
@@ -548,24 +553,24 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	if (world->splitIslandIndex != B2_NULL_INDEX)
 	{
 		b2Island* baseIsland = world->islands + world->splitIslandIndex;
-		bool isAwake = baseIsland->awakeIndex != B2_NULL_INDEX;
-
 		int32_t splitCount = b2Array(world->splitIslandArray).count;
 		for (int32_t i = 0; i < splitCount; ++i)
 		{
 			int32_t index = world->splitIslandArray[i];
 			b2Island* splitIsland = world->islands + index;
-			b2CompleteSplitIsland(splitIsland, isAwake);
+			b2CompleteSplitIsland(splitIsland);
 		}
 
 		// Done with the base split island.
+		b2DestroyIsland(baseIsland);
 		b2FreeObject(&world->islandPool, &baseIsland->object);
 	}
 
+	b2ValidateBroadphase(&world->broadPhase);
+
 	b2FreeStackItem(world->stackAllocator, islands);
 
-	// Look for new contacts
-	b2BroadPhase_UpdatePairs(&world->broadPhase);
+	b2TracyCZoneEnd(complete_island);
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
@@ -576,10 +581,16 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
+	if (timeStep == 0.0f)
+	{
+		// TODO_ERIN would be useful to still process collision while paused
+		return;
+	}
+
 	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
@@ -589,15 +600,11 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	b2Timer stepTimer = b2CreateTimer();
 
-	// If new shapes were added, we need to find the new contacts.
-	if (world->newContacts)
+	// Update collision pairs and create contacts
 	{
-		b2TracyCZoneNC(new_contacts, "New Contacts", b2_colorFuchsia, true);
-
-		b2BroadPhase_UpdatePairs(&world->broadPhase);
-		world->newContacts = false;
-
-		b2TracyCZoneEnd(new_contacts);
+		b2Timer timer = b2CreateTimer();
+		b2UpdateBroadPhasePairs(world);
+		world->profile.pairs = b2GetMilliseconds(&timer);
 	}
 
 	// TODO_ERIN atomic
@@ -646,7 +653,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
-	assert(b2GetStackAllocation(world->stackAllocator) == 0);
+	B2_ASSERT(b2GetStackAllocation(world->stackAllocator) == 0);
 
 	// Ensure stack is large enough
 	b2GrowStack(world->stackAllocator);
@@ -705,7 +712,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 	{
 		b2Polygon* poly = &shape->polygon;
 		int32_t count = poly->count;
-		assert(count <= b2_maxPolygonVertices);
+		B2_ASSERT(count <= b2_maxPolygonVertices);
 		b2Vec2 vertices[b2_maxPolygonVertices];
 
 		for (int32_t i = 0; i < count; ++i)
@@ -734,7 +741,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
@@ -827,7 +834,6 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	if (draw->drawAABBs)
 	{
 		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
-		b2BroadPhase* bp = &world->broadPhase;
 
 		int32_t count = world->bodyPool.capacity;
 		for (int32_t i = 0; i < count; ++i)
@@ -842,18 +848,14 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
-				for (int32_t j = 0; j < shape->proxyCount; ++j)
-				{
-					b2ShapeProxy* proxy = shape->proxies + j;
-					b2AABB aabb = b2BroadPhase_GetFatAABB(bp, proxy->proxyKey);
+				b2AABB aabb = shape->fatAABB;
 
-					b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
-									{aabb.upperBound.x, aabb.lowerBound.y},
-									{aabb.upperBound.x, aabb.upperBound.y},
-									{aabb.lowerBound.x, aabb.upperBound.y}};
+				b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
+								{aabb.upperBound.x, aabb.lowerBound.y},
+								{aabb.upperBound.x, aabb.upperBound.y},
+								{aabb.lowerBound.x, aabb.upperBound.y}};
 
-					draw->DrawPolygon(vs, 4, color, draw->context);
-				}
+				draw->DrawPolygon(vs, 4, color, draw->context);
 
 				shapeIndex = shape->nextShapeIndex;
 			}
@@ -890,7 +892,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
@@ -1010,7 +1012,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 
 				b2BodyType typeA = bA->m_type;
 				b2BodyType typeB = bB->m_type;
-				assert(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
+				B2_ASSERT(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
 
 				bool activeA = bA->IsAwake() && typeA != b2_staticBody;
 				bool activeB = bB->IsAwake() && typeB != b2_staticBody;
@@ -1045,7 +1047,7 @@ void b2World::SolveTOI(const b2TimeStep& step)
 					bB->m_sweep.Advance(alpha0);
 				}
 
-				assert(alpha0 < 1.0f);
+				B2_ASSERT(alpha0 < 1.0f);
 
 				int32 indexA = c->GetChildIndexA();
 				int32 indexB = c->GetChildIndexB();
@@ -1325,7 +1327,7 @@ float b2World::GetTreeQuality() const
 
 void b2World::ShiftOrigin(const b2Vec2& newOrigin)
 {
-	assert(m_locked == false);
+	B2_ASSERT(m_locked == false);
 	if (m_locked)
 	{
 		return;
@@ -1418,18 +1420,17 @@ typedef struct WorldQueryContext
 	void* userContext;
 } WorldQueryContext;
 
-static bool TreeQueryCallback(int32_t proxyId, void* userData, void* context)
+static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
 {
 	B2_MAYBE_UNUSED(proxyId);
 
-	b2ShapeProxy* proxy = (b2ShapeProxy*)userData;
 	WorldQueryContext* worldContext = (WorldQueryContext*)context;
 	b2World* world = worldContext->world;
 
-	assert(0 <= proxy->shapeIndex && proxy->shapeIndex < world->shapePool.capacity);
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
 
-	b2Shape* shape = world->shapes + proxy->shapeIndex;
-	assert(shape->object.index == shape->object.next);
+	b2Shape* shape = world->shapes + shapeIndex;
+	B2_ASSERT(shape->object.index == shape->object.next);
 
 	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
@@ -1439,7 +1440,7 @@ static bool TreeQueryCallback(int32_t proxyId, void* userData, void* context)
 void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;

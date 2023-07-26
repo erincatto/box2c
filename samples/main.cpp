@@ -4,13 +4,14 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS 1
 
+#include "draw.h"
+#include "sample.h"
+#include "settings.h"
+
 #include "box2d/api.h"
 #include "box2d/constants.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
-#include "draw.h"
-#include "sample.h"
-#include "settings.h"
 
 #include <glad/glad.h>
 // Keep glad.h before glfw3.h
@@ -29,6 +30,7 @@
 
 #if defined(_WIN32)
 #include <crtdbg.h>
+
 static int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
 					   int lineNumber)
 {
@@ -53,12 +55,29 @@ static float s_framebufferScale = 1.0f;
 
 void* AllocFcn(int32_t size)
 {
-	return malloc(size);
+	size_t size16 = ((size - 1) | 0xF) + 1;
+	assert((size16 & 0xF) == 0);
+#if defined(_WIN64)
+	void* ptr = _aligned_malloc(size16, 16);
+#else
+	void* ptr = aligned_alloc(16, size16);
+#endif
+	return ptr;
 }
 
 void FreeFcn(void* mem)
 {
+#if defined(_WIN64)
+	_aligned_free(mem);
+#else
 	free(mem);
+#endif
+}
+
+int AssertFcn(const char* condition, const char* fileName, int lineNumber)
+{
+	printf("SAMPLE ASSERTION: %s, %s, line %d\n", condition, fileName, lineNumber);
+	return 1;
 }
 
 void glfwErrorCallback(int error, const char* description)
@@ -365,7 +384,7 @@ static void ScrollCallback(GLFWwindow* window, double dx, double dy)
 	}
 }
 
-BOX2D_API bool g_parallel;
+BOX2D_API bool b2_parallel;
 
 static void UpdateUI()
 {
@@ -390,7 +409,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Sleep", &s_settings.m_enableSleep);
 				ImGui::Checkbox("Warm Starting", &s_settings.m_enableWarmStarting);
 				ImGui::Checkbox("Continuous", &s_settings.m_enableContinuous);
-				ImGui::Checkbox("Parallel", &g_parallel);
+				ImGui::Checkbox("Parallel", &b2_parallel);
 
 				ImGui::Separator();
 
@@ -506,10 +525,10 @@ int main(int, char**)
 	//_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 	{
 		// Get the current bits
-		//int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+		// int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
 
 		// Clear the upper 16 bits and OR in the desired frequency
-		//tmp = (tmp & 0x0000FFFF) | _CRTDBG_CHECK_EVERY_16_DF;
+		// tmp = (tmp & 0x0000FFFF) | _CRTDBG_CHECK_EVERY_16_DF;
 
 		// Set the new bits
 		//_CrtSetDbgFlag(tmp);
@@ -524,6 +543,7 @@ int main(int, char**)
 
 	// Install memory hooks
 	b2SetAllocator(AllocFcn, FreeFcn);
+	Box2DAssertCallback = AssertFcn;
 
 	char buffer[128];
 
@@ -555,7 +575,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	sprintf(buffer, "Box2D Version %d.%d.%d PI", b2_version.major, b2_version.minor, b2_version.revision);
+	sprintf(buffer, "Box2D Version %d.%d.%d PBP", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{
