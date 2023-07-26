@@ -6,16 +6,16 @@
 #if defined(_WIN32)
 #include <crtdbg.h>
 
-int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
-	int lineNumber)
-{
-	if (size == 16416)
-	{
-		size += 0;
-	}
-
-	return 1;
-}
+//int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
+//	int lineNumber)
+//{
+//	if (size == 16416)
+//	{
+//		size += 0;
+//	}
+//
+//	return 1;
+//}
 #endif
 
 extern int MathTest();
@@ -32,7 +32,7 @@ int main(void)
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
 	//_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
-	_CrtSetAllocHook(MyAllocHook);
+	//_CrtSetAllocHook(MyAllocHook);
 	//_CrtSetBreakAlloc(196);
 #endif
 

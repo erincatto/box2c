@@ -52,7 +52,7 @@ int TableTest()
 			}
 		}
 
-		ENSURE(set.count == itemCount - removeCount);
+		ENSURE(set.count == (uint32_t)(itemCount - removeCount));
 
 #ifdef _DEBUG
 		extern int32_t g_probeCount;

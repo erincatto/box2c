@@ -11,6 +11,12 @@ set(BOX2D_TESTS
 
 add_executable(test ${BOX2D_TESTS})
 
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
+	target_compile_options(test PRIVATE /W4 /WX /std:c17)
+else()
+	target_compile_options(test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 # Special access to Box2D internals for testing
 target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
