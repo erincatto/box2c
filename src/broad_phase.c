@@ -52,10 +52,6 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 		bool isStatic = i == b2_staticBody;
 		bp->trees[i] = b2DynamicTree_Create(isStatic);
 	}
-
-	//bp->enlargedProxies = NULL;
-	//bp->enlargedProxyCapacity = 0;
-	//bp->enlargedProxyCount = 0;
 }
 
 void b2DestroyBroadPhase(b2BroadPhase* bp)
@@ -68,8 +64,6 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 	b2DestroySet(&bp->moveSet);
 	b2DestroyArray(bp->moveArray, sizeof(int32_t));
 	b2DestroySet(&bp->pairSet);
-
-	//b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
 
 	memset(bp, 0, sizeof(b2BroadPhase));
 
