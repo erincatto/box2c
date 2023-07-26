@@ -12,7 +12,7 @@
 int TableTest()
 {
 	const int32_t N = SET_SPAN;
-	const int32_t itemCount = ITEM_COUNT;
+	const uint32_t itemCount = ITEM_COUNT;
 	bool removed[ITEM_COUNT] = {0};
 
 	for (int32_t iter = 0; iter < 1; ++iter)
@@ -33,7 +33,7 @@ int TableTest()
 
 		// Remove a portion of the set
 		int32_t k = 0;
-		int32_t removeCount = 0;
+		uint32_t removeCount = 0;
 		for (int32_t i = 0; i < N; ++i)
 		{
 			for (int32_t j = i + 1; j < N; ++j)
@@ -52,7 +52,7 @@ int TableTest()
 			}
 		}
 
-		ENSURE(set.count == (uint32_t)(itemCount - removeCount));
+		ENSURE(set.count == (itemCount - removeCount));
 
 #ifdef _DEBUG
 		extern int32_t g_probeCount;
