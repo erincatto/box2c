@@ -53,9 +53,9 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 		bp->trees[i] = b2DynamicTree_Create(isStatic);
 	}
 
-	bp->enlargedProxies = NULL;
-	bp->enlargedProxyCapacity = 0;
-	bp->enlargedProxyCount = 0;
+	//bp->enlargedProxies = NULL;
+	//bp->enlargedProxyCapacity = 0;
+	//bp->enlargedProxyCount = 0;
 }
 
 void b2DestroyBroadPhase(b2BroadPhase* bp)
@@ -69,7 +69,7 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 	b2DestroyArray(bp->moveArray, sizeof(int32_t));
 	b2DestroySet(&bp->pairSet);
 
-	b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
+	//b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
 
 	memset(bp, 0, sizeof(b2BroadPhase));
 
@@ -467,15 +467,17 @@ int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey)
 
 void b2PrepareBroadPhase(b2BroadPhase* bp)
 {
-	int32_t proxyCapacity = bp->trees[b2_dynamicBody].proxyCount + bp->trees[b2_kinematicBody].proxyCount;
-	if (proxyCapacity > bp->enlargedProxyCapacity)
-	{
-		b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
-		bp->enlargedProxyCapacity = proxyCapacity + proxyCapacity / 2;
-		bp->enlargedProxies = b2Alloc(bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
-	}
+	B2_MAYBE_UNUSED(bp);
 
-	bp->enlargedProxyCount = 0;
+	//int32_t proxyCapacity = bp->trees[b2_dynamicBody].proxyCount + bp->trees[b2_kinematicBody].proxyCount;
+	//if (proxyCapacity > bp->enlargedProxyCapacity)
+	//{
+	//	b2Free(bp->enlargedProxies, bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
+	//	bp->enlargedProxyCapacity = proxyCapacity + proxyCapacity / 2;
+	//	bp->enlargedProxies = b2Alloc(bp->enlargedProxyCapacity * sizeof(b2EnlargedProxy));
+	//}
+
+	//bp->enlargedProxyCount = 0;
 }
 
 void b2ValidateBroadphase(const b2BroadPhase* bp)

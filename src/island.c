@@ -1226,8 +1226,8 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 	{
 		b2Contact* contacts = world->contacts;
 		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
-		b2BroadPhase* broadPhase = &world->broadPhase;
 		b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
+		b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 
 		// Speculative transform
 		// TODO_ERIN using old forces? Should be at the beginning of the time step?
@@ -1262,12 +1262,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 				{
 					shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
 					shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
-
-					int enlargeIndex = atomic_fetch_add(&broadPhase->enlargedProxyCount, 1);
-					B2_ASSERT(enlargeIndex < broadPhase->enlargedProxyCapacity);
-
-					broadPhase->enlargedProxies[enlargeIndex].aabb = shape->fatAABB;
-					broadPhase->enlargedProxies[enlargeIndex].proxyKey = shape->proxyKey;
+					b2SetBit(shapeBitSet, shapeIndex);
 				}
 				shapeIndex = shape->nextShapeIndex;
 			}
@@ -1299,8 +1294,6 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 // Single threaded work
 void b2CompleteIsland(b2Island* island)
 {
-	b2TracyCZoneNC(complete_island, "Complete Island", b2_colorBlueViolet, true);
-
 	b2World* world = island->world;
 
 #if 0
@@ -1327,8 +1320,6 @@ void b2CompleteIsland(b2Island* island)
 	}
 #endif
 
-	b2TracyCZoneNC(wake_contacts, "Wake Contacts", b2_colorIvory, true);
-
 	// Destroy in reverse order
 	b2DestroyContactSolver(island->contactSolver, world->stackAllocator);
 	island->contactSolver = NULL;
@@ -1339,10 +1330,6 @@ void b2CompleteIsland(b2Island* island)
 		island->awakeIndex = B2_NULL_INDEX;
 		b2WakeIsland(island);
 	}
-
-	b2TracyCZoneEnd(wake_contacts);
-
-	b2TracyCZoneEnd(complete_island);
 }
 
 // This island was just split. Handle any remaining single threaded cleanup.

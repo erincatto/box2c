@@ -149,8 +149,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	{
 		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
 		world->taskContextArray[i].awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
-		world->taskContextArray[i].dynamicProxyBitSet = b2CreateBitSet(8);
-		world->taskContextArray[i].kinematicProxyBitSet = b2CreateBitSet(8);
+		world->taskContextArray[i].shapeBitSet = b2CreateBitSet(def->shapeCapacity);
 	}
 
 	return id;
@@ -164,8 +163,7 @@ void b2DestroyWorld(b2WorldId id)
 	{
 		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].awakeContactBitSet);
-		b2DestroyBitSet(&world->taskContextArray[i].dynamicProxyBitSet);
-		b2DestroyBitSet(&world->taskContextArray[i].kinematicProxyBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].shapeBitSet);
 	}
 
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
@@ -409,10 +407,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2PrepareBroadPhase(broadPhase);
 
 	int32_t contactCapacity = world->contactPool.capacity;
+	int32_t shapeCapacity = world->shapePool.capacity;
 	b2SetBitCountAndClear(&world->awakeContactBitSet, contactCapacity);
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
 	}
 
 	b2MergeAwakeIslands(world);
@@ -463,42 +463,77 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(enlarge_proxies, "Enlarge", b2_colorDarkTurquoise, true);
 
-	// Apply shape AABB changes to broadphase. Order doesn't matter for determinism
-	int32_t enlargeCount = broadPhase->enlargedProxyCount;
-	B2_ASSERT(enlargeCount <= broadPhase->enlargedProxyCapacity);
-	const b2EnlargedProxy* enlargedProxies = broadPhase->enlargedProxies;
-	for (int32_t i = 0; i < enlargeCount; ++i)
+	// Enlarge broad-phase proxies and build move array
 	{
-		const b2EnlargedProxy* enlargedProxy = enlargedProxies + i;
-		b2BroadPhase_EnlargeProxy(broadPhase, enlargedProxy->proxyKey, enlargedProxy->aabb);
+		// Gather bits for all shapes that have enlarged AABBs
+		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
+		}
+
+		// Apply shape AABB changes to broadphase. This also create the move array which must be
+		// ordered to ensure determinism.
+		b2Shape* shapes = world->shapes;
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t shapeIndex = 64 * k + ctz;
+
+				b2Shape* shape = shapes + shapeIndex;
+				B2_ASSERT(b2ObjectValid(&shape->object));
+				b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
 	}
 
 	b2TracyCZoneEnd(enlarge_proxies);
 
+	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
+
 	// Build awake contact array
-	b2BitSet* bitSet = &world->awakeContactBitSet;
-	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
-	}
-
-	b2Array_Clear(world->awakeContactArray);
-
-	uint64_t word;
-	for (uint32_t k = 0; k < bitSet->wordCount; ++k)
-	{
-		word = bitSet->bits[k];
-		while (word != 0)
+		b2BitSet* bitSet = &world->awakeContactBitSet;
+		for (uint32_t i = 0; i < world->workerCount; ++i)
 		{
-			uint32_t ctz = b2CTZ(word);
-			uint32_t contactIndex = 64 * k + ctz;
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
+		}
 
-			b2Array_Push(world->awakeContactArray, contactIndex);
+		b2Array_Clear(world->awakeContactArray);
 
-			// Clear the smallest set bit
-			word = word & (word - 1);
+		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
+		// that body A or body B or both bodies wake the contact.
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t contactIndex = 64 * k + ctz;
+
+				b2Array_Push(world->awakeContactArray, contactIndex);
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
 		}
 	}
+
+	b2TracyCZoneEnd(awake_contacts);
+
+	b2TracyCZoneNC(complete_island, "Complete Island", b2_colorBlueViolet, true);
 
 	// Complete islands (reverse order for stack allocator)
 	// This rebuilds the awake island array and awake contact array
@@ -537,6 +572,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2ValidateBroadphase(&world->broadPhase);
 
 	b2FreeStackItem(world->stackAllocator, islands);
+
+	b2TracyCZoneEnd(complete_island);
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 

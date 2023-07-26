@@ -17,12 +17,6 @@ typedef struct b2World b2World;
 #define B2_PROXY_ID(KEY) ((KEY) >> 4)
 #define B2_PROXY_KEY(ID, TYPE) (((ID) << 4) | (TYPE))
 
-typedef struct b2EnlargedProxy
-{
-	b2AABB aabb;
-	int32_t proxyKey;
-} b2EnlargedProxy;
-
 /// The broad-phase is used for computing pairs and performing volume queries and ray casts.
 /// This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
 /// It is up to the client to consume the new pairs and to track subsequent overlap.
@@ -30,12 +24,6 @@ typedef struct b2BroadPhase
 {
 	b2DynamicTree trees[b2_bodyTypeCount];
 	int32_t proxyCount;
-
-	// Buffer that holds all the proxies enlarged from the island solver stage.
-	// The order doesn't matter. Rebuilt every time step.
-	b2EnlargedProxy* enlargedProxies;
-	int32_t enlargedProxyCapacity;
-	_Atomic int enlargedProxyCount;
 
 	b2Set moveSet;
 

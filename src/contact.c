@@ -25,12 +25,12 @@
 // Creation:
 // - Contacts are created using results from b2UpdateBroadPhasePairs
 // - These results are ordered according to the order of the broad-phase move array
-// - The move array is ordered according to the island/shape/body order. (TODO_ERIN WRONG!!!! Use bit set)
+// - The move array is ordered according to the island/shape/body order. (TODO_ERIN BUG Use bit set)
 // - The island/shape/body order is determined by creation order
 // - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
 // 
 // Island linking:
-// - The awake contact array is built from the body-contact graph for all awake bodies in awake islands (TODO_ERIN use bit set)
+// - The awake contact array is built from the body-contact graph for all awake bodies in awake islands.
 // - Awake contacts are solved in parallel and they generate contact state changes.
 // - These state changes may link islands together using union find.
 // - The state changes are ordered using a bit array that encompasses all contacts

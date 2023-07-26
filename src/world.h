@@ -24,11 +24,8 @@ typedef struct b2TaskContext
 	// Used to prevent duplicate awake contacts
 	b2BitSet awakeContactBitSet;
 
-	// Used to sort dynamic shapes that have enlarged AABBs
-	b2BitSet dynamicProxyBitSet;
-
-	// Used to sort kinematic shapes that have enlarged AABBs
-	b2BitSet kinematicProxyBitSet;
+	// Used to sort shapes that have enlarged AABBs
+	b2BitSet shapeBitSet;
 
 } b2TaskContext;
 
