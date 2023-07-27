@@ -1,14 +1,4 @@
-
-SET(ENKITS_BUILD_EXAMPLES OFF CACHE BOOL "Build enkiTS examples")
-
-FetchContent_Declare(
-	enkits
-	GIT_REPOSITORY https://github.com/dougbinks/enkiTS.git
-	GIT_TAG master
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(enkits)
+# Box2D samples app
 
 FetchContent_Declare(
 	glfw
@@ -80,6 +70,7 @@ set(BOX2D_SAMPLES
 	collection/sample_ray_cast.cpp
 	collection/sample_revolute_joint.cpp
 	collection/sample_shape_cast.cpp
+	collection/sample_tilted_stacks.cpp
 	collection/sample_time_of_impact.cpp
 	collection/sample_vertical_stack.cpp
 )

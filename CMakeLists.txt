@@ -1,4 +1,6 @@
-﻿cmake_minimum_required(VERSION 3.23)
+﻿# Box2D project
+
+cmake_minimum_required(VERSION 3.23)
 include(FetchContent)
 
 message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
@@ -24,6 +26,17 @@ if (MSVC AND WIN32)
     # add_compile_options($<$<CONFIG:Debug>:/ZI>)
 	# add_compile_options(/fsanitize=address)
 endif()
+
+SET(ENKITS_BUILD_EXAMPLES OFF CACHE BOOL "Build enkiTS examples")
+
+FetchContent_Declare(
+	enkits
+	GIT_REPOSITORY https://github.com/dougbinks/enkiTS.git
+	GIT_TAG master
+	GIT_SHALLOW TRUE
+	GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(enkits)
 
 if (BOX2D_PROFILE)
 	add_compile_definitions(BOX2D_PROFILE)
