@@ -4,21 +4,93 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "box2d/math.h"
+#include "box2d/types.h"
 #include "test_macros.h"
 
 #include "TaskScheduler_c.h"
 
 #include <stdio.h>
 
-// This is a simple example of building and running a simulation
-// using Box2D. Here we create a large ground box and a small dynamic
-// box.
-// There are no graphics for this example. Box2D is meant to be used
-// with your rendering engine in your game engine.
-int DeterminismTest()
+#ifdef BOX2D_PROFILE
+#include <tracy/TracyC.h>
+#else
+#define TracyCFrameMark
+#endif
+
+enum
 {
-	enkiTaskScheduler* scheduler = enkiNewTaskScheduler();
-	enkiInitTaskScheduler(scheduler);
+	e_columns = 10,
+	e_rows = 10,
+	e_count = e_columns * e_rows,
+	e_maxTasks = 128,
+};
+
+b2Vec2 finalPositions[2][e_count];
+float finalAngles[2][e_count];
+
+typedef struct TaskData
+{
+	b2TaskCallback* box2dTask;
+	void* box2dContext;
+} TaskData;
+
+enkiTaskScheduler* scheduler;
+enkiTaskSet* tasks[e_maxTasks];
+TaskData taskData[e_maxTasks];
+int taskCount;
+
+void ExecuteRangeTask(uint32_t start, uint32_t end, uint32_t threadIndex, void* context)
+{
+	TaskData* data = context;
+	data->box2dTask(start, end, threadIndex, data->box2dContext);
+}
+
+static void EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange, void* box2dContext, void* userContext)
+{
+	B2_MAYBE_UNUSED(userContext);
+
+	if (taskCount < e_maxTasks)
+	{
+		enkiTaskSet* task = tasks[taskCount];
+		TaskData* data = taskData + taskCount;
+		data->box2dTask = box2dTask;
+		data->box2dContext = box2dContext;
+
+		struct enkiParamsTaskSet params;
+		params.minRange = minRange;
+		params.setSize = itemCount;
+		params.pArgs = data;
+		params.priority = 0;
+
+		enkiSetParamsTaskSet(task, params);
+		enkiAddTaskSet(scheduler, task);
+		++taskCount;
+	}
+	else
+	{
+		box2dTask(0, itemCount, 0, box2dContext);
+	}
+}
+
+static void FinishTasks(void* userContext)
+{
+	B2_MAYBE_UNUSED(userContext);
+
+	enkiWaitForAll(scheduler);
+	taskCount = 0;
+}
+
+void TiltedStacks(int testIndex, int workerCount)
+{
+	scheduler = enkiNewTaskScheduler();
+	struct enkiTaskSchedulerConfig config = enkiGetTaskSchedulerConfig(scheduler);
+	config.numTaskThreadsToCreate = workerCount - 1;
+	enkiInitTaskSchedulerWithConfig(scheduler, config);
+
+	for (int i = 0; i < e_maxTasks; ++i)
+	{
+		tasks[i] = enkiCreateTaskSet(scheduler, ExecuteRangeTask);
+	}
 
 	// Define the gravity vector.
 	b2Vec2 gravity = {0.0f, -10.0f};
@@ -26,79 +98,100 @@ int DeterminismTest()
 	// Construct a world object, which will hold and simulate the rigid bodies.
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.gravity = gravity;
+	worldDef.enqueueTask = EnqueueTask;
+	worldDef.finishTasks = FinishTasks;
+	worldDef.workerCount = workerCount;
+	worldDef.enableSleep = false;
 
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 
-	// Define the ground body.
-	b2BodyDef groundBodyDef = b2DefaultBodyDef();
-	groundBodyDef.position = (b2Vec2){0.0f, -10.0f};
+	b2BodyId bodies[e_count];
 
-	// Call the body factory which allocates memory for the ground body
-	// from a pool and creates the ground box shape (also from a pool).
-	// The body is also added to the world.
-	b2BodyId groundBodyId = b2World_CreateBody(worldId, &groundBodyDef);
-
-	// Define the ground box shape. The extents are the half-widths of the box.
-	b2Polygon groundBox = b2MakeBox(50.0f, 10.0f);
-
-	// Add the box shape to the ground body.
-	b2ShapeDef groundShapeDef = b2DefaultShapeDef();
-	b2Body_CreatePolygon(groundBodyId, &groundShapeDef, &groundBox);
-
-	// Define the dynamic body. We set its position and call the body factory.
-	b2BodyDef bodyDef = b2DefaultBodyDef();
-	bodyDef.type = b2_dynamicBody;
-	bodyDef.position = (b2Vec2){0.0f, 4.0f};
-	b2BodyId bodyId = b2World_CreateBody(worldId, &bodyDef);
-
-	// Define another box shape for our dynamic body.
-	b2Polygon dynamicBox = b2MakeBox(1.0f, 1.0f);
-
-	// Define the dynamic body fixture.
-	b2ShapeDef shapeDef = b2DefaultShapeDef();
-
-	// Set the box density to be non-zero, so it will be dynamic.
-	shapeDef.density = 1.0f;
-
-	// Override the default friction.
-	shapeDef.friction = 0.3f;
-
-	// Add the shape to the body.
-	b2Body_CreatePolygon(bodyId, &shapeDef, &dynamicBox);
-
-	// Prepare for simulation. Typically we use a time step of 1/60 of a
-	// second (60Hz) and 10 iterations. This provides a high quality simulation
-	// in most game scenarios.
-	float timeStep = 1.0f / 60.0f;
-	int32_t velocityIterations = 6;
-	int32_t positionIterations = 2;
-
-	b2Vec2 position = b2Body_GetPosition(bodyId);
-	float angle = b2Body_GetAngle(bodyId);
-
-	// This is our little game loop.
-	for (int32_t i = 0; i < 60; ++i)
 	{
-		// Instruct the world to perform a single step of simulation.
-		// It is generally best to keep the time step and iterations fixed.
-		b2World_Step(worldId, timeStep, velocityIterations, positionIterations);
+		b2BodyDef bd = b2DefaultBodyDef();
+		bd.position = (b2Vec2){0.0f, -1.0f};
+		b2BodyId groundId = b2World_CreateBody(worldId, &bd);
 
-		// Now print the position and angle of the body.
-		position = b2Body_GetPosition(bodyId);
-		angle = b2Body_GetAngle(bodyId);
-
-		//printf("%4.2f %4.2f %4.2f\n", position.x, position.y, angle);
+		b2Polygon box = b2MakeBox(1000.0f, 1.0f);
+		b2ShapeDef sd = b2DefaultShapeDef();
+		b2Body_CreatePolygon(groundId, &sd, &box);
 	}
 
-	// When the world destructor is called, all bodies and joints are freed. This can
-	// create orphaned ids, so be careful about your world management.
+	b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
+	b2ShapeDef sd = b2DefaultShapeDef();
+	sd.density = 1.0f;
+	sd.friction = 0.3f;
+
+	float offset = 0.2f;
+	float dx = 5.0f;
+	float xroot = -0.5f * dx * (e_columns - 1.0f);
+
+	for (int j = 0; j < e_columns; ++j)
+	{
+		float x = xroot + j * dx;
+
+		for (int i = 0; i < e_rows; ++i)
+		{
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.type = b2_dynamicBody;
+
+			int n = j * e_rows + i;
+
+			bd.position = (b2Vec2){x + offset * i, 0.5f + 1.0f * i};
+			b2BodyId bodyId = b2World_CreateBody(worldId, &bd);
+			bodies[n] = bodyId;
+
+			b2Body_CreatePolygon(bodyId, &sd, &box);
+		}
+	}
+
+	float timeStep = 1.0f / 60.0f;
+	int velocityIterations = 6;
+	int positionIterations = 2;
+
+	for (int i = 0; i < 1000000; ++i)
+	{
+		b2World_Step(worldId, timeStep, velocityIterations, positionIterations);
+		TracyCFrameMark;
+	}
+
+	for (int i = 0; i < e_count; ++i)
+	{
+		finalPositions[testIndex][i] = b2Body_GetPosition(bodies[i]);
+		finalAngles[testIndex][i] = b2Body_GetAngle(bodies[i]);
+	}
+
 	b2DestroyWorld(worldId);
 
-	ENSURE(B2_ABS(position.x) < 0.01f);
-	ENSURE(B2_ABS(position.y - 1.00f) < 0.01f);
-	ENSURE(B2_ABS(angle) < 0.01f);
+	for (int i = 0; i < e_maxTasks; ++i)
+	{
+		enkiDeleteTaskSet(scheduler, tasks[i]);
+	}
 
 	enkiDeleteTaskScheduler(scheduler);
+}
+
+// Test multi-threaded determinism.
+int DeterminismTest()
+{
+	// Test 1 : 4 threads
+	TiltedStacks(0, 16);
+
+	// Test 2 : 1 thread
+	TiltedStacks(1, 1);
+
+	// Both runs should produce identical results
+	for (int i = 0; i < e_count; ++i)
+	{
+		b2Vec2 p1 = finalPositions[0][i];
+		b2Vec2 p2 = finalPositions[1][i];
+		float a1 = finalAngles[0][i];
+		float a2 = finalAngles[0][i];
+
+		ENSURE(p1.x == p2.x);
+		ENSURE(p1.y == p2.y);
+		ENSURE(a1 == a2);
+	}
 
 	return 0;
 }
