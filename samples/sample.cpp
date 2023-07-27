@@ -3,13 +3,14 @@
 
 #include "sample.h"
 
+#include "settings.h"
+
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
 #include "box2d/joint_util.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/timer.h"
-#include "settings.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -305,8 +306,7 @@ void Sample::Step(Settings& settings)
 
 		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs,
-						  m_maxProfile.pairs);
+		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs, m_maxProfile.pairs);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);

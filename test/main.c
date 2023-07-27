@@ -20,6 +20,7 @@
 
 extern int MathTest();
 extern int CollisionTest();
+extern int DeterminismTest();
 extern int DistanceTest();
 extern int HelloWorld();
 extern int ShapeTest();
@@ -41,6 +42,7 @@ int main(void)
 
 	RUN_TEST(MathTest);
 	RUN_TEST(CollisionTest);
+	RUN_TEST(DeterminismTest);
 	RUN_TEST(DistanceTest);
 	RUN_TEST(HelloWorld);
 	RUN_TEST(ShapeTest);
