@@ -118,7 +118,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->inv_dt0 = 0.0f;
 	world->enableSleep = true;
-	world->newContacts = false;
 	world->locked = false;
 	world->warmStarting = true;
 
@@ -367,10 +366,6 @@ static void b2Collide(b2World* world)
 
 static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
 {
-	B2_MAYBE_UNUSED(startIndex);
-	B2_MAYBE_UNUSED(endIndex);
-	B2_MAYBE_UNUSED(threadIndex);
-
 	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
 
 	b2World* world = taskContext;
@@ -386,6 +381,45 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32
 	}
 
 	b2TracyCZoneEnd(island_task);
+}
+
+static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
+{
+	b2Body* body = world->bodies + bodyIndex;
+	b2Shape* shapes = world->shapes;
+
+	b2Sweep sweep = b2GetSweep(body);
+	float minHitTime = 1.0f;
+
+	int32_t shapeIndex = body->shapeList;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		b2Shape* shape = shapes + shapeIndex;
+
+
+		b2AABB box2 = shape->aabb;
+	}
+}
+
+static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2TracyCZoneNC(continuous_task, "Continuous Task", b2_colorAqua, true);
+
+	b2World* world = taskContext;
+
+	B2_ASSERT(startIndex <= endIndex);
+	B2_ASSERT(startIndex <= b2Array(world->awakeIslandArray).count);
+	B2_ASSERT(endIndex <= b2Array(world->awakeIslandArray).count);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		int32_t index = world->fastBodies[i];
+		b2SolveTOI(world, index);
+	}
+
+	b2TracyCZoneEnd(continuous_task);
 }
 
 // Solve with union-find islands
@@ -413,13 +447,19 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Careful, this is modified by island merging
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
+	int32_t fastBodyCapacity = 0;
 	b2Island** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2Island*), "island array");
 	for (int32_t i = 0; i < count; ++i)
 	{
 		b2Island* island = world->islands + world->awakeIslandArray[i];
 		B2_ASSERT(island->awakeIndex == i);
 		islands[i] = island;
+		fastBodyCapacity += island->bodyCount;
 	}
+
+	world->fastBodyCapacity = fastBodyCapacity;
+	world->fastBodyCount = 0;
+	world->fastBodies = b2AllocateStackItem(world->stackAllocator, fastBodyCapacity * sizeof(int32_t));
 
 	// Sort islands to improve task distribution
 	b2SortIslands(world, islands, count);
@@ -568,14 +608,31 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2ValidateBroadphase(&world->broadPhase);
 
-	b2FreeStackItem(world->stackAllocator, islands);
-
 	b2TracyCZoneEnd(complete_island);
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
 	b2TracyCZoneEnd(broad_phase);
 
+	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
+
+	if (b2_parallel)
+	{
+		int32_t minRange = 8;
+		world->enqueueTask(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+	}
+	else
+	{
+		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
+	}
+
+	world->finishTasks(world->userTaskContext);
+
+
+	b2TracyCZoneEnd(continuous_collision)
+
+	b2FreeStackItem(world->stackAllocator, world->fastBodies);
+	b2FreeStackItem(world->stackAllocator, islands);
 	b2TracyCZoneEnd(solve);
 }
 

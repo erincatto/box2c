@@ -75,7 +75,7 @@ extern "C"
 	void b2DynamicTree_Destroy(b2DynamicTree* tree);
 
 	/// Create a proxy. Provide a tight fitting AABB and a userData value.
-	int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData, b2AABB* outFatAABB);
+	int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData);
 
 	/// Destroy a proxy. This asserts if the id is invalid.
 	void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
@@ -83,14 +83,10 @@ extern "C"
 	// Clone one tree to another, reusing storage in the outTree if possible
 	void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
 
-	/// Move a proxy to a new AABB. If the proxy has moved outside of its
-	/// fattened AABB, then the proxy is removed from the tree and re-inserted.
-	/// Otherwise the function returns immediately.
-	/// @return true if the proxy was re-inserted
-	bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB);
+	/// Move a proxy to a new AABB by removing and reinserting into the tree.
+	void b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 	/// Enlarge a proxy and enlarge ancestors as necessary.
-	/// @return true if the internal bounds grew. The node move flag is set true if the tree is non-static.
 	void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 	/// This function receives proxies found in the AABB query.

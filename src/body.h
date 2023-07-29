@@ -23,16 +23,15 @@ typedef struct b2Body
 	b2Transform transform;
 	
 	// center of mass position
+	b2Vec2 position0;
 	b2Vec2 position;
 
 	// rotation in radians
+	float angle0;
 	float angle;
 
 	// location of center of mass relative to the body origin
 	b2Vec2 localCenter;
-
-	b2Vec2 speculativePosition;
-	float speculativeAngle;
 
 	b2Vec2 linearVelocity;
 	float angularVelocity;
@@ -61,6 +60,8 @@ typedef struct b2Body
 	// Rotational inertia about the center of mass.
 	float I, invI;
 
+	float minExtent;
+	float maxExtent;
 	float linearDamping;
 	float angularDamping;
 	float gravityScale;
@@ -96,10 +97,10 @@ static inline b2Sweep b2Body_GetSweep(const b2Body* body)
 	}
 	else
 	{
-		s.c1 = body->position;
-		s.c2 = body->speculativePosition;
-		s.a1 = body->angle;
-		s.a2 = body->speculativeAngle;
+		s.c1 = body->position0;
+		s.c2 = body->position;
+		s.a1 = body->angle0;
+		s.a2 = body->angle;
 	}
 
 	s.localCenter = body->localCenter;

@@ -39,7 +39,7 @@ extern float b2_lengthUnitsPerMeter;
 #define b2_maxPolygonVertices 8
 #endif
 
-/// Maximum number of simultaneouos worlds that can be allocated
+/// Maximum number of simultaneous worlds that can be allocated
 #ifndef b2_maxWorlds
 #define b2_maxWorlds 32
 #endif

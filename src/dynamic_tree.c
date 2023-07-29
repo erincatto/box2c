@@ -752,7 +752,7 @@ static void b2RemoveLeaf(b2DynamicTree* tree, int32_t leaf)
 
 // Create a proxy in the tree as a leaf node. We return the index of the node instead of a pointer so that we can grow
 // the node pool.
-int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData, b2AABB* outFatAABB)
+int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData)
 {
 	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
 	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
@@ -762,14 +762,10 @@ int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t cat
 	int32_t proxyId = b2AllocateNode(tree);
 	b2TreeNode* node = tree->nodes + proxyId;
 
-	// Fatten the aabb.
-	b2Vec2 r = {b2_aabbExtension, b2_aabbExtension};
-	node->aabb.lowerBound = b2Sub(aabb.lowerBound, r);
-	node->aabb.upperBound = b2Add(aabb.upperBound, r);
+	node->aabb = aabb;
 	node->userData = userData;
 	node->categoryBits = categoryBits;
 	node->height = 0;
-	*outFatAABB = node->aabb;
 
 	bool shouldRotate = true;
 	b2InsertLeaf(tree, proxyId, shouldRotate);
@@ -796,51 +792,21 @@ int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree)
 	return tree->proxyCount;
 }
 
-bool b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb, b2AABB* outFatAABB)
+void b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
 {
 	B2_ASSERT(-b2_huge < aabb.lowerBound.x && aabb.lowerBound.x < b2_huge);
 	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
 	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
 	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
-
 	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 
-	// Extend AABB
-	b2AABB fatAABB;
-	b2Vec2 r = {b2_aabbExtension, b2_aabbExtension};
-	fatAABB.lowerBound = b2Sub(aabb.lowerBound, r);
-	fatAABB.upperBound = b2Add(aabb.upperBound, r);
-
-	b2AABB treeAABB = tree->nodes[proxyId].aabb;
-	if (b2AABB_Contains(treeAABB, aabb))
-	{
-		// The tree AABB still contains the object, but the tree AABB might be too large.
-		// Perhaps the object was moving fast but has since gone to sleep.
-		// The huge AABB is larger than the new fat AABB.
-		b2AABB hugeAABB;
-		hugeAABB.lowerBound = b2MulAdd(fatAABB.lowerBound, -4.0f, r);
-		hugeAABB.upperBound = b2MulAdd(fatAABB.upperBound, 4.0f, r);
-
-		if (b2AABB_Contains(hugeAABB, treeAABB))
-		{
-			// The tree AABB contains the object AABB and the tree AABB is
-			// not too large. No tree update needed.
-			return false;
-		}
-
-		// Otherwise the tree AABB is huge and needs to be shrunk
-	}
-
 	b2RemoveLeaf(tree, proxyId);
 
-	tree->nodes[proxyId].aabb = fatAABB;
-	*outFatAABB = fatAABB;
+	tree->nodes[proxyId].aabb = aabb;
 
 	bool shouldRotate = false;
 	b2InsertLeaf(tree, proxyId, shouldRotate);
-
-	return true;
 }
 
 void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb)
@@ -851,7 +817,6 @@ void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 	B2_ASSERT(-b2_huge < aabb.lowerBound.y && aabb.lowerBound.y < b2_huge);
 	B2_ASSERT(-b2_huge < aabb.upperBound.x && aabb.upperBound.x < b2_huge);
 	B2_ASSERT(-b2_huge < aabb.upperBound.y && aabb.upperBound.y < b2_huge);
-
 	B2_ASSERT(0 <= proxyId && proxyId < tree->nodeCapacity);
 	B2_ASSERT(b2IsLeaf(tree->nodes + proxyId));
 

@@ -12,7 +12,7 @@
 typedef struct b2Circle b2Circle;
 typedef struct b2Polygon b2Polygon;
 typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2DebugDraw b2DebugDraw;
+typedef struct b2Segment b2Segment;
 
 /// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
 BOX2D_API b2WorldId b2CreateWorld(const b2WorldDef* def);
@@ -50,6 +50,10 @@ BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
 BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
 
+BOX2D_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
+BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);
+BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
+
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
 BOX2D_API void b2Body_Wake(b2BodyId bodyId);
@@ -58,6 +62,7 @@ BOX2D_API void b2Body_Wake(b2BodyId bodyId);
 /// @warning This function is locked during callbacks.
 BOX2D_API b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
+BOX2D_API b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);

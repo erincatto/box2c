@@ -57,6 +57,12 @@ static inline b2Vec2 b2CrossSV(float s, b2Vec2 v)
 	return B2_LITERAL(b2Vec2){-s * v.y, s * v.x};
 }
 
+/// Get a right pointing perpendicular vector. Equivalent to b2CrossVS(v, 1.0f).
+static inline b2Vec2 b2RightPerp(b2Vec2 v)
+{
+	return B2_LITERAL(b2Vec2){v.y, -v.x};
+}
+
 /// Vector addition
 static inline b2Vec2 b2Add(b2Vec2 a, b2Vec2 b)
 {

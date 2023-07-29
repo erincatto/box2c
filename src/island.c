@@ -1191,8 +1191,6 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 				b->sleepTime = 0.0f;
 				b->linearVelocity = b2Vec2_zero;
 				b->angularVelocity = 0.0f;
-				b->speculativePosition = b->position;
-				b->speculativeAngle = b->angle;
 				b->force = b2Vec2_zero;
 				b->torque = 0.0f;
 
