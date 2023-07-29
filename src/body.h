@@ -85,7 +85,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId);
 
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 
-static inline b2Sweep b2Body_GetSweep(const b2Body* body)
+static inline b2Sweep b2GetSweep(const b2Body* body)
 {
 	b2Sweep s;
 	if (body->type == b2_staticBody)
