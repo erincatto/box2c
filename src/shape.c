@@ -33,7 +33,11 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 	case b2_polygonShape:
 		return b2ComputePolygonMass(&shape->polygon, shape->density);
 	default:
-		return (b2MassData){0.0f, {0.0f, 0.0f}, 0.0f};
+	{
+		B2_ASSERT(false);
+		b2MassData data = {0};
+		return data;
+	}
 	}
 }
 
