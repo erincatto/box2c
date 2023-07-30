@@ -56,40 +56,40 @@ extern "C"
 {
 #endif
 
-	/// Compute the collision manifold between two circles.
-	b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB, float maxDistance);
+/// Compute the collision manifold between two circles.
+b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB, float maxDistance);
 
-	/// Compute the collision manifold between a capsule and circle
-	b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
-										 float maxDistance);
+/// Compute the collision manifold between a capsule and circle
+b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
+									 float maxDistance);
 
-	/// Compute the collision manifold between an segment and a circle.
-	b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
-										 float maxDistance);
+/// Compute the collision manifold between an segment and a circle.
+b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
+									 float maxDistance);
 
-	/// Compute the collision manifold between a polygon and a circle.
-	b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
-										 float maxDistance);
+/// Compute the collision manifold between a polygon and a circle.
+b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
+									 float maxDistance);
 
-	/// Compute the collision manifold between a capsule and circle
-	b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB, float maxDistance,
-								 b2DistanceCache* cache);
+/// Compute the collision manifold between a capsule and circle
+b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB, float maxDistance,
+							 b2DistanceCache* cache);
 
-	/// Compute the collision manifold between an segment and a capsule.
-	b2Manifold b2CollideSegmentAndCapsule(const b2Segment* segmentA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
-										  float maxDistance, b2DistanceCache* cache);
+/// Compute the collision manifold between an segment and a capsule.
+b2Manifold b2CollideSegmentAndCapsule(const b2Segment* segmentA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
+									  float maxDistance, b2DistanceCache* cache);
 
-	/// Compute the collision manifold between a polygon and capsule
-	b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
-										  float maxDistance, b2DistanceCache* cache);
+/// Compute the collision manifold between a polygon and capsule
+b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
+									  float maxDistance, b2DistanceCache* cache);
 
-	/// Compute the collision manifold between two polygons.
-	b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB, float maxDistance,
-								 b2DistanceCache* cache);
+/// Compute the collision manifold between two polygons.
+b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB, float maxDistance,
+							 b2DistanceCache* cache);
 
-	/// Compute the collision manifold between an segment and a polygon.
-	b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB, b2Transform xfB,
-										  float maxDistance, b2DistanceCache* cache);
+/// Compute the collision manifold between an segment and a polygon.
+b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB, b2Transform xfB,
+									  float maxDistance, b2DistanceCache* cache);
 
 #ifdef __cplusplus
 }

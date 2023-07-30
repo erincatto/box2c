@@ -285,9 +285,7 @@ static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
 
 static inline b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
 {
-	b2Vec2 u = {
-		A.cx.x * v.x + A.cy.x * v.y,
-		A.cx.y * v.x + A.cy.y * v.y};
+	b2Vec2 u = {A.cx.x * v.x + A.cy.x * v.y, A.cx.y * v.x + A.cy.y * v.y};
 	return u;
 }
 

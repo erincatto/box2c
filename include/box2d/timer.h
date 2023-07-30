@@ -40,17 +40,18 @@ typedef struct b2Timer
 {
 #if defined(_WIN32)
 	int64_t start;
-#elif defined(__linux__) || defined (__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__)
 	unsigned long long start_sec;
 	unsigned long long start_usec;
 #endif
 } b2Timer;
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-b2Timer b2CreateTimer();
+b2Timer b2CreateTimer(void);
 int64_t b2GetTicks(b2Timer* timer);
 float b2GetMilliseconds(const b2Timer* timer);
 float b2GetMillisecondsAndReset(b2Timer* timer);

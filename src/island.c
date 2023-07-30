@@ -676,9 +676,9 @@ void b2PrepareIsland(b2Island* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
 
-	//b2Array_Clear(island->awakeContactArray);
+	// b2Array_Clear(island->awakeContactArray);
 
-	// TODO_ERIN 
+	// TODO_ERIN
 	// b2Array_Reserve(&island->enlargedBodyArray, island->bodyCount);
 
 	b2ContactSolverDef contactSolverDef;
@@ -1258,7 +1258,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 					// Bit-set to keep the move array sorted
 					b2SetBit(shapeBitSet, shapeIndex);
 				}
-				else 
+				else
 				{
 					shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
 
@@ -1352,8 +1352,8 @@ void b2CompleteBaseSplitIsland(b2Island* island)
 // This island was just created through splitting. Handle single thread work.
 void b2CompleteSplitIsland(b2Island* island)
 {
-	// Report impulses
-	#if 0
+// Report impulses
+#if 0
 	b2World* world = island->world;
 	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
 	if (postSolveFcn != NULL)
@@ -1375,7 +1375,7 @@ void b2CompleteSplitIsland(b2Island* island)
 			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
 		}
 	}
-	#endif
+#endif
 
 	// Split islands are kept awake as part of the splitting process. They can
 	// fall asleep the next time step.

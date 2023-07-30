@@ -5,8 +5,8 @@
 
 #include "allocate.h"
 #include "array.h"
+#include "core.h"
 
-#include <assert.h>
 #include <stdbool.h>
 
 typedef struct b2StackEntry
@@ -18,7 +18,7 @@ typedef struct b2StackEntry
 } b2StackEntry;
 
 // This is a stack allocator used for fast per step allocations.
-// You must nest allocate/free pairs. The code will assert
+// You must nest allocate/free pairs. The code will B2_ASSERT
 // if you try to interleave multiple allocate/free pairs.
 // Unlike a scratch allocator, this lets me use the heap if the allocator
 // space is insufficient.
@@ -36,7 +36,7 @@ typedef struct b2StackAllocator
 
 b2StackAllocator* b2CreateStackAllocator(int32_t capacity)
 {
-	assert(capacity >= 0);
+	B2_ASSERT(capacity >= 0);
 	b2StackAllocator* allocator = b2Alloc(sizeof(b2StackAllocator));
 	allocator->capacity = capacity;
 	allocator->data = b2Alloc(capacity);
@@ -86,9 +86,9 @@ void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* nam
 void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 {
 	int32_t entryCount = b2Array(alloc->entries).count;
-	assert(entryCount > 0);
+	B2_ASSERT(entryCount > 0);
 	b2StackEntry* entry = alloc->entries + (entryCount - 1);
-	assert(mem == entry->data);
+	B2_ASSERT(mem == entry->data);
 	if (entry->usedMalloc)
 	{
 		b2Free(mem, entry->size);
@@ -104,7 +104,7 @@ void b2FreeStackItem(b2StackAllocator* alloc, void* mem)
 void b2GrowStack(b2StackAllocator* alloc)
 {
 	// Stack must not be in use
-	assert(alloc->allocation == 0);
+	B2_ASSERT(alloc->allocation == 0);
 
 	if (alloc->maxAllocation > alloc->capacity)
 	{

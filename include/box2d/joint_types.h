@@ -35,7 +35,7 @@ typedef struct b2MouseJointDef
 	float damping;
 } b2MouseJointDef;
 
-static inline struct b2MouseJointDef b2DefaultMouseJointDef()
+static inline struct b2MouseJointDef b2DefaultMouseJointDef(void)
 {
 	b2MouseJointDef def = {0};
 	def.bodyIdA = b2_nullBodyId;
@@ -98,7 +98,7 @@ typedef struct b2RevoluteJointDef
 	bool collideConnected;
 } b2RevoluteJointDef;
 
-static inline struct b2RevoluteJointDef b2DefaultRevoluteJointDef()
+static inline struct b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 {
 	b2RevoluteJointDef def = {0};
 	def.bodyIdA = b2_nullBodyId;

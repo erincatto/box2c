@@ -9,7 +9,7 @@ typedef struct b2BlockAllocator b2BlockAllocator;
 
 /// Create an allocator suitable for allocating and freeing small objects quickly.
 /// Does not return memory to the heap.
-b2BlockAllocator* b2CreateBlockAllocator();
+b2BlockAllocator* b2CreateBlockAllocator(void);
 
 /// Destroy a block alloctor instance
 void b2DestroyBlockAllocator(b2BlockAllocator* allocator);

@@ -6,6 +6,7 @@
 #include "array.h"
 #include "block_allocator.h"
 #include "body.h"
+#include "core.h"
 #include "island.h"
 #include "shape.h"
 #include "table.h"
@@ -15,7 +16,6 @@
 #include "box2d/manifold.h"
 #include "box2d/timer.h"
 
-#include <assert.h>
 #include <float.h>
 #include <math.h>
 
@@ -85,8 +85,8 @@ static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, cons
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
 {
-	assert(0 <= type1 && type1 < b2_shapeTypeCount);
-	assert(0 <= type2 && type2 < b2_shapeTypeCount);
+	B2_ASSERT(0 <= type1 && type1 < b2_shapeTypeCount);
+	B2_ASSERT(0 <= type2 && type2 < b2_shapeTypeCount);
 
 	s_registers[type1][type2].fcn = fcn;
 	s_registers[type1][type2].primary = true;
@@ -98,7 +98,7 @@ static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeTy
 	}
 }
 
-void b2InitializeContactRegisters()
+void b2InitializeContactRegisters(void)
 {
 	if (s_initialized == false)
 	{
@@ -114,8 +114,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2ShapeType type1 = shapeA->type;
 	b2ShapeType type2 = shapeB->type;
 
-	assert(0 <= type1 && type1 < b2_shapeTypeCount);
-	assert(0 <= type2 && type2 < b2_shapeTypeCount);
+	B2_ASSERT(0 <= type1 && type1 < b2_shapeTypeCount);
+	B2_ASSERT(0 <= type2 && type2 < b2_shapeTypeCount);
 
 	if (s_registers[type1][type2].fcn == NULL)
 	{
@@ -314,8 +314,8 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 {
 	b2Manifold oldManifold = contact->manifold;
 
-	assert(shapeA->object.index == contact->shapeIndexA);
-	assert(shapeB->object.index == contact->shapeIndexB);
+	B2_ASSERT(shapeA->object.index == contact->shapeIndexA);
+	B2_ASSERT(shapeB->object.index == contact->shapeIndexB);
 
 	b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
 	b2ShapeId shapeIdB = {shapeB->object.index, world->index, shapeB->object.revision};

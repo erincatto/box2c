@@ -84,7 +84,7 @@ typedef struct b2Contact
 	float tangentSpeed;
 } b2Contact;
 
-void b2InitializeContactRegisters();
+void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);

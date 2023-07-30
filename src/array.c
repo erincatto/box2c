@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "allocate.h"
 #include "array.h"
 
-#include <assert.h>
+#include "allocate.h"
+#include "core.h"
+
 #include <string.h>
 
 void* b2CreateArray(int32_t elementSize, int32_t capacity)
@@ -25,7 +26,7 @@ void b2DestroyArray(void* a, int32_t elementSize)
 void b2Array_Grow(void** a, int32_t elementSize)
 {
 	int32_t capacity = b2Array(*a).capacity;
-	assert(capacity == b2Array(*a).count);
+	B2_ASSERT(capacity == b2Array(*a).count);
 
 	// grow by 50%
 	int32_t newCapacity = capacity + (capacity >> 1);

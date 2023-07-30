@@ -5,7 +5,13 @@
 ---
 Language: Cpp
 BasedOnStyle: Microsoft
-BreakBeforeBraces: Allman 
+
+# BreakBeforeBraces: Allman 
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterUnion: true
+
 ColumnLimit: 140
 PointerAlignment: Left
 UseTab: Always
@@ -24,5 +30,5 @@ IncludeCategories:
   - Regex:           '^".*'
     Priority:        1
 
-# this doesn't seem to work
 IndentExternBlock: NoIndent
+IndentCaseLabels: true

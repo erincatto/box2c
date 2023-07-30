@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "pool.h"
+
 #include "box2d/distance.h"
 #include "box2d/geometry.h"
 #include "box2d/types.h"
-
-#include "pool.h"
 
 typedef struct b2BroadPhase b2BroadPhase;
 

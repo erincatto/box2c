@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "allocate.h"
 #include "bitset.h"
 
-#include <assert.h>
+#include "allocate.h"
+
 #include <string.h>
 
 b2BitSet b2CreateBitSet(uint32_t bitCapacity)
@@ -42,7 +42,7 @@ void b2SetBitCountAndClear(b2BitSet* bitSet, uint32_t bitCount)
 
 void b2InPlaceUnion(b2BitSet* setA, const b2BitSet* setB)
 {
-	assert(setA->wordCount == setB->wordCount);
+	B2_ASSERT(setA->wordCount == setB->wordCount);
 	uint32_t wordCount = setA->wordCount;
 	for (uint32_t i = 0; i < wordCount; ++i)
 	{

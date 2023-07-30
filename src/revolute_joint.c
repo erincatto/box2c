@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/debug_draw.h"
-
 #include "body.h"
+#include "core.h"
 #include "joint.h"
 #include "solver_data.h"
 #include "world.h"
+
+#include "box2d/debug_draw.h"
 
 // Point-to-point constraint
 // C = p2 - p1
@@ -23,17 +24,17 @@
 
 void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
 {
-	assert(base->type == b2_revoluteJoint);
+	B2_ASSERT(base->type == b2_revoluteJoint);
 
 	int32_t indexA = base->edges[0].bodyIndex;
 	int32_t indexB = base->edges[1].bodyIndex;
-	assert(0 <= indexA && indexA < context->bodyCapacity);
-	assert(0 <= indexB && indexB < context->bodyCapacity);
+	B2_ASSERT(0 <= indexA && indexA < context->bodyCapacity);
+	B2_ASSERT(0 <= indexB && indexB < context->bodyCapacity);
 
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
-	assert(bodyA->object.index == bodyA->object.next);
-	assert(bodyB->object.index == bodyB->object.next);
+	B2_ASSERT(bodyA->object.index == bodyA->object.next);
+	B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 	joint->localCenterA = bodyA->localCenter;
@@ -132,7 +133,7 @@ void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
 
 void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context)
 {
-	assert(base->type == b2_revoluteJoint);
+	B2_ASSERT(base->type == b2_revoluteJoint);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
@@ -217,7 +218,7 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context)
 
 bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* context)
 {
-	assert(base->type == b2_revoluteJoint);
+	B2_ASSERT(base->type == b2_revoluteJoint);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
@@ -303,72 +304,72 @@ bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* context)
 void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
 	}
 
-	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
 	b2Joint* joint = world->joints + jointId.index;
-	assert(joint->object.index == joint->object.next);
-	assert(joint->object.revision == jointId.revision);
-	assert(joint->type == b2_revoluteJoint);
+	B2_ASSERT(joint->object.index == joint->object.next);
+	B2_ASSERT(joint->object.revision == jointId.revision);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
 	joint->revoluteJoint.enableLimit = enableLimit;
 }
 
 void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
 	}
 
-	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
 	b2Joint* joint = world->joints + jointId.index;
-	assert(joint->object.index == joint->object.next);
-	assert(joint->object.revision == jointId.revision);
-	assert(joint->type == b2_revoluteJoint);
+	B2_ASSERT(joint->object.index == joint->object.next);
+	B2_ASSERT(joint->object.revision == jointId.revision);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
 	joint->revoluteJoint.enableMotor = enableMotor;
 }
 
 void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
 	}
 
-	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
 	b2Joint* joint = world->joints + jointId.index;
-	assert(joint->object.index == joint->object.next);
-	assert(joint->object.revision == jointId.revision);
-	assert(joint->type == b2_revoluteJoint);
+	B2_ASSERT(joint->object.index == joint->object.next);
+	B2_ASSERT(joint->object.revision == jointId.revision);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
 	joint->revoluteJoint.motorSpeed = motorSpeed;
 }
 
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return 0.0f;
 	}
 
-	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
 	b2Joint* joint = world->joints + jointId.index;
-	assert(joint->object.index == joint->object.next);
-	assert(joint->object.revision == jointId.revision);
-	assert(joint->type == b2_revoluteJoint);
+	B2_ASSERT(joint->object.index == joint->object.next);
+	B2_ASSERT(joint->object.revision == jointId.revision);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
 	return inverseTimeStep * joint->revoluteJoint.motorImpulse;
 }
 
@@ -397,7 +398,7 @@ void b2RevoluteJoint::Dump()
 
 void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB)
 {
-	assert(base->type == b2_revoluteJoint);
+	B2_ASSERT(base->type == b2_revoluteJoint);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
@@ -421,14 +422,14 @@ void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 
 	const float L = 0.5f;
 
-	b2Vec2 r = { L * cosf(angle), L * sinf(angle)};
+	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
 	draw->DrawSegment(pB, b2Add(pB, r), c1, draw->context);
 	draw->DrawCircle(pB, L, c1, draw->context);
 
 	if (joint->enableLimit)
 	{
-		b2Vec2 rlo = { L * cosf(joint->lowerAngle), L * sinf(joint->lowerAngle)};
-		b2Vec2 rhi = { L * cosf(joint->upperAngle), L * sinf(joint->upperAngle)};
+		b2Vec2 rlo = {L * cosf(joint->lowerAngle), L * sinf(joint->lowerAngle)};
+		b2Vec2 rhi = {L * cosf(joint->upperAngle), L * sinf(joint->upperAngle)};
 
 		draw->DrawSegment(pB, b2Add(pB, rlo), c2, draw->context);
 		draw->DrawSegment(pB, b2Add(pB, rhi), c3, draw->context);

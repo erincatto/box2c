@@ -716,57 +716,6 @@ void b2Body::SetType(b2BodyType type)
 	}
 }
 
-void b2Body::SetTransform(const b2Vec2& position, float angle)
-{
-	b2Assert(m_world->IsLocked() == false);
-	if (m_world->IsLocked() == true)
-	{
-		return;
-	}
-
-	m_xf.q.Set(angle);
-	m_xf.p = position;
-
-	m_sweep.c = b2Mul(m_xf, m_sweep.localCenter);
-	m_sweep.a = angle;
-
-	m_sweep.c0 = m_sweep.c;
-	m_sweep.a0 = angle;
-
-	b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
-	for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
-	{
-		f->Synchronize(broadPhase, m_xf, m_xf);
-	}
-
-	// Check for new contacts the next step
-	m_world->m_newContacts = true;
-}
-
-void b2Body::SynchronizeFixtures()
-{
-	b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
-
-	if (m_flags & b2Body::e_awakeFlag)
-	{
-		b2Transform xf1;
-		xf1.q.Set(m_sweep.a0);
-		xf1.p = m_sweep.c0 - b2Mul(xf1.q, m_sweep.localCenter);
-
-		for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
-		{
-			f->Synchronize(broadPhase, xf1, m_xf);
-		}
-	}
-	else
-	{
-		for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
-		{
-			f->Synchronize(broadPhase, m_xf, m_xf);
-		}
-	}
-}
-
 void b2Body::SetEnabled(bool flag)
 {
 	b2Assert(m_world->IsLocked() == false);

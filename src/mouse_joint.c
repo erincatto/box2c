@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "body.h"
+#include "core.h"
 #include "joint.h"
 #include "solver_data.h"
 #include "world.h"
@@ -17,30 +18,30 @@
 void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return;
 	}
 
-	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
 	b2Joint* base = world->joints + jointId.index;
-	assert(base->object.index == base->object.next);
-	assert(base->object.revision == jointId.revision);
-	assert(base->type == b2_mouseJoint);
+	B2_ASSERT(base->object.index == base->object.next);
+	B2_ASSERT(base->object.revision == jointId.revision);
+	B2_ASSERT(base->type == b2_mouseJoint);
 	base->mouseJoint.targetA = target;
 }
 
 void b2InitializeMouse(b2Joint* base, b2StepContext* context)
 {
-	assert(base->type == b2_mouseJoint);
+	B2_ASSERT(base->type == b2_mouseJoint);
 
 	int32_t indexB = base->edges[1].bodyIndex;
-	assert(0 <= indexB && indexB < context->bodyCapacity);
+	B2_ASSERT(0 <= indexB && indexB < context->bodyCapacity);
 
 	b2Body* bodyB = context->bodies + indexB;
-	assert(bodyB->object.index == bodyB->object.next);
+	B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
 	b2MouseJoint* joint = &base->mouseJoint;
 	joint->localCenterB = bodyB->localCenter;

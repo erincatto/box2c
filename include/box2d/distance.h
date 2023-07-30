@@ -7,7 +7,8 @@
 #include "types.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 typedef struct b2SegmentDistanceResult
@@ -35,10 +36,10 @@ typedef struct b2DistanceProxy
 /// Set count to zero on first call.
 typedef struct b2DistanceCache
 {
-	float metric;		///< length or area
+	float metric; ///< length or area
 	uint16_t count;
-	uint8_t indexA[3];	///< vertices on shape A
-	uint8_t indexB[3];	///< vertices on shape B
+	uint8_t indexA[3]; ///< vertices on shape A
+	uint8_t indexB[3]; ///< vertices on shape B
 } b2DistanceCache;
 
 static const b2DistanceCache b2_emptyDistanceCache = {0};
@@ -58,16 +59,16 @@ typedef struct b2DistanceInput
 /// Output for b2Distance.
 typedef struct b2DistanceOutput
 {
-	b2Vec2 pointA;		///< closest point on shapeA
-	b2Vec2 pointB;		///< closest point on shapeB
+	b2Vec2 pointA; ///< closest point on shapeA
+	b2Vec2 pointB; ///< closest point on shapeB
 	float distance;
-	int32_t iterations;	///< number of GJK iterations used
+	int32_t iterations; ///< number of GJK iterations used
 } b2DistanceOutput;
 
 /// Compute the closest points between two shapes. Supports any combination of:
 /// b2Circle, b2Polygon, b2EdgeShape. The simplex cache is input/output.
 /// On the first call set b2SimplexCache.count to zero.
-b2DistanceOutput b2ShapeDistance(b2DistanceCache *cache, const b2DistanceInput *input);
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input);
 
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastInput
@@ -82,7 +83,7 @@ typedef struct b2ShapeCastInput
 
 /// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
 /// @returns true if hit, false if there is no hit or an initial overlap
-b2RayCastOutput b2ShapeCast(const b2ShapeCastInput *input);
+b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input);
 
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);
 

@@ -4,8 +4,8 @@
 #pragma once
 
 #include "box2d/api.h"
-#include "box2d/types.h"
 #include "box2d/constants.h"
+#include "box2d/types.h"
 
 typedef struct b2Hull b2Hull;
 typedef struct b2RayCastOutput b2RayCastOutput;
@@ -73,13 +73,12 @@ typedef struct b2SmoothSegment
 
 	/// The line segment
 	b2Vec2 point1, point2;
-	
+
 	/// The head ghost vertex
 	b2Vec2 ghost2;
 } b2SmoothSegment;
 
-
-BOX2D_API bool b2IsValidRay(const b2RayCastInput *input);
+BOX2D_API bool b2IsValidRay(const b2RayCastInput* input);
 
 /// Helper functions to make convex polygons
 BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);

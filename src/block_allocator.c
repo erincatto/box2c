@@ -40,7 +40,7 @@ typedef struct b2SizeMap
 
 static b2SizeMap b2_sizeMap;
 
-void b2SizeMap_Initialize()
+static void b2InitializeSizeMap(void)
 {
 	int32_t j = 0;
 	b2_sizeMap.values[0] = 0;
@@ -83,11 +83,11 @@ typedef struct b2BlockAllocator
 	b2Block* freeLists[b2_blockSizeCount];
 } b2BlockAllocator;
 
-b2BlockAllocator* b2CreateBlockAllocator()
+b2BlockAllocator* b2CreateBlockAllocator(void)
 {
 	if (b2_sizeMapInitialized == false)
 	{
-		b2SizeMap_Initialize();
+		b2InitializeSizeMap();
 		b2_sizeMapInitialized = true;
 	}
 

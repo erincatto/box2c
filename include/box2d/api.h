@@ -25,7 +25,7 @@
 typedef void* b2AllocFcn(int size);
 typedef void b2FreeFcn(void* mem);
 
-// Return 0 to 
+// Return 0 to
 typedef int b2AssertFcn(const char* condition, const char* fileName, int lineNumber);
 
 #ifdef __cplusplus
@@ -33,13 +33,13 @@ extern "C"
 {
 #endif
 
-	/// Default allocation functions
-	void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
+/// Default allocation functions
+void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
-	/// Total bytes allocated by Box2D
-	int b2GetByteCount();
+/// Total bytes allocated by Box2D
+int b2GetByteCount(void);
 
-	extern b2AssertFcn* Box2DAssertCallback;
+extern b2AssertFcn* Box2DAssertCallback;
 
 #ifdef __cplusplus
 }

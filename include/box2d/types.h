@@ -214,7 +214,7 @@ typedef struct b2ShapeDef
 
 	/// Contact filtering data.
 	b2Filter filter;
-	
+
 	/// A sensor shape collects contact information but never generates a collision
 	/// response.
 	bool isSensor;

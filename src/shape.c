@@ -11,16 +11,15 @@ b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
 {
 	switch (shape->type)
 	{
-	case b2_circleShape:
-		return b2ComputeCircleAABB(&shape->circle, xf);
-	case b2_polygonShape:
-		return b2ComputePolygonAABB(&shape->polygon, xf);
-	default:
-	{
-		B2_ASSERT(false);
-		b2AABB empty = {xf.p, xf.p};
-		return empty;
-	}
+		case b2_circleShape:
+			return b2ComputeCircleAABB(&shape->circle, xf);
+		case b2_polygonShape:
+			return b2ComputePolygonAABB(&shape->polygon, xf);
+		default: {
+			B2_ASSERT(false);
+			b2AABB empty = {xf.p, xf.p};
+			return empty;
+		}
 	}
 }
 
@@ -28,16 +27,15 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
-	case b2_circleShape:
-		return b2ComputeCircleMass(&shape->circle, shape->density);
-	case b2_polygonShape:
-		return b2ComputePolygonMass(&shape->polygon, shape->density);
-	default:
-	{
-		B2_ASSERT(false);
-		b2MassData data = {0};
-		return data;
-	}
+		case b2_circleShape:
+			return b2ComputeCircleMass(&shape->circle, shape->density);
+		case b2_polygonShape:
+			return b2ComputePolygonMass(&shape->polygon, shape->density);
+		default: {
+			B2_ASSERT(false);
+			b2MassData data = {0};
+			return data;
+		}
 	}
 }
 
@@ -71,16 +69,15 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
-	case b2_circleShape:
-		return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
-	case b2_polygonShape:
-		return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
-	default:
-	{
-		B2_ASSERT(false);
-		b2DistanceProxy empty = {0};
-		return empty;
-	}
+		case b2_circleShape:
+			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
+		case b2_polygonShape:
+			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
+		default: {
+			B2_ASSERT(false);
+			b2DistanceProxy empty = {0};
+			return empty;
+		}
 	}
 }
 
@@ -88,10 +85,10 @@ float b2Shape_GetRadius(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
-	case b2_circleShape:
-		return shape->circle.radius;
-	default:
-		return 0.0f;
+		case b2_circleShape:
+			return shape->circle.radius;
+		default:
+			return 0.0f;
 	}
 }
 
@@ -125,13 +122,13 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 
 	switch (shape->type)
 	{
-	case b2_circleShape:
-		return b2PointInCircle(localPoint, &shape->circle);
+		case b2_circleShape:
+			return b2PointInCircle(localPoint, &shape->circle);
 
-	case b2_polygonShape:
-		return b2PointInPolygon(localPoint, &shape->polygon);
+		case b2_polygonShape:
+			return b2PointInPolygon(localPoint, &shape->polygon);
 
-	default:
-		return false;
+		default:
+			return false;
 	}
 }

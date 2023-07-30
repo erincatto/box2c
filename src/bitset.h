@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include <assert.h>
+#include "core.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -23,7 +24,7 @@ void b2InPlaceUnion(b2BitSet* setA, const b2BitSet* setB);
 static inline void b2SetBit(b2BitSet* bitSet, uint32_t bitIndex)
 {
 	uint32_t wordIndex = bitIndex / 64;
-	assert(wordIndex < bitSet->wordCount);
+	B2_ASSERT(wordIndex < bitSet->wordCount);
 	bitSet->bits[wordIndex] |= ((uint64_t)1) << (bitIndex % 64);
 }
 
