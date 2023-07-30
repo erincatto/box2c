@@ -1106,7 +1106,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		b->linearVelocity = v;
 		b->angularVelocity = w;
 
-		const float saftetyFactor = 0.25f;
+		const float saftetyFactor = 0.5f;
 		if (enableContinuous && (b2Length(v) + B2_ABS(w) * b->maxExtent) * h > saftetyFactor * b->minExtent)
 		{
 			// Store in fast array for the continuous collision stage
@@ -1117,6 +1117,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		else
 		{
 			// Body is safe to advance
+			b->isFast = false;
 			b->position0 = b->position;
 			b->angle0 = b->angle;
 		}

@@ -1,18 +1,19 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/distance.h"
-#include "box2d/manifold.h"
-#include "box2d/timer.h"
+#include "contact.h"
 
 #include "array.h"
 #include "block_allocator.h"
 #include "body.h"
-#include "contact.h"
 #include "island.h"
 #include "shape.h"
 #include "table.h"
 #include "world.h"
+
+#include "box2d/distance.h"
+#include "box2d/manifold.h"
+#include "box2d/timer.h"
 
 #include <assert.h>
 #include <float.h>
@@ -21,14 +22,14 @@
 // Contacts and determinism
 // A deterministic simulation requires contacts to exist in the same order in b2Island no matter the thread count.
 // The order must reproduce from run to run. This is necessary because Gauss-Seidel is order dependent.
-// 
+//
 // Creation:
 // - Contacts are created using results from b2UpdateBroadPhasePairs
 // - These results are ordered according to the order of the broad-phase move array
 // - The move array is ordered according to the shape creation order using a bitset.
 // - The island/shape/body order is determined by creation order
 // - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
-// 
+//
 // Island linking:
 // - The awake contact array is built from the body-contact graph for all awake bodies in awake islands.
 // - Awake contacts are solved in parallel and they generate contact state changes.
@@ -50,8 +51,8 @@ static inline float b2MixRestitution(float restitution1, float restitution2)
 	return restitution1 > restitution2 ? restitution1 : restitution2;
 }
 
-typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
-								 b2Transform xfB, b2DistanceCache* cache);
+typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								 b2DistanceCache* cache);
 
 struct b2ContactRegister
 {
@@ -62,24 +63,24 @@ struct b2ContactRegister
 static struct b2ContactRegister s_registers[b2_shapeTypeCount][b2_shapeTypeCount];
 static bool s_initialized = false;
 
-static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
-								   b2Transform xfB, b2DistanceCache* cache)
+static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(cache);
-	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB);
+	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB, maxDistance);
 }
 
-static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA,
-											 const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache)
+static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+											 float maxDistance, b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(cache);
-	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
+	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB, maxDistance);
 }
 
-static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
-									b2Transform xfB, b2DistanceCache* cache)
+static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+									b2DistanceCache* cache)
 {
-	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
+	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, maxDistance, cache);
 }
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
@@ -309,8 +310,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 
 // Update the contact manifold and touching status.
 // Note: do not assume the fixture AABBs are overlapping or are valid.
-void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB,
-					  b2Body* bodyB)
+void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB, b2Body* bodyB)
 {
 	b2Manifold oldManifold = contact->manifold;
 
@@ -344,7 +344,8 @@ void b2Contact_Update(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Bod
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
+		float maxDistance = (bodyA->isFast || bodyB->isFast) ? b2_huge : b2_speculativeDistance;
+		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, maxDistance, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;
 

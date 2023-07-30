@@ -244,7 +244,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = bodies + shapeA->bodyIndex;
 			b2Body* bodyB = bodies + shapeB->bodyIndex;
-			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
+			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
 
@@ -458,9 +458,6 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	B2_ASSERT(b2ObjectValid(&fastBody->object));
 	B2_ASSERT(fastBody->type == b2_dynamicBody && fastBody->isFast);
 	
-	// Clear flag
-	fastBody->isFast = false;
-
 	b2Shape* shapes = world->shapes;
 
 	b2Sweep sweep = b2MakeSweep(fastBody);
@@ -487,7 +484,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		b2Shape* fastShape = shapes + shapeIndex;
 		B2_ASSERT(fastShape->isFast == true);
 
-		// Clear flag
+		// Clear flag (keep set on body)
 		fastShape->isFast = false;
 
 		context.fastShape = fastShape;
@@ -1059,6 +1056,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				else if (b->isEnabled == false)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.3f, 1.0f});
+				}
+				else if (b->isFast)
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.3f, 0.5f, 0.9f, 1.0f});
 				}
 				else if (b->type == b2_staticBody)
 				{

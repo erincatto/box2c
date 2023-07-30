@@ -66,7 +66,7 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
 		ImGui::Begin("Tumbler", nullptr, ImGuiWindowFlags_NoResize);
 
-		if (ImGui::SliderFloat("Motor Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
+		if (ImGui::SliderFloat("Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
 		{
 			b2RevoluteJoint_SetMotorSpeed(m_jointId, (b2_pi / 180.0f) * m_motorSpeed);
 		}

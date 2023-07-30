@@ -21,6 +21,7 @@ public:
 
 			b2Segment segment = {{-10.0f, 0.0f}, {10.0f, 0.0f}};
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.friction = 0.9f;
 			b2Body_CreateSegment(groundId, &shapeDef, &segment);
 		}
 
@@ -47,13 +48,12 @@ public:
 			b2World_DestroyBody(m_bulletId);
 		}
 
-		//m_angularVelocity = RandomFloat(-50.0f, 50.0f);
-		m_angularVelocity = 8.50093460f;
-		//m_angularVelocity = 0.0f;
+		m_angularVelocity = RandomFloat(-50.0f, 50.0f);
+		//m_angularVelocity = 8.50093460f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
-		bodyDef.position = {0.0f, 4.0f};
+		bodyDef.position = {0.0f, 8.0f};
 		bodyDef.angularVelocity = m_angularVelocity;
 		bodyDef.linearVelocity = {0.0f, -100.0f};
 
@@ -61,6 +61,7 @@ public:
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
+		shapeDef.friction = 0.9f;
 
 		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 		b2Body_CreatePolygon(m_bodyId, &shapeDef, &polygon);
@@ -84,6 +85,12 @@ public:
 
 		ImGui::SliderFloat("Linear Speed", &m_linearSpeed, 0.0f, 200.0f);
 		ImGui::SliderFloat("Angular Speed", &m_angularSpeed, 0.0f, 45.0f);
+		
+		if (ImGui::Button("Launch"))
+		{
+			Launch();
+		}
+
 		ImGui::Checkbox("Auto Test", &m_autoTest);
 
 		ImGui::End();
