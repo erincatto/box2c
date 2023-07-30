@@ -1025,14 +1025,14 @@ float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_
 
 // CCD via the local separating axis method. This seeks progression
 // by computing the largest time at which separation is maintained.
-void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
+b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 {
 	b2Timer timer = b2CreateTimer();
-
 	++b2_toiCalls;
 
-	output->state = b2_toiStateUnknown;
-	output->t = input->tMax;
+	b2TOIOutput output;
+	output.state = b2_toiStateUnknown;
+	output.t = input->tMax;
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;
@@ -1088,16 +1088,16 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 		if (distanceOutput.distance <= 0.0f)
 		{
 			// Failure!
-			output->state = b2_toiStateOverlapped;
-			output->t = 0.0f;
+			output.state = b2_toiStateOverlapped;
+			output.t = 0.0f;
 			break;
 		}
 
 		if (distanceOutput.distance < target + tolerance)
 		{
 			// Victory!
-			output->state = b2_toiStateHit;
-			output->t = t1;
+			output.state = b2_toiStateHit;
+			output.t = t1;
 			break;
 		}
 
@@ -1144,8 +1144,8 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 			if (s2 > target + tolerance)
 			{
 				// Victory!
-				output->state = b2_toiStateSeparated;
-				output->t = tMax;
+				output.state = b2_toiStateSeparated;
+				output.t = tMax;
 				done = true;
 				break;
 			}
@@ -1165,8 +1165,8 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 			// runs out of iterations.
 			if (s1 < target - tolerance)
 			{
-				output->state = b2_toiStateFailed;
-				output->t = t1;
+				output.state = b2_toiStateFailed;
+				output.t = t1;
 				done = true;
 				break;
 			}
@@ -1175,8 +1175,8 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 			if (s1 <= target + tolerance)
 			{
 				// Victory! t1 should hold the TOI (could be 0.0).
-				output->state = b2_toiStateHit;
-				output->t = t1;
+				output.state = b2_toiStateHit;
+				output.t = t1;
 				done = true;
 				break;
 			}
@@ -1250,8 +1250,8 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 		if (iter == k_maxIterations)
 		{
 			// Root finder got stuck. Semi-victory.
-			output->state = b2_toiStateFailed;
-			output->t = t1;
+			output.state = b2_toiStateFailed;
+			output.t = t1;
 			break;
 		}
 	}
@@ -1261,4 +1261,6 @@ void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input)
 	float time = b2GetMilliseconds(&timer);
 	b2_toiMaxTime = B2_MAX(b2_toiMaxTime, time);
 	b2_toiTime += time;
+
+	return output;
 }

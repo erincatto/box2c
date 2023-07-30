@@ -1070,6 +1070,8 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 	b2ContactSolver_StoreImpulses(island->contactSolver);
 
 	// Integrate positions
+	bool enableContinuous = world->enableContinuous;
+
 	bodyIndex = island->headBody;
 	while (bodyIndex != B2_NULL_INDEX)
 	{
@@ -1080,7 +1082,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		b2Vec2 v = b->linearVelocity;
 		float w = b->angularVelocity;
 
-		// Check for large velocities
+		// Clamp large velocities
 		b2Vec2 translation = b2MulSV(h, v);
 		if (b2Dot(translation, translation) > b2_maxTranslationSquared)
 		{
@@ -1103,6 +1105,21 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		b->angle = a;
 		b->linearVelocity = v;
 		b->angularVelocity = w;
+
+		const float saftetyFactor = 0.25f;
+		if (enableContinuous && (b2Length(v) + B2_ABS(w) * b->maxExtent) * h > saftetyFactor * b->minExtent)
+		{
+			// Store in fast array for the continuous collision stage
+			int fastIndex = atomic_fetch_add(&world->fastBodyCount, 1);
+			world->fastBodies[fastIndex] = bodyIndex;
+			b->isFast = true;
+		}
+		else
+		{
+			// Body is safe to advance
+			b->position0 = b->position;
+			b->angle0 = b->angle;
+		}
 
 		bodyIndex = b->islandNext;
 	}
@@ -1188,6 +1205,8 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 			while (bodyIndex != B2_NULL_INDEX)
 			{
 				b2Body* b = bodies + bodyIndex;
+				B2_ASSERT(b->isFast == false);
+
 				b->sleepTime = 0.0f;
 				b->linearVelocity = b2Vec2_zero;
 				b->angularVelocity = 0.0f;
@@ -1211,8 +1230,6 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 		b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 
-		// Speculative transform
-		// TODO_ERIN using old forces? Should be at the beginning of the time step?
 		bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
@@ -1221,33 +1238,39 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 			body->force = b2Vec2_zero;
 			body->torque = 0.0f;
 
-			b2Vec2 v = body->linearVelocity;
-			float w = body->angularVelocity;
-
-			v = b2Add(v, b2MulSV(h * body->invMass, b2MulAdd(body->force, body->gravityScale * body->mass, gravity)));
-			w = w + h * body->invI * body->torque;
-
-			v = b2MulSV(1.0f / (1.0f + h * body->linearDamping), v);
-			w *= 1.0f / (1.0f + h * body->angularDamping);
-
-			// Stage 3 - predict new transforms
-			body->speculativePosition = b2MulAdd(body->position, context->dt, v);
-			body->speculativeAngle = body->angle + context->dt * w;
+			bool isFast = body->isFast;
 
 			// Update shapes AABBs
 			int32_t shapeIndex = body->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
 				b2Shape* shape = world->shapes + shapeIndex;
-				shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
-				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+
+				B2_ASSERT(shape->isFast == false);
+
+				if (isFast)
 				{
-					shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
-					shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
+					// The AABB is updated after continuous collision.
+					// Add to moved shapes regardless of AABB changes.
+					shape->isFast = true;
 
 					// Bit-set to keep the move array sorted
 					b2SetBit(shapeBitSet, shapeIndex);
 				}
+				else 
+				{
+					shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
+
+					if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+					{
+						shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
+						shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
+
+						// Bit-set to keep the move array sorted
+						b2SetBit(shapeBitSet, shapeIndex);
+					}
+				}
+
 				shapeIndex = shape->nextShapeIndex;
 			}
 

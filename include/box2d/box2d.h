@@ -33,6 +33,9 @@ BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 /// Enable/disable sleep.
 BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
 
+/// Enable/disable continuous collision.
+BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
+
 /// Get the current profile.
 BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
 

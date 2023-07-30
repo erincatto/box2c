@@ -105,9 +105,7 @@ static int TimeOfImpactTest()
 	input.sweepB = (b2Sweep){b2Vec2_zero, b2Vec2_zero, (b2Vec2){-2.0f, 0.0f}, 0.0f, 0.0f};
 	input.tMax = 1.0f;
 
-	b2TOIOutput output;
-
-	b2TimeOfImpact(&output, &input);
+	b2TOIOutput output = b2TimeOfImpact(&input);
 
 	ENSURE(output.state = b2_toiStateHit);
 	ENSURE_SMALL(output.t - 0.5f, b2_linearSlop);

@@ -69,6 +69,8 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
 	b->isMarked = false;
+	b->enlargeAABB = false;
+	b->isFast = false;
 	b->islandIndex = B2_NULL_INDEX;
 	b->islandPrev = B2_NULL_INDEX;
 	b->islandNext = B2_NULL_INDEX;
@@ -381,9 +383,9 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	shape->filter = def->filter;
 	shape->userData = def->userData;
 	shape->isSensor = def->isSensor;
-
-
+	shape->enlargedAABB = false;
 	shape->reportContacts = false;
+	shape->isFast = false;
 
 	if (body->isEnabled)
 	{

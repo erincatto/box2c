@@ -21,13 +21,6 @@
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 #define B2_NULL_INDEX (-1)
 
-// TODO_ERIN temp until github updates MSVC
-//#if defined(_MSC_VER) && !defined(__clang__)
-//#define B2_ATOMIC
-//#else
-#define B2_ATOMIC _Atomic
-//#endif
-
 /// 2D vector
 typedef struct b2Vec2
 {

@@ -49,7 +49,7 @@ public:
 
 		//m_angularVelocity = RandomFloat(-50.0f, 50.0f);
 		m_angularVelocity = 8.50093460f;
-		m_angularVelocity = 0.0f;
+		//m_angularVelocity = 0.0f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;

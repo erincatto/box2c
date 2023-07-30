@@ -37,6 +37,8 @@ typedef struct b2Shape
 
 	bool isSensor;
 	bool reportContacts;
+	bool enlargedAABB;
+	bool isFast;
 
 	// TODO_ERIN maybe not anonymous, check asm
 	union

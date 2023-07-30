@@ -73,15 +73,6 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 	//}
 }
 
-static inline void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
-{
-	bool alreadyAdded = b2AddKey(&bp->moveSet, proxyKey);
-	if (alreadyAdded == false)
-	{
-		b2Array_Push(bp->moveArray, proxyKey);
-	}
-}
-
 static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
 {
 	bool found = b2RemoveKey(&bp->moveSet, proxyKey);

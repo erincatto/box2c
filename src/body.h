@@ -19,10 +19,10 @@ typedef struct b2Body
 
 	enum b2BodyType type;
 
-	// the body origin transform
+	// the body origin transform (not center of mass)
 	b2Transform transform;
 	
-	// center of mass position
+	// center of mass position in world
 	b2Vec2 position0;
 	b2Vec2 position;
 
@@ -75,8 +75,9 @@ typedef struct b2Body
 	bool fixedRotation;
 	bool isEnabled;
 	bool isMarked;
+	bool isFast;
+	bool enlargeAABB;
 } b2Body;
-
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
@@ -85,7 +86,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId);
 
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 
-static inline b2Sweep b2GetSweep(const b2Body* body)
+static inline b2Sweep b2MakeSweep(const b2Body* body)
 {
 	b2Sweep s;
 	if (body->type == b2_staticBody)

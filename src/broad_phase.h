@@ -3,8 +3,10 @@
 
 #pragma once
 
-#include "box2d/dynamic_tree.h"
+#include "array.h"
 #include "table.h"
+
+#include "box2d/dynamic_tree.h"
 
 typedef struct b2Shape b2Shape;
 typedef struct b2MovePair b2MovePair;
@@ -25,11 +27,14 @@ typedef struct b2BroadPhase
 	b2DynamicTree trees[b2_bodyTypeCount];
 	int32_t proxyCount;
 
-	b2Set moveSet;
-
+	// The move set and array are used to track shapes that have moved significantly
+	// and need a pair query for new contacts. The array has a deterministic order.
 	// TODO_ERIN perhaps just a move set?
+	b2Set moveSet;
 	int32_t* moveArray;
 
+	// These are the results from the pair query and are used to create new contacts
+	// in deterministic order.
 	b2MoveResult* moveResults;
 	b2MovePair* movePairs;
 	int32_t movePairCapacity;
@@ -56,3 +61,13 @@ bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t
 
 void b2ValidateBroadphase(const b2BroadPhase* bp);
 void b2ValidateNoEnlarged(const b2BroadPhase* bp);
+
+// Warning: this must be called in deterministic order
+static inline void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
+{
+	bool alreadyAdded = b2AddKey(&bp->moveSet, proxyKey);
+	if (alreadyAdded == false)
+	{
+		b2Array_Push(bp->moveArray, proxyKey);
+	}
+}

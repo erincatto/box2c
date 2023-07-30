@@ -135,7 +135,7 @@ typedef struct b2TOIOutput
 /// a fraction between [0,tMax]. This uses a swept separating axis and may miss some intermediate,
 /// non-tunneling collisions. If you change the time interval, you should call this function
 /// again.
-void b2TimeOfImpact(b2TOIOutput* output, const b2TOIInput* input);
+b2TOIOutput b2TimeOfImpact(const b2TOIInput* input);
 
 #ifdef __cplusplus
 }

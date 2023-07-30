@@ -106,6 +106,7 @@ typedef struct b2World
 	bool enableSleep;
 	bool locked;
 	bool warmStarting;
+	bool enableContinuous;
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);

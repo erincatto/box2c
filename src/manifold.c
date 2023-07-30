@@ -378,7 +378,11 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 	vUpper = b2MulAdd(vUpper, 0.5f * (r1 - r2 - separationUpper), normal);
 
 	float radius = r1 + r2;
-	float speculativeDistance = b2_speculativeDistance;
+
+	// TODO_ERIN speculative distance based on speed
+
+	//float speculativeDistance = b2_speculativeDistance;
+	float speculativeDistance = 10.0f;
 
 	if (flip == false)
 	{
