@@ -5,6 +5,9 @@
 #include "box2d/geometry.h"
 #include "sample.h"
 
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+
 class BenchmarkTumbler : public Sample
 {
 public:
@@ -38,21 +41,37 @@ public:
 			polygon = b2MakeOffsetBox(10.0f, 0.5f, {0.0f, -10.0f}, 0.0);
 			b2Body_CreatePolygon(bodyId, &sd, &polygon);
 
+			m_motorSpeed = 9.0f;
+
 			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 			jd.bodyIdA = groundId;
 			jd.bodyIdB = bodyId;
 			jd.localAnchorA = {0.0f, 10.0f};
 			jd.localAnchorB = {0.0f, 0.0f};
 			jd.referenceAngle = 0.0f;
-			jd.motorSpeed = 0.05f * b2_pi;
+			jd.motorSpeed = (b2_pi / 180.0f) * m_motorSpeed;
 			jd.maxMotorTorque = 1e8f;
 			jd.enableMotor = true;
 
-			b2World_CreateRevoluteJoint(m_worldId, &jd);
+			m_jointId = b2World_CreateRevoluteJoint(m_worldId, &jd);
 		}
 
 		m_maxCount = g_sampleDebug ? 500 : 2000;
 		m_count = 0;
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::Begin("Tumbler", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
+		{
+			b2RevoluteJoint_SetMotorSpeed(m_jointId, (b2_pi / 180.0f) * m_motorSpeed);
+		}
+
+		ImGui::End();
 	}
 
 	void Step(Settings& settings) override
@@ -80,6 +99,8 @@ public:
 		return new BenchmarkTumbler(settings);
 	}
 
+	b2JointId m_jointId;
+	float m_motorSpeed;
 	int32_t m_maxCount;
 	int32_t m_count;
 };

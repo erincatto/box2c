@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/aabb.h"
 #include "box2d/hull.h"
+
+#include "core.h"
+
+#include "box2d/aabb.h"
 #include "box2d/math.h"
 
-#include <assert.h>
 #include <float.h>
 
 // quickhull recursion
@@ -61,7 +63,7 @@ static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int32_t count)
 	// compute hull to the right of bestPoint-p2
 	b2Hull hull2 = b2RecurseHull(bestPoint, p2, rightPoints, rightCount);
 
-	// stich together hulls
+	// stitch together hulls
 	for (int32_t i = 0; i < hull1.count; ++i)
 	{
 		hull.points[hull.count++] = hull1.points[i];
@@ -74,7 +76,7 @@ static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int32_t count)
 		hull.points[hull.count++] = hull2.points[i];
 	}
 
-	assert(hull.count < b2_maxPolygonVertices);
+	B2_ASSERT(hull.count < b2_maxPolygonVertices);
 
 	return hull;
 }
@@ -96,7 +98,7 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 
 	count = B2_MIN(count, b2_maxPolygonVertices);
 
-	b2AABB aabb = { {FLT_MAX, FLT_MAX}, {-FLT_MAX, -FLT_MAX} };
+	b2AABB aabb = {{FLT_MAX, FLT_MAX}, {-FLT_MAX, -FLT_MAX}};
 
 	// Perform aggressive point welding. First point always remains.
 	// Also compute the bounding box for later.
@@ -220,7 +222,7 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 		hull.points[hull.count++] = hull2.points[i];
 	}
 
-	assert(hull.count <= b2_maxPolygonVertices);
+	B2_ASSERT(hull.count <= b2_maxPolygonVertices);
 
 	// merge collinear
 	bool searching = true;

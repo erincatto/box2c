@@ -13,7 +13,7 @@
 
 static double s_invFrequency = 0.0;
 
-b2Timer b2CreateTimer()
+b2Timer b2CreateTimer(void)
 {
 	LARGE_INTEGER largeInteger;
 
@@ -72,7 +72,7 @@ void b2SleepMilliseconds(float milliseconds)
 
 #include <sys/time.h>
 
-b2Timer b2CreateTimer()
+b2Timer b2CreateTimer(void)
 {
 	b2Timer timer;
 	struct timeval t;
@@ -143,7 +143,7 @@ void b2SleepMilliseconds(float milliseconds)
 
 #else
 
-b2Timer b2CreateTimer()
+b2Timer b2CreateTimer(void)
 {
 	return b2Timer;
 }

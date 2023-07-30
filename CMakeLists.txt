@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.23)
 include(FetchContent)
 
 message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
+message(STATUS "library postfix: ${CMAKE_DEBUG_POSTFIX}")
 
 project(box2d LANGUAGES C CXX)
 

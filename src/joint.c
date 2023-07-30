@@ -1,23 +1,24 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/debug_draw.h"
-#include "box2d/joint_types.h"
+#include "joint.h"
 
 #include "body.h"
 #include "contact.h"
-#include "joint.h"
+#include "core.h"
 #include "shape.h"
 #include "world.h"
 
-void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
-					   b2BodyId bodyIdB)
+#include "box2d/debug_draw.h"
+#include "box2d/joint_types.h"
+
+void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA, b2BodyId bodyIdB)
 {
-	assert(bodyIdA.world == bodyIdB.world);
+	B2_ASSERT(bodyIdA.world == bodyIdB.world);
 
 	b2World* world = b2GetWorldFromIndex(bodyIdA.world);
-	assert(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
-	assert(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
+	B2_ASSERT(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
+	B2_ASSERT(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
 
 	b2Body* bodyA = world->bodies + bodyIdA.index;
 	b2Body* bodyB = world->bodies + bodyIdB.index;
@@ -43,14 +44,13 @@ void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, f
 	*damping = 2.0f * mass * dampingRatio * omega;
 }
 
-void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
-						b2BodyId bodyIdB)
+void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA, b2BodyId bodyIdB)
 {
-	assert(bodyIdA.world == bodyIdB.world);
+	B2_ASSERT(bodyIdA.world == bodyIdB.world);
 
 	b2World* world = b2GetWorldFromIndex(bodyIdA.world);
-	assert(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
-	assert(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
+	B2_ASSERT(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
+	B2_ASSERT(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
 
 	b2Body* bodyA = world->bodies + bodyIdA.index;
 	b2Body* bodyB = world->bodies + bodyIdB.index;
@@ -80,7 +80,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
 	b2Joint* joint = (b2Joint*)b2AllocObject(&world->jointPool);
 	world->joints = (b2Joint*)world->jointPool.memory;
-	
+
 	int32_t jointIndex = joint->object.index;
 
 	// Doubly linked list on bodyA
@@ -165,15 +165,15 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 
 	if (world->locked)
 	{
 		return b2_nullJointId;
 	}
 
-	assert(b2IsBodyIdValid(world, def->bodyIdA));
-	assert(b2IsBodyIdValid(world, def->bodyIdB));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
 
 	b2Body* bodyA = world->bodies + def->bodyIdA.index;
 	b2Body* bodyB = world->bodies + def->bodyIdB.index;
@@ -201,15 +201,15 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 
 	if (world->locked)
 	{
 		return b2_nullJointId;
 	}
 
-	assert(b2IsBodyIdValid(world, def->bodyIdA));
-	assert(b2IsBodyIdValid(world, def->bodyIdB));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
 
 	b2Body* bodyA = world->bodies + def->bodyIdA.index;
 	b2Body* bodyB = world->bodies + def->bodyIdB.index;
@@ -252,19 +252,19 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 void b2World_DestroyJoint(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	assert(world->locked == false);
+	B2_ASSERT(world->locked == false);
 
 	if (world->locked)
 	{
 		return;
 	}
 
-	assert(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
 
 	b2Joint* joint = world->joints + jointId.index;
 
-	assert(0 <= joint->edges[0].bodyIndex && joint->edges[0].bodyIndex < world->bodyPool.capacity);
-	assert(0 <= joint->edges[1].bodyIndex && joint->edges[1].bodyIndex < world->bodyPool.capacity);
+	B2_ASSERT(0 <= joint->edges[0].bodyIndex && joint->edges[0].bodyIndex < world->bodyPool.capacity);
+	B2_ASSERT(0 <= joint->edges[1].bodyIndex && joint->edges[1].bodyIndex < world->bodyPool.capacity);
 
 	b2JointEdge* edgeA = joint->edges + 0;
 	b2JointEdge* edgeB = joint->edges + 1;
@@ -339,7 +339,7 @@ void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data)
 			break;
 
 		default:
-			assert(false);
+			B2_ASSERT(false);
 	}
 }
 
@@ -359,7 +359,7 @@ void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data)
 			break;
 
 		default:
-			assert(false);
+			B2_ASSERT(false);
 	}
 }
 
@@ -394,41 +394,41 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 
 	switch (joint->type)
 	{
-	case b2_distanceJoint:
-		draw->DrawSegment(pA, pB, color, draw->context);
+		case b2_distanceJoint:
+			draw->DrawSegment(pA, pB, color, draw->context);
+			break;
+
+			// case b2_pulleyJoint:
+			//{
+			//	b2PulleyJoint* pulley = (b2PulleyJoint*)this;
+			//	b2Vec2 sA = pulley->GetGroundAnchorA();
+			//	b2Vec2 sB = pulley->GetGroundAnchorB();
+			//	draw->DrawSegment(sA, pA, color);
+			//	draw->DrawSegment(sB, pB, color);
+			//	draw->DrawSegment(sA, sB, color);
+			// }
+			// break;
+
+		case b2_mouseJoint:
+		{
+			b2Vec2 target = joint->mouseJoint.targetA;
+
+			b2Color c1 = {0.0f, 1.0f, 0.0f, 1.0f};
+			draw->DrawPoint(target, 4.0f, c1, draw->context);
+			draw->DrawPoint(pB, 4.0f, c1, draw->context);
+
+			b2Color c2 = {0.8f, 0.8f, 0.8f, 1.0f};
+			draw->DrawSegment(target, pB, c2, draw->context);
+		}
 		break;
 
-	//case b2_pulleyJoint:
-	//{
-	//	b2PulleyJoint* pulley = (b2PulleyJoint*)this;
-	//	b2Vec2 sA = pulley->GetGroundAnchorA();
-	//	b2Vec2 sB = pulley->GetGroundAnchorB();
-	//	draw->DrawSegment(sA, pA, color);
-	//	draw->DrawSegment(sB, pB, color);
-	//	draw->DrawSegment(sA, sB, color);
-	//}
-	//break;
+		case b2_revoluteJoint:
+			b2DrawRevolute(draw, joint, bodyA, bodyB);
+			break;
 
-	case b2_mouseJoint:
-	{
-		b2Vec2 target = joint->mouseJoint.targetA;
-
-		b2Color c1 = {0.0f, 1.0f, 0.0f, 1.0f};
-		draw->DrawPoint(target, 4.0f, c1, draw->context);
-		draw->DrawPoint(pB, 4.0f, c1, draw->context);
-
-		b2Color c2 = {0.8f, 0.8f, 0.8f, 1.0f};
-		draw->DrawSegment(target, pB, c2, draw->context);
-	}
-	break;
-
-	case b2_revoluteJoint:
-		b2DrawRevolute(draw, joint, bodyA, bodyB);
-		break;
-
-	default:
-		draw->DrawSegment(xfA.p, pA, color, draw->context);
-		draw->DrawSegment(pA, pB, color, draw->context);
-		draw->DrawSegment(xfB.p, pB, color, draw->context);
+		default:
+			draw->DrawSegment(xfA.p, pA, color, draw->context);
+			draw->DrawSegment(pA, pB, color, draw->context);
+			draw->DrawSegment(xfB.p, pB, color, draw->context);
 	}
 }

@@ -5,11 +5,9 @@
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
+#include "core.h"
 #include "stack_allocator.h"
 #include "world.h"
-
-#include <assert.h>
-#include <stdlib.h>
 
 // Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned
 // effective mass matrix.
@@ -295,7 +293,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 		b2Vec2 tangent = b2CrossVS(normal, 1.0f);
 		float friction = vc->friction;
 
-		assert(pointCount == 1 || pointCount == 2);
+		B2_ASSERT(pointCount == 1 || pointCount == 2);
 
 		// Solve tangent constraints first because non-penetration is more important
 		// than friction.
@@ -398,7 +396,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 			b2VelocityConstraintPoint* cp2 = vc->points + 1;
 
 			b2Vec2 a = {cp1->normalImpulse, cp2->normalImpulse};
-			assert(a.x >= 0.0f && a.y >= 0.0f);
+			B2_ASSERT(a.x >= 0.0f && a.y >= 0.0f);
 
 			// Relative velocity at contact
 			b2Vec2 vrA, vrB;
@@ -461,8 +459,8 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 					vn1 = b2Dot(dv1, normal);
 					vn2 = b2Dot(dv2, normal);
 
-					assert(b2Abs(vn1 - cp1->velocityBias) < k_errorTol);
-					assert(b2Abs(vn2 - cp2->velocityBias) < k_errorTol);
+					B2_ASSERT(b2Abs(vn1 - cp1->velocityBias) < k_errorTol);
+					B2_ASSERT(b2Abs(vn2 - cp2->velocityBias) < k_errorTol);
 #endif
 					break;
 				}
@@ -503,7 +501,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 					// Compute normal velocity
 					vn1 = b2Dot(dv1, normal);
 
-					assert(b2Abs(vn1 - cp1->velocityBias) < k_errorTol);
+					B2_ASSERT(b2Abs(vn1 - cp1->velocityBias) < k_errorTol);
 #endif
 					break;
 				}
@@ -545,7 +543,7 @@ void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver)
 					// Compute normal velocity
 					vn2 = b2Dot(dv2, normal);
 
-					assert(b2Abs(vn2 - cp2->velocityBias) < k_errorTol);
+					B2_ASSERT(b2Abs(vn2 - cp2->velocityBias) < k_errorTol);
 #endif
 					break;
 				}

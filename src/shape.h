@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "pool.h"
+
 #include "box2d/distance.h"
 #include "box2d/geometry.h"
 #include "box2d/types.h"
-
-#include "pool.h"
 
 typedef struct b2BroadPhase b2BroadPhase;
 
@@ -37,6 +37,8 @@ typedef struct b2Shape
 
 	bool isSensor;
 	bool reportContacts;
+	bool enlargedAABB;
+	bool isFast;
 
 	// TODO_ERIN maybe not anonymous, check asm
 	union

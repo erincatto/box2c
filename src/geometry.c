@@ -1,26 +1,27 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/geometry.h"
+
+#include "core.h"
+
 #include "box2d/aabb.h"
 #include "box2d/distance.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
-#include "box2d/geometry.h"
 
-#include <assert.h>
 #include <float.h>
 
-bool b2IsValidRay(const b2RayCastInput *input)
+bool b2IsValidRay(const b2RayCastInput* input)
 {
-	bool isValid = b2IsValidVec2(input->p1) && b2IsValidVec2(input->p2) && b2IsValid(input->radius) &&
-				   b2IsValid(input->maxFraction) && 0.0f <= input->radius && input->radius < b2_huge &&
-				   0.0f <= input->maxFraction && input->maxFraction < b2_huge;
+	bool isValid = b2IsValidVec2(input->p1) && b2IsValidVec2(input->p2) && b2IsValid(input->radius) && b2IsValid(input->maxFraction) &&
+				   0.0f <= input->radius && input->radius < b2_huge && 0.0f <= input->maxFraction && input->maxFraction < b2_huge;
 	return isValid;
 }
 
 b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 {
-	assert(hull->count >= 3);
+	B2_ASSERT(hull->count >= 3);
 
 	b2Polygon shape;
 	shape.count = hull->count;
@@ -38,7 +39,7 @@ b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 		int32_t i1 = i;
 		int32_t i2 = i + 1 < shape.count ? i + 1 : 0;
 		b2Vec2 edge = b2Sub(shape.vertices[i2], shape.vertices[i1]);
-		assert(b2Dot(edge, edge) > FLT_EPSILON * FLT_EPSILON);
+		B2_ASSERT(b2Dot(edge, edge) > FLT_EPSILON * FLT_EPSILON);
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
 
@@ -52,8 +53,8 @@ b2Polygon b2MakeSquare(float h)
 
 b2Polygon b2MakeBox(float hx, float hy)
 {
-	assert(b2IsValid(hx) && hx > 0.0f);
-	assert(b2IsValid(hy) && hy > 0.0f);
+	B2_ASSERT(b2IsValid(hx) && hx > 0.0f);
+	B2_ASSERT(b2IsValid(hy) && hy > 0.0f);
 
 	b2Polygon shape = {0};
 	shape.count = 4;
@@ -124,6 +125,9 @@ b2MassData b2ComputeCircleMass(const b2Circle* shape, float density)
 	// inertia about the local origin
 	massData.I = massData.mass * (0.5f * rr + b2Dot(shape->point, shape->point));
 
+	massData.minExtent = shape->radius;
+	massData.maxExtent = b2Length(shape->point) + shape->radius;
+
 	return massData;
 }
 
@@ -147,6 +151,9 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 	float circleInertia = 0.5f * (rr + ll);
 	float boxInertia = (4.0f * rr + ll) / 12.0f;
 	massData.I = massData.mass * (circleInertia + boxInertia);
+
+	massData.minExtent = radius;
+	massData.maxExtent = B2_MAX(b2Length(shape->point1), b2Length(shape->point2)) + shape->radius;
 
 	return massData;
 }
@@ -177,7 +184,24 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	//
 	// The rest of the derivation is handled by computer algebra.
 
-	assert(shape->count >= 3);
+	B2_ASSERT(shape->count > 0);
+
+	if (shape->count == 1)
+	{
+		b2Circle circle;
+		circle.point = shape->vertices[0];
+		circle.radius = shape->radius;
+		return b2ComputeCircleMass(&circle, density);
+	}
+
+	if (shape->count == 2)
+	{
+		b2Capsule capsule;
+		capsule.point1 = shape->vertices[0];
+		capsule.point2 = shape->vertices[1];
+		capsule.radius = shape->radius;
+		return b2ComputeCapsuleMass(&capsule, density);
+	}
 
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	int32_t count = shape->count;
@@ -203,7 +227,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 				offset = radius / sinHalfAngle;
 			}
 
-			vertices[i] = b2MulAdd(shape->vertices[i], offset, mid); 
+			vertices[i] = b2MulAdd(shape->vertices[i], offset, mid);
 		}
 	}
 	else
@@ -253,7 +277,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	massData.mass = density * area;
 
 	// Center of mass, shift back from origin at r
-	assert(area > FLT_EPSILON);
+	B2_ASSERT(area > FLT_EPSILON);
 	float invArea = 1.0f / area;
 	center.x *= invArea;
 	center.y *= invArea;
@@ -264,6 +288,20 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 
 	// Shift to center of mass then to original body origin.
 	massData.I += massData.mass * (b2Dot(massData.center, massData.center) - b2Dot(center, center));
+
+	float minExtent = b2_huge;
+	float maxExtent = 0.0f;
+	for (int32_t i = 0; i < count; ++i)
+	{
+		float planeOffset = b2Dot(shape->normals[i], b2Sub(shape->vertices[i], massData.center));
+		minExtent = B2_MIN(minExtent, planeOffset);
+
+		float distanceSqr = b2LengthSquared(shape->vertices[i]);
+		maxExtent = B2_MAX(maxExtent, distanceSqr);
+	}
+
+	massData.minExtent = minExtent + shape->radius;
+	massData.maxExtent = maxExtent + shape->radius;
 
 	return massData;
 }
@@ -292,7 +330,7 @@ b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform xf)
 
 b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform xf)
 {
-	assert(shape->count > 0);
+	B2_ASSERT(shape->count > 0);
 	b2Vec2 lower = b2TransformPoint(xf, shape->vertices[0]);
 	b2Vec2 upper = lower;
 
@@ -375,12 +413,12 @@ bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape)
 // http://www.codercorner.com/blog/?p=321
 b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape)
 {
-	assert(b2IsValidRay(input));
+	B2_ASSERT(b2IsValidRay(input));
 
 	b2Vec2 p = shape->point;
 
 	b2RayCastOutput output = {0};
-	
+
 	// Shift ray so circle center is the origin
 	b2Vec2 s = b2Sub(input->p1, p);
 	float length;
@@ -432,7 +470,7 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* sha
 
 b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape)
 {
-	assert(b2IsValidRay(input));
+	B2_ASSERT(b2IsValidRay(input));
 
 	b2RayCastOutput output = {0};
 
@@ -642,7 +680,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 
 b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape)
 {
-	assert(b2IsValidRay(input));
+	B2_ASSERT(b2IsValidRay(input));
 
 	if (input->radius == 0.0f && shape->radius == 0.0f)
 	{
@@ -693,7 +731,7 @@ b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* s
 				}
 			}
 
-			// The use of epsilon here causes the assert on lower to trip
+			// The use of epsilon here causes the B2_ASSERT on lower to trip
 			// in some cases. Apparently the use of epsilon was to make edge
 			// shapes work, but now those are handled separately.
 			// if (upper < lower - b2_epsilon)
@@ -703,7 +741,7 @@ b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* s
 			}
 		}
 
-		assert(0.0f <= lower && lower <= input->maxFraction);
+		B2_ASSERT(0.0f <= lower && lower <= input->maxFraction);
 
 		if (index >= 0)
 		{

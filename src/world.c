@@ -22,6 +22,7 @@
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"
+#include "box2d/distance.h"
 #include "box2d/timer.h"
 
 #include <string.h>
@@ -118,10 +119,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->inv_dt0 = 0.0f;
 	world->enableSleep = true;
-	world->newContacts = false;
 	world->locked = false;
 	world->warmStarting = true;
-
+	world->enableContinuous = true;
 	world->profile = b2_emptyProfile;
 
 	id.revision = world->revision;
@@ -219,12 +219,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
 
-		//B2_ASSERT(contact->awakeIndex == awakeIndex);
+		// B2_ASSERT(contact->awakeIndex == awakeIndex);
 		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
-		//contact->awakeIndex = B2_NULL_INDEX;
+		// contact->awakeIndex = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
@@ -244,7 +244,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = bodies + shapeA->bodyIndex;
 			b2Body* bodyB = bodies + shapeB->bodyIndex;
-			b2Contact_Update(world, contact, shapeA, bodyA, shapeB, bodyB);
+			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
 
@@ -367,10 +367,6 @@ static void b2Collide(b2World* world)
 
 static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
 {
-	B2_MAYBE_UNUSED(startIndex);
-	B2_MAYBE_UNUSED(endIndex);
-	B2_MAYBE_UNUSED(threadIndex);
-
 	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
 
 	b2World* world = taskContext;
@@ -386,6 +382,209 @@ static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32
 	}
 
 	b2TracyCZoneEnd(island_task);
+}
+
+struct b2ContinuousContext
+{
+	b2World* world;
+	b2Body* fastBody;
+	b2Shape* fastShape;
+	b2Sweep sweep;
+	float fraction;
+};
+
+static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	struct b2ContinuousContext* continuousContext = context;
+	b2Shape* fastShape = continuousContext->fastShape;
+
+	// Skip same shape
+	if (shapeIndex == fastShape->object.index)
+	{
+		return true;
+	}
+
+	b2World* world = continuousContext->world;
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+	b2Shape* shape = world->shapes + shapeIndex;
+	B2_ASSERT(shape->object.index == shape->object.next);
+
+	// Skip same body
+	if (shape->bodyIndex == fastShape->bodyIndex)
+	{
+		return true;
+	}
+
+	// Skip filtered shapes
+	bool canCollide = b2ShouldShapesCollide(fastShape->filter, shape->filter);
+	if (canCollide == false)
+	{
+		return true;
+	}
+
+	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + shape->bodyIndex;
+	B2_ASSERT(body->type == b2_staticBody);
+
+	// Skip filtered bodies
+	canCollide = b2ShouldBodiesCollide(world, continuousContext->fastBody, body);
+	if (canCollide == false)
+	{
+		return true;
+	}
+
+	b2TOIInput input;
+	input.proxyA = b2Shape_MakeDistanceProxy(shape);
+	input.proxyB = b2Shape_MakeDistanceProxy(fastShape);
+	input.sweepA = b2MakeSweep(body);
+	input.sweepB = continuousContext->sweep;
+	input.tMax = continuousContext->fraction;
+
+	b2TOIOutput output = b2TimeOfImpact(&input);
+	if (0.0f < output.t && output.t < continuousContext->fraction)
+	{
+		continuousContext->fraction = output.t;
+	}
+
+	return true;
+}
+
+// Continuous collision of dynamic versus static
+static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
+{
+	b2Body* fastBody = world->bodies + bodyIndex;
+	B2_ASSERT(b2ObjectValid(&fastBody->object));
+	B2_ASSERT(fastBody->type == b2_dynamicBody && fastBody->isFast);
+	
+	b2Shape* shapes = world->shapes;
+
+	b2Sweep sweep = b2MakeSweep(fastBody);
+
+	b2Transform xf1;
+	xf1.q = b2MakeRot(sweep.a1);
+	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
+	
+	b2Transform xf2;
+	xf2.q = b2MakeRot(sweep.a2);
+	xf2.p = b2Sub(sweep.c2, b2RotateVector(xf2.q, sweep.localCenter));
+
+	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
+
+	struct b2ContinuousContext context;
+	context.world = world;
+	context.sweep = sweep;
+	context.fastBody = fastBody;
+	context.fraction = 1.0f;
+
+	int32_t shapeIndex = fastBody->shapeList;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		b2Shape* fastShape = shapes + shapeIndex;
+		B2_ASSERT(fastShape->isFast == true);
+
+		// Clear flag (keep set on body)
+		fastShape->isFast = false;
+
+		context.fastShape = fastShape;
+
+		b2AABB box1 = fastShape->aabb;
+		b2AABB box2 = b2Shape_ComputeAABB(fastShape, xf2);
+		b2AABB box = b2AABB_Union(box1, box2);
+
+		// Store this for later
+		fastShape->aabb = box2;
+		
+		b2DynamicTree_Query(staticTree, box, b2ContinuousQueryCallback, &context);
+
+		shapeIndex = fastShape->nextShapeIndex;
+	}
+
+	if (context.fraction < 1.0f)
+	{
+		// Handle time of impact event
+
+		b2Vec2 c = b2Lerp(sweep.c1, sweep.c2, context.fraction);
+		float a = sweep.a1 + context.fraction * (sweep.a2 - sweep.a1);
+
+		// Advance body
+		fastBody->angle0 = a;
+		fastBody->angle = a;
+		fastBody->position0 = c;
+		fastBody->position = c;
+
+		b2Transform xf;
+		xf.q = b2MakeRot(a);
+		xf.p = b2Sub(c, b2RotateVector(fastBody->transform.q, sweep.localCenter));
+		fastBody->transform = xf;
+
+		// Prepare AABBs for broad-phase
+		shapeIndex = fastBody->shapeList;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = shapes + shapeIndex;
+
+			// Must recompute aabb at the interpolated transform
+			shape->aabb = b2Shape_ComputeAABB(shape, xf);
+
+			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			{
+				shape->fatAABB = b2AABB_Extend(shape->aabb);
+				shape->enlargedAABB = true;
+				fastBody->enlargeAABB = true;
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
+	}
+	else
+	{
+		// No time of impact event
+
+		// Advance body
+		fastBody->angle0 = fastBody->angle;
+		fastBody->position0 = fastBody->position;
+
+		// Prepare AABBs for broad-phase
+		shapeIndex = fastBody->shapeList;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = shapes + shapeIndex;
+
+			// shape->aabb is still valid
+
+			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			{
+				shape->fatAABB = b2AABB_Extend(shape->aabb);
+				shape->enlargedAABB = true;
+				fastBody->enlargeAABB = true;
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
+	}
+}
+
+static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2TracyCZoneNC(continuous_task, "Continuous Task", b2_colorAqua, true);
+
+	b2World* world = taskContext;
+
+	B2_ASSERT(startIndex <= endIndex);
+	B2_ASSERT(startIndex <= world->bodyPool.capacity);
+	B2_ASSERT(endIndex <= world->bodyPool.capacity);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		int32_t index = world->fastBodies[i];
+		b2SolveContinuous(world, index);
+	}
+
+	b2TracyCZoneEnd(continuous_task);
 }
 
 // Solve with union-find islands
@@ -413,13 +612,19 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Careful, this is modified by island merging
 	int32_t count = b2Array(world->awakeIslandArray).count;
 
+	int32_t fastBodyCapacity = 0;
 	b2Island** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2Island*), "island array");
 	for (int32_t i = 0; i < count; ++i)
 	{
 		b2Island* island = world->islands + world->awakeIslandArray[i];
 		B2_ASSERT(island->awakeIndex == i);
 		islands[i] = island;
+		fastBodyCapacity += island->bodyCount;
 	}
+
+	world->fastBodyCapacity = fastBodyCapacity;
+	world->fastBodyCount = 0;
+	world->fastBodies = b2AllocateStackItem(world->stackAllocator, fastBodyCapacity * sizeof(int32_t), "fast bodies");
 
 	// Sort islands to improve task distribution
 	b2SortIslands(world, islands, count);
@@ -452,6 +657,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
 
+	// TODO_ERIN sync rebuild trees task here
+
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
 	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
@@ -483,7 +690,15 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 				b2Shape* shape = shapes + shapeIndex;
 				B2_ASSERT(b2ObjectValid(&shape->object));
-				b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+				if (shape->isFast == false)
+				{
+					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+				}
+				else
+				{
+					// Shape is fast. It's aabb will be enlarged in continuous collision.
+					b2BufferMove(broadPhase, shape->proxyKey);
+				}
 
 				// Clear the smallest set bit
 				word = word & (word - 1);
@@ -568,13 +783,79 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2ValidateBroadphase(&world->broadPhase);
 
-	b2FreeStackItem(world->stackAllocator, islands);
-
 	b2TracyCZoneEnd(complete_island);
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
 	b2TracyCZoneEnd(broad_phase);
+
+	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
+
+	// Parallel continuous collision
+	if (b2_parallel)
+	{
+		int32_t minRange = 8;
+		world->enqueueTask(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+	}
+	else
+	{
+		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
+	}
+
+	world->finishTasks(world->userTaskContext);
+
+	// Serially enlarge broad-phase proxies for fast shapes
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+		b2Body* bodies = world->bodies;
+		b2Shape* shapes = world->shapes;
+		int32_t* fastBodies = world->fastBodies;
+		int32_t fastBodyCount = world->fastBodyCount;
+		b2DynamicTree* tree = broadPhase->trees + b2_dynamicBody;
+
+		// Warning: this loop has non-deterministic order
+		for (int32_t i = 0; i < fastBodyCount; ++i)
+		{
+			b2Body* fastBody = bodies + fastBodies[i];
+			if (fastBody->enlargeAABB == false)
+			{
+				continue;
+			}
+
+			// clear flag
+			fastBody->enlargeAABB = false;
+
+			int32_t shapeIndex = fastBody->shapeList;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = shapes + shapeIndex;
+				if (shape->enlargedAABB == false)
+				{
+					continue;
+				}
+
+				// clear flag
+				shape->enlargedAABB = false;
+
+				int32_t proxyKey = shape->proxyKey;
+				int32_t proxyId = B2_PROXY_ID(proxyKey);
+				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
+
+				// all fast shapes should already be in the move buffer
+
+				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
+
+				shapeIndex = shape->nextShapeIndex;
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(continuous_collision);
+
+	b2FreeStackItem(world->stackAllocator, world->fastBodies);
+	world->fastBodies = NULL;
+
+	b2FreeStackItem(world->stackAllocator, islands);
 
 	b2TracyCZoneEnd(solve);
 }
@@ -778,6 +1059,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.3f, 1.0f});
 				}
+				else if (b->isFast)
+				{
+					b2DrawShape(draw, shape, xf, (b2Color){0.3f, 0.5f, 0.9f, 1.0f});
+				}
 				else if (b->type == b2_staticBody)
 				{
 					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.9f, 0.5f, 1.0f});
@@ -920,6 +1205,18 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 	}
 }
 
+void b2World_EnableContinuo(b2WorldId worldId, bool flag)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->enableContinuous = flag;
+}
+
 b2Profile b2World_GetProfile(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -944,329 +1241,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.byteCount = b2GetByteCount();
 	return s;
 }
-
 #if 0
-
-// Find TOI contacts and solve them.
-void b2World::SolveTOI(const b2TimeStep& step)
-{
-	b2Island island(2 * b2_maxTOIContacts, b2_maxTOIContacts, 0, &m_stackAllocator, m_contactManager.m_contactListener);
-
-	if (m_stepComplete)
-	{
-		for (b2Body* b = m_bodyList; b; b = b->m_next)
-		{
-			b->m_flags &= ~b2Body::e_islandFlag;
-			b->m_sweep.alpha0 = 0.0f;
-		}
-
-		for (b2Contact* c = m_contactManager.m_contactList; c; c = c->m_next)
-		{
-			// Invalidate TOI
-			c->m_flags &= ~(b2Contact::e_toiFlag | b2Contact::e_islandFlag);
-			c->m_toiCount = 0;
-			c->m_toi = 1.0f;
-		}
-	}
-
-	// Find TOI events and solve them.
-	for (;;)
-	{
-		// Find the first TOI.
-		b2Contact* minContact = nullptr;
-		float minAlpha = 1.0f;
-
-		for (b2Contact* c = m_contactManager.m_contactList; c; c = c->m_next)
-		{
-			// Is this contact disabled?
-			if (c->IsEnabled() == false)
-			{
-				continue;
-			}
-
-			// Prevent excessive sub-stepping.
-			if (c->m_toiCount > b2_maxSubSteps)
-			{
-				continue;
-			}
-
-			float alpha = 1.0f;
-			if (c->m_flags & b2Contact::e_toiFlag)
-			{
-				// This contact has a valid cached TOI.
-				alpha = c->m_toi;
-			}
-			else
-			{
-				b2Shape* fA = c->GetFixtureA();
-				b2Shape* fB = c->GetFixtureB();
-
-				// Is there a sensor?
-				if (fA->IsSensor() || fB->IsSensor())
-				{
-					continue;
-				}
-
-				b2Body* bA = fA->GetBody();
-				b2Body* bB = fB->GetBody();
-
-				b2BodyType typeA = bA->m_type;
-				b2BodyType typeB = bB->m_type;
-				B2_ASSERT(typeA == b2_dynamicBody || typeB == b2_dynamicBody);
-
-				bool activeA = bA->IsAwake() && typeA != b2_staticBody;
-				bool activeB = bB->IsAwake() && typeB != b2_staticBody;
-
-				// Is at least one body active (awake and dynamic or kinematic)?
-				if (activeA == false && activeB == false)
-				{
-					continue;
-				}
-
-				bool collideA = bA->IsBullet() || typeA != b2_dynamicBody;
-				bool collideB = bB->IsBullet() || typeB != b2_dynamicBody;
-
-				// Are these two non-bullet dynamic bodies?
-				if (collideA == false && collideB == false)
-				{
-					continue;
-				}
-
-				// Compute the TOI for this contact.
-				// Put the sweeps onto the same time interval.
-				float alpha0 = bA->m_sweep.alpha0;
-
-				if (bA->m_sweep.alpha0 < bB->m_sweep.alpha0)
-				{
-					alpha0 = bB->m_sweep.alpha0;
-					bA->m_sweep.Advance(alpha0);
-				}
-				else if (bB->m_sweep.alpha0 < bA->m_sweep.alpha0)
-				{
-					alpha0 = bA->m_sweep.alpha0;
-					bB->m_sweep.Advance(alpha0);
-				}
-
-				B2_ASSERT(alpha0 < 1.0f);
-
-				int32 indexA = c->GetChildIndexA();
-				int32 indexB = c->GetChildIndexB();
-
-				// Compute the time of impact in interval [0, minTOI]
-				b2TOIInput input;
-				input.proxyA.Set(fA->GetShape(), indexA);
-				input.proxyB.Set(fB->GetShape(), indexB);
-				input.sweepA = bA->m_sweep;
-				input.sweepB = bB->m_sweep;
-				input.tMax = 1.0f;
-
-				b2TOIOutput output;
-				b2TimeOfImpact(&output, &input);
-
-				// Beta is the fraction of the remaining portion of the .
-				float beta = output.t;
-				if (output.state == b2TOIOutput::e_touching)
-				{
-					alpha = b2Min(alpha0 + (1.0f - alpha0) * beta, 1.0f);
-				}
-				else
-				{
-					alpha = 1.0f;
-				}
-
-				c->m_toi = alpha;
-				c->m_flags |= b2Contact::e_toiFlag;
-			}
-
-			if (alpha < minAlpha)
-			{
-				// This is the minimum TOI found so far.
-				minContact = c;
-				minAlpha = alpha;
-			}
-		}
-
-		if (minContact == nullptr || 1.0f - 10.0f * b2_epsilon < minAlpha)
-		{
-			// No more TOI events. Done!
-			m_stepComplete = true;
-			break;
-		}
-
-		// Advance the bodies to the TOI.
-		b2Shape* fA = minContact->GetFixtureA();
-		b2Shape* fB = minContact->GetFixtureB();
-		b2Body* bA = fA->GetBody();
-		b2Body* bB = fB->GetBody();
-
-		b2Sweep backup1 = bA->m_sweep;
-		b2Sweep backup2 = bB->m_sweep;
-
-		bA->Advance(minAlpha);
-		bB->Advance(minAlpha);
-
-		// The TOI contact likely has some new contact points.
-		minContact->Update(m_contactManager.m_contactListener);
-		minContact->m_flags &= ~b2Contact::e_toiFlag;
-		++minContact->m_toiCount;
-
-		// Is the contact solid?
-		if (minContact->IsEnabled() == false || minContact->IsTouching() == false)
-		{
-			// Restore the sweeps.
-			minContact->SetEnabled(false);
-			bA->m_sweep = backup1;
-			bB->m_sweep = backup2;
-			bA->SynchronizeTransform();
-			bB->SynchronizeTransform();
-			continue;
-		}
-
-		bA->SetAwake(true);
-		bB->SetAwake(true);
-
-		// Build the island
-		island.Clear();
-		island.Add(bA);
-		island.Add(bB);
-		island.Add(minContact);
-
-		bA->m_flags |= b2Body::e_islandFlag;
-		bB->m_flags |= b2Body::e_islandFlag;
-		minContact->m_flags |= b2Contact::e_islandFlag;
-
-		// Get contacts on bodyA and bodyB.
-		b2Body* bodies[2] = {bA, bB};
-		for (int32 i = 0; i < 2; ++i)
-		{
-			b2Body* body = bodies[i];
-			if (body->m_type == b2_dynamicBody)
-			{
-				for (b2ContactEdge* ce = body->m_contactList; ce; ce = ce->next)
-				{
-					if (island.m_bodyCount == island.m_bodyCapacity)
-					{
-						break;
-					}
-
-					if (island.m_contactCount == island.m_contactCapacity)
-					{
-						break;
-					}
-
-					b2Contact* contact = ce->contact;
-
-					// Has this contact already been added to the island?
-					if (contact->m_flags & b2Contact::e_islandFlag)
-					{
-						continue;
-					}
-
-					// Only add static, kinematic, or bullet bodies.
-					b2Body* other = ce->other;
-					if (other->m_type == b2_dynamicBody &&
-						body->IsBullet() == false && other->IsBullet() == false)
-					{
-						continue;
-					}
-
-					// Skip sensors.
-					bool sensorA = contact->m_fixtureA->m_isSensor;
-					bool sensorB = contact->m_fixtureB->m_isSensor;
-					if (sensorA || sensorB)
-					{
-						continue;
-					}
-
-					// Tentatively advance the body to the TOI.
-					b2Sweep backup = other->m_sweep;
-					if ((other->m_flags & b2Body::e_islandFlag) == 0)
-					{
-						other->Advance(minAlpha);
-					}
-
-					// Update the contact points
-					contact->Update(m_contactManager.m_contactListener);
-
-					// Was the contact disabled by the user?
-					if (contact->IsEnabled() == false)
-					{
-						other->m_sweep = backup;
-						other->SynchronizeTransform();
-						continue;
-					}
-
-					// Are there contact points?
-					if (contact->IsTouching() == false)
-					{
-						other->m_sweep = backup;
-						other->SynchronizeTransform();
-						continue;
-					}
-
-					// Add the contact to the island
-					contact->m_flags |= b2Contact::e_islandFlag;
-					island.Add(contact);
-
-					// Has the other body already been added to the island?
-					if (other->m_flags & b2Body::e_islandFlag)
-					{
-						continue;
-					}
-					
-					// Add the other body to the island.
-					other->m_flags |= b2Body::e_islandFlag;
-
-					if (other->m_type != b2_staticBody)
-					{
-						other->SetAwake(true);
-					}
-
-					island.Add(other);
-				}
-			}
-		}
-
-		b2TimeStep subStep;
-		subStep.dt = (1.0f - minAlpha) * step.dt;
-		subStep.inv_dt = 1.0f / subStep.dt;
-		subStep.dtRatio = 1.0f;
-		subStep.positionIterations = 20;
-		subStep.velocityIterations = step.velocityIterations;
-		subStep.warmStarting = false;
-		island.SolveTOI(subStep, bA->m_islandIndex, bB->m_islandIndex);
-
-		// Reset island flags and synchronize broad-phase proxies.
-		for (int32 i = 0; i < island.m_bodyCount; ++i)
-		{
-			b2Body* body = island.m_bodies[i];
-			body->m_flags &= ~b2Body::e_islandFlag;
-
-			if (body->m_type != b2_dynamicBody)
-			{
-				continue;
-			}
-
-			body->SynchronizeFixtures();
-
-			// Invalidate all contact TOIs on this displaced body.
-			for (b2ContactEdge* ce = body->m_contactList; ce; ce = ce->next)
-			{
-				ce->contact->m_flags &= ~(b2Contact::e_toiFlag | b2Contact::e_islandFlag);
-			}
-		}
-
-		// Commit shape proxy movements to the broad-phase so that new contacts are created.
-		// Also, some contacts can be destroyed.
-		m_contactManager.FindNewContacts();
-
-		if (m_subStepping)
-		{
-			m_stepComplete = false;
-			break;
-		}
-	}
-}
 
 struct b2WorldRayCastWrapper
 {

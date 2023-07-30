@@ -71,13 +71,16 @@ typedef struct b2World
 	// Transient index of the island being split this time step. May be B2_NULL_INDEX.
 	int32_t splitIslandIndex;
 
+	// Array of fast bodies that need continuous collision handling
+	int32_t* fastBodies;
+	int32_t fastBodyCapacity;
+	_Atomic int fastBodyCount;
+
 	// Id that is incremented every time step
 	uint64_t stepId;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;
-
-	// b2DestructionListener* m_destructionListener;
 
 	// This is used to compute the time step ratio to support a variable time step.
 	float inv_dt0;
@@ -87,7 +90,7 @@ typedef struct b2World
 	b2Profile profile;
 
 	// TODO_ERIN not used
-	_Atomic long contactPointCount;
+	_Atomic int contactPointCount;
 
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;
@@ -101,9 +104,9 @@ typedef struct b2World
 	void* userTaskContext;
 
 	bool enableSleep;
-	bool newContacts;
 	bool locked;
 	bool warmStarting;
+	bool enableContinuous;
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);

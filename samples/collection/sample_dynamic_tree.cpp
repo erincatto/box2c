@@ -3,6 +3,7 @@
 
 #include "sample.h"
 
+#include "box2d/aabb.h"
 #include "box2d/dynamic_tree.h"
 #include "box2d/math.h"
 
@@ -89,6 +90,8 @@ class DynamicTree : public Sample
 		bool isStatic = false;
 		m_tree = b2DynamicTree_Create();
 
+		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+
 		for (int i = 0; i < m_rowCount; ++i)
 		{
 			float x = -40.0f;
@@ -117,7 +120,10 @@ class DynamicTree : public Sample
 
 					p->box.lowerBound = {x, y};
 					p->box.upperBound = {x + p->width.x, y + p->width.y};
-					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->box, b2_defaultCategoryBits, m_proxyCount, &p->fatBox);
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
+
+					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->fatBox, b2_defaultCategoryBits, m_proxyCount);
 					p->rayStamp = -1;
 					p->queryStamp = -1;
 					p->moved = false;
@@ -261,6 +267,8 @@ class DynamicTree : public Sample
 		b2Color c = {0.3f, 0.3f, 0.8f, 0.7f};
 		b2Color qc = {0.3, 0.8f, 0.3f, 1.0f};
 
+		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+
 		for (int i = 0; i < m_proxyCount; ++i)
 		{
 			Proxy* p = m_proxies + i;
@@ -287,15 +295,23 @@ class DynamicTree : public Sample
 				p->box.lowerBound.y = p->position.y + dy;
 				p->box.upperBound.x = p->position.x + dx + p->width.x;
 				p->box.upperBound.y = p->position.y + dy + p->width.y;
-				p->moved = true;
+
+				if (b2AABB_Contains(p->fatBox, p->box) == false)
+				{
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
+					p->fatBox.upperBound = b2Add(p->box.lowerBound, aabbExtension);
+					p->moved = true;
+				}
+				else
+				{
+					p->moved = false;
+				}
 			}
 			else
 			{
 				p->moved = false;
 			}
 		}
-
-		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
 
 		switch (m_updateType)
 		{
@@ -307,7 +323,7 @@ class DynamicTree : public Sample
 				Proxy* p = m_proxies + i;
 				if (p->moved)
 				{
-					b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->box, &p->fatBox);
+					b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->fatBox);
 				}
 			}
 			float ms = b2GetMilliseconds(&timer);
@@ -323,8 +339,6 @@ class DynamicTree : public Sample
 				Proxy* p = m_proxies + i;
 				if (p->moved)
 				{
-					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
-					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
 					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
 				}
 			}
@@ -344,8 +358,6 @@ class DynamicTree : public Sample
 				Proxy* p = m_proxies + i;
 				if (p->moved)
 				{
-					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
-					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
 					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
 				}
 			}

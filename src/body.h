@@ -19,20 +19,19 @@ typedef struct b2Body
 
 	enum b2BodyType type;
 
-	// the body origin transform
+	// the body origin transform (not center of mass)
 	b2Transform transform;
 	
-	// center of mass position
+	// center of mass position in world
+	b2Vec2 position0;
 	b2Vec2 position;
 
 	// rotation in radians
+	float angle0;
 	float angle;
 
 	// location of center of mass relative to the body origin
 	b2Vec2 localCenter;
-
-	b2Vec2 speculativePosition;
-	float speculativeAngle;
 
 	b2Vec2 linearVelocity;
 	float angularVelocity;
@@ -61,6 +60,8 @@ typedef struct b2Body
 	// Rotational inertia about the center of mass.
 	float I, invI;
 
+	float minExtent;
+	float maxExtent;
 	float linearDamping;
 	float angularDamping;
 	float gravityScale;
@@ -74,8 +75,9 @@ typedef struct b2Body
 	bool fixedRotation;
 	bool isEnabled;
 	bool isMarked;
+	bool isFast;
+	bool enlargeAABB;
 } b2Body;
-
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
@@ -84,7 +86,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId);
 
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 
-static inline b2Sweep b2Body_GetSweep(const b2Body* body)
+static inline b2Sweep b2MakeSweep(const b2Body* body)
 {
 	b2Sweep s;
 	if (body->type == b2_staticBody)
@@ -96,10 +98,10 @@ static inline b2Sweep b2Body_GetSweep(const b2Body* body)
 	}
 	else
 	{
-		s.c1 = body->position;
-		s.c2 = body->speculativePosition;
-		s.a1 = body->angle;
-		s.a2 = body->speculativeAngle;
+		s.c1 = body->position0;
+		s.c2 = body->position;
+		s.a1 = body->angle0;
+		s.a2 = body->angle;
 	}
 
 	s.localCenter = body->localCenter;

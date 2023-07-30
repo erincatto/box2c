@@ -5,9 +5,6 @@
 #include "box2d/constants.h"
 #include "box2d/math.h"
 
-//#include "box2d/distance.h"
-
-#include <assert.h>
 #include <float.h>
 
 bool b2AABB_IsValid(b2AABB a)

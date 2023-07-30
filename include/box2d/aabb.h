@@ -3,8 +3,11 @@
 
 #pragma once
 
-#include "types.h"
+#include "constants.h"
 #include "math.h"
+#include "types.h"
+
+// TODO_ERIN a lot of this could be internal
 
 #ifdef __cplusplus
 extern "C"
@@ -47,6 +50,17 @@ static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 	c.lowerBound.y = B2_MIN(a.lowerBound.y, b.lowerBound.y);
 	c.upperBound.x = B2_MAX(a.upperBound.x, b.upperBound.x);
 	c.upperBound.y = B2_MAX(a.upperBound.y, b.upperBound.y);
+	return c;
+}
+
+/// Fatten an AABB
+static inline b2AABB b2AABB_Extend(b2AABB a)
+{
+	b2AABB c;
+	c.lowerBound.x = a.lowerBound.x - b2_aabbExtension;
+	c.lowerBound.y = a.lowerBound.y - b2_aabbExtension;
+	c.upperBound.x = a.upperBound.x + b2_aabbExtension;
+	c.upperBound.y = a.upperBound.y + b2_aabbExtension;
 	return c;
 }
 

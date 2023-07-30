@@ -38,9 +38,7 @@ public:
 		input.sweepB = sweepB;
 		input.tMax = 1.0f;
 
-		b2TOIOutput output;
-
-		b2TimeOfImpact(&output, &input);
+		b2TOIOutput output = b2TimeOfImpact(&input);
 
 		g_draw.DrawString(5, m_textLine, "toi = %g", output.t);
 		m_textLine += m_textIncrement;
