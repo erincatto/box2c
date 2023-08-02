@@ -16,20 +16,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#if 0
-void DestructionListener::SayGoodbye(b2Joint* joint)
-{
-	if (test->m_mouseJoint == joint)
-	{
-		test->m_mouseJoint = nullptr;
-	}
-	else
-	{
-		test->JointDestroyed(joint);
-	}
-}
-#endif
-
 bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
@@ -91,7 +77,7 @@ Sample::Sample(const Settings& settings)
 	// m_world->SetDestructionListener(&m_destructionListener);
 	// m_world->SetContactListener(this);
 
-	b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
+	//b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
 
 	m_stepCount = 0;
 
@@ -276,6 +262,7 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
 		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p.solveIslands);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
+		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
 
 		m_totalProfile.step += p.step;
 		m_totalProfile.pairs += p.pairs;
@@ -284,6 +271,7 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.buildIslands += p.buildIslands;
 		m_totalProfile.solveIslands += p.solveIslands;
 		m_totalProfile.broadphase += p.broadphase;
+		m_totalProfile.continuous += p.continuous;
 	}
 
 	if (settings.m_drawProfile)
@@ -302,6 +290,7 @@ void Sample::Step(Settings& settings)
 			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
 			aveProfile.solveIslands = scale * m_totalProfile.solveIslands;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
+			aveProfile.continuous = scale * m_totalProfile.continuous;
 		}
 
 		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
@@ -321,6 +310,9 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "continuous collision [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.continuous, aveProfile.continuous,
+						  m_maxProfile.continuous);
 		m_textLine += m_textIncrement;
 	}
 

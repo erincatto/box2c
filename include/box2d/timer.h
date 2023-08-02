@@ -16,6 +16,7 @@ typedef struct b2Profile
 	float buildIslands;
 	float solveIslands;
 	float broadphase;
+	float continuous;
 } b2Profile;
 
 static const b2Profile b2_emptyProfile = {0};

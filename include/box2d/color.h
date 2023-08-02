@@ -9,7 +9,7 @@ typedef struct b2Color
 	float r, g, b, a;
 } b2Color;
 
-enum b2Colors
+enum b2HexColor
 {
 	b2_colorSnow = 0xfffafa,
 	b2_colorGhostWhite = 0xf8f8ff,
@@ -578,3 +578,22 @@ enum b2Colors
 	b2_colorSilver = 0xc0c0c0,
 	b2_colorTeal = 0x008080
 };
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+static inline b2Color b2MakeColor(enum b2HexColor hexCode, float alpha)
+{
+	b2Color color;
+	color.r = ((hexCode >> 16) & 0xFF) / 255.0f;
+	color.g = ((hexCode >> 8) & 0xFF) / 255.0f;
+	color.b = (hexCode & 0xFF) / 255.0f;
+	color.a = alpha;
+	return color;
+}
+
+#ifdef __cplusplus
+}
+#endif

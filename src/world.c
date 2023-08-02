@@ -207,6 +207,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
+	int32_t* awakeContactArray = world->awakeContactArray;
 
 	B2_MAYBE_UNUSED(awakeCount);
 	B2_ASSERT(startIndex < endIndex);
@@ -214,7 +215,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
-		int32_t contactIndex = world->awakeContactArray[awakeIndex];
+		int32_t contactIndex = awakeContactArray[awakeIndex];
 
 		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
@@ -279,11 +280,16 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2TracyCZoneEnd(tree_task);
 }
 
+int32_t b2_awakeContactCount;
+
 static void b2Collide(b2World* world)
 {
+	B2_ASSERT(world->workerCount > 0);
+
 	world->contactPointCount = 0;
 
 	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+	b2_awakeContactCount = awakeContactCount;
 
 	if (awakeContactCount == 0)
 	{
@@ -292,7 +298,14 @@ static void b2Collide(b2World* world)
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	world->enqueueTask(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+	if (b2_parallel)
+	{
+		world->enqueueTask(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+	}
+	else
+	{
+		b2UpdateTreesTask(0, 1, 0, world);
+	}
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
@@ -302,7 +315,7 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
-		int32_t minRange = 64;
+		int32_t minRange = B2_MAX(awakeContactCount / (world->workerCount * 4), 64);
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -643,7 +656,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	if (b2_parallel)
 	{
-		int32_t minRange = 1;
+		int32_t minRange = B2_MAX(count / (8 * world->workerCount), 1);
 		world->enqueueTask(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
 	}
 	else
@@ -855,6 +868,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2FreeStackItem(world->stackAllocator, world->fastBodies);
 	world->fastBodies = NULL;
 
+	world->profile.continuous = b2GetMilliseconds(&timer);
+
 	b2FreeStackItem(world->stackAllocator, islands);
 
 	b2TracyCZoneEnd(solve);
@@ -1061,7 +1076,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				}
 				else if (b->isFast)
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.3f, 0.5f, 0.9f, 1.0f});
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorSalmon, 1.0f));
 				}
 				else if (b->type == b2_staticBody)
 				{

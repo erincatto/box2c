@@ -8,6 +8,8 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+BOX2D_API int32_t b2_awakeContactCount;
+
 class BenchmarkPyramid : public Sample
 {
   public:
@@ -19,77 +21,88 @@ class BenchmarkPyramid : public Sample
 
 	BenchmarkPyramid(const Settings& settings) : Sample(settings)
 	{
-		float groundSize = 100.0f;
-		m_groundThickness = 1.0f;
+		m_extent = 0.5f;
 		m_round = 0.0f;
-
-		b2BodyDef bd = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
-
-		b2Polygon box = b2MakeBox(groundSize, m_groundThickness);
-		b2ShapeDef sd = b2DefaultShapeDef();
-		b2Body_CreatePolygon(groundId, &sd, &box);
-
-		for (int32_t i = 0; i < e_maxBodyCount; ++i)
-		{
-			m_bodies[i] = b2_nullBodyId;
-		}
-
-		m_baseCount = g_sampleDebug ? 8 : 100;
+		m_baseCount = 10;
+		m_stackCount = g_sampleDebug ? 4 : 182;
+		m_groundId = b2_nullBodyId;
+		m_bodyIds = nullptr;
 		m_bodyCount = 0;
+		m_bodyIndex = 0;
 
 		CreateScene();
 	}
 
-	void CreateScene()
+	~BenchmarkPyramid()
 	{
-		for (int32_t i = 0; i < e_maxBodyCount; ++i)
-		{
-			if (B2_NON_NULL(m_bodies[i]))
-			{
-				b2World_DestroyBody(m_bodies[i]);
-				m_bodies[i] = b2_nullBodyId;
-			}
-		}
+		free(m_bodyIds);
+	}
 
-		int32_t count = m_baseCount;
-		float rad = 0.5f;
-		float shift = rad * 2.0f;
-		float centerx = shift * count / 2.0f;
-		float centery = shift / 2.0f + m_groundThickness; //		+rad * 1.5f;
+	void CreateStack(float centerX)
+	{
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
 
-		b2BodyDef bd = b2DefaultBodyDef();
-		bd.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
 
-		b2ShapeDef sd = b2DefaultShapeDef();
-		sd.density = 1.0f;
-		sd.friction = 0.5f;
-
-		// b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
-		// b2Polygon cuboid = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
-		float h = 0.5f - m_round;
+		float h = m_extent - m_round;
 		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
 
-		int32_t index = 0;
-
-		for (int32_t i = 0; i < count; ++i)
+		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			float y = i * shift + centery;
+			float y = (2.0f * i  + 1.0f) * m_extent;
 
-			for (int32_t j = i; j < count; ++j)
+			for (int32_t j = i; j < m_baseCount; ++j)
 			{
-				float x = 0.5f * i * shift + (j - i) * shift - centerx;
-				bd.position = {x, y};
+				float x = (i + 1.0f) * m_extent + 2.0f * (j - i) * m_extent + centerX;
+				bodyDef.position = {x, y};
 
-				assert(index < e_maxBodyCount);
-				m_bodies[index] = b2World_CreateBody(m_worldId, &bd);
-				b2Body_CreatePolygon(m_bodies[index], &sd, &cuboid);
+				assert(m_bodyIndex < m_bodyCount);
+				m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
+				b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, &cuboid);
 
-				index += 1;
+				m_bodyIndex += 1;
 			}
 		}
+	}
 
-		m_bodyCount = index;
+	void CreateScene()
+	{
+		if (B2_NON_NULL(m_groundId))
+		{
+			b2World_DestroyBody(m_groundId);
+		}
+
+		for (int32_t i = 0; i < m_bodyCount; ++i)
+		{
+			b2World_DestroyBody(m_bodyIds[i]);
+		}
+
+		free(m_bodyIds);
+
+		m_bodyCount = m_stackCount * m_baseCount * (m_baseCount + 1) / 2;
+		m_bodyIds = (b2BodyId*)malloc(m_bodyCount * sizeof(b2BodyId));
+		m_bodyIndex = 0;
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+
+		float groundWidth = 2.0f * m_extent * m_stackCount * (m_baseCount + 1.0f);
+		b2Segment segment = {{-0.5f * groundWidth, 0.0f}, {0.5f * groundWidth, 0.0f}};
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2Body_CreateSegment(groundId, &shapeDef, &segment);
+
+		float baseWidth = 2.0f * m_extent * m_baseCount;
+
+		for (int32_t i = 0; i < m_stackCount; ++i)
+		{
+			float centerX = -0.5f * groundWidth + i * (baseWidth + 2.0f * m_extent) + m_extent;
+			CreateStack(centerX);
+		}
+
+		assert(m_bodyIndex == m_bodyCount);
 	}
 
 	void UpdateUI() override
@@ -99,15 +112,11 @@ class BenchmarkPyramid : public Sample
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, e_maxBaseCount);
+		changed = changed || ImGui::SliderInt("Stack Count", &m_stackCount, 1, 200);
+		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 100);
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
-
-		if (ImGui::Button("Wake Top"))
-		{
-			b2Body_Wake(m_bodies[m_bodyCount - 1]);
-		}
 
 		if (changed)
 		{
@@ -117,16 +126,27 @@ class BenchmarkPyramid : public Sample
 		ImGui::End();
 	}
 
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawString(5, m_textLine, "awake contacts = %d", b2_awakeContactCount);
+		m_textLine += m_textIncrement;
+	}
+
 	static Sample* Create(const Settings& settings)
 	{
 		return new BenchmarkPyramid(settings);
 	}
 
-	b2BodyId m_bodies[e_maxBodyCount];
+	b2BodyId m_groundId;
+	b2BodyId* m_bodyIds;
 	int32_t m_bodyCount;
+	int32_t m_bodyIndex;
 	int32_t m_baseCount;
+	int32_t m_stackCount;
 	float m_round;
-	float m_groundThickness;
+	float m_extent;
 };
 
 static int sampleIndex = RegisterSample("Benchmark", "Pyramid", BenchmarkPyramid::Create);

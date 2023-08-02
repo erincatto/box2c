@@ -183,6 +183,7 @@ static float b2Simplex_Metric(const b2Simplex* s)
 	}
 }
 
+#if 0
 static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2DistanceProxy* proxyA, b2Transform transformA,
 										const b2DistanceProxy* proxyB, b2Transform transformB)
 {
@@ -191,6 +192,7 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 
 	// Copy data from cache.
 	s.count = cache->count;
+
 	b2SimplexVertex* vertices[] = {&s.v1, &s.v2, &s.v3};
 	for (int32_t i = 0; i < s.count; ++i)
 	{
@@ -206,34 +208,6 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 		// invalid
 		v->a = -1.0f;
 	}
-
-// TODO_ERIN not seeing any benefit to reseting. ignore metric?
-#if 0
-	// Compute the new simplex metric, if it is substantially different than
-	// old metric then flush the simplex.
-	if (s.count == 2)
-	{
-		float metric1 = cache->metric;
-		float metric2 = b2Simplex_Metric(&s);
-		if (metric2 < 0.5f * metric1 || 2.0f * metric1 < metric2 || metric2 < FLT_EPSILON)
-		{
-			// Reset the simplex.
-			s.count = 0;
-		}
-	}
-	else if (s.count == 3)
-	{
-		float metric1 = cache->metric;
-		float metric2 = b2Simplex_Metric(&s);
-		float abs1 = B2_ABS(metric1);
-		float abs2 = B2_ABS(metric2);
-		if (metric1 * metric2 < 0.0f || abs2 < 0.5f * abs1 || 2.0f * abs1 < abs2)
-		{
-			// Reset the simplex.
-			s.count = 0;
-		}
-	}
-#endif
 
 	// If the cache is empty or invalid ...
 	if (s.count == 0)
@@ -252,6 +226,156 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 
 	return s;
 }
+#elseif
+static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* restrict cache, const b2DistanceProxy* restrict proxyA,
+										b2Transform transformA, const b2DistanceProxy* restrict proxyB, b2Transform transformB)
+{
+	B2_ASSERT(cache->count <= 3);
+	b2Simplex s;
+
+	// Copy data from cache.
+	s.count = cache->count;
+
+	switch (s.count)
+	{
+		case 3:
+		{
+			s.v3.indexA = cache->indexA[2];
+			s.v3.indexB = cache->indexB[2];
+			b2Vec2 wALocal = proxyA->vertices[s.v3.indexA];
+			b2Vec2 wBLocal = proxyB->vertices[s.v3.indexB];
+			s.v3.wA = b2TransformPoint(transformA, wALocal);
+			s.v3.wB = b2TransformPoint(transformB, wBLocal);
+			s.v3.w = b2Sub(s.v3.wB, s.v3.wA);
+
+			// invalid
+			s.v3.a = -1.0f;
+		}
+		// fall through
+
+		case 2:
+		{
+			s.v2.indexA = cache->indexA[1];
+			s.v2.indexB = cache->indexB[1];
+			b2Vec2 wALocal = proxyA->vertices[s.v2.indexA];
+			b2Vec2 wBLocal = proxyB->vertices[s.v2.indexB];
+			s.v2.wA = b2TransformPoint(transformA, wALocal);
+			s.v2.wB = b2TransformPoint(transformB, wBLocal);
+			s.v2.w = b2Sub(s.v2.wB, s.v2.wA);
+
+			// invalid
+			s.v2.a = -1.0f;
+
+		}
+		// fall through
+
+		case 1:
+		{
+			s.v1.indexA = cache->indexA[0];
+			s.v1.indexB = cache->indexB[0];
+			b2Vec2 wALocal = proxyA->vertices[s.v1.indexA];
+			b2Vec2 wBLocal = proxyB->vertices[s.v1.indexB];
+			s.v1.wA = b2TransformPoint(transformA, wALocal);
+			s.v1.wB = b2TransformPoint(transformB, wBLocal);
+			s.v1.w = b2Sub(s.v1.wB, s.v1.wA);
+
+			// invalid
+			s.v1.a = -1.0f;
+
+		}
+		break;
+
+		default:
+		{
+			s.v1.indexA = 0;
+			s.v1.indexB = 0;
+			b2Vec2 wALocal = proxyA->vertices[0];
+			b2Vec2 wBLocal = proxyB->vertices[0];
+			s.v1.wA = b2TransformPoint(transformA, wALocal);
+			s.v1.wB = b2TransformPoint(transformB, wBLocal);
+			s.v1.w = b2Sub(s.v1.wB, s.v1.wA);
+			s.v1.a = 1.0f;
+			s.count = 1;
+		}
+		break;
+	}
+
+	return s;
+}
+
+#else
+static void b2MakeSimplexFromCache(b2Simplex* restrict simplex, const b2DistanceCache* restrict cache, const b2DistanceProxy* restrict proxyA,
+										b2Transform transformA, const b2DistanceProxy* restrict proxyB, b2Transform transformB)
+{
+	B2_ASSERT(cache->count <= 3);
+
+	// Copy data from cache.
+	int32_t count = cache->count;
+	simplex->count = count;
+
+	switch (count)
+	{
+		case 3:
+		{
+			simplex->v3.indexA = cache->indexA[2];
+			simplex->v3.indexB = cache->indexB[2];
+			b2Vec2 wALocal = proxyA->vertices[simplex->v3.indexA];
+			b2Vec2 wBLocal = proxyB->vertices[simplex->v3.indexB];
+			simplex->v3.wA = b2TransformPoint(transformA, wALocal);
+			simplex->v3.wB = b2TransformPoint(transformB, wBLocal);
+			simplex->v3.w = b2Sub(simplex->v3.wB, simplex->v3.wA);
+
+			// invalid
+			simplex->v3.a = -1.0f;
+		}
+			// fall through
+
+		case 2:
+		{
+			simplex->v2.indexA = cache->indexA[1];
+			simplex->v2.indexB = cache->indexB[1];
+			b2Vec2 wALocal = proxyA->vertices[simplex->v2.indexA];
+			b2Vec2 wBLocal = proxyB->vertices[simplex->v2.indexB];
+			simplex->v2.wA = b2TransformPoint(transformA, wALocal);
+			simplex->v2.wB = b2TransformPoint(transformB, wBLocal);
+			simplex->v2.w = b2Sub(simplex->v2.wB, simplex->v2.wA);
+
+			// invalid
+			simplex->v2.a = -1.0f;
+		}
+			// fall through
+
+		case 1:
+		{
+			simplex->v1.indexA = cache->indexA[0];
+			simplex->v1.indexB = cache->indexB[0];
+			b2Vec2 wALocal = proxyA->vertices[simplex->v1.indexA];
+			b2Vec2 wBLocal = proxyB->vertices[simplex->v1.indexB];
+			simplex->v1.wA = b2TransformPoint(transformA, wALocal);
+			simplex->v1.wB = b2TransformPoint(transformB, wBLocal);
+			simplex->v1.w = b2Sub(simplex->v1.wB, simplex->v1.wA);
+
+			// invalid
+			simplex->v1.a = -1.0f;
+		}
+		break;
+
+		default:
+		{
+			simplex->v1.indexA = 0;
+			simplex->v1.indexB = 0;
+			b2Vec2 wALocal = proxyA->vertices[0];
+			b2Vec2 wBLocal = proxyB->vertices[0];
+			simplex->v1.wA = b2TransformPoint(transformA, wALocal);
+			simplex->v1.wB = b2TransformPoint(transformB, wBLocal);
+			simplex->v1.w = b2Sub(simplex->v1.wB, simplex->v1.wA);
+			simplex->v1.a = 1.0f;
+			simplex->count = 1;
+		}
+		break;
+	}
+}
+#endif
 
 static void b2MakeSimplexCache(b2DistanceCache* cache, const b2Simplex* simplex)
 {
@@ -371,7 +495,7 @@ void b2ComputeSimplexWitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 // Solution
 // a1 = d12_1 / d12
 // a2 = d12_2 / d12
-void b2SolveSimplex2(b2Simplex* s)
+void b2SolveSimplex2(b2Simplex* restrict s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -405,7 +529,7 @@ void b2SolveSimplex2(b2Simplex* s)
 	s->count = 2;
 }
 
-void b2SolveSimplex3(b2Simplex* s)
+void b2SolveSimplex3(b2Simplex* restrict s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -514,9 +638,9 @@ void b2SolveSimplex3(b2Simplex* s)
 	s->count = 3;
 }
 
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* restrict cache, const b2DistanceInput* restrict input)
 {
-	++b2_gjkCalls;
+	//++b2_gjkCalls;
 
 	b2DistanceOutput output = {0};
 
@@ -527,7 +651,8 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 	b2Transform transformB = input->transformB;
 
 	// Initialize the simplex.
-	b2Simplex simplex = b2MakeSimplexFromCache(cache, proxyA, transformA, proxyB, transformB);
+	b2Simplex simplex;
+	b2MakeSimplexFromCache(&simplex, cache, proxyA, transformA, proxyB, transformB);
 
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
@@ -598,7 +723,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 		// Iteration count is equated to the number of support point calls.
 		++iter;
-		++b2_gjkIters;
+		//++b2_gjkIters;
 
 		// Check for duplicate support points. This is the main termination criteria.
 		bool duplicate = false;
@@ -621,7 +746,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 		++simplex.count;
 	}
 
-	b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
+	//b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
 
 	// Prepare output
 	b2ComputeSimplexWitnessPoints(&output.pointA, &output.pointB, &simplex);
