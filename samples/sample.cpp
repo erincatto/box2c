@@ -77,7 +77,7 @@ Sample::Sample(const Settings& settings)
 	// m_world->SetDestructionListener(&m_destructionListener);
 	// m_world->SetContactListener(this);
 
-	//b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
+	b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
 
 	m_stepCount = 0;
 

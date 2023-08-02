@@ -12,6 +12,8 @@
 
 #include <float.h>
 
+#define B2_RESTRICT
+
 b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
 {
 	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
@@ -183,7 +185,7 @@ static float b2Simplex_Metric(const b2Simplex* s)
 	}
 }
 
-#if 0
+#if 1
 static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2DistanceProxy* proxyA, b2Transform transformA,
 										const b2DistanceProxy* proxyB, b2Transform transformB)
 {
@@ -226,9 +228,9 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 
 	return s;
 }
-#elseif
-static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* restrict cache, const b2DistanceProxy* restrict proxyA,
-										b2Transform transformA, const b2DistanceProxy* restrict proxyB, b2Transform transformB)
+#elif 1
+static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* B2_RESTRICT cache, const b2DistanceProxy* B2_RESTRICT proxyA,
+										b2Transform transformA, const b2DistanceProxy* B2_RESTRICT proxyB, b2Transform transformB)
 {
 	B2_ASSERT(cache->count <= 3);
 	b2Simplex s;
@@ -304,8 +306,8 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* restrict cache, c
 }
 
 #else
-static void b2MakeSimplexFromCache(b2Simplex* restrict simplex, const b2DistanceCache* restrict cache, const b2DistanceProxy* restrict proxyA,
-										b2Transform transformA, const b2DistanceProxy* restrict proxyB, b2Transform transformB)
+static void b2MakeSimplexFromCache(b2Simplex* B2_RESTRICT simplex, const b2DistanceCache* B2_RESTRICT cache, const b2DistanceProxy* B2_RESTRICT proxyA,
+										b2Transform transformA, const b2DistanceProxy* B2_RESTRICT proxyB, b2Transform transformB)
 {
 	B2_ASSERT(cache->count <= 3);
 
@@ -495,7 +497,7 @@ void b2ComputeSimplexWitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 // Solution
 // a1 = d12_1 / d12
 // a2 = d12_2 / d12
-void b2SolveSimplex2(b2Simplex* restrict s)
+void b2SolveSimplex2(b2Simplex* B2_RESTRICT s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -529,7 +531,7 @@ void b2SolveSimplex2(b2Simplex* restrict s)
 	s->count = 2;
 }
 
-void b2SolveSimplex3(b2Simplex* restrict s)
+void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -638,7 +640,7 @@ void b2SolveSimplex3(b2Simplex* restrict s)
 	s->count = 3;
 }
 
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* restrict cache, const b2DistanceInput* restrict input)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* B2_RESTRICT cache, const b2DistanceInput* B2_RESTRICT input)
 {
 	//++b2_gjkCalls;
 
@@ -651,8 +653,9 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* restrict cache, const b2Distan
 	b2Transform transformB = input->transformB;
 
 	// Initialize the simplex.
-	b2Simplex simplex;
-	b2MakeSimplexFromCache(&simplex, cache, proxyA, transformA, proxyB, transformB);
+	//b2Simplex simplex;
+	//b2MakeSimplexFromCache(&simplex, cache, proxyA, transformA, proxyB, transformB);
+	b2Simplex simplex = b2MakeSimplexFromCache(cache, proxyA, transformA, proxyB, transformB);
 
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};

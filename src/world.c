@@ -209,7 +209,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
-	int32_t* awakeContactArray = world->awakeContactArray;
+	//int32_t* awakeContactArray = world->awakeContactArray;
 
 	B2_MAYBE_UNUSED(awakeCount);
 	B2_ASSERT(startIndex < endIndex);
@@ -217,7 +217,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
-		int32_t contactIndex = awakeContactArray[awakeIndex];
+		int32_t contactIndex = world->awakeContactArray[awakeIndex];
+		//int32_t contactIndex = awakeContactArray[awakeIndex];
 
 		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
@@ -317,8 +318,8 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
-		int32_t minRange = B2_MAX(awakeContactCount / (world->workerCount * 4), 64);
-		minRange = 100;
+		//int32_t minRange = B2_MAX(awakeContactCount / (world->workerCount * 4), 64);
+		int32_t minRange = 64;
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -659,8 +660,9 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	if (b2_parallel)
 	{
-		int32_t minRange = B2_MAX(count / (8 * world->workerCount), 1);
-		minRange = b2_islandMinRange;
+		//int32_t minRange = B2_MAX(count / (8 * world->workerCount), 1);
+		//minRange = b2_islandMinRange;
+		int32_t minRange = 1;
 		world->enqueueTask(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
 	}
 	else
