@@ -29,6 +29,8 @@
 
 b2World b2_worlds[b2_maxWorlds];
 bool b2_parallel = true;
+int b2_collideMinRange = 64;
+int b2_islandMinRange = 1;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -316,6 +318,7 @@ static void b2Collide(b2World* world)
 	{
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
 		int32_t minRange = B2_MAX(awakeContactCount / (world->workerCount * 4), 64);
+		minRange = 100;
 		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}
@@ -657,6 +660,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	if (b2_parallel)
 	{
 		int32_t minRange = B2_MAX(count / (8 * world->workerCount), 1);
+		minRange = b2_islandMinRange;
 		world->enqueueTask(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
 	}
 	else

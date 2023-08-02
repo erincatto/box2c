@@ -10,6 +10,9 @@
 
 BOX2D_API int32_t b2_awakeContactCount;
 
+BOX2D_API int b2_collideMinRange;
+BOX2D_API int b2_islandMinRange;
+
 class BenchmarkPyramid : public Sample
 {
   public:
@@ -29,6 +32,15 @@ class BenchmarkPyramid : public Sample
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
 		m_bodyIndex = 0;
+
+		m_collideRange = 169;
+		m_islandRange = 1;
+
+		m_bestCollideRange = 1;
+		m_minCollide = FLT_MAX;
+
+		m_bestIslandRange = 1;
+		m_minIsland = FLT_MAX;
 
 		CreateScene();
 	}
@@ -118,6 +130,9 @@ class BenchmarkPyramid : public Sample
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
 
+		ImGui::SliderInt("Collide Min", &b2_collideMinRange, 1, 200);
+		ImGui::SliderInt("Island Min", &b2_islandMinRange, 1, 10);
+
 		if (changed)
 		{
 			CreateScene();
@@ -128,10 +143,45 @@ class BenchmarkPyramid : public Sample
 
 	void Step(Settings& settings) override
 	{
+		//b2_collideMinRange = m_collideRange;
+		//b2_islandMinRange = m_islandRange;
+
 		Sample::Step(settings);
 
-		g_draw.DrawString(5, m_textLine, "awake contacts = %d", b2_awakeContactCount);
-		m_textLine += m_textIncrement;
+		b2Profile profile = b2World_GetProfile(m_worldId);
+
+		if (m_stepCount > 100000000)
+		{
+			if (profile.collide < m_minCollide)
+			{
+				m_minCollide = profile.collide;
+				m_bestCollideRange = m_collideRange;
+			}
+
+			if (profile.solveIslands < m_minIsland)
+			{
+				m_minIsland = profile.solveIslands;
+				m_bestIslandRange = m_islandRange;
+			}
+
+			g_draw.DrawString(5, m_textLine, "collide range (best) = %d (%d)", m_collideRange, m_bestCollideRange);
+			m_textLine += m_textIncrement;
+
+			g_draw.DrawString(5, m_textLine, "island range (best) = %d (%d)", m_islandRange, m_bestIslandRange);
+			m_textLine += m_textIncrement;
+
+			//m_collideRange += 1;
+			//if (m_collideRange > 300)
+			//{
+			//	m_collideRange = 32;
+			//}
+
+			//m_islandRange += 1;
+			//if (m_islandRange > 4)
+			//{
+			//	m_islandRange = 1;
+			//}
+		}
 	}
 
 	static Sample* Create(const Settings& settings)
@@ -147,6 +197,15 @@ class BenchmarkPyramid : public Sample
 	int32_t m_stackCount;
 	float m_round;
 	float m_extent;
+
+	int m_collideRange;
+	int m_islandRange;
+
+	int32_t m_bestCollideRange;
+	float m_minCollide;
+
+	int32_t m_bestIslandRange;
+	float m_minIsland;
 };
 
 static int sampleIndex = RegisterSample("Benchmark", "Pyramid", BenchmarkPyramid::Create);
