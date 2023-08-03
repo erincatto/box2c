@@ -156,7 +156,7 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 		if (contact->edges[otherEdgeIndex].bodyIndex == otherBodyIndex)
 		{
 			// Careful, this removes the contact from the current doubly linked list
-			b2DestroyContact(world, contact);
+			b2DestroyContact(world, contact, true);
 		}
 	}
 }

@@ -87,7 +87,7 @@ typedef struct b2Contact
 void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
-void b2DestroyContact(b2World* world, b2Contact* contact);
+void b2DestroyContact(b2World* world, b2Contact* contact, bool removeAwake);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

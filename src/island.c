@@ -676,11 +676,6 @@ void b2PrepareIsland(b2Island* island, b2StepContext* stepContext)
 {
 	island->stepContext = stepContext;
 
-	// b2Array_Clear(island->awakeContactArray);
-
-	// TODO_ERIN
-	// b2Array_Reserve(&island->enlargedBodyArray, island->bodyCount);
-
 	b2ContactSolverDef contactSolverDef;
 	contactSolverDef.context = island->stepContext;
 	contactSolverDef.world = island->world;

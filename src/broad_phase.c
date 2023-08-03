@@ -337,8 +337,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 
 	if (b2_parallel)
 	{
-		// TODO_ERIN should be 64
-		int32_t minRange = 1;
+		int32_t minRange = 64;
 		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
 		world->finishTasks(world->userTaskContext);
 	}

@@ -198,7 +198,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
 }
 
-void b2DestroyContact(b2World* world, b2Contact* contact)
+void b2DestroyContact(b2World* world, b2Contact* contact, bool removeAwake)
 {
 	// Remove pair from set
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
@@ -267,15 +267,18 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	}
 
 	// Remove from awake contact array
-	// TODO_ERIN perf problem?
-	int32_t contactIndex = contact->object.index;
-	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
-	for (int32_t i = 0; i < awakeContactCount; ++i)
+	if (removeAwake)
 	{
-		if (world->awakeContactArray[i] == contactIndex)
+		// TODO_ERIN add awake index back to b2Contact to speed this up
+		int32_t contactIndex = contact->object.index;
+		int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+		for (int32_t i = 0; i < awakeContactCount; ++i)
 		{
-			b2Array_RemoveSwap(world->awakeContactArray, i);
-			break;
+			if (world->awakeContactArray[i] == contactIndex)
+			{
+				b2Array_RemoveSwap(world->awakeContactArray, i);
+				break;
+			}
 		}
 	}
 
