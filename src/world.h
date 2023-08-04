@@ -65,6 +65,9 @@ typedef struct b2World
 	// but a bit set is used to prevent duplicates
 	int32_t* awakeContactArray;
 
+	// Hot data split from b2Contact
+	int32_t* contactAwakeIndexArray;
+
 	// This transient array holds islands created from splitting a larger island.
 	int32_t* splitIslandArray;
 

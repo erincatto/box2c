@@ -117,6 +117,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
+	world->contactAwakeIndexArray = b2CreateArray(sizeof(int32_t), world->contactPool.capacity);
 
 	world->splitIslandIndex = B2_NULL_INDEX;
 	world->stepId = 0;
@@ -179,6 +180,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
 
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
+	b2DestroyArray(world->contactAwakeIndexArray, sizeof(int32_t));
 	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
 
 	b2Island* islands = world->islands;
@@ -219,6 +221,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Contact* contacts = world->contacts;
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
 	int32_t* awakeContactArray = world->awakeContactArray;
+	int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
 
 	B2_MAYBE_UNUSED(awakeCount);
 	B2_ASSERT(startIndex < endIndex);
@@ -227,16 +230,21 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
 		int32_t contactIndex = awakeContactArray[awakeIndex];
+		if (contactIndex == B2_NULL_INDEX)
+		{
+			// Contact was destroyed
+			continue;
+		}
 
 		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
 
-		// B2_ASSERT(contact->awakeIndex == awakeIndex);
+		B2_ASSERT(contactAwakeIndexArray[contactIndex] == awakeIndex);
 		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
-		// contact->awakeIndex = B2_NULL_INDEX;
+		contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
@@ -291,22 +299,13 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2TracyCZoneEnd(tree_task);
 }
 
-int32_t b2_awakeContactCount;
-
 static void b2Collide(b2World* world)
 {
 	B2_ASSERT(world->workerCount > 0);
 
-	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
-	b2_awakeContactCount = awakeContactCount;
-
-	if (awakeContactCount == 0)
-	{
-		return;
-	}
-
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
+	// Rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good.
 	if (b2_parallel)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
@@ -315,6 +314,13 @@ static void b2Collide(b2World* world)
 	{
 		b2UpdateTreesTask(0, 1, 0, world);
 		world->userTreeTask = NULL;
+	}
+
+	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+
+	if (awakeContactCount == 0)
+	{
+		return;
 	}
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
@@ -358,12 +364,14 @@ static void b2Collide(b2World* world)
 			B2_ASSERT(awakeIndex < (uint32_t)awakeContactCount);
 
 			int32_t contactIndex = world->awakeContactArray[awakeIndex];
+			B2_ASSERT(contactIndex != B2_NULL_INDEX);
+
 			b2Contact* contact = world->contacts + contactIndex;
 
 			if (contact->flags & b2_contactDisjoint)
 			{
 				// Bounding boxes no longer overlap
-				b2DestroyContact(world, contact, false);
+				b2DestroyContact(world, contact);
 			}
 			else if (contact->flags & b2_contactStartedTouching)
 			{
@@ -751,6 +759,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 		b2Array_Clear(world->awakeContactArray);
 
+		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
+
 		// Iterate the bit set
 		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
 		// that body A or body B or both bodies wake the contact.
@@ -765,7 +775,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 				uint32_t ctz = b2CTZ(word);
 				uint32_t contactIndex = 64 * k + ctz;
 
-				// TODO_ERIN consider adding the awake index to the contact to speed up deletes
+				B2_ASSERT(contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
+
+				// This cache miss is brutal but is necessary to make contact destruction reasonably quick.
+				contactAwakeIndexArray[contactIndex] = b2Array(world->awakeContactArray).count;
+
+				// This is fast
 				b2Array_Push(world->awakeContactArray, contactIndex);
 
 				// Clear the smallest set bit

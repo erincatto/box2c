@@ -21,7 +21,7 @@
 
 // Contacts and determinism
 // A deterministic simulation requires contacts to exist in the same order in b2Island no matter the thread count.
-// The order must reproduce from run to run. This is necessary because Gauss-Seidel is order dependent.
+// The order must reproduce from run to run. This is necessary because the Gauss-Seidel constraint solver is order dependent.
 //
 // Creation:
 // - Contacts are created using results from b2UpdateBroadPhasePairs
@@ -35,7 +35,8 @@
 // - Awake contacts are solved in parallel and they generate contact state changes.
 // - These state changes may link islands together using union find.
 // - The state changes are ordered using a bit array that encompasses all contacts
-// - As long as contacts are created in deterministic order, island link order is deterministic
+// - As long as contacts are created in deterministic order, island link order is deterministic.
+// - This keeps the order of contacts in islands deterministic
 
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.
@@ -132,6 +133,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
 	world->contacts = (b2Contact*)world->contactPool.memory;
 
+	int32_t contactIndex = contact->object.index;
+
 	contact->flags = b2_contactEnabledFlag;
 
 	if (shapeA->isSensor || shapeB->isSensor)
@@ -159,7 +162,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->edges[0].prevKey = B2_NULL_INDEX;
 		contact->edges[0].nextKey = bodyA->contactList;
 
-		int32_t keyA = (contact->object.index << 1) | 0;
+		int32_t keyA = (contactIndex << 1) | 0;
 		if (bodyA->contactList != B2_NULL_INDEX)
 		{
 			b2Contact* contactA = world->contacts + (bodyA->contactList >> 1);
@@ -176,7 +179,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->edges[1].prevKey = B2_NULL_INDEX;
 		contact->edges[1].nextKey = bodyB->contactList;
 
-		int32_t keyB = (contact->object.index << 1) | 1;
+		int32_t keyB = (contactIndex << 1) | 1;
 		if (bodyB->contactList != B2_NULL_INDEX)
 		{
 			b2Contact* contactB = world->contacts + (bodyB->contactList >> 1);
@@ -187,10 +190,20 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		bodyB->contactCount += 1;
 	}
 
-	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
+	// A contact should only be created from an awake body
+	B2_ASSERT(b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB));
+
+	int32_t awakeIndex = b2Array(world->awakeContactArray).count;
+	b2Array_Push(world->awakeContactArray, contactIndex);
+
+	if (contactIndex == b2Array(world->contactAwakeIndexArray).count)
 	{
-		// A contact does not need to be in an island to be awake.
-		b2Array_Push(world->awakeContactArray, contact->object.index);
+		b2Array_Push(world->contactAwakeIndexArray, awakeIndex);
+	}
+	else
+	{
+		B2_ASSERT(contactIndex < b2Array(world->contactAwakeIndexArray).count);
+		world->contactAwakeIndexArray[contactIndex] = awakeIndex;
 	}
 
 	// Add to pair set for fast lookup
@@ -198,7 +211,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
 }
 
-void b2DestroyContact(b2World* world, b2Contact* contact, bool removeAwake)
+void b2DestroyContact(b2World* world, b2Contact* contact)
 {
 	// Remove pair from set
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
@@ -253,7 +266,9 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool removeAwake)
 		nextEdge->prevKey = edgeB->prevKey;
 	}
 
-	int32_t edgeKeyB = (contact->object.index << 1) | 1;
+	int32_t contactIndex = contact->object.index;
+
+	int32_t edgeKeyB = (contactIndex << 1) | 1;
 	if (bodyB->contactList == edgeKeyB)
 	{
 		bodyB->contactList = edgeB->nextKey;
@@ -267,19 +282,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool removeAwake)
 	}
 
 	// Remove from awake contact array
-	if (removeAwake)
+	b2Array_Check(world->contactAwakeIndexArray, contactIndex);
+	int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
+	if (awakeIndex != B2_NULL_INDEX)
 	{
-		// TODO_ERIN add awake index back to b2Contact to speed this up
-		int32_t contactIndex = contact->object.index;
-		int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
-		for (int32_t i = 0; i < awakeContactCount; ++i)
-		{
-			if (world->awakeContactArray[i] == contactIndex)
-			{
-				b2Array_RemoveSwap(world->awakeContactArray, i);
-				break;
-			}
-		}
+		B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
+		world->awakeContactArray[awakeIndex] = B2_NULL_INDEX;
+		world->contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 	}
 
 	b2FreeObject(&world->contactPool, &contact->object);

@@ -63,6 +63,9 @@ typedef struct b2Contact
 
 	uint32_t flags;
 
+	// This is too hot and has been moved to a separate array
+	//int32_t awakeIndex;
+
 	b2ContactEdge edges[2];
 
 	int32_t shapeIndexA;
@@ -87,7 +90,7 @@ typedef struct b2Contact
 void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
-void b2DestroyContact(b2World* world, b2Contact* contact, bool removeAwake);
+void b2DestroyContact(b2World* world, b2Contact* contact);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

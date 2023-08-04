@@ -161,16 +161,12 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		}
 
 		// Remove from awake contact array
-		// TODO_ERIN perf problem?
-		int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
-		for (int32_t i = 0; i < awakeContactCount; ++i)
+		int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
+		if (awakeIndex != B2_NULL_INDEX)
 		{
-			B2_ASSERT(i != 0);
-			if (world->awakeContactArray[i] == contactIndex)
-			{
-				b2Array_RemoveSwap(world->awakeContactArray, i);
-				break;
-			}
+			B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
+			world->awakeContactArray[awakeIndex] = B2_NULL_INDEX;
+			world->contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 		}
 
 		// Remove pair from set
