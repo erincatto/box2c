@@ -338,8 +338,8 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	if (b2_parallel)
 	{
 		int32_t minRange = 64;
-		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
-		world->finishTasks(world->userTaskContext);
+		void* userPairTask = world->enqueueTaskFcn(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userPairTask, world->userTaskContext);
 	}
 	else
 	{

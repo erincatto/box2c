@@ -45,7 +45,7 @@ void ExecuteRangeTask(uint32_t start, uint32_t end, uint32_t threadIndex, void* 
 	data->box2dTask(start, end, threadIndex, data->box2dContext);
 }
 
-static void EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange, void* box2dContext, void* userContext)
+static void* EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange, void* box2dContext, void* userContext)
 {
 	B2_MAYBE_UNUSED(userContext);
 
@@ -64,15 +64,29 @@ static void EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange, 
 
 		enkiSetParamsTaskSet(task, params);
 		enkiAddTaskSet(scheduler, task);
+
 		++taskCount;
+
+		return task;
 	}
 	else
 	{
 		box2dTask(0, itemCount, 0, box2dContext);
+
+		return NULL;
 	}
 }
 
-static void FinishTasks(void* userContext)
+static void FinishTask(void* userTask, void* userContext)
+{
+	B2_MAYBE_UNUSED(userContext);
+
+	enkiTaskSet* task = userTask;
+	enkiWaitForTaskSet(scheduler, task);
+	taskCount = 0;
+}
+
+static void FinishAllTasks(void* userContext)
 {
 	B2_MAYBE_UNUSED(userContext);
 
@@ -99,7 +113,8 @@ void TiltedStacks(int testIndex, int workerCount)
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.gravity = gravity;
 	worldDef.enqueueTask = EnqueueTask;
-	worldDef.finishTasks = FinishTasks;
+	worldDef.finishTask = FinishTask;
+	worldDef.finishAllTasks = FinishAllTasks;
 	worldDef.workerCount = workerCount;
 	worldDef.enableSleep = false;
 

@@ -23,6 +23,9 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.9f;
 			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+
+			b2Polygon box = b2MakeOffsetBox(0.1f, 1.0f, {0.0f, 1.0f}, 0.0f);
+			b2Body_CreatePolygon(groundId, &shapeDef, &box);
 		}
 
 		m_linearSpeed = 0.0f;
@@ -49,7 +52,7 @@ public:
 		}
 
 		m_angularVelocity = RandomFloat(-50.0f, 50.0f);
-		//m_angularVelocity = 8.50093460f;
+		//m_angularVelocity = -30.6695766f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;

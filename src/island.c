@@ -1222,7 +1222,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 	else
 	{
 		b2Contact* contacts = world->contacts;
-		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+		const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
 		b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 		b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 

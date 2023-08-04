@@ -165,6 +165,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
 		for (int32_t i = 0; i < awakeContactCount; ++i)
 		{
+			B2_ASSERT(i != 0);
 			if (world->awakeContactArray[i] == contactIndex)
 			{
 				b2Array_RemoveSwap(world->awakeContactArray, i);
@@ -566,7 +567,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 
 	b2BroadPhase* broadPhase = &world->broadPhase;
 
-	const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+	const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
 	int32_t shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{

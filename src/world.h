@@ -89,9 +89,6 @@ typedef struct b2World
 
 	b2Profile profile;
 
-	// TODO_ERIN not used
-	_Atomic int contactPointCount;
-
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;
 
@@ -99,9 +96,12 @@ typedef struct b2World
 	void* postSolveContext;
 
 	uint32_t workerCount;
-	b2EnqueueTaskCallback* enqueueTask;
-	b2FinishTasksCallback* finishTasks;
+	b2EnqueueTaskCallback* enqueueTaskFcn;
+	b2FinishTaskCallback* finishTaskFcn;
+	b2FinishAllTasksCallback* finishAllTasksFcn;
 	void* userTaskContext;
+
+	void* userTreeTask;
 
 	bool enableSleep;
 	bool locked;

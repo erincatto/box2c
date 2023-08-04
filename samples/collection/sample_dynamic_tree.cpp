@@ -90,7 +90,7 @@ class DynamicTree : public Sample
 		bool isStatic = false;
 		m_tree = b2DynamicTree_Create();
 
-		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+		const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
 
 		for (int i = 0; i < m_rowCount; ++i)
 		{
@@ -267,7 +267,7 @@ class DynamicTree : public Sample
 		b2Color c = {0.3f, 0.3f, 0.8f, 0.7f};
 		b2Color qc = {0.3, 0.8f, 0.3f, 1.0f};
 
-		const b2Vec2 aabbExtension = {b2_aabbExtension, b2_aabbExtension};
+		const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
 
 		for (int i = 0; i < m_proxyCount; ++i)
 		{

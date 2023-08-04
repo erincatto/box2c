@@ -43,19 +43,15 @@ void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Tr
 {
 	// Create proxies in the broad-phase.
 	shape->aabb = b2Shape_ComputeAABB(shape, xf);
-	if (type == b2_staticBody)
-	{
-		shape->fatAABB = shape->aabb;
-	}
-	else
-	{
-		shape->fatAABB.lowerBound.x = shape->aabb.lowerBound.x - b2_aabbExtension;
-		shape->fatAABB.lowerBound.y = shape->aabb.lowerBound.y - b2_aabbExtension;
-		shape->fatAABB.upperBound.x = shape->aabb.upperBound.x + b2_aabbExtension;
-		shape->fatAABB.upperBound.y = shape->aabb.upperBound.y + b2_aabbExtension;
-	}
 
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->aabb, shape->filter.categoryBits, shape->object.index);
+	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
+	float margin = type == b2_staticBody ? 4.0f * b2_linearSlop : b2_aabbMargin;
+	shape->fatAABB.lowerBound.x = shape->aabb.lowerBound.x - margin;
+	shape->fatAABB.lowerBound.y = shape->aabb.lowerBound.y - margin;
+	shape->fatAABB.upperBound.x = shape->aabb.upperBound.x + margin;
+	shape->fatAABB.upperBound.y = shape->aabb.upperBound.y + margin;
+
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->object.index);
 	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_bodyTypeCount);
 }
 

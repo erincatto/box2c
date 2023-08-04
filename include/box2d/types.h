@@ -74,12 +74,21 @@ typedef struct b2RayCastOutput
 } b2RayCastOutput;
 
 /// Task interface
-/// This is prototype for a Box2D task
-typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context);
+/// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.
+/// The task spans a range of the parallel-for: [startIndex, endIndex)
+/// The thread index must correctly identify each thread in the user thread pool, expected in [0, workerCount)
+/// The task context is the context pointer sent from Box2D when it is enqueued.
+typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext);
 
-/// These functions can be provided to Box2D to invoke a task system
-typedef void b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);
-typedef void b2FinishTasksCallback(void* userContext);
+/// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
+/// Returns a pointer to the user's task object. May be nullptr.
+typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);
+
+/// Finishes a user task object that wraps a Box2D task.
+typedef void b2FinishTaskCallback(void* userTask, void* userContext);
+
+/// Finishes all tasks.
+typedef void b2FinishAllTasksCallback(void* userContext);
 
 typedef struct b2WorldDef
 {
@@ -113,7 +122,8 @@ typedef struct b2WorldDef
 	/// task system hookup
 	uint32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTask;
-	b2FinishTasksCallback* finishTasks;
+	b2FinishTaskCallback* finishTask;
+	b2FinishAllTasksCallback* finishAllTasks;
 	void* userTaskContext;
 
 } b2WorldDef;

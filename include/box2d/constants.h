@@ -25,7 +25,7 @@ extern float b2_lengthUnitsPerMeter;
 /// to move by a small amount without triggering a tree adjustment.
 /// This is in meters.
 /// @warning modifying this can have a significant impact on performance
-#define b2_aabbExtension (0.1f * b2_lengthUnitsPerMeter)
+#define b2_aabbMargin (0.1f * b2_lengthUnitsPerMeter)
 
 /// A small length used as a collision and constraint tolerance. Usually it is
 /// chosen to be numerically significant, but visually insignificant. In meters.

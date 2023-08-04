@@ -22,7 +22,7 @@ bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, v
 	return sample->PreSolve(shapeIdA, shapeIdB, manifold);
 }
 
-static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
+static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	if (sample->m_taskCount < maxTasks)
@@ -34,14 +34,24 @@ static void EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRang
 		sampleTask.m_taskContext = taskContext;
 		sample->m_scheduler.AddTaskSetToPipe(&sampleTask);
 		++sample->m_taskCount;
+		return &sampleTask;
 	}
 	else
 	{
+		assert(false);
 		task(0, itemCount, 0, taskContext);
+		return nullptr;
 	}
 }
 
-static void FinishTasks(void* userContext)
+static void FinishTask(void* taskPtr, void* userContext)
+{
+	SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
+	Sample* sample = static_cast<Sample*>(userContext);
+	sample->m_scheduler.WaitforTask(sampleTask);
+}
+
+static void FinishAllTasks(void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
 	sample->m_scheduler.WaitforAll();
@@ -60,7 +70,8 @@ Sample::Sample(const Settings& settings)
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = maxThreads;
 	worldDef.enqueueTask = &EnqueueTask;
-	worldDef.finishTasks = &FinishTasks;
+	worldDef.finishTask = &FinishTask;
+	worldDef.finishAllTasks = &FinishAllTasks;
 	worldDef.bodyCapacity = 1024;
 	worldDef.contactCapacity = 4 * 1024;
 	worldDef.userTaskContext = this;
@@ -243,7 +254,7 @@ void Sample::Step(Settings& settings)
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "proxies/height/points = %d/%d/%d", s.proxyCount, s.treeHeight, s.contactPointCount);
+		g_draw.DrawString(5, m_textLine, "proxies/height = %d/%d", s.proxyCount, s.treeHeight);
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
