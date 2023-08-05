@@ -28,10 +28,9 @@ public:
 			b2Body_CreatePolygon(groundId, &shapeDef, &box);
 		}
 
-		m_linearSpeed = 0.0f;
-		m_angularSpeed = 0.0f;
 		m_autoTest = false;
 		m_bullet = false;
+		m_capsule = false;
 
 		m_bodyId = b2_nullBodyId;
 		m_bulletId = b2_nullBodyId;
@@ -60,7 +59,16 @@ public:
 		bodyDef.angularVelocity = m_angularVelocity;
 		bodyDef.linearVelocity = {0.0f, -100.0f};
 
-		b2Polygon polygon = b2MakeBox(2.0f, 0.1f);
+		b2Polygon polygon;
+
+		if (m_capsule)
+		{
+			polygon = b2MakeCapsule({0.0f, -1.0f}, {0.0f, 1.0f}, 0.1f);
+		}
+		else
+		{
+			polygon = b2MakeBox(2.0f, 0.05f);
+		}
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
@@ -86,9 +94,8 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
 		ImGui::Begin("Continuous1", nullptr, ImGuiWindowFlags_NoResize);
 
-		ImGui::SliderFloat("Linear Speed", &m_linearSpeed, 0.0f, 200.0f);
-		ImGui::SliderFloat("Angular Speed", &m_angularSpeed, 0.0f, 45.0f);
-		
+		ImGui::Checkbox("Capsule", &m_capsule);
+
 		if (ImGui::Button("Launch"))
 		{
 			Launch();
@@ -117,8 +124,7 @@ public:
 	b2BodyId m_bodyId, m_bulletId;
 	float m_angularVelocity;
 	float m_x;
-	float m_linearSpeed;
-	float m_angularSpeed;
+	bool m_capsule;
 	bool m_autoTest;
 	bool m_bullet;
 };

@@ -563,7 +563,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 
 	b2BroadPhase* broadPhase = &world->broadPhase;
 
-	const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
+	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 	int32_t shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
@@ -572,8 +572,8 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 
 		if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 		{
-			shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
-			shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
+			shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbMargin);
+			shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbMargin);
 			b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, shape->fatAABB);
 		}
 

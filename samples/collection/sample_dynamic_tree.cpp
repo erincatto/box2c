@@ -90,7 +90,7 @@ class DynamicTree : public Sample
 		bool isStatic = false;
 		m_tree = b2DynamicTree_Create();
 
-		const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
+		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 
 		for (int i = 0; i < m_rowCount; ++i)
 		{
@@ -120,8 +120,8 @@ class DynamicTree : public Sample
 
 					p->box.lowerBound = {x, y};
 					p->box.upperBound = {x + p->width.x, y + p->width.y};
-					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
-					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbExtension);
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbMargin);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbMargin);
 
 					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->fatBox, b2_defaultCategoryBits, m_proxyCount);
 					p->rayStamp = -1;
@@ -267,7 +267,7 @@ class DynamicTree : public Sample
 		b2Color c = {0.3f, 0.3f, 0.8f, 0.7f};
 		b2Color qc = {0.3, 0.8f, 0.3f, 1.0f};
 
-		const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
+		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 
 		for (int i = 0; i < m_proxyCount; ++i)
 		{
@@ -298,8 +298,8 @@ class DynamicTree : public Sample
 
 				if (b2AABB_Contains(p->fatBox, p->box) == false)
 				{
-					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbExtension);
-					p->fatBox.upperBound = b2Add(p->box.lowerBound, aabbExtension);
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbMargin);
+					p->fatBox.upperBound = b2Add(p->box.lowerBound, aabbMargin);
 					p->moved = true;
 				}
 				else

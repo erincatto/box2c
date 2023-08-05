@@ -16,18 +16,14 @@ BOX2D_API int b2_islandMinRange;
 class BenchmarkPyramid : public Sample
 {
   public:
-	enum
-	{
-		e_maxBaseCount = 100,
-		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
-	};
 
 	BenchmarkPyramid(const Settings& settings) : Sample(settings)
 	{
 		m_extent = 0.5f;
 		m_round = 0.0f;
 		m_baseCount = 10;
-		m_stackCount = g_sampleDebug ? 4 : 182;
+		m_rowCount = g_sampleDebug ? 1 : 16;
+		m_columnCount = g_sampleDebug ? 4 : 16;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
@@ -50,7 +46,7 @@ class BenchmarkPyramid : public Sample
 		free(m_bodyIds);
 	}
 
-	void CreateStack(float centerX)
+	void CreateStack(float centerX, float baseY)
 	{
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
@@ -63,7 +59,7 @@ class BenchmarkPyramid : public Sample
 
 		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			float y = (2.0f * i  + 1.0f) * m_extent;
+			float y = (2.0f * i  + 1.0f) * m_extent + baseY;
 
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{
@@ -93,25 +89,38 @@ class BenchmarkPyramid : public Sample
 
 		free(m_bodyIds);
 
-		m_bodyCount = m_stackCount * m_baseCount * (m_baseCount + 1) / 2;
+		m_bodyCount = m_rowCount * m_columnCount * m_baseCount * (m_baseCount + 1) / 2;
 		m_bodyIds = (b2BodyId*)malloc(m_bodyCount * sizeof(b2BodyId));
 		m_bodyIndex = 0;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
-		float groundWidth = 2.0f * m_extent * m_stackCount * (m_baseCount + 1.0f);
-		b2Segment segment = {{-0.5f * groundWidth, 0.0f}, {0.5f * groundWidth, 0.0f}};
-
+		float groundDeltaY = 2.0f * m_extent * (m_baseCount + 1.0f);
+		float groundWidth = 2.0f * m_extent * m_columnCount * (m_baseCount + 1.0f);
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
-		b2Body_CreateSegment(groundId, &shapeDef, &segment);
+
+		float groundY = 0.0f;
+
+		for (int32_t i = 0; i < m_rowCount; ++i)
+		{
+			b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
+			b2Body_CreateSegment(m_groundId, &shapeDef, &segment);
+			groundY += groundDeltaY;
+		}
 
 		float baseWidth = 2.0f * m_extent * m_baseCount;
+		float baseY = 0.0f;
 
-		for (int32_t i = 0; i < m_stackCount; ++i)
+		for (int32_t i = 0; i < m_rowCount; ++i)
 		{
-			float centerX = -0.5f * groundWidth + i * (baseWidth + 2.0f * m_extent) + m_extent;
-			CreateStack(centerX);
+			for (int32_t j = 0; j < m_columnCount; ++j)
+			{
+				float centerX = -0.5f * groundWidth + j * (baseWidth + 2.0f * m_extent) + m_extent;
+				CreateStack(centerX, baseY);
+			}
+
+			baseY += groundDeltaY;
 		}
 
 		assert(m_bodyIndex == m_bodyCount);
@@ -124,8 +133,9 @@ class BenchmarkPyramid : public Sample
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		changed = changed || ImGui::SliderInt("Stack Count", &m_stackCount, 1, 200);
-		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 100);
+		changed = changed || ImGui::SliderInt("Row Count", &m_rowCount, 1, 32);
+		changed = changed || ImGui::SliderInt("Column Count", &m_columnCount, 1, 32);
+		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 30);
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
@@ -194,7 +204,8 @@ class BenchmarkPyramid : public Sample
 	int32_t m_bodyCount;
 	int32_t m_bodyIndex;
 	int32_t m_baseCount;
-	int32_t m_stackCount;
+	int32_t m_rowCount;
+	int32_t m_columnCount;
 	float m_round;
 	float m_extent;
 

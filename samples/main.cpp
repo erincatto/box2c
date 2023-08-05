@@ -183,115 +183,105 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 	{
 		switch (key)
 		{
-		case GLFW_KEY_ESCAPE:
-			// Quit
-			glfwSetWindowShouldClose(g_mainWindow, GL_TRUE);
-			break;
+			case GLFW_KEY_ESCAPE:
+				// Quit
+				glfwSetWindowShouldClose(g_mainWindow, GL_TRUE);
+				break;
 
-		case GLFW_KEY_LEFT:
-			// Pan left
-			if (mods == GLFW_MOD_CONTROL)
-			{
-				b2Vec2 newOrigin = {2.0f, 0.0f};
-				s_sample->ShiftOrigin(newOrigin);
-			}
-			else
-			{
-				g_camera.m_center.x -= 0.5f;
-			}
-			break;
+			case GLFW_KEY_LEFT:
+				// Pan left
+				if (mods == GLFW_MOD_CONTROL)
+				{
+					b2Vec2 newOrigin = {2.0f, 0.0f};
+					s_sample->ShiftOrigin(newOrigin);
+				}
+				else
+				{
+					g_camera.m_center.x -= 0.5f;
+				}
+				break;
 
-		case GLFW_KEY_RIGHT:
-			// Pan right
-			if (mods == GLFW_MOD_CONTROL)
-			{
-				b2Vec2 newOrigin = {-2.0f, 0.0f};
-				s_sample->ShiftOrigin(newOrigin);
-			}
-			else
-			{
-				g_camera.m_center.x += 0.5f;
-			}
-			break;
+			case GLFW_KEY_RIGHT:
+				// Pan right
+				if (mods == GLFW_MOD_CONTROL)
+				{
+					b2Vec2 newOrigin = {-2.0f, 0.0f};
+					s_sample->ShiftOrigin(newOrigin);
+				}
+				else
+				{
+					g_camera.m_center.x += 0.5f;
+				}
+				break;
 
-		case GLFW_KEY_DOWN:
-			// Pan down
-			if (mods == GLFW_MOD_CONTROL)
-			{
-				b2Vec2 newOrigin = {0.0f, 2.0f};
-				s_sample->ShiftOrigin(newOrigin);
-			}
-			else
-			{
-				g_camera.m_center.y -= 0.5f;
-			}
-			break;
+			case GLFW_KEY_DOWN:
+				// Pan down
+				if (mods == GLFW_MOD_CONTROL)
+				{
+					b2Vec2 newOrigin = {0.0f, 2.0f};
+					s_sample->ShiftOrigin(newOrigin);
+				}
+				else
+				{
+					g_camera.m_center.y -= 0.5f;
+				}
+				break;
 
-		case GLFW_KEY_UP:
-			// Pan up
-			if (mods == GLFW_MOD_CONTROL)
-			{
-				b2Vec2 newOrigin = {0.0f, -2.0f};
-				s_sample->ShiftOrigin(newOrigin);
-			}
-			else
-			{
-				g_camera.m_center.y += 0.5f;
-			}
-			break;
+			case GLFW_KEY_UP:
+				// Pan up
+				if (mods == GLFW_MOD_CONTROL)
+				{
+					b2Vec2 newOrigin = {0.0f, -2.0f};
+					s_sample->ShiftOrigin(newOrigin);
+				}
+				else
+				{
+					g_camera.m_center.y += 0.5f;
+				}
+				break;
 
-		case GLFW_KEY_HOME:
-			g_camera.ResetView();
-			break;
+			case GLFW_KEY_HOME:
+				g_camera.ResetView();
+				break;
 
-		case GLFW_KEY_Z:
-			// Zoom out
-			g_camera.m_zoom = B2_MIN(1.1f * g_camera.m_zoom, 20.0f);
-			break;
+			case GLFW_KEY_R:
+				RestartTest();
+				break;
 
-		case GLFW_KEY_X:
-			// Zoom in
-			g_camera.m_zoom = B2_MAX(0.9f * g_camera.m_zoom, 0.02f);
-			break;
+			case GLFW_KEY_O:
+				s_settings.m_singleStep = true;
+				break;
 
-		case GLFW_KEY_R:
-			RestartTest();
-			break;
+			case GLFW_KEY_P:
+				s_settings.m_pause = !s_settings.m_pause;
+				break;
 
-		case GLFW_KEY_O:
-			s_settings.m_singleStep = true;
-			break;
+			case GLFW_KEY_LEFT_BRACKET:
+				// Switch to previous test
+				--s_selection;
+				if (s_selection < 0)
+				{
+					s_selection = g_sampleCount - 1;
+				}
+				break;
 
-		case GLFW_KEY_P:
-			s_settings.m_pause = !s_settings.m_pause;
-			break;
+			case GLFW_KEY_RIGHT_BRACKET:
+				// Switch to next test
+				++s_selection;
+				if (s_selection == g_sampleCount)
+				{
+					s_selection = 0;
+				}
+				break;
 
-		case GLFW_KEY_LEFT_BRACKET:
-			// Switch to previous test
-			--s_selection;
-			if (s_selection < 0)
-			{
-				s_selection = g_sampleCount - 1;
-			}
-			break;
+			case GLFW_KEY_TAB:
+				g_draw.m_showUI = !g_draw.m_showUI;
 
-		case GLFW_KEY_RIGHT_BRACKET:
-			// Switch to next test
-			++s_selection;
-			if (s_selection == g_sampleCount)
-			{
-				s_selection = 0;
-			}
-			break;
-
-		case GLFW_KEY_TAB:
-			g_draw.m_showUI = !g_draw.m_showUI;
-
-		default:
-			if (s_sample)
-			{
-				s_sample->Keyboard(key);
-			}
+			default:
+				if (s_sample)
+				{
+					s_sample->Keyboard(key);
+				}
 		}
 	}
 	else if (action == GLFW_RELEASE)
@@ -647,6 +637,17 @@ int main(int, char**)
 	{
 		double time1 = glfwGetTime();
 
+		if (glfwGetKey(g_mainWindow, GLFW_KEY_Z) == GLFW_PRESS)
+		{
+			// Zoom out
+			g_camera.m_zoom = B2_MIN(1.01f * g_camera.m_zoom, 20.0f);
+		}
+		else if (glfwGetKey(g_mainWindow, GLFW_KEY_X) == GLFW_PRESS)
+		{
+			// Zoom in
+			g_camera.m_zoom = B2_MAX(0.99f * g_camera.m_zoom, 0.02f);
+		}
+
 		glfwGetWindowSize(g_mainWindow, &g_camera.m_width, &g_camera.m_height);
 		g_camera.m_width = int(g_camera.m_width / s_windowScale);
 		g_camera.m_height = int(g_camera.m_height / s_windowScale);
@@ -672,16 +673,16 @@ int main(int, char**)
 
 		ImGui::NewFrame();
 
+		ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+		ImGui::SetNextWindowSize(ImVec2(float(g_camera.m_width), float(g_camera.m_height)));
+		ImGui::SetNextWindowBgAlpha(0.0f);
+		ImGui::Begin("Overlay", nullptr,
+					 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+						 ImGuiWindowFlags_NoScrollbar);
+		ImGui::End();
+
 		if (g_draw.m_showUI)
 		{
-			ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-			ImGui::SetNextWindowSize(ImVec2(float(g_camera.m_width), float(g_camera.m_height)));
-			ImGui::SetNextWindowBgAlpha(0.0f);
-			ImGui::Begin("Overlay", nullptr,
-						 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
-							 ImGuiWindowFlags_NoScrollbar);
-			ImGui::End();
-
 			const SampleEntry& entry = g_sampleEntries[s_settings.m_sampleIndex];
 			sprintf(buffer, "%s : %s", entry.category, entry.name);
 			s_sample->DrawTitle(buffer);
@@ -695,10 +696,16 @@ int main(int, char**)
 
 		// ImGui::ShowDemoWindow();
 
-		if (g_draw.m_showUI)
+		// if (g_draw.m_showUI)
 		{
 			sprintf(buffer, "%.1f ms", 1000.0f * frameTime);
-			g_draw.DrawString(5, g_camera.m_height - 20, buffer);
+
+			ImGui::Begin("Overlay", nullptr,
+						ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+							ImGuiWindowFlags_NoScrollbar);
+			ImGui::SetCursorPos(ImVec2(5.0f, g_camera.m_height - 20.0f));
+			ImGui::TextColored(ImColor(153, 230, 153, 255), buffer);
+			ImGui::End();
 		}
 
 		ImGui::Render();

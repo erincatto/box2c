@@ -1222,7 +1222,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 	else
 	{
 		b2Contact* contacts = world->contacts;
-		const b2Vec2 aabbExtension = {b2_aabbMargin, b2_aabbMargin};
+		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 		b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 		b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 
@@ -1259,8 +1259,8 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 
 					if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 					{
-						shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbExtension);
-						shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbExtension);
+						shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbMargin);
+						shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbMargin);
 
 						// Bit-set to keep the move array sorted
 						b2SetBit(shapeBitSet, shapeIndex);

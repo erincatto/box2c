@@ -1288,11 +1288,6 @@ void Draw::DrawPoint(b2Vec2 p, float size, b2Color color)
 //
 void Draw::DrawString(int x, int y, const char* string, ...)
 {
-	if (m_showUI == false)
-	{
-		return;
-	}
-
 	va_list arg;
 	va_start(arg, string);
 	ImGui::Begin("Overlay", nullptr,

@@ -245,6 +245,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	else
 	{
 		pair = b2Alloc(sizeof(b2MovePair));
+		pair->heap = true;
 	}
 
 	pair->shapeIndexA = shapeIndexA;
