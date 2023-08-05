@@ -835,6 +835,16 @@ void DrawSolidCircleFcn(b2Vec2 center, float radius, b2Vec2 axis, b2Color color,
 	static_cast<Draw*>(context)->DrawSolidCircle(center, radius, axis, color);
 }
 
+void DrawCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context)
+{
+	static_cast<Draw*>(context)->DrawCapsule(p1, p2, radius, color);
+}
+
+void DrawSolidCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context)
+{
+	static_cast<Draw*>(context)->DrawSolidCapsule(p1, p2, radius, color);
+}
+
 void DrawSegmentFcn(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context)
 {
 	static_cast<Draw*>(context)->DrawSegment(p1, p2, color);
@@ -886,6 +896,8 @@ void Draw::Create()
 				   DrawRoundedPolygonFcn,
 				   DrawCircleFcn,
 				   DrawSolidCircleFcn,
+				   DrawCapsuleFcn,
+				   DrawSolidCapsuleFcn,
 				   DrawSegmentFcn,
 				   DrawTransformFcn,
 				   DrawPointFcn,
@@ -1288,6 +1300,11 @@ void Draw::DrawPoint(b2Vec2 p, float size, b2Color color)
 //
 void Draw::DrawString(int x, int y, const char* string, ...)
 {
+	// if (m_showUI == false)
+	//{
+	//	return;
+	// }
+
 	va_list arg;
 	va_start(arg, string);
 	ImGui::Begin("Overlay", nullptr,

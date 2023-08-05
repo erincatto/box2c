@@ -23,6 +23,12 @@ typedef struct b2DebugDraw
 	/// Draw a solid circle.
 	void (*DrawSolidCircle)(b2Vec2 center, float radius, b2Vec2 axis, b2Color color, void* context);
 
+	/// Draw a capsule.
+	void (*DrawCapsule)(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context);
+
+	/// Draw a solid capsule.
+	void (*DrawSolidCapsule)(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context);
+
 	/// Draw a line segment.
 	void (*DrawSegment)(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context);
 

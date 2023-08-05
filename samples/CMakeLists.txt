@@ -66,6 +66,7 @@ set(BOX2D_SAMPLES
 	collection/benchmark_barrel.cpp
 	collection/benchmark_create_destroy.cpp
 	collection/benchmark_joint_grid.cpp
+	collection/benchmark_many_tumblers.cpp
 	collection/benchmark_pyramid.cpp
 	collection/benchmark_tumbler.cpp
 

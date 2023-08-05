@@ -1044,6 +1044,8 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 
 		case b2_polygonShape:
 		{
+			b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
+
 			b2Polygon* poly = &shape->polygon;
 			int32_t count = poly->count;
 			B2_ASSERT(count <= b2_maxPolygonVertices);
@@ -1054,15 +1056,27 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 				vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
 			}
 
-			b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-
-			if (poly->radius > 0.0f)
+			if (count == 2)
 			{
-				draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
+				if (poly->radius == 0.0f)
+				{
+					draw->DrawSegment(vertices[0], vertices[1], color, draw->context);
+				}
+				else
+				{
+					draw->DrawSolidCapsule(vertices[0], vertices[1], poly->radius, color, draw->context);
+				}
 			}
 			else
 			{
-				draw->DrawSolidPolygon(vertices, count, color, draw->context);
+				if (poly->radius > 0.0f)
+				{
+					draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
+				}
+				else
+				{
+					draw->DrawSolidPolygon(vertices, count, color, draw->context);
+				}
 			}
 		}
 		break;
