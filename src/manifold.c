@@ -177,7 +177,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 
 	// Compute circle position in the frame of the polygon.
 	b2Vec2 c = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
-	float radius = circleB->radius;
+	float radius = polygonA->radius + circleB->radius;
 
 	// Find the min separating edge.
 	int32_t normalIndex = 0;

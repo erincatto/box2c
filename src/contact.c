@@ -71,6 +71,19 @@ static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const
 	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB, maxDistance);
 }
 
+static b2Manifold b2CapsuleAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideCapsuleAndCircle(&shapeA->capsule, xfA, &shapeB->circle, xfB, maxDistance);
+}
+
+static b2Manifold b2CapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	return b2CollideCapsules(&shapeA->capsule, xfA, &shapeB->capsule, xfB, maxDistance, cache);
+}
+
 static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 											 float maxDistance, b2DistanceCache* cache)
 {
@@ -78,10 +91,35 @@ static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform 
 	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB, maxDistance);
 }
 
+static b2Manifold b2PolygonAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+											 float maxDistance, b2DistanceCache* cache)
+{
+	return b2CollidePolygonAndCapsule(&shapeA->polygon, xfA, &shapeB->capsule, xfB, maxDistance, cache);
+}
+
 static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
 									b2DistanceCache* cache)
 {
 	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, maxDistance, cache);
+}
+
+static b2Manifold b2SegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideSegmentAndCircle(&shapeA->segment, xfA, &shapeB->circle, xfB, maxDistance);
+}
+
+static b2Manifold b2SegmentAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	return b2CollideSegmentAndCapsule(&shapeA->segment, xfA, &shapeB->capsule, xfB, maxDistance, cache);
+}
+
+static b2Manifold b2SegmentAndPolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	return b2CollideSegmentAndPolygon(&shapeA->segment, xfA, &shapeB->polygon, xfB, maxDistance, cache);
 }
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
@@ -104,8 +142,14 @@ void b2InitializeContactRegisters(void)
 	if (s_initialized == false)
 	{
 		b2AddType(b2CircleManifold, b2_circleShape, b2_circleShape);
+		b2AddType(b2CapsuleAndCircleManifold, b2_capsuleShape, b2_circleShape);
+		b2AddType(b2CapsuleManifold, b2_capsuleShape, b2_capsuleShape);
 		b2AddType(b2PolygonAndCircleManifold, b2_polygonShape, b2_circleShape);
+		b2AddType(b2PolygonAndCapsuleManifold, b2_polygonShape, b2_capsuleShape);
 		b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
+		b2AddType(b2SegmentAndCircleManifold, b2_segmentShape, b2_circleShape);
+		b2AddType(b2SegmentAndCapsuleManifold, b2_segmentShape, b2_capsuleShape);
+		b2AddType(b2SegmentAndPolygonManifold, b2_segmentShape, b2_polygonShape);
 		s_initialized = true;
 	}
 }
@@ -120,6 +164,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	if (s_registers[type1][type2].fcn == NULL)
 	{
+		// For example, no segment vs segment collision
 		return;
 	}
 

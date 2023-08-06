@@ -76,6 +76,7 @@ set(BOX2D_SAMPLES
 	collection/sample_hull.cpp
 	collection/sample_manifold.cpp
 	collection/sample_ray_cast.cpp
+	collection/sample_restitution.cpp
 	collection/sample_revolute_joint.cpp
 	collection/sample_shape_cast.cpp
 	collection/sample_tilted_stacks.cpp

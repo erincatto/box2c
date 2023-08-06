@@ -359,12 +359,20 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 
 	switch (shapeType)
 	{
+	case b2_capsuleShape:
+			shape->capsule = *(const b2Capsule*)geometry;
+		break;
+
 	case b2_circleShape:
 			shape->circle = *(const b2Circle*)geometry;
 		break;
 
 	case b2_polygonShape:
 			shape->polygon = *(const b2Polygon*)geometry;
+		break;
+
+	case b2_segmentShape:
+			shape->segment = *(const b2Segment*)geometry;
 		break;
 
 	default:
@@ -407,12 +415,12 @@ b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Ci
 	return b2CreateShape(bodyId, def, circle, b2_circleShape);
 }
 
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Polygon* polygon)
+b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon)
 {
 	return b2CreateShape(bodyId, def, polygon, b2_polygonShape);
 }
 
-b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const struct b2Segment* segment)
+b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment)
 {
 	float lengthSqr = b2DistanceSquared(segment->point1, segment->point2);
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
@@ -421,18 +429,41 @@ b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const str
 		return b2_nullShapeId;
 	}
 
-	b2Vec2 axis = b2Normalize(b2Sub(segment->point2, segment->point1));
+	//b2Vec2 axis = b2Normalize(b2Sub(segment->point2, segment->point1));
 
-	b2Polygon polygon;
-	polygon.vertices[0] = segment->point1;
-	polygon.vertices[1] = segment->point2;
-	polygon.count = 2;
-	polygon.radius = 0.0f;
-	
-	polygon.normals[0] = b2RightPerp(axis);
-	polygon.normals[1] = b2Neg(polygon.normals[0]);
+	//b2Polygon polygon;
+	//polygon.vertices[0] = segment->point1;
+	//polygon.vertices[1] = segment->point2;
+	//polygon.count = 2;
+	//polygon.radius = 0.0f;
+	//
+	//polygon.normals[0] = b2RightPerp(axis);
+	//polygon.normals[1] = b2Neg(polygon.normals[0]);
 
-	return b2CreateShape(bodyId, def, &polygon, b2_polygonShape);
+	return b2CreateShape(bodyId, def, segment, b2_segmentShape);
+}
+
+b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule)
+{
+	float lengthSqr = b2DistanceSquared(capsule->point1, capsule->point2);
+	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
+	{
+		B2_ASSERT(false);
+		return b2_nullShapeId;
+	}
+
+	//b2Vec2 axis = b2Normalize(b2Sub(segment->point2, segment->point1));
+
+	//b2Polygon polygon;
+	//polygon.vertices[0] = segment->point1;
+	//polygon.vertices[1] = segment->point2;
+	//polygon.count = 2;
+	//polygon.radius = 0.0f;
+	//
+	//polygon.normals[0] = b2RightPerp(axis);
+	//polygon.normals[1] = b2Neg(polygon.normals[0]);
+
+	return b2CreateShape(bodyId, def, capsule, b2_capsuleShape);
 }
 
 // Destroy a shape on a body. This doesn't need to be called when destroying a body.

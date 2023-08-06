@@ -11,10 +11,14 @@ b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
 {
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2ComputeCapsuleAABB(&shape->capsule, xf);
 		case b2_circleShape:
 			return b2ComputeCircleAABB(&shape->circle, xf);
 		case b2_polygonShape:
 			return b2ComputePolygonAABB(&shape->polygon, xf);
+		case b2_segmentShape:
+			return b2ComputeSegmentAABB(&shape->segment, xf);
 		default: {
 			B2_ASSERT(false);
 			b2AABB empty = {xf.p, xf.p};
@@ -27,6 +31,8 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2ComputeCapsuleMass(&shape->capsule, shape->density);
 		case b2_circleShape:
 			return b2ComputeCircleMass(&shape->circle, shape->density);
 		case b2_polygonShape:
@@ -65,26 +71,19 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2MakeProxy(&shape->capsule.point1, 2, shape->capsule.radius);
 		case b2_circleShape:
 			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
 		case b2_polygonShape:
 			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
+		case b2_segmentShape:
+			return b2MakeProxy(&shape->segment.point1, 2, 0.0f);
 		default: {
 			B2_ASSERT(false);
 			b2DistanceProxy empty = {0};
 			return empty;
 		}
-	}
-}
-
-float b2Shape_GetRadius(const b2Shape* shape)
-{
-	switch (shape->type)
-	{
-		case b2_circleShape:
-			return shape->circle.radius;
-		default:
-			return 0.0f;
 	}
 }
 
@@ -118,6 +117,9 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2PointInCapsule(localPoint, &shape->capsule);
+
 		case b2_circleShape:
 			return b2PointInCircle(localPoint, &shape->circle);
 
