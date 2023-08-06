@@ -83,7 +83,6 @@ static void FinishTask(void* userTask, void* userContext)
 
 	enkiTaskSet* task = userTask;
 	enkiWaitForTaskSet(scheduler, task);
-	taskCount = 0;
 }
 
 static void FinishAllTasks(void* userContext)
