@@ -76,7 +76,7 @@ public:
 
 		for (int32_t i = 0; i < e_count; ++i)
 		{
-			bodyDef.position = {x, 8.0f};
+			bodyDef.position = {x, 40.0f};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			m_bodyIds[i] = bodyId;

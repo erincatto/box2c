@@ -319,6 +319,33 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
+		// box-capsule
+		{
+			b2Capsule capsule = {{-0.1f, 0.0f}, {0.1f, 0.0f}, 0.075f};
+			b2Polygon box = b2MakeBox(2.0f, 0.25f);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2DistanceCache cache = b2_emptyDistanceCache;
+			b2Manifold m = b2CollidePolygonAndCapsule(&box, xf1, &capsule, xf2, b2_speculativeDistance, &cache);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
+			}
+			g_draw.DrawPolygon(vertices, box.count, color1);
+
+			b2Vec2 v1 = b2TransformPoint(xf2, capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf2, capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
 		// segment-capsule
 		{
 			b2Segment segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};

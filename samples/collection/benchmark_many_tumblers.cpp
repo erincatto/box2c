@@ -18,8 +18,8 @@ class BenchmarkManyTumblers : public Sample
 		b2BodyDef bd = b2DefaultBodyDef();
 		m_groundId = b2World_CreateBody(m_worldId, &bd);
 
-		m_rowCount = g_sampleDebug ? 3 : 19;
-		m_columnCount = g_sampleDebug ? 3 : 19;
+		m_rowCount = g_sampleDebug ? 1 : 19;
+		m_columnCount = g_sampleDebug ? 1 : 19;
 
 		m_tumblerIds = nullptr;
 		m_jointIds = nullptr;
@@ -30,7 +30,7 @@ class BenchmarkManyTumblers : public Sample
 		m_bodyCount = 0;
 		m_bodyIndex = 0;
 
-		m_motorSpeed = 40.0f;
+		m_motorSpeed = 0.0f;
 		m_shapeType = 0;
 
 		CreateScene();
@@ -122,7 +122,7 @@ class BenchmarkManyTumblers : public Sample
 
 		free(m_bodyIds);
 
-		int32_t bodiesPerTumbler = g_sampleDebug ? 10 : 50;
+		int32_t bodiesPerTumbler = g_sampleDebug ? 1 : 50;
 		m_bodyCount = bodiesPerTumbler * m_tumblerCount;
 
 		m_bodyIds = static_cast<b2BodyId*>(malloc(m_bodyCount * sizeof(b2BodyId)));
@@ -183,18 +183,18 @@ class BenchmarkManyTumblers : public Sample
 				bd.position = m_positions[i];
 				m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bd);
 
-				if (j == 0)
-				{
-					b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &sd, &polygon);
-				}
-				else if (j == 1)
+				//if (j == 0)
+				//{
+				//	b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &sd, &polygon);
+				//}
+				//else if (j == 1)
 				{
 					b2Body_CreateCapsule(m_bodyIds[m_bodyIndex], &sd, &capsule);
 				}
-				else
-				{
-					b2Body_CreateCircle(m_bodyIds[m_bodyIndex], &sd, &circle);
-				}
+				//else
+				//{
+				//	b2Body_CreateCircle(m_bodyIds[m_bodyIndex], &sd, &circle);
+				//}
 
 				m_bodyIndex += 1;
 			}

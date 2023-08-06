@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "contact_solver.h"
+
 #include "array.h"
 #include "body.h"
 #include "contact.h"
-#include "contact_solver.h"
 #include "core.h"
 #include "stack_allocator.h"
 #include "world.h"
@@ -59,8 +60,10 @@ b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def)
 	solver->contactCount = def->contactCount;
 
 	// These are allocated conservatively because some island contacts may not have contact points
-	solver->positionConstraints = b2AllocateStackItem(alloc, solver->contactCount * sizeof(b2ContactPositionConstraint), "position constraints");
-	solver->velocityConstraints = b2AllocateStackItem(alloc, solver->contactCount * sizeof(b2ContactVelocityConstraint), "velocity constraints");
+	solver->positionConstraints =
+		b2AllocateStackItem(alloc, solver->contactCount * sizeof(b2ContactPositionConstraint), "position constraints");
+	solver->velocityConstraints =
+		b2AllocateStackItem(alloc, solver->contactCount * sizeof(b2ContactVelocityConstraint), "velocity constraints");
 
 	solver->world = def->world;
 	solver->constraintCount = 0;
@@ -121,8 +124,8 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 		b2Vec2 cB = bodyB->position;
 
 		// TODO_ERIN testing
-		//qA = b2MakeRot(bodyA->angle);
-		//qB = b2MakeRot(bodyB->angle);
+		// qA = b2MakeRot(bodyA->angle);
+		// qB = b2MakeRot(bodyB->angle);
 
 		b2Vec2 vA = bodyA->linearVelocity;
 		float wA = bodyA->angularVelocity;
@@ -198,8 +201,8 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 			if (k11 * k11 < k_maxConditionNumber * (k11 * k22 - k12 * k12))
 			{
 				// K is safe to invert.
-				vc->K.cx = (b2Vec2){ k11, k12 };
-				vc->K.cy = (b2Vec2){ k12, k22 };
+				vc->K.cx = (b2Vec2){k11, k12};
+				vc->K.cy = (b2Vec2){k12, k22};
 				vc->normalMass = b2GetInverse22(vc->K);
 			}
 			else
@@ -712,7 +715,7 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 		float aA = bodyA->angle;
 		b2Vec2 cB = bodyB->position;
 		float aB = bodyB->angle;
-		
+
 		b2Vec2 normal = pc->normal;
 
 		if (pointCount == 2)
@@ -753,7 +756,7 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 			b2Mat22 K, invK;
 
 			// Ensure a reasonable condition number.
-			const float k_maxConditionNumber = 1000.0f;
+			const float k_maxConditionNumber = 10000.0f;
 			if (k11 * k11 < k_maxConditionNumber * (k11 * k22 - k12 * k12))
 			{
 				// K is safe to invert.
@@ -763,8 +766,9 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 			}
 			else
 			{
-				// The constraints are redundant, just use one.
-				continue;
+				// The constraints are redundant, however one may be deeper than the other.
+				// This can happen when a capsule is deeply embedded in a box.
+				goto manifold_degenerate;
 			}
 
 			const float k_errorTol = 1e-3f;
@@ -856,6 +860,7 @@ bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver)
 		}
 		else
 		{
+		manifold_degenerate:
 			for (int32_t j = 0; j < pointCount; ++j)
 			{
 				b2Rot qA = b2MakeRot(aA);
