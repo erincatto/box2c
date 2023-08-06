@@ -12,6 +12,8 @@
 
 #include <float.h>
 
+#define B2_RESTRICT
+
 b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
 {
 	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
@@ -102,7 +104,6 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 }
 
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
-int32_t b2_gjkCalls, b2_gjkIters, b2_gjkMaxIters;
 
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
 {
@@ -191,6 +192,7 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 
 	// Copy data from cache.
 	s.count = cache->count;
+
 	b2SimplexVertex* vertices[] = {&s.v1, &s.v2, &s.v3};
 	for (int32_t i = 0; i < s.count; ++i)
 	{
@@ -206,34 +208,6 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 		// invalid
 		v->a = -1.0f;
 	}
-
-// TODO_ERIN not seeing any benefit to reseting. ignore metric?
-#if 0
-	// Compute the new simplex metric, if it is substantially different than
-	// old metric then flush the simplex.
-	if (s.count == 2)
-	{
-		float metric1 = cache->metric;
-		float metric2 = b2Simplex_Metric(&s);
-		if (metric2 < 0.5f * metric1 || 2.0f * metric1 < metric2 || metric2 < FLT_EPSILON)
-		{
-			// Reset the simplex.
-			s.count = 0;
-		}
-	}
-	else if (s.count == 3)
-	{
-		float metric1 = cache->metric;
-		float metric2 = b2Simplex_Metric(&s);
-		float abs1 = B2_ABS(metric1);
-		float abs2 = B2_ABS(metric2);
-		if (metric1 * metric2 < 0.0f || abs2 < 0.5f * abs1 || 2.0f * abs1 < abs2)
-		{
-			// Reset the simplex.
-			s.count = 0;
-		}
-	}
-#endif
 
 	// If the cache is empty or invalid ...
 	if (s.count == 0)
@@ -371,7 +345,7 @@ void b2ComputeSimplexWitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 // Solution
 // a1 = d12_1 / d12
 // a2 = d12_2 / d12
-void b2SolveSimplex2(b2Simplex* s)
+void b2SolveSimplex2(b2Simplex* B2_RESTRICT s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -405,7 +379,7 @@ void b2SolveSimplex2(b2Simplex* s)
 	s->count = 2;
 }
 
-void b2SolveSimplex3(b2Simplex* s)
+void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -514,9 +488,20 @@ void b2SolveSimplex3(b2Simplex* s)
 	s->count = 3;
 }
 
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input)
+#define B2_GJK_DEBUG 0
+
+// Warning: writing to these globals significantly slows multi-threading performance
+#if B2_GJK_DEBUG
+int32_t b2_gjkCalls;
+int32_t b2_gjkIters;
+int32_t b2_gjkMaxIters;
+#endif
+
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* B2_RESTRICT cache, const b2DistanceInput* B2_RESTRICT input)
 {
+#if B2_GJK_DEBUG
 	++b2_gjkCalls;
+#endif
 
 	b2DistanceOutput output = {0};
 
@@ -598,7 +583,10 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 		// Iteration count is equated to the number of support point calls.
 		++iter;
+
+#if B2_GJK_DEBUG
 		++b2_gjkIters;
+#endif
 
 		// Check for duplicate support points. This is the main termination criteria.
 		bool duplicate = false;
@@ -621,7 +609,9 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 		++simplex.count;
 	}
 
+#if B2_GJK_DEBUG
 	b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
+#endif
 
 	// Prepare output
 	b2ComputeSimplexWitnessPoints(&output.pointA, &output.pointB, &simplex);

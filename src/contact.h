@@ -63,6 +63,9 @@ typedef struct b2Contact
 
 	uint32_t flags;
 
+	// This is too hot and has been moved to a separate array
+	//int32_t awakeIndex;
+
 	b2ContactEdge edges[2];
 
 	int32_t shapeIndexA;

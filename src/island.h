@@ -32,10 +32,6 @@ typedef struct b2Island
 
 	struct b2World* world;
 
-	// These arrays get populated in the island job to make serial work faster
-	// while maintaining determinism.
-	//b2Contact** awakeContactArray;
-
 	int32_t headBody;
 	int32_t tailBody;
 	int32_t bodyCount;

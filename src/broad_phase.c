@@ -245,6 +245,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	else
 	{
 		pair = b2Alloc(sizeof(b2MovePair));
+		pair->heap = true;
 	}
 
 	pair->shapeIndexA = shapeIndexA;
@@ -337,10 +338,9 @@ void b2UpdateBroadPhasePairs(b2World* world)
 
 	if (b2_parallel)
 	{
-		// TODO_ERIN should be 64
-		int32_t minRange = 1;
-		world->enqueueTask(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
-		world->finishTasks(world->userTaskContext);
+		int32_t minRange = 64;
+		void* userPairTask = world->enqueueTaskFcn(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userPairTask, world->userTaskContext);
 	}
 	else
 	{

@@ -21,7 +21,7 @@
 
 // Contacts and determinism
 // A deterministic simulation requires contacts to exist in the same order in b2Island no matter the thread count.
-// The order must reproduce from run to run. This is necessary because Gauss-Seidel is order dependent.
+// The order must reproduce from run to run. This is necessary because the Gauss-Seidel constraint solver is order dependent.
 //
 // Creation:
 // - Contacts are created using results from b2UpdateBroadPhasePairs
@@ -35,7 +35,8 @@
 // - Awake contacts are solved in parallel and they generate contact state changes.
 // - These state changes may link islands together using union find.
 // - The state changes are ordered using a bit array that encompasses all contacts
-// - As long as contacts are created in deterministic order, island link order is deterministic
+// - As long as contacts are created in deterministic order, island link order is deterministic.
+// - This keeps the order of contacts in islands deterministic
 
 // Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
 // For example, anything slides on ice.
@@ -70,6 +71,19 @@ static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const
 	return b2CollideCircles(&shapeA->circle, xfA, &shapeB->circle, xfB, maxDistance);
 }
 
+static b2Manifold b2CapsuleAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideCapsuleAndCircle(&shapeA->capsule, xfA, &shapeB->circle, xfB, maxDistance);
+}
+
+static b2Manifold b2CapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	return b2CollideCapsules(&shapeA->capsule, xfA, &shapeB->capsule, xfB, maxDistance, cache);
+}
+
 static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 											 float maxDistance, b2DistanceCache* cache)
 {
@@ -77,10 +91,35 @@ static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform 
 	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB, maxDistance);
 }
 
+static b2Manifold b2PolygonAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+											 float maxDistance, b2DistanceCache* cache)
+{
+	return b2CollidePolygonAndCapsule(&shapeA->polygon, xfA, &shapeB->capsule, xfB, maxDistance, cache);
+}
+
 static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
 									b2DistanceCache* cache)
 {
 	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, maxDistance, cache);
+}
+
+static b2Manifold b2SegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideSegmentAndCircle(&shapeA->segment, xfA, &shapeB->circle, xfB, maxDistance);
+}
+
+static b2Manifold b2SegmentAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	return b2CollideSegmentAndCapsule(&shapeA->segment, xfA, &shapeB->capsule, xfB, maxDistance, cache);
+}
+
+static b2Manifold b2SegmentAndPolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, float maxDistance,
+								   b2DistanceCache* cache)
+{
+	return b2CollideSegmentAndPolygon(&shapeA->segment, xfA, &shapeB->polygon, xfB, maxDistance, cache);
 }
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
@@ -103,8 +142,14 @@ void b2InitializeContactRegisters(void)
 	if (s_initialized == false)
 	{
 		b2AddType(b2CircleManifold, b2_circleShape, b2_circleShape);
+		b2AddType(b2CapsuleAndCircleManifold, b2_capsuleShape, b2_circleShape);
+		b2AddType(b2CapsuleManifold, b2_capsuleShape, b2_capsuleShape);
 		b2AddType(b2PolygonAndCircleManifold, b2_polygonShape, b2_circleShape);
+		b2AddType(b2PolygonAndCapsuleManifold, b2_polygonShape, b2_capsuleShape);
 		b2AddType(b2PolygonManifold, b2_polygonShape, b2_polygonShape);
+		b2AddType(b2SegmentAndCircleManifold, b2_segmentShape, b2_circleShape);
+		b2AddType(b2SegmentAndCapsuleManifold, b2_segmentShape, b2_capsuleShape);
+		b2AddType(b2SegmentAndPolygonManifold, b2_segmentShape, b2_polygonShape);
 		s_initialized = true;
 	}
 }
@@ -119,6 +164,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	if (s_registers[type1][type2].fcn == NULL)
 	{
+		// For example, no segment vs segment collision
 		return;
 	}
 
@@ -131,6 +177,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	b2Contact* contact = (b2Contact*)b2AllocObject(&world->contactPool);
 	world->contacts = (b2Contact*)world->contactPool.memory;
+
+	int32_t contactIndex = contact->object.index;
 
 	contact->flags = b2_contactEnabledFlag;
 
@@ -159,7 +207,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->edges[0].prevKey = B2_NULL_INDEX;
 		contact->edges[0].nextKey = bodyA->contactList;
 
-		int32_t keyA = (contact->object.index << 1) | 0;
+		int32_t keyA = (contactIndex << 1) | 0;
 		if (bodyA->contactList != B2_NULL_INDEX)
 		{
 			b2Contact* contactA = world->contacts + (bodyA->contactList >> 1);
@@ -176,7 +224,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->edges[1].prevKey = B2_NULL_INDEX;
 		contact->edges[1].nextKey = bodyB->contactList;
 
-		int32_t keyB = (contact->object.index << 1) | 1;
+		int32_t keyB = (contactIndex << 1) | 1;
 		if (bodyB->contactList != B2_NULL_INDEX)
 		{
 			b2Contact* contactB = world->contacts + (bodyB->contactList >> 1);
@@ -187,10 +235,20 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		bodyB->contactCount += 1;
 	}
 
-	if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
+	// A contact should only be created from an awake body
+	B2_ASSERT(b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB));
+
+	int32_t awakeIndex = b2Array(world->awakeContactArray).count;
+	b2Array_Push(world->awakeContactArray, contactIndex);
+
+	if (contactIndex == b2Array(world->contactAwakeIndexArray).count)
 	{
-		// A contact does not need to be in an island to be awake.
-		b2Array_Push(world->awakeContactArray, contact->object.index);
+		b2Array_Push(world->contactAwakeIndexArray, awakeIndex);
+	}
+	else
+	{
+		B2_ASSERT(contactIndex < b2Array(world->contactAwakeIndexArray).count);
+		world->contactAwakeIndexArray[contactIndex] = awakeIndex;
 	}
 
 	// Add to pair set for fast lookup
@@ -253,7 +311,9 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		nextEdge->prevKey = edgeB->prevKey;
 	}
 
-	int32_t edgeKeyB = (contact->object.index << 1) | 1;
+	int32_t contactIndex = contact->object.index;
+
+	int32_t edgeKeyB = (contactIndex << 1) | 1;
 	if (bodyB->contactList == edgeKeyB)
 	{
 		bodyB->contactList = edgeB->nextKey;
@@ -267,16 +327,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	}
 
 	// Remove from awake contact array
-	// TODO_ERIN perf problem?
-	int32_t contactIndex = contact->object.index;
-	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
-	for (int32_t i = 0; i < awakeContactCount; ++i)
+	b2Array_Check(world->contactAwakeIndexArray, contactIndex);
+	int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
+	if (awakeIndex != B2_NULL_INDEX)
 	{
-		if (world->awakeContactArray[i] == contactIndex)
-		{
-			b2Array_RemoveSwap(world->awakeContactArray, i);
-			break;
-		}
+		B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
+		world->awakeContactArray[awakeIndex] = B2_NULL_INDEX;
+		world->contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 	}
 
 	b2FreeObject(&world->contactPool, &contact->object);

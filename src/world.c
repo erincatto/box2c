@@ -29,6 +29,8 @@
 
 b2World b2_worlds[b2_maxWorlds];
 bool b2_parallel = true;
+int b2_collideMinRange = 64;
+int b2_islandMinRange = 1;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -46,14 +48,21 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	return world;
 }
 
-static void b2DefaultAddTaskFcn(b2TaskCallback* task, int32_t count, int32_t minRange, void* taskContext, void* userContext)
+static void* b2DefaultAddTaskFcn(b2TaskCallback* task, int32_t count, int32_t minRange, void* taskContext, void* userContext)
 {
 	B2_MAYBE_UNUSED(minRange);
 	B2_MAYBE_UNUSED(userContext);
 	task(0, count, 0, taskContext);
+	return NULL;
 }
 
-static void b2DefaultFinishTasksFcn(void* userContext)
+static void b2DefaultFinishTaskFcn(void* userTask, void* userContext)
+{
+	B2_MAYBE_UNUSED(userTask);
+	B2_MAYBE_UNUSED(userContext);
+}
+
+static void b2DefaultFinishAllTasksFcn(void* userContext)
 {
 	B2_MAYBE_UNUSED(userContext);
 }
@@ -108,6 +117,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
+	world->contactAwakeIndexArray = b2CreateArray(sizeof(int32_t), world->contactPool.capacity);
 
 	world->splitIslandIndex = B2_NULL_INDEX;
 	world->stepId = 0;
@@ -126,18 +136,20 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	id.revision = world->revision;
 
-	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTasks != NULL)
+	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL && def->finishAllTasks != NULL)
 	{
 		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
-		world->enqueueTask = def->enqueueTask;
-		world->finishTasks = def->finishTasks;
+		world->enqueueTaskFcn = def->enqueueTask;
+		world->finishTaskFcn = def->finishTask;
+		world->finishAllTasksFcn = def->finishAllTasks;
 		world->userTaskContext = def->userTaskContext;
 	}
 	else
 	{
 		world->workerCount = 1;
-		world->enqueueTask = b2DefaultAddTaskFcn;
-		world->finishTasks = b2DefaultFinishTasksFcn;
+		world->enqueueTaskFcn = b2DefaultAddTaskFcn;
+		world->finishTaskFcn = b2DefaultFinishTaskFcn;
+		world->finishAllTasksFcn = b2DefaultFinishAllTasksFcn;
 		world->userTaskContext = NULL;
 	}
 
@@ -168,6 +180,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
 
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
+	b2DestroyArray(world->contactAwakeIndexArray, sizeof(int32_t));
 	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
 
 	b2Island* islands = world->islands;
@@ -207,6 +220,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
+	int32_t* awakeContactArray = world->awakeContactArray;
+	int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
 
 	B2_MAYBE_UNUSED(awakeCount);
 	B2_ASSERT(startIndex < endIndex);
@@ -214,17 +229,22 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 
 	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
 	{
-		int32_t contactIndex = world->awakeContactArray[awakeIndex];
+		int32_t contactIndex = awakeContactArray[awakeIndex];
+		if (contactIndex == B2_NULL_INDEX)
+		{
+			// Contact was destroyed
+			continue;
+		}
 
 		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
 		b2Contact* contact = contacts + contactIndex;
 
-		// B2_ASSERT(contact->awakeIndex == awakeIndex);
+		B2_ASSERT(contactAwakeIndexArray[contactIndex] == awakeIndex);
 		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
-		// contact->awakeIndex = B2_NULL_INDEX;
+		contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
@@ -281,7 +301,20 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 
 static void b2Collide(b2World* world)
 {
-	world->contactPointCount = 0;
+	B2_ASSERT(world->workerCount > 0);
+
+	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
+
+	// Rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good.
+	if (b2_parallel)
+	{
+		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+	}
+	else
+	{
+		b2UpdateTreesTask(0, 1, 0, world);
+		world->userTreeTask = NULL;
+	}
 
 	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
 
@@ -289,10 +322,6 @@ static void b2Collide(b2World* world)
 	{
 		return;
 	}
-
-	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
-
-	world->enqueueTask(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
@@ -302,16 +331,14 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
-		int32_t minRange = 64;
-		world->enqueueTask(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
-		world->finishTasks(world->userTaskContext);
+		int32_t minRange = b2_collideMinRange;
+		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
 	else
 	{
 		b2CollideTask(0, awakeContactCount, 0, world);
 	}
-
-	b2ValidateNoEnlarged(&world->broadPhase);
 
 	// Serially update contact state
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
@@ -335,10 +362,13 @@ static void b2Collide(b2World* world)
 			B2_ASSERT(awakeIndex < (uint32_t)awakeContactCount);
 
 			int32_t contactIndex = world->awakeContactArray[awakeIndex];
+			B2_ASSERT(contactIndex != B2_NULL_INDEX);
+
 			b2Contact* contact = world->contacts + contactIndex;
 
 			if (contact->flags & b2_contactDisjoint)
 			{
+				// Bounding boxes no longer overlap
 				b2DestroyContact(world, contact);
 			}
 			else if (contact->flags & b2_contactStartedTouching)
@@ -359,6 +389,8 @@ static void b2Collide(b2World* world)
 			word = word & (word - 1);
 		}
 	}
+
+	// TODO_ERIN clear awake contact array here?
 
 	b2TracyCZoneEnd(contact_state);
 
@@ -457,7 +489,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	b2Body* fastBody = world->bodies + bodyIndex;
 	B2_ASSERT(b2ObjectValid(&fastBody->object));
 	B2_ASSERT(fastBody->type == b2_dynamicBody && fastBody->isFast);
-	
+
 	b2Shape* shapes = world->shapes;
 
 	b2Sweep sweep = b2MakeSweep(fastBody);
@@ -465,7 +497,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	b2Transform xf1;
 	xf1.q = b2MakeRot(sweep.a1);
 	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
-	
+
 	b2Transform xf2;
 	xf2.q = b2MakeRot(sweep.a2);
 	xf2.p = b2Sub(sweep.c2, b2RotateVector(xf2.q, sweep.localCenter));
@@ -495,7 +527,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 
 		// Store this for later
 		fastShape->aabb = box2;
-		
+
 		b2DynamicTree_Query(staticTree, box, b2ContinuousQueryCallback, &context);
 
 		shapeIndex = fastShape->nextShapeIndex;
@@ -643,21 +675,28 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	if (b2_parallel)
 	{
-		int32_t minRange = 1;
-		world->enqueueTask(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
+		int32_t minRange = b2_islandMinRange;
+		void* userIslandTask = world->enqueueTaskFcn(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userIslandTask, world->userTaskContext);
+
+		// Finish the user tree task that was queued early in the time step
+		if (world->userTreeTask != NULL)
+		{
+			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
+		}
+
+		world->userTreeTask = NULL;
 	}
 	else
 	{
 		b2IslandParallelForTask(0, count, 0, world);
 	}
 
-	world->finishTasks(world->userTaskContext);
+	b2ValidateNoEnlarged(&world->broadPhase);
 
 	b2TracyCZoneEnd(island_solver);
 
 	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
-
-	// TODO_ERIN sync rebuild trees task here
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
@@ -720,6 +759,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 		b2Array_Clear(world->awakeContactArray);
 
+		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
+
 		// Iterate the bit set
 		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
 		// that body A or body B or both bodies wake the contact.
@@ -734,7 +775,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 				uint32_t ctz = b2CTZ(word);
 				uint32_t contactIndex = 64 * k + ctz;
 
-				// TODO_ERIN consider adding the awake index to the contact to speed up deletes
+				B2_ASSERT(contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
+
+				// This cache miss is brutal but is necessary to make contact destruction reasonably quick.
+				contactAwakeIndexArray[contactIndex] = b2Array(world->awakeContactArray).count;
+
+				// This is fast
 				b2Array_Push(world->awakeContactArray, contactIndex);
 
 				// Clear the smallest set bit
@@ -795,14 +841,14 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	if (b2_parallel)
 	{
 		int32_t minRange = 8;
-		world->enqueueTask(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+		void* userContinuousTask =
+			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
 	}
 	else
 	{
 		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
 	}
-
-	world->finishTasks(world->userTaskContext);
 
 	// Serially enlarge broad-phase proxies for fast shapes
 	{
@@ -854,6 +900,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2FreeStackItem(world->stackAllocator, world->fastBodies);
 	world->fastBodies = NULL;
+
+	world->profile.continuous = b2GetMilliseconds(&timer);
 
 	b2FreeStackItem(world->stackAllocator, islands);
 
@@ -939,6 +987,11 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	// Ensure stack is large enough
 	b2GrowStack(world->stackAllocator);
 
+	if (b2_parallel)
+	{
+		world->finishAllTasksFcn(world->userTaskContext);
+	}
+
 	b2TracyCZoneEnd(world_step);
 }
 
@@ -946,76 +999,60 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 {
 	switch (shape->type)
 	{
-	case b2_circleShape:
-	{
-		b2Circle* circle = &shape->circle;
-
-		b2Vec2 center = b2TransformPoint(xf, circle->point);
-		float radius = circle->radius;
-		b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
-
-		draw->DrawSolidCircle(center, radius, axis, color, draw->context);
-	}
-	break;
-
-		// case b2_segmentShape:
-		//{
-		// b2EdgeShape* edge = (b2EdgeShape*)shape->GetShape();
-		// b2Vec2 v1 = b2Mul(xf, edge->m_vertex1);
-		// b2Vec2 v2 = b2Mul(xf, edge->m_vertex2);
-		// m_debugDraw->DrawSegment(v1, v2, color);
-
-		// if (edge->m_oneSided == false)
-		//{
-		//	m_debugDraw->DrawPoint(v1, 4.0f, color);
-		//	m_debugDraw->DrawPoint(v2, 4.0f, color);
-		// }
-		// }
-		// break;
-
-		// case b2Shape::e_chain:
-		//{
-		// b2ChainShape* chain = (b2ChainShape*)shape->GetShape();
-		// int32 count = chain->m_count;
-		// const b2Vec2* vertices = chain->m_vertices;
-
-		// b2Vec2 v1 = b2Mul(xf, vertices[0]);
-		// for (int32 i = 1; i < count; ++i)
-		//{
-		//	b2Vec2 v2 = b2Mul(xf, vertices[i]);
-		//	m_debugDraw->DrawSegment(v1, v2, color);
-		//	v1 = v2;
-		// }
-		// }
-		// break;
-
-	case b2_polygonShape:
-	{
-		b2Polygon* poly = &shape->polygon;
-		int32_t count = poly->count;
-		B2_ASSERT(count <= b2_maxPolygonVertices);
-		b2Vec2 vertices[b2_maxPolygonVertices];
-
-		for (int32_t i = 0; i < count; ++i)
+		case b2_capsuleShape:
 		{
-			vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
+			b2Capsule* capsule = &shape->capsule;
+			b2Vec2 p1 = b2TransformPoint(xf, capsule->point1);
+			b2Vec2 p2 = b2TransformPoint(xf, capsule->point2);
+			draw->DrawSolidCapsule(p1, p2, capsule->radius, color, draw->context);
 		}
-
-		b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-
-		if (poly->radius > 0.0f)
-		{
-			draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
-		}
-		else
-		{
-			draw->DrawSolidPolygon(vertices, count, color, draw->context);
-		}
-	}
-	break;
-
-	default:
 		break;
+
+		case b2_circleShape:
+		{
+			b2Circle* circle = &shape->circle;
+			b2Vec2 center = b2TransformPoint(xf, circle->point);
+			b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
+			draw->DrawSolidCircle(center, circle->radius, axis, color, draw->context);
+		}
+		break;
+
+		case b2_polygonShape:
+		{
+			b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
+
+			b2Polygon* poly = &shape->polygon;
+			int32_t count = poly->count;
+			B2_ASSERT(count <= b2_maxPolygonVertices);
+			b2Vec2 vertices[b2_maxPolygonVertices];
+
+			for (int32_t i = 0; i < count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
+			}
+
+			if (poly->radius > 0.0f)
+			{
+				draw->DrawRoundedPolygon(vertices, count, poly->radius, fillColor, color, draw->context);
+			}
+			else
+			{
+				draw->DrawSolidPolygon(vertices, count, color, draw->context);
+			}
+		}
+		break;
+
+		case b2_segmentShape:
+		{
+			b2Segment* segment = &shape->segment;
+			b2Vec2 p1 = b2TransformPoint(xf, segment->point1);
+			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
+			draw->DrawSegment(p1, p2, color, draw->context);
+		}
+		break;
+
+		default:
+			break;
 	}
 }
 
@@ -1061,7 +1098,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				}
 				else if (b->isFast)
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.3f, 0.5f, 0.9f, 1.0f});
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorSalmon, 1.0f));
 				}
 				else if (b->type == b2_staticBody)
 				{
@@ -1235,14 +1272,13 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
 	s.proxyCount = tree->nodeCount;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
-	s.contactPointCount = world->contactPointCount;
 	s.stackCapacity = b2GetStackCapacity(world->stackAllocator);
 	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	return s;
 }
-#if 0
 
+#if 0
 struct b2WorldRayCastWrapper
 {
 	float RayCastCallback(const b2RayCastInput& input, int32 proxyId)

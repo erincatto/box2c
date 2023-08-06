@@ -41,7 +41,8 @@ public:
 			polygon = b2MakeOffsetBox(10.0f, 0.5f, {0.0f, -10.0f}, 0.0);
 			b2Body_CreatePolygon(bodyId, &sd, &polygon);
 
-			m_motorSpeed = 9.0f;
+			//m_motorSpeed = 9.0f;
+			m_motorSpeed = 25.0f;
 
 			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 			jd.bodyIdA = groundId;

@@ -57,10 +57,10 @@ static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 static inline b2AABB b2AABB_Extend(b2AABB a)
 {
 	b2AABB c;
-	c.lowerBound.x = a.lowerBound.x - b2_aabbExtension;
-	c.lowerBound.y = a.lowerBound.y - b2_aabbExtension;
-	c.upperBound.x = a.upperBound.x + b2_aabbExtension;
-	c.upperBound.y = a.upperBound.y + b2_aabbExtension;
+	c.lowerBound.x = a.lowerBound.x - b2_aabbMargin;
+	c.lowerBound.y = a.lowerBound.y - b2_aabbMargin;
+	c.upperBound.x = a.upperBound.x + b2_aabbMargin;
+	c.upperBound.y = a.upperBound.y + b2_aabbMargin;
 	return c;
 }
 

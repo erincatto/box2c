@@ -11,10 +11,14 @@ b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
 {
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2ComputeCapsuleAABB(&shape->capsule, xf);
 		case b2_circleShape:
 			return b2ComputeCircleAABB(&shape->circle, xf);
 		case b2_polygonShape:
 			return b2ComputePolygonAABB(&shape->polygon, xf);
+		case b2_segmentShape:
+			return b2ComputeSegmentAABB(&shape->segment, xf);
 		default: {
 			B2_ASSERT(false);
 			b2AABB empty = {xf.p, xf.p};
@@ -27,6 +31,8 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2ComputeCapsuleMass(&shape->capsule, shape->density);
 		case b2_circleShape:
 			return b2ComputeCircleMass(&shape->circle, shape->density);
 		case b2_polygonShape:
@@ -43,19 +49,15 @@ void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Tr
 {
 	// Create proxies in the broad-phase.
 	shape->aabb = b2Shape_ComputeAABB(shape, xf);
-	if (type == b2_staticBody)
-	{
-		shape->fatAABB = shape->aabb;
-	}
-	else
-	{
-		shape->fatAABB.lowerBound.x = shape->aabb.lowerBound.x - b2_aabbExtension;
-		shape->fatAABB.lowerBound.y = shape->aabb.lowerBound.y - b2_aabbExtension;
-		shape->fatAABB.upperBound.x = shape->aabb.upperBound.x + b2_aabbExtension;
-		shape->fatAABB.upperBound.y = shape->aabb.upperBound.y + b2_aabbExtension;
-	}
 
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->aabb, shape->filter.categoryBits, shape->object.index);
+	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
+	float margin = type == b2_staticBody ? 4.0f * b2_linearSlop : b2_aabbMargin;
+	shape->fatAABB.lowerBound.x = shape->aabb.lowerBound.x - margin;
+	shape->fatAABB.lowerBound.y = shape->aabb.lowerBound.y - margin;
+	shape->fatAABB.upperBound.x = shape->aabb.upperBound.x + margin;
+	shape->fatAABB.upperBound.y = shape->aabb.upperBound.y + margin;
+
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->object.index);
 	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_bodyTypeCount);
 }
 
@@ -69,26 +71,19 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2MakeProxy(&shape->capsule.point1, 2, shape->capsule.radius);
 		case b2_circleShape:
 			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
 		case b2_polygonShape:
 			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
+		case b2_segmentShape:
+			return b2MakeProxy(&shape->segment.point1, 2, 0.0f);
 		default: {
 			B2_ASSERT(false);
 			b2DistanceProxy empty = {0};
 			return empty;
 		}
-	}
-}
-
-float b2Shape_GetRadius(const b2Shape* shape)
-{
-	switch (shape->type)
-	{
-		case b2_circleShape:
-			return shape->circle.radius;
-		default:
-			return 0.0f;
 	}
 }
 
@@ -122,6 +117,9 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 
 	switch (shape->type)
 	{
+		case b2_capsuleShape:
+			return b2PointInCapsule(localPoint, &shape->capsule);
+
 		case b2_circleShape:
 			return b2PointInCircle(localPoint, &shape->circle);
 

@@ -8,88 +8,122 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+BOX2D_API int32_t b2_awakeContactCount;
+
+BOX2D_API int b2_collideMinRange;
+BOX2D_API int b2_islandMinRange;
+
 class BenchmarkPyramid : public Sample
 {
   public:
-	enum
-	{
-		e_maxBaseCount = 100,
-		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
-	};
 
 	BenchmarkPyramid(const Settings& settings) : Sample(settings)
 	{
-		float groundSize = 100.0f;
-		m_groundThickness = 1.0f;
+		m_extent = 0.5f;
 		m_round = 0.0f;
-
-		b2BodyDef bd = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
-
-		b2Polygon box = b2MakeBox(groundSize, m_groundThickness);
-		b2ShapeDef sd = b2DefaultShapeDef();
-		b2Body_CreatePolygon(groundId, &sd, &box);
-
-		for (int32_t i = 0; i < e_maxBodyCount; ++i)
-		{
-			m_bodies[i] = b2_nullBodyId;
-		}
-
-		m_baseCount = g_sampleDebug ? 8 : 100;
+		m_baseCount = 10;
+		m_rowCount = g_sampleDebug ? 1 : 16;
+		m_columnCount = g_sampleDebug ? 4 : 16;
+		m_groundId = b2_nullBodyId;
+		m_bodyIds = nullptr;
 		m_bodyCount = 0;
+		m_bodyIndex = 0;
+
+		m_collideRange = 169;
+		m_islandRange = 1;
+
+		m_bestCollideRange = 1;
+		m_minCollide = FLT_MAX;
+
+		m_bestIslandRange = 1;
+		m_minIsland = FLT_MAX;
 
 		CreateScene();
 	}
 
-	void CreateScene()
+	~BenchmarkPyramid()
 	{
-		for (int32_t i = 0; i < e_maxBodyCount; ++i)
-		{
-			if (B2_NON_NULL(m_bodies[i]))
-			{
-				b2World_DestroyBody(m_bodies[i]);
-				m_bodies[i] = b2_nullBodyId;
-			}
-		}
+		free(m_bodyIds);
+	}
 
-		int32_t count = m_baseCount;
-		float rad = 0.5f;
-		float shift = rad * 2.0f;
-		float centerx = shift * count / 2.0f;
-		float centery = shift / 2.0f + m_groundThickness; //		+rad * 1.5f;
+	void CreateStack(float centerX, float baseY)
+	{
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
 
-		b2BodyDef bd = b2DefaultBodyDef();
-		bd.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
 
-		b2ShapeDef sd = b2DefaultShapeDef();
-		sd.density = 1.0f;
-		sd.friction = 0.5f;
-
-		// b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
-		// b2Polygon cuboid = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
-		float h = 0.5f - m_round;
+		float h = m_extent - m_round;
 		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
 
-		int32_t index = 0;
-
-		for (int32_t i = 0; i < count; ++i)
+		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			float y = i * shift + centery;
+			float y = (2.0f * i  + 1.0f) * m_extent + baseY;
 
-			for (int32_t j = i; j < count; ++j)
+			for (int32_t j = i; j < m_baseCount; ++j)
 			{
-				float x = 0.5f * i * shift + (j - i) * shift - centerx;
-				bd.position = {x, y};
+				float x = (i + 1.0f) * m_extent + 2.0f * (j - i) * m_extent + centerX;
+				bodyDef.position = {x, y};
 
-				assert(index < e_maxBodyCount);
-				m_bodies[index] = b2World_CreateBody(m_worldId, &bd);
-				b2Body_CreatePolygon(m_bodies[index], &sd, &cuboid);
+				assert(m_bodyIndex < m_bodyCount);
+				m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
+				b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, &cuboid);
 
-				index += 1;
+				m_bodyIndex += 1;
 			}
 		}
+	}
 
-		m_bodyCount = index;
+	void CreateScene()
+	{
+		if (B2_NON_NULL(m_groundId))
+		{
+			b2World_DestroyBody(m_groundId);
+		}
+
+		for (int32_t i = 0; i < m_bodyCount; ++i)
+		{
+			b2World_DestroyBody(m_bodyIds[i]);
+		}
+
+		free(m_bodyIds);
+
+		m_bodyCount = m_rowCount * m_columnCount * m_baseCount * (m_baseCount + 1) / 2;
+		m_bodyIds = (b2BodyId*)malloc(m_bodyCount * sizeof(b2BodyId));
+		m_bodyIndex = 0;
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+
+		float groundDeltaY = 2.0f * m_extent * (m_baseCount + 1.0f);
+		float groundWidth = 2.0f * m_extent * m_columnCount * (m_baseCount + 1.0f);
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		float groundY = 0.0f;
+
+		for (int32_t i = 0; i < m_rowCount; ++i)
+		{
+			b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
+			b2Body_CreateSegment(m_groundId, &shapeDef, &segment);
+			groundY += groundDeltaY;
+		}
+
+		float baseWidth = 2.0f * m_extent * m_baseCount;
+		float baseY = 0.0f;
+
+		for (int32_t i = 0; i < m_rowCount; ++i)
+		{
+			for (int32_t j = 0; j < m_columnCount; ++j)
+			{
+				float centerX = -0.5f * groundWidth + j * (baseWidth + 2.0f * m_extent) + m_extent;
+				CreateStack(centerX, baseY);
+			}
+
+			baseY += groundDeltaY;
+		}
+
+		assert(m_bodyIndex == m_bodyCount);
 	}
 
 	void UpdateUI() override
@@ -99,15 +133,15 @@ class BenchmarkPyramid : public Sample
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, e_maxBaseCount);
+		changed = changed || ImGui::SliderInt("Row Count", &m_rowCount, 1, 32);
+		changed = changed || ImGui::SliderInt("Column Count", &m_columnCount, 1, 32);
+		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 30);
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
 
-		if (ImGui::Button("Wake Top"))
-		{
-			b2Body_Wake(m_bodies[m_bodyCount - 1]);
-		}
+		ImGui::SliderInt("Collide Min", &b2_collideMinRange, 1, 200);
+		ImGui::SliderInt("Island Min", &b2_islandMinRange, 1, 10);
 
 		if (changed)
 		{
@@ -117,16 +151,72 @@ class BenchmarkPyramid : public Sample
 		ImGui::End();
 	}
 
+	void Step(Settings& settings) override
+	{
+		//b2_collideMinRange = m_collideRange;
+		//b2_islandMinRange = m_islandRange;
+
+		Sample::Step(settings);
+
+		b2Profile profile = b2World_GetProfile(m_worldId);
+
+		if (m_stepCount > 100000000)
+		{
+			if (profile.collide < m_minCollide)
+			{
+				m_minCollide = profile.collide;
+				m_bestCollideRange = m_collideRange;
+			}
+
+			if (profile.solveIslands < m_minIsland)
+			{
+				m_minIsland = profile.solveIslands;
+				m_bestIslandRange = m_islandRange;
+			}
+
+			g_draw.DrawString(5, m_textLine, "collide range (best) = %d (%d)", m_collideRange, m_bestCollideRange);
+			m_textLine += m_textIncrement;
+
+			g_draw.DrawString(5, m_textLine, "island range (best) = %d (%d)", m_islandRange, m_bestIslandRange);
+			m_textLine += m_textIncrement;
+
+			//m_collideRange += 1;
+			//if (m_collideRange > 300)
+			//{
+			//	m_collideRange = 32;
+			//}
+
+			//m_islandRange += 1;
+			//if (m_islandRange > 4)
+			//{
+			//	m_islandRange = 1;
+			//}
+		}
+	}
+
 	static Sample* Create(const Settings& settings)
 	{
 		return new BenchmarkPyramid(settings);
 	}
 
-	b2BodyId m_bodies[e_maxBodyCount];
+	b2BodyId m_groundId;
+	b2BodyId* m_bodyIds;
 	int32_t m_bodyCount;
+	int32_t m_bodyIndex;
 	int32_t m_baseCount;
+	int32_t m_rowCount;
+	int32_t m_columnCount;
 	float m_round;
-	float m_groundThickness;
+	float m_extent;
+
+	int m_collideRange;
+	int m_islandRange;
+
+	int32_t m_bestCollideRange;
+	float m_minCollide;
+
+	int32_t m_bestIslandRange;
+	float m_minIsland;
 };
 
 static int sampleIndex = RegisterSample("Benchmark", "Pyramid", BenchmarkPyramid::Create);

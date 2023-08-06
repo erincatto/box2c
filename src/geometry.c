@@ -104,7 +104,7 @@ b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
 	shape.vertices[1] = p2;
 
 	b2Vec2 axis = b2NormalizeChecked(b2Sub(p2, p1));
-	b2Vec2 normal = b2CrossVS(axis, 1.0f);
+	b2Vec2 normal = b2RightPerp(axis);
 
 	shape.normals[0] = normal;
 	shape.normals[1] = b2Neg(normal);

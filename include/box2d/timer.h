@@ -16,6 +16,7 @@ typedef struct b2Profile
 	float buildIslands;
 	float solveIslands;
 	float broadphase;
+	float continuous;
 } b2Profile;
 
 static const b2Profile b2_emptyProfile = {0};
@@ -28,7 +29,6 @@ typedef struct b2Statistics
 	int32_t jointCount;
 	int32_t proxyCount;
 	int32_t treeHeight;
-	int32_t contactPointCount;
 	int32_t stackCapacity;
 	int32_t stackUsed;
 	int32_t byteCount;
