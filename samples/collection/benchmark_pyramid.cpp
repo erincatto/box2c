@@ -23,7 +23,7 @@ class BenchmarkPyramid : public Sample
 		m_round = 0.0f;
 		m_baseCount = 10;
 		m_rowCount = g_sampleDebug ? 1 : 16;
-		m_columnCount = g_sampleDebug ? 4 : 16;
+		m_columnCount = g_sampleDebug ? 1 : 16;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
@@ -63,7 +63,7 @@ class BenchmarkPyramid : public Sample
 
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{
-				float x = (i + 1.0f) * m_extent + 2.0f * (j - i) * m_extent + centerX;
+				float x = (i + 1.0f) * m_extent + 2.25f * (j - i) * m_extent + centerX - 0.5f;
 				bodyDef.position = {x, y};
 
 				assert(m_bodyIndex < m_bodyCount);

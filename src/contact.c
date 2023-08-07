@@ -197,6 +197,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contact->islandIndex = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
+	contact->colorContactIndex = B2_NULL_INDEX;
+	contact->colorIndex = B2_NULL_INDEX;
 
 	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
 	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
@@ -254,6 +256,9 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	// Add to pair set for fast lookup
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
+
+	// TODO_ERIN could pass bodies
+	b2AddContactToGraph(world, &world->graph, contact);
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
@@ -267,6 +272,9 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
 	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
+
+	// TODO_ERIN pass bodies
+	b2RemoveContactFromGraph(world, &world->graph, contact);
 
 	// if (contactListener && contact->IsTouching())
 	//{
@@ -439,7 +447,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		if (touching && world->preSolveFcn)
 		{
 			// TODO_ERIN this call assumes thread safety
-			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
+			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, contact->colorIndex, world->preSolveContext);
 			if (collide == false)
 			{
 				// disable contact

@@ -24,8 +24,29 @@ void b2InPlaceUnion(b2BitSet* setA, const b2BitSet* setB);
 static inline void b2SetBit(b2BitSet* bitSet, uint32_t bitIndex)
 {
 	uint32_t wordIndex = bitIndex / 64;
+	// TODO_ERIN support growing
 	B2_ASSERT(wordIndex < bitSet->wordCount);
 	bitSet->bits[wordIndex] |= ((uint64_t)1) << (bitIndex % 64);
+}
+
+static inline void b2ClearBit(b2BitSet* bitSet, uint32_t bitIndex)
+{
+	uint32_t wordIndex = bitIndex / 64;
+	if (wordIndex >= bitSet->wordCount)
+	{
+		return;
+	}
+	bitSet->bits[wordIndex] &= ~(((uint64_t)1) << (bitIndex % 64));
+}
+
+static inline bool b2GetBit(const b2BitSet* bitSet, uint32_t bitIndex)
+{
+	uint32_t wordIndex = bitIndex / 64;
+	if (wordIndex >= bitSet->wordCount)
+	{
+		return false;
+	}
+	return (bitSet->bits[wordIndex] & ((uint64_t)1) << (bitIndex % 64)) != 0;
 }
 
 #if defined(_MSC_VER) && !defined(__clang__)

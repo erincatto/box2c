@@ -9,6 +9,7 @@
 #include "body.h"
 #include "contact.h"
 #include "core.h"
+#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "world.h"
@@ -127,6 +128,10 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		int32_t twinIndex = twinKey & 1;
 
 		b2Contact* contact = world->contacts + contactIndex;
+
+		// TODO_ERIN could pass bodies
+		b2RemoveContactFromGraph(world, &world->graph, contact);
+
 		b2ContactEdge* twin = contact->edges + twinIndex;
 
 		// Remove contact from other body's doubly linked list

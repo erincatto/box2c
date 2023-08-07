@@ -16,10 +16,10 @@
 #include <stdio.h>
 #include <string.h>
 
-bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
+bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
-	return sample->PreSolve(shapeIdA, shapeIdB, manifold);
+	return sample->PreSolve(shapeIdA, shapeIdB, manifold, color);
 }
 
 static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
@@ -336,11 +336,20 @@ void Sample::Step(Settings& settings)
 		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
 		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
 
+		b2HexColor colors[8] = {b2_colorAquamarine, b2_colorBisque,	   b2_colorBlue,	   b2_colorBrown,
+								b2_colorBurlywood,	b2_colorCadetBlue, b2_colorChartreuse, b2_colorChocolate};
+
 		for (int32_t i = 0; i < m_pointCount; ++i)
 		{
 			ContactPoint* point = m_points + i;
 
-			if (point->separation > b2_linearSlop)
+			if (0 <= point->color && point->color < 8)
+			{
+				// graph color
+				g_draw.DrawPoint(point->position, 5.0f, b2MakeColor(colors[point->color], 1.0f));
+				g_draw.DrawString(point->position, "%d", point->color);
+			}
+			else if (point->separation > b2_linearSlop)
 			{
 				// Speculative
 				g_draw.DrawPoint(point->position, 5.0f, speculativeColor);
@@ -388,7 +397,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 }
 
 // Thread-safe callback
-bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
+bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color)
 {
 	long startCount = m_pointCount.fetch_add(manifold->pointCount);
 	if (startCount >= k_maxContactPoints)
@@ -411,6 +420,7 @@ bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifo
 		cp->normalImpulse = manifold->points[j].normalImpulse;
 		cp->tangentImpulse = manifold->points[j].tangentImpulse;
 		cp->persisted = manifold->points[j].persisted;
+		cp->color = color;
 		++j;
 	}
 

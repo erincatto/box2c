@@ -41,7 +41,7 @@ typedef struct b2ManifoldPoint
 	bool persisted;
 } b2ManifoldPoint;
 
-/// Conact manifold convex shapes.
+/// Contact manifold convex shapes.
 typedef struct b2Manifold
 {
 	b2ManifoldPoint points[b2_maxManifoldPoints];

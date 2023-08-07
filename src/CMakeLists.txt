@@ -22,6 +22,8 @@ set(BOX2D_SOURCE_FILES
 	distance.c
 	dynamic_tree.c
 	geometry.c
+	graph.c
+	graph.h
 	hull.c
 	island.c
 	island.h

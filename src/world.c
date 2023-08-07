@@ -96,6 +96,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2CreateBroadPhase(&world->broadPhase);
+	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity);
 
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -200,6 +201,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyPool(&world->shapePool);
 	b2DestroyPool(&world->bodyPool);
 
+	b2DestroyGraph(&world->graph);
 	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyBlockAllocator(world->blockAllocator);

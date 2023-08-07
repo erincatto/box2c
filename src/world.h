@@ -6,6 +6,7 @@
 #include "bitset.h"
 #include "broad_phase.h"
 #include "island.h"
+#include "graph.h"
 #include "pool.h"
 
 #include "box2d/callbacks.h"
@@ -39,6 +40,7 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
+	b2Graph graph;
 
 	b2Pool bodyPool;
 	b2Pool contactPool;
