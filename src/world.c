@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "world.h"
 
 #include "allocate.h"
@@ -25,6 +27,7 @@
 #include "box2d/distance.h"
 #include "box2d/timer.h"
 
+#include <stdio.h>
 #include <string.h>
 
 b2World b2_worlds[b2_maxWorlds];
@@ -377,6 +380,7 @@ static void b2Collide(b2World* world)
 			{
 				B2_ASSERT(contact->islandIndex == B2_NULL_INDEX);
 				b2LinkContact(world, contact);
+				b2AddContactToGraph(world, contact);
 				contact->flags &= ~b2_contactStartedTouching;
 			}
 			else
@@ -384,6 +388,7 @@ static void b2Collide(b2World* world)
 				B2_ASSERT(contact->flags & b2_contactStoppedTouching);
 
 				b2UnlinkContact(world, contact);
+				b2RemoveContactFromGraph(world, contact);
 				contact->flags &= ~b2_contactStoppedTouching;
 			}
 
@@ -1167,6 +1172,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			{
 				continue;
 			}
+
+			char buffer[32];
+			sprintf(buffer, "%d", b->object.index);
+			draw->DrawString(b->position, buffer, draw->context);
 
 			int32_t shapeIndex = b->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)

@@ -39,10 +39,12 @@ void b2DestroyGraph(b2Graph* graph)
 	}
 }
 
-void b2AddContactToGraph(b2World* world, b2Graph* graph, b2Contact* contact)
+void b2AddContactToGraph(b2World* world, b2Contact* contact)
 {
 	B2_ASSERT(contact->colorContactIndex == B2_NULL_INDEX);
 	B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
+
+	b2Graph* graph = &world->graph;
 
 	int32_t bodyIndexA = contact->edges[0].bodyIndex;
 	int32_t bodyIndexB = contact->edges[1].bodyIndex;
@@ -107,12 +109,12 @@ void b2AddContactToGraph(b2World* world, b2Graph* graph, b2Contact* contact)
 	}
 }
 
-void b2RemoveContactFromGraph(b2World* world, b2Graph* graph, b2Contact* contact)
+void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 {
-	if (contact->colorIndex == B2_NULL_INDEX)
-	{
-		return;
-	}
+	B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
+	B2_ASSERT(contact->colorContactIndex != B2_NULL_INDEX);
+
+	b2Graph* graph = &world->graph;
 
 	B2_ASSERT(0 <= contact->colorIndex && contact->colorIndex < b2_graphColorCount);
 	int32_t bodyIndexA = contact->edges[0].bodyIndex;
@@ -151,10 +153,136 @@ void b2RemoveContactFromGraph(b2World* world, b2Graph* graph, b2Contact* contact
 
 		b2ClearBit(&color->bodySet, bodyIndexB);
 	}
+
+	contact->colorIndex = B2_NULL_INDEX;
+	contact->colorContactIndex = B2_NULL_INDEX;
 }
 
-void b2SolveGraph(b2World* world, b2Graph* graph)
+typedef struct b2ConstraintPoint
 {
+	b2Vec2 rA;
+	b2Vec2 rB;
+	float normalImpulse;
+	float tangentImpulse;
+	float normalMass;
+	float tangentMass;
+	float velocityBias;
+} b2ConstraintPoint;
+
+typedef struct b2Constraint
+{
+	b2Contact* contact;
+	b2ConstraintPoint points[2];
+	b2Vec2 normal;
+	float friction;
+	int32_t pointCount;
+} b2Constraint;
+
+static void b2InitializeConstraints(b2World* world, b2GraphColor* color, const b2StepContext* stepContext)
+{
+	int32_t constraintCount = b2Array(color->contactArray).count;
+	int32_t* contactIndices = color->contactArray;
+	b2Contact* contacts = world->contacts;
+	b2Body* bodies = world->bodies;
+	float inv_dt = stepContext->inv_dt;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Contact* contact = contacts + contactIndices[i];
+
+		const b2Manifold* manifold = &contact->manifold;
+		int32_t pointCount = manifold->pointCount;
+
+		B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+		int32_t indexA = contact->edges[0].bodyIndex;
+		int32_t indexB = contact->edges[1].bodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
+		b2Constraint* constraint = color->contraints + i;
+		constraint->contact = contact;
+		constraint->normal = manifold->normal;
+		constraint->friction = contact->friction;
+		constraint->pointCount = pointCount;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+
+		b2Rot qA = bodyA->transform.q;
+		b2Vec2 cA = bodyA->position;
+		b2Rot qB = bodyB->transform.q;
+		b2Vec2 cB = bodyB->position;
+
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+
+		b2Vec2 tangent = b2RightPerp(constraint->normal);
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			const b2ManifoldPoint* cp = manifold->points + j;
+			b2ConstraintPoint* constraintPoint = constraint->points + j;
+
+			constraintPoint->normalImpulse = cp->normalImpulse;
+			constraintPoint->tangentImpulse =  cp->tangentImpulse;
+
+			constraintPoint->rA = b2Sub(cp->point, cA);
+			constraintPoint->rB = b2Sub(cp->point, cB);
+
+			float rnA = b2Cross(constraintPoint->rA, constraint->normal);
+			float rnB = b2Cross(constraintPoint->rB, constraint->normal);
+
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+			constraintPoint->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+			float rtA = b2Cross(constraintPoint->rA, tangent);
+			float rtB = b2Cross(constraintPoint->rB, tangent);
+
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+
+			constraintPoint->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
+			// Velocity bias for speculative collision
+			constraintPoint->velocityBias = -B2_MAX(0.0f, cp->separation * inv_dt);
+		}
+
+		constraintCount += 1;
+	}
+}
+
+void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
+{
+	b2Graph* graph = &world->graph;
+	b2GraphColor* colors = graph->colors;
+
+	int32_t constraintCount = 0;
+	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	{
+		constraintCount += b2Array(colors[i].contactArray).count;
+	}
+
+	b2Constraint* constraints = b2AllocateStackItem(&world->stackAllocator, constraintCount * sizeof(b2Constraint), "constraint");
+	int32_t base = 0;
+
+	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	{
+		colors[i].contraints = constraints + base;
+		base += b2Array(colors[i].contactArray).count;
+	}
+
+	B2_ASSERT(base == constraintCount);
+
+	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	{
+		colors[i].contraints = constraints + base;
+		base += b2Array(colors[i].contactArray).count;
+	}
+
 	B2_MAYBE_UNUSED(world);
-	B2_MAYBE_UNUSED(graph);
 }

@@ -18,6 +18,7 @@ typedef struct b2GraphColor
 {
 	b2BitSet bodySet;
 	int32_t* contactArray;
+	struct b2Contraint* contraints;
 } b2GraphColor;
 
 typedef struct b2Graph
@@ -29,7 +30,7 @@ typedef struct b2Graph
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity);
 void b2DestroyGraph(b2Graph* graph);
 
-void b2AddContactToGraph(b2World* world, b2Graph* graph, b2Contact* contact);
-void b2RemoveContactFromGraph(b2World* world, b2Graph* graph, b2Contact* contact);
+void b2AddContactToGraph(b2World* world, b2Contact* contact);
+void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-void b2SolveGraph(b2World* world, b2Graph* graph);
+void b2SolveGraph(b2World* world);

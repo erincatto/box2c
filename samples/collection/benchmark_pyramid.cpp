@@ -63,7 +63,9 @@ class BenchmarkPyramid : public Sample
 
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{
+				//float x = (1.5f * i + 1.0f) * m_extent + 3.0f * (j - i) * m_extent + centerX - 0.5f;
 				float x = (i + 1.0f) * m_extent + 2.25f * (j - i) * m_extent + centerX - 0.5f;
+
 				bodyDef.position = {x, y};
 
 				assert(m_bodyIndex < m_bodyCount);
@@ -105,6 +107,7 @@ class BenchmarkPyramid : public Sample
 		for (int32_t i = 0; i < m_rowCount; ++i)
 		{
 			b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
+			//b2Segment segment = {{-0.5f * 2.0f * groundWidth, groundY}, {0.5f * 2.0f * groundWidth, groundY}};
 			b2Body_CreateSegment(m_groundId, &shapeDef, &segment);
 			groundY += groundDeltaY;
 		}

@@ -256,9 +256,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	// Add to pair set for fast lookup
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIndexA, contact->shapeIndexB);
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
-
-	// TODO_ERIN could pass bodies
-	b2AddContactToGraph(world, &world->graph, contact);
 }
 
 void b2DestroyContact(b2World* world, b2Contact* contact)
@@ -273,8 +270,10 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
 	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
 
-	// TODO_ERIN pass bodies
-	b2RemoveContactFromGraph(world, &world->graph, contact);
+	if (contact->colorIndex != B2_NULL_INDEX)
+	{
+		b2RemoveContactFromGraph(world, contact);
+	}
 
 	// if (contactListener && contact->IsTouching())
 	//{

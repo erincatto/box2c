@@ -129,8 +129,10 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 		b2Contact* contact = world->contacts + contactIndex;
 
-		// TODO_ERIN could pass bodies
-		b2RemoveContactFromGraph(world, &world->graph, contact);
+		if (contact->colorIndex != B2_NULL_INDEX)
+		{
+			b2RemoveContactFromGraph(world, contact);
+		}
 
 		b2ContactEdge* twin = contact->edges + twinIndex;
 

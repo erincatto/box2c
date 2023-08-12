@@ -18,6 +18,7 @@
 //}
 #endif
 
+extern int BitSetTest();
 extern int MathTest();
 extern int CollisionTest();
 extern int DeterminismTest();
@@ -47,6 +48,7 @@ int main(void)
 	RUN_TEST(HelloWorld);
 	RUN_TEST(ShapeTest);
 	RUN_TEST(TableTest);
+	RUN_TEST(BitSetTest);
 
 	printf("======================================\n");
 	printf("All Box2D tests passed!\n");
