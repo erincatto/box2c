@@ -27,6 +27,7 @@ BOX2D_API void b2DestroyWorld(b2WorldId worldId);
 /// @param velocityIterations for the velocity constraint solver.
 /// @param positionIterations for the position constraint solver.
 BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations);
+BOX2D_API void b2World_Step2(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations);
 
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);

@@ -21,7 +21,7 @@ class BenchmarkPyramid : public Sample
 	{
 		m_extent = 0.5f;
 		m_round = 0.0f;
-		m_baseCount = 10;
+		m_baseCount = 4;
 		m_rowCount = g_sampleDebug ? 1 : 16;
 		m_columnCount = g_sampleDebug ? 1 : 16;
 		m_groundId = b2_nullBodyId;
@@ -59,7 +59,7 @@ class BenchmarkPyramid : public Sample
 
 		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			float y = (2.0f * i  + 1.0f) * m_extent + baseY;
+			float y = (2.0f * i  + 1.0f) * m_extent + baseY + 2.0f;
 
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{

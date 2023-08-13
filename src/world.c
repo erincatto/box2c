@@ -13,6 +13,7 @@
 #include "broad_phase.h"
 #include "contact.h"
 #include "core.h"
+#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "pool.h"
@@ -626,7 +627,6 @@ static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, ui
 	b2TracyCZoneEnd(continuous_task);
 }
 
-// Solve with union-find islands
 static void b2Solve(b2World* world, b2StepContext* context)
 {
 	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
@@ -915,6 +915,140 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneEnd(solve);
 }
 
+// Graph coloring experiment
+static void b2Solve2(b2World* world, b2StepContext* context)
+{
+	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
+
+	b2Timer timer = b2CreateTimer();
+
+	world->stepId += 1;
+
+	// Prepare contact and shape bit-sets
+	int32_t contactCapacity = world->contactPool.capacity;
+	int32_t shapeCapacity = world->shapePool.capacity;
+	for (uint32_t i = 0; i < world->workerCount; ++i)
+	{
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
+	}
+
+	world->profile.buildIslands = 0.0f;
+
+	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
+
+	b2SolveGraph(world, context);
+
+	b2ValidateNoEnlarged(&world->broadPhase);
+
+	b2TracyCZoneEnd(island_solver);
+
+	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
+
+	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
+
+	// Enlarge broad-phase proxies and build move array
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+
+		// Gather bits for all shapes that have enlarged AABBs
+		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
+		}
+
+		// Apply shape AABB changes to broadphase. This also create the move array which must be
+		// ordered to ensure determinism.
+		b2Shape* shapes = world->shapes;
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t shapeIndex = 64 * k + ctz;
+
+				b2Shape* shape = shapes + shapeIndex;
+				B2_ASSERT(b2ObjectValid(&shape->object));
+				if (shape->isFast == false)
+				{
+					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+				}
+				else
+				{
+					// Shape is fast. It's aabb will be enlarged in continuous collision.
+					b2BufferMove(broadPhase, shape->proxyKey);
+				}
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(enlarge_proxies);
+
+	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
+
+	// Build awake contact array
+	{
+		b2BitSet* bitSet = &world->taskContextArray[0].awakeContactBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
+		}
+
+		b2Array_Clear(world->awakeContactArray);
+
+		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
+
+		// Iterate the bit set
+		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
+		// that body A or body B or both bodies wake the contact.
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t contactIndex = 64 * k + ctz;
+
+				B2_ASSERT(contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
+
+				// This cache miss is brutal but is necessary to make contact destruction reasonably quick.
+				contactAwakeIndexArray[contactIndex] = b2Array(world->awakeContactArray).count;
+
+				// This is fast
+				b2Array_Push(world->awakeContactArray, contactIndex);
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(awake_contacts);
+
+	b2ValidateBroadphase(&world->broadPhase);
+
+	world->profile.broadphase = b2GetMilliseconds(&timer);
+
+	b2TracyCZoneEnd(broad_phase);
+
+	world->profile.continuous = 0.0f;
+
+	b2TracyCZoneEnd(solve);
+}
+
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
 {
 	if (timeStep == 0.0f)
@@ -977,6 +1111,93 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	{
 		b2Timer timer = b2CreateTimer();
 		b2Solve(world, &context);
+		world->profile.solve = b2GetMilliseconds(&timer);
+	}
+
+	if (context.dt > 0.0f)
+	{
+		world->inv_dt0 = context.inv_dt;
+	}
+
+	world->locked = false;
+
+	world->profile.step = b2GetMilliseconds(&stepTimer);
+
+	B2_ASSERT(b2GetStackAllocation(world->stackAllocator) == 0);
+
+	// Ensure stack is large enough
+	b2GrowStack(world->stackAllocator);
+
+	if (b2_parallel)
+	{
+		world->finishAllTasksFcn(world->userTaskContext);
+	}
+
+	b2TracyCZoneEnd(world_step);
+}
+
+void b2World_Step2(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
+{
+	if (timeStep == 0.0f)
+	{
+		// TODO_ERIN would be useful to still process collision while paused
+		return;
+	}
+
+	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
+
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->profile = b2_emptyProfile;
+
+	b2Timer stepTimer = b2CreateTimer();
+
+	// Update collision pairs and create contacts
+	{
+		b2Timer timer = b2CreateTimer();
+		b2UpdateBroadPhasePairs(world);
+		world->profile.pairs = b2GetMilliseconds(&timer);
+	}
+
+	// TODO_ERIN atomic
+	world->locked = true;
+
+	b2StepContext context = {0};
+	context.dt = timeStep;
+	context.velocityIterations = velocityIterations;
+	context.positionIterations = positionIterations;
+	if (timeStep > 0.0f)
+	{
+		context.inv_dt = 1.0f / timeStep;
+	}
+	else
+	{
+		context.inv_dt = 0.0f;
+	}
+
+	context.dtRatio = world->inv_dt0 * timeStep;
+	context.restitutionThreshold = world->restitutionThreshold;
+	context.warmStarting = world->warmStarting;
+	context.bodies = world->bodies;
+	context.bodyCapacity = world->bodyPool.capacity;
+
+	// Update contacts
+	{
+		b2Timer timer = b2CreateTimer();
+		b2Collide(world);
+		world->profile.collide = b2GetMilliseconds(&timer);
+	}
+
+	// Integrate velocities, solve velocity constraints, and integrate positions.
+	if (context.dt > 0.0f)
+	{
+		b2Timer timer = b2CreateTimer();
+		b2Solve2(world, &context);
 		world->profile.solve = b2GetMilliseconds(&timer);
 	}
 

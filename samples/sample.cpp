@@ -237,7 +237,7 @@ void Sample::Step(Settings& settings)
 
 	for (int32_t i = 0; i < 1; ++i)
 	{
-		b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+		b2World_Step2(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
 	}
 	b2World_Draw(m_worldId, &g_draw.m_debugDraw);
 

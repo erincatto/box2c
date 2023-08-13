@@ -10,6 +10,7 @@
 #include "box2d/dynamic_tree.h"
 
 typedef struct b2Contact b2Contact;
+typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
 #define b2_graphColorCount 8
@@ -18,7 +19,7 @@ typedef struct b2GraphColor
 {
 	b2BitSet bodySet;
 	int32_t* contactArray;
-	struct b2Contraint* contraints;
+	struct b2Constraint* constraints;
 } b2GraphColor;
 
 typedef struct b2Graph
@@ -33,4 +34,4 @@ void b2DestroyGraph(b2Graph* graph);
 void b2AddContactToGraph(b2World* world, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-void b2SolveGraph(b2World* world);
+void b2SolveGraph(b2World* world, const b2StepContext* stepContext);
