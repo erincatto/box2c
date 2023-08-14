@@ -937,7 +937,7 @@ static void b2Solve2(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
-	b2SolveGraph(world, context);
+	b2SolveGraphTGS(world, context);
 
 	b2ValidateNoEnlarged(&world->broadPhase);
 

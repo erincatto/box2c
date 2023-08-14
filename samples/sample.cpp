@@ -233,7 +233,10 @@ void Sample::Step(Settings& settings)
 	// m_world->SetWarmStarting(settings.m_enableWarmStarting);
 	// m_world->SetContinuousPhysics(settings.m_enableContinuous);
 
-	m_pointCount = 0;
+	if (timeStep > 0.0f)
+	{
+		m_pointCount = 0;
+	}
 
 	for (int32_t i = 0; i < 1; ++i)
 	{
