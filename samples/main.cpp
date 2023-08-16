@@ -53,7 +53,7 @@ static b2Vec2 s_clickPointWS = b2Vec2_zero;
 static float s_windowScale = 1.0f;
 static float s_framebufferScale = 1.0f;
 
-void* AllocFcn(int32_t size)
+void* AllocFcn(uint32_t size)
 {
 	size_t size16 = ((size - 1) | 0xF) + 1;
 	assert((size16 & 0xF) == 0);

@@ -41,7 +41,7 @@ class BenchmarkPyramid : public Sample
 		CreateScene();
 	}
 
-	~BenchmarkPyramid()
+	~BenchmarkPyramid() override
 	{
 		free(m_bodyIds);
 	}

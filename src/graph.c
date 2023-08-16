@@ -65,8 +65,8 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 				continue;
 			}
 
-			b2SetBit(&color->bodySet, bodyIndexA);
-			b2SetBit(&color->bodySet, bodyIndexB);
+			b2SetBitGrow(&color->bodySet, bodyIndexA);
+			b2SetBitGrow(&color->bodySet, bodyIndexB);
 
 			contact->colorContactIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
@@ -84,7 +84,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 				continue;
 			}
 
-			b2SetBit(&color->bodySet, bodyIndexA);
+			b2SetBitGrow(&color->bodySet, bodyIndexA);
 
 			contact->colorContactIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
@@ -102,7 +102,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 				continue;
 			}
 
-			b2SetBit(&color->bodySet, bodyIndexB);
+			b2SetBitGrow(&color->bodySet, bodyIndexB);
 
 			contact->colorContactIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
@@ -220,6 +220,7 @@ typedef struct b2ConstraintPoint
 	float tangentMass;
 	float bias;
 	float gamma;
+	float gammaScale;
 } b2ConstraintPoint;
 
 typedef struct b2Constraint
@@ -307,20 +308,20 @@ static void b2InitializeConstraintsAndWarmStart(b2World* world, b2GraphColor* co
 			const float hertz = 10.0f;
 			const float zeta = 1.0f;
 			float omega = 2.0f * b2_pi * hertz;
-			//float d = 2.0f * zeta * omega / kNormal;
-			//float k = omega * omega / kNormal;
+			// float d = 2.0f * zeta * omega / kNormal;
+			// float k = omega * omega / kNormal;
 
-			//cp->gamma = 1.0f / (h * (d + h * k));
-			//cp->gamma = 1.0f / (h * (2.0f * zeta * omega / kNormal + h * omega * omega / kNormal));
+			// cp->gamma = 1.0f / (h * (d + h * k));
+			// cp->gamma = 1.0f / (h * (2.0f * zeta * omega / kNormal + h * omega * omega / kNormal));
 			cp->gamma = kNormal / (h * omega * (2.0f * zeta + h * omega));
 
-			//cp->bias = h * k * cp->gamma * mp->separation;
-			//cp->bias = k / (d + h * k) * mp->separation;
-			//cp->bias =
+			// cp->bias = h * k * cp->gamma * mp->separation;
+			// cp->bias = k / (d + h * k) * mp->separation;
+			// cp->bias =
 			//	(omega * omega / kNormal) / (2.0f * dampingRatio * omega / kNormal + h * omega * omega / kNormal) * mp->separation;
 			cp->bias = (omega / (2.0f * zeta + h * omega)) * mp->separation;
-			//cp->gamma = 0.0f;
-			//cp->bias = (0.2f / h) * mp->separation;
+			// cp->gamma = 0.0f;
+			// cp->bias = (0.2f / h) * mp->separation;
 
 			// TODO_ERIN this can be expanded
 			cp->normalMass = 1.0f / (kNormal + cp->gamma);
@@ -343,7 +344,7 @@ static void b2InitializeConstraintsAndWarmStart(b2World* world, b2GraphColor* co
 	}
 }
 
-static void b2InitializeConstraints(b2World* world, b2GraphColor* color, float h)
+static void b2InitializeConstraints(b2World* world, b2GraphColor* color)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	int32_t* contactIndices = color->contactArray;
@@ -372,18 +373,10 @@ static void b2InitializeConstraints(b2World* world, b2GraphColor* color, float h
 		constraint->friction = contact->friction;
 		constraint->pointCount = pointCount;
 
-		float mA = bodyA->invMass;
-		float iA = bodyA->invI;
-		float mB = bodyB->invMass;
-		float iB = bodyB->invI;
-
 		b2Vec2 cA = bodyA->position;
 		b2Vec2 cB = bodyB->position;
 		b2Rot qA = b2MakeRot(bodyA->angle);
 		b2Rot qB = b2MakeRot(bodyB->angle);
-
-		b2Vec2 normal = constraint->normal;
-		b2Vec2 tangent = b2RightPerp(constraint->normal);
 
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
@@ -393,50 +386,14 @@ static void b2InitializeConstraints(b2World* world, b2GraphColor* color, float h
 			cp->normalImpulse = mp->normalImpulse;
 			cp->tangentImpulse = mp->tangentImpulse;
 
-			cp->rA = b2Sub(mp->point, cA);
-			cp->rB = b2Sub(mp->point, cB);
-			cp->localAnchorA = b2InvRotateVector(qA, cp->rA);
-			cp->localAnchorB = b2InvRotateVector(qB, cp->rB);
-
-			float rnA = b2Cross(cp->rA, normal);
-			float rnB = b2Cross(cp->rB, normal);
-			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
-
-			float rtA = b2Cross(cp->rA, tangent);
-			float rtB = b2Cross(cp->rB, tangent);
-			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
-
-			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
-
-			// Soft contact with speculation
-			const float hertz = 10.0f;
-			const float zeta = 1.0f;
-			float omega = 2.0f * b2_pi * hertz;
-			// float d = 2.0f * zeta * omega / kNormal;
-			// float k = omega * omega / kNormal;
-
-			// cp->gamma = 1.0f / (h * (d + h * k));
-			// cp->gamma = 1.0f / (h * (2.0f * zeta * omega / kNormal + h * omega * omega / kNormal));
-			cp->gamma = kNormal / (h * omega * (2.0f * zeta + h * omega));
-
-			// cp->bias = h * k * cp->gamma * mp->separation;
-			// cp->bias = k / (d + h * k) * mp->separation;
-			// cp->bias =
-			//	(omega * omega / kNormal) / (2.0f * dampingRatio * omega / kNormal + h * omega * omega / kNormal) * mp->separation;
-			cp->bias = (omega / (2.0f * zeta + h * omega)) * mp->separation;
-			// cp->gamma = 0.0f;
-			// cp->bias = (0.2f / h) * mp->separation;
-
-			// TODO_ERIN this can be expanded
-			cp->normalMass = 1.0f / (kNormal + cp->gamma);
-
+			cp->localAnchorA = b2InvRotateVector(qA, b2Sub(mp->point, cA));
+			cp->localAnchorB = b2InvRotateVector(qB, b2Sub(mp->point, cB));
 			cp->baseSeparation = mp->separation;
-			cp->separation = mp->separation;
 		}
 	}
 }
 
-static void b2WarmStart(b2World* world, b2GraphColor* color)
+static void b2WarmStart(b2World* world, b2GraphColor* color, float h, int32_t stepIndex)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
@@ -456,17 +413,57 @@ static void b2WarmStart(b2World* world, b2GraphColor* color)
 		float mB = bodyB->invMass;
 		float iB = bodyB->invI;
 
+		b2Vec2 cA = bodyA->position;
+		b2Vec2 cB = bodyB->position;
+		b2Rot qA = b2MakeRot(bodyA->angle);
+		b2Rot qB = b2MakeRot(bodyB->angle);
+
 		b2Vec2 vA = bodyA->linearVelocity;
 		float wA = bodyA->angularVelocity;
 		b2Vec2 vB = bodyB->linearVelocity;
 		float wB = bodyB->angularVelocity;
 
 		b2Vec2 normal = constraint->normal;
-		b2Vec2 tangent = b2RightPerp(constraint->normal);
+		b2Vec2 tangent = b2RightPerp(normal);
 
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
 			b2ConstraintPoint* cp = constraint->points + j;
+
+			cp->rA = b2RotateVector(qA, cp->localAnchorA);
+			cp->rB = b2RotateVector(qB, cp->localAnchorB);
+
+			float rnA = b2Cross(cp->rA, normal);
+			float rnB = b2Cross(cp->rB, normal);
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+			float rtA = b2Cross(cp->rA, tangent);
+			float rtB = b2Cross(cp->rB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+
+			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
+			const float hertz = 30.0f;
+			const float zeta = 1.0f;
+			float omega = 2.0f * b2_pi * hertz;
+			cp->gamma = kNormal / (h * omega * (2.0f * zeta + h * omega));
+			cp->normalMass = 1.0f / (kNormal + cp->gamma);
+
+			if (stepIndex == 0)
+			{
+				cp->separation = cp->baseSeparation;
+			}
+			else
+			{
+				// Current separation
+				b2Vec2 d = b2Add(b2Sub(cB, cA), b2Sub(cp->rB, cp->rA));
+
+				// TODO_ERIN really only need to update bias below
+				cp->separation = b2Dot(d, normal) + cp->baseSeparation;
+			}
+
+			//cp->bias = B2_MAX(B2_MAX(cp->separation / h, (omega / (2.0f * zeta + h * omega)) * cp->separation), -1.0f);
+			cp->bias = (omega / (2.0f * zeta + h * omega)) * cp->separation;
 
 			b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
 			wA -= iA * b2Cross(cp->rA, P);
@@ -479,53 +476,6 @@ static void b2WarmStart(b2World* world, b2GraphColor* color)
 		bodyA->angularVelocity = wA;
 		bodyB->linearVelocity = vB;
 		bodyB->angularVelocity = wB;
-	}
-}
-
-// separation = dot(normal, pB - pA) + separation0
-static void b2UpdateSeparation(b2World* world, b2GraphColor* color, float h)
-{
-	const int32_t constraintCount = b2Array(color->contactArray).count;
-	b2Body* bodies = world->bodies;
-
-	for (int32_t i = 0; i < constraintCount; ++i)
-	{
-		b2Constraint* constraint = color->constraints + i;
-
-		int32_t pointCount = constraint->pointCount;
-		B2_ASSERT(0 < pointCount && pointCount <= 2);
-
-		b2Body* bodyA = bodies + constraint->indexA;
-		b2Body* bodyB = bodies + constraint->indexB;
-
-		b2Vec2 cA = bodyA->position;
-		b2Vec2 cB = bodyB->position;
-		b2Rot qA = b2MakeRot(bodyA->angle);
-		b2Rot qB = b2MakeRot(bodyB->angle);
-
-		b2Vec2 normal = constraint->normal;
-
-		for (int32_t j = 0; j < pointCount; ++j)
-		{
-			b2ConstraintPoint* cp = constraint->points + j;
-
-			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
-			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
-
-			// Current separation
-			b2Vec2 d = b2Add(b2Sub(cB, cA), b2Sub(rB, rA));
-
-			// TODO_ERIN really only need to update bias below
-			cp->separation = b2Dot(d, normal) + cp->baseSeparation;
-
-			// Soft contact with speculation
-			const float hertz = 10.0f;
-			const float zeta = 1.0f;
-			float omega = 2.0f * b2_pi * hertz;
-			// float d = 2.0f * zeta * omega / kNormal;
-			// float k = omega * omega / kNormal;
-			cp->bias = (omega / (2.0f * zeta + h * omega)) * cp->separation;
-		}
 	}
 }
 
@@ -930,20 +880,22 @@ void b2SolveGraphTGS(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2InitializeConstraints(world, colors + i, h);
+		b2InitializeConstraints(world, colors + i);
 	}
 
 	for (int32_t substep = 0; substep < substepCount; ++substep)
 	{
 		b2IntegrateVelocities(world, h);
 
+		// Have to fully complete warm starting before solving constraints
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2WarmStart(world, colors + i);
-			if (substep > 0)
-			{
-				b2UpdateSeparation(world, colors + i, h);
-			}
+			b2WarmStart(world, colors + i, h, i);
+		}
+
+		// One constraint iteration
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
 			b2SolveConstraints(world, colors + i);
 		}
 
