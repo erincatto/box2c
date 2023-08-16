@@ -21,7 +21,6 @@
 #include <float.h>
 #include <stdatomic.h>
 #include <stdlib.h>
-#include <string.h>
 
 /*
 Position Correction Notes
@@ -189,6 +188,23 @@ void b2WakeIsland(b2Island* island)
 	b2Array_Push(world->awakeIslandArray, island->object.index);
 }
 
+#if B2_GRAPH_COLOR == 1
+
+void b2LinkContact(b2World* world, b2Contact* contact)
+{
+	B2_MAYBE_UNUSED(world);
+	B2_MAYBE_UNUSED(contact);
+}
+
+void b2UnlinkContact(b2World* world, b2Contact* contact)
+{
+	B2_MAYBE_UNUSED(world);
+	B2_MAYBE_UNUSED(contact);
+
+}
+
+#else
+
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
 {
@@ -312,6 +328,8 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
 }
+
+#endif
 
 static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
 {

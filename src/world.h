@@ -12,6 +12,8 @@
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
+#define B2_GRAPH_COLOR 1
+
 typedef struct b2Contact b2Contact;
 
 // Per thread task storage
