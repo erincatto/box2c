@@ -69,7 +69,7 @@ set(BOX2D_SAMPLES
 	collection/benchmark_many_tumblers.cpp
 	collection/benchmark_pyramid.cpp
 	collection/benchmark_tumbler.cpp
-
+	collection/behavior.cpp
 	collection/sample_continuous1.cpp
 	collection/sample_distance.cpp
 	collection/sample_dynamic_tree.cpp

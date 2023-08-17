@@ -443,7 +443,7 @@ static void b2WarmStart(b2World* world, b2GraphColor* color, float h, int32_t st
 
 			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
-			const float hertz = 30.0f;
+			const float hertz = 60.0f;
 			const float zeta = 1.0f;
 			float omega = 2.0f * b2_pi * hertz;
 			cp->gamma = kNormal / (h * omega * (2.0f * zeta + h * omega));
@@ -462,8 +462,8 @@ static void b2WarmStart(b2World* world, b2GraphColor* color, float h, int32_t st
 				cp->separation = b2Dot(d, normal) + cp->baseSeparation;
 			}
 
-			//cp->bias = B2_MAX(B2_MAX(cp->separation / h, (omega / (2.0f * zeta + h * omega)) * cp->separation), -1.0f);
-			cp->bias = (omega / (2.0f * zeta + h * omega)) * cp->separation;
+			cp->bias = B2_MAX(B2_MAX(cp->separation / h, (omega / (2.0f * zeta + h * omega)) * cp->separation), -1.0f);
+			//cp->bias = (omega / (2.0f * zeta + h * omega)) * cp->separation;
 
 			b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
 			wA -= iA * b2Cross(cp->rA, P);
