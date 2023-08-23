@@ -42,10 +42,11 @@ class HighMassRatio : public Sample
 				{
 					float coeff = i - 0.5f * count;
 
-					bodyDef.position = {2.0f * coeff * extent + offset, y};
+					float yy = count == 1 ? y + 0.0f : y;
+					bodyDef.position = {2.0f * coeff * extent + offset, yy};
 					b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-					shapeDef.density = count == 1 ? (j + 1.0f) * 300.0f : 1.0f;
+					shapeDef.density = count == 1 ? (j + 1.0f) * 100.0f : 1.0f;
 					b2Body_CreatePolygon(bodyId, &shapeDef, &box);
 				}
 

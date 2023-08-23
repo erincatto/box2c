@@ -45,6 +45,14 @@ typedef struct b2ManifoldPoint
 typedef struct b2Manifold
 {
 	b2ManifoldPoint points[b2_maxManifoldPoints];
+
+	b2Vec2 localFrictionAnchorA;
+	b2Vec2 localFrictionNormalA;
+	b2Vec2 localFrictionAnchorB;
+	b2Vec2 localFrictionNormalB;
+	float tangentImpulse;
+	bool frictionValid;
+
 	b2Vec2 normal;
 	int32_t pointCount;
 } b2Manifold;

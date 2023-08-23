@@ -36,3 +36,4 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
 void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext);
 void b2SolveGraphTGS(b2World* world, const b2StepContext* stepContext);
+void b2SolveGraphTGS2(b2World* world, const b2StepContext* stepContext);

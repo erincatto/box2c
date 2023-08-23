@@ -36,6 +36,9 @@ typedef struct b2Body
 	b2Vec2 linearVelocity;
 	float angularVelocity;
 
+	b2Vec2 deltaPosition;
+	float deltaAngle;
+
 	b2Vec2 force;
 	float torque;
 
