@@ -25,7 +25,10 @@ typedef struct b2GraphColor
 typedef struct b2Graph
 {
 	b2GraphColor colors[b2_graphColorCount];
+	int32_t colorCount;
 
+	b2GraphColor staticColors[b2_graphColorCount];
+	int32_t staticColorCount;
 } b2Graph;
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity);

@@ -413,6 +413,13 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 		touching = contact->manifold.pointCount > 0;
 
+		contact->manifold.frictionPersisted = true;
+		
+		if (contact->manifold.pointCount != oldManifold.pointCount)
+		{
+			contact->manifold.frictionPersisted = false;
+		}
+
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
 		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
@@ -429,11 +436,21 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 				if (mp1->id == id2)
 				{
+					mp2->localNormalA = mp1->localNormalA;
+					mp2->localNormalB = mp1->localNormalB;
+					mp2->localAnchorA = mp1->localAnchorA;
+					mp2->localAnchorB = mp1->localAnchorB;
+
 					mp2->normalImpulse = mp1->normalImpulse;
 					mp2->tangentImpulse = mp1->tangentImpulse;
 					mp2->persisted = true;
 					break;
 				}
+			}
+
+			if (mp2->persisted == false)
+			{
+				contact->manifold.frictionPersisted = false;
 			}
 
 			// For debugging ids

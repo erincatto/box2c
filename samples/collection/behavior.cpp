@@ -31,6 +31,17 @@ class HighMassRatio : public Sample
 
 		b2Polygon box = b2MakeBox(extent, extent);
 
+#if 1
+		int count = 2;
+		for (int i = 0; i < count; ++i)
+		{
+			bodyDef.position = {0.0f, (2.0f * i + 1.0f) * 1.0f * extent};
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			shapeDef.density = i == count - 1 ? 100.0f : 1.0f;
+			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+		}
+#else
 		for (int j = 0; j < 1; ++j)
 		{
 			int count = 2;
@@ -54,6 +65,7 @@ class HighMassRatio : public Sample
 				y += 2.0f * extent;
 			}
 		}
+#endif
 	}
 
 	static Sample* Create(const Settings& settings)

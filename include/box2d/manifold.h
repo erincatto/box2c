@@ -6,7 +6,6 @@
 #include "box2d/types.h"
 
 #define b2_nullFeature UCHAR_MAX
-#define b2_maxManifoldPoints 2
 
 typedef struct b2Circle b2Circle;
 typedef struct b2Capsule b2Capsule;
@@ -24,6 +23,12 @@ typedef struct b2ManifoldPoint
 {
 	/// world coordinates of contact point
 	b2Vec2 point;
+
+	// Friction anchors
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
+	b2Vec2 localNormalA;
+	b2Vec2 localNormalB;
 
 	/// the separation of the contact point, negative if penetrating
 	float separation;
@@ -44,17 +49,10 @@ typedef struct b2ManifoldPoint
 /// Contact manifold convex shapes.
 typedef struct b2Manifold
 {
-	b2ManifoldPoint points[b2_maxManifoldPoints];
-
-	b2Vec2 localFrictionAnchorA;
-	b2Vec2 localFrictionNormalA;
-	b2Vec2 localFrictionAnchorB;
-	b2Vec2 localFrictionNormalB;
-	float tangentImpulse;
-	bool frictionValid;
-
+	b2ManifoldPoint points[2];
 	b2Vec2 normal;
 	int32_t pointCount;
+	bool frictionPersisted;
 } b2Manifold;
 
 static const b2Manifold b2_emptyManifold = {0};
