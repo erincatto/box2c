@@ -18,7 +18,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define maxBaumgarteVelocity 2.0f
+#define maxBaumgarteVelocity 3.0f
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity)
 {
@@ -28,15 +28,6 @@ void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
-		color->bodySet = b2CreateBitSet(bodyCapacity);
-		b2SetBitCountAndClear(&color->bodySet, bodyCapacity);
-
-		color->contactArray = b2CreateArray(sizeof(int32_t), contactCapacity);
-	}
-
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
-	{
-		b2GraphColor* color = graph->staticColors + i;
 		color->bodySet = b2CreateBitSet(bodyCapacity);
 		b2SetBitCountAndClear(&color->bodySet, bodyCapacity);
 
@@ -52,18 +43,8 @@ void b2DestroyGraph(b2Graph* graph)
 		b2DestroyBitSet(&color->bodySet);
 		b2DestroyArray(color->contactArray, sizeof(int32_t));
 	}
-
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
-	{
-		b2GraphColor* color = graph->staticColors + i;
-		b2DestroyBitSet(&color->bodySet);
-		b2DestroyArray(color->contactArray, sizeof(int32_t));
-	}
 }
 
-#define B2_STATIC_CONTACTS 0
-
-// TODO_ERIN use a specific color for static constraints so they go last in the solver
 void b2AddContactToGraph(b2World* world, b2Contact* contact)
 {
 	B2_ASSERT(contact->colorContactIndex == B2_NULL_INDEX);
@@ -101,12 +82,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-#if B2_STATIC_CONTACTS == 0
 			b2GraphColor* color = graph->colors + i;
-#else
-			b2GraphColor* color = graph->staticColors + i;
-			contact->flags |= b2_contactStatic;
-#endif
 			if (b2GetBit(&color->bodySet, bodyIndexA))
 			{
 				continue;
@@ -124,12 +100,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-#if B2_STATIC_CONTACTS == 0
 			b2GraphColor* color = graph->colors + i;
-#else
-			b2GraphColor* color = graph->staticColors + i;
-			contact->flags |= b2_contactStatic;
-#endif
 			if (b2GetBit(&color->bodySet, bodyIndexB))
 			{
 				continue;
@@ -180,11 +151,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	}
 	else if (typeA == b2_dynamicBody)
 	{
-#if B2_STATIC_CONTACTS == 0
 		b2GraphColor* color = graph->colors + contact->colorIndex;
-#else
-		b2GraphColor* color = graph->staticColors + contact->colorIndex;
-#endif
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
 
 		int32_t colorContactIndex = contact->colorContactIndex;
@@ -200,11 +167,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	}
 	else if (typeB == b2_dynamicBody)
 	{
-#if B2_STATIC_CONTACTS == 0
 		b2GraphColor* color = graph->colors + contact->colorIndex;
-#else
-		b2GraphColor* color = graph->staticColors + contact->colorIndex;
-#endif
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));
 
 		int32_t colorContactIndex = contact->colorContactIndex;
@@ -520,7 +483,7 @@ static void b2InitializeSoftConstraints(b2World* world, b2GraphColor* color, flo
 	}
 }
 
-static void b2InitializeConstraints(b2World* world, b2GraphColor* color)
+static void b2InitializePGSConstraints(b2World* world, b2GraphColor* color)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	int32_t* contactIndices = color->contactArray;
@@ -577,7 +540,7 @@ static void b2InitializeConstraints(b2World* world, b2GraphColor* color)
 			cp->separation = mp->separation;
 
 			cp->baumgarte = 0.0f;
-			cp->biasCoefficient = mp->separation > 0.0f ? 1.0f : 0.8f;
+			cp->biasCoefficient = mp->separation > 0.0f ? 1.0f : 0.0f;
 
 			float rtA = b2Cross(cp->rA, tangent);
 			float rtB = b2Cross(cp->rB, tangent);
@@ -648,7 +611,7 @@ static void b2InitializeStickyConstraints(b2World* world, b2GraphColor* color)
 			cp->localAnchorB = b2InvRotateVector(qB, cp->rB);
 			cp->separation = mp->separation;
 
-			cp->baumgarte = mp->separation > 0.0f ? 1.0f : 0.8f;
+			cp->baumgarte = 0.8f;
 
 			float rtA = b2Cross(cp->rA, tangent);
 			float rtB = b2Cross(cp->rB, tangent);
@@ -1152,7 +1115,9 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(normal);
-		float friction = constraint->friction;
+		float friction = 0.3f; //constraint->friction;
+
+		float totalNormalImpulse = 0.0f;
 
 		// Non-penetration constraints
 		for (int32_t j = 0; j < pointCount; ++j)
@@ -1168,18 +1133,30 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 			b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rB));
 			b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
 			float ds = b2Dot(b2Sub(prB, prA), normal);
+			float s = cp->separation + ds;
 
-			float s = B2_MAX(minSeparation, cp->separation + ds);
-			float bias = B2_MIN(maxBaumgarteVelocity, -cp->baumgarte * s * invh);
+			float bias = 0.0f;
+			if (s > 0.0f)
+			{
+				// Speculative
+				bias = s * invh;
+			
+			}
+			else if (minSeparation < 0.0f)
+			{
+				bias = B2_MAX(-maxBaumgarteVelocity, cp->baumgarte * s * invh);
+			}
 
 			// Compute normal impulse
 			float vn = b2Dot(dv, normal);
-			float impulse = cp->normalMass * (bias - vn);
+			float impulse = -cp->normalMass * (vn + bias);
 
 			// Clamp the accumulated impulse
 			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
 			impulse = newImpulse - cp->normalImpulse;
 			cp->normalImpulse = newImpulse;
+
+			totalNormalImpulse += cp->normalImpulse;
 
 			// Apply contact impulse
 			b2Vec2 P = b2MulSV(impulse, normal);
@@ -1204,16 +1181,17 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 			b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rBf));
 			b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rAf));
 			float ds = b2Dot(b2Sub(prB, prA), tangent);
-
 			float s = cp->tangentSeparation + ds;
-			float bias = -0.2f * s * invh;
+			float bias = 0.5f * s * invh;
 
 			// Compute tangent impulse
 			float vt = b2Dot(dv, tangent);
-			float impulse = cp->tangentMass * (bias - vt);
+			float impulse = -cp->tangentMass * (vt + bias);
+
+			// max friction uses an average of the total normal impulse because persistent friction anchors don't line up with normal anchors
+			float maxFriction = 0.5f * friction * totalNormalImpulse;
 
 			// Clamp the accumulated impulse
-			float maxFriction = friction * cp->normalImpulse;
 			float newImpulse = cp->tangentImpulse + impulse;
 			if (newImpulse < -maxFriction)
 			{
@@ -1585,7 +1563,7 @@ void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2InitializeConstraints(world, colors + i);
+		b2InitializePGSConstraints(world, colors + i);
 	}
 
 	b2WarmStartAll(world, constraints, constraintCount);
@@ -1715,11 +1693,6 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t substep = 0; substep < substepCount; ++substep)
 	{
-		//for (int32_t i = 0; i < b2_graphColorCount; ++i)
-		//{
-		//	b2WarmStart(world, colors + i);
-		//}
-
 		// One constraint iteration
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
@@ -1792,19 +1765,18 @@ void b2SolveGraphStickyTGS(b2World* world, const b2StepContext* stepContext)
 		}
 
 		b2IntegrateDeltaTransform(world, h);
-
-		// for (int32_t i = 0; i < b2_graphColorCount; ++i)
-		//{
-		//	b2SolvePositionConstraints(world, colors + i);
-		// }
 	}
 
 	b2UpdatePositions(world);
 
-	// One iteration with no baumgarte and no affect on position
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	int32_t positionIterations = stepContext->positionIterations;
+	for (int32_t iter = 0; iter < positionIterations; ++iter)
 	{
-		b2SolveVelocityConstraintsSticky(world, colors + i, 0.0f, 0.0f);
+		// Solve with no baumgarte and no affect on position
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2SolveVelocityConstraintsSticky(world, colors + i, 0.0f, 0.0f);
+		}
 	}
 
 	b2FinalizeSolve(world);

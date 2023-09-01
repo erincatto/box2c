@@ -14,8 +14,8 @@ public:
 
 	enum
 	{
-		e_maxColumns = 500,
-		e_maxRows = 100,
+		e_maxColumns = 50,
+		e_maxRows = 30,
 		e_maxBullets = 20
 	};
 
@@ -111,8 +111,8 @@ public:
 				int32_t n = j * m_rowCount + i;
 
 				float shift = (i % 2 == 0 ? -offset : offset);
-				//bd.position = {x + shift, 0.505f + 1.01f * i};
-				bd.position = {x + shift, 4.0f + 1.51f * i};
+				bd.position = {x + shift, 0.5f + 1.0f * i};
+				//bd.position = {x + shift, 1.0f + 1.51f * i};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;

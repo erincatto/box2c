@@ -938,9 +938,9 @@ static void b2Solve2(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
 	//b2SolveGraphSoftPGS(world, context);
-	b2SolveGraphPGS(world, context);
+	//b2SolveGraphPGS(world, context);
 	//b2SolveGraphSoftTGS(world, context);
-	//b2SolveGraphStickyTGS(world, context);
+	b2SolveGraphStickyTGS(world, context);
 
 	b2ValidateNoEnlarged(&world->broadPhase);
 
@@ -1196,6 +1196,11 @@ void b2World_Step2(b2WorldId worldId, float timeStep, int32_t velocityIterations
 		world->profile.collide = b2GetMilliseconds(&timer);
 	}
 
+	if (b2_parallel)
+	{
+		world->finishAllTasksFcn(world->userTaskContext);
+	}
+
 	// Integrate velocities, solve velocity constraints, and integrate positions.
 	if (context.dt > 0.0f)
 	{
@@ -1217,11 +1222,6 @@ void b2World_Step2(b2WorldId worldId, float timeStep, int32_t velocityIterations
 
 	// Ensure stack is large enough
 	b2GrowStack(world->stackAllocator);
-
-	if (b2_parallel)
-	{
-		world->finishAllTasksFcn(world->userTaskContext);
-	}
 
 	b2TracyCZoneEnd(world_step);
 }
