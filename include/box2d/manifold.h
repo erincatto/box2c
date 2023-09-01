@@ -52,6 +52,7 @@ typedef struct b2Manifold
 	b2ManifoldPoint points[2];
 	b2Vec2 normal;
 	int32_t pointCount;
+	int32_t constraintIndex;
 	bool frictionPersisted;
 } b2Manifold;
 

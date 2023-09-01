@@ -16,6 +16,9 @@
 #include "box2d/aabb.h"
 
 #include <stdbool.h>
+#include <stdlib.h>
+
+#define maxBaumgarteVelocity 2.0f
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity)
 {
@@ -58,6 +61,8 @@ void b2DestroyGraph(b2Graph* graph)
 	}
 }
 
+#define B2_STATIC_CONTACTS 0
+
 // TODO_ERIN use a specific color for static constraints so they go last in the solver
 void b2AddContactToGraph(b2World* world, b2Contact* contact)
 {
@@ -72,7 +77,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	b2BodyType typeA = world->bodies[bodyIndexA].type;
 	b2BodyType typeB = world->bodies[bodyIndexB].type;
 
-	if (typeA != b2_staticBody && typeB != b2_staticBody)
+	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
@@ -88,6 +93,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 			contact->colorContactIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
 			contact->colorIndex = i;
+			contact->flags &= ~b2_contactStatic;
 			break;
 		}
 	}
@@ -95,7 +101,12 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
+#if B2_STATIC_CONTACTS == 0
+			b2GraphColor* color = graph->colors + i;
+#else
 			b2GraphColor* color = graph->staticColors + i;
+			contact->flags |= b2_contactStatic;
+#endif
 			if (b2GetBit(&color->bodySet, bodyIndexA))
 			{
 				continue;
@@ -113,7 +124,12 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
+#if B2_STATIC_CONTACTS == 0
+			b2GraphColor* color = graph->colors + i;
+#else
 			b2GraphColor* color = graph->staticColors + i;
+			contact->flags |= b2_contactStatic;
+#endif
 			if (b2GetBit(&color->bodySet, bodyIndexB))
 			{
 				continue;
@@ -145,7 +161,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	b2BodyType typeA = world->bodies[bodyIndexA].type;
 	b2BodyType typeB = world->bodies[bodyIndexB].type;
 
-	if (typeA != b2_staticBody && typeB != b2_staticBody)
+	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
 	{
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA) && b2GetBit(&color->bodySet, bodyIndexB));
@@ -164,7 +180,11 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	}
 	else if (typeA == b2_dynamicBody)
 	{
+#if B2_STATIC_CONTACTS == 0
+		b2GraphColor* color = graph->colors + contact->colorIndex;
+#else
 		b2GraphColor* color = graph->staticColors + contact->colorIndex;
+#endif
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
 
 		int32_t colorContactIndex = contact->colorContactIndex;
@@ -180,7 +200,11 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	}
 	else if (typeB == b2_dynamicBody)
 	{
+#if B2_STATIC_CONTACTS == 0
+		b2GraphColor* color = graph->colors + contact->colorIndex;
+#else
 		b2GraphColor* color = graph->staticColors + contact->colorIndex;
+#endif
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));
 
 		int32_t colorContactIndex = contact->colorContactIndex;
@@ -197,6 +221,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 
 	contact->colorIndex = B2_NULL_INDEX;
 	contact->colorContactIndex = B2_NULL_INDEX;
+	contact->flags &= ~b2_contactStatic;
 }
 
 static void b2IntegrateVelocities(b2World* world, float h)
@@ -242,12 +267,62 @@ static void b2IntegrateVelocities(b2World* world, float h)
 		body->linearVelocity = v;
 		body->angularVelocity = w;
 
-		body->deltaPosition = b2Vec2_zero;
 		body->deltaAngle = 0.0f;
+		body->deltaPosition = b2Vec2_zero;
 	}
 }
 
-static void b2Integrate(b2World* world, float h)
+#if 0 // no need?
+static void b2IntegrateVelocitiesSoft(b2World* world, float h)
+{
+	b2Body* bodies = world->bodies;
+	int32_t bodyCapacity = world->bodyPool.capacity;
+	b2Vec2 gravity = world->gravity;
+
+	// Integrate velocities and apply damping. Initialize the body state.
+	for (int32_t i = 0; i < bodyCapacity; ++i)
+	{
+		b2Body* body = bodies + i;
+		if (b2ObjectValid(&body->object) == false)
+		{
+			continue;
+		}
+
+		if (body->type != b2_dynamicBody)
+		{
+			continue;
+		}
+
+		float invMass = body->invMass;
+		float invI = body->invI;
+
+		b2Vec2 v = body->linearVelocity;
+		float w = body->angularVelocity;
+
+		// Integrate velocities
+		v = b2Add(v, b2MulSV(h * invMass, b2MulAdd(body->force, body->gravityScale * body->mass, gravity)));
+		w = w + h * invI * body->torque;
+
+		// Apply damping.
+		// ODE: dv/dt + c * v = 0
+		// Solution: v(t) = v0 * exp(-c * t)
+		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+		// v2 = exp(-c * dt) * v1
+		// Pade approximation:
+		// v2 = v1 * 1 / (1 + c * dt)
+		v = b2MulSV(1.0f / (1.0f + h * body->linearDamping), v);
+		w *= 1.0f / (1.0f + h * body->angularDamping);
+
+		body->linearVelocity = v;
+		body->angularVelocity = w;
+
+		body->deltaAngle = 0.0f;
+		body->deltaPosition = b2Vec2_zero;
+	}
+}
+#endif
+
+static void b2IntegrateDeltaTransform(b2World* world, float h)
 {
 	b2Body* bodies = world->bodies;
 	int32_t bodyCapacity = world->bodyPool.capacity;
@@ -267,6 +342,7 @@ static void b2Integrate(b2World* world, float h)
 
 		body->deltaAngle += h * body->angularVelocity;
 		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
+		i += 0;
 	}
 }
 
@@ -299,13 +375,16 @@ typedef struct b2ConstraintPoint
 	b2Vec2 rAf, rBf;
 	b2Vec2 localAnchorA, localAnchorB;
 	float tangentSeparation;
-	float baseSeparation;
+	float separation;
 	float normalImpulse;
 	float tangentImpulse;
 	float normalMass;
 	float tangentMass;
 	float gamma;
-	float gammaScale;
+	float massCoefficient;
+	float biasCoefficient;
+	float impulseCoefficient;
+	float baumgarte;
 	bool frictionValid;
 } b2ConstraintPoint;
 
@@ -320,7 +399,200 @@ typedef struct b2Constraint
 	int32_t pointCount;
 } b2Constraint;
 
-static void b2InitializeConstraints(b2World* world, b2GraphColor* color, bool warmStart)
+static void b2InitializeSoftConstraints(b2World* world, b2GraphColor* color, float h, bool warmStart)
+{
+	const int32_t constraintCount = b2Array(color->contactArray).count;
+	int32_t* contactIndices = color->contactArray;
+	b2Contact* contacts = world->contacts;
+	b2Body* bodies = world->bodies;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Contact* contact = contacts + contactIndices[i];
+
+		const b2Manifold* manifold = &contact->manifold;
+		int32_t pointCount = manifold->pointCount;
+
+		B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+		int32_t indexA = contact->edges[0].bodyIndex;
+		int32_t indexB = contact->edges[1].bodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
+		b2Constraint* constraint = color->constraints + i;
+		constraint->contact = contact;
+		constraint->indexA = indexA;
+		constraint->indexB = indexB;
+		constraint->normal = manifold->normal;
+		constraint->friction = contact->friction;
+		constraint->pointCount = pointCount;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+
+		b2Vec2 cA = bodyA->position;
+		b2Vec2 cB = bodyB->position;
+		b2Rot qA = b2MakeRot(bodyA->angle);
+		b2Rot qB = b2MakeRot(bodyB->angle);
+
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2RightPerp(constraint->normal);
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			const b2ManifoldPoint* mp = manifold->points + j;
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			cp->normalImpulse = mp->normalImpulse;
+			cp->tangentImpulse = mp->tangentImpulse;
+
+			cp->rA = b2Sub(mp->point, cA);
+			cp->rB = b2Sub(mp->point, cB);
+			cp->localAnchorA = b2InvRotateVector(qA, cp->rA);
+			cp->localAnchorB = b2InvRotateVector(qB, cp->rB);
+
+			float rnA = b2Cross(cp->rA, normal);
+			float rnB = b2Cross(cp->rB, normal);
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+			float rtA = b2Cross(cp->rA, tangent);
+			float rtB = b2Cross(cp->rB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+
+			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
+			// Soft contact with speculation
+			const float hertz = 30.0f;
+			const float zeta = 1.0f;
+			float omega = 2.0f * b2_pi * hertz;
+			// float d = 2.0f * zeta * omega / kNormal;
+			// float k = omega * omega / kNormal;
+
+			// cp->gamma = 1.0f / (h * (d + h * k));
+			// cp->gamma = 1.0f / (h * (2.0f * zeta * omega / kNormal + h * omega * omega / kNormal));
+			cp->gamma = kNormal / (h * omega * (2.0f * zeta + h * omega));
+
+			cp->separation = mp->separation;
+
+			// cp->bias = h * k * cp->gamma * mp->separation;
+			// cp->bias = k / (d + h * k) * mp->separation;
+			// cp->bias =
+			//	(omega * omega / kNormal) / (2 * zeta * omega / kNormal + h * omega * omega / kNormal) * mp->separation;
+			cp->biasCoefficient = omega / (2.0f * zeta + h * omega);
+			// cp->gamma = 0.0f;
+			// cp->bias = (0.2f / h) * mp->separation;
+
+			// TODO_ERIN this can be expanded
+			cp->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+			//cp->normalMass = 1.0f / (kNormal + cp->gamma);
+
+			float c = h * omega * (2.0f * zeta + h * omega);
+			cp->impulseCoefficient = 1.0f / (1.0f + c);
+			cp->massCoefficient = c * cp->impulseCoefficient;
+
+			// meff = 1.0f / kNormal * 1.0f / (1.0f + 1.0f / (h * omega * (2 * zeta + h * omega)))
+			// float impulse = -cp->normalMass * (vn + bias + cp->gamma * cp->normalImpulse);
+			// = -meff * mscale * (vn + bias) - imp_scale * impulse
+
+			// Warm start
+			if (warmStart)
+			{
+				b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
+				wA -= iA * b2Cross(cp->rA, P);
+				vA = b2MulAdd(vA, -mA, P);
+				wB += iB * b2Cross(cp->rB, P);
+				vB = b2MulAdd(vB, mB, P);
+			}
+		}
+
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
+	}
+}
+
+static void b2InitializeConstraints(b2World* world, b2GraphColor* color)
+{
+	const int32_t constraintCount = b2Array(color->contactArray).count;
+	int32_t* contactIndices = color->contactArray;
+	b2Contact* contacts = world->contacts;
+	b2Body* bodies = world->bodies;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Contact* contact = contacts + contactIndices[i];
+		b2Manifold* manifold = &contact->manifold;
+
+		int32_t pointCount = manifold->pointCount;
+
+		B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+		int32_t indexA = contact->edges[0].bodyIndex;
+		int32_t indexB = contact->edges[1].bodyIndex;
+		b2Body* bodyA = bodies + indexA;
+		b2Body* bodyB = bodies + indexB;
+
+		b2Constraint* constraint = color->constraints + i;
+		constraint->contact = contact;
+		constraint->indexA = indexA;
+		constraint->indexB = indexB;
+		constraint->normal = manifold->normal;
+		constraint->friction = contact->friction;
+		constraint->pointCount = pointCount;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+
+		b2Vec2 cA = bodyA->position;
+		b2Vec2 cB = bodyB->position;
+		b2Rot qA = b2MakeRot(bodyA->angle);
+		b2Rot qB = b2MakeRot(bodyB->angle);
+
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2RightPerp(normal);
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			const b2ManifoldPoint* mp = manifold->points + j;
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			cp->normalImpulse = mp->normalImpulse;
+			cp->tangentImpulse = mp->tangentImpulse;
+
+			cp->rA = b2Sub(mp->point, cA);
+			cp->rB = b2Sub(mp->point, cB);
+			cp->localAnchorA = b2InvRotateVector(qA, cp->rA);
+			cp->localAnchorB = b2InvRotateVector(qB, cp->rB);
+			cp->separation = mp->separation;
+
+			cp->baumgarte = 0.0f;
+			cp->biasCoefficient = mp->separation > 0.0f ? 1.0f : 0.8f;
+
+			float rtA = b2Cross(cp->rA, tangent);
+			float rtB = b2Cross(cp->rB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
+			float rnA = b2Cross(cp->rA, normal);
+			float rnB = b2Cross(cp->rB, normal);
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+			cp->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+		}
+	}
+}
+
+static void b2InitializeStickyConstraints(b2World* world, b2GraphColor* color)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	int32_t* contactIndices = color->contactArray;
@@ -367,22 +639,16 @@ static void b2InitializeConstraints(b2World* world, b2GraphColor* color, bool wa
 			const b2ManifoldPoint* mp = manifold->points + j;
 			b2ConstraintPoint* cp = constraint->points + j;
 
-			if (warmStart)
-			{
-				cp->normalImpulse = mp->normalImpulse;
-				cp->tangentImpulse = mp->tangentImpulse;
-			}
-			else
-			{
-				cp->normalImpulse = 0.0f;
-				cp->tangentImpulse = 0.0f;
-			}
+			cp->normalImpulse = 0.0f;
+			cp->tangentImpulse = 0.0f;
 
 			cp->rA = b2Sub(mp->point, cA);
 			cp->rB = b2Sub(mp->point, cB);
 			cp->localAnchorA = b2InvRotateVector(qA, cp->rA);
 			cp->localAnchorB = b2InvRotateVector(qB, cp->rB);
-			cp->baseSeparation = mp->separation;
+			cp->separation = mp->separation;
+
+			cp->baumgarte = mp->separation > 0.0f ? 1.0f : 0.8f;
 
 			float rtA = b2Cross(cp->rA, tangent);
 			float rtB = b2Cross(cp->rB, tangent);
@@ -515,7 +781,52 @@ static void b2WarmStart(b2World* world, b2GraphColor* color)
 	}
 }
 
-static void b2SolveVelocityConstraints(b2World* world, b2GraphColor* color)
+static void b2WarmStartAll(b2World* world, b2Constraint* constraints, int32_t constraintCount)
+{
+	b2Body* bodies = world->bodies;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Constraint* constraint = constraints + i;
+
+		int32_t pointCount = constraint->pointCount;
+		B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+		b2Body* bodyA = bodies + constraint->indexA;
+		b2Body* bodyB = bodies + constraint->indexB;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2RightPerp(normal);
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
+			wA -= iA * b2Cross(cp->rA, P);
+			vA = b2MulAdd(vA, -mA, P);
+			wB += iB * b2Cross(cp->rB, P);
+			vB = b2MulAdd(vB, mB, P);
+		}
+
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
+	}
+}
+
+static void b2SolveVelocityConstraints(b2World* world, b2GraphColor* color, float inv_dt)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
@@ -539,11 +850,36 @@ static void b2SolveVelocityConstraints(b2World* world, b2GraphColor* color)
 		float wB = bodyB->angularVelocity;
 
 		b2Vec2 normal = constraint->normal;
-		b2Vec2 tangent = b2RightPerp(normal);
+		b2Vec2 tangent = b2CrossVS(normal, 1.0f);
 		float friction = constraint->friction;
 
-		// Solve tangent constraints first because non-penetration is more important
-		// than friction.
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			// Relative velocity at contact
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 dv = b2Sub(vrB, vrA);
+
+			// Compute normal impulse
+			float vn = b2Dot(dv, normal);
+			float impulse = -cp->normalMass * (vn + cp->biasCoefficient * cp->separation * inv_dt);
+
+			// Clamp the accumulated impulse
+			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
+			impulse = newImpulse - cp->normalImpulse;
+			cp->normalImpulse = newImpulse;
+
+			// Apply contact impulse
+			b2Vec2 P = b2MulSV(impulse, normal);
+			vA = b2MulSub(vA, mA, P);
+			wA -= iA * b2Cross(cp->rA, P);
+
+			vB = b2MulAdd(vB, mB, P);
+			wB += iB * b2Cross(cp->rB, P);
+		}
+
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
 			b2ConstraintPoint* cp = constraint->points + j;
@@ -573,6 +909,39 @@ static void b2SolveVelocityConstraints(b2World* world, b2GraphColor* color)
 			wB += iB * b2Cross(cp->rB, P);
 		}
 
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
+	}
+}
+
+static void b2SolveVelocityConstraintsSorted(b2World* world, b2Constraint* constraints, int32_t constraintCount, float inv_dt)
+{
+	b2Body* bodies = world->bodies;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Constraint* constraint = constraints + i;
+
+		b2Body* bodyA = bodies + constraint->indexA;
+		b2Body* bodyB = bodies + constraint->indexB;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+		int32_t pointCount = constraint->pointCount;
+
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2CrossVS(normal, 1.0f);
+		float friction = constraint->friction;
+
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
 			b2ConstraintPoint* cp = constraint->points + j;
@@ -584,7 +953,7 @@ static void b2SolveVelocityConstraints(b2World* world, b2GraphColor* color)
 
 			// Compute normal impulse
 			float vn = b2Dot(dv, normal);
-			float impulse = -cp->normalMass * vn;
+			float impulse = -cp->normalMass * (vn + cp->biasCoefficient * cp->separation * inv_dt);
 
 			// Clamp the accumulated impulse
 			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
@@ -593,6 +962,152 @@ static void b2SolveVelocityConstraints(b2World* world, b2GraphColor* color)
 
 			// Apply contact impulse
 			b2Vec2 P = b2MulSV(impulse, normal);
+			vA = b2MulSub(vA, mA, P);
+			wA -= iA * b2Cross(cp->rA, P);
+
+			vB = b2MulAdd(vB, mB, P);
+			wB += iB * b2Cross(cp->rB, P);
+		}
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			// Relative velocity at contact
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 dv = b2Sub(vrB, vrA);
+
+			// Compute tangent force
+			float vt = b2Dot(dv, tangent);
+			float lambda = cp->tangentMass * (-vt);
+
+			// Clamp the accumulated force
+			float maxFriction = friction * cp->normalImpulse;
+			float newImpulse = B2_CLAMP(cp->tangentImpulse + lambda, -maxFriction, maxFriction);
+			lambda = newImpulse - cp->tangentImpulse;
+			cp->tangentImpulse = newImpulse;
+
+			// Apply contact impulse
+			b2Vec2 P = b2MulSV(lambda, tangent);
+
+			vA = b2MulSub(vA, mA, P);
+			wA -= iA * b2Cross(cp->rA, P);
+
+			vB = b2MulAdd(vB, mB, P);
+			wB += iB * b2Cross(cp->rB, P);
+		}
+
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
+	}
+}
+
+static void b2SolveVelocityConstraintsSoft(b2World* world, b2GraphColor* color, float inv_dt, bool removeOverlap)
+{
+	const int32_t constraintCount = b2Array(color->contactArray).count;
+	b2Body* bodies = world->bodies;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Constraint* constraint = color->constraints + i;
+
+		b2Body* bodyA = bodies + constraint->indexA;
+		b2Body* bodyB = bodies + constraint->indexB;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+		int32_t pointCount = constraint->pointCount;
+
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+
+		const b2Vec2 dpA = bodyA->deltaPosition;
+		const float daA = bodyA->deltaAngle;
+		const b2Vec2 dpB = bodyB->deltaPosition;
+		const float daB = bodyB->deltaAngle;
+
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2RightPerp(normal);
+		float friction = constraint->friction;
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			// Relative velocity at contact
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 dv = b2Sub(vrB, vrA);
+
+			// Compute change in separation
+			b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rB));
+			b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
+			float ds = b2Dot(b2Sub(prB, prA), normal);
+			float s = cp->separation + ds;
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
+			if (s > 0.0f)
+			{
+				// Speculative
+				bias = s * inv_dt;
+			}
+			else if (removeOverlap)
+			{
+				bias = B2_MAX(cp->biasCoefficient * s, -maxBaumgarteVelocity);
+				//bias = cp->biasCoefficient * s;
+				massScale = cp->massCoefficient;
+				impulseScale = cp->impulseCoefficient;
+			}
+			
+			// Compute normal impulse
+			float vn = b2Dot(dv, normal);
+			float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
+			//float impulse = -cp->normalMass * (vn + bias + cp->gamma * cp->normalImpulse);
+
+			// Clamp the accumulated impulse
+			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
+			impulse = newImpulse - cp->normalImpulse;
+			cp->normalImpulse = newImpulse;
+
+			// Apply contact impulse
+			b2Vec2 P = b2MulSV(impulse, normal);
+			vA = b2MulSub(vA, mA, P);
+			wA -= iA * b2Cross(cp->rA, P);
+
+			vB = b2MulAdd(vB, mB, P);
+			wB += iB * b2Cross(cp->rB, P);
+		}
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			// Relative velocity at contact
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 dv = b2Sub(vrB, vrA);
+
+			// Compute tangent force
+			float vt = b2Dot(dv, tangent);
+			float lambda = cp->tangentMass * (-vt);
+
+			// Clamp the accumulated force
+			float maxFriction = friction * cp->normalImpulse;
+			float newImpulse = B2_CLAMP(cp->tangentImpulse + lambda, -maxFriction, maxFriction);
+			lambda = newImpulse - cp->tangentImpulse;
+			cp->tangentImpulse = newImpulse;
+
+			// Apply contact impulse
+			b2Vec2 P = b2MulSV(lambda, tangent);
+
 			vA = b2MulSub(vA, mA, P);
 			wA -= iA * b2Cross(cp->rA, P);
 
@@ -611,7 +1126,6 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
-	const float maxBaumgarteVelocity = 3.0f;
 
 	for (int32_t i = 0; i < constraintCount; ++i)
 	{
@@ -655,8 +1169,8 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 			b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
 			float ds = b2Dot(b2Sub(prB, prA), normal);
 
-			float s = B2_MAX(minSeparation, cp->baseSeparation + ds);
-			float bias = B2_MIN(maxBaumgarteVelocity, -0.8f * s * invh);
+			float s = B2_MAX(minSeparation, cp->separation + ds);
+			float bias = B2_MIN(maxBaumgarteVelocity, -cp->baumgarte * s * invh);
 
 			// Compute normal impulse
 			float vn = b2Dot(dv, normal);
@@ -692,7 +1206,7 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 			float ds = b2Dot(b2Sub(prB, prA), tangent);
 
 			float s = cp->tangentSeparation + ds;
-			float bias = B2_CLAMP(-0.8f * s * invh, -maxBaumgarteVelocity, maxBaumgarteVelocity);
+			float bias = -0.2f * s * invh;
 
 			// Compute tangent impulse
 			float vt = b2Dot(dv, tangent);
@@ -732,13 +1246,11 @@ static void b2SolveVelocityConstraintsSticky(b2World* world, b2GraphColor* color
 	}
 }
 
-static void b2StoreImpulses(b2GraphColor* color)
+static void b2StoreImpulses(b2Constraint* constraints, int32_t constraintCount)
 {
-	int32_t constraintCount = b2Array(color->contactArray).count;
-
 	for (int32_t i = 0; i < constraintCount; ++i)
 	{
-		b2Constraint* constraint = color->constraints + i;
+		b2Constraint* constraint = constraints + i;
 		b2Contact* contact = constraint->contact;
 
 		b2Manifold* manifold = &contact->manifold;
@@ -805,10 +1317,77 @@ static void b2SolvePositionConstraints(b2World* world, b2GraphColor* color)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
+	float slop = b2_linearSlop;
 
 	for (int32_t i = 0; i < constraintCount; ++i)
 	{
 		b2Constraint* constraint = color->constraints + i;
+
+		b2Body* bodyA = bodies + constraint->indexA;
+		b2Body* bodyB = bodies + constraint->indexB;
+
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+		int32_t pointCount = constraint->pointCount;
+
+		b2Vec2 cA = bodyA->position;
+		float aA = bodyA->angle;
+		b2Vec2 cB = bodyB->position;
+		float aB = bodyB->angle;
+
+		b2Vec2 normal = constraint->normal;
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ConstraintPoint* cp = constraint->points + j;
+
+			b2Rot qA = b2MakeRot(aA);
+			b2Rot qB = b2MakeRot(aB);
+
+			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
+			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+
+			// Current separation
+			b2Vec2 d = b2Sub(b2Add(cB, rB), b2Add(cA, rA));
+			float separation = b2Dot(d, normal) + cp->separation;
+
+			// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
+			// This improves stacking stability significantly.
+			float C = B2_CLAMP(b2_baumgarte * (separation + slop), -b2_maxLinearCorrection, 0.0f);
+
+			// Compute the effective mass.
+			float rnA = b2Cross(rA, normal);
+			float rnB = b2Cross(rB, normal);
+			float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+			// Compute normal impulse
+			float impulse = K > 0.0f ? -C / K : 0.0f;
+
+			b2Vec2 P = b2MulSV(impulse, normal);
+
+			cA = b2MulSub(cA, mA, P);
+			aA -= iA * b2Cross(cp->rA, P);
+
+			cB = b2MulAdd(cB, mB, P);
+			aB += iB * b2Cross(cp->rB, P);
+		}
+
+		bodyA->position = cA;
+		bodyA->angle = aA;
+		bodyB->position = cB;
+		bodyB->angle = aB;
+	}
+}
+
+static void b2SolvePositionConstraintsSorted(b2World* world, b2Constraint* constraints, int32_t constraintCount)
+{
+	b2Body* bodies = world->bodies;
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		b2Constraint* constraint = constraints + i;
 
 		b2Body* bodyA = bodies + constraint->indexA;
 		b2Body* bodyB = bodies + constraint->indexB;
@@ -839,14 +1418,19 @@ static void b2SolvePositionConstraints(b2World* world, b2GraphColor* color)
 
 			// Current separation
 			b2Vec2 d = b2Sub(b2Add(cB, rB), b2Add(cA, rA));
-			float separation = b2Dot(d, normal) + cp->baseSeparation;
+			float separation = b2Dot(d, normal) + cp->separation;
 
 			// Prevent large corrections. Need to maintain a small overlap to avoid overshoot.
 			// This improves stacking stability significantly.
 			float C = B2_CLAMP(b2_baumgarte * (separation + slop), -b2_maxLinearCorrection, 0.0f);
 
+			// Compute the effective mass.
+			float rnA = b2Cross(rA, normal);
+			float rnB = b2Cross(rB, normal);
+			float K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
 			// Compute normal impulse
-			float impulse = -cp->normalMass * C;
+			float impulse = K > 0.0f ? -C / K : 0.0f;
 
 			b2Vec2 P = b2MulSV(impulse, normal);
 
@@ -932,7 +1516,111 @@ static void b2FinalizeSolve(b2World* world)
 	}
 }
 
+int b2CompareConstraints(const void* ptr1, const void* ptr2)
+{
+	const b2Constraint* c1 = ptr1;
+	const b2Constraint* c2 = ptr2;
+
+	b2Vec2 point1 = c1->contact->manifold.points[0].point;
+	b2Vec2 point2 = c2->contact->manifold.points[0].point;
+
+	if (B2_ABS(point1.y - point2.y) > 5.0f * b2_linearSlop)
+	{
+		if (point1.y < point2.y)
+		{
+			return 1;
+		}
+
+		return -1;
+	}
+	else if (point1.x < point2.x)
+	{
+		return -1;
+	}
+
+	return 1;
+}
+
+int b2RandomizeConstraints(const void* ptr1, const void* ptr2)
+{
+	B2_MAYBE_UNUSED(ptr1);
+	B2_MAYBE_UNUSED(ptr2);
+
+	if (rand() & 1)
+	{
+		return -1;
+	}
+
+	return 1;
+}
+
 void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext)
+{
+	b2Graph* graph = &world->graph;
+	b2GraphColor* colors = graph->colors;
+
+	int32_t constraintCount = 0;
+	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	{
+		constraintCount += b2Array(colors[i].contactArray).count;
+	}
+
+	b2Constraint* constraints = b2AllocateStackItem(world->stackAllocator, constraintCount * sizeof(b2Constraint), "constraint");
+	int32_t base = 0;
+
+	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	{
+		colors[i].constraints = constraints + base;
+		base += b2Array(colors[i].contactArray).count;
+	}
+
+	B2_ASSERT(base == constraintCount);
+
+	int32_t velocityIterations = stepContext->velocityIterations;
+	int32_t positionIterations = stepContext->positionIterations;
+	float h = stepContext->dt;
+	float inv_h = stepContext->inv_dt;
+
+	b2IntegrateVelocities(world, h);
+
+	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	{
+		b2InitializeConstraints(world, colors + i);
+	}
+
+	b2WarmStartAll(world, constraints, constraintCount);
+
+	for (int32_t i = 0; i < constraintCount; ++i)
+	{
+		constraints[i].contact->manifold.constraintIndex = i;
+	}
+
+	for (int32_t iter = 0; iter < velocityIterations; ++iter)
+	{
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2SolveVelocityConstraints(world, colors + i, inv_h);
+		}
+	}
+
+	b2StoreImpulses(constraints, constraintCount);
+
+	b2IntegratePositions(world, h);
+
+	for (int32_t iter = 0; iter < positionIterations; ++iter)
+	{
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2SolvePositionConstraints(world, colors + i);
+		}
+	}
+
+	b2FinalizeSolve(world);
+	
+	b2FreeStackItem(world->stackAllocator, constraints);
+}
+
+void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
@@ -962,39 +1650,35 @@ void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2InitializeConstraints(world, colors + i, true);
-		b2WarmStart(world, colors + i);
+		b2InitializeSoftConstraints(world, colors + i, h, true);
 	}
 
 	for (int32_t iter = 0; iter < velocityIterations; ++iter)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveVelocityConstraints(world, colors + i);
+			b2SolveVelocityConstraintsSoft(world, colors + i, stepContext->inv_dt, true);
 		}
 	}
-
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
-	{
-		b2StoreImpulses(colors + i);
-	}
-
+	
 	b2IntegratePositions(world, h);
 
 	for (int32_t iter = 0; iter < positionIterations; ++iter)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolvePositionConstraints(world, colors + i);
+			b2SolveVelocityConstraintsSoft(world, colors + i, stepContext->inv_dt, false);
 		}
 	}
 
+	b2StoreImpulses(constraints, constraintCount);
+
 	b2FinalizeSolve(world);
-	
+
 	b2FreeStackItem(world->stackAllocator, constraints);
 }
 
-void b2SolveGraphTGS(b2World* world, const b2StepContext* stepContext)
+void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
@@ -1016,59 +1700,65 @@ void b2SolveGraphTGS(b2World* world, const b2StepContext* stepContext)
 
 	B2_ASSERT(base == constraintCount);
 
-	int32_t substepCount = stepContext->velocityIterations;
-	float h = stepContext->dt / substepCount;
+	// Full step apply gravity
+	b2IntegrateVelocities(world, stepContext->dt);
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2InitializeConstraints(world, colors + i, true);
+		bool warmStart = true;
+		b2InitializeSoftConstraints(world, colors + i, stepContext->dt, warmStart);
 	}
+	
+	int32_t substepCount = stepContext->velocityIterations;
+	float h = stepContext->dt / substepCount;
+	float inv_h = 1.0f / h;
 
 	for (int32_t substep = 0; substep < substepCount; ++substep)
 	{
-		b2IntegrateVelocities(world, h);
-
-		// Have to fully complete warm starting before solving constraints
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
-		{
-			b2WarmStart(world, colors + i);
-		}
+		//for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		//{
+		//	b2WarmStart(world, colors + i);
+		//}
 
 		// One constraint iteration
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveVelocityConstraints(world, colors + i);
+			bool removeOverlap = true;
+			b2SolveVelocityConstraintsSoft(world, colors + i, inv_h, removeOverlap);
 		}
 
-		b2IntegratePositions(world, h);
-
-		//for (int32_t i = 0; i < b2_graphColorCount; ++i)
-		//{
-		//	b2SolvePositionConstraints(world, colors + i);
-		//}
+		b2IntegrateDeltaTransform(world, h);
 	}
 
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	b2UpdatePositions(world);
+
+	int32_t positionIterations = stepContext->positionIterations;
+	for (int32_t iter = 0; iter < positionIterations; ++iter)
 	{
-		b2StoreImpulses(colors + i);
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			bool removeOverlap = false;
+			b2SolveVelocityConstraintsSoft(world, colors + i, 0.0f, removeOverlap);
+		}
 	}
+
+	b2StoreImpulses(constraints, constraintCount);
 
 	b2FinalizeSolve(world);
 
 	b2FreeStackItem(world->stackAllocator, constraints);
 }
 
-void b2SolveGraphTGS2(b2World* world, const b2StepContext* stepContext)
+// Sticky
+void b2SolveGraphStickyTGS(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
-	b2GraphColor* staticColors = graph->staticColors;
 
 	int32_t constraintCount = 0;
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		constraintCount += b2Array(colors[i].contactArray).count;
-		constraintCount += b2Array(staticColors[i].contactArray).count;
 	}
 
 	b2Constraint* constraints = b2AllocateStackItem(world->stackAllocator, constraintCount * sizeof(b2Constraint), "constraint");
@@ -1078,12 +1768,6 @@ void b2SolveGraphTGS2(b2World* world, const b2StepContext* stepContext)
 	{
 		colors[i].constraints = constraints + base;
 		base += b2Array(colors[i].contactArray).count;
-	}
-
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
-	{
-		staticColors[i].constraints = constraints + base;
-		base += b2Array(staticColors[i].contactArray).count;
 	}
 
 	B2_ASSERT(base == constraintCount);
@@ -1092,12 +1776,7 @@ void b2SolveGraphTGS2(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2InitializeConstraints(world, colors + i, false);
-	}
-
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
-	{
-		b2InitializeConstraints(world, staticColors + i, false);
+		b2InitializeStickyConstraints(world, colors + i);
 	}
 
 	int32_t substepCount = stepContext->velocityIterations;
@@ -1112,12 +1791,7 @@ void b2SolveGraphTGS2(b2World* world, const b2StepContext* stepContext)
 			b2SolveVelocityConstraintsSticky(world, colors + i, -b2_huge, invh);
 		}
 
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
-		{
-			b2SolveVelocityConstraintsSticky(world, staticColors + i, -b2_huge, invh);
-		}
-
-		b2Integrate(world, h);
+		b2IntegrateDeltaTransform(world, h);
 
 		// for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		//{
@@ -1125,18 +1799,13 @@ void b2SolveGraphTGS2(b2World* world, const b2StepContext* stepContext)
 		// }
 	}
 
+	b2UpdatePositions(world);
+
 	// One iteration with no baumgarte and no affect on position
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2SolveVelocityConstraintsSticky(world, colors + i, 0.0f, 0.0f);
 	}
-
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
-	{
-		b2SolveVelocityConstraintsSticky(world, staticColors + i, 0.0f, 0.0f);
-	}
-
-	b2UpdatePositions(world);
 
 	b2FinalizeSolve(world);
 

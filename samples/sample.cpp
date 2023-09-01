@@ -339,14 +339,21 @@ void Sample::Step(Settings& settings)
 		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
 		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
 
-		b2HexColor colors[8] = {b2_colorAquamarine, b2_colorBisque,	   b2_colorBlue,	   b2_colorBrown,
-								b2_colorBurlywood,	b2_colorCadetBlue, b2_colorChartreuse, b2_colorChocolate};
+		b2HexColor colors[12] = {b2_colorAquamarine,	b2_colorBisque,	   b2_colorBlue,	   b2_colorBrown,
+								 b2_colorBurlywood,		b2_colorCadetBlue, b2_colorChartreuse, b2_colorChocolate,
+								 b2_colorDarkGoldenrod, b2_colorCoral,	   b2_colorAqua,	   b2_colorHoneydew};
 
 		for (int32_t i = 0; i < m_pointCount; ++i)
 		{
 			ContactPoint* point = m_points + i;
 
-			if (0 <= point->color && point->color < 8)
+			//if (point->constraintIndex >= 0 && point->constraintIndex < 5000)
+			//{
+			//	b2Vec2 p = point->position;
+			//	p.y += 0.1f;
+			//	g_draw.DrawString(p, "%d", point->constraintIndex);
+			//}
+			if (0 <= point->color && point->color < 12)
 			{
 				// graph color
 				g_draw.DrawPoint(point->position, 5.0f, b2MakeColor(colors[point->color], 1.0f));
@@ -423,6 +430,7 @@ bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifo
 		cp->normalImpulse = manifold->points[j].normalImpulse;
 		cp->tangentImpulse = manifold->points[j].tangentImpulse;
 		cp->persisted = manifold->points[j].persisted;
+		cp->constraintIndex = manifold->constraintIndex;
 		cp->color = color;
 		++j;
 	}

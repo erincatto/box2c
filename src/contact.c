@@ -420,6 +420,9 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 			contact->manifold.frictionPersisted = false;
 		}
 
+		// TODO_ERIN testing
+		contact->manifold.constraintIndex = oldManifold.constraintIndex;
+
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
 		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
@@ -463,7 +466,12 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		if (touching && world->preSolveFcn)
 		{
 			// TODO_ERIN this call assumes thread safety
-			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, contact->colorIndex, world->preSolveContext);
+			int32_t colorIndex = contact->colorIndex;
+			if (contact->flags & b2_contactStatic)
+			{
+				colorIndex += 8;
+			}
+			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, colorIndex, world->preSolveContext);
 			if (collide == false)
 			{
 				// disable contact

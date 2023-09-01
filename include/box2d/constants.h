@@ -72,7 +72,6 @@ extern float b2_lengthUnitsPerMeter;
 #define b2_maxRotation (0.5f * b2_pi)
 #define b2_maxRotationSquared (b2_maxRotation * b2_maxRotation)
 
-/// TODO_ERIN make dynamic based on speed?
 /// @warning modifying this can have a significant impact on stability
 #define b2_speculativeDistance (4.0f * b2_linearSlop)
 

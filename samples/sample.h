@@ -70,6 +70,7 @@ struct ContactPoint
 	float normalImpulse;
 	float tangentImpulse;
 	float separation;
+	int32_t constraintIndex;
 	int32_t color;
 };
 

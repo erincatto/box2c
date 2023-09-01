@@ -57,13 +57,15 @@ class BenchmarkPyramid : public Sample
 		float h = m_extent - m_round;
 		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
 
+		float shift = 1.0f * h;
+
 		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			float y = (2.0f * i  + 1.0f) * m_extent + baseY;
+			float y = (2.0f * i + 1.0f) * shift + baseY;
 
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{
-				float x = (i + 1.0f) * m_extent + 2.25f * (j - i) * m_extent + centerX - 0.5f;
+				float x = (i + 1.0f) * shift + 2.0f * (j - i) * shift + centerX - 0.5f;
 
 				bodyDef.position = {x, y};
 
