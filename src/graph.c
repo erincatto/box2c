@@ -433,7 +433,8 @@ static void b2InitializeSoftConstraints(b2World* world, b2GraphColor* color, flo
 			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
 			// Soft contact with speculation
-			const float hertz = 30.0f;
+			const float hertz = mA == 0.0f ? 60.0f : 30.0f;
+			//const float hertz = 30.0f;
 			const float zeta = 1.0f;
 			float omega = 2.0f * b2_pi * hertz;
 			// float d = 2.0f * zeta * omega / kNormal;
@@ -1656,6 +1657,8 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, constraints);
 }
 
+// Soft constraints with substepping. Allows for stiffer contacts with a small performance hit. Includes a
+// bias removal stage to help remove excess warm starting energy.
 void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
