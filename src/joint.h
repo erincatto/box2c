@@ -85,6 +85,10 @@ typedef struct b2RevoluteJoint
 	float invIA;
 	float invIB;
 	b2Mat22 K;
+	b2Vec2 separation;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
 	float angle;
 	float axialMass;
 } b2RevoluteJoint;
@@ -116,10 +120,11 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data);
-void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data);
+void b2PrepareJoint(b2Joint* joint, const b2StepContext* context);
+void b2SolveJointVelocity(b2Joint* joint, const b2StepContext* context);
+void b2SolveJointVelocitySoft(b2Joint* joint, const b2StepContext* context, bool removeOverlap);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data);
+bool b2SolveJointPosition(b2Joint* joint, const b2StepContext* context);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

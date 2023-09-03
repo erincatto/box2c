@@ -26,7 +26,7 @@ void b2DestroySet(b2Set* set);
 
 void b2ClearSet(b2Set* set);
 
-	// Returns true if key was already in set
+// Returns true if key was already in set
 bool b2AddKey(b2Set* set, uint64_t key);
 
 // Returns true if the key was found

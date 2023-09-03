@@ -75,7 +75,7 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 
 static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
 {
-	bool found = b2RemoveKey(&bp->moveSet, proxyKey);
+	bool found = b2RemoveKey(&bp->moveSet, proxyKey + 1);
 
 	if (found)
 	{
@@ -177,7 +177,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	bool moved = b2ContainsKey(&bp->moveSet, proxyKey);
+	bool moved = b2ContainsKey(&bp->moveSet, proxyKey + 1);
 	if (moved && proxyKey < queryContext->queryProxyKey)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.

@@ -8,6 +8,7 @@
 #include "body.h"
 #include "contact.h"
 #include "core.h"
+#include "joint.h"
 #include "shape.h"
 #include "solver_data.h"
 #include "stack_allocator.h"
@@ -80,7 +81,8 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 	else if (typeA == b2_dynamicBody)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		// Static contacts never in color 0
+		for (int32_t i = 1; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
 			if (b2GetBit(&color->bodySet, bodyIndexA))
@@ -98,7 +100,8 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 	else if (typeB == b2_dynamicBody)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		// Static contacts never in color 0
+		for (int32_t i = 1; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
 			if (b2GetBit(&color->bodySet, bodyIndexB))
@@ -362,7 +365,7 @@ typedef struct b2Constraint
 	int32_t pointCount;
 } b2Constraint;
 
-static void b2InitializeSoftConstraints(b2World* world, b2GraphColor* color, float h, bool warmStart)
+static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, bool warmStart)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	int32_t* contactIndices = color->contactArray;
@@ -433,8 +436,8 @@ static void b2InitializeSoftConstraints(b2World* world, b2GraphColor* color, flo
 			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 
 			// Soft contact with speculation
-			const float hertz = mA == 0.0f ? 60.0f : 30.0f;
-			//const float hertz = 30.0f;
+			//const float hertz = mA == 0.0f ? 60.0f : 30.0f;
+			const float hertz = 30.0f;
 			const float zeta = 1.0f;
 			float omega = 2.0f * b2_pi * hertz;
 			// float d = 2.0f * zeta * omega / kNormal;
@@ -969,7 +972,7 @@ static void b2SolveVelocityConstraintsSorted(b2World* world, b2Constraint* const
 	}
 }
 
-static void b2SolveVelocityConstraintsSoft(b2World* world, b2GraphColor* color, float inv_dt, bool removeOverlap)
+static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt, bool removeOverlap)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
@@ -1292,7 +1295,7 @@ static void b2IntegratePositions(b2World* world, float h)
 	}
 }
 
-static void b2SolvePositionConstraints(b2World* world, b2GraphColor* color)
+static void b2SolveContactPosition(b2World* world, b2GraphColor* color)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
@@ -1590,7 +1593,7 @@ void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolvePositionConstraints(world, colors + i);
+			b2SolveContactPosition(world, colors + i);
 		}
 	}
 
@@ -1629,14 +1632,14 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2InitializeSoftConstraints(world, colors + i, h, true);
+		b2PrepareSoftContact(world, colors + i, h, true);
 	}
 
 	for (int32_t iter = 0; iter < velocityIterations; ++iter)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveVelocityConstraintsSoft(world, colors + i, stepContext->inv_dt, true);
+			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, true);
 		}
 	}
 	
@@ -1646,7 +1649,7 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveVelocityConstraintsSoft(world, colors + i, stepContext->inv_dt, false);
+			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, false);
 		}
 	}
 
@@ -1663,6 +1666,7 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
+	b2Joint* joints = world->joints;
 
 	int32_t constraintCount = 0;
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
@@ -1686,10 +1690,24 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
+		// Soft constraints initialized with full time step
 		bool warmStart = true;
-		b2InitializeSoftConstraints(world, colors + i, stepContext->dt, warmStart);
+		b2PrepareSoftContact(world, colors + i, stepContext->dt, warmStart);
 	}
-	
+
+	int32_t jointCapacity = world->jointPool.capacity;
+
+	for (int32_t i = 0; i < jointCapacity; ++i)
+	{
+		b2Joint* joint = joints + i;
+		if (b2ObjectValid(&joint->object) == false)
+		{
+			continue;
+		}
+
+		b2PrepareJoint(joint, stepContext);
+	}
+
 	int32_t substepCount = stepContext->velocityIterations;
 	float h = stepContext->dt / substepCount;
 	float inv_h = 1.0f / h;
@@ -1697,10 +1715,22 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 	for (int32_t substep = 0; substep < substepCount; ++substep)
 	{
 		// One constraint iteration
+		for (int32_t i = 0; i < jointCapacity; ++i)
+		{
+			b2Joint* joint = joints + i;
+			if (b2ObjectValid(&joint->object) == false)
+			{
+				continue;
+			}
+
+			bool removeOverlap = true;
+			b2SolveJointVelocitySoft(joint, stepContext, removeOverlap);
+		}
+
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			bool removeOverlap = true;
-			b2SolveVelocityConstraintsSoft(world, colors + i, inv_h, removeOverlap);
+			b2SolveSoftContact(world, colors + i, inv_h, removeOverlap);
 		}
 
 		b2IntegrateDeltaTransform(world, h);
@@ -1711,10 +1741,22 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 	int32_t positionIterations = stepContext->positionIterations;
 	for (int32_t iter = 0; iter < positionIterations; ++iter)
 	{
+		for (int32_t i = 0; i < jointCapacity; ++i)
+		{
+			b2Joint* joint = joints + i;
+			if (b2ObjectValid(&joint->object) == false)
+			{
+				continue;
+			}
+
+			bool removeOverlap = false;
+			b2SolveJointVelocitySoft(joint, stepContext, removeOverlap);
+		}
+
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			bool removeOverlap = false;
-			b2SolveVelocityConstraintsSoft(world, colors + i, 0.0f, removeOverlap);
+			b2SolveSoftContact(world, colors + i, 0.0f, removeOverlap);
 		}
 	}
 

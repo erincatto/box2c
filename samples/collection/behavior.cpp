@@ -106,7 +106,7 @@ class HighMassRatio2 : public Sample
 		b2Polygon smallTriangle = b2MakePolygon(&hull, 0.0f);
 		b2Polygon smallBox = b2MakeBox(0.5f * extent, 0.5f * extent);
 		b2Polygon bigBox = b2MakeBox(10.0f * extent, 10.0f * extent);
-		
+
 		{
 			bodyDef.position = {-9.5f * extent, 0.5f * extent};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
@@ -120,7 +120,7 @@ class HighMassRatio2 : public Sample
 		}
 
 		{
-			bodyDef.position = {0.0f, (10.0f + 1.0f) * extent };
+			bodyDef.position = {0.0f, (10.0f + 1.0f) * extent};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 			b2Body_CreatePolygon(bodyId, &shapeDef, &bigBox);
 		}
@@ -209,33 +209,33 @@ class OverlapRecovery : public Sample
 
 		float groundWidth = 10.0f * extent;
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
-					shapeDef.density = 1.0f;
+		shapeDef.density = 1.0f;
 
-		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
+		b2Segment segment = {{-groundWidth, 0.0f}, {groundWidth, 0.0f}};
 		b2Body_CreateSegment(groundId, &shapeDef, &segment);
 
 		bodyDef.type = b2_dynamicBody;
 
 		b2Polygon box = b2MakeBox(extent, extent);
 
-			int count = 3;
-			float offset = -count * extent;
-			float y = extent;
-			while (count > 0)
+		int count = 4;
+		float fraction = 0.75f;
+		float y = fraction * extent;
+		while (count > 0)
+		{
+			for (int i = 0; i < count; ++i)
 			{
-				for (int i = 0; i < count; ++i)
-				{
-					float coeff = i - 0.5f * count;
+				float coeff = i - 0.5f * count;
 
-					bodyDef.position = {2.0f * coeff * extent + offset, y};
-					b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+				bodyDef.position = {2.0f * fraction * coeff * extent, y};
+				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-					b2Body_CreatePolygon(bodyId, &shapeDef, &box);
-				}
-
-				--count;
-				y += 2.0f * extent;
+				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
 			}
+
+			--count;
+			y += 2.0f * fraction * extent;
+		}
 	}
 
 	static Sample* Create(const Settings& settings)

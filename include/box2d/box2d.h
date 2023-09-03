@@ -35,6 +35,8 @@ BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 /// Enable/disable sleep.
 BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
 
+BOX2D_API void b2World_EnableWarmStarting(b2WorldId worldId, bool flag);
+
 /// Enable/disable continuous collision.
 BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
 

@@ -56,7 +56,7 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = g_sampleDebug ? 2 : 50;
+		m_rowCount = g_sampleDebug ? 14 : 50;
 		m_columnCount = g_sampleDebug ? 1 : 200;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
@@ -93,7 +93,7 @@ public:
 		}
 		else
 		{
-			offset = 0.0f; // 0.01f;
+			offset = 0.01f;
 		}
 
 		float dx = 3.0f;

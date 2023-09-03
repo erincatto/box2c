@@ -895,7 +895,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
 
 				// all fast shapes should already be in the move buffer
-
 				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
 
 				shapeIndex = shape->nextShapeIndex;
@@ -939,8 +938,8 @@ static void b2Solve2(b2World* world, b2StepContext* context)
 
 	//b2SolveGraphSoftPGS(world, context);
 	//b2SolveGraphPGS(world, context);
-	//b2SolveGraphSoftTGS(world, context);
-	b2SolveGraphStickyTGS(world, context);
+	b2SolveGraphSoftTGS(world, context);
+	//b2SolveGraphStickyTGS(world, context);
 
 	b2ValidateNoEnlarged(&world->broadPhase);
 
@@ -1475,6 +1474,18 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 			b2WakeIsland(island);
 		}
 	}
+}
+
+void b2World_EnableWarmStarting(b2WorldId worldId, bool flag)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->warmStarting = flag;
 }
 
 void b2World_EnableContinuo(b2WorldId worldId, bool flag)

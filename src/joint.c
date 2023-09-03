@@ -323,19 +323,19 @@ void b2World_DestroyJoint(b2JointId jointId)
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
-extern void b2InitializeMouse(b2Joint* base, b2StepContext* data);
-extern void b2InitializeRevolute(b2Joint* base, b2StepContext* data);
+extern void b2PrepareMouse(b2Joint* base, const b2StepContext* context);
+extern void b2PrepareRevolute(b2Joint* base, const b2StepContext* context);
 
-void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data)
+void b2PrepareJoint(b2Joint* joint, const b2StepContext* context)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2InitializeMouse(joint, data);
+			b2PrepareMouse(joint, context);
 			break;
 
 		case b2_revoluteJoint:
-			b2InitializeRevolute(joint, data);
+			b2PrepareRevolute(joint, context);
 			break;
 
 		default:
@@ -343,19 +343,19 @@ void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data)
 	}
 }
 
-extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* data);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* data);
+extern void b2SolveMouseVelocity(b2Joint* base, const b2StepContext* context);
+extern void b2SolveRevoluteVelocity(b2Joint* base, const b2StepContext* context);
 
-void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data)
+void b2SolveJointVelocity(b2Joint* joint, const b2StepContext* context)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2SolveMouseVelocity(joint, data);
+			b2SolveMouseVelocity(joint, context);
 			break;
 
 		case b2_revoluteJoint:
-			b2SolveRevoluteVelocity(joint, data);
+			b2SolveRevoluteVelocity(joint, context);
 			break;
 
 		default:
@@ -363,15 +363,37 @@ void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data)
 	}
 }
 
-extern bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* data);
+extern void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bool removeOverlap);
+
+void b2SolveJointVelocitySoft(b2Joint* joint, const b2StepContext* context, bool removeOverlap)
+{
+	switch (joint->type)
+	{
+		case b2_mouseJoint:
+			if (removeOverlap)
+			{
+				b2SolveMouseVelocity(joint, context);
+			}
+			break;
+
+		case b2_revoluteJoint:
+			b2SolveRevoluteVelocitySoft(joint, context, removeOverlap);
+			break;
+
+		default:
+			B2_ASSERT(false);
+	}
+}
+
+extern bool b2SolveRevolutePosition(b2Joint* base, const b2StepContext* context);
 
 // This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data)
+bool b2SolveJointPosition(b2Joint* joint, const b2StepContext* context)
 {
 	switch (joint->type)
 	{
 		case b2_revoluteJoint:
-			return b2SolveRevolutePosition(joint, data);
+			return b2SolveRevolutePosition(joint, context);
 
 		default:
 			return true;

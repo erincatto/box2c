@@ -1056,7 +1056,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 	while (jointIndex != B2_NULL_INDEX)
 	{
 		b2Joint* joint = joints + jointIndex;
-		b2InitVelocityConstraints(joint, context);
+		b2PrepareJoint(joint, context);
 		jointIndex = joint->islandNext;
 	}
 
@@ -1068,7 +1068,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		while (jointIndex != B2_NULL_INDEX)
 		{
 			b2Joint* joint = joints + jointIndex;
-			b2SolveVelocityConstraints(joint, context);
+			b2SolveJointVelocity(joint, context);
 			jointIndex = joint->islandNext;
 		}
 
@@ -1152,7 +1152,7 @@ void b2SolveIsland(b2Island* island, uint32_t threadIndex)
 		{
 			b2Joint* joint = joints + jointIndex;
 
-			bool jointOkay = b2SolvePositionConstraints(joint, context);
+			bool jointOkay = b2SolveJointPosition(joint, context);
 			jointsOkay = jointsOkay && jointOkay;
 
 			jointIndex = joint->islandNext;

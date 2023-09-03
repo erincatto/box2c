@@ -229,9 +229,7 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawCOMs = settings.m_drawCOMs;
 
 	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
-
-	// m_world->SetWarmStarting(settings.m_enableWarmStarting);
-	// m_world->SetContinuousPhysics(settings.m_enableContinuous);
+	b2World_EnableWarmStarting(m_worldId, settings.m_enableWarmStarting);
 
 	if (timeStep > 0.0f)
 	{

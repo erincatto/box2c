@@ -22,7 +22,7 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
+void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
@@ -86,6 +86,22 @@ void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
 		fixedRotation = true;
 	}
 
+	// TODO_ERIN softness experiment
+	const float hertz = 120.0f;
+	const float zeta = 4.0f;
+	float omega = 2.0f * b2_pi * hertz;
+	float h = context->dt;
+
+	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
+	joint->biasCoefficient = omega / (2.0f * zeta + h * omega);
+	float c = h * omega * (2.0f * zeta + h * omega);
+	joint->impulseCoefficient = 1.0f / (1.0f + c);
+	joint->massCoefficient = c * joint->impulseCoefficient;
+
+	//joint->biasCoefficient = 0.5f;
+	//joint->impulseCoefficient = 0.0f;
+	//joint->massCoefficient = 1.0f;
+
 	joint->angle = aB - aA - joint->referenceAngle;
 	if (joint->enableLimit == false || fixedRotation)
 	{
@@ -131,7 +147,7 @@ void b2InitializeRevolute(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity = wB;
 }
 
-void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context)
+void b2SolveRevoluteVelocity(b2Joint* base, const b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
@@ -208,6 +224,124 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context)
 
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(joint->rB, impulse);
+	}
+
+	bodyA->linearVelocity = vA;
+	bodyA->angularVelocity = wA;
+	bodyB->linearVelocity = vB;
+	bodyB->angularVelocity = wB;
+}
+
+void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bool removeOverlap)
+{
+	B2_ASSERT(base->type == b2_revoluteJoint);
+
+	b2RevoluteJoint* joint = &base->revoluteJoint;
+
+	b2Body* bodyA = context->bodies + base->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + base->edges[1].bodyIndex;
+
+	b2Vec2 vA = bodyA->linearVelocity;
+	float wA = bodyA->angularVelocity;
+	b2Vec2 vB = bodyB->linearVelocity;
+	float wB = bodyB->angularVelocity;
+
+	const b2Vec2 cA = b2Add(bodyA->position, bodyA->deltaPosition);
+	const float aA = bodyA->angle + bodyA->deltaAngle;
+	const b2Vec2 cB = b2Add(bodyB->position, bodyB->deltaPosition);
+	const float aB = bodyB->angle + bodyB->deltaAngle;
+
+	float mA = joint->invMassA, mB = joint->invMassB;
+	float iA = joint->invIA, iB = joint->invIB;
+
+	bool fixedRotation = (iA + iB == 0.0f);
+
+	// Solve motor constraint.
+	if (joint->enableMotor && fixedRotation == false)
+	{
+		float Cdot = wB - wA - joint->motorSpeed;
+		float impulse = -joint->axialMass * Cdot;
+		float oldImpulse = joint->motorImpulse;
+		float maxImpulse = context->dt * joint->maxMotorTorque;
+		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		impulse = joint->motorImpulse - oldImpulse;
+
+		wA -= iA * impulse;
+		wB += iB * impulse;
+	}
+
+	if (joint->enableLimit && fixedRotation == false)
+	{
+		// Lower limit
+		{
+			float C = joint->angle - joint->lowerAngle;
+			float Cdot = wB - wA;
+			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * context->inv_dt);
+			float oldImpulse = joint->lowerImpulse;
+			joint->lowerImpulse = B2_MAX(joint->lowerImpulse + impulse, 0.0f);
+			impulse = joint->lowerImpulse - oldImpulse;
+
+			wA -= iA * impulse;
+			wB += iB * impulse;
+		}
+
+		// Upper limit
+		// Note: signs are flipped to keep C positive when the constraint is satisfied.
+		// This also keeps the impulse positive when the limit is active.
+		{
+			float C = joint->upperAngle - joint->angle;
+			float Cdot = wA - wB;
+			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * context->inv_dt);
+			float oldImpulse = joint->upperImpulse;
+			joint->upperImpulse = B2_MAX(joint->upperImpulse + impulse, 0.0f);
+			impulse = joint->upperImpulse - oldImpulse;
+
+			wA += iA * impulse;
+			wB -= iB * impulse;
+		}
+	}
+
+	// Solve point-to-point constraint
+	{
+		b2Rot qA = b2MakeRot(aA);
+		b2Rot qB = b2MakeRot(aB);
+
+		b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
+		b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
+
+		b2Mat22 K;
+		K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
+		K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+		K.cx.y = K.cy.x;
+		K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
+
+		b2Vec2 separation = b2Add(b2Sub(rB, rA), b2Sub(cB, cA));
+
+		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
+
+		float biasScale = 0.0f;
+		float massScale = 1.0f;
+		float impulseScale = 0.0f;
+		if (removeOverlap)
+		{
+			biasScale = joint->biasCoefficient;
+			massScale = joint->massCoefficient;
+			impulseScale = joint->impulseCoefficient;
+		}
+
+		b2Vec2 b = b2Solve22(K, b2MulAdd(Cdot, biasScale, separation));
+		b2Vec2 impulse;
+		impulse.x = -massScale * b.x - impulseScale * joint->impulse.x;
+		impulse.y = -massScale * b.y - impulseScale * joint->impulse.y;
+
+		joint->impulse.x += impulse.x;
+		joint->impulse.y += impulse.y;
+
+		vA = b2MulSub(vA, mA, impulse);
+		wA -= iA * b2Cross(rA, impulse);
+
+		vB = b2MulAdd(vB, mB, impulse);
+		wB += iB * b2Cross(rB, impulse);
 	}
 
 	bodyA->linearVelocity = vA;

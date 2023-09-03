@@ -33,7 +33,7 @@ void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 	base->mouseJoint.targetA = target;
 }
 
-void b2InitializeMouse(b2Joint* base, b2StepContext* context)
+void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
