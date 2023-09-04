@@ -30,5 +30,5 @@ typedef struct b2StepContext
 	struct b2Body* bodies;
 	int32_t bodyCapacity;
 
-	bool warmStarting;
+	bool enableWarmStarting;
 } b2StepContext;

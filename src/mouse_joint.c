@@ -89,7 +89,7 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 	// Cheat with some damping
 	wB *= B2_MAX(0.0f, 1.0f - 0.02f * (60.0f * h));
 
-	if (context->warmStarting)
+	if (context->enableWarmStarting)
 	{
 		joint->impulse = b2MulSV(context->dtRatio, joint->impulse);
 		vB = b2MulAdd(vB, joint->invMassB, joint->impulse);

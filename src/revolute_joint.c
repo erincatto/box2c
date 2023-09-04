@@ -115,7 +115,7 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 		joint->motorImpulse = 0.0f;
 	}
 
-	if (context->warmStarting)
+	if (context->enableWarmStarting)
 	{
 		float dtRatio = context->dtRatio;
 
@@ -248,10 +248,10 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;
 
-	const b2Vec2 cA = b2Add(bodyA->position, bodyA->deltaPosition);
-	const float aA = bodyA->angle + bodyA->deltaAngle;
-	const b2Vec2 cB = b2Add(bodyB->position, bodyB->deltaPosition);
-	const float aB = bodyB->angle + bodyB->deltaAngle;
+	const b2Vec2 cA = b2Add(bodyA->position, bodyA->deltaPositionIter);
+	const float aA = bodyA->angle + bodyA->deltaAngleIter;
+	const b2Vec2 cB = b2Add(bodyB->position, bodyB->deltaPositionIter);
+	const float aB = bodyB->angle + bodyB->deltaAngleIter;
 
 	float mA = joint->invMassA, mB = joint->invMassB;
 	float iA = joint->invIA, iB = joint->invIB;
@@ -344,6 +344,15 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(rB, impulse);
+	}
+
+	if (removeOverlap)
+	{
+		float h = context->dt / context->velocityIterations;
+		bodyA->deltaAngleIter = bodyA->deltaAngle + h * wA;
+		bodyA->deltaPositionIter = b2MulAdd(bodyA->deltaPosition, h, vA);
+		bodyB->deltaAngleIter = bodyB->deltaAngle + h * wB;
+		bodyB->deltaPositionIter = b2MulAdd(bodyB->deltaPosition, h, vB);
 	}
 
 	bodyA->linearVelocity = vA;

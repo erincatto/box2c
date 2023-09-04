@@ -36,8 +36,13 @@ typedef struct b2Body
 	b2Vec2 linearVelocity;
 	float angularVelocity;
 
+	// These are the change in position/angle that accumulate across constraint substeps
 	b2Vec2 deltaPosition;
 	float deltaAngle;
+
+	// These are the change in position/angle that occur within a single constraint substep
+	b2Vec2 deltaPositionIter;
+	float deltaAngleIter;
 
 	b2Vec2 force;
 	float torque;

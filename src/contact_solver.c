@@ -137,7 +137,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 			const b2ManifoldPoint* cp = manifold->points + j;
 			b2VelocityConstraintPoint* vcp = vc->points + j;
 
-			if (context->warmStarting)
+			if (context->enableWarmStarting)
 			{
 				vcp->normalImpulse = context->dtRatio * cp->normalImpulse;
 				vcp->tangentImpulse = context->dtRatio * cp->tangentImpulse;
@@ -219,7 +219,7 @@ void b2ContactSolver_Initialize(b2ContactSolver* solver)
 	solver->constraintCount = constraintCount;
 
 	// Warm start
-	if (context->warmStarting)
+	if (context->enableWarmStarting)
 	{
 		for (int32_t i = 0; i < constraintCount; ++i)
 		{

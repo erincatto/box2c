@@ -7,7 +7,7 @@
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 
-//#include <GLFW/glfw3.h>
+// #include <GLFW/glfw3.h>
 #include <imgui.h>
 
 class BenchmarkJointGrid : public Sample
@@ -115,6 +115,8 @@ class Bridge : public Sample
 			sd.density = 20.0f;
 
 			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			int32_t jointIndex = 0;
+			m_maxMotorTorque = 5000.0f;
 
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
@@ -130,9 +132,9 @@ class Bridge : public Sample
 				jd.bodyIdB = bodyId;
 				jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
 				jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
-				// jd.enableMotor = true;
-				// jd.maxMotorTorque = 1000.0f;
-				b2World_CreateRevoluteJoint(m_worldId, &jd);
+				jd.enableMotor = true;
+				jd.maxMotorTorque = m_maxMotorTorque;
+				m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
 
 				prevBodyId = bodyId;
 			}
@@ -142,9 +144,11 @@ class Bridge : public Sample
 			jd.bodyIdB = groundId;
 			jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
 			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
-			// jd.enableMotor = true;
-			// jd.maxMotorTorque = 1000.0f;
-			b2World_CreateRevoluteJoint(m_worldId, &jd);
+			jd.enableMotor = true;
+			jd.maxMotorTorque = m_maxMotorTorque;
+			m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
+
+			assert(jointIndex == e_count + 1);
 		}
 
 		for (int32_t i = 0; i < 2; ++i)
@@ -179,10 +183,34 @@ class Bridge : public Sample
 		}
 	}
 
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+
+		// Automatic window size
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+		// Slider takes half the window
+		ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
+		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 10000.0f, "%2.f");
+		if (updateFriction)
+		{
+			for (int32_t i = 0; i <= e_count; ++i)
+			{
+				b2RevoluteJoint_SetMaxMotorTorque(m_jointIds[i], m_maxMotorTorque);
+			}
+		}
+
+		ImGui::End();
+	}
+
 	static Sample* Create(const Settings& settings)
 	{
 		return new Bridge(settings);
 	}
+
+	b2JointId m_jointIds[e_count + 1];
+	float m_maxMotorTorque;
 };
 
 static int sampleBridgeIndex = RegisterSample("Joints", "Bridge", Bridge::Create);
@@ -204,7 +232,7 @@ class BallAndChain : public Sample
 			groundId = b2World_CreateBody(m_worldId, &bd);
 		}
 
-		m_maxMotorTorque = 0.0f;
+		m_maxMotorTorque = 10000.0f;
 
 		{
 			float hx = 0.5f;
@@ -233,8 +261,7 @@ class BallAndChain : public Sample
 				jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
 				jd.enableMotor = true;
 				jd.maxMotorTorque = 0.0f;
-				m_jointIds[jointIndex] = b2World_CreateRevoluteJoint(m_worldId, &jd);
-				jointIndex += 1;
+				m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
 
 				prevBodyId = bodyId;
 			}
@@ -244,6 +271,7 @@ class BallAndChain : public Sample
 			b2BodyDef bd = b2DefaultBodyDef();
 			bd.type = b2_dynamicBody;
 			bd.position = {(1.0f + 2.0f * e_count) * hx + circle.radius - hx, e_count * hx};
+			//bd.linearVelocity = {100.0f, -100.0f};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 			b2Body_CreateCircle(bodyId, &sd, &circle);
 
@@ -254,8 +282,7 @@ class BallAndChain : public Sample
 			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
 			jd.enableMotor = true;
 			jd.maxMotorTorque = 0.0f;
-			m_jointIds[jointIndex] = b2World_CreateRevoluteJoint(m_worldId, &jd);
-			jointIndex += 1;
+			m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
 			assert(jointIndex == e_count + 1);
 		}
 	}
@@ -263,10 +290,10 @@ class BallAndChain : public Sample
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(260.0f, 60.0f));
+		ImGui::SetNextWindowSize(ImVec2(300.0f, 60.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
-		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 100000.0f, "%1.f");
+		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 10000.0f, "%2.f");
 		if (updateFriction)
 		{
 			for (int32_t i = 0; i <= e_count; ++i)
@@ -274,7 +301,7 @@ class BallAndChain : public Sample
 				b2RevoluteJoint_SetMaxMotorTorque(m_jointIds[i], m_maxMotorTorque);
 			}
 		}
-		
+
 		ImGui::End();
 	}
 
@@ -288,7 +315,6 @@ class BallAndChain : public Sample
 };
 
 static int sampleBallAndChainIndex = RegisterSample("Joints", "BallAndChain", BallAndChain::Create);
-
 
 class Cantilever : public Sample
 {
@@ -321,46 +347,40 @@ class Cantilever : public Sample
 			{
 				b2BodyDef bd = b2DefaultBodyDef();
 				bd.type = b2_dynamicBody;
-				bd.position = {(1.0f + 2.0f * i) * hx, e_count * hx};
+				bd.position = {(1.0f + 2.0f * i) * hx, 0.0f};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 				b2Body_CreatePolygon(bodyId, &sd, &box);
 
-				b2Vec2 pivot = {(2.0f * i) * hx, e_count * hx};
+				b2Vec2 pivot = {(2.0f * i) * hx, 0.0f};
 				jd.bodyIdA = prevBodyId;
 				jd.bodyIdB = bodyId;
 				jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
 				jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
-				jd.linearHertz = 5.0f;
+				//jd.linearHertz = 5.0f;
 				b2World_CreateWeldJoint(m_worldId, &jd);
 
 				prevBodyId = bodyId;
 			}
 
-			//b2Circle circle = {{0.0f, 0.0f}, 4.0f};
-
-			//b2BodyDef bd = b2DefaultBodyDef();
-			//bd.type = b2_dynamicBody;
-			//bd.position = {(1.0f + 2.0f * e_count) * hx + circle.radius - hx, e_count * hx};
-			//b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
-			//b2Body_CreateCircle(bodyId, &sd, &circle);
-
-			//b2Vec2 pivot = {(2.0f * e_count) * hx, e_count * hx};
-			//jd.bodyIdA = prevBodyId;
-			//jd.bodyIdB = bodyId;
-			//jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
-			//jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
-			//jd.enableMotor = true;
-			//jd.maxMotorTorque = 0.0f;
-			//m_jointIds[jointIndex] = b2World_CreateRevoluteJoint(m_worldId, &jd);
-			//jointIndex += 1;
-			//assert(jointIndex == e_count + 1);
+			m_tipId = prevBodyId;
 		}
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		b2Vec2 tipPosition = b2Body_GetPosition(m_tipId);
+		g_draw.DrawString(5, m_textLine, "tip-y = %.2f", tipPosition.y);
+		m_textLine += m_textIncrement;
 	}
 
 	static Sample* Create(const Settings& settings)
 	{
 		return new Cantilever(settings);
 	}
+
+	b2BodyId m_tipId;
 };
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);

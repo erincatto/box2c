@@ -13,7 +13,8 @@ typedef struct b2Contact b2Contact;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-#define b2_graphColorCount 16
+// TODO_ERIN fixme
+#define b2_graphColorCount 64
 
 typedef struct b2GraphColor
 {

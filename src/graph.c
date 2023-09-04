@@ -235,58 +235,11 @@ static void b2IntegrateVelocities(b2World* world, float h)
 
 		body->deltaAngle = 0.0f;
 		body->deltaPosition = b2Vec2_zero;
+
+		body->deltaAngleIter = 0.0f;
+		body->deltaPositionIter = b2Vec2_zero;
 	}
 }
-
-#if 0 // no need?
-static void b2IntegrateVelocitiesSoft(b2World* world, float h)
-{
-	b2Body* bodies = world->bodies;
-	int32_t bodyCapacity = world->bodyPool.capacity;
-	b2Vec2 gravity = world->gravity;
-
-	// Integrate velocities and apply damping. Initialize the body state.
-	for (int32_t i = 0; i < bodyCapacity; ++i)
-	{
-		b2Body* body = bodies + i;
-		if (b2ObjectValid(&body->object) == false)
-		{
-			continue;
-		}
-
-		if (body->type != b2_dynamicBody)
-		{
-			continue;
-		}
-
-		float invMass = body->invMass;
-		float invI = body->invI;
-
-		b2Vec2 v = body->linearVelocity;
-		float w = body->angularVelocity;
-
-		// Integrate velocities
-		v = b2Add(v, b2MulSV(h * invMass, b2MulAdd(body->force, body->gravityScale * body->mass, gravity)));
-		w = w + h * invI * body->torque;
-
-		// Apply damping.
-		// ODE: dv/dt + c * v = 0
-		// Solution: v(t) = v0 * exp(-c * t)
-		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
-		// v2 = exp(-c * dt) * v1
-		// Pade approximation:
-		// v2 = v1 * 1 / (1 + c * dt)
-		v = b2MulSV(1.0f / (1.0f + h * body->linearDamping), v);
-		w *= 1.0f / (1.0f + h * body->angularDamping);
-
-		body->linearVelocity = v;
-		body->angularVelocity = w;
-
-		body->deltaAngle = 0.0f;
-		body->deltaPosition = b2Vec2_zero;
-	}
-}
-#endif
 
 static void b2IntegrateDeltaTransform(b2World* world, float h)
 {
@@ -308,6 +261,11 @@ static void b2IntegrateDeltaTransform(b2World* world, float h)
 
 		body->deltaAngle += h * body->angularVelocity;
 		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
+
+		body->deltaAngleIter = body->deltaAngle;
+		body->deltaPositionIter = body->deltaPosition;
+
+		// breakpoint helper
 		i += 0;
 	}
 }
@@ -365,7 +323,8 @@ typedef struct b2Constraint
 	int32_t pointCount;
 } b2Constraint;
 
-static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, bool warmStart)
+// h is full time step
+static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, float stiffHertz, bool warmStart)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	int32_t* contactIndices = color->contactArray;
@@ -437,7 +396,7 @@ static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, b
 
 			// Soft contact with speculation
 			//const float hertz = mA == 0.0f ? 60.0f : 30.0f;
-			const float hertz = 30.0f;
+			const float hertz = stiffHertz;
 			const float zeta = 1.0f;
 			float omega = 2.0f * b2_pi * hertz;
 			// float d = 2.0f * zeta * omega / kNormal;
@@ -972,7 +931,8 @@ static void b2SolveVelocityConstraintsSorted(b2World* world, b2Constraint* const
 	}
 }
 
-static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt, bool removeOverlap)
+// inv_dt is full time step inverse, h is sub time step
+static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt, float h, bool removeOverlap)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
@@ -995,10 +955,10 @@ static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt
 		b2Vec2 vB = bodyB->linearVelocity;
 		float wB = bodyB->angularVelocity;
 
-		const b2Vec2 dpA = bodyA->deltaPosition;
-		const float daA = bodyA->deltaAngle;
-		const b2Vec2 dpB = bodyB->deltaPosition;
-		const float daB = bodyB->deltaAngle;
+		const b2Vec2 dpA = bodyA->deltaPositionIter;
+		const float daA = bodyA->deltaAngleIter;
+		const b2Vec2 dpB = bodyB->deltaPositionIter;
+		const float daB = bodyB->deltaAngleIter;
 
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(normal);
@@ -1013,7 +973,7 @@ static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt
 			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
 			b2Vec2 dv = b2Sub(vrB, vrA);
 
-			// Compute change in separation
+			// Compute change in separation (small angle approximation of sin(angle) == angle)
 			b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rB));
 			b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
 			float ds = b2Dot(b2Sub(prB, prA), normal);
@@ -1023,7 +983,7 @@ static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt
 			float impulseScale = 0.0f;
 			if (s > 0.0f)
 			{
-				// Speculative
+				// Speculative (inverse of full time step)
 				bias = s * inv_dt;
 			}
 			else if (removeOverlap)
@@ -1080,6 +1040,16 @@ static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt
 
 			vB = b2MulAdd(vB, mB, P);
 			wB += iB * b2Cross(cp->rB, P);
+		}
+
+		if (removeOverlap)
+		{
+			B2_MAYBE_UNUSED(h);
+			// Iteratively update delta angle/position using for sub-step
+			bodyA->deltaAngleIter = bodyA->deltaAngle + h * wA;
+			bodyA->deltaPositionIter = b2MulAdd(bodyA->deltaPosition, h, vA);
+			bodyB->deltaAngleIter = bodyB->deltaAngle + h * wB;
+			bodyB->deltaPositionIter = b2MulAdd(bodyB->deltaPosition, h, vB);
 		}
 
 		bodyA->linearVelocity = vA;
@@ -1627,19 +1597,20 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 	int32_t velocityIterations = stepContext->velocityIterations;
 	int32_t positionIterations = stepContext->positionIterations;
 	float h = stepContext->dt;
+	float stiffHertz = 0.25f * stepContext->velocityIterations * stepContext->inv_dt;
 
 	b2IntegrateVelocities(world, h);
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2PrepareSoftContact(world, colors + i, h, true);
+		b2PrepareSoftContact(world, colors + i, h, stiffHertz, true);
 	}
 
 	for (int32_t iter = 0; iter < velocityIterations; ++iter)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, true);
+			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, h, true);
 		}
 	}
 	
@@ -1649,7 +1620,7 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, false);
+			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, h, false);
 		}
 	}
 
@@ -1688,11 +1659,14 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 	// Full step apply gravity
 	b2IntegrateVelocities(world, stepContext->dt);
 
+	float stiffHertz = 30.0f;
+	 //0.125f * stepContext->velocityIterations * stepContext->inv_dt;
+
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		// Soft constraints initialized with full time step
-		bool warmStart = true;
-		b2PrepareSoftContact(world, colors + i, stepContext->dt, warmStart);
+		bool warmStart = stepContext->enableWarmStarting;
+		b2PrepareSoftContact(world, colors + i, stepContext->dt, stiffHertz, warmStart);
 	}
 
 	int32_t jointCapacity = world->jointPool.capacity;
@@ -1710,7 +1684,6 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 
 	int32_t substepCount = stepContext->velocityIterations;
 	float h = stepContext->dt / substepCount;
-	float inv_h = 1.0f / h;
 
 	for (int32_t substep = 0; substep < substepCount; ++substep)
 	{
@@ -1730,12 +1703,14 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			bool removeOverlap = true;
-			b2SolveSoftContact(world, colors + i, inv_h, removeOverlap);
+			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, h, removeOverlap);
 		}
 
+		// TODO_ERIN final iteration should update world positions
 		b2IntegrateDeltaTransform(world, h);
 	}
 
+	// TODO_ERIN wasteful since I just looped over bodies in b2IntegrateDeltaTransform
 	b2UpdatePositions(world);
 
 	int32_t positionIterations = stepContext->positionIterations;
@@ -1756,7 +1731,7 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			bool removeOverlap = false;
-			b2SolveSoftContact(world, colors + i, 0.0f, removeOverlap);
+			b2SolveSoftContact(world, colors + i, 0.0f, 0.0f, removeOverlap);
 		}
 	}
 
