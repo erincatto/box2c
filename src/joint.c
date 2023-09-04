@@ -249,6 +249,50 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	return jointId;
 }
 
+b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_weldJoint;
+
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+
+	b2WeldJoint empty = {0};
+	joint->weldJoint = empty;
+	joint->weldJoint.referenceAngle = def->referenceAngle;
+	joint->weldJoint.linearHertz = def->linearHertz;
+	joint->weldJoint.linearDampingRatio = def->linearDampingRatio;
+	joint->weldJoint.angularHertz = def->angularHertz;
+	joint->weldJoint.angularDampingRatio = def->angularDampingRatio;
+	joint->weldJoint.impulse = b2Vec3_zero;
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+
+	return jointId;
+}
+
 void b2World_DestroyJoint(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
@@ -325,6 +369,7 @@ void b2World_DestroyJoint(b2JointId jointId)
 
 extern void b2PrepareMouse(b2Joint* base, const b2StepContext* context);
 extern void b2PrepareRevolute(b2Joint* base, const b2StepContext* context);
+extern void b2PrepareWeld(b2Joint* base, const b2StepContext* context);
 
 void b2PrepareJoint(b2Joint* joint, const b2StepContext* context)
 {
@@ -336,6 +381,10 @@ void b2PrepareJoint(b2Joint* joint, const b2StepContext* context)
 
 		case b2_revoluteJoint:
 			b2PrepareRevolute(joint, context);
+			break;
+
+		case b2_weldJoint:
+			b2PrepareWeld(joint, context);
 			break;
 
 		default:
@@ -358,12 +407,16 @@ void b2SolveJointVelocity(b2Joint* joint, const b2StepContext* context)
 			b2SolveRevoluteVelocity(joint, context);
 			break;
 
+		case b2_weldJoint:
+			break;
+
 		default:
 			B2_ASSERT(false);
 	}
 }
 
 extern void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bool removeOverlap);
+extern void b2SolveWeldVelocitySoft(b2Joint* base, const b2StepContext* context, bool removeOverlap);
 
 void b2SolveJointVelocitySoft(b2Joint* joint, const b2StepContext* context, bool removeOverlap)
 {
@@ -378,6 +431,10 @@ void b2SolveJointVelocitySoft(b2Joint* joint, const b2StepContext* context, bool
 
 		case b2_revoluteJoint:
 			b2SolveRevoluteVelocitySoft(joint, context, removeOverlap);
+			break;
+
+		case b2_weldJoint:
+			b2SolveWeldVelocitySoft(joint, context, removeOverlap);
 			break;
 
 		default:

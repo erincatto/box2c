@@ -14,6 +14,7 @@ typedef struct b2StepContext
 	// inverse time step (0 if dt == 0).
 	float inv_dt;
 
+	// TODO_ERIN eliminate support for variable time step
 	// ratio between current and previous time step (dt * inv_dt0)
 	float dtRatio;
 

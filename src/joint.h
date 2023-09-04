@@ -93,6 +93,31 @@ typedef struct b2RevoluteJoint
 	float axialMass;
 } b2RevoluteJoint;
 
+typedef struct b2WeldJoint
+{
+	// Solver shared
+	float referenceAngle;
+	float linearHertz;
+	float linearDampingRatio;
+	float angularHertz;
+	float angularDampingRatio;
+	float linearBiasCoefficient;
+	float linearMassCoefficient;
+	float linearImpulseCoefficient;
+	float angularBiasCoefficient;
+	float angularMassCoefficient;
+	float angularImpulseCoefficient;
+	b2Vec3 impulse;
+
+	// Solver temp
+	b2Vec2 localCenterA;
+	b2Vec2 localCenterB;
+	float invMassA;
+	float invMassB;
+	float invIA;
+	float invIB;
+} b2WeldJoint;
+
 /// The base joint class. Joints are used to constraint two bodies together in
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
@@ -114,6 +139,7 @@ typedef struct b2Joint
 	{
 		b2MouseJoint mouseJoint;
 		b2RevoluteJoint revoluteJoint;
+		b2WeldJoint weldJoint;
 	};
 
 	bool isMarked;

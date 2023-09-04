@@ -27,6 +27,12 @@ typedef struct b2Vec2
 	float x, y;
 } b2Vec2;
 
+/// 3D vector
+typedef struct b2Vec3
+{
+	float x, y, z;
+} b2Vec3;
+
 /// 2D rotation
 typedef struct b2Rot
 {
@@ -47,6 +53,13 @@ typedef struct b2Mat22
 	/// columns
 	b2Vec2 cx, cy;
 } b2Mat22;
+
+/// A 3-by-3 Matrix
+typedef struct b2Mat33
+{
+	/// columns
+	b2Vec3 cx, cy, cz;
+} b2Mat33;
 
 /// Axis-aligned bounding box
 typedef struct b2AABB

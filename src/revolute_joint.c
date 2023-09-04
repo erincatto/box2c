@@ -87,8 +87,9 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	}
 
 	// TODO_ERIN softness experiment
-	const float hertz = 120.0f;
-	const float zeta = 4.0f;
+	// hertz = 6.0f * subStep/dt
+	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
+	const float zeta = 1.0f;
 	float omega = 2.0f * b2_pi * hertz;
 	float h = context->dt;
 
@@ -119,7 +120,8 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 		float dtRatio = context->dtRatio;
 
 		// Scale impulses to support a variable time step.
-		joint->impulse = b2MulSV(dtRatio, joint->impulse);
+		//joint->impulse = b2MulSV(dtRatio, joint->impulse);
+		joint->impulse = b2Vec2_zero;
 		joint->motorImpulse *= dtRatio;
 		joint->lowerImpulse *= dtRatio;
 		joint->upperImpulse *= dtRatio;
@@ -505,6 +507,24 @@ float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
 	B2_ASSERT(joint->object.revision == jointId.revision);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 	return inverseTimeStep * joint->revoluteJoint.motorImpulse;
+}
+
+void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	B2_ASSERT(joint->object.index == joint->object.next);
+	B2_ASSERT(joint->object.revision == jointId.revision);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+	joint->revoluteJoint.maxMotorTorque = torque;
 }
 
 #if 0

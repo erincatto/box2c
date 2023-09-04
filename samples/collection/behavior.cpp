@@ -218,7 +218,7 @@ class OverlapRecovery : public Sample
 
 		b2Polygon box = b2MakeBox(extent, extent);
 
-		int count = 4;
+		int count = 2;
 		float fraction = 0.75f;
 		float y = fraction * extent;
 		while (count > 0)

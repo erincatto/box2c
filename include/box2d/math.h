@@ -18,9 +18,11 @@ extern "C"
 #define B2_CLAMP(A, B, C) B2_MIN(B2_MAX(A, B), C)
 
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
+static const b2Vec3 b2Vec3_zero = {0.0f, 0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {0.0f, 1.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
+static const b2Mat33 b2Mat33_zero = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f},  {0.0f, 0.0f, 0.0f}};
 
 bool b2IsValid(float a);
 bool b2IsValidVec2(b2Vec2 v);
@@ -42,6 +44,19 @@ static inline float b2Cross(b2Vec2 a, b2Vec2 b)
 {
 	return a.x * b.y - a.y * b.x;
 }
+
+/// Perform the dot product on two 3-vectors.
+static inline float b2Dot3(b2Vec3 a, b2Vec3 b)
+{
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+/// Perform the cross product on two 3-vectors.
+static inline b2Vec3 b2Cross3(b2Vec3 a, b2Vec3 b)
+{
+	return B2_LITERAL(b2Vec3){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
 
 /// Perform the cross product on a vector and a scalar. In 2D this produces
 /// a vector.
@@ -305,8 +320,7 @@ static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 	return B;
 }
 
-/// Solve A * x = b, where b is a column vector. This is more efficient
-/// than computing the inverse in one-shot cases.
+/// Solve A * x = b, where b is a column vector.
 static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
 {
 	float a11 = A.cx.x, a12 = A.cy.x, a21 = A.cx.y, a22 = A.cy.y;
@@ -316,6 +330,21 @@ static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
 		det = 1.0f / det;
 	}
 	b2Vec2 x = {det * (a22 * b.x - a12 * b.y), det * (a11 * b.y - a21 * b.x)};
+	return x;
+}
+
+/// Solve A * x = b, where b is a column vector.
+static inline b2Vec3 b2Solve33(b2Mat33 A, b2Vec3 b)
+{
+	float det = b2Dot3(A.cx, b2Cross3(A.cy, A.cz));
+	if (det != 0.0f)
+	{
+		det = 1.0f / det;
+	}
+	b2Vec3 x;
+	x.x = det * b2Dot3(b, b2Cross3(A.cy, A.cz));
+	x.y = det * b2Dot3(A.cx, b2Cross3(b, A.cz));
+	x.z = det * b2Dot3(A.cx, b2Cross3(A.cy, b));
 	return x;
 }
 

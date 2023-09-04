@@ -77,6 +77,7 @@ BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
 BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
 BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
+BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
 BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
 
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
@@ -85,6 +86,7 @@ BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 
 /// This function receives shapes found in the AABB query.
 /// @return true if the query should continue
