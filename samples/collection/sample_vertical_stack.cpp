@@ -56,8 +56,8 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = g_sampleDebug ? 14 : 50;
-		m_columnCount = g_sampleDebug ? 1 : 200;
+		m_rowCount = 14;
+		m_columnCount = g_sampleDebug ? 1 : e_maxColumns;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 

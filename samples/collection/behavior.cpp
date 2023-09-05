@@ -57,7 +57,7 @@ class HighMassRatio1 : public Sample
 				{
 					float coeff = i - 0.5f * count;
 
-					float yy = count == 1 ? y + 2.0f : y;
+					float yy = count == 1 ? y + 0.0f : y;
 					bodyDef.position = {2.0f * coeff * extent + offset, yy};
 					b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
@@ -218,7 +218,7 @@ class OverlapRecovery : public Sample
 
 		b2Polygon box = b2MakeBox(extent, extent);
 
-		int count = 2;
+		int count = 4;
 		float fraction = 0.75f;
 		float y = fraction * extent;
 		while (count > 0)

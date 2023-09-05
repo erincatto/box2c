@@ -235,9 +235,6 @@ static void b2IntegrateVelocities(b2World* world, float h)
 
 		body->deltaAngle = 0.0f;
 		body->deltaPosition = b2Vec2_zero;
-
-		body->deltaAngleIter = 0.0f;
-		body->deltaPositionIter = b2Vec2_zero;
 	}
 }
 
@@ -261,9 +258,6 @@ static void b2IntegrateDeltaTransform(b2World* world, float h)
 
 		body->deltaAngle += h * body->angularVelocity;
 		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
-
-		body->deltaAngleIter = body->deltaAngle;
-		body->deltaPositionIter = body->deltaPosition;
 
 		// breakpoint helper
 		i += 0;
@@ -324,7 +318,7 @@ typedef struct b2Constraint
 } b2Constraint;
 
 // h is full time step
-static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, float stiffHertz, bool warmStart)
+static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, float contactHertz, bool warmStart)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	int32_t* contactIndices = color->contactArray;
@@ -396,7 +390,7 @@ static void b2PrepareSoftContact(b2World* world, b2GraphColor* color, float h, f
 
 			// Soft contact with speculation
 			//const float hertz = mA == 0.0f ? 60.0f : 30.0f;
-			const float hertz = stiffHertz;
+			const float hertz = mA == 0.0f ? contactHertz : 0.5f * contactHertz;
 			const float zeta = 1.0f;
 			float omega = 2.0f * b2_pi * hertz;
 			// float d = 2.0f * zeta * omega / kNormal;
@@ -931,8 +925,8 @@ static void b2SolveVelocityConstraintsSorted(b2World* world, b2Constraint* const
 	}
 }
 
-// inv_dt is full time step inverse, h is sub time step
-static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt, float h, bool removeOverlap)
+// inv_dt is full time step inverse
+static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt, bool removeOverlap)
 {
 	const int32_t constraintCount = b2Array(color->contactArray).count;
 	b2Body* bodies = world->bodies;
@@ -955,10 +949,10 @@ static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt
 		b2Vec2 vB = bodyB->linearVelocity;
 		float wB = bodyB->angularVelocity;
 
-		const b2Vec2 dpA = bodyA->deltaPositionIter;
-		const float daA = bodyA->deltaAngleIter;
-		const b2Vec2 dpB = bodyB->deltaPositionIter;
-		const float daB = bodyB->deltaAngleIter;
+		const b2Vec2 dpA = bodyA->deltaPosition;
+		const float daA = bodyA->deltaAngle;
+		const b2Vec2 dpB = bodyB->deltaPosition;
+		const float daB = bodyB->deltaAngle;
 
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(normal);
@@ -1040,16 +1034,6 @@ static void b2SolveSoftContact(b2World* world, b2GraphColor* color, float inv_dt
 
 			vB = b2MulAdd(vB, mB, P);
 			wB += iB * b2Cross(cp->rB, P);
-		}
-
-		if (removeOverlap)
-		{
-			B2_MAYBE_UNUSED(h);
-			// Iteratively update delta angle/position using for sub-step
-			bodyA->deltaAngleIter = bodyA->deltaAngle + h * wA;
-			bodyA->deltaPositionIter = b2MulAdd(bodyA->deltaPosition, h, vA);
-			bodyB->deltaAngleIter = bodyB->deltaAngle + h * wB;
-			bodyB->deltaPositionIter = b2MulAdd(bodyB->deltaPosition, h, vB);
 		}
 
 		bodyA->linearVelocity = vA;
@@ -1572,10 +1556,12 @@ void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, constraints);
 }
 
+// inferior joint stability to soft step
 void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
+	b2Joint* joints = world->joints;
 
 	int32_t constraintCount = 0;
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
@@ -1596,31 +1582,69 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 
 	int32_t velocityIterations = stepContext->velocityIterations;
 	int32_t positionIterations = stepContext->positionIterations;
-	float h = stepContext->dt;
-	float stiffHertz = 0.25f * stepContext->velocityIterations * stepContext->inv_dt;
+	float dt = stepContext->dt;
+	float inv_dt = stepContext->inv_dt;
+	float contactHertz = 120.0f;
 
-	b2IntegrateVelocities(world, h);
+	b2IntegrateVelocities(world, dt);
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		b2PrepareSoftContact(world, colors + i, h, stiffHertz, true);
+		b2PrepareSoftContact(world, colors + i, dt, contactHertz, true);
+	}
+
+	int32_t jointCapacity = world->jointPool.capacity;
+
+	for (int32_t i = 0; i < jointCapacity; ++i)
+	{
+		b2Joint* joint = joints + i;
+		if (b2ObjectValid(&joint->object) == false)
+		{
+			continue;
+		}
+
+		b2PrepareJoint(joint, stepContext);
 	}
 
 	for (int32_t iter = 0; iter < velocityIterations; ++iter)
 	{
+		for (int32_t i = 0; i < jointCapacity; ++i)
+		{
+			b2Joint* joint = joints + i;
+			if (b2ObjectValid(&joint->object) == false)
+			{
+				continue;
+			}
+
+			bool removeOverlap = true;
+			b2SolveJointVelocitySoft(joint, stepContext, removeOverlap);
+		}
+
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, h, true);
+			b2SolveSoftContact(world, colors + i, inv_dt, true);
 		}
 	}
 	
-	b2IntegratePositions(world, h);
+	b2IntegratePositions(world, dt);
 
 	for (int32_t iter = 0; iter < positionIterations; ++iter)
 	{
+		for (int32_t i = 0; i < jointCapacity; ++i)
+		{
+			b2Joint* joint = joints + i;
+			if (b2ObjectValid(&joint->object) == false)
+			{
+				continue;
+			}
+
+			bool removeOverlap = false;
+			b2SolveJointVelocitySoft(joint, stepContext, removeOverlap);
+		}
+
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, h, false);
+			b2SolveSoftContact(world, colors + i, inv_dt, false);
 		}
 	}
 
@@ -1631,9 +1655,25 @@ void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, constraints);
 }
 
-// Soft constraints with substepping. Allows for stiffer contacts with a small performance hit. Includes a
-// bias removal stage to help remove excess warm starting energy.
-void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
+// Threading:
+// 1. build array of awake bodies, maybe copy to contiguous array
+// 2. parallel-for integrate velocities
+// 3. parallel prepare constraints by color
+// Loop sub-steps:
+// 4. parallel solve constraints by color
+// 5. parallel-for update position deltas (and positions on last iter)
+// End Loop
+// Loop bias-removal:
+// 6. parallel solve constraints by color
+// End loop
+// 7. parallel-for store impulses
+// 8. parallel-for update aabbs, build proxy update set, build awake contact set
+
+// Soft constraints with constraint error substepping. Allows for stiffer contacts with a small performance hit. Includes a
+// bias removal stage to help remove excess bias energy.
+// http://mmacklin.com/smallsteps.pdf
+// https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
+void b2SolveGraphSoftStep(b2World* world, const b2StepContext* stepContext)
 {
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
@@ -1659,14 +1699,16 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 	// Full step apply gravity
 	b2IntegrateVelocities(world, stepContext->dt);
 
-	float stiffHertz = 30.0f;
-	 //0.125f * stepContext->velocityIterations * stepContext->inv_dt;
+	// 30 is a bit soft, 60 oscillates too much
+	//const float contactHertz = 45.0f;
+	//const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
+	const float contactHertz = 120.0f;
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		// Soft constraints initialized with full time step
 		bool warmStart = stepContext->enableWarmStarting;
-		b2PrepareSoftContact(world, colors + i, stepContext->dt, stiffHertz, warmStart);
+		b2PrepareSoftContact(world, colors + i, stepContext->dt, contactHertz, warmStart);
 	}
 
 	int32_t jointCapacity = world->jointPool.capacity;
@@ -1703,7 +1745,7 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			bool removeOverlap = true;
-			b2SolveSoftContact(world, colors + i, stepContext->inv_dt, h, removeOverlap);
+			b2SolveSoftContact(world, colors + i, h, removeOverlap);
 		}
 
 		// TODO_ERIN final iteration should update world positions
@@ -1731,7 +1773,7 @@ void b2SolveGraphSoftTGS(b2World* world, const b2StepContext* stepContext)
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			bool removeOverlap = false;
-			b2SolveSoftContact(world, colors + i, 0.0f, 0.0f, removeOverlap);
+			b2SolveSoftContact(world, colors + i, h, removeOverlap);
 		}
 	}
 

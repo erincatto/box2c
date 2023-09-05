@@ -96,7 +96,7 @@ class Bridge : public Sample
   public:
 	enum
 	{
-		e_count = 200
+		e_count = 20
 	};
 
 	Bridge(const Settings& settings)
@@ -116,7 +116,7 @@ class Bridge : public Sample
 
 			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 			int32_t jointIndex = 0;
-			m_maxMotorTorque = 5000.0f;
+			m_maxMotorTorque = 0.0f;
 
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
@@ -124,6 +124,8 @@ class Bridge : public Sample
 				b2BodyDef bd = b2DefaultBodyDef();
 				bd.type = b2_dynamicBody;
 				bd.position = {-34.5f + 1.0f * i, 20.0f};
+				//bd.linearDamping = 0.1f;
+				//bd.angularDamping = 0.1f;
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 				b2Body_CreatePolygon(bodyId, &sd, &box);
 
@@ -232,7 +234,7 @@ class BallAndChain : public Sample
 			groundId = b2World_CreateBody(m_worldId, &bd);
 		}
 
-		m_maxMotorTorque = 10000.0f;
+		m_maxMotorTorque = 0.0f;
 
 		{
 			float hx = 0.5f;
@@ -260,7 +262,7 @@ class BallAndChain : public Sample
 				jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
 				jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
 				jd.enableMotor = true;
-				jd.maxMotorTorque = 0.0f;
+				jd.maxMotorTorque = m_maxMotorTorque;
 				m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
 
 				prevBodyId = bodyId;
@@ -271,6 +273,9 @@ class BallAndChain : public Sample
 			b2BodyDef bd = b2DefaultBodyDef();
 			bd.type = b2_dynamicBody;
 			bd.position = {(1.0f + 2.0f * e_count) * hx + circle.radius - hx, e_count * hx};
+			//bd.linearDamping = 0.1f;
+			//bd.angularDamping = 0.1f;
+
 			//bd.linearVelocity = {100.0f, -100.0f};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 			b2Body_CreateCircle(bodyId, &sd, &circle);
@@ -281,7 +286,7 @@ class BallAndChain : public Sample
 			jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
 			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
 			jd.enableMotor = true;
-			jd.maxMotorTorque = 0.0f;
+			jd.maxMotorTorque = m_maxMotorTorque;
 			m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
 			assert(jointIndex == e_count + 1);
 		}

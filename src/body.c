@@ -49,8 +49,6 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->angularVelocity = def->angularVelocity;
 	b->deltaPosition = b2Vec2_zero;
 	b->deltaAngle = 0.0f;
-	b->deltaPositionIter = b2Vec2_zero;
-	b->deltaAngleIter = 0.0f;
 	b->force = b2Vec2_zero;
 	b->torque = 0.0f;
 	b->shapeList = B2_NULL_INDEX;

@@ -119,8 +119,7 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	{
 		float dtRatio = context->dtRatio;
 
-		// Scale impulses to support a variable time step.
-		//joint->impulse = b2MulSV(dtRatio, joint->impulse);
+		// Soft step works best when bilateral constraints have no warm starting.
 		joint->impulse = b2Vec2_zero;
 		joint->motorImpulse *= dtRatio;
 		joint->lowerImpulse *= dtRatio;
@@ -248,10 +247,10 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;
 
-	const b2Vec2 cA = b2Add(bodyA->position, bodyA->deltaPositionIter);
-	const float aA = bodyA->angle + bodyA->deltaAngleIter;
-	const b2Vec2 cB = b2Add(bodyB->position, bodyB->deltaPositionIter);
-	const float aB = bodyB->angle + bodyB->deltaAngleIter;
+	const b2Vec2 cA = b2Add(bodyA->position, bodyA->deltaPosition);
+	const float aA = bodyA->angle + bodyA->deltaAngle;
+	const b2Vec2 cB = b2Add(bodyB->position, bodyB->deltaPosition);
+	const float aB = bodyB->angle + bodyB->deltaAngle;
 
 	float mA = joint->invMassA, mB = joint->invMassB;
 	float iA = joint->invIA, iB = joint->invIB;
@@ -274,11 +273,27 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 
 	if (joint->enableLimit && fixedRotation == false)
 	{
+		float jointAngle = aB - aA - joint->referenceAngle;
+
 		// Lower limit
 		{
-			float C = joint->angle - joint->lowerAngle;
+			float C = jointAngle - joint->lowerAngle;
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
+			if (C > 0.0f)
+			{
+				bias = C * context->inv_dt;
+			}
+			else if (removeOverlap)
+			{
+				bias = joint->biasCoefficient * C;
+				massScale = joint->massCoefficient;
+				impulseScale = joint->impulseCoefficient;
+			}
+
 			float Cdot = wB - wA;
-			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * context->inv_dt);
+			float impulse = -joint->axialMass * massScale *  (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->lowerImpulse;
 			joint->lowerImpulse = B2_MAX(joint->lowerImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
@@ -291,9 +306,24 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 		// Note: signs are flipped to keep C positive when the constraint is satisfied.
 		// This also keeps the impulse positive when the limit is active.
 		{
-			float C = joint->upperAngle - joint->angle;
+			float C = joint->upperAngle - jointAngle;
+			
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
+			if (C > 0.0f)
+			{
+				bias = C * context->inv_dt;
+			}
+			else if (removeOverlap)
+			{
+				bias = joint->biasCoefficient * C;
+				massScale = joint->massCoefficient;
+				impulseScale = joint->impulseCoefficient;
+			}
+
 			float Cdot = wA - wB;
-			float impulse = -joint->axialMass * (Cdot + B2_MAX(C, 0.0f) * context->inv_dt);
+			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->upperImpulse;
 			joint->upperImpulse = B2_MAX(joint->upperImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
@@ -344,15 +374,6 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(rB, impulse);
-	}
-
-	if (removeOverlap)
-	{
-		float h = context->dt / context->velocityIterations;
-		bodyA->deltaAngleIter = bodyA->deltaAngle + h * wA;
-		bodyA->deltaPositionIter = b2MulAdd(bodyA->deltaPosition, h, vA);
-		bodyB->deltaAngleIter = bodyB->deltaAngle + h * wB;
-		bodyB->deltaPositionIter = b2MulAdd(bodyB->deltaPosition, h, vB);
 	}
 
 	bodyA->linearVelocity = vA;
