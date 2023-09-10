@@ -86,9 +86,8 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 		fixedRotation = true;
 	}
 
-	// TODO_ERIN softness experiment
-	// hertz = 6.0f * subStep/dt
-	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
+	// hertz = 1/4 * substep Hz
+	const float hertz = (1.0f / 4.0f) * context->velocityIterations * context->inv_dt;
 	const float zeta = 1.0f;
 	float omega = 2.0f * b2_pi * hertz;
 	float h = context->dt;
@@ -98,10 +97,6 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	float c = h * omega * (2.0f * zeta + h * omega);
 	joint->impulseCoefficient = 1.0f / (1.0f + c);
 	joint->massCoefficient = c * joint->impulseCoefficient;
-
-	//joint->biasCoefficient = 0.5f;
-	//joint->impulseCoefficient = 0.0f;
-	//joint->massCoefficient = 1.0f;
 
 	joint->angle = aB - aA - joint->referenceAngle;
 	if (joint->enableLimit == false || fixedRotation)
@@ -121,6 +116,7 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 
 		// Soft step works best when bilateral constraints have no warm starting.
 		joint->impulse = b2Vec2_zero;
+		//joint->impulse.x = 0.0f;
 		joint->motorImpulse *= dtRatio;
 		joint->lowerImpulse *= dtRatio;
 		joint->upperImpulse *= dtRatio;
@@ -133,6 +129,11 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 
 		vB = b2MulAdd(vB, mB, P);
 		wB += iB * (b2Cross(joint->rB, P) + axialImpulse);
+
+		//vA.x = 0.0f;
+		//wA = 0.0f;
+		//vB.x = 0.0f;
+		//wB = 0.0f;
 	}
 	else
 	{
@@ -375,6 +376,11 @@ void b2SolveRevoluteVelocitySoft(b2Joint* base, const b2StepContext* context, bo
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(rB, impulse);
 	}
+		
+	//vA.x = 0.0f;
+	//wA = 0.0f;
+	//vB.x = 0.0f;
+	//wB = 0.0f;
 
 	bodyA->linearVelocity = vA;
 	bodyA->angularVelocity = wA;

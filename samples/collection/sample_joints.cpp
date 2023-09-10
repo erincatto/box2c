@@ -124,8 +124,8 @@ class Bridge : public Sample
 				b2BodyDef bd = b2DefaultBodyDef();
 				bd.type = b2_dynamicBody;
 				bd.position = {-34.5f + 1.0f * i, 20.0f};
-				//bd.linearDamping = 0.1f;
-				//bd.angularDamping = 0.1f;
+				// bd.linearDamping = 0.1f;
+				// bd.angularDamping = 0.1f;
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 				b2Body_CreatePolygon(bodyId, &sd, &box);
 
@@ -236,6 +236,7 @@ class BallAndChain : public Sample
 
 		m_maxMotorTorque = 0.0f;
 
+#if 0
 		{
 			float hx = 0.5f;
 			b2Polygon box = b2MakeBox(hx, 0.125f);
@@ -290,6 +291,64 @@ class BallAndChain : public Sample
 			m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
 			assert(jointIndex == e_count + 1);
 		}
+#else
+		{
+			float hx = 0.5f;
+			b2Polygon box = b2MakeBox(0.125f, hx);
+
+			b2ShapeDef sd = b2DefaultShapeDef();
+			sd.density = 20.0f;
+			sd.filter.categoryBits = 1;
+			sd.filter.maskBits = 0;
+
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+
+			int32_t jointIndex = 0;
+
+			b2BodyId prevBodyId = groundId;
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2BodyDef bd = b2DefaultBodyDef();
+				bd.type = b2_dynamicBody;
+				bd.position = {0.0, -(1.0f + 2.0f * i) * hx};
+				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
+				b2Body_CreatePolygon(bodyId, &sd, &box);
+
+				b2Vec2 pivot = {0.0f, -(2.0f * i) * hx};
+				jd.bodyIdA = prevBodyId;
+				jd.bodyIdB = bodyId;
+				jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
+				jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
+				jd.enableMotor = false;
+				jd.maxMotorTorque = m_maxMotorTorque;
+				m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
+
+				prevBodyId = bodyId;
+			}
+
+			b2Circle circle = {{0.0f, 0.0f}, 20.0f};
+
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.type = b2_dynamicBody;
+			bd.position = {0.0f, -(1.0f + 2.0f * e_count) * hx - circle.radius + hx};
+			// bd.linearDamping = 0.1f;
+			// bd.angularDamping = 0.1f;
+
+			// bd.linearVelocity = {100.0f, -100.0f};
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
+			b2Body_CreateCircle(bodyId, &sd, &circle);
+
+			b2Vec2 pivot = {0.0f, -(2.0f * e_count) * hx};
+			jd.bodyIdA = prevBodyId;
+			jd.bodyIdB = bodyId;
+			jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
+			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
+			jd.enableMotor = false;
+			jd.maxMotorTorque = m_maxMotorTorque;
+			m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jd);
+			assert(jointIndex == e_count + 1);
+		}
+#endif
 	}
 
 	void UpdateUI() override
@@ -361,7 +420,7 @@ class Cantilever : public Sample
 				jd.bodyIdB = bodyId;
 				jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
 				jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
-				//jd.linearHertz = 5.0f;
+				// jd.linearHertz = 5.0f;
 				b2World_CreateWeldJoint(m_worldId, &jd);
 
 				prevBodyId = bodyId;
