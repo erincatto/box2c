@@ -13,7 +13,6 @@ typedef struct b2Contact b2Contact;
 typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
-typedef struct b2SolverTaskEntry b2SolverTaskEntry;
 
 // TODO_ERIN fixme
 #define b2_graphColorCount 64
@@ -32,8 +31,6 @@ typedef struct b2Graph
 {
 	b2GraphColor colors[b2_graphColorCount];
 	int32_t colorCount;
-
-	b2SolverTaskEntry* solverTaskEntries;
 } b2Graph;
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity);
