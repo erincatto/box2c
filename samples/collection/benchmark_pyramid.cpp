@@ -21,9 +21,9 @@ class BenchmarkPyramid : public Sample
 	{
 		m_extent = 0.5f;
 		m_round = 0.0f;
-		m_baseCount = 60;
-		m_rowCount = g_sampleDebug ? 1 : 1;
-		m_columnCount = g_sampleDebug ? 1 : 1;
+		m_baseCount = 10;
+		m_rowCount = g_sampleDebug ? 1 : 32;
+		m_columnCount = g_sampleDebug ? 1 : 32;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
