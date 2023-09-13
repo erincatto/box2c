@@ -236,7 +236,7 @@ class BallAndChain : public Sample
 
 		m_maxMotorTorque = 0.0f;
 
-#if 0
+#if 1
 		{
 			float hx = 0.5f;
 			b2Polygon box = b2MakeBox(hx, 0.125f);

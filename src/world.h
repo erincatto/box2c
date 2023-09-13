@@ -112,7 +112,7 @@ typedef struct b2World
 
 	bool enableSleep;
 	bool locked;
-	bool warmStarting;
+	bool enableWarmStarting;
 	bool enableContinuous;
 } b2World;
 

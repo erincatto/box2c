@@ -135,7 +135,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->inv_dt0 = 0.0f;
 	world->enableSleep = true;
 	world->locked = false;
-	world->warmStarting = true;
+	world->enableWarmStarting = true;
 	world->enableContinuous = true;
 	world->profile = b2_emptyProfile;
 
@@ -936,7 +936,8 @@ static void b2Solve2(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
 
-	b2SolveGraphSoftStep(world, context);
+	b2SolveGraph(world, context);
+	//b2SolveGraphSoftStep(world, context);
 
 	b2ValidateNoEnlarged(&world->broadPhase);
 
@@ -1094,7 +1095,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	context.dtRatio = world->inv_dt0 * timeStep;
 	context.restitutionThreshold = world->restitutionThreshold;
-	context.enableWarmStarting = world->warmStarting;
+	context.enableWarmStarting = world->enableWarmStarting;
 	context.bodies = world->bodies;
 	context.bodyCapacity = world->bodyPool.capacity;
 
@@ -1181,7 +1182,7 @@ void b2World_Step2(b2WorldId worldId, float timeStep, int32_t velocityIterations
 
 	context.dtRatio = world->inv_dt0 * timeStep;
 	context.restitutionThreshold = world->restitutionThreshold;
-	context.enableWarmStarting = world->warmStarting;
+	context.enableWarmStarting = world->enableWarmStarting;
 	context.bodies = world->bodies;
 	context.bodyCapacity = world->bodyPool.capacity;
 
@@ -1482,7 +1483,7 @@ void b2World_EnableWarmStarting(b2WorldId worldId, bool flag)
 		return;
 	}
 
-	world->warmStarting = flag;
+	world->enableWarmStarting = flag;
 }
 
 void b2World_EnableContinuo(b2WorldId worldId, bool flag)

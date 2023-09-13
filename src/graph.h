@@ -42,7 +42,5 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 void b2AddJointToGraph(b2World* world, b2Joint* contact);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* contact);
 
-void b2SolveGraphPGS(b2World* world, const b2StepContext* stepContext);
-void b2SolveGraphSoftPGS(b2World* world, const b2StepContext* stepContext);
+void b2SolveGraph(b2World* world, const b2StepContext* stepContext);
 void b2SolveGraphSoftStep(b2World* world, const b2StepContext* stepContext);
-void b2SolveGraphStickyTGS(b2World* world, const b2StepContext* stepContext);
