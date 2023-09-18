@@ -63,7 +63,7 @@ Sample::Sample(const Settings& settings)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
-	uint32_t maxThreads = enki::GetNumHardwareThreads() / 2;
+	uint32_t maxThreads = 16; //enki::GetNumHardwareThreads() / 2;
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
