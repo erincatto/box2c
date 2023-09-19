@@ -83,6 +83,16 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
+typedef struct b2SolverBody
+{
+	b2Vec2 linearVelocity;
+	float angularVelocity;
+
+	// These are the change in position/angle that accumulate across constraint substeps
+	b2Vec2 deltaPosition;
+	float deltaAngle;
+} b2SolverBody;
+
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
 b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
