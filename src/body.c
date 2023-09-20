@@ -67,7 +67,6 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->sleepTime = 0.0f;
 	b->userData = def->userData;
 	b->world = worldId.index;
-	b->islandIndex = 0;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
@@ -77,6 +76,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->islandIndex = B2_NULL_INDEX;
 	b->islandPrev = B2_NULL_INDEX;
 	b->islandNext = B2_NULL_INDEX;
+	b->solverIndex = B2_NULL_INDEX;
 
 	if (b->type != b2_staticBody)
 	{

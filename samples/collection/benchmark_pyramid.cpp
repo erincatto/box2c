@@ -21,9 +21,9 @@ class BenchmarkPyramid : public Sample
 	{
 		m_extent = 0.5f;
 		m_round = 0.0f;
-		m_baseCount = 10;
-		m_rowCount = g_sampleDebug ? 4 : 13;
-		m_columnCount = g_sampleDebug ? 3 : 14;
+		m_baseCount = 3;
+		m_rowCount = g_sampleDebug ? 1 : 13;
+		m_columnCount = g_sampleDebug ? 1 : 14;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
@@ -57,7 +57,7 @@ class BenchmarkPyramid : public Sample
 		float h = m_extent - m_round;
 		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
 
-		float shift = 1.0f * h;
+		float shift = 0.8f * h;
 
 		for (int32_t i = 0; i < m_baseCount; ++i)
 		{

@@ -59,6 +59,8 @@ typedef struct b2Body
 	int32_t islandPrev;
 	int32_t islandNext;
 
+	int32_t solverIndex;
+
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.
@@ -91,6 +93,11 @@ typedef struct b2SolverBody
 	// These are the change in position/angle that accumulate across constraint substeps
 	b2Vec2 deltaPosition;
 	float deltaAngle;
+
+	float invMass;
+	float invI;
+
+	int32_t bodyIndex;
 } b2SolverBody;
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
