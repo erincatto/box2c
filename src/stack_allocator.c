@@ -79,7 +79,6 @@ void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* nam
 	}
 
 	b2Array_Push(alloc->entries, entry);
-
 	return entry.data;
 }
 

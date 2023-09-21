@@ -115,6 +115,9 @@ typedef struct b2WorkerContext
 	int32_t workerIndex;
 } b2WorkerContext;
 
+// TODO_ERIN debugggin
+_Atomic int firstWorkerEnterCount = 0;
+
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity)
 {
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
@@ -372,7 +375,7 @@ static void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2Solver
 	// 30 is a bit soft, 60 oscillates too much
 	// const float contactHertz = 45.0f;
 	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
-	const float contactHertz = 45.0f;
+	const float contactHertz = 30.0f;
 
 	float h = context->timeStep;
 	bool enableWarmStarting = world->enableWarmStarting;
@@ -692,7 +695,7 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Sol
 	b2TracyCZoneEnd(integrate_positions);
 }
 
-static void b2FinalizePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, uint32_t threadIndex)
+static void b2FinalizePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t workerIndex)
 {
 	b2TracyCZoneNC(finalize_positions, "FinPos", b2_colorViolet, true);
 
@@ -702,8 +705,8 @@ static void b2FinalizePositionsTask(int32_t startIndex, int32_t endIndex, b2Solv
 	b2Contact* contacts = world->contacts;
 	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 
-	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
-	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
+	b2BitSet* awakeContactBitSet = &world->taskContextArray[workerIndex].awakeContactBitSet;
+	b2BitSet* shapeBitSet = &world->taskContextArray[workerIndex].shapeBitSet;
 
 	B2_ASSERT(startIndex <= endIndex);
 	B2_ASSERT(startIndex <= world->bodyPool.capacity);
@@ -789,7 +792,7 @@ static void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2SolverTa
 	b2TracyCZoneEnd(store_impulses);
 }
 
-static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex, uint32_t threadIndex)
+static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex, int32_t workerIndex)
 {
 	b2SolverStageType type = stage->type;
 
@@ -812,7 +815,7 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 
 		case b2_stageFinalizePositions:
-			b2FinalizePositionsTask(startIndex, endIndex, context, threadIndex);
+			b2FinalizePositionsTask(startIndex, endIndex, context, workerIndex);
 			break;
 
 		case b2_stageCalmContacts:
@@ -837,8 +840,7 @@ static inline int32_t GetWorkerStartIndex(int32_t workerIndex, int32_t blockCoun
 	return blocksPerWorker * workerIndex + B2_MIN(remainder, workerIndex);
 }
 
-static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, int32_t workerIndex, int previousSyncIndex, int syncIndex,
-						   uint32_t threadIndex)
+static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, int previousSyncIndex, int syncIndex, int32_t workerIndex)
 {
 	int32_t completedCount = 0;
 	b2SolverBlock* blocks = stage->blocks;
@@ -859,9 +861,11 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 	// Caution: this can change expectedSyncIndex
 	while (atomic_compare_exchange_strong(&blocks[blockIndex].syncIndex, &expectedSyncIndex, syncIndex) == true)
 	{
+		B2_ASSERT(stage->type != b2_stagePrepareContacts || syncIndex < 2);
+
 		B2_ASSERT(completedCount < blockCount);
 
-		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex, threadIndex);
+		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex, workerIndex);
 
 		completedCount += 1;
 		blockIndex += 1;
@@ -891,7 +895,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 		}
 
-		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex, threadIndex);
+		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex, workerIndex);
 		completedCount += 1;
 		blockIndex -= 1;
 	}
@@ -899,7 +903,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 	(void)atomic_fetch_add(&stage->completionCount, completedCount);
 }
 
-static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* context, int32_t workerIndex, uint32_t syncBits)
+static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* context, uint32_t syncBits)
 {
 	int32_t blockCount = stage->blockCount;
 	if (blockCount == 0)
@@ -927,7 +931,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 			}
 		}
 
-		b2ExecuteStage(stage, context, workerIndex, previousSyncIndex, syncIndex, 0);
+		b2ExecuteStage(stage, context, previousSyncIndex, syncIndex, 0);
 
 		while (atomic_load(&stage->completionCount) != blockCount)
 		{
@@ -938,10 +942,12 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 	}
 }
 
-void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+// This should not use the thread index because thread 0 should not be called twice, which is possible with work stealing.
+void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDontUse, void* taskContext)
 {
 	B2_MAYBE_UNUSED(startIndex);
 	B2_MAYBE_UNUSED(endIndex);
+	B2_MAYBE_UNUSED(threadIndexDontUse);
 
 	b2WorkerContext* workerContext = taskContext;
 	int32_t workerIndex = workerContext->workerIndex;
@@ -949,8 +955,11 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 	int32_t activeColorCount = context->activeColorCount;
 	b2SolverStage* stages = context->stages;
 
-	if (threadIndex == 0)
+	if (workerIndex == 0)
 	{
+		B2_ASSERT(atomic_load(&firstWorkerEnterCount) == 0);
+		atomic_fetch_add(&firstWorkerEnterCount, 1);
+
 		// Main thread synchronizes the workers and does work itself.
 		//
 		// Stages are re-used for loops so that I don't need more stages for large iteration counts.
@@ -976,10 +985,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 		{
 			for (int32_t i = 0; i < stages[3].blockCount; ++i)
 			{
-				if (stages[3].blocks[i].syncIndex > 0)
-				{
-					i += 0;
-				}
+				B2_ASSERT(stages[3].blocks[i].syncIndex == 0);
 			}
 		}
 
@@ -987,50 +993,21 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 		int32_t stageIndex = 0;
 		uint32_t syncBits = (bodySyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageIntegrateVelocities);
-		b2ExecuteMainStage(stages + stageIndex, context, workerIndex, syncBits);
+		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 		stageIndex += 1;
 		bodySyncIndex += 1;
-
-		if (stages[3].type == b2_stagePrepareContacts)
-		{
-			for (int32_t i = 0; i < stages[3].blockCount; ++i)
-			{
-				if (stages[3].blocks[i].syncIndex > 0)
-				{
-					i += 0;
-				}
-			}
-		}
 
 		// TODO_ERIN single threaded
 		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareJoints);
 		b2PrepareJointsTask(context);
 		stageIndex += 1;
 
-		if (stages[3].type == b2_stagePrepareContacts)
-		{
-			for (int32_t i = 0; i < stages[3].blockCount; ++i)
-			{
-				if (stages[3].blocks[i].syncIndex > 0)
-				{
-					i += 0;
-				}
-			}
-		}
-
 		int32_t graphSyncIndex = 1;
 		for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 		{
 			syncBits = (graphSyncIndex << 16) | stageIndex;
 			B2_ASSERT(stages[stageIndex].type == b2_stagePrepareContacts);
-			for (int32_t i = 0; i < stages[stageIndex].blockCount; ++i)
-			{
-				if (stages[stageIndex].blocks[i].syncIndex > 0)
-				{
-					i += 0;
-				}
-			}
-			b2ExecuteMainStage(stages + stageIndex, context, workerIndex, syncBits);
+			b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 			stageIndex += 1;
 		}
 		graphSyncIndex += 1;
@@ -1049,14 +1026,14 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
 				B2_ASSERT(stages[iterStageIndex].type == b2_stageSolveContacts);
-				b2ExecuteMainStage(stages + iterStageIndex, context, workerIndex, syncBits);
+				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
 
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegratePositions);
 			syncBits = (bodySyncIndex << 16) | iterStageIndex;
-			b2ExecuteMainStage(stages + iterStageIndex, context, workerIndex, syncBits);
+			b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 			bodySyncIndex += 1;
 		}
 
@@ -1064,7 +1041,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 
 		syncBits = (bodySyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageFinalizePositions);
-		b2ExecuteMainStage(stages + stageIndex, context, workerIndex, syncBits);
+		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 		stageIndex += 1;
 
 		int32_t calmIterations = context->calmIterations;
@@ -1081,7 +1058,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
 				B2_ASSERT(stages[iterStageIndex].type == b2_stageCalmContacts);
-				b2ExecuteMainStage(stages + iterStageIndex, context, workerIndex, syncBits);
+				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
@@ -1092,8 +1069,9 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 		uint32_t constraintSyncIndex = 1;
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
-		b2ExecuteMainStage(stages + stageIndex, context, workerIndex, syncBits);
+		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 
+		// Signal workers to finish
 		atomic_store(&context->syncBits, UINT_MAX);
 
 		B2_ASSERT(stageIndex + 1 == context->stageCount);
@@ -1128,7 +1106,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, vo
 		int32_t previousSyncIndex = syncIndex - 1;
 
 		b2SolverStage* stage = stages + stageIndex;
-		b2ExecuteStage(stage, context, workerIndex, previousSyncIndex, syncIndex, threadIndex);
+		b2ExecuteStage(stage, context, previousSyncIndex, syncIndex, workerIndex);
 
 		lastSyncBits = syncBits;
 	}
@@ -1176,6 +1154,7 @@ void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
 	b2Body* bodies = world->bodies;
 	b2Body** awakeBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2Body*), "awake bodies");
 	b2SolverBody* solverBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2SolverBody), "solver bodies");
+
 	int32_t index = 0;
 	for (int32_t i = 0; i < awakeIslandCount; ++i)
 	{
@@ -1201,8 +1180,8 @@ void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
 	int32_t workerCount = world->workerCount;
 	const int32_t blocksPerWorker = 6;
 
-	int32_t bodyBlockSize = 1 << 3;
-	int32_t bodyBlockCount = ((awakeBodyCount - 1) >> 3) + 1;
+	int32_t bodyBlockSize = 1 << 4;
+	int32_t bodyBlockCount = ((awakeBodyCount - 1) >> 4) + 1;
 	if (awakeBodyCount > blocksPerWorker * bodyBlockSize * workerCount)
 	{
 		bodyBlockSize = awakeBodyCount / (blocksPerWorker * workerCount);
@@ -1244,6 +1223,7 @@ void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
 	activeColorCount = c;
 
 	b2Constraint* constraints = b2AllocateStackItem(world->stackAllocator, constraintCount * sizeof(b2Constraint), "constraint");
+
 	int32_t base = 0;
 
 	for (int32_t i = 0; i < activeColorCount; ++i)
@@ -1294,11 +1274,7 @@ void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
 
 	b2SolverStage* stages = b2AllocateStackItem(world->stackAllocator, stageCount * sizeof(b2SolverStage), "stages");
 	b2SolverBlock* bodyBlocks = b2AllocateStackItem(world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
-	//b2SolverBlock* graphBlocks = b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
-	
-	B2_ASSERT(graphBlockCount <= 32);
-	static b2SolverBlock graphBlocks[32];
-
+	b2SolverBlock* graphBlocks = b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
 	b2SolverBlock* storeBlocks = b2AllocateStackItem(world->stackAllocator, storeBlockCount * sizeof(b2SolverBlock), "store blocks");
 
 	for (int32_t i = 0; i < bodyBlockCount; ++i)
@@ -1434,14 +1410,6 @@ void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
 	stage->completionCount = 0;
 	stage += 1;
 
-	for (int32_t i = 0; i < graphBlockCount; ++i)
-	{
-		if (graphBlocks[i].syncIndex > 0)
-		{
-			i += 0;
-		}
-	}
-
 	B2_ASSERT((int32_t)(stage - stages) == stageCount);
 
 	B2_ASSERT(workerCount <= 16);
@@ -1466,46 +1434,26 @@ void b2SolveGraph(b2World* world, const b2StepContext* stepContext)
 	context.invTimeStep = stepContext->inv_dt;
 	context.subStep = context.timeStep / velIters;
 	context.invSubStep = velIters * stepContext->inv_dt;
-	atomic_store(&context.syncBits, 0);
+	context.syncBits = 0;
 
 	b2TracyCZoneEnd(prepare_stages);
 
-	for (int32_t i = 0; i < graphBlockCount; ++i)
-	{
-		if (graphBlocks[i].syncIndex > 0)
-		{
-			i += 0;
-		}
-	}
+	atomic_store(&firstWorkerEnterCount, 0);
 
 	// TODO_ERIN use workerIndex or threadIndex?
 	for (int32_t i = 0; i < workerCount; ++i)
 	{
-		for (int32_t j = 0; j < graphBlockCount; ++j)
-		{
-			if (graphBlocks[j].syncIndex > 0)
-			{
-				j += 0;
-			}
-		}
-
 		workerContext[i].context = &context;
 		workerContext[i].workerIndex = i;
 		world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 	}
 
-	for (int32_t i = 0; i < graphBlockCount; ++i)
-	{
-		if (graphBlocks[i].syncIndex > 0)
-		{
-			i += 0;
-		}
-	}
-
 	world->finishAllTasksFcn(world->userTaskContext);
 
+	atomic_store(&firstWorkerEnterCount, 0);
+
 	b2FreeStackItem(world->stackAllocator, storeBlocks);
-	//b2FreeStackItem(world->stackAllocator, graphBlocks);
+	b2FreeStackItem(world->stackAllocator, graphBlocks);
 	b2FreeStackItem(world->stackAllocator, bodyBlocks);
 	b2FreeStackItem(world->stackAllocator, stages);
 	b2FreeStackItem(world->stackAllocator, constraints);

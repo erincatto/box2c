@@ -63,7 +63,7 @@ Sample::Sample(const Settings& settings)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
-	uint32_t maxThreads = 8; //enki::GetNumHardwareThreads() / 2;
+	uint32_t maxThreads = 8;// enki::GetNumHardwareThreads() / 2;
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
@@ -355,7 +355,7 @@ void Sample::Step(Settings& settings)
 			{
 				// graph color
 				g_draw.DrawPoint(point->position, 5.0f, b2MakeColor(colors[point->color], 1.0f));
-				g_draw.DrawString(point->position, "%d", point->color);
+				//g_draw.DrawString(point->position, "%d", point->color);
 			}
 			else if (point->separation > b2_linearSlop)
 			{
