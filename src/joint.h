@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/id.h"
-#include "box2d/types.h"
-
 #include "pool.h"
+
+#include "box2d/types.h"
 
 #include <stdint.h>
 
@@ -22,7 +21,7 @@ typedef enum b2JointType
 	b2_mouseJoint,
 	b2_gearJoint,
 	b2_wheelJoint,
-    b2_weldJoint,
+	b2_weldJoint,
 	b2_frictionJoint,
 	b2_motorJoint
 } b2JointType;
@@ -52,10 +51,10 @@ typedef struct b2MouseJoint
 	float gamma;
 
 	// Solver temp
+	int32_t solverIndexB;
+	b2Vec2 positionB;
 	b2Vec2 rB;
 	b2Vec2 localCenterB;
-	float invMassB;
-	float invIB;
 	b2Mat22 mass;
 	b2Vec2 C;
 } b2MouseJoint;
@@ -76,16 +75,14 @@ typedef struct b2RevoluteJoint
 	float upperAngle;
 
 	// Solver temp
-	b2Vec2 rA;
-	b2Vec2 rB;
+	int32_t solverIndexA;
+	int32_t solverIndexB;
+	b2Vec2 positionA;
+	b2Vec2 positionB;
+	float angleA;
+	float angleB;
 	b2Vec2 localCenterA;
 	b2Vec2 localCenterB;
-	float invMassA;
-	float invMassB;
-	float invIA;
-	float invIB;
-	b2Mat22 K;
-	b2Vec2 separation;
 	float biasCoefficient;
 	float massCoefficient;
 	float impulseCoefficient;
@@ -110,12 +107,12 @@ typedef struct b2WeldJoint
 	b2Vec3 impulse;
 
 	// Solver temp
+	int32_t solverIndexA;
+	int32_t solverIndexB;
+	b2Vec2 positionA;
+	b2Vec2 positionB;
 	b2Vec2 localCenterA;
 	b2Vec2 localCenterB;
-	float invMassA;
-	float invMassB;
-	float invIA;
-	float invIB;
 } b2WeldJoint;
 
 /// The base joint class. Joints are used to constraint two bodies together in
@@ -123,9 +120,7 @@ typedef struct b2WeldJoint
 typedef struct b2Joint
 {
 	b2Object object;
-
 	b2JointType type;
-
 	b2JointEdge edges[2];
 
 	int32_t islandIndex;
@@ -146,11 +141,6 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-void b2PrepareJoint(b2Joint* joint, const b2StepContext* context);
-void b2SolveJointVelocity(b2Joint* joint, const b2StepContext* context);
-void b2SolveJointVelocitySoft(b2Joint* joint, const b2StepContext* context, bool removeOverlap);
-
-// This returns true if the position errors are within tolerance.
-bool b2SolveJointPosition(b2Joint* joint, const b2StepContext* context);
-
+void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
+void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOverlap);
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

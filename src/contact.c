@@ -413,21 +413,13 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 		touching = contact->manifold.pointCount > 0;
 
-		contact->manifold.frictionPersisted = true;
-		
-		if (contact->manifold.pointCount != oldManifold.pointCount)
-		{
-			contact->manifold.frictionPersisted = false;
-		}
-
-		// TODO_ERIN testing
-		contact->manifold.constraintIndex = oldManifold.constraintIndex;
-
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
 		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
+			mp2->anchorA = b2Sub(mp2->point, bodyA->position);
+			mp2->anchorB = b2Sub(mp2->point, bodyB->position);
 			mp2->normalImpulse = 0.0f;
 			mp2->tangentImpulse = 0.0f;
 			mp2->persisted = false;
@@ -439,28 +431,12 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 				if (mp1->id == id2)
 				{
-					mp2->localNormalA = mp1->localNormalA;
-					mp2->localNormalB = mp1->localNormalB;
-					mp2->localAnchorA = mp1->localAnchorA;
-					mp2->localAnchorB = mp1->localAnchorB;
-
 					mp2->normalImpulse = mp1->normalImpulse;
 					mp2->tangentImpulse = mp1->tangentImpulse;
 					mp2->persisted = true;
 					break;
 				}
 			}
-
-			if (mp2->persisted == false)
-			{
-				contact->manifold.frictionPersisted = false;
-			}
-
-			// For debugging ids
-			// if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
-			//{
-			//	i += 0;
-			//}
 		}
 
 		if (touching && world->preSolveFcn)

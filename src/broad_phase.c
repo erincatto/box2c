@@ -234,6 +234,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
+	// TODO_ERIN per thread to eliminate atomic?
 	int pairIndex = atomic_fetch_add(&bp->movePairIndex, 1);
 
 	b2MovePair* pair;

@@ -59,8 +59,6 @@ typedef struct b2Body
 	int32_t islandPrev;
 	int32_t islandNext;
 
-	int32_t solverIndex;
-
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.
@@ -85,6 +83,8 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
+// TODO_ERIN every non-static body gets a solver body. No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
+// Keep two solver body arrays: awake and sleeping
 typedef struct b2SolverBody
 {
 	b2Vec2 linearVelocity;

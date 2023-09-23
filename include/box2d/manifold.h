@@ -24,11 +24,8 @@ typedef struct b2ManifoldPoint
 	/// world coordinates of contact point
 	b2Vec2 point;
 
-	// Friction anchors
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
-	b2Vec2 localNormalA;
-	b2Vec2 localNormalB;
+	/// Body anchors used by solver
+	b2Vec2 anchorA, anchorB;
 
 	/// the separation of the contact point, negative if penetrating
 	float separation;
@@ -52,8 +49,6 @@ typedef struct b2Manifold
 	b2ManifoldPoint points[2];
 	b2Vec2 normal;
 	int32_t pointCount;
-	int32_t constraintIndex;
-	bool frictionPersisted;
 } b2Manifold;
 
 static const b2Manifold b2_emptyManifold = {0};

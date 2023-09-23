@@ -76,7 +76,6 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->islandIndex = B2_NULL_INDEX;
 	b->islandPrev = B2_NULL_INDEX;
 	b->islandNext = B2_NULL_INDEX;
-	b->solverIndex = B2_NULL_INDEX;
 
 	if (b->type != b2_staticBody)
 	{

@@ -63,7 +63,7 @@ Sample::Sample(const Settings& settings)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
-	uint32_t maxThreads = 8;// enki::GetNumHardwareThreads() / 2;
+	uint32_t maxThreads = 16;// enki::GetNumHardwareThreads() / 2;
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
@@ -89,7 +89,7 @@ Sample::Sample(const Settings& settings)
 	// m_world->SetContactListener(this);
 
 	// TODO_ERIN too expensive
-	b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
+	//b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
 
 	m_stepCount = 0;
 
@@ -428,7 +428,6 @@ bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifo
 		cp->normalImpulse = manifold->points[j].normalImpulse;
 		cp->tangentImpulse = manifold->points[j].tangentImpulse;
 		cp->persisted = manifold->points[j].persisted;
-		cp->constraintIndex = manifold->constraintIndex;
 		cp->color = color;
 		++j;
 	}

@@ -56,10 +56,6 @@ typedef struct b2Island
 	// This island has been chosen to be split up into smaller islands because a sufficient
 	// number of contacts have been removed.
 	bool maySplit;
-
-	// Transient solver data
-	b2StepContext* stepContext;
-	struct b2ContactSolver* contactSolver;
 } b2Island;
 
 void b2CreateIsland(b2Island* island);
@@ -80,7 +76,6 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
-void b2SortIslands(b2World* world, b2Island** islands, int32_t count);
 
 void b2PrepareIsland(b2Island* island, b2StepContext* stepContext);
 

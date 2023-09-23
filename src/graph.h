@@ -5,11 +5,9 @@
 
 #include "array.h"
 #include "bitset.h"
-#include "table.h"
-
-#include "box2d/dynamic_tree.h"
 
 typedef struct b2Contact b2Contact;
+typedef struct b2ContactConstraint b2ContactConstraint;
 typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
@@ -24,7 +22,7 @@ typedef struct b2GraphColor
 	int32_t* jointArray;
 
 	// transient
-	struct b2Constraint* contacts;
+	b2ContactConstraint* contactConstraints;
 } b2GraphColor;
 
 typedef struct b2Graph
@@ -42,5 +40,4 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 void b2AddJointToGraph(b2World* world, b2Joint* contact);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* contact);
 
-void b2SolveGraph(b2World* world, const b2StepContext* stepContext);
-void b2SolveGraphSoftStep(b2World* world, const b2StepContext* stepContext);
+void b2SolveGraph(b2World* world, b2StepContext* stepContext);

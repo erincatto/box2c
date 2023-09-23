@@ -4,40 +4,41 @@
 #pragma once
 
 #include "solver_data.h"
-#include "stack_allocator.h"
 
-#include "box2d/callbacks.h"
+typedef struct b2Contact b2Contact;
 
-typedef struct b2ContactSolverDef
+typedef struct b2ContactConstraintPoint
 {
-	const b2StepContext* context;
-	struct b2World* world;
-	int32_t contactList;
-	int32_t contactCount;
-} b2ContactSolverDef;
+	b2Vec2 rA, rB;
+	float separation;
+	float normalImpulse;
+	float tangentImpulse;
+	float normalMass;
+	float tangentMass;
+} b2ContactConstraintPoint;
 
-typedef struct b2ContactSolver
+typedef enum b2ContactConstraintType
 {
-	const b2StepContext* context;
-	struct b2World* world;
-	struct b2ContactPositionConstraint* positionConstraints;
-	struct b2ContactVelocityConstraint* velocityConstraints;
-	int32_t contactList;
-	int32_t contactCount;
-	int32_t constraintCount;
-} b2ContactSolver;
+	b2_onePointType,
+	b2_twoPointType,
+	b2_onePointStaticType,
+	b2_twoPointStaticType,
+} b2ContactConstraintType;
 
-b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def);
-
-static inline void b2DestroyContactSolver(b2ContactSolver* solver, b2StackAllocator* alloc)
+typedef struct b2ContactConstraint
 {
-	b2FreeStackItem(alloc, solver->velocityConstraints);
-	b2FreeStackItem(alloc, solver->positionConstraints);
-	b2FreeStackItem(alloc, solver);
-}
+	b2Contact* contact;
+	int32_t indexA;
+	int32_t indexB;
+	b2ContactConstraintPoint points[2];
+	b2Vec2 normal;
+	float friction;
+	float massCoefficient;
+	float biasCoefficient;
+	float impulseCoefficient;
+	b2ContactConstraintType type;
+} b2ContactConstraint;
 
-void b2ContactSolver_Initialize(b2ContactSolver* solver);
-void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver);
-void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver);
-void b2ContactSolver_StoreImpulses(b2ContactSolver* solver);
-bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver);
+void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
