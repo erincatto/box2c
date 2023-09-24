@@ -1319,7 +1319,7 @@ void Draw::DrawString(b2Vec2 pw, const char* string, ...)
 				 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
 					 ImGuiWindowFlags_NoScrollbar);
 	ImGui::SetCursorPos(ImVec2(ps.x, ps.y));
-	ImGui::TextColoredV(ImColor(230, 153, 153, 255), string, arg);
+	ImGui::TextColoredV(ImColor(230, 230, 230, 255), string, arg);
 	ImGui::End();
 	va_end(arg);
 }

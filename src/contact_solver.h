@@ -21,8 +21,6 @@ typedef enum b2ContactConstraintType
 {
 	b2_onePointType,
 	b2_twoPointType,
-	b2_onePointStaticType,
-	b2_twoPointStaticType,
 } b2ContactConstraintType;
 
 typedef struct b2ContactConstraint

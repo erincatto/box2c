@@ -45,6 +45,6 @@ typedef struct b2DebugDraw
 	bool drawShapes;
 	bool drawJoints;
 	bool drawAABBs;
-	bool drawCOMs;
+	bool drawMass;
 	void* context;
 } b2DebugDraw;

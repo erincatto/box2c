@@ -51,7 +51,7 @@ void Settings::Save()
 	fprintf(file, "  \"drawContactNormals\": %s,\n", m_drawContactNormals ? "true" : "false");
 	fprintf(file, "  \"drawContactImpulse\": %s,\n", m_drawContactImpulse ? "true" : "false");
 	fprintf(file, "  \"drawFrictionImpulse\": %s,\n", m_drawFrictionImpulse ? "true" : "false");
-	fprintf(file, "  \"drawCOMs\": %s,\n", m_drawCOMs ? "true" : "false");
+	fprintf(file, "  \"drawMass\": %s,\n", m_drawMass ? "true" : "false");
 	fprintf(file, "  \"drawStats\": %s,\n", m_drawStats ? "true" : "false");
 	fprintf(file, "  \"drawProfile\": %s,\n", m_drawProfile ? "true" : "false");
 	fprintf(file, "  \"enableWarmStarting\": %s,\n", m_enableWarmStarting ? "true" : "false");

@@ -239,7 +239,7 @@ class BallAndChain : public Sample
 #if 1
 		{
 			float hx = 0.5f;
-			b2Polygon box = b2MakeBox(hx, 0.125f);
+			b2Capsule capsule = {{-hx, 0.0f}, {hx, 0.0f}, 0.125f};
 
 			b2ShapeDef sd = b2DefaultShapeDef();
 			sd.density = 20.0f;
@@ -255,7 +255,7 @@ class BallAndChain : public Sample
 				bd.type = b2_dynamicBody;
 				bd.position = {(1.0f + 2.0f * i) * hx, e_count * hx};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
-				b2Body_CreatePolygon(bodyId, &sd, &box);
+				b2Body_CreateCapsule(bodyId, &sd, &capsule);
 
 				b2Vec2 pivot = {(2.0f * i) * hx, e_count * hx};
 				jd.bodyIdA = prevBodyId;

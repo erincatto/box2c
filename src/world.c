@@ -1347,15 +1347,28 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		//}
 	}
 
-	// if (flags & b2Draw::e_centerOfMassBit)
-	//{
-	//		for (b2Body* b = m_bodyList; b; b = b->GetNext())
-	//		{
-	//		b2Transform xf = b->GetTransform();
-	//		xf.p = b->GetWorldCenter();
-	//		m_debugDraw->DrawTransform(xf);
-	//		}
-	// }
+	if (draw->drawMass)
+	{
+		b2Vec2 offset = {0.1f, 0.1f};
+		b2Body* bodies = world->bodies;
+		int32_t bodyCapacity = world->bodyPool.capacity;
+		for (int32_t i = 0; i < bodyCapacity; ++i)
+		{
+			b2Body* body = bodies + i;
+			if (b2ObjectValid(&body->object) == false)
+			{
+				continue;
+			}
+
+			draw->DrawTransform(body->transform, draw->context);
+
+			b2Vec2 p = b2TransformPoint(body->transform, offset);
+
+			char buffer[32];
+			sprintf(buffer, "%.1f", body->mass);
+			draw->DrawString(p, buffer, draw->context);
+		}
+	}
 }
 
 void b2World_EnableSleeping(b2WorldId worldId, bool flag)

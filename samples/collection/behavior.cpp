@@ -6,6 +6,7 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
+#include "box2d/joint_util.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -108,19 +109,19 @@ class HighMassRatio2 : public Sample
 		b2Polygon bigBox = b2MakeBox(10.0f * extent, 10.0f * extent);
 
 		{
-			bodyDef.position = {-9.5f * extent, 0.5f * extent};
+			bodyDef.position = {-9.0f * extent, 0.5f * extent};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 			b2Body_CreatePolygon(bodyId, &shapeDef, &smallBox);
 		}
 
 		{
-			bodyDef.position = {9.5f * extent, 0.5f * extent};
+			bodyDef.position = {9.0f * extent, 0.5f * extent};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 			b2Body_CreatePolygon(bodyId, &shapeDef, &smallBox);
 		}
 
 		{
-			bodyDef.position = {0.0f, (10.0f + 1.0f) * extent};
+			bodyDef.position = {0.0f, (10.0f + 16.0f) * extent};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 			b2Body_CreatePolygon(bodyId, &shapeDef, &bigBox);
 		}

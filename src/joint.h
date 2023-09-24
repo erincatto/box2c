@@ -51,7 +51,7 @@ typedef struct b2MouseJoint
 	float gamma;
 
 	// Solver temp
-	int32_t solverIndexB;
+	int32_t indexB;
 	b2Vec2 positionB;
 	b2Vec2 rB;
 	b2Vec2 localCenterB;
@@ -75,8 +75,8 @@ typedef struct b2RevoluteJoint
 	float upperAngle;
 
 	// Solver temp
-	int32_t solverIndexA;
-	int32_t solverIndexB;
+	int32_t indexA;
+	int32_t indexB;
 	b2Vec2 positionA;
 	b2Vec2 positionB;
 	float angleA;
@@ -107,10 +107,12 @@ typedef struct b2WeldJoint
 	b2Vec3 impulse;
 
 	// Solver temp
-	int32_t solverIndexA;
-	int32_t solverIndexB;
+	int32_t indexA;
+	int32_t indexB;
 	b2Vec2 positionA;
 	b2Vec2 positionB;
+	float angleA;
+	float angleB;
 	b2Vec2 localCenterA;
 	b2Vec2 localCenterB;
 } b2WeldJoint;

@@ -38,13 +38,14 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
 	b2WeldJoint* joint = &base->weldJoint;
+	joint->indexA = context->bodyMap[indexA];
+	joint->indexB = context->bodyMap[indexB];
 	joint->localCenterA = bodyA->localCenter;
-	joint->invMassA = bodyA->invMass;
-	joint->invIA = bodyA->invI;
-
 	joint->localCenterB = bodyB->localCenter;
-	joint->invMassB = bodyB->invMass;
-	joint->invIB = bodyB->invI;
+	joint->positionA = bodyA->position;
+	joint->positionB = bodyB->position;
+	joint->angleA = bodyA->angle;
+	joint->angleB = bodyB->angle;
 
 	const float h = context->dt;
 
@@ -58,9 +59,9 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 		const float zeta = joint->linearDampingRatio;
 		const float omega = 2.0f * b2_pi * linearHertz;
 		joint->linearBiasCoefficient = omega / (2.0f * zeta + h * omega);
-		float c = h * omega * (2.0f * zeta + h * omega);
-		joint->linearImpulseCoefficient = 1.0f / (1.0f + c);
-		joint->linearMassCoefficient = c * joint->linearImpulseCoefficient;
+		float a = h * omega * (2.0f * zeta + h * omega);
+		joint->linearImpulseCoefficient = 1.0f / (1.0f + a);
+		joint->linearMassCoefficient = a * joint->linearImpulseCoefficient;
 	}
 
 	float angularHertz = joint->angularHertz;
@@ -73,35 +74,39 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 		const float zeta = joint->angularDampingRatio;
 		const float omega = 2.0f * b2_pi * angularHertz;
 		joint->angularBiasCoefficient = omega / (2.0f * zeta + h * omega);
-		float c = h * omega * (2.0f * zeta + h * omega);
-		joint->angularImpulseCoefficient = 1.0f / (1.0f + c);
-		joint->angularMassCoefficient = c * joint->angularImpulseCoefficient;
+		float a = h * omega * (2.0f * zeta + h * omega);
+		joint->angularImpulseCoefficient = 1.0f / (1.0f + a);
+		joint->angularMassCoefficient = a * joint->angularImpulseCoefficient;
 	}
 
 	joint->impulse = b2Vec3_zero;
 }
 
-void b2SolveWeldVelocitySoft(b2Joint* base, const b2StepContext* context, bool removeOverlap)
+void b2SolveWeldVelocity(b2Joint* base, const b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_weldJoint);
 
 	b2WeldJoint* joint = &base->weldJoint;
 
-	b2Body* bodyA = context->bodies + base->edges[0].bodyIndex;
-	b2Body* bodyB = context->bodies + base->edges[1].bodyIndex;
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	b2SolverBody dummyBody = {0};
 
+	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
 	b2Vec2 vA = bodyA->linearVelocity;
 	float wA = bodyA->angularVelocity;
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+
+	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
 
-	const b2Vec2 cA = b2Add(bodyA->position, bodyA->deltaPosition);
-	const float aA = bodyA->angle + bodyA->deltaAngle;
-	const b2Vec2 cB = b2Add(bodyB->position, bodyB->deltaPosition);
-	const float aB = bodyB->angle + bodyB->deltaAngle;
-
-	float mA = joint->invMassA, mB = joint->invMassB;
-	float iA = joint->invIA, iB = joint->invIB;
+	const b2Vec2 cA = b2Add(joint->positionA, bodyA->deltaPosition);
+	const float aA = joint->angleA + bodyA->deltaAngle;
+	const b2Vec2 cB = b2Add(joint->positionB, bodyB->deltaPosition);
+	const float aB = joint->angleB + bodyB->deltaAngle;
 
 	b2Rot qA = b2MakeRot(aA);
 	b2Rot qB = b2MakeRot(aB);
@@ -132,7 +137,7 @@ void b2SolveWeldVelocitySoft(b2Joint* base, const b2StepContext* context, bool r
 	float angularBiasScale = 0.0f;
 	float angularMassScale = 1.0f;
 	float angularImpulseScale = 0.0f;
-	if (removeOverlap)
+	if (useBias)
 	{
 		linearBiasScale = joint->linearBiasCoefficient;
 		linearMassScale = joint->linearMassCoefficient;
@@ -145,12 +150,12 @@ void b2SolveWeldVelocitySoft(b2Joint* base, const b2StepContext* context, bool r
 	b2Vec2 C1 = b2Add(b2Sub(cB, cA), b2Sub(rB, rA));
 	float C2 = aB - aA - joint->referenceAngle;
 
-	b2Vec3 c;
-	c.x = Cdot1.x + linearBiasScale * C1.x;
-	c.y = Cdot1.y + linearBiasScale * C1.y;
-	c.z = Cdot2 + angularBiasScale * C2;
+	b2Vec3 Cdot;
+	Cdot.x = Cdot1.x + linearBiasScale * C1.x;
+	Cdot.y = Cdot1.y + linearBiasScale * C1.y;
+	Cdot.z = Cdot2 + angularBiasScale * C2;
 
-	b2Vec3 b = b2Solve33(K, c);
+	b2Vec3 b = b2Solve33(K, Cdot);
 	b2Vec3 impulse;
 	impulse.x = -linearMassScale * b.x - linearImpulseScale * joint->impulse.x;
 	impulse.y = -linearMassScale * b.y - linearImpulseScale * joint->impulse.y;

@@ -686,7 +686,7 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 		int32_t otherEdgeIndex = edgeIndex ^ 1;
 
 		b2Joint* joint = world->joints + jointIndex;
-		if (joint->edges[otherEdgeIndex].bodyIndex == otherBodyIndex)
+		if (joint->collideConnected == false && joint->edges[otherEdgeIndex].bodyIndex == otherBodyIndex)
 		{
 			return false;
 		}

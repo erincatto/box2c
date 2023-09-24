@@ -181,9 +181,9 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_mouseJoint;
-
 	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
 	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
+	joint->collideConnected = true;
 
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
@@ -217,9 +217,9 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_revoluteJoint;
-
 	joint->localAnchorA = def->localAnchorA;
 	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
 
 	b2RevoluteJoint empty = {0};
 	joint->revoluteJoint = empty;
@@ -269,9 +269,9 @@ b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_weldJoint;
-
 	joint->localAnchorA = def->localAnchorA;
 	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
 
 	b2WeldJoint empty = {0};
 	joint->weldJoint = empty;

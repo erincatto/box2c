@@ -166,7 +166,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			float dampingRatio = 0.7f;
 			float mass = b2Body_GetMass(queryContext.bodyId);
 
-			b2MouseJointDef jd;
+			b2MouseJointDef jd = b2DefaultMouseJointDef();
 			jd.bodyIdA = m_groundBodyId;
 			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;
@@ -226,7 +226,7 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawShapes = settings.m_drawShapes;
 	g_draw.m_debugDraw.drawJoints = settings.m_drawJoints;
 	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
-	g_draw.m_debugDraw.drawCOMs = settings.m_drawCOMs;
+	g_draw.m_debugDraw.drawMass = settings.m_drawMass;
 
 	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
 	b2World_EnableWarmStarting(m_worldId, settings.m_enableWarmStarting);
@@ -238,7 +238,7 @@ void Sample::Step(Settings& settings)
 
 	for (int32_t i = 0; i < 1; ++i)
 	{
-		b2World_Step2(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+		b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
 	}
 	b2World_Draw(m_worldId, &g_draw.m_debugDraw);
 
