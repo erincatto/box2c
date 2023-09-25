@@ -934,16 +934,17 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
 	}
 
+	b2MergeAwakeIslands(world);
+
 	world->profile.buildIslands = 0.0f;
 
-	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
+	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	b2SolveGraph(world, context);
-	//b2SolveGraphSoftStep(world, context);
 
 	b2ValidateNoEnlarged(&world->broadPhase);
 
-	b2TracyCZoneEnd(island_solver);
+	b2TracyCZoneEnd(graph_solver);
 
 	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
 

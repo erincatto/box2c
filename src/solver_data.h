@@ -33,8 +33,11 @@ typedef struct b2StepContext
 	// Map from world body pool index to solver body
 	int32_t* bodyMap;
 
+	// Map from solver body to world body
+	int32_t* solverBodyMap;
+
 	struct b2SolverBody* solverBodies;
-	int32_t bodyCount;
+	int32_t solverBodyCount;
 
 	bool enableWarmStarting;
 } b2StepContext;

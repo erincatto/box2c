@@ -743,6 +743,10 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2Body** awakeBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2Body*), "awake bodies");
 	b2SolverBody* solverBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2SolverBody), "solver bodies");
 
+	// Map from solver body to body
+	// TODO_ERIN have body directly reference solver body for user access
+	int32_t* solverBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
+
 	int32_t bodyCapacity = world->bodyPool.capacity;
 	int32_t* bodyMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
 	memset(bodyMap, 0xFF, bodyCapacity * sizeof(int32_t));
