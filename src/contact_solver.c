@@ -574,7 +574,7 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 
 		__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
 		__m256 specBias = mul(s, invDtMul);
-		__m256 softBias = mul(_mm256_max_ps(mul(c->biasCoefficient, s), minBiasVel);
+		__m256 softBias = _mm256_max_ps(mul(c->biasCoefficient, s), minBiasVel);
 		__m256 bias = _mm256_blendv_ps(specBias, mul(softBias, useBiasMul), test);
 
 		// Relative velocity at contact
@@ -582,22 +582,26 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 dvy = sub(add(bB.vy, mul(bB.w, c->rBx1)), add(bA.vy, mul(bA.w, c->rAx1)));
 		__m256 vn = add(mul(dvx, c->normalX), mul(dvy, c->normalY));
 
-		//// Compute normal impulse
-		__m256 impulse = sub(_mm256_setzero_ps(), add(mul(cp->normalMass, mul(massScale, add(vn + bias) - impulseScale * cp->normalImpulse;
-		//// float impulse = -cp->normalMass * (vn + bias + cp->gamma * cp->normalImpulse);
+		// Compute normal impulse
+		__m256 negImpulse = add(mul(c->normalMass1, mul(c->massCoefficient, add(vn, bias))), mul(c->impulseCoefficient, c->normalImpulse1));
+		// float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
 
-		//// Clamp the accumulated impulse
-		// float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
-		// impulse = newImpulse - cp->normalImpulse;
-		// cp->normalImpulse = newImpulse;
+		// Clamp the accumulated impulse
+		__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
+		__m256 impulse = sub(newImpulse, c->normalImpulse1);
+		c->normalImpulse1 = newImpulse;
 
-		//// Apply contact impulse
-		// b2Vec2 P = b2MulSV(impulse, normal);
-		// vA = b2MulSub(vA, mA, P);
-		// wA -= iA * b2Cross(cp->rA, P);
+		// Apply contact impulse
+		__m256 Px = mul(impulse, c->normalX);
+		__m256 Py = mul(impulse, c->normalY);
 
-		// vB = b2MulAdd(vB, mB, P);
-		// wB += iB * b2Cross(cp->rB, P);
+		bA.vx = sub(bA.vx, mul(bA.invM, Px));
+		bA.vy = sub(bA.vy, mul(bA.invM, Py));
+		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rAx1, Py), mul(c->rAy1, Px))));
+
+		bB.vx = add(bB.vx, mul(bB.invM, Px));
+		bB.vy = add(bB.vy, mul(bB.invM, Py));
+		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rBx1, Py), mul(c->rBy1, Px))));
 	}
 
 #if 0
@@ -634,7 +638,6 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		// Compute normal impulse
 		float vn = b2Dot(dv, normal);
 		float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
-		// float impulse = -cp->normalMass * (vn + bias + cp->gamma * cp->normalImpulse);
 
 		// Clamp the accumulated impulse
 		float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
