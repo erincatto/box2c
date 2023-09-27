@@ -83,6 +83,7 @@ message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
 
 if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+		# target_compile_options(box2d PRIVATE /W4 /WX)
 		target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
 		target_compile_options(box2d PRIVATE /arch:AVX)
 		# target_compile_options(box2d PRIVATE /arch:SSE2 /fp:except-)
