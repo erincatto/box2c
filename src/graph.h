@@ -8,6 +8,7 @@
 
 typedef struct b2Contact b2Contact;
 typedef struct b2ContactConstraint b2ContactConstraint;
+typedef struct b2ContactConstraintAVX b2ContactConstraintAVX;
 typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
@@ -23,6 +24,7 @@ typedef struct b2GraphColor
 
 	// transient
 	b2ContactConstraint* contactConstraints;
+	b2ContactConstraintAVX* contactConstraintAVXs;
 } b2GraphColor;
 
 typedef struct b2Graph

@@ -85,9 +85,11 @@ typedef struct b2SolverTaskContext
 	struct b2Body** awakeBodies;
 	struct b2SolverBody* solverBodies;
 	int32_t* bodyMap;
+	int32_t* contactIndices;
 
 	b2StepContext* stepContext;
 	struct b2ContactConstraint* constraints;
+	struct b2ContactConstraintAVX* constraintAVXs;
 	int32_t activeColorCount;
 	int32_t velocityIterations;
 	int32_t calmIterations;

@@ -16,6 +16,107 @@
 
 #define maxBaumgarteVelocity 3.0f
 
+#define add(a, b) _mm256_add_ps((a), (b))
+#define sub(a, b) _mm256_sub_ps((a), (b))
+#define mul(a, b) _mm256_mul_ps((a), (b))
+
+static inline __m256 b2CrossW(b2Vec2W a, b2Vec2W b)
+{
+	return sub(mul(a.X, b.Y), mul(a.Y, b.X));
+}
+
+typedef struct b2SimdBody
+{
+	b2Vec2W v;
+	__m256 w;
+	b2Vec2W dp;
+	__m256 da;
+	__m256 invM, invI;
+} b2SimdBody;
+
+// This is a load and 8x8 transpose
+static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* restrict indices)
+{
+	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
+	__m256 zero = _mm256_setzero_ps();
+	__m256 b0 = indices[0] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[0]));
+	__m256 b1 = indices[1] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[1]));
+	__m256 b2 = indices[2] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[2]));
+	__m256 b3 = indices[3] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[3]));
+	__m256 b4 = indices[4] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[4]));
+	__m256 b5 = indices[5] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[5]));
+	__m256 b6 = indices[6] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[6]));
+	__m256 b7 = indices[7] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[7]));
+
+	__m256 t0 = _mm256_unpacklo_ps(b0, b1);
+	__m256 t1 = _mm256_unpackhi_ps(b0, b1);
+	__m256 t2 = _mm256_unpacklo_ps(b2, b3);
+	__m256 t3 = _mm256_unpackhi_ps(b2, b3);
+	__m256 t4 = _mm256_unpacklo_ps(b4, b5);
+	__m256 t5 = _mm256_unpackhi_ps(b4, b5);
+	__m256 t6 = _mm256_unpacklo_ps(b6, b7);
+	__m256 t7 = _mm256_unpackhi_ps(b6, b7);
+	__m256 tt0 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt1 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
+	__m256 tt2 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt3 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
+	__m256 tt4 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt5 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
+	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
+
+	b2SimdBody simdBody;
+	simdBody.v.X = _mm256_permute2f128_ps(tt0, tt4, 0x20);
+	simdBody.v.Y = _mm256_permute2f128_ps(tt1, tt5, 0x20);
+	simdBody.w = _mm256_permute2f128_ps(tt2, tt6, 0x20);
+	simdBody.dp.X = _mm256_permute2f128_ps(tt3, tt7, 0x20);
+	simdBody.dp.Y = _mm256_permute2f128_ps(tt0, tt4, 0x31);
+	simdBody.da = _mm256_permute2f128_ps(tt1, tt5, 0x31);
+	simdBody.invM = _mm256_permute2f128_ps(tt2, tt6, 0x31);
+	simdBody.invI = _mm256_permute2f128_ps(tt3, tt7, 0x31);
+
+	return simdBody;
+}
+
+// This writes everything back but only the velocities change
+static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
+{
+	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
+	__m256 t0 = _mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
+	__m256 t1 = _mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
+	__m256 t2 = _mm256_unpacklo_ps(simdBody->w, simdBody->dp.X);
+	__m256 t3 = _mm256_unpackhi_ps(simdBody->w, simdBody->dp.X);
+	__m256 t4 = _mm256_unpacklo_ps(simdBody->dp.Y, simdBody->da);
+	__m256 t5 = _mm256_unpackhi_ps(simdBody->dp.Y, simdBody->da);
+	__m256 t6 = _mm256_unpacklo_ps(simdBody->invM, simdBody->invI);
+	__m256 t7 = _mm256_unpackhi_ps(simdBody->invM, simdBody->invI);
+	__m256 tt0 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt1 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
+	__m256 tt2 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt3 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
+	__m256 tt4 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt5 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
+	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
+	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
+
+	if (indices[0] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[0]), _mm256_permute2f128_ps(tt0, tt4, 0x20));
+	if (indices[1] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[1]), _mm256_permute2f128_ps(tt1, tt5, 0x20));
+	if (indices[2] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[2]), _mm256_permute2f128_ps(tt2, tt6, 0x20));
+	if (indices[3] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[3]), _mm256_permute2f128_ps(tt3, tt7, 0x20));
+	if (indices[4] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[4]), _mm256_permute2f128_ps(tt0, tt4, 0x31));
+	if (indices[5] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[5]), _mm256_permute2f128_ps(tt1, tt5, 0x31));
+	if (indices[6] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[6]), _mm256_permute2f128_ps(tt2, tt6, 0x31));
+	if (indices[7] != B2_NULL_INDEX)
+		_mm256_store_ps((float*)(bodies + indices[7]), _mm256_permute2f128_ps(tt3, tt7, 0x31));
+}
+
 // TODO_ERIN prepare contact constraints directly in collision phase?
 void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
@@ -127,6 +228,187 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 		solverBodyA->angularVelocity = wA;
 		solverBodyB->linearVelocity = vB;
 		solverBodyB->angularVelocity = wB;
+	}
+
+	b2TracyCZoneEnd(prepare_contact);
+}
+
+void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+{
+	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
+
+	b2World* world = context->world;
+	b2Contact* contacts = world->contacts;
+	const int32_t* bodyMap = context->bodyMap;
+	const int32_t* contactIndices = context->contactIndices;
+	b2SolverBody* solverBodies = context->solverBodies;
+	b2ContactConstraintAVX* constraints = context->constraintAVXs;
+
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	b2SolverBody dummyBody = {0};
+
+	// 30 is a bit soft, 60 oscillates too much
+	// const float contactHertz = 45.0f;
+	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
+	const float contactHertz = 30.0f;
+
+	float h = context->timeStep;
+
+	B2_ASSERT((startIndex & 0x7) == 0);
+	B2_ASSERT((endIndex & 0x7) == 0);
+
+	int32_t vectorIndex = 0;
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2Contact* contact = contacts + contactIndices[i];
+
+		const b2Manifold* manifold = &contact->manifold;
+		int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
+		int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
+
+		b2ContactConstraintAVX* constraint = NULL;
+		constraint = constraints + (i >> 3);
+		constraint->indexA[vectorIndex] = indexA;
+		constraint->indexB[vectorIndex] = indexB;
+
+		b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
+		b2SolverBody* solverBodyB = indexB == B2_NULL_INDEX ? &dummyBody : solverBodies + indexB;
+		float mA = solverBodyA->invMass;
+		float iA = solverBodyA->invI;
+		float mB = solverBodyB->invMass;
+		float iB = solverBodyB->invI;
+
+		float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
+
+		// Stiffer for static contacts to avoid bodies getting pushed through the ground
+		const float zeta = 1.0f;
+		float omega = 2.0f * b2_pi * hertz;
+		float d = (2.0f * zeta + h * omega);
+		float c = h * omega * d;
+		float impulseCoefficient = 1.0f / (1.0f + c);
+
+		((float*)&constraint->friction)[vectorIndex] = contact->friction;
+		((float*)&constraint->impulseCoefficient)[vectorIndex] = impulseCoefficient;
+		((float*)&constraint->massCoefficient)[vectorIndex] = c * impulseCoefficient;
+		((float*)&constraint->biasCoefficient)[vectorIndex] = omega / d;
+
+		b2Vec2 normal = manifold->normal;
+		((float*)&constraint->normal.X)[vectorIndex] = normal.x;
+		((float*)&constraint->normal.Y)[vectorIndex] = normal.y;
+
+		b2Vec2 tangent = b2RightPerp(normal);
+
+		{
+			const b2ManifoldPoint* mp = manifold->points + 0;
+			((float*)&constraint->separation1)[vectorIndex] = mp->separation;
+			((float*)&constraint->normalImpulse1)[vectorIndex] = mp->normalImpulse;
+			((float*)&constraint->tangentImpulse1)[vectorIndex] = mp->tangentImpulse;
+
+			((float*)&constraint->rA1.X)[vectorIndex] = mp->anchorA.x;
+			((float*)&constraint->rA1.Y)[vectorIndex] = mp->anchorA.y;
+			((float*)&constraint->rB1.X)[vectorIndex] = mp->anchorB.x;
+			((float*)&constraint->rB1.Y)[vectorIndex] = mp->anchorB.y;
+
+			float rnA = b2Cross(mp->anchorA, normal);
+			float rnB = b2Cross(mp->anchorB, normal);
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+			((float*)&constraint->normalMass1)[vectorIndex] = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+			float rtA = b2Cross(mp->anchorA, tangent);
+			float rtB = b2Cross(mp->anchorB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+			((float*)&constraint->tangentMass1)[vectorIndex] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+		}
+
+		int32_t pointCount = manifold->pointCount;
+		B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+		if (pointCount == 2)
+		{
+			const b2ManifoldPoint* mp = manifold->points + 1;
+			((float*)&constraint->separation2)[vectorIndex] = mp->separation;
+			((float*)&constraint->normalImpulse2)[vectorIndex] = mp->normalImpulse;
+			((float*)&constraint->tangentImpulse2)[vectorIndex] = mp->tangentImpulse;
+
+			((float*)&constraint->rA2.X)[vectorIndex] = mp->anchorA.x;
+			((float*)&constraint->rA2.Y)[vectorIndex] = mp->anchorA.y;
+			((float*)&constraint->rB2.X)[vectorIndex] = mp->anchorB.x;
+			((float*)&constraint->rB2.Y)[vectorIndex] = mp->anchorB.y;
+
+			float rnA = b2Cross(mp->anchorA, normal);
+			float rnB = b2Cross(mp->anchorB, normal);
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+			((float*)&constraint->normalMass2)[vectorIndex] = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+			float rtA = b2Cross(mp->anchorA, tangent);
+			float rtB = b2Cross(mp->anchorB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+			((float*)&constraint->tangentMass2)[vectorIndex] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+		}
+		else
+		{
+			// dummy data that has no effect
+			((float*)&constraint->separation2)[vectorIndex] = 0.0f;
+			((float*)&constraint->normalImpulse2)[vectorIndex] = 0.0f;
+			((float*)&constraint->tangentImpulse2)[vectorIndex] = 0.0f;
+			((float*)&constraint->rA2.X)[vectorIndex] = 0.0f;
+			((float*)&constraint->rA2.Y)[vectorIndex] = 0.0f;
+			((float*)&constraint->rB2.X)[vectorIndex] = 0.0f;
+			((float*)&constraint->rB2.Y)[vectorIndex] = 0.0f;
+			((float*)&constraint->normalMass2)[vectorIndex] = 0.0f;
+			((float*)&constraint->tangentMass2)[vectorIndex] = 0.0f;
+		}
+
+		// Cycle [0-7]
+		vectorIndex = (vectorIndex + 1) & 0x7;
+	}
+
+	b2TracyCZoneEnd(prepare_contact);
+}
+
+void b2WarmStartContactConstraints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+{
+	b2TracyCZoneNC(warm_start_contact, "Warm Start Contact", b2_colorGreen1, true);
+
+	b2SolverBody* bodies = context->solverBodies;
+	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2ContactConstraintAVX* c = constraints + i;
+		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
+		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
+
+		__m256 tangentX = c->normal.Y;
+		__m256 tangentY = sub(_mm256_setzero_ps(), c->normal.X);
+
+		{
+			b2Vec2W P;
+			P.X = add(mul(c->normalImpulse1, c->normal.X), mul(c->tangentImpulse1, tangentX));
+			P.Y = add(mul(c->normalImpulse1, c->normal.Y), mul(c->tangentImpulse1, tangentY));
+			bA.w = _mm256_fnmadd_ps(bA.invI, b2CrossW(c->rA1, P), bA.w);
+			bA.v.X = _mm256_fnmadd_ps(bA.invM, P.X, bA.v.X);
+			bA.v.Y = _mm256_fnmadd_ps(bA.invM, P.Y, bA.v.Y);
+			bB.w = _mm256_fmadd_ps(bB.invI, b2CrossW(c->rB1, P), bB.w);
+			bB.v.X = _mm256_fmadd_ps(bB.invM, P.X, bB.v.X);
+			bB.v.Y = _mm256_fmadd_ps(bB.invM, P.Y, bB.v.Y);
+		}
+
+		{
+			b2Vec2W P;
+			P.X = add(mul(c->normalImpulse2, c->normal.X), mul(c->tangentImpulse2, tangentX));
+			P.Y = add(mul(c->normalImpulse2, c->normal.Y), mul(c->tangentImpulse2, tangentY));
+			bA.w = _mm256_fnmadd_ps(bA.invI, b2CrossW(c->rA2, P), bA.w);
+			bA.v.X = _mm256_fnmadd_ps(bA.invM, P.X, bA.v.X);
+			bA.v.Y = _mm256_fnmadd_ps(bA.invM, P.Y, bA.v.Y);
+			bB.w = _mm256_fmadd_ps(bB.invI, b2CrossW(c->rB2, P), bB.w);
+			bB.v.X = _mm256_fmadd_ps(bB.invM, P.X, bB.v.X);
+			bB.v.Y = _mm256_fmadd_ps(bB.invM, P.Y, bB.v.Y);
+		}
+
+		b2ScatterBodies(bodies, c->indexA, &bA);
+		b2ScatterBodies(bodies, c->indexB, &bB);
 	}
 
 	b2TracyCZoneEnd(prepare_contact);
@@ -431,124 +713,6 @@ static void b2SolveContactTwoPoints(b2ContactConstraint* constraint, b2SolverBod
 	bodyB->angularVelocity = wB;
 }
 
-typedef struct b2ContactConstraintAVX
-{
-	b2Contact* contacts[8];
-	int32_t indexA[8];
-	int32_t indexB[8];
-
-	__m256 rAx1, rAy1, rAz1;
-	__m256 rBx1, rBy1, rBz1;
-	__m256 rAx2, rAy2, rAz2;
-	__m256 rBx2, rBy2, rBz2;
-	__m256 separation1, separation2;
-	__m256 normalImpulse1, normalImpulse2;
-	__m256 tangentImpulse1, tangentImpulse2;
-	__m256 normalMass1, tangentMass1;
-	__m256 normalMass2, tangentMass2;
-	__m256 normalX, normalY, normalZ;
-	__m256 friction;
-	__m256 massCoefficient;
-	__m256 biasCoefficient;
-	__m256 impulseCoefficient;
-} b2ContactConstraintAVX;
-
-typedef struct b2SimdBody
-{
-	__m256 vx, vy;
-	__m256 w;
-	__m256 dpx, dpy;
-	__m256 da;
-	__m256 invM, invI;
-} b2SimdBody;
-
-// This is a load and 8x8 transpose
-static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* restrict indices)
-{
-	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
-	__m256 zero = _mm256_setzero_ps();
-	__m256 b0 = indices[0] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[0]));
-	__m256 b1 = indices[1] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[1]));
-	__m256 b2 = indices[2] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[2]));
-	__m256 b3 = indices[3] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[3]));
-	__m256 b4 = indices[4] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[4]));
-	__m256 b5 = indices[5] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[5]));
-	__m256 b6 = indices[6] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[6]));
-	__m256 b7 = indices[7] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[7]));
-
-	__m256 t0 = _mm256_unpacklo_ps(b0, b1);
-	__m256 t1 = _mm256_unpackhi_ps(b0, b1);
-	__m256 t2 = _mm256_unpacklo_ps(b2, b3);
-	__m256 t3 = _mm256_unpackhi_ps(b2, b3);
-	__m256 t4 = _mm256_unpacklo_ps(b4, b5);
-	__m256 t5 = _mm256_unpackhi_ps(b4, b5);
-	__m256 t6 = _mm256_unpacklo_ps(b6, b7);
-	__m256 t7 = _mm256_unpackhi_ps(b6, b7);
-	__m256 tt0 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt1 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt2 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt3 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt4 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt5 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
-
-	b2SimdBody simdBody;
-	simdBody.vx = _mm256_permute2f128_ps(tt0, tt4, 0x20);
-	simdBody.vy = _mm256_permute2f128_ps(tt1, tt5, 0x20);
-	simdBody.w = _mm256_permute2f128_ps(tt2, tt6, 0x20);
-	simdBody.dpx = _mm256_permute2f128_ps(tt3, tt7, 0x20);
-	simdBody.dpy = _mm256_permute2f128_ps(tt0, tt4, 0x31);
-	simdBody.da = _mm256_permute2f128_ps(tt1, tt5, 0x31);
-	simdBody.invM = _mm256_permute2f128_ps(tt2, tt6, 0x31);
-	simdBody.invI = _mm256_permute2f128_ps(tt3, tt7, 0x31);
-
-	return simdBody;
-}
-
-// This writes everything back but only the velocities change
-static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
-{
-	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
-	__m256 t0 = _mm256_unpacklo_ps(simdBody->vx, simdBody->vy);
-	__m256 t1 = _mm256_unpackhi_ps(simdBody->vx, simdBody->vy);
-	__m256 t2 = _mm256_unpacklo_ps(simdBody->w, simdBody->dpx);
-	__m256 t3 = _mm256_unpackhi_ps(simdBody->w, simdBody->dpx);
-	__m256 t4 = _mm256_unpacklo_ps(simdBody->dpy, simdBody->da);
-	__m256 t5 = _mm256_unpackhi_ps(simdBody->dpy, simdBody->da);
-	__m256 t6 = _mm256_unpacklo_ps(simdBody->invM, simdBody->invI);
-	__m256 t7 = _mm256_unpackhi_ps(simdBody->invM, simdBody->invI);
-	__m256 tt0 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt1 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt2 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt3 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt4 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt5 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
-
-	if (indices[0] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[0]), _mm256_permute2f128_ps(tt0, tt4, 0x20));
-	if (indices[1] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[1]), _mm256_permute2f128_ps(tt1, tt5, 0x20));
-	if (indices[2] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[2]), _mm256_permute2f128_ps(tt2, tt6, 0x20));
-	if (indices[3] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[3]), _mm256_permute2f128_ps(tt3, tt7, 0x20));
-	if (indices[4] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[4]), _mm256_permute2f128_ps(tt0, tt4, 0x31));
-	if (indices[5] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[5]), _mm256_permute2f128_ps(tt1, tt5, 0x31));
-	if (indices[6] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[6]), _mm256_permute2f128_ps(tt2, tt6, 0x31));
-	if (indices[7] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[7]), _mm256_permute2f128_ps(tt3, tt7, 0x31));
-}
-
-#define add(a, b) _mm256_add_ps((a), (b))
-#define sub(a, b) _mm256_sub_ps((a), (b))
-#define mul(a, b) _mm256_mul_ps((a), (b))
-
 static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2SolverBody* restrict bodies, float inv_dt, bool useBias)
 {
 	b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
@@ -565,9 +729,9 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 	// first point non-penetration constraint
 	{
 		// Compute change in separation (small angle approximation of sin(angle) == angle)
-		__m256 prx = sub(sub(bB.dpx, mul(bB.da, c->rBy1)), sub(bA.dpx, mul(bA.da, c->rAy1)));
-		__m256 pry = sub(add(bB.dpy, mul(bB.da, c->rBx1)), add(bA.dpy, mul(bA.da, c->rAx1)));
-		__m256 ds = add(mul(prx, c->normalX), mul(pry, c->normalY));
+		__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB1.Y)), sub(bA.dp.X, mul(bA.da, c->rA1.Y)));
+		__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB1.X)), add(bA.dp.Y, mul(bA.da, c->rA1.X)));
+		__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
 
 		__m256 s = add(c->separation1, ds);
 
@@ -577,9 +741,9 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 bias = _mm256_blendv_ps(specBias, mul(softBias, useBiasMul), test);
 
 		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.vx, mul(bB.w, c->rBy1)), sub(bA.vx, mul(bA.w, c->rAy1)));
-		__m256 dvy = sub(add(bB.vy, mul(bB.w, c->rBx1)), add(bA.vy, mul(bA.w, c->rAx1)));
-		__m256 vn = add(mul(dvx, c->normalX), mul(dvy, c->normalY));
+		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+		__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 		// Compute normal impulse
 		__m256 negImpulse = add(mul(c->normalMass1, mul(c->massCoefficient, add(vn, bias))), mul(c->impulseCoefficient, c->normalImpulse1));
@@ -591,24 +755,24 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		c->normalImpulse1 = newImpulse;
 
 		// Apply contact impulse
-		__m256 Px = mul(impulse, c->normalX);
-		__m256 Py = mul(impulse, c->normalY);
+		__m256 Px = mul(impulse, c->normal.X);
+		__m256 Py = mul(impulse, c->normal.Y);
 
-		bA.vx = sub(bA.vx, mul(bA.invM, Px));
-		bA.vy = sub(bA.vy, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rAx1, Py), mul(c->rAy1, Px))));
+		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
 
-		bB.vx = add(bB.vx, mul(bB.invM, Px));
-		bB.vy = add(bB.vy, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rBx1, Py), mul(c->rBy1, Px))));
+		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
 	}
 
 	// second point non-penetration constraint
 	{
 		// Compute change in separation (small angle approximation of sin(angle) == angle)
-		__m256 prx = sub(sub(bB.dpx, mul(bB.da, c->rBy2)), sub(bA.dpx, mul(bA.da, c->rAy2)));
-		__m256 pry = sub(add(bB.dpy, mul(bB.da, c->rBx2)), add(bA.dpy, mul(bA.da, c->rAx2)));
-		__m256 ds = add(mul(prx, c->normalX), mul(pry, c->normalY));
+		__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB2.Y)), sub(bA.dp.X, mul(bA.da, c->rA2.Y)));
+		__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB2.X)), add(bA.dp.Y, mul(bA.da, c->rA2.X)));
+		__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
 
 		__m256 s = add(c->separation2, ds);
 
@@ -618,9 +782,9 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 bias = _mm256_blendv_ps(specBias, mul(softBias, useBiasMul), test);
 
 		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.vx, mul(bB.w, c->rBy2)), sub(bA.vx, mul(bA.w, c->rAy2)));
-		__m256 dvy = sub(add(bB.vy, mul(bB.w, c->rBx2)), add(bA.vy, mul(bA.w, c->rAx2)));
-		__m256 vn = add(mul(dvx, c->normalX), mul(dvy, c->normalY));
+		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+		__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 		// Compute normal impulse
 		__m256 negImpulse = add(mul(c->normalMass2, mul(c->massCoefficient, add(vn, bias))), mul(c->impulseCoefficient, c->normalImpulse2));
@@ -631,27 +795,27 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		c->normalImpulse2 = newImpulse;
 
 		// Apply contact impulse
-		__m256 Px = mul(impulse, c->normalX);
-		__m256 Py = mul(impulse, c->normalY);
+		__m256 Px = mul(impulse, c->normal.X);
+		__m256 Py = mul(impulse, c->normal.Y);
 
-		bA.vx = sub(bA.vx, mul(bA.invM, Px));
-		bA.vy = sub(bA.vy, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rAx2, Py), mul(c->rAy2, Px))));
+		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
 
-		bB.vx = add(bB.vx, mul(bB.invM, Px));
-		bB.vy = add(bB.vy, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rBx2, Py), mul(c->rBy2, Px))));
+		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
 	}
 
-	__m256 tangentX = c->normalY;
-	__m256 tangentY = sub(_mm256_setzero_ps(), c->normalX);
+	__m256 tangentX = c->normal.Y;
+	__m256 tangentY = sub(_mm256_setzero_ps(), c->normal.X);
 	// float friction = constraint->friction;
 
 	// first point friction constraint
 	{
 		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.vx, mul(bB.w, c->rBy1)), sub(bA.vx, mul(bA.w, c->rAy1)));
-		__m256 dvy = sub(add(bB.vy, mul(bB.w, c->rBx1)), add(bA.vy, mul(bA.w, c->rAx1)));
+		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
 		__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
 
 		// Compute tangent force
@@ -668,20 +832,20 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 Px = mul(impulse, tangentX);
 		__m256 Py = mul(impulse, tangentY);
 
-		bA.vx = sub(bA.vx, mul(bA.invM, Px));
-		bA.vy = sub(bA.vy, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rAx1, Py), mul(c->rAy1, Px))));
+		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
 
-		bB.vx = add(bB.vx, mul(bB.invM, Px));
-		bB.vy = add(bB.vy, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rBx1, Py), mul(c->rBy1, Px))));
+		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
 	}
 
 	// second point friction constraint
 	{
 		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.vx, mul(bB.w, c->rBy2)), sub(bA.vx, mul(bA.w, c->rAy2)));
-		__m256 dvy = sub(add(bB.vy, mul(bB.w, c->rBx2)), add(bA.vy, mul(bA.w, c->rAx2)));
+		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
 		__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
 
 		// Compute tangent force
@@ -698,50 +862,14 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 Px = mul(impulse, tangentX);
 		__m256 Py = mul(impulse, tangentY);
 
-		bA.vx = sub(bA.vx, mul(bA.invM, Px));
-		bA.vy = sub(bA.vy, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rAx2, Py), mul(c->rAy2, Px))));
+		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
 
-		bB.vx = add(bB.vx, mul(bB.invM, Px));
-		bB.vy = add(bB.vy, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rBx2, Py), mul(c->rBy2, Px))));
+		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
 	}
-
-#if 0
-
-	{
-		b2ContactConstraintPoint* cp = constraint->points + 1;
-
-		// Relative velocity at contact
-		b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
-		b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
-		b2Vec2 dv = b2Sub(vrB, vrA);
-
-		// Compute tangent force
-		float vt = b2Dot(dv, tangent);
-		float lambda = cp->tangentMass * (-vt);
-
-		// Clamp the accumulated force
-		float maxFriction = friction * cp->normalImpulse;
-		float newImpulse = B2_CLAMP(cp->tangentImpulse + lambda, -maxFriction, maxFriction);
-		lambda = newImpulse - cp->tangentImpulse;
-		cp->tangentImpulse = newImpulse;
-
-		// Apply contact impulse
-		b2Vec2 P = b2MulSV(lambda, tangent);
-
-		vA = b2MulSub(vA, mA, P);
-		wA -= iA * b2Cross(cp->rA, P);
-
-		vB = b2MulAdd(vB, mB, P);
-		wB += iB * b2Cross(cp->rB, P);
-	}
-
-	bodyA->linearVelocity = vA;
-	bodyA->angularVelocity = wA;
-	bodyB->linearVelocity = vB;
-	bodyB->angularVelocity = wB;
-#endif
 }
 
 void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
@@ -792,6 +920,87 @@ void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 			manifold->points[j].normalImpulse = constraint->points[j].normalImpulse;
 			manifold->points[j].tangentImpulse = constraint->points[j].tangentImpulse;
 		}
+	}
+
+	b2TracyCZoneEnd(store_impulses);
+}
+
+void b2StoreImpulsesTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+{
+	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
+
+	b2Contact* contacts = context->world->contacts;
+	const b2ContactConstraintAVX* constraints = context->constraintAVXs;
+	const int32_t* indices = context->contactIndices;
+
+	b2Manifold dummy = {0};
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		const b2ContactConstraintAVX* c = constraints + i;
+		const float* normalImpulse1 = (float*)&c->normalImpulse1;
+		const float* normalImpulse2 = (float*)&c->normalImpulse2;
+		const float* tangentImpulse1 = (float*)&c->tangentImpulse1;
+		const float* tangentImpulse2 = (float*)&c->tangentImpulse2;
+
+		const int32_t* base = indices + 8 * i;
+		int32_t index0 = base[0];
+		int32_t index1 = base[1];
+		int32_t index2 = base[2];
+		int32_t index3 = base[3];
+		int32_t index4 = base[4];
+		int32_t index5 = base[5];
+		int32_t index6 = base[6];
+		int32_t index7 = base[7];
+
+		b2Manifold* m0 = index0 == B2_NULL_INDEX ? &dummy : &contacts[index0].manifold;
+		b2Manifold* m1 = index1 == B2_NULL_INDEX ? &dummy : &contacts[index1].manifold;
+		b2Manifold* m2 = index2 == B2_NULL_INDEX ? &dummy : &contacts[index2].manifold;
+		b2Manifold* m3 = index3 == B2_NULL_INDEX ? &dummy : &contacts[index3].manifold;
+		b2Manifold* m4 = index4 == B2_NULL_INDEX ? &dummy : &contacts[index4].manifold;
+		b2Manifold* m5 = index5 == B2_NULL_INDEX ? &dummy : &contacts[index5].manifold;
+		b2Manifold* m6 = index6 == B2_NULL_INDEX ? &dummy : &contacts[index6].manifold;
+		b2Manifold* m7 = index7 == B2_NULL_INDEX ? &dummy : &contacts[index7].manifold;
+
+		m0->points[0].normalImpulse = normalImpulse1[0];
+		m0->points[0].tangentImpulse = tangentImpulse1[0];
+		m0->points[1].normalImpulse = normalImpulse2[0];
+		m0->points[1].tangentImpulse = tangentImpulse2[0];
+
+		m1->points[0].normalImpulse = normalImpulse1[1];
+		m1->points[0].tangentImpulse = tangentImpulse1[1];
+		m1->points[1].normalImpulse = normalImpulse2[1];
+		m1->points[1].tangentImpulse = tangentImpulse2[1];
+
+		m2->points[0].normalImpulse = normalImpulse1[2];
+		m2->points[0].tangentImpulse = tangentImpulse1[2];
+		m2->points[1].normalImpulse = normalImpulse2[2];
+		m2->points[1].tangentImpulse = tangentImpulse2[2];
+
+		m3->points[0].normalImpulse = normalImpulse1[3];
+		m3->points[0].tangentImpulse = tangentImpulse1[3];
+		m3->points[1].normalImpulse = normalImpulse2[3];
+		m3->points[1].tangentImpulse = tangentImpulse2[3];
+
+		m4->points[0].normalImpulse = normalImpulse1[4];
+		m4->points[0].tangentImpulse = tangentImpulse1[4];
+		m4->points[1].normalImpulse = normalImpulse2[4];
+		m4->points[1].tangentImpulse = tangentImpulse2[4];
+
+		m5->points[0].normalImpulse = normalImpulse1[5];
+		m5->points[0].tangentImpulse = tangentImpulse1[5];
+		m5->points[1].normalImpulse = normalImpulse2[5];
+		m5->points[1].tangentImpulse = tangentImpulse2[5];
+
+		m6->points[0].normalImpulse = normalImpulse1[6];
+		m6->points[0].tangentImpulse = tangentImpulse1[6];
+		m6->points[1].normalImpulse = normalImpulse2[6];
+		m6->points[1].tangentImpulse = tangentImpulse2[6];
+
+		m7->points[0].normalImpulse = normalImpulse1[7];
+		m7->points[0].tangentImpulse = tangentImpulse1[7];
+		m7->points[1].normalImpulse = normalImpulse2[7];
+		m7->points[1].tangentImpulse = tangentImpulse2[7];
 	}
 
 	b2TracyCZoneEnd(store_impulses);
