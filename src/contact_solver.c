@@ -127,7 +127,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2GraphColor* color = graph->colors + colorIndex;
 	int32_t* contactIndices = color->contactArray;
 	b2Contact* contacts = world->contacts;
-	const int32_t* bodyMap = context->bodyMap;
+	const int32_t* bodyMap = context->bodyToSolverMap;
 	b2SolverBody* solverBodies = context->solverBodies;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
@@ -233,16 +233,17 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2TracyCZoneEnd(prepare_contact);
 }
 
+// TODO_ERIN use b2GraphColor::contactArray to handle empty AVX lanes at the end of each color constraint array, but how to parallel-for?
 void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
 	b2World* world = context->world;
 	b2Contact* contacts = world->contacts;
-	const int32_t* bodyMap = context->bodyMap;
-	const int32_t* contactIndices = context->contactIndices;
+	const int32_t* bodyMap = context->bodyToSolverMap;
 	b2SolverBody* solverBodies = context->solverBodies;
 	b2ContactConstraintAVX* constraints = context->constraintAVXs;
+	b2Graph* graph = context->graph;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
@@ -253,9 +254,6 @@ void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTask
 	const float contactHertz = 30.0f;
 
 	float h = context->timeStep;
-
-	B2_ASSERT((startIndex & 0x7) == 0);
-	B2_ASSERT((endIndex & 0x7) == 0);
 
 	int32_t vectorIndex = 0;
 
@@ -897,6 +895,23 @@ void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 			default:
 				B2_ASSERT(false);
 		}
+	}
+
+	b2TracyCZoneEnd(solve_contact);
+}
+
+void b2SolveContactAVXsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+{
+	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
+
+	b2SolverBody* bodies = context->solverBodies;
+	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
+	float inv_dt = context->invTimeStep;
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2ContactConstraintAVX* constraint = constraints + i;
+		b2SolveContactTwoPointsAVX(constraint, bodies, inv_dt, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_contact);

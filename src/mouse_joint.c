@@ -44,7 +44,7 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	joint->indexB = context->bodyMap[indexB];
+	joint->indexB = context->bodyToSolverMap[indexB];
 	joint->localCenterB = bodyB->localCenter;
 
 	b2Vec2 cB = bodyB->position;

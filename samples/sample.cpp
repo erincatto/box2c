@@ -68,10 +68,10 @@ Sample::Sample(const Settings& settings)
 	m_taskCount = 0;
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
-	worldDef.workerCount = maxThreads;
-	worldDef.enqueueTask = &EnqueueTask;
-	worldDef.finishTask = &FinishTask;
-	worldDef.finishAllTasks = &FinishAllTasks;
+	//worldDef.workerCount = maxThreads;
+	//worldDef.enqueueTask = &EnqueueTask;
+	//worldDef.finishTask = &FinishTask;
+	//worldDef.finishAllTasks = &FinishAllTasks;
 	worldDef.bodyCapacity = 1024;
 	worldDef.contactCapacity = 4 * 1024;
 	worldDef.userTaskContext = this;

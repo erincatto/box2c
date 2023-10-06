@@ -24,6 +24,8 @@ typedef struct b2GraphColor
 
 	// transient
 	b2ContactConstraint* contactConstraints;
+
+	// TODO_ERIN these could be split up by worker so that workers get a contiguous array of constraints across colors
 	b2ContactConstraintAVX* contactConstraintAVXs;
 } b2GraphColor;
 

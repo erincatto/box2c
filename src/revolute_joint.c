@@ -39,8 +39,8 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	joint->indexA = context->bodyMap[indexA];
-	joint->indexB = context->bodyMap[indexB];
+	joint->indexA = context->bodyToSolverMap[indexA];
+	joint->indexB = context->bodyToSolverMap[indexB];
 	joint->localCenterA = bodyA->localCenter;
 	joint->localCenterB = bodyB->localCenter;
 	joint->positionA = bodyA->position;

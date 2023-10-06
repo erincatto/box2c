@@ -38,8 +38,8 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
 	b2WeldJoint* joint = &base->weldJoint;
-	joint->indexA = context->bodyMap[indexA];
-	joint->indexB = context->bodyMap[indexB];
+	joint->indexA = context->bodyToSolverMap[indexA];
+	joint->indexB = context->bodyToSolverMap[indexB];
 	joint->localCenterA = bodyA->localCenter;
 	joint->localCenterB = bodyB->localCenter;
 	joint->positionA = bodyA->position;

@@ -67,6 +67,8 @@ typedef struct b2ContactConstraintAVX
 
 void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
 void b2WarmStartContactConstraints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2SolveContactAVXsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2StoreImpulsesTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
 
 void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
 void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);

@@ -31,10 +31,10 @@ typedef struct b2StepContext
 	int32_t bodyCapacity;
 
 	// Map from world body pool index to solver body
-	int32_t* bodyMap;
+	const int32_t* bodyToSolverMap;
 
 	// Map from solver body to world body
-	int32_t* solverBodyMap;
+	const int32_t* solverToBodyMap;
 
 	struct b2SolverBody* solverBodies;
 	int32_t solverBodyCount;
@@ -45,8 +45,9 @@ typedef struct b2StepContext
 typedef enum b2SolverStageType
 {
 	b2_stageIntegrateVelocities = 0,
-	b2_stagePrepareJoints,
 	b2_stagePrepareContacts,
+	b2_stageWarmStartContacts,
+	b2_stagePrepareJoints,
 	b2_stageSolveJoints,
 	b2_stageSolveContacts,
 	b2_stageIntegratePositions,
@@ -84,7 +85,8 @@ typedef struct b2SolverTaskContext
 	struct b2Graph* graph;
 	struct b2Body** awakeBodies;
 	struct b2SolverBody* solverBodies;
-	int32_t* bodyMap;
+	int32_t* bodyToSolverMap;
+	int32_t* solverToBodyMap;
 	int32_t* contactIndices;
 
 	b2StepContext* stepContext;
