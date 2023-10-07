@@ -37,6 +37,7 @@ typedef struct b2SimdBody
 // This is a load and 8x8 transpose
 static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* restrict indices)
 {
+	_Static_assert(sizeof(b2SolverBody) == 32);
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
 	__m256 zero = _mm256_setzero_ps();
 	__m256 b0 = indices[0] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[0]));
@@ -81,6 +82,7 @@ static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* r
 // This writes everything back but only the velocities change
 static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
 {
+	_Static_assert(sizeof(b2SolverBody) == 32);
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
 	__m256 t0 = _mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
 	__m256 t1 = _mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
@@ -233,7 +235,6 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2TracyCZoneEnd(prepare_contact);
 }
 
-// TODO_ERIN use b2GraphColor::contactArray to handle empty AVX lanes at the end of each color constraint array, but how to parallel-for?
 void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
@@ -243,7 +244,7 @@ void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTask
 	const int32_t* bodyMap = context->bodyToSolverMap;
 	b2SolverBody* solverBodies = context->solverBodies;
 	b2ContactConstraintAVX* constraints = context->constraintAVXs;
-	b2Graph* graph = context->graph;
+	const int32_t* contactIndices = context->contactIndices;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
@@ -255,111 +256,146 @@ void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTask
 
 	float h = context->timeStep;
 
-	int32_t vectorIndex = 0;
-
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2Contact* contact = contacts + contactIndices[i];
+		b2ContactConstraintAVX* constraint = constraints + i;
 
-		const b2Manifold* manifold = &contact->manifold;
-		int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
-		int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
-
-		b2ContactConstraintAVX* constraint = NULL;
-		constraint = constraints + (i >> 3);
-		constraint->indexA[vectorIndex] = indexA;
-		constraint->indexB[vectorIndex] = indexB;
-
-		b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
-		b2SolverBody* solverBodyB = indexB == B2_NULL_INDEX ? &dummyBody : solverBodies + indexB;
-		float mA = solverBodyA->invMass;
-		float iA = solverBodyA->invI;
-		float mB = solverBodyB->invMass;
-		float iB = solverBodyB->invI;
-
-		float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
-
-		// Stiffer for static contacts to avoid bodies getting pushed through the ground
-		const float zeta = 1.0f;
-		float omega = 2.0f * b2_pi * hertz;
-		float d = (2.0f * zeta + h * omega);
-		float c = h * omega * d;
-		float impulseCoefficient = 1.0f / (1.0f + c);
-
-		((float*)&constraint->friction)[vectorIndex] = contact->friction;
-		((float*)&constraint->impulseCoefficient)[vectorIndex] = impulseCoefficient;
-		((float*)&constraint->massCoefficient)[vectorIndex] = c * impulseCoefficient;
-		((float*)&constraint->biasCoefficient)[vectorIndex] = omega / d;
-
-		b2Vec2 normal = manifold->normal;
-		((float*)&constraint->normal.X)[vectorIndex] = normal.x;
-		((float*)&constraint->normal.Y)[vectorIndex] = normal.y;
-
-		b2Vec2 tangent = b2RightPerp(normal);
-
+		for (int32_t j = 0; j < 8; ++j)
 		{
-			const b2ManifoldPoint* mp = manifold->points + 0;
-			((float*)&constraint->separation1)[vectorIndex] = mp->separation;
-			((float*)&constraint->normalImpulse1)[vectorIndex] = mp->normalImpulse;
-			((float*)&constraint->tangentImpulse1)[vectorIndex] = mp->tangentImpulse;
+			int32_t contactIndex = contactIndices[8 * i + j];
 
-			((float*)&constraint->rA1.X)[vectorIndex] = mp->anchorA.x;
-			((float*)&constraint->rA1.Y)[vectorIndex] = mp->anchorA.y;
-			((float*)&constraint->rB1.X)[vectorIndex] = mp->anchorB.x;
-			((float*)&constraint->rB1.Y)[vectorIndex] = mp->anchorB.y;
+			if (contactIndex != B2_NULL_INDEX)
+			{
+				b2Contact* contact = contacts + contactIndex;
 
-			float rnA = b2Cross(mp->anchorA, normal);
-			float rnB = b2Cross(mp->anchorB, normal);
-			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
-			((float*)&constraint->normalMass1)[vectorIndex] = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+				const b2Manifold* manifold = &contact->manifold;
+				int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
+				int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
 
-			float rtA = b2Cross(mp->anchorA, tangent);
-			float rtB = b2Cross(mp->anchorB, tangent);
-			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
-			((float*)&constraint->tangentMass1)[vectorIndex] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+				constraint->indexA[j] = indexA;
+				constraint->indexB[j] = indexB;
+
+				b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
+				b2SolverBody* solverBodyB = indexB == B2_NULL_INDEX ? &dummyBody : solverBodies + indexB;
+				float mA = solverBodyA->invMass;
+				float iA = solverBodyA->invI;
+				float mB = solverBodyB->invMass;
+				float iB = solverBodyB->invI;
+
+				float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
+
+				// Stiffer for static contacts to avoid bodies getting pushed through the ground
+				const float zeta = 1.0f;
+				float omega = 2.0f * b2_pi * hertz;
+				float d = (2.0f * zeta + h * omega);
+				float c = h * omega * d;
+				float impulseCoefficient = 1.0f / (1.0f + c);
+
+				((float*)&constraint->friction)[j] = contact->friction;
+				((float*)&constraint->impulseCoefficient)[j] = impulseCoefficient;
+				((float*)&constraint->massCoefficient)[j] = c * impulseCoefficient;
+				((float*)&constraint->biasCoefficient)[j] = omega / d;
+
+				b2Vec2 normal = manifold->normal;
+				((float*)&constraint->normal.X)[j] = normal.x;
+				((float*)&constraint->normal.Y)[j] = normal.y;
+
+				b2Vec2 tangent = b2RightPerp(normal);
+
+				{
+					const b2ManifoldPoint* mp = manifold->points + 0;
+					((float*)&constraint->separation1)[j] = mp->separation;
+					((float*)&constraint->normalImpulse1)[j] = mp->normalImpulse;
+					((float*)&constraint->tangentImpulse1)[j] = mp->tangentImpulse;
+
+					((float*)&constraint->rA1.X)[j] = mp->anchorA.x;
+					((float*)&constraint->rA1.Y)[j] = mp->anchorA.y;
+					((float*)&constraint->rB1.X)[j] = mp->anchorB.x;
+					((float*)&constraint->rB1.Y)[j] = mp->anchorB.y;
+
+					float rnA = b2Cross(mp->anchorA, normal);
+					float rnB = b2Cross(mp->anchorB, normal);
+					float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+					((float*)&constraint->normalMass1)[j] = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+					float rtA = b2Cross(mp->anchorA, tangent);
+					float rtB = b2Cross(mp->anchorB, tangent);
+					float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+					((float*)&constraint->tangentMass1)[j] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+				}
+
+				int32_t pointCount = manifold->pointCount;
+				B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+				if (pointCount == 2)
+				{
+					const b2ManifoldPoint* mp = manifold->points + 1;
+					((float*)&constraint->separation2)[j] = mp->separation;
+					((float*)&constraint->normalImpulse2)[j] = mp->normalImpulse;
+					((float*)&constraint->tangentImpulse2)[j] = mp->tangentImpulse;
+
+					((float*)&constraint->rA2.X)[j] = mp->anchorA.x;
+					((float*)&constraint->rA2.Y)[j] = mp->anchorA.y;
+					((float*)&constraint->rB2.X)[j] = mp->anchorB.x;
+					((float*)&constraint->rB2.Y)[j] = mp->anchorB.y;
+
+					float rnA = b2Cross(mp->anchorA, normal);
+					float rnB = b2Cross(mp->anchorB, normal);
+					float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+					((float*)&constraint->normalMass2)[j] = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+					float rtA = b2Cross(mp->anchorA, tangent);
+					float rtB = b2Cross(mp->anchorB, tangent);
+					float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+					((float*)&constraint->tangentMass2)[j] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+				}
+				else
+				{
+					// dummy data that has no effect
+					((float*)&constraint->separation2)[j] = 0.0f;
+					((float*)&constraint->normalImpulse2)[j] = 0.0f;
+					((float*)&constraint->tangentImpulse2)[j] = 0.0f;
+					((float*)&constraint->rA2.X)[j] = 0.0f;
+					((float*)&constraint->rA2.Y)[j] = 0.0f;
+					((float*)&constraint->rB2.X)[j] = 0.0f;
+					((float*)&constraint->rB2.Y)[j] = 0.0f;
+					((float*)&constraint->normalMass2)[j] = 0.0f;
+					((float*)&constraint->tangentMass2)[j] = 0.0f;
+				}
+			}
+			else
+			{
+				// remainder
+				constraint->indexA[j] = B2_NULL_INDEX;
+				constraint->indexB[j] = B2_NULL_INDEX;
+				((float*)&constraint->friction)[j] = 0.0f;
+				((float*)&constraint->impulseCoefficient)[j] = 0.0f;
+				((float*)&constraint->massCoefficient)[j] = 0.0f;
+				((float*)&constraint->biasCoefficient)[j] = 0.0f;
+				((float*)&constraint->normal.X)[j] = 0.0f;
+				((float*)&constraint->normal.Y)[j] = 0.0f;
+
+				((float*)&constraint->separation1)[j] = 0.0f;
+				((float*)&constraint->normalImpulse1)[j] = 0.0f;
+				((float*)&constraint->tangentImpulse1)[j] = 0.0f;
+				((float*)&constraint->rA1.X)[j] = 0.0f;
+				((float*)&constraint->rA1.Y)[j] = 0.0f;
+				((float*)&constraint->rB1.X)[j] = 0.0f;
+				((float*)&constraint->rB1.Y)[j] = 0.0f;
+				((float*)&constraint->normalMass1)[j] = 0.0f;
+				((float*)&constraint->tangentMass1)[j] = 0.0f;
+				
+				((float*)&constraint->separation2)[j] = 0.0f;
+				((float*)&constraint->normalImpulse2)[j] = 0.0f;
+				((float*)&constraint->tangentImpulse2)[j] = 0.0f;
+				((float*)&constraint->rA2.X)[j] = 0.0f;
+				((float*)&constraint->rA2.Y)[j] = 0.0f;
+				((float*)&constraint->rB2.X)[j] = 0.0f;
+				((float*)&constraint->rB2.Y)[j] = 0.0f;
+				((float*)&constraint->normalMass2)[j] = 0.0f;
+				((float*)&constraint->tangentMass2)[j] = 0.0f;
+			}
 		}
-
-		int32_t pointCount = manifold->pointCount;
-		B2_ASSERT(0 < pointCount && pointCount <= 2);
-
-		if (pointCount == 2)
-		{
-			const b2ManifoldPoint* mp = manifold->points + 1;
-			((float*)&constraint->separation2)[vectorIndex] = mp->separation;
-			((float*)&constraint->normalImpulse2)[vectorIndex] = mp->normalImpulse;
-			((float*)&constraint->tangentImpulse2)[vectorIndex] = mp->tangentImpulse;
-
-			((float*)&constraint->rA2.X)[vectorIndex] = mp->anchorA.x;
-			((float*)&constraint->rA2.Y)[vectorIndex] = mp->anchorA.y;
-			((float*)&constraint->rB2.X)[vectorIndex] = mp->anchorB.x;
-			((float*)&constraint->rB2.Y)[vectorIndex] = mp->anchorB.y;
-
-			float rnA = b2Cross(mp->anchorA, normal);
-			float rnB = b2Cross(mp->anchorB, normal);
-			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
-			((float*)&constraint->normalMass2)[vectorIndex] = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
-
-			float rtA = b2Cross(mp->anchorA, tangent);
-			float rtB = b2Cross(mp->anchorB, tangent);
-			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
-			((float*)&constraint->tangentMass2)[vectorIndex] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
-		}
-		else
-		{
-			// dummy data that has no effect
-			((float*)&constraint->separation2)[vectorIndex] = 0.0f;
-			((float*)&constraint->normalImpulse2)[vectorIndex] = 0.0f;
-			((float*)&constraint->tangentImpulse2)[vectorIndex] = 0.0f;
-			((float*)&constraint->rA2.X)[vectorIndex] = 0.0f;
-			((float*)&constraint->rA2.Y)[vectorIndex] = 0.0f;
-			((float*)&constraint->rB2.X)[vectorIndex] = 0.0f;
-			((float*)&constraint->rB2.Y)[vectorIndex] = 0.0f;
-			((float*)&constraint->normalMass2)[vectorIndex] = 0.0f;
-			((float*)&constraint->tangentMass2)[vectorIndex] = 0.0f;
-		}
-
-		// Cycle [0-7]
-		vectorIndex = (vectorIndex + 1) & 0x7;
 	}
 
 	b2TracyCZoneEnd(prepare_contact);
@@ -716,7 +752,7 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 	b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 	b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
 
-	__m256 useBiasMul = useBias ? _mm256_setzero_ps() : _mm256_set1_ps(1.0f);
+	__m256 useBiasMul = useBias ? _mm256_set1_ps(1.0f) : _mm256_setzero_ps();
 	__m256 invDtMul = _mm256_set1_ps(inv_dt);
 	__m256 minBiasVel = _mm256_set1_ps(-maxBaumgarteVelocity);
 
@@ -868,6 +904,9 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
 		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
 	}
+
+	b2ScatterBodies(bodies, c->indexA, &bA);
+	b2ScatterBodies(bodies, c->indexB, &bB);
 }
 
 void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)

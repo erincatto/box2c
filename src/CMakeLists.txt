@@ -71,7 +71,12 @@ set(BOX2D_API_FILES
 	../include/box2d/types.h
 )
 
-add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
+if (MSVC)
+	add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES} box2d.natvis)
+else()
+	add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
+endif()
+
 target_include_directories(box2d
 	PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}

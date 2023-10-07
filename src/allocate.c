@@ -50,17 +50,23 @@ void* b2Alloc(uint32_t size)
 	{
 		void* ptr = b2_allocFcn(size);
 		b2TracyCAlloc(ptr, size);
+
+		B2_ASSERT(((uintptr_t)ptr & 0x1F) == 0);
+
 		return ptr;
 	}
 
-	uint32_t size16 = ((size - 1) | 0xF) + 1;
+	uint32_t size32 = ((size - 1) | 0x1F) + 1;
 #ifdef B2_PLATFORM_WINDOWS
-	void* ptr = _aligned_malloc(size16, 16);
+	void* ptr = _aligned_malloc(size32, 32);
 #else
-	void* ptr = aligned_alloc(16, size16);
+	void* ptr = aligned_alloc(32, size32);
 #endif
 
 	b2TracyCAlloc(ptr, size);
+
+	B2_ASSERT(((uintptr_t)ptr & 0x1F) == 0);
+	
 	return ptr;
 }
 

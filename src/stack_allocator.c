@@ -56,23 +56,29 @@ void b2DestroyStackAllocator(b2StackAllocator* allocator)
 
 void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* name)
 {
+	int32_t size32 = ((size - 1) | 0x1F) + 1;
+
 	b2StackEntry entry;
-	entry.size = size;
+	entry.size = size32;
 	entry.name = name;
-	if (alloc->index + size > alloc->capacity)
+	if (alloc->index + size32 > alloc->capacity)
 	{
 		// fall back to the heap (undesirable)
-		entry.data = (char*)b2Alloc(size);
+		entry.data = (char*)b2Alloc(size32);
 		entry.usedMalloc = true;
+
+		B2_ASSERT(((uintptr_t)entry.data & 0x1F) == 0);
 	}
 	else
 	{
 		entry.data = alloc->data + alloc->index;
 		entry.usedMalloc = false;
-		alloc->index += size;
+		alloc->index += size32;
+
+		B2_ASSERT(((uintptr_t)entry.data & 0x1F) == 0);
 	}
 
-	alloc->allocation += size;
+	alloc->allocation += size32;
 	if (alloc->allocation > alloc->maxAllocation)
 	{
 		alloc->maxAllocation = alloc->allocation;

@@ -55,8 +55,8 @@ public:
 			m_bullets[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_boxShape;
-		m_rowCount = 14;
+		m_shapeType = e_circleShape;
+		m_rowCount = 1;
 		m_columnCount = g_sampleDebug ? 1 : e_maxColumns;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;

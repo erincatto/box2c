@@ -55,12 +55,12 @@ static float s_framebufferScale = 1.0f;
 
 void* AllocFcn(uint32_t size)
 {
-	size_t size16 = ((size - 1) | 0xF) + 1;
-	assert((size16 & 0xF) == 0);
+	size_t size32 = ((size - 1) | 0x1F) + 1;
+	assert((size32 & 0x1F) == 0);
 #if defined(_WIN64)
-	void* ptr = _aligned_malloc(size16, 16);
+	void* ptr = _aligned_malloc(size32, 32);
 #else
-	void* ptr = aligned_alloc(16, size16);
+	void* ptr = aligned_alloc(32, size32);
 #endif
 	return ptr;
 }
