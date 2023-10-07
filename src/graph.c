@@ -1362,11 +1362,11 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 			int32_t avxCount = ((count - 1) >> 3) + 1;
 			activeColorIndices[c] = i;
 			colorConstraintCounts[c] = avxCount;
-			int32_t blockCount = avxCount;
 
-			// TODO_ERIN work stealing unit is 1 AVX constraint
-			colorBlockSize[c] = 1;
+			int32_t blockSize = 4;
+			int32_t blockCount = ((avxCount - 1) >> 2) + 1;
 
+			colorBlockSize[c] = blockSize;
 			colorBlockCounts[c] = blockCount;
 			graphBlockCount += blockCount;
 			constraintCount += avxCount;
@@ -1404,13 +1404,13 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		base += colorConstraintCount;
 	}
 
-	int32_t storeBlockSize = 1;
-	int32_t storeBlockCount = constraintCount > 0 ? ((constraintCount - 1) >> 3) + 1 : 0;
-	//if (constraintCount > blocksPerWorker * storeBlockSize * workerCount)
-	//{
-	//	storeBlockSize = constraintCount / (blocksPerWorker * workerCount);
-	//	storeBlockCount = blocksPerWorker * workerCount;
-	//}
+	int32_t storeBlockSize = 4;
+	int32_t storeBlockCount = constraintCount > 0 ? ((constraintCount - 1) >> 2) + 1 : 0;
+	if (constraintCount > blocksPerWorker * storeBlockSize * workerCount)
+	{
+		storeBlockSize = constraintCount / (blocksPerWorker * workerCount);
+		storeBlockCount = blocksPerWorker * workerCount;
+	}
 
 	/*
 	b2_stageIntegrateVelocities = 0,

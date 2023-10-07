@@ -445,7 +445,7 @@ void b2WarmStartContactConstraints(int32_t startIndex, int32_t endIndex, b2Solve
 		b2ScatterBodies(bodies, c->indexB, &bB);
 	}
 
-	b2TracyCZoneEnd(prepare_contact);
+	b2TracyCZoneEnd(warm_start_contact);
 }
 
 static void b2SolveContactOnePoint(b2ContactConstraint* constraint, b2SolverBody* bodies, float inv_dt, bool useBias)
