@@ -184,6 +184,8 @@ void b2WakeIsland(b2Island* island)
 
 	island->awakeIndex = b2Array(world->awakeIslandArray).count;
 	b2Array_Push(world->awakeIslandArray, island->object.index);
+
+	// TODO_ISLAND add constraints to graph
 }
 
 #if B2_GRAPH_COLOR == 1
@@ -910,6 +912,18 @@ static void b2SplitIsland(b2Island* baseIsland)
 	b2FreeStackItem(alloc, stack);
 
 	b2TracyCZoneEnd(split);
+}
+
+void b2CompleteIsland(b2Island* island)
+{
+	b2World* world = island->world;
+
+	// Wake island
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		island->awakeIndex = B2_NULL_INDEX;
+		b2WakeIsland(island);
+	}
 }
 
 // This island was just created through splitting. Handle single thread work.

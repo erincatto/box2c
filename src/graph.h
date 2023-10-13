@@ -29,6 +29,15 @@ typedef struct b2GraphColor
 	b2ContactConstraintAVX* contactConstraintAVXs;
 } b2GraphColor;
 
+// This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
+// is touching many other bodies.
+typedef struct
+{
+	int32_t* contactArray;
+	int32_t* jointArray;
+	b2ContactConstraint* contactConstraints;
+} b2GraphOverflow;
+
 typedef struct b2Graph
 {
 	b2GraphColor colors[b2_graphColorCount];

@@ -29,6 +29,8 @@ typedef struct b2TaskContext
 	// Used to sort shapes that have enlarged AABBs
 	b2BitSet shapeBitSet;
 
+	// Used to wake islands
+	b2BitSet awakeIslandBitSet;
 } b2TaskContext;
 
 /// The world class manages all physics entities, dynamic simulation,

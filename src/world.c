@@ -164,6 +164,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
 		world->taskContextArray[i].awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
 		world->taskContextArray[i].shapeBitSet = b2CreateBitSet(def->shapeCapacity);
+		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
 	return id;
@@ -178,6 +179,7 @@ void b2DestroyWorld(b2WorldId id)
 		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].awakeContactBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].shapeBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].awakeIslandBitSet);
 	}
 
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
@@ -916,7 +918,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 }
 #endif
 
-// Graph coloring experiment
+// Solve with graph coloring
 static void b2Solve(b2World* world, b2StepContext* context)
 {
 	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
@@ -928,10 +930,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Prepare contact and shape bit-sets
 	int32_t contactCapacity = world->contactPool.capacity;
 	int32_t shapeCapacity = world->shapePool.capacity;
+	int32_t islandCapacity = world->islandPool.capacity;
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
 		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
 	}
 
 	b2MergeAwakeIslands(world);
@@ -996,6 +1000,36 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	}
 
 	b2TracyCZoneEnd(enlarge_proxies);
+
+	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
+	{
+		b2BitSet* bitSet = &world->taskContextArray[0].awakeIslandBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeIslandBitSet);
+		}
+	
+		int32_t count = b2Array(world->awakeIslandArray).count;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			int32_t islandIndex = world->awakeIslandArray[i];
+			if (b2GetBit(bitSet, islandIndex) == true)
+			{
+				continue;
+			}
+
+			// TODO_ISLAND
+			// Put island to sleep. Remove edges from graph.
+		}
+
+		// TODO_ISLAND
+		// Clear awake island array
+		// Use bitSet to build awake island array. No need to add edges.
+	}
+
+	for (int32_t i = 0; i )
+
+	b2TracyCZoneEnd(awake_islands);
 
 	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
 

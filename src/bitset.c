@@ -57,7 +57,7 @@ void b2GrowBitSet(b2BitSet* bitSet, uint32_t wordCount)
 	bitSet->wordCount = wordCount;
 }
 
-void b2InPlaceUnion(b2BitSet* setA, const b2BitSet* setB)
+void b2InPlaceUnion(b2BitSet* restrict setA, const b2BitSet* restrict setB)
 {
 	B2_ASSERT(setA->wordCount == setB->wordCount);
 	uint32_t wordCount = setA->wordCount;
