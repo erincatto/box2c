@@ -11,8 +11,10 @@
 #include "world.h"
 
 #include <immintrin.h>
-// or superset
-// #include <x86intrin.h>
+
+// Soft constraints with constraint error substepping. Includes a bias removal stage to help remove excess energy.
+// http://mmacklin.com/smallsteps.pdf
+// https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 
 #define maxBaumgarteVelocity 3.0f
 
@@ -79,7 +81,7 @@ static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* r
 	return simdBody;
 }
 
-// This writes everything back but only the velocities change
+// This writes everything back to the solver bodies but only the velocities change
 static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
 {
 	_Static_assert(sizeof(b2SolverBody) == 32);
@@ -101,6 +103,8 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
 	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
 
+	// I don't use any dummy body in the body array because this will lead to multithreaded sharing and the
+	// associated cache flushing.
 	if (indices[0] != B2_NULL_INDEX)
 		_mm256_store_ps((float*)(bodies + indices[0]), _mm256_permute2f128_ps(tt0, tt4, 0x20));
 	if (indices[1] != B2_NULL_INDEX)
@@ -119,20 +123,36 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 		_mm256_store_ps((float*)(bodies + indices[7]), _mm256_permute2f128_ps(tt3, tt7, 0x31));
 }
 
-// TODO_ERIN prepare contact constraints directly in collision phase?
-void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+void b2PrepareContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
 	b2World* world = context->world;
 	b2Graph* graph = context->graph;
-	b2GraphColor* color = graph->colors + colorIndex;
-	int32_t* contactIndices = color->contactArray;
 	b2Contact* contacts = world->contacts;
 	const int32_t* bodyMap = context->bodyToSolverMap;
 	b2SolverBody* solverBodies = context->solverBodies;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	b2ContactConstraint* constraints;
+	int32_t* contactIndices;
+
+	if (colorIndex == b2_overflowIndex)
+	{
+		B2_ASSERT(startIndex == 0);
+		B2_ASSERT(endIndex == b2Array(graph->overflow.contactArray).count);
+		contactIndices = graph->overflow.contactArray;
+		constraints = graph->overflow.contactConstraints;
+	}
+	else
+	{
+		b2GraphColor* color = graph->colors + colorIndex;
+		contactIndices = color->contactArray;
+		B2_ASSERT(startIndex <= b2Array(color->contactArray).count);
+		B2_ASSERT(endIndex <= b2Array(color->contactArray).count);
+		constraints = color->contactConstraints;
+	}
+
+	// This is a dummy body to represent a static body because static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
 
 	// 30 is a bit soft, 60 oscillates too much
@@ -141,10 +161,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	const float contactHertz = 30.0f;
 
 	float h = context->timeStep;
-	bool enableWarmStarting = world->enableWarmStarting;
-
-	B2_ASSERT(startIndex <= b2Array(color->contactArray).count);
-	B2_ASSERT(endIndex <= b2Array(color->contactArray).count);
+	//bool enableWarmStarting = world->enableWarmStarting;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
@@ -158,7 +175,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 		int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
 		int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
 
-		b2ContactConstraint* constraint = color->contactConstraints + i;
+		b2ContactConstraint* constraint = constraints + i;
 		constraint->contact = contact;
 		constraint->indexA = indexA;
 		constraint->indexB = indexB;
@@ -216,14 +233,14 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 			cp->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
 
 			// Warm start
-			if (enableWarmStarting)
-			{
-				b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
-				wA -= iA * b2Cross(cp->rA, P);
-				vA = b2MulAdd(vA, -mA, P);
-				wB += iB * b2Cross(cp->rB, P);
-				vB = b2MulAdd(vB, mB, P);
-			}
+			//if (enableWarmStarting)
+			//{
+			//	b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
+			//	wA -= iA * b2Cross(cp->rA, P);
+			//	vA = b2MulAdd(vA, -mA, P);
+			//	wB += iB * b2Cross(cp->rB, P);
+			//	vB = b2MulAdd(vB, mB, P);
+			//}
 		}
 
 		solverBodyA->linearVelocity = vA;
@@ -235,7 +252,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2TracyCZoneEnd(prepare_contact);
 }
 
-void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
@@ -401,9 +418,138 @@ void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTask
 	b2TracyCZoneEnd(prepare_contact);
 }
 
-void b2WarmStartContactConstraints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+void b2WarmStartContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
-	b2TracyCZoneNC(warm_start_contact, "Warm Start Contact", b2_colorGreen1, true);
+	b2TracyCZoneNC(prepare_contact, "Warm Start", b2_colorYellow, true);
+
+	b2World* world = context->world;
+	b2Graph* graph = context->graph;
+	b2Contact* contacts = world->contacts;
+	const int32_t* bodyMap = context->bodyToSolverMap;
+	b2SolverBody* solverBodies = context->solverBodies;
+
+	b2ContactConstraint* constraints;
+	int32_t* contactIndices;
+
+	if (colorIndex == b2_overflowIndex)
+	{
+		B2_ASSERT(startIndex == 0);
+		B2_ASSERT(endIndex == b2Array(graph->overflow.contactArray).count);
+		contactIndices = graph->overflow.contactArray;
+		constraints = graph->overflow.contactConstraints;
+	}
+	else
+	{
+		b2GraphColor* color = graph->colors + colorIndex;
+		contactIndices = color->contactArray;
+		B2_ASSERT(startIndex <= b2Array(color->contactArray).count);
+		B2_ASSERT(endIndex <= b2Array(color->contactArray).count);
+		constraints = color->contactConstraints;
+	}
+
+	// This is a dummy body to represent a static body because static bodies don't have a solver body.
+	b2SolverBody dummyBody = {0};
+
+	// 30 is a bit soft, 60 oscillates too much
+	// const float contactHertz = 45.0f;
+	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
+	const float contactHertz = 30.0f;
+
+	float h = context->timeStep;
+	// bool enableWarmStarting = world->enableWarmStarting;
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2Contact* contact = contacts + contactIndices[i];
+
+		const b2Manifold* manifold = &contact->manifold;
+		int32_t pointCount = manifold->pointCount;
+
+		B2_ASSERT(0 < pointCount && pointCount <= 2);
+
+		int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
+		int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
+
+		b2ContactConstraint* constraint = constraints + i;
+		constraint->contact = contact;
+		constraint->indexA = indexA;
+		constraint->indexB = indexB;
+		constraint->normal = manifold->normal;
+		constraint->friction = contact->friction;
+
+		b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
+		b2SolverBody* solverBodyB = indexB == B2_NULL_INDEX ? &dummyBody : solverBodies + indexB;
+
+		float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
+		b2Vec2 vA = solverBodyA->linearVelocity;
+		float wA = solverBodyA->angularVelocity;
+		float mA = solverBodyA->invMass;
+		float iA = solverBodyA->invI;
+
+		b2Vec2 vB = solverBodyB->linearVelocity;
+		float wB = solverBodyB->angularVelocity;
+		float mB = solverBodyB->invMass;
+		float iB = solverBodyB->invI;
+
+		constraint->type = pointCount == 1 ? b2_onePointType : b2_twoPointType;
+
+		// Stiffer for static contacts to avoid bodies getting pushed through the ground
+		const float zeta = 1.0f;
+		float omega = 2.0f * b2_pi * hertz;
+		float c = h * omega * (2.0f * zeta + h * omega);
+		constraint->impulseCoefficient = 1.0f / (1.0f + c);
+		constraint->massCoefficient = c * constraint->impulseCoefficient;
+		constraint->biasCoefficient = omega / (2.0f * zeta + h * omega);
+
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2RightPerp(constraint->normal);
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			const b2ManifoldPoint* mp = manifold->points + j;
+			b2ContactConstraintPoint* cp = constraint->points + j;
+
+			cp->normalImpulse = mp->normalImpulse;
+			cp->tangentImpulse = mp->tangentImpulse;
+
+			cp->rA = mp->anchorA;
+			cp->rB = mp->anchorB;
+
+			float rnA = b2Cross(cp->rA, normal);
+			float rnB = b2Cross(cp->rB, normal);
+			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
+
+			float rtA = b2Cross(cp->rA, tangent);
+			float rtB = b2Cross(cp->rB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+
+			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+			cp->separation = mp->separation;
+			cp->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+			// Warm start
+			// if (enableWarmStarting)
+			//{
+			//	b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
+			//	wA -= iA * b2Cross(cp->rA, P);
+			//	vA = b2MulAdd(vA, -mA, P);
+			//	wB += iB * b2Cross(cp->rB, P);
+			//	vB = b2MulAdd(vB, mB, P);
+			//}
+		}
+
+		solverBodyA->linearVelocity = vA;
+		solverBodyA->angularVelocity = wA;
+		solverBodyB->linearVelocity = vB;
+		solverBodyB->angularVelocity = wB;
+	}
+
+	b2TracyCZoneEnd(prepare_contact);
+}
+
+void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+{
+	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen1, true);
 
 	b2SolverBody* bodies = context->solverBodies;
 	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
@@ -747,6 +893,7 @@ static void b2SolveContactTwoPoints(b2ContactConstraint* constraint, b2SolverBod
 	bodyB->angularVelocity = wB;
 }
 
+
 static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2SolverBody* restrict bodies, float inv_dt, bool useBias)
 {
 	b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
@@ -918,7 +1065,7 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 	b2ScatterBodies(bodies, c->indexB, &bB);
 }
 
-void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+void b2SolveContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
@@ -948,7 +1095,7 @@ void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneEnd(solve_contact);
 }
 
-void b2SolveContactAVXsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
@@ -965,7 +1112,7 @@ void b2SolveContactAVXsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 	b2TracyCZoneEnd(solve_contact);
 }
 
-void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2StoreImpulses(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
@@ -988,7 +1135,7 @@ void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneEnd(store_impulses);
 }
 
-void b2StoreImpulsesTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2StoreImpulsesAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 

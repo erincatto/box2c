@@ -39,11 +39,13 @@ typedef struct b2ContactConstraint
 	b2ContactConstraintType type;
 } b2ContactConstraint;
 
-typedef __m256 b2Float8;
+// Wide float
+typedef __m256 b2FloatW;
 
+// Wide vec2
 typedef struct b2Vec2W
 {
-	b2Float8 X, Y;
+	b2FloatW X, Y;
 } b2Vec2W;
 
 typedef struct b2ContactConstraintAVX
@@ -65,11 +67,14 @@ typedef struct b2ContactConstraintAVX
 	__m256 impulseCoefficient;
 } b2ContactConstraintAVX;
 
-void b2PrepareContactsTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
-void b2WarmStartContactConstraints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
-void b2SolveContactAVXsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
-void b2StoreImpulsesTaskAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+// Scalar
+void b2PrepareContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2WarmStartContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2SolveContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2StoreImpulses(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
 
-void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
-void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
-void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+// AVX versions
+void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2StoreImpulsesAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);

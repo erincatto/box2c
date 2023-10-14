@@ -13,8 +13,8 @@ typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-// TODO_ERIN fixme
-#define b2_graphColorCount 64
+#define b2_graphColorCount 16
+#define b2_overflowIndex b2_graphColorCount
 
 typedef struct b2GraphColor
 {
@@ -42,6 +42,8 @@ typedef struct b2Graph
 {
 	b2GraphColor colors[b2_graphColorCount];
 	int32_t colorCount;
+
+	b2GraphOverflow overflow;
 } b2Graph;
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity);
