@@ -44,13 +44,13 @@ typedef struct b2Graph
 	int32_t colorCount;
 } b2Graph;
 
-void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity);
+void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity);
 void b2DestroyGraph(b2Graph* graph);
 
 void b2AddContactToGraph(b2World* world, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-void b2AddJointToGraph(b2World* world, b2Joint* contact);
-void b2RemoveJointFromGraph(b2World* world, b2Joint* contact);
+void b2AddJointToGraph(b2World* world, b2Joint* joint);
+void b2RemoveJointFromGraph(b2World* world, b2Joint* joint);
 
 void b2SolveGraph(b2World* world, b2StepContext* stepContext);

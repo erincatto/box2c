@@ -100,7 +100,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2CreateBroadPhase(&world->broadPhase);
-	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity);
+	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);
 
 	// pools
 	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
@@ -942,6 +942,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	world->profile.buildIslands = 0.0f;
 
+	// TODO_ISLAND task to split island
+
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	b2SolveGraph(world, context);
@@ -1018,16 +1020,55 @@ static void b2Solve(b2World* world, b2StepContext* context)
 				continue;
 			}
 
-			// TODO_ISLAND
-			// Put island to sleep. Remove edges from graph.
+			// Put island to sleep
+			b2Island* island = world->islands + islandIndex;
+			island->awakeIndex = B2_NULL_INDEX;
+
+			// Remove edges from graph
+			int32_t contactIndex = island->headContact;
+			while (contactIndex != B2_NULL_INDEX)
+			{
+				b2Contact* contact = world->contacts + contactIndex;
+				b2RemoveContactFromGraph(world, contact);
+				contactIndex = contact->islandNext;
+			}
+
+			int32_t jointIndex = island->headJoint;
+			while (jointIndex != B2_NULL_INDEX)
+			{
+				b2Joint* joint = world->joints + jointIndex;
+				b2RemoveJointFromGraph(world, joint);
+				jointIndex = joint->islandNext;
+			}
 		}
 
-		// TODO_ISLAND
 		// Clear awake island array
-		// Use bitSet to build awake island array. No need to add edges.
-	}
+		b2Array_Clear(world->awakeIslandArray);
 
-	for (int32_t i = 0; i )
+		// Use bitSet to build awake island array. No need to add edges.
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		int32_t awakeIndex = 0;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t islandIndex = 64 * k + ctz;
+
+				b2Array_Push(world->awakeIslandArray, islandIndex);
+
+				// Reference index. This tells the island and bodies they are awake.
+				world->islands[islandIndex].awakeIndex = awakeIndex;
+				awakeIndex += 1;
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
 
 	b2TracyCZoneEnd(awake_islands);
 

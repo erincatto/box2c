@@ -752,13 +752,22 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 	b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 	b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
 
-	__m256 useBiasMul = useBias ? _mm256_set1_ps(1.0f) : _mm256_setzero_ps();
+	__m256 biasCoeff, massCoeff, impulseCoeff;
+	if (useBias)
+	{
+		biasCoeff = c->biasCoefficient;
+		massCoeff = c->massCoefficient;
+		impulseCoeff = c->impulseCoefficient;
+	}
+	else
+	{
+		biasCoeff = _mm256_setzero_ps();
+		massCoeff = _mm256_set1_ps(1.0f);
+		impulseCoeff = _mm256_setzero_ps();
+	}
+
 	__m256 invDtMul = _mm256_set1_ps(inv_dt);
 	__m256 minBiasVel = _mm256_set1_ps(-maxBaumgarteVelocity);
-
-	// float biasCoefficient = constraint->biasCoefficient;
-	// float massCoefficient = constraint->massCoefficient;
-	// float impulseCoefficient = constraint->impulseCoefficient;
 
 	// first point non-penetration constraint
 	{
@@ -771,8 +780,8 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 
 		__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
 		__m256 specBias = mul(s, invDtMul);
-		__m256 softBias = _mm256_max_ps(mul(c->biasCoefficient, s), minBiasVel);
-		__m256 bias = _mm256_blendv_ps(specBias, mul(softBias, useBiasMul), test);
+		__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+		__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
 
 		// Relative velocity at contact
 		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
@@ -780,7 +789,7 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 		// Compute normal impulse
-		__m256 negImpulse = add(mul(c->normalMass1, mul(c->massCoefficient, add(vn, bias))), mul(c->impulseCoefficient, c->normalImpulse1));
+		__m256 negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
 		// float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
 
 		// Clamp the accumulated impulse
@@ -812,8 +821,8 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 
 		__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
 		__m256 specBias = mul(s, invDtMul);
-		__m256 softBias = _mm256_max_ps(mul(c->biasCoefficient, s), minBiasVel);
-		__m256 bias = _mm256_blendv_ps(specBias, mul(softBias, useBiasMul), test);
+		__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+		__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
 
 		// Relative velocity at contact
 		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
@@ -821,7 +830,7 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 		__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 		// Compute normal impulse
-		__m256 negImpulse = add(mul(c->normalMass2, mul(c->massCoefficient, add(vn, bias))), mul(c->impulseCoefficient, c->normalImpulse2));
+		__m256 negImpulse = add(mul(c->normalMass2, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse2));
 
 		// Clamp the accumulated impulse
 		__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse2, negImpulse), _mm256_setzero_ps());

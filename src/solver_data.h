@@ -51,9 +51,9 @@ typedef enum b2SolverStageType
 	b2_stageSolveJoints,
 	b2_stageSolveContacts,
 	b2_stageIntegratePositions,
-	b2_stageFinalizePositions,
 	b2_stageCalmJoints,
 	b2_stageCalmContacts,
+	b2_stageFinalizeBodies,
 	b2_stageStoreImpulses
 } b2SolverStageType;
 

@@ -116,6 +116,8 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	joint->islandIndex = B2_NULL_INDEX;
 	joint->islandPrev = B2_NULL_INDEX;
 	joint->islandNext = B2_NULL_INDEX;
+	joint->colorIndex = B2_NULL_INDEX;
+	joint->colorSubIndex = B2_NULL_INDEX;
 
 	joint->isMarked = false;
 
@@ -123,6 +125,11 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	{
 		// Add edge to island graph
 		b2LinkJoint(world, joint);
+
+		if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
+		{
+			b2AddJointToGraph(world, joint);
+		}
 	}
 
 	return joint;

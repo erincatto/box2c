@@ -52,8 +52,6 @@ enum b2ContactFlags
 	b2_contactStoppedTouching = 0x00000080,
 
 	b2_contactIslandFlag = 0x00000100,
-
-	b2_contactStatic = 0x00000200
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
@@ -68,10 +66,11 @@ typedef struct b2Contact
 	// This is too hot and has been moved to a separate array
 	//int32_t awakeIndex;
 
+	// The color of this constraint in the graph coloring
 	int32_t colorIndex;
 
-	// For fast removal from graph color
-	int32_t colorContactIndex;
+	// Index of contact within color
+	int32_t colorSubIndex;
 
 	b2ContactEdge edges[2];
 

@@ -29,10 +29,11 @@ typedef struct b2WorkerContext
 	int32_t workerIndex;
 } b2WorkerContext;
 
-void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity)
+void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
 {
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
 	contactCapacity = B2_MAX(contactCapacity, 8);
+	jointCapacity = B2_MAX(jointCapacity, 8);
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
@@ -41,6 +42,7 @@ void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity
 		b2SetBitCountAndClear(&color->bodySet, bodyCapacity);
 
 		color->contactArray = b2CreateArray(sizeof(int32_t), contactCapacity);
+		color->jointArray = b2CreateArray(sizeof(int32_t), jointCapacity);
 	}
 }
 
@@ -51,13 +53,14 @@ void b2DestroyGraph(b2Graph* graph)
 		b2GraphColor* color = graph->colors + i;
 		b2DestroyBitSet(&color->bodySet);
 		b2DestroyArray(color->contactArray, sizeof(int32_t));
+		b2DestroyArray(color->jointArray, sizeof(int32_t));
 	}
 }
 
 void b2AddContactToGraph(b2World* world, b2Contact* contact)
 {
-	B2_ASSERT(contact->colorContactIndex == B2_NULL_INDEX);
 	B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
+	B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
 
 	b2Graph* graph = &world->graph;
 
@@ -80,10 +83,9 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 			b2SetBitGrow(&color->bodySet, bodyIndexA);
 			b2SetBitGrow(&color->bodySet, bodyIndexB);
 
-			contact->colorContactIndex = b2Array(color->contactArray).count;
+			contact->colorSubIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
 			contact->colorIndex = i;
-			contact->flags &= ~b2_contactStatic;
 			break;
 		}
 	}
@@ -100,7 +102,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 
 			b2SetBitGrow(&color->bodySet, bodyIndexA);
 
-			contact->colorContactIndex = b2Array(color->contactArray).count;
+			contact->colorSubIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
 			contact->colorIndex = i;
 			break;
@@ -119,20 +121,20 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 
 			b2SetBitGrow(&color->bodySet, bodyIndexB);
 
-			contact->colorContactIndex = b2Array(color->contactArray).count;
+			contact->colorSubIndex = b2Array(color->contactArray).count;
 			b2Array_Push(color->contactArray, contact->object.index);
 			contact->colorIndex = i;
 			break;
 		}
 	}
 
-	B2_ASSERT(contact->colorIndex != B2_NULL_INDEX && contact->colorContactIndex != B2_NULL_INDEX);
+	B2_ASSERT(contact->colorIndex != B2_NULL_INDEX && contact->colorSubIndex != B2_NULL_INDEX);
 }
 
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 {
 	B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
-	B2_ASSERT(contact->colorContactIndex != B2_NULL_INDEX);
+	B2_ASSERT(contact->colorSubIndex != B2_NULL_INDEX);
 
 	b2Graph* graph = &world->graph;
 
@@ -148,13 +150,13 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA) && b2GetBit(&color->bodySet, bodyIndexB));
 
-		int32_t colorContactIndex = contact->colorContactIndex;
-		b2Array_RemoveSwap(color->contactArray, colorContactIndex);
-		if (colorContactIndex < b2Array(color->contactArray).count)
+		int32_t colorSubIndex = contact->colorSubIndex;
+		b2Array_RemoveSwap(color->contactArray, colorSubIndex);
+		if (colorSubIndex < b2Array(color->contactArray).count)
 		{
 			// Fix index on swapped contact
-			int32_t swappedContactIndex = color->contactArray[colorContactIndex];
-			world->contacts[swappedContactIndex].colorContactIndex = colorContactIndex;
+			int32_t swappedIndex = color->contactArray[colorSubIndex];
+			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
 		}
 
 		b2ClearBit(&color->bodySet, bodyIndexA);
@@ -165,13 +167,13 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
 
-		int32_t colorContactIndex = contact->colorContactIndex;
-		b2Array_RemoveSwap(color->contactArray, colorContactIndex);
-		if (colorContactIndex < b2Array(color->contactArray).count)
+		int32_t colorSubIndex = contact->colorSubIndex;
+		b2Array_RemoveSwap(color->contactArray, colorSubIndex);
+		if (colorSubIndex < b2Array(color->contactArray).count)
 		{
 			// Fix index on swapped contact
-			int32_t swappedContactIndex = color->contactArray[colorContactIndex];
-			world->contacts[swappedContactIndex].colorContactIndex = colorContactIndex;
+			int32_t swappedIndex = color->contactArray[colorSubIndex];
+			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
 		}
 
 		b2ClearBit(&color->bodySet, bodyIndexA);
@@ -181,21 +183,160 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));
 
-		int32_t colorContactIndex = contact->colorContactIndex;
-		b2Array_RemoveSwap(color->contactArray, colorContactIndex);
-		if (colorContactIndex < b2Array(color->contactArray).count)
+		int32_t colorSubIndex = contact->colorSubIndex;
+		b2Array_RemoveSwap(color->contactArray, colorSubIndex);
+		if (colorSubIndex < b2Array(color->contactArray).count)
 		{
 			// Fix index on swapped contact
-			int32_t swappedContactIndex = color->contactArray[colorContactIndex];
-			world->contacts[swappedContactIndex].colorContactIndex = colorContactIndex;
+			int32_t swappedIndex = color->contactArray[colorSubIndex];
+			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
 		}
 
 		b2ClearBit(&color->bodySet, bodyIndexB);
 	}
 
 	contact->colorIndex = B2_NULL_INDEX;
-	contact->colorContactIndex = B2_NULL_INDEX;
-	contact->flags &= ~b2_contactStatic;
+	contact->colorSubIndex = B2_NULL_INDEX;
+}
+
+void b2AddJointToGraph(b2World* world, b2Joint* joint)
+{
+	B2_ASSERT(joint->colorIndex == B2_NULL_INDEX);
+	B2_ASSERT(joint->colorSubIndex == B2_NULL_INDEX);
+
+	b2Graph* graph = &world->graph;
+
+	int32_t bodyIndexA = joint->edges[0].bodyIndex;
+	int32_t bodyIndexB = joint->edges[1].bodyIndex;
+
+	b2BodyType typeA = world->bodies[bodyIndexA].type;
+	b2BodyType typeB = world->bodies[bodyIndexB].type;
+
+	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
+	{
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2GraphColor* color = graph->colors + i;
+			if (b2GetBit(&color->bodySet, bodyIndexA) || b2GetBit(&color->bodySet, bodyIndexB))
+			{
+				continue;
+			}
+
+			b2SetBitGrow(&color->bodySet, bodyIndexA);
+			b2SetBitGrow(&color->bodySet, bodyIndexB);
+
+			joint->colorSubIndex = b2Array(color->jointArray).count;
+			b2Array_Push(color->jointArray, joint->object.index);
+			joint->colorIndex = i;
+			break;
+		}
+	}
+	else if (typeA == b2_dynamicBody)
+	{
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2GraphColor* color = graph->colors + i;
+			if (b2GetBit(&color->bodySet, bodyIndexA))
+			{
+				continue;
+			}
+
+			b2SetBitGrow(&color->bodySet, bodyIndexA);
+
+			joint->colorSubIndex = b2Array(color->jointArray).count;
+			b2Array_Push(color->jointArray, joint->object.index);
+			joint->colorIndex = i;
+			break;
+		}
+	}
+	else if (typeB == b2_dynamicBody)
+	{
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2GraphColor* color = graph->colors + i;
+			if (b2GetBit(&color->bodySet, bodyIndexB))
+			{
+				continue;
+			}
+
+			b2SetBitGrow(&color->bodySet, bodyIndexB);
+
+			joint->colorSubIndex = b2Array(color->jointArray).count;
+			b2Array_Push(color->jointArray, joint->object.index);
+			joint->colorIndex = i;
+			break;
+		}
+	}
+
+	B2_ASSERT(joint->colorIndex != B2_NULL_INDEX && joint->colorSubIndex != B2_NULL_INDEX);
+}
+
+void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
+{
+	B2_ASSERT(joint->colorIndex != B2_NULL_INDEX);
+	B2_ASSERT(joint->colorSubIndex != B2_NULL_INDEX);
+
+	b2Graph* graph = &world->graph;
+
+	B2_ASSERT(0 <= joint->colorIndex && joint->colorIndex < b2_graphColorCount);
+	int32_t bodyIndexA = joint->edges[0].bodyIndex;
+	int32_t bodyIndexB = joint->edges[1].bodyIndex;
+
+	b2BodyType typeA = world->bodies[bodyIndexA].type;
+	b2BodyType typeB = world->bodies[bodyIndexB].type;
+
+	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
+	{
+		b2GraphColor* color = graph->colors + joint->colorIndex;
+		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA) && b2GetBit(&color->bodySet, bodyIndexB));
+
+		int32_t colorSubIndex = joint->colorSubIndex;
+		b2Array_RemoveSwap(color->jointArray, colorSubIndex);
+		if (colorSubIndex < b2Array(color->jointArray).count)
+		{
+			// Fix index on swapped joint
+			int32_t swappedIndex = color->jointArray[colorSubIndex];
+			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
+		}
+
+		b2ClearBit(&color->bodySet, bodyIndexA);
+		b2ClearBit(&color->bodySet, bodyIndexB);
+	}
+	else if (typeA == b2_dynamicBody)
+	{
+		b2GraphColor* color = graph->colors + joint->colorIndex;
+		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
+
+		int32_t colorSubIndex = joint->colorSubIndex;
+		b2Array_RemoveSwap(color->jointArray, colorSubIndex);
+		if (colorSubIndex < b2Array(color->jointArray).count)
+		{
+			// Fix index on swapped joint
+			int32_t swappedIndex = color->jointArray[colorSubIndex];
+			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
+		}
+
+		b2ClearBit(&color->bodySet, bodyIndexA);
+	}
+	else if (typeB == b2_dynamicBody)
+	{
+		b2GraphColor* color = graph->colors + joint->colorIndex;
+		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));
+
+		int32_t colorSubIndex = joint->colorSubIndex;
+		b2Array_RemoveSwap(color->jointArray, colorSubIndex);
+		if (colorSubIndex < b2Array(color->jointArray).count)
+		{
+			// Fix index on swapped joint
+			int32_t swappedIndex = color->jointArray[colorSubIndex];
+			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
+		}
+
+		b2ClearBit(&color->bodySet, bodyIndexB);
+	}
+
+	joint->colorIndex = B2_NULL_INDEX;
+	joint->colorSubIndex = B2_NULL_INDEX;
 }
 
 static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
@@ -310,19 +451,22 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Sol
 	b2TracyCZoneEnd(integrate_positions);
 }
 
-static void b2FinalizePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t workerIndex)
+static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t workerIndex)
 {
 	b2TracyCZoneNC(finalize_positions, "FinPos", b2_colorViolet, true);
 
 	b2World* world = context->world;
+	bool enableSleep = world->enableSleep;
 	b2Body* bodies = world->bodies;
 	const b2SolverBody* solverBodies = context->solverBodies;
 	b2Contact* contacts = world->contacts;
 	const int32_t* solverToBodyMap = context->solverToBodyMap;
 	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
+	float timeStep = context->timeStep;
 
 	b2BitSet* awakeContactBitSet = &world->taskContextArray[workerIndex].awakeContactBitSet;
 	b2BitSet* shapeBitSet = &world->taskContextArray[workerIndex].shapeBitSet;
+	b2BitSet* awakeIslandBitSet = &world->taskContextArray[workerIndex].awakeIslandBitSet;
 
 	B2_ASSERT(startIndex <= endIndex);
 	B2_ASSERT(startIndex <= world->bodyPool.capacity);
@@ -344,6 +488,28 @@ static void b2FinalizePositionsTask(int32_t startIndex, int32_t endIndex, b2Solv
 
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
+
+		// Update sleep
+		const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
+		const float angTolSqr = b2_angularSleepTolerance * b2_angularSleepTolerance;
+
+		if (enableSleep == false || body->enableSleep == false ||
+			body->angularVelocity * body->angularVelocity > angTolSqr ||
+			b2Dot(body->linearVelocity, body->linearVelocity) > linTolSqr)
+		{
+			body->sleepTime = 0.0f;
+		}
+		else
+		{
+			body->sleepTime += timeStep;
+		}
+
+		// Any single body in an island can keep it awake
+		if (body->sleepTime < b2_timeToSleep)
+		{
+			B2_ASSERT(0 <= body->islandIndex && body->islandIndex < world->islandPool.capacity);
+			b2SetBit(awakeIslandBitSet, body->islandIndex);
+		}
 
 		// Update shapes AABBs
 		int32_t shapeIndex = body->shapeList;
@@ -367,7 +533,6 @@ static void b2FinalizePositionsTask(int32_t startIndex, int32_t endIndex, b2Solv
 			shapeIndex = shape->nextShapeIndex;
 		}
 
-		// TODO_ERIN legacy
 		int32_t contactKey = body->contactList;
 		while (contactKey != B2_NULL_INDEX)
 		{
@@ -451,12 +616,12 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 			b2IntegratePositionsTask(startIndex, endIndex, context);
 			break;
 
-		case b2_stageFinalizePositions:
-			b2FinalizePositionsTask(startIndex, endIndex, context, workerIndex);
-			break;
-
 		case b2_stageCalmContacts:
 			b2SolveContactAVXsTask(startIndex, endIndex, context, stage->colorIndex, false);
+			break;
+
+		case b2_stageFinalizeBodies:
+			b2FinalizeBodiesTask(startIndex, endIndex, context, workerIndex);
 			break;
 
 		case b2_stageStoreImpulses:
@@ -604,9 +769,9 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		b2_stageSolveJoints,
 		b2_stageSolveContacts,
 		b2_stageIntegratePositions,
-		b2_stageFinalizePositions,
 		b2_stageCalmJoints,
 		b2_stageCalmContacts,
+		b2_stageFinalizeBodies,
 		b2_stageStoreImpulses
 		*/
 
@@ -766,9 +931,9 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		b2_stageSolveJoints,
 		b2_stageSolveContacts,
 		b2_stageIntegratePositions,
-		b2_stageFinalizePositions,
 		b2_stageCalmJoints,
 		b2_stageCalmContacts,
+		b2_stageFinalizeBodies,
 		b2_stageStoreImpulses
 		*/
 
@@ -830,11 +995,6 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 		stageIndex += 1 + activeColorCount + 1;
 
-		syncBits = (bodySyncIndex << 16) | stageIndex;
-		B2_ASSERT(stages[stageIndex].type == b2_stageFinalizePositions);
-		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
-		stageIndex += 1;
-
 		int32_t calmIterations = context->calmIterations;
 		for (int32_t i = 0; i < calmIterations; ++i)
 		{
@@ -856,6 +1016,11 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		}
 
 		stageIndex += 1 + activeColorCount;
+
+		syncBits = (bodySyncIndex << 16) | stageIndex;
+		B2_ASSERT(stages[stageIndex].type == b2_stageFinalizeBodies);
+		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
+		stageIndex += 1;
 
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
@@ -1557,14 +1722,6 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stage->completionCount = 0;
 	stage += 1;
 
-	// Finalize positions
-	stage->type = b2_stageFinalizePositions;
-	stage->blocks = bodyBlocks;
-	stage->blockCount = bodyBlockCount;
-	stage->colorIndex = -1;
-	stage->completionCount = 0;
-	stage += 1;
-
 	// Calm joints
 	stage->type = b2_stageCalmJoints;
 	stage->blocks = NULL;
@@ -1583,6 +1740,14 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		stage->completionCount = 0;
 		stage += 1;
 	}
+
+	// Finalize bodies
+	stage->type = b2_stageFinalizeBodies;
+	stage->blocks = bodyBlocks;
+	stage->blockCount = bodyBlockCount;
+	stage->colorIndex = -1;
+	stage->completionCount = 0;
+	stage += 1;
 
 	// Store impulses
 	stage->type = b2_stageStoreImpulses;

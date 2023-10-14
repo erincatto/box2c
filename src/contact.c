@@ -197,7 +197,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contact->islandIndex = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
-	contact->colorContactIndex = B2_NULL_INDEX;
+	contact->colorSubIndex = B2_NULL_INDEX;
 	contact->colorIndex = B2_NULL_INDEX;
 
 	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
@@ -443,10 +443,6 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		{
 			// TODO_ERIN this call assumes thread safety
 			int32_t colorIndex = contact->colorIndex;
-			if (contact->flags & b2_contactStatic)
-			{
-				colorIndex += 8;
-			}
 			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, colorIndex, world->preSolveContext);
 			if (collide == false)
 			{

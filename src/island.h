@@ -81,7 +81,6 @@ void b2PrepareIsland(b2Island* island, b2StepContext* stepContext);
 
 void b2SolveIsland(b2Island* island, uint32_t threadIndex);
 
-void b2CompleteIsland(b2Island* island);
 void b2CompleteBaseSplitIsland(b2Island* island);
 void b2CompleteSplitIsland(b2Island* island);
 

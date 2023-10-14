@@ -129,6 +129,12 @@ typedef struct b2Joint
 	int32_t islandPrev;
 	int32_t islandNext;
 
+	// The color of this constraint in the graph coloring
+	int32_t colorIndex;
+
+	// Index of joint within color
+	int32_t colorSubIndex;
+
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
 

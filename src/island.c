@@ -178,32 +178,45 @@ void b2WakeIsland(b2Island* island)
 
 	if (island->awakeIndex != B2_NULL_INDEX)
 	{
+		// already awake
 		B2_ASSERT(world->awakeIslandArray[island->awakeIndex] == island->object.index);
 		return;
 	}
 
+	int32_t islandIndex = island->object.index;
 	island->awakeIndex = b2Array(world->awakeIslandArray).count;
-	b2Array_Push(world->awakeIslandArray, island->object.index);
+	b2Array_Push(world->awakeIslandArray, islandIndex);
 
-	// TODO_ISLAND add constraints to graph
+	// Reset sleep timers on bodies
+	// TODO_ERIN make this parallel somehow?
+	int32_t bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
+	{
+		b2Body* body = world->bodies + bodyIndex;
+		B2_ASSERT(body->islandIndex == islandIndex);
+		body->sleepTime = 0.0f;
+		bodyIndex = body->islandNext;
+	}
+
+	// Add constraints to graph
+	int32_t contactIndex = island->headContact;
+	while (contactIndex != B2_NULL_INDEX)
+	{
+		b2Contact* contact = world->contacts + contactIndex;
+		B2_ASSERT(contact->islandIndex == islandIndex);
+		b2AddContactToGraph(world, contact);
+		contactIndex = contact->islandNext;
+	}
+
+	int32_t jointIndex = island->headJoint;
+	while (jointIndex != B2_NULL_INDEX)
+	{
+		b2Joint* joint = world->joints + jointIndex;
+		B2_ASSERT(joint->islandIndex == islandIndex);
+		b2AddJointToGraph(world, joint);
+		jointIndex = joint->islandNext;
+	}
 }
-
-#if B2_GRAPH_COLOR == 1
-
-void b2LinkContact(b2World* world, b2Contact* contact)
-{
-	B2_MAYBE_UNUSED(world);
-	B2_MAYBE_UNUSED(contact);
-}
-
-void b2UnlinkContact(b2World* world, b2Contact* contact)
-{
-	B2_MAYBE_UNUSED(world);
-	B2_MAYBE_UNUSED(contact);
-
-}
-
-#else
 
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
@@ -328,8 +341,6 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
 }
-
-#endif
 
 static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
 {
@@ -660,13 +671,6 @@ void b2MergeAwakeIslands(b2World* world)
 	world->islands = (b2Island*)world->islandPool.memory;
 }
 
-static int b2CompareIslands(const void* A, const void* B)
-{
-	const b2Island* islandA = *(const b2Island**)A;
-	const b2Island* islandB = *(const b2Island**)B;
-	return islandB->bodyCount - islandA->bodyCount;
-}
-
 #define B2_CONTACT_REMOVE_THRESHOLD 1
 
 // Split an island because some contacts and/or joints have been removed
@@ -914,46 +918,9 @@ static void b2SplitIsland(b2Island* baseIsland)
 	b2TracyCZoneEnd(split);
 }
 
-void b2CompleteIsland(b2Island* island)
-{
-	b2World* world = island->world;
-
-	// Wake island
-	if (island->awakeIndex != B2_NULL_INDEX)
-	{
-		island->awakeIndex = B2_NULL_INDEX;
-		b2WakeIsland(island);
-	}
-}
-
 // This island was just created through splitting. Handle single thread work.
 void b2CompleteSplitIsland(b2Island* island)
 {
-// Report impulses
-#if 0
-	b2World* world = island->world;
-	b2PostSolveFcn* postSolveFcn = island->world->postSolveFcn;
-	if (postSolveFcn != NULL)
-	{
-		b2Contact* contacts = world->contacts;
-		int16_t worldIndex = world->index;
-		const b2Shape* shapes = world->shapes;
-
-		int32_t contactIndex = island->headContact;
-		while (contactIndex != B2_NULL_INDEX)
-		{
-			const b2Contact* contact = contacts + contactIndex;
-
-			const b2Shape* shapeA = shapes + contact->shapeIndexA;
-			const b2Shape* shapeB = shapes + contact->shapeIndexB;
-
-			b2ShapeId idA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-			b2ShapeId idB = {shapeB->object.index, worldIndex, shapeB->object.revision};
-			postSolveFcn(idA, idB, &contact->manifold, world->postSolveContext);
-		}
-	}
-#endif
-
 	// Split islands are kept awake as part of the splitting process. They can
 	// fall asleep the next time step.
 	island->awakeIndex = B2_NULL_INDEX;
