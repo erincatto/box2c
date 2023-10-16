@@ -166,6 +166,9 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 			B2_ASSERT(world->contacts[swappedIndex].colorIndex == b2_overflowIndex);
 			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
 		}
+		
+		contact->colorIndex = B2_NULL_INDEX;
+		contact->colorSubIndex = B2_NULL_INDEX;
 
 		return;
 	}
@@ -838,7 +841,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		b2PrepareJointsTask(context);
 		stageIndex += 1;
 
-		b2PrepareContactsTask();
+		b2PrepareOverflowContacts(context);
 
 		int32_t velocityIterations = context->velocityIterations;
 		for (int32_t i = 0; i < velocityIterations; ++i)
@@ -850,6 +853,8 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageSolveJoints);
 			b2SolveJointsTask(context, true);
 			iterStageIndex += 1;
+
+			b2SolveOverflowContacts(context, true);
 
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
@@ -878,6 +883,8 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			b2SolveJointsTask(context, false);
 			iterStageIndex += 1;
 
+			b2SolveOverflowContacts(context, false);
+
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
@@ -898,6 +905,8 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
+
+		b2StoreOverflowImpulses(context);
 
 		// Signal workers to finish
 		atomic_store(&context->syncBits, UINT_MAX);
@@ -1325,6 +1334,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, graphBlocks);
 	b2FreeStackItem(world->stackAllocator, bodyBlocks);
 	b2FreeStackItem(world->stackAllocator, stages);
+	b2FreeStackItem(world->stackAllocator, graph->overflow.contactConstraints);
 	b2FreeStackItem(world->stackAllocator, contactIndices);
 	b2FreeStackItem(world->stackAllocator, constraints);
 	b2FreeStackItem(world->stackAllocator, bodyToSolverMap);

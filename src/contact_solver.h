@@ -19,12 +19,6 @@ typedef struct b2ContactConstraintPoint
 	float tangentMass;
 } b2ContactConstraintPoint;
 
-typedef enum b2ContactConstraintType
-{
-	b2_onePointType,
-	b2_twoPointType,
-} b2ContactConstraintType;
-
 typedef struct b2ContactConstraint
 {
 	b2Contact* contact;
@@ -36,7 +30,7 @@ typedef struct b2ContactConstraint
 	float massCoefficient;
 	float biasCoefficient;
 	float impulseCoefficient;
-	b2ContactConstraintType type;
+	int32_t pointCount;
 } b2ContactConstraint;
 
 // Wide float
@@ -68,10 +62,9 @@ typedef struct b2ContactConstraintAVX
 } b2ContactConstraintAVX;
 
 // Scalar
-void b2PrepareContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
-void b2WarmStartContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
-void b2SolveContacts(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
-void b2StoreImpulses(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+void b2PrepareOverflowContacts(b2SolverTaskContext* context);
+void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias);
+void b2StoreOverflowImpulses(b2SolverTaskContext* context);
 
 // AVX versions
 void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);

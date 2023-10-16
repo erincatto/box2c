@@ -128,7 +128,8 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 		if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 		{
-			b2AddJointToGraph(world, joint);
+			// TODO_JOINT_GRAPH
+			//b2AddJointToGraph(world, joint);
 		}
 	}
 
@@ -370,6 +371,9 @@ void b2World_DestroyJoint(b2JointId jointId)
 	bodyB->jointCount -= 1;
 
 	b2UnlinkJoint(world, joint);
+
+	// TODO_JOINT_GRAPH
+	// b2RemoveJointFromGraph(joint);
 
 	b2FreeObject(&world->jointPool, &joint->object);
 }

@@ -79,11 +79,11 @@ public:
 	{
 		Sample::Step(settings);
 
-		for (int32_t i = 0; i < 10 && m_count < m_maxCount; ++i)
+		for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
 		{
 			b2BodyDef bd = b2DefaultBodyDef();
 			bd.type = b2_dynamicBody;
-			bd.position = {0.25f * i, 10.0f};
+			bd.position = {0.25f * i, 10.0f + 1.0f * (m_stepCount & 1)};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 			b2ShapeDef sd = b2DefaultShapeDef();
