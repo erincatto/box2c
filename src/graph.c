@@ -27,6 +27,7 @@ typedef struct b2WorkerContext
 {
 	b2SolverTaskContext* context;
 	int32_t workerIndex;
+	void* userTask;
 } b2WorkerContext;
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
@@ -586,47 +587,6 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverT
 	b2TracyCZoneEnd(finalize_positions);
 }
 
-#if B2_AVX == 0
-
-static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex, int32_t workerIndex)
-{
-	b2SolverStageType type = stage->type;
-
-	switch (type)
-	{
-		case b2_stageIntegrateVelocities:
-			b2IntegrateVelocitiesTask(startIndex, endIndex, context);
-			break;
-
-		case b2_stagePrepareContacts:
-			b2PrepareContactsTask(startIndex, endIndex, context, stage->colorIndex);
-			break;
-
-		case b2_stageSolveContacts:
-			b2SolveContactsTask(startIndex, endIndex, context, stage->colorIndex, true);
-			break;
-
-		case b2_stageIntegratePositions:
-			b2IntegratePositionsTask(startIndex, endIndex, context);
-			break;
-
-		case b2_stageFinalizePositions:
-			b2FinalizePositionsTask(startIndex, endIndex, context, workerIndex);
-			break;
-
-		case b2_stageCalmContacts:
-			b2SolveContactsTask(startIndex, endIndex, context, stage->colorIndex, false);
-			break;
-
-		case b2_stageStoreImpulses:
-			b2StoreImpulsesTask(startIndex, endIndex, context);
-			break;
-	}
-}
-
-#else
-
-// AVX
 static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex, int32_t workerIndex)
 {
 	b2SolverStageType type = stage->type;
@@ -666,7 +626,6 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 	}
 }
-#endif
 
 static inline int32_t GetWorkerStartIndex(int32_t workerIndex, int32_t blockCount, int32_t workerCount)
 {
@@ -995,11 +954,23 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	int32_t* bodyToSolverMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
 	memset(bodyToSolverMap, 0xFF, bodyCapacity * sizeof(int32_t));
 
+	// Search for an awake island to split
+	int32_t splitIslandIndex = B2_NULL_INDEX;
+	int32_t maxRemovedContacts = 0;
+	
+	// Build array of awake bodies
 	int32_t index = 0;
 	for (int32_t i = 0; i < awakeIslandCount; ++i)
 	{
 		int32_t islandIndex = world->awakeIslandArray[i];
 		b2Island* island = world->islands + islandIndex;
+
+		if (island->constraintRemoveCount > maxRemovedContacts)
+		{
+			maxRemovedContacts = island->constraintRemoveCount;
+			splitIslandIndex = islandIndex;
+		}
+
 		int32_t bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
@@ -1067,6 +1038,9 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		b2AllocateStackItem(world->stackAllocator, constraintCount * sizeof(b2ContactConstraintAVX), "contact constraint");
 
 	int32_t* contactIndices = b2AllocateStackItem(world->stackAllocator, 8 * constraintCount * sizeof(int32_t), "contact indices");
+	int32_t overflowContactCount = b2Array(graph->overflow.contactArray).count;
+	graph->overflow.contactConstraints = 
+		b2AllocateStackItem(world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
 	int32_t base = 0;
 	for (int32_t i = 0; i < activeColorCount; ++i)
@@ -1099,10 +1073,6 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		storeBlockSize = constraintCount / (blocksPerWorker * workerCount);
 		storeBlockCount = blocksPerWorker * workerCount;
 	}
-
-	int32_t overflowContactCount = b2Array(graph->overflow.contactArray).count;
-	graph->overflow.contactConstraints = 
-		b2AllocateStackItem(world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
 	/*
 	b2_stageIntegrateVelocities = 0,
@@ -1142,6 +1112,28 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2SolverBlock* bodyBlocks = b2AllocateStackItem(world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
 	b2SolverBlock* graphBlocks = b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
 	b2SolverBlock* storeBlocks = b2AllocateStackItem(world->stackAllocator, storeBlockCount * sizeof(b2SolverBlock), "store blocks");
+
+	// Split an awake island. This modifies:
+	// - stack allocator
+	// - awake island array
+	// - island pool
+	// - island indices on bodies, contacts, and joints
+	// I'm squeezing this task in here because it may be expensive and this
+	// is a safe place to put it.
+	world->splitIslandIndex = splitIslandIndex;
+	void* splitIslandTask = NULL;
+	if (splitIslandIndex != B2_NULL_INDEX)
+	{
+		extern bool b2_parallel;
+		if (b2_parallel)
+		{
+			splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
+		}
+		else
+		{
+			b2SplitIslandTask(0, 1, 0, world);
+		}
+	}
 
 	for (int32_t i = 0; i < bodyBlockCount; ++i)
 	{
@@ -1325,10 +1317,22 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	{
 		workerContext[i].context = &context;
 		workerContext[i].workerIndex = i;
-		world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
+		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 	}
 
-	world->finishAllTasksFcn(world->userTaskContext);
+	// Finish solve
+	for (int32_t i = 0; i < workerCount; ++i)
+	{
+		world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+	}
+
+	// Finish split
+	if (splitIslandTask != NULL)
+	{
+		world->finishTaskFcn(splitIslandTask, world->userTaskContext);
+	}
+
+	world->splitIslandIndex = B2_NULL_INDEX;
 
 	b2FreeStackItem(world->stackAllocator, storeBlocks);
 	b2FreeStackItem(world->stackAllocator, graphBlocks);

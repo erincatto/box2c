@@ -74,12 +74,6 @@ typedef struct b2World
 	// Hot data split from b2Contact
 	int32_t* contactAwakeIndexArray;
 
-	// This transient array holds islands created from splitting a larger island.
-	int32_t* splitIslandArray;
-
-	// Transient index of the island being split this time step. May be B2_NULL_INDEX.
-	int32_t splitIslandIndex;
-
 	// Array of fast bodies that need continuous collision handling
 	int32_t* fastBodies;
 	int32_t fastBodyCapacity;
@@ -111,6 +105,8 @@ typedef struct b2World
 	void* userTaskContext;
 
 	void* userTreeTask;
+
+	int32_t splitIslandIndex;
 
 	bool enableSleep;
 	bool locked;

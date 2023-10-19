@@ -236,23 +236,8 @@ void b2World_DestroyBody(b2BodyId bodyId)
 				B2_ASSERT(island->contactCount == 0);
 				B2_ASSERT(island->jointCount == 0);
 
-				// Remove from awake islands array
-				if (island->awakeIndex != B2_NULL_INDEX)
-				{
-					int32_t islandCount = b2Array(world->awakeIslandArray).count;
-					B2_ASSERT(islandCount > 0);
-					b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
-					if (island->awakeIndex < islandCount - 1)
-					{
-						// Fix awake index on swapped island
-						int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
-						world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
-					}
-				}
-
 				// Free the island
 				b2DestroyIsland(island);
-				b2FreeObject(&world->islandPool, &island->object);
 				islandDestroyed = true;
 			}
 		}

@@ -119,12 +119,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->islands = (b2Island*)world->islandPool.memory;
 
 	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
-	world->splitIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
 
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
 	world->contactAwakeIndexArray = b2CreateArray(sizeof(int32_t), world->contactPool.capacity);
 
-	world->splitIslandIndex = B2_NULL_INDEX;
 	world->stepId = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
@@ -138,6 +136,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->enableWarmStarting = true;
 	world->enableContinuous = true;
 	world->profile = b2_emptyProfile;
+	world->userTreeTask = NULL;
+	world->splitIslandIndex = B2_NULL_INDEX;
 
 	id.revision = world->revision;
 
@@ -188,18 +188,6 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
 	b2DestroyArray(world->contactAwakeIndexArray, sizeof(int32_t));
-	b2DestroyArray(world->splitIslandArray, sizeof(int32_t));
-
-	b2Island* islands = world->islands;
-	int32_t islandCapacity = world->islandPool.capacity;
-	for (int32_t i = 0; i < islandCapacity; ++i)
-	{
-		b2Island* island = islands + i;
-		if (b2ObjectValid(&island->object) == true)
-		{
-			b2DestroyIsland(island);
-		}
-	}
 
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
@@ -216,7 +204,6 @@ void b2DestroyWorld(b2WorldId id)
 	memset(world, 0, sizeof(b2World));
 }
 
-// Locked version
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {
 	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
@@ -307,13 +294,15 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2TracyCZoneEnd(tree_task);
 }
 
+// Narrow-phase collision
 static void b2Collide(b2World* world)
 {
 	B2_ASSERT(world->workerCount > 0);
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	// Rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good.
+	// Tasks that can be done in parallel with the narrow-phase 
+	// - rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good
 	if (b2_parallel)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
@@ -328,6 +317,7 @@ static void b2Collide(b2World* world)
 
 	if (awakeContactCount == 0)
 	{
+		b2TracyCZoneEnd(collide);
 		return;
 	}
 
@@ -389,6 +379,10 @@ static void b2Collide(b2World* world)
 			else
 			{
 				B2_ASSERT(contact->flags & b2_contactStoppedTouching);
+				if (contact->colorIndex == B2_NULL_INDEX)
+				{
+					contact->colorIndex = B2_NULL_INDEX;
+				}
 
 				b2UnlinkContact(world, contact);
 				b2RemoveContactFromGraph(world, contact);
@@ -400,30 +394,9 @@ static void b2Collide(b2World* world)
 		}
 	}
 
-	// TODO_ERIN clear awake contact array here?
-
 	b2TracyCZoneEnd(contact_state);
 
 	b2TracyCZoneEnd(collide);
-}
-
-static void b2IslandParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
-{
-	b2TracyCZoneNC(island_task, "Island Task", b2_colorYellow, true);
-
-	b2World* world = taskContext;
-
-	B2_ASSERT(startIndex <= endIndex);
-	B2_ASSERT(startIndex <= b2Array(world->awakeIslandArray).count);
-	B2_ASSERT(endIndex <= b2Array(world->awakeIslandArray).count);
-
-	for (int32_t i = startIndex; i < endIndex; ++i)
-	{
-		int32_t index = world->awakeIslandArray[i];
-		b2SolveIsland(world->islands + index, threadIndex);
-	}
-
-	b2TracyCZoneEnd(island_task);
 }
 
 struct b2ContinuousContext
@@ -629,295 +602,6 @@ static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, ui
 	b2TracyCZoneEnd(continuous_task);
 }
 
-#if 0
-static void b2Solve(b2World* world, b2StepContext* context)
-{
-	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
-	b2TracyCZoneNC(prepare_islands, "Prepare Islands", b2_colorDarkSalmon, true);
-
-	b2Timer timer = b2CreateTimer();
-
-	b2Array_Clear(world->splitIslandArray);
-	world->stepId += 1;
-
-	// Prepare contact and shape bit-sets
-	int32_t contactCapacity = world->contactPool.capacity;
-	int32_t shapeCapacity = world->shapePool.capacity;
-	for (uint32_t i = 0; i < world->workerCount; ++i)
-	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
-		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
-	}
-
-	b2MergeAwakeIslands(world);
-
-	// Careful, this is modified by island merging
-	int32_t count = b2Array(world->awakeIslandArray).count;
-
-	int32_t fastBodyCapacity = 0;
-	b2Island** islands = b2AllocateStackItem(world->stackAllocator, count * sizeof(b2Island*), "island array");
-	for (int32_t i = 0; i < count; ++i)
-	{
-		b2Island* island = world->islands + world->awakeIslandArray[i];
-		B2_ASSERT(island->awakeIndex == i);
-		islands[i] = island;
-		fastBodyCapacity += island->bodyCount;
-	}
-
-	world->fastBodyCapacity = fastBodyCapacity;
-	world->fastBodyCount = 0;
-	world->fastBodies = b2AllocateStackItem(world->stackAllocator, fastBodyCapacity * sizeof(int32_t), "fast bodies");
-
-	// Sort islands to improve task distribution
-	b2SortIslands(world, islands, count);
-
-	// Now create the island solvers
-	for (int32_t i = 0; i < count; ++i)
-	{
-		b2PrepareIsland(islands[i], context);
-	}
-
-	b2TracyCZoneEnd(prepare_islands);
-
-	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
-
-	b2TracyCZoneNC(island_solver, "Island Solver", b2_colorSeaGreen, true);
-
-	if (b2_parallel)
-	{
-		int32_t minRange = b2_islandMinRange;
-		void* userIslandTask = world->enqueueTaskFcn(&b2IslandParallelForTask, count, minRange, world, world->userTaskContext);
-		world->finishTaskFcn(userIslandTask, world->userTaskContext);
-
-		// Finish the user tree task that was queued early in the time step
-		if (world->userTreeTask != NULL)
-		{
-			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
-		}
-
-		world->userTreeTask = NULL;
-	}
-	else
-	{
-		b2IslandParallelForTask(0, count, 0, world);
-	}
-
-	b2ValidateNoEnlarged(&world->broadPhase);
-
-	b2TracyCZoneEnd(island_solver);
-
-	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
-
-	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
-
-	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
-
-	// Enlarge broad-phase proxies and build move array
-	{
-		b2BroadPhase* broadPhase = &world->broadPhase;
-
-		// Gather bits for all shapes that have enlarged AABBs
-		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
-		for (uint32_t i = 1; i < world->workerCount; ++i)
-		{
-			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
-		}
-
-		// Apply shape AABB changes to broadphase. This also create the move array which must be
-		// ordered to ensure determinism.
-		b2Shape* shapes = world->shapes;
-		uint64_t word;
-		uint32_t wordCount = bitSet->wordCount;
-		uint64_t* bits = bitSet->bits;
-		for (uint32_t k = 0; k < wordCount; ++k)
-		{
-			word = bits[k];
-			while (word != 0)
-			{
-				uint32_t ctz = b2CTZ(word);
-				uint32_t shapeIndex = 64 * k + ctz;
-
-				b2Shape* shape = shapes + shapeIndex;
-				B2_ASSERT(b2ObjectValid(&shape->object));
-				if (shape->isFast == false)
-				{
-					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
-				}
-				else
-				{
-					// Shape is fast. It's aabb will be enlarged in continuous collision.
-					b2BufferMove(broadPhase, shape->proxyKey);
-				}
-
-				// Clear the smallest set bit
-				word = word & (word - 1);
-			}
-		}
-	}
-
-	b2TracyCZoneEnd(enlarge_proxies);
-
-	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
-
-	// Build awake contact array
-	{
-		b2BitSet* bitSet = &world->taskContextArray[0].awakeContactBitSet;
-		for (uint32_t i = 1; i < world->workerCount; ++i)
-		{
-			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
-		}
-
-		b2Array_Clear(world->awakeContactArray);
-
-		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
-
-		// Iterate the bit set
-		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
-		// that body A or body B or both bodies wake the contact.
-		uint64_t word;
-		uint32_t wordCount = bitSet->wordCount;
-		uint64_t* bits = bitSet->bits;
-		for (uint32_t k = 0; k < wordCount; ++k)
-		{
-			word = bits[k];
-			while (word != 0)
-			{
-				uint32_t ctz = b2CTZ(word);
-				uint32_t contactIndex = 64 * k + ctz;
-
-				B2_ASSERT(contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
-
-				// This cache miss is brutal but is necessary to make contact destruction reasonably quick.
-				contactAwakeIndexArray[contactIndex] = b2Array(world->awakeContactArray).count;
-
-				// This is fast
-				b2Array_Push(world->awakeContactArray, contactIndex);
-
-				// Clear the smallest set bit
-				word = word & (word - 1);
-			}
-		}
-	}
-
-	b2TracyCZoneEnd(awake_contacts);
-
-	b2TracyCZoneNC(complete_island, "Complete Island", b2_colorBlueViolet, true);
-
-	// Complete islands (reverse order for stack allocator)
-	// This rebuilds the awake island array and awake contact array
-	b2Array_Clear(world->awakeIslandArray);
-
-	for (int32_t i = count - 1; i >= 0; --i)
-	{
-		b2Island* island = islands[i];
-		if (island->object.index == world->splitIslandIndex)
-		{
-			b2CompleteBaseSplitIsland(island);
-		}
-		else
-		{
-			b2CompleteIsland(island);
-		}
-	}
-
-	// Handle islands created from splitting
-	if (world->splitIslandIndex != B2_NULL_INDEX)
-	{
-		b2Island* baseIsland = world->islands + world->splitIslandIndex;
-		int32_t splitCount = b2Array(world->splitIslandArray).count;
-		for (int32_t i = 0; i < splitCount; ++i)
-		{
-			int32_t index = world->splitIslandArray[i];
-			b2Island* splitIsland = world->islands + index;
-			b2CompleteSplitIsland(splitIsland);
-		}
-
-		// Done with the base split island.
-		b2DestroyIsland(baseIsland);
-		b2FreeObject(&world->islandPool, &baseIsland->object);
-	}
-
-	b2ValidateBroadphase(&world->broadPhase);
-
-	b2TracyCZoneEnd(complete_island);
-
-	world->profile.broadphase = b2GetMilliseconds(&timer);
-
-	b2TracyCZoneEnd(broad_phase);
-
-	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
-
-	// Parallel continuous collision
-	if (b2_parallel)
-	{
-		int32_t minRange = 8;
-		void* userContinuousTask =
-			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
-		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
-	}
-	else
-	{
-		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
-	}
-
-	// Serially enlarge broad-phase proxies for fast shapes
-	{
-		b2BroadPhase* broadPhase = &world->broadPhase;
-		b2Body* bodies = world->bodies;
-		b2Shape* shapes = world->shapes;
-		int32_t* fastBodies = world->fastBodies;
-		int32_t fastBodyCount = world->fastBodyCount;
-		b2DynamicTree* tree = broadPhase->trees + b2_dynamicBody;
-
-		// Warning: this loop has non-deterministic order
-		for (int32_t i = 0; i < fastBodyCount; ++i)
-		{
-			b2Body* fastBody = bodies + fastBodies[i];
-			if (fastBody->enlargeAABB == false)
-			{
-				continue;
-			}
-
-			// clear flag
-			fastBody->enlargeAABB = false;
-
-			int32_t shapeIndex = fastBody->shapeList;
-			while (shapeIndex != B2_NULL_INDEX)
-			{
-				b2Shape* shape = shapes + shapeIndex;
-				if (shape->enlargedAABB == false)
-				{
-					continue;
-				}
-
-				// clear flag
-				shape->enlargedAABB = false;
-
-				int32_t proxyKey = shape->proxyKey;
-				int32_t proxyId = B2_PROXY_ID(proxyKey);
-				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
-
-				// all fast shapes should already be in the move buffer
-				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
-
-				shapeIndex = shape->nextShapeIndex;
-			}
-		}
-	}
-
-	b2TracyCZoneEnd(continuous_collision);
-
-	b2FreeStackItem(world->stackAllocator, world->fastBodies);
-	world->fastBodies = NULL;
-
-	world->profile.continuous = b2GetMilliseconds(&timer);
-
-	b2FreeStackItem(world->stackAllocator, islands);
-
-	b2TracyCZoneEnd(solve);
-}
-#endif
-
 // Solve with graph coloring
 static void b2Solve(b2World* world, b2StepContext* context)
 {
@@ -926,6 +610,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2Timer timer = b2CreateTimer();
 
 	world->stepId += 1;
+
+	b2MergeAwakeIslands(world);
+
+	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	// Prepare contact and shape bit-sets
 	int32_t contactCapacity = world->contactPool.capacity;
@@ -938,14 +628,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
 	}
 
-	b2MergeAwakeIslands(world);
-
-	world->profile.buildIslands = 0.0f;
-
-	// TODO_ISLAND task to split island
-
-	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
-
+	// Solve constraints using graph coloring
 	b2SolveGraph(world, context);
 
 	b2ValidateNoEnlarged(&world->broadPhase);
@@ -954,55 +637,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
 
-	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
-
-	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
-
-	// Enlarge broad-phase proxies and build move array
-	{
-		b2BroadPhase* broadPhase = &world->broadPhase;
-
-		// Gather bits for all shapes that have enlarged AABBs
-		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
-		for (uint32_t i = 1; i < world->workerCount; ++i)
-		{
-			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
-		}
-
-		// Apply shape AABB changes to broadphase. This also create the move array which must be
-		// ordered to ensure determinism.
-		b2Shape* shapes = world->shapes;
-		uint64_t word;
-		uint32_t wordCount = bitSet->wordCount;
-		uint64_t* bits = bitSet->bits;
-		for (uint32_t k = 0; k < wordCount; ++k)
-		{
-			word = bits[k];
-			while (word != 0)
-			{
-				uint32_t ctz = b2CTZ(word);
-				uint32_t shapeIndex = 64 * k + ctz;
-
-				b2Shape* shape = shapes + shapeIndex;
-				B2_ASSERT(b2ObjectValid(&shape->object));
-				if (shape->isFast == false)
-				{
-					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
-				}
-				else
-				{
-					// Shape is fast. It's aabb will be enlarged in continuous collision.
-					b2BufferMove(broadPhase, shape->proxyKey);
-				}
-
-				// Clear the smallest set bit
-				word = word & (word - 1);
-			}
-		}
-	}
-
-	b2TracyCZoneEnd(enlarge_proxies);
-
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
 	{
 		b2BitSet* bitSet = &world->taskContextArray[0].awakeIslandBitSet;
@@ -1010,7 +644,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		{
 			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeIslandBitSet);
 		}
-	
+
 		int32_t count = b2Array(world->awakeIslandArray).count;
 		for (int32_t i = 0; i < count; ++i)
 		{
@@ -1038,7 +672,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 			{
 				b2Joint* joint = world->joints + jointIndex;
 				// TODO_JOINT_GRAPH
-				//b2RemoveJointFromGraph(world, joint);
+				// b2RemoveJointFromGraph(world, joint);
 				jointIndex = joint->islandNext;
 			}
 		}
@@ -1117,11 +751,141 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(awake_contacts);
 
+	// Finish the user tree task that was queued early in the time step. This must be done before touching the broadphase.
+	if (b2_parallel)
+	{
+		if (world->userTreeTask != NULL)
+		{
+			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
+		}
+
+		world->userTreeTask = NULL;
+	}
+
+	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
+
+	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
+
+	// Enlarge broad-phase proxies and build move array
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+
+		// Gather bits for all shapes that have enlarged AABBs
+		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
+		}
+
+		// Apply shape AABB changes to broadphase. This also create the move array which must be
+		// ordered to ensure determinism.
+		b2Shape* shapes = world->shapes;
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t shapeIndex = 64 * k + ctz;
+
+				b2Shape* shape = shapes + shapeIndex;
+				B2_ASSERT(b2ObjectValid(&shape->object));
+				if (shape->isFast == false)
+				{
+					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+				}
+				else
+				{
+					// Shape is fast. It's aabb will be enlarged in continuous collision.
+					b2BufferMove(broadPhase, shape->proxyKey);
+				}
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(enlarge_proxies);
+
 	b2ValidateBroadphase(&world->broadPhase);
 
 	world->profile.broadphase = b2GetMilliseconds(&timer);
 
 	b2TracyCZoneEnd(broad_phase);
+
+#if 0
+	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
+
+	// Parallel continuous collision
+	if (b2_parallel)
+	{
+		int32_t minRange = 8;
+		void* userContinuousTask =
+			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
+	}
+	else
+	{
+		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
+	}
+
+	// Serially enlarge broad-phase proxies for fast shapes
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+		b2Body* bodies = world->bodies;
+		b2Shape* shapes = world->shapes;
+		int32_t* fastBodies = world->fastBodies;
+		int32_t fastBodyCount = world->fastBodyCount;
+		b2DynamicTree* tree = broadPhase->trees + b2_dynamicBody;
+
+		// Warning: this loop has non-deterministic order
+		for (int32_t i = 0; i < fastBodyCount; ++i)
+		{
+			b2Body* fastBody = bodies + fastBodies[i];
+			if (fastBody->enlargeAABB == false)
+			{
+				continue;
+			}
+
+			// clear flag
+			fastBody->enlargeAABB = false;
+
+			int32_t shapeIndex = fastBody->shapeList;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = shapes + shapeIndex;
+				if (shape->enlargedAABB == false)
+				{
+					continue;
+				}
+
+				// clear flag
+				shape->enlargedAABB = false;
+
+				int32_t proxyKey = shape->proxyKey;
+				int32_t proxyId = B2_PROXY_ID(proxyKey);
+				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
+
+				// all fast shapes should already be in the move buffer
+
+				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
+
+				shapeIndex = shape->nextShapeIndex;
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(continuous_collision);
+
+	b2FreeStackItem(world->stackAllocator, world->fastBodies);
+	world->fastBodies = NULL;
+
+	world->profile.continuous = b2GetMilliseconds(&timer);
+#endif
 
 	world->profile.continuous = 0.0f;
 
@@ -1202,15 +966,16 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
+	if (b2_parallel)
+	{
+		// This finishes tree rebuild and split island tasks
+		world->finishAllTasksFcn(world->userTaskContext);
+	}
+
 	B2_ASSERT(b2GetStackAllocation(world->stackAllocator) == 0);
 
 	// Ensure stack is large enough
 	b2GrowStack(world->stackAllocator);
-
-	if (b2_parallel)
-	{
-		world->finishAllTasksFcn(world->userTaskContext);
-	}
 
 	b2TracyCZoneEnd(world_step);
 }

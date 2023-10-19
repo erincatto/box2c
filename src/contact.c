@@ -199,6 +199,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contact->islandNext = B2_NULL_INDEX;
 	contact->colorSubIndex = B2_NULL_INDEX;
 	contact->colorIndex = B2_NULL_INDEX;
+	contact->isMarked = false;
 
 	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
 	b2Body* bodyB = world->bodies + shapeB->bodyIndex;

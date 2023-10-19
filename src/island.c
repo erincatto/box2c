@@ -139,12 +139,26 @@ void b2CreateIsland(b2Island* island)
 	island->parentIsland = B2_NULL_INDEX;
 	island->awakeIndex = B2_NULL_INDEX;
 	island->constraintRemoveCount = 0;
-	island->maySplit = false;
 }
 
 void b2DestroyIsland(b2Island* island)
 {
-	B2_MAYBE_UNUSED(island);
+	// Remove from awake islands array
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		b2World* world = island->world;
+		int32_t islandCount = b2Array(world->awakeIslandArray).count;
+		B2_ASSERT(islandCount > 0);
+		b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
+		if (island->awakeIndex < islandCount - 1)
+		{
+			// Fix awake index on swapped island
+			int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
+			world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
+		}
+	}
+	
+	b2FreeObject(&island->world->islandPool, &island->object);
 }
 
 static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* contact)
@@ -653,18 +667,7 @@ void b2MergeAwakeIslands(b2World* world)
 		int32_t mergedBodyCount = b2MergeIsland(island);
 		maxBodyCount = B2_MAX(maxBodyCount, mergedBodyCount);
 
-		int32_t count = b2Array(world->awakeIslandArray).count;
-		int32_t awakeIndex = island->awakeIndex;
-		b2Array_RemoveSwap(world->awakeIslandArray, awakeIndex);
-		if (awakeIndex < count - 1)
-		{
-			// Fix awake index on swapped island
-			int32_t swappedIslandIndex = world->awakeIslandArray[awakeIndex];
-			world->islands[swappedIslandIndex].awakeIndex = awakeIndex;
-		}
-
 		b2DestroyIsland(island);
-		b2FreeObject(&world->islandPool, &island->object);
 	}
 
 	// Step 3: ensure island pool has sufficient space to split the largest island
@@ -675,16 +678,27 @@ void b2MergeAwakeIslands(b2World* world)
 #define B2_CONTACT_REMOVE_THRESHOLD 1
 
 // Split an island because some contacts and/or joints have been removed
-// Note: contacts/joints connecting to static bodies must belong to an island but don't affect island connectivity
+// Note: contacts/joints connected to static bodies must belong to an island but don't affect island connectivity
 // Note: static bodies are never in an island
-// TODO_ERIN I think this can be done during collision
-static void b2SplitIsland(b2Island* baseIsland)
+// Note: this task interacts with some allocators without locks under the assumption that no other tasks
+// are interacting with these data structures.
+// WARNING: this cannot be done during the narrow-phase because this is when contacts start and stop touching
+void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {
 	b2TracyCZoneNC(split, "Split Island", b2_colorHoneydew2, true);
 
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2World* world = context;
+
+	B2_ASSERT(world->splitIslandIndex != B2_NULL_INDEX);
+
+	b2Island* baseIsland = world->islands + world->splitIslandIndex;
+
 	b2ValidateIsland(baseIsland);
 
-	b2World* world = baseIsland->world;
 	int32_t bodyCount = baseIsland->bodyCount;
 
 	b2Body* bodies = world->bodies;
@@ -693,7 +707,7 @@ static void b2SplitIsland(b2Island* baseIsland)
 
 	b2StackAllocator* alloc = world->stackAllocator;
 
-	// No lock is needed because only one island can split per time step.
+	// No lock is needed because I ensure these are not used while this task is active.
 	int32_t* stack = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "island stack");
 	int32_t* bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int32_t), "body indices");
 
@@ -719,7 +733,7 @@ static void b2SplitIsland(b2Island* baseIsland)
 	while (nextContact != B2_NULL_INDEX)
 	{
 		b2Contact* contact = contacts + nextContact;
-		contact->flags &= ~b2_contactIslandFlag;
+		contact->isMarked = false;
 		nextContact = contact->islandNext;
 	}
 
@@ -731,6 +745,10 @@ static void b2SplitIsland(b2Island* baseIsland)
 		joint->isMarked = false;
 		nextJoint = joint->islandNext;
 	}
+
+	// Done with the base split island.
+	b2DestroyIsland(baseIsland);
+	baseIsland = NULL;
 
 	// Each island is found as a depth first search starting from a seed body
 	for (int32_t i = 0; i < bodyCount; ++i)
@@ -802,7 +820,7 @@ static void b2SplitIsland(b2Island* baseIsland)
 				contactKey = contact->edges[edgeIndex].nextKey;
 
 				// Has this contact already been added to this island?
-				if (contact->flags & b2_contactIslandFlag)
+				if (contact->isMarked)
 				{
 					continue;
 				}
@@ -819,7 +837,7 @@ static void b2SplitIsland(b2Island* baseIsland)
 					continue;
 				}
 
-				contact->flags |= b2_contactIslandFlag;
+				contact->isMarked = true;
 
 				int32_t otherEdgeIndex = edgeIndex ^ 1;
 				int32_t otherBodyIndex = contact->edges[otherEdgeIndex].bodyIndex;
@@ -910,22 +928,14 @@ static void b2SplitIsland(b2Island* baseIsland)
 		}
 
 		b2ValidateIsland(island);
-		b2Array_Push(world->splitIslandArray, island->object.index);
+		island->awakeIndex = b2Array(world->awakeIslandArray).count;
+		b2Array_Push(world->awakeIslandArray, islandIndex);
 	}
 
 	b2FreeStackItem(alloc, bodyIndices);
 	b2FreeStackItem(alloc, stack);
 
 	b2TracyCZoneEnd(split);
-}
-
-// This island was just created through splitting. Handle single thread work.
-void b2CompleteSplitIsland(b2Island* island)
-{
-	// Split islands are kept awake as part of the splitting process. They can
-	// fall asleep the next time step.
-	island->awakeIndex = B2_NULL_INDEX;
-	b2WakeIsland(island);
 }
 
 #if B2_VALIDATE

@@ -57,7 +57,8 @@ public:
 			m_jointId = b2World_CreateRevoluteJoint(m_worldId, &jd);
 		}
 
-		m_maxCount = g_sampleDebug ? 500 : 2000;
+		//m_maxCount = g_sampleDebug ? 500 : 2000;
+		m_maxCount = 2000;
 		m_count = 0;
 	}
 
