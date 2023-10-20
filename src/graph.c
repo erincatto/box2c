@@ -34,6 +34,8 @@ typedef struct b2WorkerContext
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
 {
+	memset(graph, 0, sizeof(b2Graph));
+
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
 	contactCapacity = B2_MAX(contactCapacity, 8);
 	jointCapacity = B2_MAX(jointCapacity, 8);
@@ -925,6 +927,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2Graph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
 
+	// Count awake bodies
 	int32_t awakeIslandCount = b2Array(world->awakeIslandArray).count;
 	int32_t awakeBodyCount = 0;
 	for (int32_t i = 0; i < awakeIslandCount; ++i)
@@ -939,6 +942,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		return;
 	}
 
+	// Reserve space for awake bodies
 	b2Body* bodies = world->bodies;
 	b2Body** awakeBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2Body*), "awake bodies");
 	b2SolverBody* solverBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2SolverBody), "solver bodies");
@@ -947,15 +951,16 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	// TODO_ERIN have body directly reference solver body for user access
 	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
 
+	// Map from world body to solver body
+	// TODO_ERIN eliminate this?
 	int32_t bodyCapacity = world->bodyPool.capacity;
 	int32_t* bodyToSolverMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
 	memset(bodyToSolverMap, 0xFF, bodyCapacity * sizeof(int32_t));
 
-	// Search for an awake island to split
+	// Build array of awake bodies
+	// Also search for an awake island to split
 	int32_t splitIslandIndex = B2_NULL_INDEX;
 	int32_t maxRemovedContacts = 0;
-	
-	// Build array of awake bodies
 	int32_t index = 0;
 	for (int32_t i = 0; i < awakeIslandCount; ++i)
 	{
@@ -992,6 +997,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	int32_t workerCount = world->workerCount;
 	const int32_t blocksPerWorker = 6;
 
+	// Configure blocks for tasks that parallel-for bodies
 	int32_t bodyBlockSize = 1 << 5;
 	int32_t bodyBlockCount = ((awakeBodyCount - 1) >> 5) + 1;
 	if (awakeBodyCount > blocksPerWorker * bodyBlockSize * workerCount)
@@ -1013,6 +1019,8 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		int32_t count = b2Array(colors[i].contactArray).count;
+		graph->occupancy[i] = count;
+
 		if (count > 0)
 		{
 			int32_t avxCount = ((count - 1) >> 3) + 1;
@@ -1036,6 +1044,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	int32_t* contactIndices = b2AllocateStackItem(world->stackAllocator, 8 * constraintCount * sizeof(int32_t), "contact indices");
 	int32_t overflowContactCount = b2Array(graph->overflow.contactArray).count;
+	graph->occupancy[b2_overflowIndex] = overflowContactCount;
 	graph->overflow.contactConstraints = 
 		b2AllocateStackItem(world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 

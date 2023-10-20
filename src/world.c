@@ -1312,6 +1312,10 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.stackCapacity = b2GetStackCapacity(world->stackAllocator);
 	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
 	s.byteCount = b2GetByteCount();
+	for (int32_t i = 0; i <= b2_graphColorCount; ++i)
+	{
+		s.colorCounts[i] = world->graph.occupancy[i];
+	}
 	return s;
 }
 

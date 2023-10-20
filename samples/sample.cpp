@@ -62,8 +62,7 @@ Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
-	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
-	uint32_t maxThreads = 8;// enki::GetNumHardwareThreads() / 2;
+	uint32_t maxThreads = B2_MIN(8, enki::GetNumHardwareThreads());
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
@@ -89,7 +88,7 @@ Sample::Sample(const Settings& settings)
 	// m_world->SetContactListener(this);
 
 	// TODO_ERIN too expensive
-	//b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
+	b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
 
 	m_stepCount = 0;
 
@@ -258,6 +257,22 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "proxies/height = %d/%d", s.proxyCount, s.treeHeight);
 		m_textLine += m_textIncrement;
 
+		int32_t totalCount = 0;
+		char buffer[256] = {0};
+		int32_t offset = sprintf_s(buffer, 256, "colors: ");
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			offset += sprintf_s(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
+			totalCount += s.colorCounts[i];
+		}
+		totalCount += s.colorCounts[b2_graphColorCount];
+		sprintf_s(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
+		g_draw.DrawString(5, m_textLine, buffer);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "tree: proxies/height = %d/%d", s.proxyCount, s.treeHeight);
+		m_textLine += m_textIncrement;
+
 		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
 		m_textLine += m_textIncrement;
 
@@ -337,25 +352,20 @@ void Sample::Step(Settings& settings)
 		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
 		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
 
-		b2HexColor colors[12] = {b2_colorAquamarine,	b2_colorBisque,	   b2_colorBlue,	   b2_colorBrown,
-								 b2_colorBurlywood,		b2_colorCadetBlue, b2_colorChartreuse, b2_colorChocolate,
-								 b2_colorDarkGoldenrod, b2_colorCoral,	   b2_colorAqua,	   b2_colorHoneydew};
+		b2HexColor colors[b2_graphColorCount + 1] = {b2_colorRed,	b2_colorOrange, b2_colorYellow, b2_colorGreen,	   b2_colorCyan,
+													 b2_colorBlue,	b2_colorViolet, b2_colorPink,	b2_colorChocolate, b2_colorGoldenrod,
+													 b2_colorCoral, b2_colorAqua,	b2_colorBlack};
 
 		for (int32_t i = 0; i < m_pointCount; ++i)
 		{
 			ContactPoint* point = m_points + i;
 
-			//if (point->constraintIndex >= 0 && point->constraintIndex < 5000)
-			//{
-			//	b2Vec2 p = point->position;
-			//	p.y += 0.1f;
-			//	g_draw.DrawString(p, "%d", point->constraintIndex);
-			//}
-			if (0 <= point->color && point->color < 12)
+			if (0 <= point->color && point->color <= b2_graphColorCount)
 			{
 				// graph color
-				g_draw.DrawPoint(point->position, 5.0f, b2MakeColor(colors[point->color], 1.0f));
-				//g_draw.DrawString(point->position, "%d", point->color);
+				float pointSize = point->color == b2_graphColorCount ? 7.5f : 5.0f;
+				g_draw.DrawPoint(point->position, pointSize, b2MakeColor(colors[point->color], 1.0f));
+				// g_draw.DrawString(point->position, "%d", point->color);
 			}
 			else if (point->separation > b2_linearSlop)
 			{

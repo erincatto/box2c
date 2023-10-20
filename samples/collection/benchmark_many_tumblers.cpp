@@ -30,7 +30,7 @@ class BenchmarkManyTumblers : public Sample
 		m_bodyCount = 0;
 		m_bodyIndex = 0;
 
-		m_motorSpeed = 0.0f;
+		m_motorSpeed = 25.0f;
 		m_shapeType = 0;
 
 		CreateScene();

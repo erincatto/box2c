@@ -5,6 +5,7 @@
 
 #include "array.h"
 #include "bitset.h"
+#include "box2d/constants.h"
 
 typedef struct b2Contact b2Contact;
 typedef struct b2ContactConstraint b2ContactConstraint;
@@ -13,7 +14,6 @@ typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-#define b2_graphColorCount 16
 #define b2_overflowIndex b2_graphColorCount
 
 typedef struct b2GraphColor
@@ -42,6 +42,9 @@ typedef struct b2Graph
 {
 	b2GraphColor colors[b2_graphColorCount];
 	int32_t colorCount;
+
+	// debug info
+	int32_t occupancy[b2_graphColorCount + 1];
 
 	b2GraphOverflow overflow;
 } b2Graph;
