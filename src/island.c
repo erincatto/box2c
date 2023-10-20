@@ -677,12 +677,13 @@ void b2MergeAwakeIslands(b2World* world)
 
 #define B2_CONTACT_REMOVE_THRESHOLD 1
 
-// Split an island because some contacts and/or joints have been removed
+// Split an island because some contacts and/or joints have been removed.
+// This is called during the constraint solve while islands are not being touched. This uses DFS and touches a lot of memory,
+// so it can be quite slow.
 // Note: contacts/joints connected to static bodies must belong to an island but don't affect island connectivity
 // Note: static bodies are never in an island
 // Note: this task interacts with some allocators without locks under the assumption that no other tasks
 // are interacting with these data structures.
-// WARNING: this cannot be done during the narrow-phase because this is when contacts start and stop touching
 void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
 {
 	b2TracyCZoneNC(split, "Split Island", b2_colorHoneydew2, true);
@@ -928,8 +929,6 @@ void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadInde
 		}
 
 		b2ValidateIsland(island);
-		island->awakeIndex = b2Array(world->awakeIslandArray).count;
-		b2Array_Push(world->awakeIslandArray, islandIndex);
 	}
 
 	b2FreeStackItem(alloc, bodyIndices);

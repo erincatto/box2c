@@ -23,6 +23,8 @@
 
 #define B2_AVX 1
 
+extern bool b2_parallel;
+
 typedef struct b2WorkerContext
 {
 	b2SolverTaskContext* context;
@@ -489,10 +491,11 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Sol
 	b2TracyCZoneEnd(integrate_positions);
 }
 
-static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t workerIndex)
+static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
 {
-	b2TracyCZoneNC(finalize_positions, "FinPos", b2_colorViolet, true);
+	b2TracyCZoneNC(finalize_bodies, "FinalizeBodies", b2_colorViolet, true);
 
+	b2SolverTaskContext* context = taskContext;
 	b2World* world = context->world;
 	bool enableSleep = world->enableSleep;
 	b2Body* bodies = world->bodies;
@@ -502,9 +505,9 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverT
 	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 	float timeStep = context->timeStep;
 
-	b2BitSet* awakeContactBitSet = &world->taskContextArray[workerIndex].awakeContactBitSet;
-	b2BitSet* shapeBitSet = &world->taskContextArray[workerIndex].shapeBitSet;
-	b2BitSet* awakeIslandBitSet = &world->taskContextArray[workerIndex].awakeIslandBitSet;
+	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
+	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
+	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
 
 	B2_ASSERT(startIndex <= endIndex);
 	B2_ASSERT(startIndex <= world->bodyPool.capacity);
@@ -516,6 +519,8 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverT
 
 		b2Body* body = bodies + solverToBodyMap[i];
 
+		// Integrate positions
+		// TODO_ERIN clamping
 		body->linearVelocity = solverBody->linearVelocity;
 		body->angularVelocity = solverBody->angularVelocity;
 		body->position = b2Add(body->position, solverBody->deltaPosition);
@@ -571,6 +576,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverT
 			shapeIndex = shape->nextShapeIndex;
 		}
 
+		// Wake contacts
 		int32_t contactKey = body->contactList;
 		while (contactKey != B2_NULL_INDEX)
 		{
@@ -584,10 +590,10 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, b2SolverT
 		}
 	}
 
-	b2TracyCZoneEnd(finalize_positions);
+	b2TracyCZoneEnd(finalize_bodies);
 }
 
-static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex, int32_t workerIndex)
+static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex)
 {
 	b2SolverStageType type = stage->type;
 
@@ -615,10 +621,6 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 
 		case b2_stageCalmContacts:
 			b2SolveContactsAVX(startIndex, endIndex, context, stage->colorIndex, false);
-			break;
-
-		case b2_stageFinalizeBodies:
-			b2FinalizeBodiesTask(startIndex, endIndex, context, workerIndex);
 			break;
 
 		case b2_stageStoreImpulses:
@@ -664,7 +666,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 
 		B2_ASSERT(completedCount < blockCount);
 
-		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex, workerIndex);
+		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex);
 
 		completedCount += 1;
 		blockIndex += 1;
@@ -694,7 +696,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 		}
 
-		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex, workerIndex);
+		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex);
 		completedCount += 1;
 		blockIndex -= 1;
 	}
@@ -712,7 +714,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 
 	if (blockCount == 1)
 	{
-		b2ExecuteBlock(stage, context, stage->blocks[0].startIndex, stage->blocks[0].endIndex, 0);
+		b2ExecuteBlock(stage, context, stage->blocks[0].startIndex, stage->blocks[0].endIndex);
 	}
 	else
 	{
@@ -766,7 +768,6 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		b2_stageIntegratePositions,
 		b2_stageCalmJoints,
 		b2_stageCalmContacts,
-		b2_stageFinalizeBodies,
 		b2_stageStoreImpulses
 		*/
 
@@ -856,11 +857,6 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 		stageIndex += 1 + activeColorCount;
 
-		syncBits = (bodySyncIndex << 16) | stageIndex;
-		B2_ASSERT(stages[stageIndex].type == b2_stageFinalizeBodies);
-		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
-		stageIndex += 1;
-
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
@@ -908,6 +904,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 	}
 }
 
+// TODO_ERIN this comment is out of data
 // Threading:
 // 1. build array of awake bodies, maybe copy to contiguous array
 // 2. parallel-for integrate velocities
@@ -1101,8 +1098,6 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stageCount += 1;
 	// b2_stageSolveJoints, b2_stageSolveContacts, b2_stageIntegratePositions
 	stageCount += 1 + activeColorCount + 1;
-	// b2_stageFinalizePositions
-	stageCount += 1;
 	// b2_stageCalmJoints, b2_stageCalmContacts
 	stageCount += 1 + activeColorCount;
 	// b2_stageStoreImpulses
@@ -1113,6 +1108,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2SolverBlock* graphBlocks = b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
 	b2SolverBlock* storeBlocks = b2AllocateStackItem(world->stackAllocator, storeBlockCount * sizeof(b2SolverBlock), "store blocks");
 
+	// TODO_ERIN cannot do this in parallel with FinalizeBodies
 	// Split an awake island. This modifies:
 	// - stack allocator
 	// - awake island array
@@ -1124,7 +1120,6 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	void* splitIslandTask = NULL;
 	if (splitIslandIndex != B2_NULL_INDEX)
 	{
-		extern bool b2_parallel;
 		if (b2_parallel)
 		{
 			splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
@@ -1132,6 +1127,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		else
 		{
 			b2SplitIslandTask(0, 1, 0, world);
+			world->splitIslandIndex = B2_NULL_INDEX;
 		}
 	}
 
@@ -1260,14 +1256,6 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		stage += 1;
 	}
 
-	// Finalize bodies
-	stage->type = b2_stageFinalizeBodies;
-	stage->blocks = bodyBlocks;
-	stage->blockCount = bodyBlockCount;
-	stage->colorIndex = -1;
-	stage->completionCount = 0;
-	stage += 1;
-
 	// Store impulses
 	stage->type = b2_stageStoreImpulses;
 	stage->blocks = storeBlocks;
@@ -1278,6 +1266,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	B2_ASSERT((int32_t)(stage - stages) == stageCount);
 
+	// TODO_ERIN
 	B2_ASSERT(workerCount <= 16);
 	b2WorkerContext workerContext[16];
 
@@ -1320,19 +1309,41 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 	}
 
+	// Finish split
+	if (splitIslandTask != NULL)
+	{
+		world->finishTaskFcn(splitIslandTask, world->userTaskContext);
+		world->splitIslandIndex = B2_NULL_INDEX;
+	}
+
 	// Finish solve
 	for (int32_t i = 0; i < workerCount; ++i)
 	{
 		world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
 	}
 
-	// Finish split
-	if (splitIslandTask != NULL)
+	// Prepare contact and shape bit-sets
+	int32_t contactCapacity = world->contactPool.capacity;
+	int32_t shapeCapacity = world->shapePool.capacity;
+	int32_t islandCapacity = world->islandPool.capacity;
+	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		world->finishTaskFcn(splitIslandTask, world->userTaskContext);
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
 	}
-
-	world->splitIslandIndex = B2_NULL_INDEX;
+	
+	// Finalize bodies. Must happen after the constraint solver and after island splitting.
+	void* finalizeBodiesTask = NULL;
+	if (b2_parallel)
+	{
+		finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, &context, world->userTaskContext);
+		world->finishTaskFcn(finalizeBodiesTask, world->userTaskContext);
+	}
+	else
+	{
+		b2FinalizeBodiesTask(0, awakeBodyCount, 0, &context);
+	}
 
 	b2FreeStackItem(world->stackAllocator, storeBlocks);
 	b2FreeStackItem(world->stackAllocator, graphBlocks);

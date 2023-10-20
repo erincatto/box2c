@@ -617,17 +617,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
-	// Prepare contact and shape bit-sets
-	int32_t contactCapacity = world->contactPool.capacity;
-	int32_t shapeCapacity = world->shapePool.capacity;
-	int32_t islandCapacity = world->islandPool.capacity;
-	for (uint32_t i = 0; i < world->workerCount; ++i)
-	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
-		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
-	}
-
 	// Solve constraints using graph coloring
 	b2SolveGraph(world, context);
 
@@ -638,12 +627,27 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
+
+	// TODO_ERIN this code is related to body finalization b2SolveGraph. Reorganize?
+
+	// Prepare awake contact bit set so that putting islands to sleep can clear bits
+	// for the associated contacts.
+	b2BitSet* awakeContactBitSet = &world->taskContextArray[0].awakeContactBitSet;
+	for (uint32_t i = 1; i < world->workerCount; ++i)
+	{
+		b2InPlaceUnion(awakeContactBitSet, &world->taskContextArray[i].awakeContactBitSet);
+	}
+
 	{
 		b2BitSet* bitSet = &world->taskContextArray[0].awakeIslandBitSet;
 		for (uint32_t i = 1; i < world->workerCount; ++i)
 		{
 			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeIslandBitSet);
 		}
+
+		b2Body* bodies = world->bodies;
+		b2Contact* contacts = world->contacts;
+		b2Joint* joints = world->joints;
 
 		int32_t count = b2Array(world->awakeIslandArray).count;
 		for (int32_t i = 0; i < count; ++i)
@@ -658,19 +662,44 @@ static void b2Solve(b2World* world, b2StepContext* context)
 			b2Island* island = world->islands + islandIndex;
 			island->awakeIndex = B2_NULL_INDEX;
 
+			// Put contacts to sleep. Remember only touching contacts are in the island.
+			// So a body may have more contacts than those in the island.
+			// This is expensive on the main thread, but this only happens when an island goes
+			// to sleep.
+			int32_t bodyIndex = island->headBody;
+			while (bodyIndex != B2_NULL_INDEX)
+			{
+				b2Body* body = bodies + bodyIndex;
+				int32_t contactKey = body->contactList;
+				while (contactKey != B2_NULL_INDEX)
+				{
+					int32_t contactIndex = contactKey >> 1;
+					int32_t edgeIndex = contactKey & 1;
+					b2Contact* contact = contacts + contactIndex;
+
+					// IMPORTANT: clear awake contact bit
+					b2ClearBit(awakeContactBitSet, contactIndex);
+
+					contactKey = contact->edges[edgeIndex].nextKey;
+				}
+
+				bodyIndex = body->islandNext;
+			}
+
 			// Remove edges from graph
 			int32_t contactIndex = island->headContact;
 			while (contactIndex != B2_NULL_INDEX)
 			{
-				b2Contact* contact = world->contacts + contactIndex;
+				b2Contact* contact = contacts + contactIndex;
 				b2RemoveContactFromGraph(world, contact);
+
 				contactIndex = contact->islandNext;
 			}
 
 			int32_t jointIndex = island->headJoint;
 			while (jointIndex != B2_NULL_INDEX)
 			{
-				b2Joint* joint = world->joints + jointIndex;
+				b2Joint* joint = joints + jointIndex;
 				// TODO_JOINT_GRAPH
 				// b2RemoveJointFromGraph(world, joint);
 				jointIndex = joint->islandNext;
@@ -711,12 +740,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	// Build awake contact array
 	{
-		b2BitSet* bitSet = &world->taskContextArray[0].awakeContactBitSet;
-		for (uint32_t i = 1; i < world->workerCount; ++i)
-		{
-			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeContactBitSet);
-		}
-
 		b2Array_Clear(world->awakeContactArray);
 
 		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
@@ -725,8 +748,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
 		// that body A or body B or both bodies wake the contact.
 		uint64_t word;
-		uint32_t wordCount = bitSet->wordCount;
-		uint64_t* bits = bitSet->bits;
+		uint32_t wordCount = awakeContactBitSet->wordCount;
+		uint64_t* bits = awakeContactBitSet->bits;
 		for (uint32_t k = 0; k < wordCount; ++k)
 		{
 			word = bits[k];
@@ -757,9 +780,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 		if (world->userTreeTask != NULL)
 		{
 			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
+			world->userTreeTask = NULL;
 		}
-
-		world->userTreeTask = NULL;
 	}
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
@@ -817,6 +839,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(broad_phase);
 
+	// TODO_ERIN continuous
 #if 0
 	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
 
