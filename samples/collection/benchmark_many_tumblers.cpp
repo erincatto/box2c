@@ -9,6 +9,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+// TODO_ERIN make these kinematic
 class BenchmarkManyTumblers : public Sample
 {
   public:
@@ -48,7 +49,6 @@ class BenchmarkManyTumblers : public Sample
 	{
 		b2BodyDef bd = b2DefaultBodyDef();
 		bd.type = b2_dynamicBody;
-		bd.enableSleep = false;
 		bd.position = {position.x, position.y};
 		b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 		m_tumblerIds[index] = bodyId;
@@ -154,6 +154,7 @@ class BenchmarkManyTumblers : public Sample
 			for (int i = 0; i < m_tumblerCount; ++i)
 			{
 				b2RevoluteJoint_SetMotorSpeed(m_jointIds[i], (b2_pi / 180.0f) * m_motorSpeed);
+				b2Body_Wake(m_tumblerIds[i]);
 			}
 		}
 

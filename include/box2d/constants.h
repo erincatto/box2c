@@ -12,12 +12,14 @@ extern "C"
 /// Constants used by box2d.
 /// box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless
 /// degrees are indicated.
-/// Some values can be overridden with a define and some values can be modified at runtime.
+/// Some values can be overridden by using a compiler definition.
 /// Other values cannot be modified without causing stability and/or performance problems.
 
 /// box2d bases all length units on meters, but you may need different units for your game.
-/// You can adjust this value to use different units, normally at application startup.
-extern float b2_lengthUnitsPerMeter;
+/// You can override this value to use different units.
+#ifndef b2_lengthUnitsPerMeter
+#define b2_lengthUnitsPerMeter 1.0f
+#endif
 
 #define b2_pi 3.14159265359f
 
@@ -50,16 +52,6 @@ extern float b2_lengthUnitsPerMeter;
 #define b2_maxWorlds 32
 #endif
 
-/// The maximum linear position correction used when solving constraints. This helps to
-/// prevent overshoot. Meters.
-/// @warning modifying this can have a significant impact on stability
-#define b2_maxLinearCorrection (0.2f * b2_lengthUnitsPerMeter)
-
-/// The maximum angular position correction used when solving constraints. This helps to
-/// prevent overshoot.
-/// @warning modifying this can have a significant impact on stability
-#define b2_maxAngularCorrection (8.0f / 180.0f * b2_pi)
-
 /// The maximum linear translation of a body per step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this. Meters.
 /// @warning modifying this can have a significant impact on stability
@@ -72,24 +64,20 @@ extern float b2_lengthUnitsPerMeter;
 #define b2_maxRotation (0.5f * b2_pi)
 #define b2_maxRotationSquared (b2_maxRotation * b2_maxRotation)
 
-/// @warning modifying this can have a significant impact on stability
+/// @warning modifying this can have a significant impact on performance and stability
 #define b2_speculativeDistance (4.0f * b2_linearSlop)
 
-/// This scale factor controls how fast overlap is resolved. Ideally this would be 1 so
-/// that overlap is removed in one time step. However using values close to 1 often lead
-/// to overshoot.
-/// @warning modifying this can have a significant impact on stability
-#define b2_baumgarte 0.2f
+/// The time that a body must be still before it will go to sleep. In seconds.
+#ifndef b2_timeToSleep
+#define b2_timeToSleep 0.5f
+#endif
 
-/// The time that a body must be still before it will go to sleep.
-extern float b2_timeToSleep;
-
-/// A body cannot sleep if its linear velocity is above this tolerance.
+/// A body cannot sleep if its linear velocity is above this tolerance. Meters per second.
 #ifndef b2_linearSleepTolerance
 #define b2_linearSleepTolerance (0.01f * b2_lengthUnitsPerMeter)
 #endif
 
-/// A body cannot sleep if its angular velocity is above this tolerance.
+/// A body cannot sleep if its angular velocity is above this tolerance. Radians per second.
 #ifndef b2_angularSleepTolerance
 #define b2_angularSleepTolerance (2.0f / 180.0f * b2_pi)
 #endif

@@ -75,7 +75,7 @@
 #define B2_ASSERT(...) ((void)0)
 #endif
 
-#if defined(_DEBUG) || 0
+#if defined(_DEBUG)
 #define B2_VALIDATE 1
 #else
 #define B2_VALIDATE 0

@@ -76,4 +76,4 @@ void b2MergeAwakeIslands(b2World* world);
 void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context);
 void b2CompleteSplitIsland(b2Island* island);
 
-void b2ValidateIsland(b2Island* island);
+void b2ValidateIsland(b2Island* island, bool checkSleep);

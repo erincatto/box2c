@@ -203,46 +203,110 @@ class OverlapRecovery : public Sample
 	OverlapRecovery(const Settings& settings)
 		: Sample(settings)
 	{
-		float extent = 1.0f;
+		m_bodyIds = nullptr;
+		m_bodyCount = 0;
+		m_baseCount = 4;
+		m_overlap = 0.5f;
+		m_extent = 0.1f;
+		m_pushout = 3.0f;
+		m_hertz = 30.0f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
-		float groundWidth = 10.0f * extent;
+		float groundWidth = 40.0f;
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 
 		b2Segment segment = {{-groundWidth, 0.0f}, {groundWidth, 0.0f}};
 		b2Body_CreateSegment(groundId, &shapeDef, &segment);
 
+		CreateScene();
+	}
+
+	~OverlapRecovery() override
+	{
+		free(m_bodyIds);
+	}
+
+	void CreateScene()
+	{
+		for (int32_t i = 0; i < m_bodyCount; ++i)
+		{
+			b2World_DestroyBody(m_bodyIds[i]);
+		}
+
+		b2World_SetMaximumPushoutVelocity(m_worldId, m_pushout);
+		b2World_SetContactHertz(m_worldId, m_hertz);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
-		b2Polygon box = b2MakeBox(extent, extent);
+		b2Polygon box = b2MakeBox(m_extent, m_extent);
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+		
+		m_bodyCount = m_baseCount * (m_baseCount + 1) / 2;
+		m_bodyIds = (b2BodyId*)realloc(m_bodyIds, m_bodyCount * sizeof(b2BodyId));
 
-		int count = 4;
-		float fraction = 0.75f;
-		float y = fraction * extent;
-		while (count > 0)
+		int32_t bodyIndex = 0;
+		float fraction = 1.0f - m_overlap;
+		float y = m_extent;
+		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			for (int i = 0; i < count; ++i)
+			float x = fraction * m_extent * (i - m_baseCount);
+			for (int32_t j = i; j < m_baseCount; ++j)
 			{
-				float coeff = i - 0.5f * count;
-
-				bodyDef.position = {2.0f * fraction * coeff * extent, y};
+				bodyDef.position = {x, y};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
 				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+			
+				m_bodyIds[bodyIndex++] = bodyId;
+
+				x += 2.0f * fraction * m_extent;
 			}
 
-			--count;
-			y += 2.0f * fraction * extent;
+			y += 2.0f * fraction * m_extent;
 		}
+
+		assert(bodyIndex == m_bodyCount);
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
+
+		bool changed = false;
+		changed = changed || ImGui::SliderFloat("Extent", &m_extent, 0.1f, 1.0f, "%.1f");
+		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 10);
+		changed = changed || ImGui::SliderFloat("Overlap", &m_overlap, 0.0f, 1.0f, "%.1f");
+		changed = changed || ImGui::SliderFloat("Pushout", &m_pushout, 0.0f, 10.0f, "%.1f");
+		changed = changed || ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 120.0f, "%.1f");
+		changed = changed || ImGui::Button("Reset Scene");
+
+		if (changed)
+		{
+			CreateScene();
+		}
+
+		ImGui::End();
 	}
 
 	static Sample* Create(const Settings& settings)
 	{
 		return new OverlapRecovery(settings);
 	}
+
+	b2BodyId* m_bodyIds;
+	int32_t m_bodyCount;
+	int32_t m_baseCount;
+	float m_overlap;
+	float m_extent;
+	float m_pushout;
+	float m_hertz;
 };
 
 static int sampleIndex4 = RegisterSample("Behavior", "Overlap Recovery", OverlapRecovery::Create);

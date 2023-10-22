@@ -16,8 +16,6 @@
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 
-#define maxBaumgarteVelocity 3.0f
-
 void b2PrepareOverflowContacts(b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
@@ -38,7 +36,7 @@ void b2PrepareOverflowContacts(b2SolverTaskContext* context)
 	// 30 is a bit soft, 60 oscillates too much
 	// const float contactHertz = 45.0f;
 	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
-	const float contactHertz = 30.0f;
+	const float contactHertz = world->contactHertz;
 
 	float h = context->timeStep;
 	bool enableWarmStarting = world->enableWarmStarting;
@@ -139,6 +137,8 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 	b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
 	int32_t count = b2Array(context->graph->overflow.contactArray).count;
 	float inv_dt = context->invTimeStep;
+	const float pushout = context->world->maximumPushoutVelocity;
+
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
 
@@ -196,7 +196,7 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 			}
 			else if (useBias)
 			{
-				bias = B2_MAX(biasCoefficient * s, -maxBaumgarteVelocity);
+				bias = B2_MAX(biasCoefficient * s, -pushout);
 				// bias = cp->biasCoefficient * s;
 				massScale = massCoefficient;
 				impulseScale = impulseCoefficient;
@@ -398,14 +398,14 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 	b2SolverBody* solverBodies = context->solverBodies;
 	b2ContactConstraintAVX* constraints = context->constraintAVXs;
 	const int32_t* contactIndices = context->contactIndices;
-
+	
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
 
 	// 30 is a bit soft, 60 oscillates too much
 	// const float contactHertz = 45.0f;
 	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
-	const float contactHertz = 30.0f;
+	const float contactHertz = world->contactHertz;
 
 	float h = context->timeStep;
 
@@ -601,8 +601,7 @@ void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 	b2TracyCZoneEnd(warm_start_contact);
 }
 
-
-static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2SolverBody* restrict bodies, float inv_dt, bool useBias)
+static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2SolverBody* restrict bodies, float inv_dt, float pushout, bool useBias)
 {
 	b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 	b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
@@ -622,7 +621,7 @@ static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2Sol
 	}
 
 	__m256 invDtMul = _mm256_set1_ps(inv_dt);
-	__m256 minBiasVel = _mm256_set1_ps(-maxBaumgarteVelocity);
+	__m256 minBiasVel = _mm256_set1_ps(-pushout);
 
 	// first point non-penetration constraint
 	{
@@ -780,11 +779,12 @@ void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContex
 	b2SolverBody* bodies = context->solverBodies;
 	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
 	float inv_dt = context->invTimeStep;
+	const float pushout = context->world->maximumPushoutVelocity;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		b2ContactConstraintAVX* constraint = constraints + i;
-		b2SolveContactTwoPointsAVX(constraint, bodies, inv_dt, useBias);
+		b2SolveContactTwoPointsAVX(constraint, bodies, inv_dt, pushout, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_contact);

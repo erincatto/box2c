@@ -112,6 +112,12 @@ typedef struct b2WorldDef
 	/// speed have restitution applied (will bounce).
 	float restitutionThreshold;
 
+	/// This parameter controls how fast overlap is resolved and has units of meters per second
+	float maxPushoutVelocity;
+
+	/// This parameter affects the stiffness of contacts. Cycles per second.
+	float contactHertz;
+
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
 
@@ -252,6 +258,8 @@ static inline b2WorldDef b2DefaultWorldDef(void)
 	b2WorldDef def = {0};
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.maxPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0f;
 	def.enableSleep = true;
 	def.bodyCapacity = 8;
 	def.shapeCapacity = 8;

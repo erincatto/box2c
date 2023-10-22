@@ -378,6 +378,48 @@ void b2World_DestroyJoint(b2JointId jointId)
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
+b2BodyId b2Joint_GetBodyA(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullBodyId;
+	}
+
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	int32_t bodyIndex = joint->edges[0].bodyIndex;
+
+	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + bodyIndex;
+	b2BodyId bodyId = {bodyIndex, jointId.world, body->object.revision};
+	return bodyId;
+}
+
+b2BodyId b2Joint_GetBodyB(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullBodyId;
+	}
+
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	int32_t bodyIndex = joint->edges[1].bodyIndex;
+
+	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + bodyIndex;
+	b2BodyId bodyId = {bodyIndex, jointId.world, body->object.revision};
+	return bodyId;
+}
+
 extern void b2PrepareMouse(b2Joint* base, b2StepContext* context);
 extern void b2PrepareRevolute(b2Joint* base, b2StepContext* context);
 extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);

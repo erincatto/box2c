@@ -135,6 +135,7 @@ class Sample
 	int32_t m_textIncrement;
 	b2Profile m_maxProfile;
 	b2Profile m_totalProfile;
+	bool m_collectContacts;
 };
 
 typedef Sample* SampleCreateFcn(const Settings& settings);

@@ -84,6 +84,8 @@ typedef struct b2World
 
 	b2Vec2 gravity;
 	float restitutionThreshold;
+	float maximumPushoutVelocity;
+	float contactHertz;
 
 	// This is used to compute the time step ratio to support a variable time step.
 	float inv_dt0;

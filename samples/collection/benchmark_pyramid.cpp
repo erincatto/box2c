@@ -8,11 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API int32_t b2_awakeContactCount;
-
-BOX2D_API int b2_collideMinRange;
-BOX2D_API int b2_islandMinRange;
-
 class BenchmarkPyramid : public Sample
 {
   public:
@@ -143,9 +138,6 @@ class BenchmarkPyramid : public Sample
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
-
-		ImGui::SliderInt("Collide Min", &b2_collideMinRange, 1, 200);
-		ImGui::SliderInt("Island Min", &b2_islandMinRange, 1, 10);
 
 		if (changed)
 		{

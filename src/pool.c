@@ -5,6 +5,8 @@
 
 #include "allocate.h"
 #include "core.h"
+#include "math.h"
+#include "box2d/math.h"
 
 #include "box2d/types.h"
 
@@ -122,8 +124,8 @@ b2Object* b2AllocObject(b2Pool* pool)
 	else
 	{
 		int32_t oldCapacity = pool->capacity;
-		int32_t newCapacity = oldCapacity + oldCapacity / 2;
-		newCapacity = newCapacity > 2 ? newCapacity : 2;
+		int32_t addedCapacity = B2_MAX(2, oldCapacity / 2);
+		int32_t newCapacity = B2_MAX(2, oldCapacity + addedCapacity);
 		pool->capacity = newCapacity;
 		char* newMemory = (char*)b2Alloc(pool->capacity * pool->objectSize);
 		memcpy(newMemory, pool->memory, oldCapacity * pool->objectSize);
@@ -135,6 +137,7 @@ b2Object* b2AllocObject(b2Pool* pool)
 		newObject->revision = 0;
 		newObject->next = newObject->index;
 
+		// This assumes added capacity >= 2
 		pool->freeList = oldCapacity + 1;
 		for (int32_t i = oldCapacity + 1; i < newCapacity - 1; ++i)
 		{

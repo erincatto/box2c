@@ -28,13 +28,12 @@
 #include "box2d/distance.h"
 #include "box2d/timer.h"
 
+#include <float.h>
 #include <stdio.h>
 #include <string.h>
 
 b2World b2_worlds[b2_maxWorlds];
 bool b2_parallel = true;
-int b2_collideMinRange = 64;
-int b2_islandMinRange = 1;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -130,6 +129,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	world->gravity = def->gravity;
 	world->restitutionThreshold = def->restitutionThreshold;
+	world->maximumPushoutVelocity = def->maxPushoutVelocity;
+	world->contactHertz = def->contactHertz;
 	world->inv_dt0 = 0.0f;
 	world->enableSleep = true;
 	world->locked = false;
@@ -329,7 +330,7 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
-		int32_t minRange = b2_collideMinRange;
+		int32_t minRange = 64;
 		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
@@ -639,27 +640,28 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	}
 
 	{
-		b2BitSet* bitSet = &world->taskContextArray[0].awakeIslandBitSet;
+		b2BitSet* awakeIslandBitSet = &world->taskContextArray[0].awakeIslandBitSet;
 		for (uint32_t i = 1; i < world->workerCount; ++i)
 		{
-			b2InPlaceUnion(bitSet, &world->taskContextArray[i].awakeIslandBitSet);
+			b2InPlaceUnion(awakeIslandBitSet, &world->taskContextArray[i].awakeIslandBitSet);
 		}
 
 		b2Body* bodies = world->bodies;
 		b2Contact* contacts = world->contacts;
 		b2Joint* joints = world->joints;
+		b2Island* islands = world->islands;
 
 		int32_t count = b2Array(world->awakeIslandArray).count;
 		for (int32_t i = 0; i < count; ++i)
 		{
 			int32_t islandIndex = world->awakeIslandArray[i];
-			if (b2GetBit(bitSet, islandIndex) == true)
+			if (b2GetBit(awakeIslandBitSet, islandIndex) == true)
 			{
 				continue;
 			}
 
 			// Put island to sleep
-			b2Island* island = world->islands + islandIndex;
+			b2Island* island = islands + islandIndex;
 			island->awakeIndex = B2_NULL_INDEX;
 
 			// Put contacts to sleep. Remember only touching contacts are in the island.
@@ -711,8 +713,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 		// Use bitSet to build awake island array. No need to add edges.
 		uint64_t word;
-		uint32_t wordCount = bitSet->wordCount;
-		uint64_t* bits = bitSet->bits;
+		uint32_t wordCount = awakeIslandBitSet->wordCount;
+		uint64_t* bits = awakeIslandBitSet->bits;
 		int32_t awakeIndex = 0;
 		for (uint32_t k = 0; k < wordCount; ++k)
 		{
@@ -722,10 +724,12 @@ static void b2Solve(b2World* world, b2StepContext* context)
 				uint32_t ctz = b2CTZ(word);
 				uint32_t islandIndex = 64 * k + ctz;
 
+				B2_ASSERT(b2ObjectValid(&islands[islandIndex].object));
+
 				b2Array_Push(world->awakeIslandArray, islandIndex);
 
 				// Reference index. This tells the island and bodies they are awake.
-				world->islands[islandIndex].awakeIndex = awakeIndex;
+				islands[islandIndex].awakeIndex = awakeIndex;
 				awakeIndex += 1;
 
 				// Clear the smallest set bit
@@ -733,6 +737,19 @@ static void b2Solve(b2World* world, b2StepContext* context)
 			}
 		}
 	}
+
+#if B2_VALIDATE
+	for (int32_t i = 0; i < world->islandPool.capacity; ++i)
+	{
+		b2Island* island = world->islands + i;
+		if (b2ObjectValid(&island->object) == false)
+		{
+			continue;
+		}
+
+		b2ValidateIsland(island, true);
+	}
+#endif
 
 	b2TracyCZoneEnd(awake_islands);
 
@@ -1279,7 +1296,7 @@ void b2World_EnableWarmStarting(b2WorldId worldId, bool flag)
 	world->enableWarmStarting = flag;
 }
 
-void b2World_EnableContinuo(b2WorldId worldId, bool flag)
+void b2World_EnableContinuous(b2WorldId worldId, bool flag)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1289,6 +1306,42 @@ void b2World_EnableContinuo(b2WorldId worldId, bool flag)
 	}
 
 	world->enableContinuous = flag;
+}
+
+void b2World_SetRestitutionThreshold(b2WorldId worldId, float value)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->restitutionThreshold = B2_CLAMP(value, 0.0f, FLT_MAX);
+}
+
+void b2World_SetMaximumPushoutVelocity(b2WorldId worldId, float value)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->maximumPushoutVelocity = B2_CLAMP(value, 0.0f, FLT_MAX);
+}
+
+void b2World_SetContactHertz(b2WorldId worldId, float value)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->contactHertz = B2_CLAMP(value, 0.0f, FLT_MAX);
 }
 
 b2Profile b2World_GetProfile(b2WorldId worldId)

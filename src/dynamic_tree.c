@@ -13,6 +13,8 @@
 #include <float.h>
 #include <string.h>
 
+#define b2_treeStackSize 1024
+
 // TODO_ERIN
 // - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
 
@@ -1138,8 +1140,6 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 	}
 }
 
-#define b2_treeStackSize 256
-
 void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback, void* context)
 {
 	int32_t stack[b2_treeStackSize];
@@ -1169,10 +1169,8 @@ void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_
 			}
 			else
 			{
-				B2_ASSERT(stackCount <= b2_treeStackSize - 2);
-				// TODO log this?
-
-				if (stackCount <= b2_treeStackSize - 2)
+				B2_ASSERT(stackCount < b2_treeStackSize - 1);
+				if (stackCount < b2_treeStackSize - 1)
 				{
 					stack[stackCount++] = node->child1;
 					stack[stackCount++] = node->child2;
@@ -1211,10 +1209,8 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCall
 			}
 			else
 			{
-				B2_ASSERT(stackCount <= b2_treeStackSize - 2);
-				// TODO log this?
-
-				if (stackCount <= b2_treeStackSize - 2)
+				B2_ASSERT(stackCount < b2_treeStackSize - 1);
+				if (stackCount < b2_treeStackSize - 1)
 				{
 					stack[stackCount++] = node->child1;
 					stack[stackCount++] = node->child2;
@@ -1310,10 +1306,8 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		}
 		else
 		{
-			B2_ASSERT(stackCount <= b2_treeStackSize - 2);
-			// TODO log this?
-
-			if (stackCount <= b2_treeStackSize - 2)
+			B2_ASSERT(stackCount < b2_treeStackSize - 1);
+			if (stackCount < b2_treeStackSize - 1)
 			{
 				// TODO_ERIN just put one node on the stack, continue on a child node
 				// TODO_ERIN test ordering children by nearest to ray origin

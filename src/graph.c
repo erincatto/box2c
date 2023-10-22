@@ -939,6 +939,12 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	if (awakeBodyCount == 0)
 	{
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			graph->occupancy[i] = b2Array(colors[i].contactArray).count;
+		}
+		graph->occupancy[b2_overflowIndex] = b2Array(graph->overflow.contactArray).count;
+
 		return;
 	}
 
@@ -961,6 +967,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	// Also search for an awake island to split
 	int32_t splitIslandIndex = B2_NULL_INDEX;
 	int32_t maxRemovedContacts = 0;
+	int32_t splitIslandBodyCount = 0;
 	int32_t index = 0;
 	for (int32_t i = 0; i < awakeIslandCount; ++i)
 	{
@@ -971,6 +978,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		{
 			maxRemovedContacts = island->constraintRemoveCount;
 			splitIslandIndex = islandIndex;
+			splitIslandBodyCount = island->bodyCount;
 		}
 
 		int32_t bodyIndex = island->headBody;
@@ -1311,11 +1319,25 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2TracyCZoneEnd(prepare_stages);
 
 	// Must use worker index because thread 0 can be assigned multiple tasks by enkiTS
-	for (int32_t i = 0; i < workerCount; ++i)
+	if (b2_parallel)
 	{
-		workerContext[i].context = &context;
-		workerContext[i].workerIndex = i;
-		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
+		for (int32_t i = 0; i < workerCount; ++i)
+		{
+			workerContext[i].context = &context;
+			workerContext[i].workerIndex = i;
+			workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
+		}
+	}
+	else
+	{
+		// This relies on work stealing
+		for (int32_t i = 0; i < workerCount; ++i)
+		{
+			workerContext[i].context = &context;
+			workerContext[i].workerIndex = i;
+			workerContext[i].userTask = NULL;
+			b2SolverTask(0, 1, 0, workerContext + i);
+		}
 	}
 
 	// Finish split
@@ -1326,22 +1348,25 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 
 	// Finish solve
-	for (int32_t i = 0; i < workerCount; ++i)
+	if (b2_parallel)
 	{
-		world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+		for (int32_t i = 0; i < workerCount; ++i)
+		{
+			world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+		}
 	}
 
-	// Prepare contact and shape bit-sets
+	// Prepare contact, shape, and island bit sets used in body finalization.
 	int32_t contactCapacity = world->contactPool.capacity;
 	int32_t shapeCapacity = world->shapePool.capacity;
-	int32_t islandCapacity = world->islandPool.capacity;
+	int32_t islandCapacity = world->islandPool.capacity + splitIslandBodyCount;
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
 		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
 	}
-	
+
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
 	void* finalizeBodiesTask = NULL;
 	if (b2_parallel)

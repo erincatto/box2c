@@ -19,7 +19,12 @@
 bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
-	return sample->PreSolve(shapeIdA, shapeIdB, manifold, color);
+	if (sample->m_collectContacts)
+	{
+		return sample->PreSolve(shapeIdA, shapeIdB, manifold, color);
+	}
+
+	return true;
 }
 
 static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
@@ -71,17 +76,21 @@ Sample::Sample(const Settings& settings)
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
 	worldDef.finishAllTasks = &FinishAllTasks;
-	worldDef.bodyCapacity = 1024;
-	worldDef.contactCapacity = 4 * 1024;
 	worldDef.userTaskContext = this;
-	worldDef.stackAllocatorCapacity = 20 * 1024;
 	worldDef.enableSleep = settings.m_enableSleep;
+
+	// These are not ideal, but useful for testing Box2D
+	worldDef.bodyCapacity = 2;
+	worldDef.contactCapacity = 2;
+	worldDef.stackAllocatorCapacity = 0;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
 	m_textIncrement = 18;
 	m_mouseJointId = b2_nullJointId;
 	m_pointCount = 0;
+	m_collectContacts =
+		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;
 
 	// m_destructionListener.test = this;
 	// m_world->SetDestructionListener(&m_destructionListener);
@@ -193,6 +202,8 @@ void Sample::MouseMove(b2Vec2 p)
 	if (B2_NON_NULL(m_mouseJointId))
 	{
 		b2MouseJoint_SetTarget(m_mouseJointId, p);
+		b2BodyId bodyIdB = b2Joint_GetBodyB(m_mouseJointId);
+		b2Body_Wake(bodyIdB);
 	}
 }
 
@@ -226,6 +237,9 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawJoints = settings.m_drawJoints;
 	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
 	g_draw.m_debugDraw.drawMass = settings.m_drawMass;
+
+	m_collectContacts =
+		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;
 
 	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
 	b2World_EnableWarmStarting(m_worldId, settings.m_enableWarmStarting);

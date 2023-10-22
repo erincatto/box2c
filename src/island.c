@@ -157,7 +157,7 @@ void b2DestroyIsland(b2Island* island)
 			world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
 		}
 	}
-	
+
 	b2FreeObject(&island->world->islandPool, &island->object);
 }
 
@@ -183,7 +183,7 @@ static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* co
 	island->contactCount += 1;
 	contact->islandIndex = island->object.index;
 
-	b2ValidateIsland(island);
+	b2ValidateIsland(island, false);
 }
 
 void b2WakeIsland(b2Island* island)
@@ -228,7 +228,7 @@ void b2WakeIsland(b2Island* island)
 		b2Joint* joint = world->joints + jointIndex;
 		B2_ASSERT(joint->islandIndex == islandIndex);
 		// TODO_JOINT_GRAPH
-		//b2AddJointToGraph(world, joint);
+		// b2AddJointToGraph(world, joint);
 		jointIndex = joint->islandNext;
 	}
 }
@@ -355,6 +355,8 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	contact->islandIndex = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
+
+	b2ValidateIsland(island, false);
 }
 
 static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
@@ -379,7 +381,7 @@ static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
 	island->jointCount += 1;
 	joint->islandIndex = island->object.index;
 
-	b2ValidateIsland(island);
+	b2ValidateIsland(island, false);
 }
 
 void b2LinkJoint(b2World* world, b2Joint* joint)
@@ -500,6 +502,8 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 	joint->islandIndex = B2_NULL_INDEX;
 	joint->islandPrev = B2_NULL_INDEX;
 	joint->islandNext = B2_NULL_INDEX;
+
+	b2ValidateIsland(island, false);
 }
 
 // Merge an island into its root island.
@@ -611,7 +615,7 @@ static int32_t b2MergeIsland(b2Island* island)
 
 	// Merging a dirty islands means that splitting may still be needed
 	rootIsland->constraintRemoveCount += island->constraintRemoveCount;
-	b2ValidateIsland(rootIsland);
+	b2ValidateIsland(rootIsland, true);
 
 	return rootIsland->bodyCount;
 }
@@ -698,7 +702,7 @@ void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadInde
 
 	b2Island* baseIsland = world->islands + world->splitIslandIndex;
 
-	b2ValidateIsland(baseIsland);
+	b2ValidateIsland(baseIsland, true);
 
 	int32_t bodyCount = baseIsland->bodyCount;
 
@@ -928,7 +932,13 @@ void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadInde
 			}
 		}
 
-		b2ValidateIsland(island);
+		// For consistency, this island must be added to the awake island array. This should
+		// be safe because no other task is accessing this and the solver has already gathered
+		// all awake bodies.
+		island->awakeIndex = b2Array(world->awakeIslandArray).count;
+		b2Array_Push(world->awakeIslandArray, islandIndex);
+
+		b2ValidateIsland(island, true);
 	}
 
 	b2FreeStackItem(alloc, bodyIndices);
@@ -939,17 +949,19 @@ void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadInde
 
 #if B2_VALIDATE
 
-void b2ValidateIsland(b2Island* island)
+void b2ValidateIsland(b2Island* island, bool checkSleep)
 {
 	b2World* world = island->world;
 
 	int32_t islandIndex = island->object.index;
 	B2_ASSERT(island->object.index == island->object.next);
 
+	bool isAwake = false;
 	if (island->awakeIndex != B2_NULL_INDEX)
 	{
 		b2Array_Check(world->awakeIslandArray, island->awakeIndex);
 		B2_ASSERT(world->awakeIslandArray[island->awakeIndex] == islandIndex);
+		isAwake = true;
 	}
 
 	B2_ASSERT(island->headBody != B2_NULL_INDEX);
@@ -1000,6 +1012,25 @@ void b2ValidateIsland(b2Island* island)
 			b2Contact* contact = contacts + contactIndex;
 			B2_ASSERT(contact->islandIndex == islandIndex);
 			count += 1;
+
+			if (checkSleep)
+			{
+				if (isAwake)
+				{
+					B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
+					B2_ASSERT(contact->colorSubIndex != B2_NULL_INDEX);
+
+					//int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
+					//B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
+					//B2_ASSERT(world->awakeContactArray[awakeIndex] == contactIndex);
+				}
+				else
+				{
+					B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
+					B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
+					//B2_ASSERT(world->contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
+				}
+			}
 
 			if (count == island->contactCount)
 			{
@@ -1053,9 +1084,10 @@ void b2ValidateIsland(b2Island* island)
 
 #else
 
-void b2ValidateIsland(b2Island* island)
+void b2ValidateIsland(b2Island* island, bool checkSleep)
 {
 	B2_MAYBE_UNUSED(island);
+	B2_MAYBE_UNUSED(checkSleep);
 }
 
 #endif
