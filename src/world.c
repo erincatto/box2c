@@ -856,8 +856,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(broad_phase);
 
-	// TODO_ERIN continuous
-#if 0
 	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
 
 	// Parallel continuous collision
@@ -925,9 +923,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	world->fastBodies = NULL;
 
 	world->profile.continuous = b2GetMilliseconds(&timer);
-#endif
-
-	world->profile.continuous = 0.0f;
 
 	b2TracyCZoneEnd(solve);
 }

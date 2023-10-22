@@ -510,42 +510,65 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
+	bool enableContinuous = world->enableContinuous;
 
 	B2_ASSERT(startIndex <= endIndex);
 	B2_ASSERT(startIndex <= world->bodyPool.capacity);
 	B2_ASSERT(endIndex <= world->bodyPool.capacity);
 
+	// Update sleep
+	const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
+	const float angTolSqr = b2_angularSleepTolerance * b2_angularSleepTolerance;
+
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		const b2SolverBody* solverBody = solverBodies + i;
 
-		b2Body* body = bodies + solverToBodyMap[i];
+		int32_t bodyIndex = solverToBodyMap[i];
+		b2Body* body = bodies + bodyIndex;
+		B2_ASSERT(b2ObjectValid(&body->object));
 
-		// Integrate positions
-		// TODO_ERIN clamping
-		body->linearVelocity = solverBody->linearVelocity;
-		body->angularVelocity = solverBody->angularVelocity;
-		body->position = b2Add(body->position, solverBody->deltaPosition);
-		body->angle += solverBody->deltaAngle;
+		b2Vec2 v = body->linearVelocity;
+		float w = body->angularVelocity;
 
-		body->transform.q = b2MakeRot(body->angle);
-		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+		body->linearVelocity = v;
+		body->angularVelocity = w;
 
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
 
-		// Update sleep
-		const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
-		const float angTolSqr = b2_angularSleepTolerance * b2_angularSleepTolerance;
-
-		if (enableSleep == false || body->enableSleep == false ||
-			body->angularVelocity * body->angularVelocity > angTolSqr ||
-			b2Dot(body->linearVelocity, body->linearVelocity) > linTolSqr)
+		if (enableSleep == false || body->enableSleep == false || w * w > angTolSqr || b2Dot(v, v) > linTolSqr)
 		{
 			body->sleepTime = 0.0f;
+
+			const float saftetyFactor = 0.5f;
+			if (enableContinuous && (b2Length(v) + B2_ABS(w) * body->maxExtent) * timeStep > saftetyFactor * body->minExtent)
+			{
+				// Store in fast array for the continuous collision stage
+				int fastIndex = atomic_fetch_add(&world->fastBodyCount, 1);
+				world->fastBodies[fastIndex] = bodyIndex;
+				body->isFast = true;
+			}
+			else
+			{
+				// Body is safe to advance
+				body->isFast = false;
+
+				body->position = b2Add(body->position, solverBody->deltaPosition);
+				body->angle += solverBody->deltaAngle;
+
+				body->transform.q = b2MakeRot(body->angle);
+				body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+			}
 		}
 		else
 		{
+			body->position = b2Add(body->position, solverBody->deltaPosition);
+			body->angle += solverBody->deltaAngle;
+
+			body->transform.q = b2MakeRot(body->angle);
+			body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+
 			body->sleepTime += timeStep;
 		}
 
