@@ -23,6 +23,11 @@
 
 #define B2_AVX 1
 
+// Kinematic bodies have to be treated like dynamic bodies in graph coloring. Unlike static bodies, we cannot use a dummy solver body for
+// kinematic bodies. We cannot access a kinematic body from multiple threads efficiently because the SIMD solver body scatter would write to
+// the same kinematic body from multiple threads. Even if these writes don't modify the body, they will cause horrible cache stalls. To make
+// this feasible I would need a way to block these writes.
+
 extern bool b2_parallel;
 
 typedef struct b2WorkerContext
@@ -171,7 +176,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 			B2_ASSERT(world->contacts[swappedIndex].colorIndex == b2_overflowIndex);
 			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
 		}
-		
+
 		contact->colorIndex = B2_NULL_INDEX;
 		contact->colorSubIndex = B2_NULL_INDEX;
 
@@ -528,14 +533,21 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		b2Body* body = bodies + bodyIndex;
 		B2_ASSERT(b2ObjectValid(&body->object));
 
-		b2Vec2 v = body->linearVelocity;
-		float w = body->angularVelocity;
+		b2Vec2 v = solverBody->linearVelocity;
+		float w = solverBody->angularVelocity;
 
 		body->linearVelocity = v;
 		body->angularVelocity = w;
 
+		body->position = b2Add(body->position, solverBody->deltaPosition);
+		body->angle += solverBody->deltaAngle;
+
+		body->transform.q = b2MakeRot(body->angle);
+		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
+		body->isFast = false;
 
 		if (enableSleep == false || body->enableSleep == false || w * w > angTolSqr || b2Dot(v, v) > linTolSqr)
 		{
@@ -552,23 +564,15 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			else
 			{
 				// Body is safe to advance
-				body->isFast = false;
-
-				body->position = b2Add(body->position, solverBody->deltaPosition);
-				body->angle += solverBody->deltaAngle;
-
-				body->transform.q = b2MakeRot(body->angle);
-				body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+				body->position0 = body->position;
+				body->angle0 = body->angle;
 			}
 		}
 		else
 		{
-			body->position = b2Add(body->position, solverBody->deltaPosition);
-			body->angle += solverBody->deltaAngle;
-
-			body->transform.q = b2MakeRot(body->angle);
-			body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
-
+			// Body is safe to advance
+			body->position0 = body->position;
+			body->angle0 = body->angle;
 			body->sleepTime += timeStep;
 		}
 
@@ -580,6 +584,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		}
 
 		// Update shapes AABBs
+		bool isFast = body->isFast;
 		int32_t shapeIndex = body->shapeList;
 		while (shapeIndex != B2_NULL_INDEX)
 		{
@@ -587,17 +592,29 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 			B2_ASSERT(shape->isFast == false);
 
-			shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
-
-			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			if (isFast)
 			{
-				shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbMargin);
-				shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbMargin);
+				// The AABB is updated after continuous collision.
+				// Add to moved shapes regardless of AABB changes.
+				shape->isFast = true;
 
 				// Bit-set to keep the move array sorted
 				b2SetBit(shapeBitSet, shapeIndex);
 			}
+			else
+			{
+				shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
 
+				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+				{
+					shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbMargin);
+					shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbMargin);
+
+					// Bit-set to keep the move array sorted
+					b2SetBit(shapeBitSet, shapeIndex);
+				}
+			}
+			
 			shapeIndex = shape->nextShapeIndex;
 		}
 
@@ -960,6 +977,11 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		awakeBodyCount += island->bodyCount;
 	}
 
+	// Prepare world to receive fast bodies from body finalization
+	// TODO_ERIN scope problem
+	world->fastBodyCount = 0;
+	world->fastBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
+
 	if (awakeBodyCount == 0)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
@@ -1076,7 +1098,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	int32_t* contactIndices = b2AllocateStackItem(world->stackAllocator, 8 * constraintCount * sizeof(int32_t), "contact indices");
 	int32_t overflowContactCount = b2Array(graph->overflow.contactArray).count;
 	graph->occupancy[b2_overflowIndex] = overflowContactCount;
-	graph->overflow.contactConstraints = 
+	graph->overflow.contactConstraints =
 		b2AllocateStackItem(world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
 	int32_t base = 0;

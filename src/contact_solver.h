@@ -13,6 +13,7 @@ typedef struct b2ContactConstraintPoint
 {
 	b2Vec2 rA, rB;
 	float separation;
+	float relativeVelocity;
 	float normalImpulse;
 	float tangentImpulse;
 	float normalMass;
@@ -27,6 +28,7 @@ typedef struct b2ContactConstraint
 	b2ContactConstraintPoint points[2];
 	b2Vec2 normal;
 	float friction;
+	float restitution;
 	float massCoefficient;
 	float biasCoefficient;
 	float impulseCoefficient;
@@ -49,9 +51,11 @@ typedef struct b2ContactConstraintAVX
 
 	b2Vec2W normal;
 	__m256 friction;
+	__m256 restitution;
 	b2Vec2W rA1, rB1;
 	b2Vec2W rA2, rB2;
 	__m256 separation1, separation2;
+	__m256 relativeVelocity1, relativeVelocity2;
 	__m256 normalImpulse1, normalImpulse2;
 	__m256 tangentImpulse1, tangentImpulse2;
 	__m256 normalMass1, tangentMass1;
@@ -64,10 +68,12 @@ typedef struct b2ContactConstraintAVX
 // Scalar
 void b2PrepareOverflowContacts(b2SolverTaskContext* context);
 void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias);
+void b2ApplyOverflowRestitution(b2SolverTaskContext* context);
 void b2StoreOverflowImpulses(b2SolverTaskContext* context);
 
 // AVX versions
 void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
 void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
 void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2ApplyRestitutionW(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
 void b2StoreImpulsesAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);

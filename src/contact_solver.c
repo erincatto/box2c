@@ -59,6 +59,7 @@ void b2PrepareOverflowContacts(b2SolverTaskContext* context)
 		constraint->indexB = indexB;
 		constraint->normal = manifold->normal;
 		constraint->friction = contact->friction;
+		constraint->restitution = contact->restitution;
 		constraint->pointCount = pointCount;
 
 		b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
@@ -108,6 +109,11 @@ void b2PrepareOverflowContacts(b2SolverTaskContext* context)
 			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
 			cp->separation = mp->separation;
 			cp->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+
+			// Save relative velocity for restitution
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			cp->relativeVelocity = b2Dot(normal, b2Sub(vrB, vrA));
 
 			// Warm start
 			if (enableWarmStarting)
@@ -257,6 +263,85 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 	}
 
 	b2TracyCZoneEnd(solve_contact);
+}
+
+void b2ApplyOverflowRestitution(b2SolverTaskContext* context)
+{
+	b2TracyCZoneNC(overflow_resitution, "Overflow Restitution", b2_colorViolet, true);
+
+	b2SolverBody* bodies = context->solverBodies;
+	b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
+	int32_t count = b2Array(context->graph->overflow.contactArray).count;
+	float threshold = context->world->restitutionThreshold;
+
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	b2SolverBody dummyBody = {0};
+
+	for (int32_t i = 0; i < count; ++i)
+	{
+		b2ContactConstraint* constraint = constraints + i;
+
+		float restitution = constraint->restitution;
+		if (restitution == 0.0f)
+		{
+			continue;
+		}
+
+		b2SolverBody* bodyA = constraint->indexA == B2_NULL_INDEX ? &dummyBody : bodies + constraint->indexA;
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
+
+		b2SolverBody* bodyB = constraint->indexB == B2_NULL_INDEX ? &dummyBody : bodies + constraint->indexB;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
+
+		b2Vec2 normal = constraint->normal;
+		int32_t pointCount = constraint->pointCount;
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			b2ContactConstraintPoint* cp = constraint->points + j;
+
+			// if the normal impulse is zero then there was no collision
+			if (cp->relativeVelocity > -threshold || cp->normalImpulse == 0.0f)
+			{
+				continue;
+			}
+
+			// Relative velocity at contact
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 dv = b2Sub(vrB, vrA);
+
+			// Compute normal impulse
+			float vn = b2Dot(dv, normal);
+			float impulse = -cp->normalMass * (vn + restitution * cp->relativeVelocity);
+
+			// Clamp the accumulated impulse
+			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
+			impulse = newImpulse - cp->normalImpulse;
+			cp->normalImpulse = newImpulse;
+
+			// Apply contact impulse
+			b2Vec2 P = b2MulSV(impulse, normal);
+			vA = b2MulSub(vA, mA, P);
+			wA -= iA * b2Cross(cp->rA, P);
+
+			vB = b2MulAdd(vB, mB, P);
+			wB += iB * b2Cross(cp->rB, P);
+		}
+
+		bodyA->linearVelocity = vA;
+		bodyA->angularVelocity = wA;
+		bodyB->linearVelocity = vB;
+		bodyB->angularVelocity = wB;
+	}
+
+	b2TracyCZoneEnd(overflow_resitution);
 }
 
 void b2StoreOverflowImpulses(b2SolverTaskContext* context)

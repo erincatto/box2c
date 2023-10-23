@@ -207,7 +207,7 @@ class OverlapRecovery : public Sample
 		m_bodyCount = 0;
 		m_baseCount = 4;
 		m_overlap = 0.5f;
-		m_extent = 0.1f;
+		m_extent = 0.3f;
 		m_pushout = 3.0f;
 		m_hertz = 30.0f;
 

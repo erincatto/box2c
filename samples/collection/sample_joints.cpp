@@ -17,8 +17,8 @@ class BenchmarkJointGrid : public Sample
 		: Sample(settings)
 	{
 		constexpr float rad = 0.4f;
-		constexpr int32_t numi = g_sampleDebug ? 100 : 100;
-		constexpr int32_t numk = g_sampleDebug ? 100 : 100;
+		constexpr int32_t numi = g_sampleDebug ? 10 : 100;
+		constexpr int32_t numk = g_sampleDebug ? 10 : 100;
 		constexpr float shift = 1.0f;
 
 		// Allocate to avoid huge stack usage

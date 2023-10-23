@@ -69,9 +69,7 @@ public:
 			}
 		}
 
-		m_columnCount = g_sampleDebug ? 4 : e_maxColumns;
-
-		m_columnCount = e_maxColumns;
+		m_columnCount = g_sampleDebug ? 10 : e_maxColumns;
 
 		float rad = 0.5f;
 
@@ -91,9 +89,7 @@ public:
 		b2Circle circle = {0};
 		circle.radius = rad;
 
-		m_rowCount = g_sampleDebug ? 8 : e_maxRows;
-
-		m_rowCount = e_maxRows;
+		m_rowCount = g_sampleDebug ? 40 : e_maxRows;
 
 		int32_t index = 0;
 
