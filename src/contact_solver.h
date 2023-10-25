@@ -44,7 +44,7 @@ typedef struct b2Vec2W
 	b2FloatW X, Y;
 } b2Vec2W;
 
-typedef struct b2ContactConstraintAVX
+typedef struct b2ContactConstraintSIMD
 {
 	int32_t indexA[8];
 	int32_t indexB[8];
@@ -72,8 +72,8 @@ void b2ApplyOverflowRestitution(b2SolverTaskContext* context);
 void b2StoreOverflowImpulses(b2SolverTaskContext* context);
 
 // AVX versions
-void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
-void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
-void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
-void b2ApplyRestitutionW(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
-void b2StoreImpulsesAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);

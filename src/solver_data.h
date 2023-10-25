@@ -53,6 +53,7 @@ typedef enum b2SolverStageType
 	b2_stageIntegratePositions,
 	b2_stageCalmJoints,
 	b2_stageCalmContacts,
+	b2_stageRestitution,
 	b2_stageStoreImpulses
 } b2SolverStageType;
 
@@ -90,7 +91,7 @@ typedef struct b2SolverTaskContext
 
 	b2StepContext* stepContext;
 	struct b2ContactConstraint* constraints;
-	struct b2ContactConstraintAVX* constraintAVXs;
+	struct b2ContactConstraintSIMD* constraintAVXs;
 	int32_t activeColorCount;
 	int32_t velocityIterations;
 	int32_t calmIterations;

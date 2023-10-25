@@ -473,7 +473,7 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 		_mm256_store_ps((float*)(bodies + indices[7]), _mm256_permute2f128_ps(tt3, tt7, 0x31));
 }
 
-void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
@@ -530,6 +530,7 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 				float impulseCoefficient = 1.0f / (1.0f + c);
 
 				((float*)&constraint->friction)[j] = contact->friction;
+				((float*)&constraint->restitution)[j] = contact->restitution;
 				((float*)&constraint->impulseCoefficient)[j] = impulseCoefficient;
 				((float*)&constraint->massCoefficient)[j] = c * impulseCoefficient;
 				((float*)&constraint->biasCoefficient)[j] = omega / d;
@@ -560,6 +561,11 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 					float rtB = b2Cross(mp->anchorB, tangent);
 					float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
 					((float*)&constraint->tangentMass1)[j] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
+					// Save relative velocity for restitution
+					b2Vec2 vrA = b2Add(solverBodyA->linearVelocity, b2CrossSV(solverBodyA->angularVelocity, mp->anchorA));
+					b2Vec2 vrB = b2Add(solverBodyB->linearVelocity, b2CrossSV(solverBodyB->angularVelocity, mp->anchorB));
+					((float*)&constraint->relativeVelocity1)[j] = b2Dot(normal, b2Sub(vrB, vrA));
 				}
 
 				int32_t pointCount = manifold->pointCount;
@@ -586,6 +592,11 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 					float rtB = b2Cross(mp->anchorB, tangent);
 					float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
 					((float*)&constraint->tangentMass2)[j] = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
+					// Save relative velocity for restitution
+					b2Vec2 vrA = b2Add(solverBodyA->linearVelocity, b2CrossSV(solverBodyA->angularVelocity, mp->anchorA));
+					b2Vec2 vrB = b2Add(solverBodyB->linearVelocity, b2CrossSV(solverBodyB->angularVelocity, mp->anchorB));
+					((float*)&constraint->relativeVelocity2)[j] = b2Dot(normal, b2Sub(vrB, vrA));
 				}
 				else
 				{
@@ -599,6 +610,7 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 					((float*)&constraint->rB2.Y)[j] = 0.0f;
 					((float*)&constraint->normalMass2)[j] = 0.0f;
 					((float*)&constraint->tangentMass2)[j] = 0.0f;
+					((float*)&constraint->relativeVelocity2)[j] = 0.0f;
 				}
 			}
 			else
@@ -622,7 +634,8 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 				((float*)&constraint->rB1.Y)[j] = 0.0f;
 				((float*)&constraint->normalMass1)[j] = 0.0f;
 				((float*)&constraint->tangentMass1)[j] = 0.0f;
-				
+				((float*)&constraint->relativeVelocity1)[j] = 0.0f;
+
 				((float*)&constraint->separation2)[j] = 0.0f;
 				((float*)&constraint->normalImpulse2)[j] = 0.0f;
 				((float*)&constraint->tangentImpulse2)[j] = 0.0f;
@@ -632,6 +645,7 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 				((float*)&constraint->rB2.Y)[j] = 0.0f;
 				((float*)&constraint->normalMass2)[j] = 0.0f;
 				((float*)&constraint->tangentMass2)[j] = 0.0f;
+				((float*)&constraint->relativeVelocity2)[j] = 0.0f;
 			}
 		}
 	}
@@ -639,7 +653,7 @@ void b2PrepareContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 	b2TracyCZoneEnd(prepare_contact);
 }
 
-void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen1, true);
 
@@ -686,178 +700,7 @@ void b2WarmStartContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 	b2TracyCZoneEnd(warm_start_contact);
 }
 
-static void b2SolveContactTwoPointsAVX(b2ContactConstraintAVX* restrict c, b2SolverBody* restrict bodies, float inv_dt, float pushout, bool useBias)
-{
-	b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
-	b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
-
-	__m256 biasCoeff, massCoeff, impulseCoeff;
-	if (useBias)
-	{
-		biasCoeff = c->biasCoefficient;
-		massCoeff = c->massCoefficient;
-		impulseCoeff = c->impulseCoefficient;
-	}
-	else
-	{
-		biasCoeff = _mm256_setzero_ps();
-		massCoeff = _mm256_set1_ps(1.0f);
-		impulseCoeff = _mm256_setzero_ps();
-	}
-
-	__m256 invDtMul = _mm256_set1_ps(inv_dt);
-	__m256 minBiasVel = _mm256_set1_ps(-pushout);
-
-	// first point non-penetration constraint
-	{
-		// Compute change in separation (small angle approximation of sin(angle) == angle)
-		__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB1.Y)), sub(bA.dp.X, mul(bA.da, c->rA1.Y)));
-		__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB1.X)), add(bA.dp.Y, mul(bA.da, c->rA1.X)));
-		__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
-
-		__m256 s = add(c->separation1, ds);
-
-		__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
-		__m256 specBias = mul(s, invDtMul);
-		__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
-		__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
-
-		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
-		__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
-
-		// Compute normal impulse
-		__m256 negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
-		// float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
-
-		// Clamp the accumulated impulse
-		__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
-		__m256 impulse = sub(newImpulse, c->normalImpulse1);
-		c->normalImpulse1 = newImpulse;
-
-		// Apply contact impulse
-		__m256 Px = mul(impulse, c->normal.X);
-		__m256 Py = mul(impulse, c->normal.Y);
-
-		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
-
-		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
-	}
-
-	// second point non-penetration constraint
-	{
-		// Compute change in separation (small angle approximation of sin(angle) == angle)
-		__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB2.Y)), sub(bA.dp.X, mul(bA.da, c->rA2.Y)));
-		__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB2.X)), add(bA.dp.Y, mul(bA.da, c->rA2.X)));
-		__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
-
-		__m256 s = add(c->separation2, ds);
-
-		__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
-		__m256 specBias = mul(s, invDtMul);
-		__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
-		__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
-
-		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
-		__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
-
-		// Compute normal impulse
-		__m256 negImpulse = add(mul(c->normalMass2, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse2));
-
-		// Clamp the accumulated impulse
-		__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse2, negImpulse), _mm256_setzero_ps());
-		__m256 impulse = sub(newImpulse, c->normalImpulse2);
-		c->normalImpulse2 = newImpulse;
-
-		// Apply contact impulse
-		__m256 Px = mul(impulse, c->normal.X);
-		__m256 Py = mul(impulse, c->normal.Y);
-
-		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
-
-		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
-	}
-
-	__m256 tangentX = c->normal.Y;
-	__m256 tangentY = sub(_mm256_setzero_ps(), c->normal.X);
-	// float friction = constraint->friction;
-
-	// first point friction constraint
-	{
-		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
-		__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
-
-		// Compute tangent force
-		__m256 negImpulse = mul(c->tangentMass1, vt);
-
-		// Clamp the accumulated force
-		__m256 maxFriction = mul(c->friction, c->normalImpulse1);
-		__m256 newImpulse = sub(c->tangentImpulse1, negImpulse);
-		newImpulse = _mm256_max_ps(sub(_mm256_setzero_ps(), maxFriction), _mm256_min_ps(newImpulse, maxFriction));
-		__m256 impulse = sub(newImpulse, c->tangentImpulse1);
-		c->tangentImpulse1 = newImpulse;
-
-		// Apply contact impulse
-		__m256 Px = mul(impulse, tangentX);
-		__m256 Py = mul(impulse, tangentY);
-
-		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
-
-		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
-	}
-
-	// second point friction constraint
-	{
-		// Relative velocity at contact
-		__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-		__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
-		__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
-
-		// Compute tangent force
-		__m256 negImpulse = mul(c->tangentMass2, vt);
-
-		// Clamp the accumulated force
-		__m256 maxFriction = mul(c->friction, c->normalImpulse2);
-		__m256 newImpulse = sub(c->tangentImpulse2, negImpulse);
-		newImpulse = _mm256_max_ps(sub(_mm256_setzero_ps(), maxFriction), _mm256_min_ps(newImpulse, maxFriction));
-		__m256 impulse = sub(newImpulse, c->tangentImpulse2);
-		c->tangentImpulse2 = newImpulse;
-
-		// Apply contact impulse
-		__m256 Px = mul(impulse, tangentX);
-		__m256 Py = mul(impulse, tangentY);
-
-		bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-		bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-		bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
-
-		bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-		bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-		bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
-	}
-
-	b2ScatterBodies(bodies, c->indexA, &bA);
-	b2ScatterBodies(bodies, c->indexB, &bB);
-}
-
-void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
@@ -868,14 +711,272 @@ void b2SolveContactsAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContex
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2ContactConstraintAVX* constraint = constraints + i;
-		b2SolveContactTwoPointsAVX(constraint, bodies, inv_dt, pushout, useBias);
+		b2ContactConstraintAVX* c = constraints + i;
+
+		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
+		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
+
+		__m256 biasCoeff, massCoeff, impulseCoeff;
+		if (useBias)
+		{
+			biasCoeff = c->biasCoefficient;
+			massCoeff = c->massCoefficient;
+			impulseCoeff = c->impulseCoefficient;
+		}
+		else
+		{
+			biasCoeff = _mm256_setzero_ps();
+			massCoeff = _mm256_set1_ps(1.0f);
+			impulseCoeff = _mm256_setzero_ps();
+		}
+
+		__m256 invDtMul = _mm256_set1_ps(inv_dt);
+		__m256 minBiasVel = _mm256_set1_ps(-pushout);
+
+		// first point non-penetration constraint
+		{
+			// Compute change in separation (small angle approximation of sin(angle) == angle)
+			__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB1.Y)), sub(bA.dp.X, mul(bA.da, c->rA1.Y)));
+			__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB1.X)), add(bA.dp.Y, mul(bA.da, c->rA1.X)));
+			__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
+
+			__m256 s = add(c->separation1, ds);
+
+			__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
+			__m256 specBias = mul(s, invDtMul);
+			__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+			__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
+
+			// Relative velocity at contact
+			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+
+			// Compute normal impulse
+			__m256 negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
+			// float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
+
+			// Clamp the accumulated impulse
+			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
+			__m256 impulse = sub(newImpulse, c->normalImpulse1);
+			c->normalImpulse1 = newImpulse;
+
+			// Apply contact impulse
+			__m256 Px = mul(impulse, c->normal.X);
+			__m256 Py = mul(impulse, c->normal.Y);
+
+			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
+
+			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
+		}
+
+		// second point non-penetration constraint
+		{
+			// Compute change in separation (small angle approximation of sin(angle) == angle)
+			__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB2.Y)), sub(bA.dp.X, mul(bA.da, c->rA2.Y)));
+			__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB2.X)), add(bA.dp.Y, mul(bA.da, c->rA2.X)));
+			__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
+
+			__m256 s = add(c->separation2, ds);
+
+			__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
+			__m256 specBias = mul(s, invDtMul);
+			__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+			__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
+
+			// Relative velocity at contact
+			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+
+			// Compute normal impulse
+			__m256 negImpulse = add(mul(c->normalMass2, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse2));
+
+			// Clamp the accumulated impulse
+			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse2, negImpulse), _mm256_setzero_ps());
+			__m256 impulse = sub(newImpulse, c->normalImpulse2);
+			c->normalImpulse2 = newImpulse;
+
+			// Apply contact impulse
+			__m256 Px = mul(impulse, c->normal.X);
+			__m256 Py = mul(impulse, c->normal.Y);
+
+			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
+
+			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
+		}
+
+		__m256 tangentX = c->normal.Y;
+		__m256 tangentY = sub(_mm256_setzero_ps(), c->normal.X);
+		// float friction = constraint->friction;
+
+		// first point friction constraint
+		{
+			// Relative velocity at contact
+			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
+
+			// Compute tangent force
+			__m256 negImpulse = mul(c->tangentMass1, vt);
+
+			// Clamp the accumulated force
+			__m256 maxFriction = mul(c->friction, c->normalImpulse1);
+			__m256 newImpulse = sub(c->tangentImpulse1, negImpulse);
+			newImpulse = _mm256_max_ps(sub(_mm256_setzero_ps(), maxFriction), _mm256_min_ps(newImpulse, maxFriction));
+			__m256 impulse = sub(newImpulse, c->tangentImpulse1);
+			c->tangentImpulse1 = newImpulse;
+
+			// Apply contact impulse
+			__m256 Px = mul(impulse, tangentX);
+			__m256 Py = mul(impulse, tangentY);
+
+			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
+
+			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
+		}
+
+		// second point friction constraint
+		{
+			// Relative velocity at contact
+			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
+
+			// Compute tangent force
+			__m256 negImpulse = mul(c->tangentMass2, vt);
+
+			// Clamp the accumulated force
+			__m256 maxFriction = mul(c->friction, c->normalImpulse2);
+			__m256 newImpulse = sub(c->tangentImpulse2, negImpulse);
+			newImpulse = _mm256_max_ps(sub(_mm256_setzero_ps(), maxFriction), _mm256_min_ps(newImpulse, maxFriction));
+			__m256 impulse = sub(newImpulse, c->tangentImpulse2);
+			c->tangentImpulse2 = newImpulse;
+
+			// Apply contact impulse
+			__m256 Px = mul(impulse, tangentX);
+			__m256 Py = mul(impulse, tangentY);
+
+			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
+
+			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
+		}
+
+		b2ScatterBodies(bodies, c->indexA, &bA);
+		b2ScatterBodies(bodies, c->indexB, &bB);
 	}
 
 	b2TracyCZoneEnd(solve_contact);
 }
 
-void b2StoreImpulsesAVX(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+{
+	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
+
+	b2SolverBody* bodies = context->solverBodies;
+	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
+	b2FloatW threshold = _mm256_set1_ps(context->world->restitutionThreshold);
+	b2FloatW zero = _mm256_setzero_ps();
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		b2ContactConstraintAVX* c = constraints + i;
+
+		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
+		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
+
+		// first point non-penetration constraint
+		{
+			// Set effective mass to zero if restitution should not be applied
+			__m256 test1 = _mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, _CMP_GT_OQ);
+			__m256 test2 = _mm256_cmp_ps(c->normalImpulse1, zero, _CMP_EQ_OQ);
+			__m256 test = _mm256_or_ps(test1, test2);
+			__m256 mass = _mm256_blendv_ps(zero, c->normalMass1, test);
+
+			// Relative velocity at contact
+			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+
+			// Compute normal impulse
+			__m256 negImpulse = mul(mass, add(vn, mul(c->restitution, c->relativeVelocity1)));
+
+			// Clamp the accumulated impulse
+			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
+			__m256 impulse = sub(newImpulse, c->normalImpulse1);
+			c->normalImpulse1 = newImpulse;
+
+			// Apply contact impulse
+			__m256 Px = mul(impulse, c->normal.X);
+			__m256 Py = mul(impulse, c->normal.Y);
+
+			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
+
+			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
+		}
+
+		// second point non-penetration constraint
+		{
+			// Set effective mass to zero if restitution should not be applied
+			__m256 test1 = _mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, _CMP_GT_OQ);
+			__m256 test2 = _mm256_cmp_ps(c->normalImpulse2, zero, _CMP_EQ_OQ);
+			__m256 test = _mm256_or_ps(test1, test2);
+			__m256 mass = _mm256_blendv_ps(zero, c->normalMass2, test);
+
+			// Relative velocity at contact
+			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+
+			// Compute normal impulse
+			__m256 negImpulse = mul(mass, add(vn, mul(c->restitution, c->relativeVelocity2)));
+
+			// Clamp the accumulated impulse
+			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse2, negImpulse), _mm256_setzero_ps());
+			__m256 impulse = sub(newImpulse, c->normalImpulse2);
+			c->normalImpulse2 = newImpulse;
+
+			// Apply contact impulse
+			__m256 Px = mul(impulse, c->normal.X);
+			__m256 Py = mul(impulse, c->normal.Y);
+
+			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
+			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
+			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
+
+			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
+			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
+			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
+		}
+
+		b2ScatterBodies(bodies, c->indexA, &bA);
+		b2ScatterBodies(bodies, c->indexB, &bB);
+	}
+
+	b2TracyCZoneEnd(restitution);
+}
+
+void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 

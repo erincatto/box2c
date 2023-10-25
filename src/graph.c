@@ -646,15 +646,15 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 
 		case b2_stagePrepareContacts:
-			b2PrepareContactsAVX(startIndex, endIndex, context);
+			b2PrepareContactsSIMD(startIndex, endIndex, context);
 			break;
 
 		case b2_stageWarmStartContacts:
-			b2WarmStartContactsAVX(startIndex, endIndex, context, stage->colorIndex);
+			b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
 			break;
 
 		case b2_stageSolveContacts:
-			b2SolveContactsAVX(startIndex, endIndex, context, stage->colorIndex, true);
+			b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, true);
 			break;
 
 		case b2_stageIntegratePositions:
@@ -662,11 +662,15 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 
 		case b2_stageCalmContacts:
-			b2SolveContactsAVX(startIndex, endIndex, context, stage->colorIndex, false);
+			b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, false);
+			break;
+
+		case b2_stageRestitution:
+			b2ApplyRestitutionSIMD(startIndex, endIndex, context, stage->colorIndex);
 			break;
 
 		case b2_stageStoreImpulses:
-			b2StoreImpulsesAVX(startIndex, endIndex, context);
+			b2StoreImpulsesSIMD(startIndex, endIndex, context);
 			break;
 	}
 }
@@ -810,6 +814,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		b2_stageIntegratePositions,
 		b2_stageCalmJoints,
 		b2_stageCalmContacts,
+		b2_stageRestitution,
 		b2_stageStoreImpulses
 		*/
 
@@ -899,11 +904,29 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 		stageIndex += 1 + activeColorCount;
 
+		// Restitution
+		{
+			b2ApplyOverflowRestitution(context);
+
+			// stage index restarted each iteration
+			int32_t iterStageIndex = stageIndex;
+			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
+			{
+				syncBits = (graphSyncIndex << 16) | iterStageIndex;
+				B2_ASSERT(stages[iterStageIndex].type == b2_stageRestitution);
+				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
+				iterStageIndex += 1;
+			}
+			graphSyncIndex += 1;
+		}
+
+		stageIndex += activeColorCount;
+
+		b2StoreOverflowImpulses(context);
+
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
-
-		b2StoreOverflowImpulses(context);
 
 		// Signal workers to finish
 		atomic_store(&context->syncBits, UINT_MAX);
@@ -1144,6 +1167,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2_stageFinalizePositions,
 	b2_stageCalmJoints,
 	b2_stageCalmContacts,
+	b2_stageRestitution,
 	b2_stageStoreImpulses
 	*/
 
@@ -1162,6 +1186,8 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stageCount += 1 + activeColorCount + 1;
 	// b2_stageCalmJoints, b2_stageCalmContacts
 	stageCount += 1 + activeColorCount;
+	// b2_stageRestitution
+	stageCount += activeColorCount;
 	// b2_stageStoreImpulses
 	stageCount += 1;
 
@@ -1311,6 +1337,17 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
 		stage->type = b2_stageCalmContacts;
+		stage->blocks = colorBlocks[i];
+		stage->blockCount = colorBlockCounts[i];
+		stage->colorIndex = activeColorIndices[i];
+		stage->completionCount = 0;
+		stage += 1;
+	}
+
+	// Restitution
+	for (int32_t i = 0; i < activeColorCount; ++i)
+	{
+		stage->type = b2_stageRestitution;
 		stage->blocks = colorBlocks[i];
 		stage->blockCount = colorBlockCounts[i];
 		stage->colorIndex = activeColorIndices[i];
