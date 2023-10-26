@@ -652,12 +652,21 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, i
 			b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
 			break;
 
+		case b2_stagePrepareJoints:
+			break;
+
+		case b2_stageSolveJoints:
+			break;
+
 		case b2_stageSolveContacts:
 			b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, true);
 			break;
 
 		case b2_stageIntegratePositions:
 			b2IntegratePositionsTask(startIndex, endIndex, context);
+			break;
+
+		case b2_stageCalmJoints:
 			break;
 
 		case b2_stageCalmContacts:
