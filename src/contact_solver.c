@@ -368,9 +368,12 @@ void b2StoreOverflowImpulses(b2SolverTaskContext* context)
 	b2TracyCZoneEnd(store_impulses);
 }
 
+// SIMD WIP
 #define add(a, b) _mm256_add_ps((a), (b))
 #define sub(a, b) _mm256_sub_ps((a), (b))
 #define mul(a, b) _mm256_mul_ps((a), (b))
+#define muladd(a, b, c) _mm256_add_ps((a), _mm256_mul_ps((b), (c)))
+#define mulsub(a, b, c) _mm256_sub_ps((a), _mm256_mul_ps((b), (c)))
 
 static inline __m256 b2CrossW(b2Vec2W a, b2Vec2W b)
 {
@@ -674,24 +677,24 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskC
 			b2Vec2W P;
 			P.X = add(mul(c->normalImpulse1, c->normal.X), mul(c->tangentImpulse1, tangentX));
 			P.Y = add(mul(c->normalImpulse1, c->normal.Y), mul(c->tangentImpulse1, tangentY));
-			bA.w = _mm256_fnmadd_ps(bA.invI, b2CrossW(c->rA1, P), bA.w);
-			bA.v.X = _mm256_fnmadd_ps(bA.invM, P.X, bA.v.X);
-			bA.v.Y = _mm256_fnmadd_ps(bA.invM, P.Y, bA.v.Y);
-			bB.w = _mm256_fmadd_ps(bB.invI, b2CrossW(c->rB1, P), bB.w);
-			bB.v.X = _mm256_fmadd_ps(bB.invM, P.X, bB.v.X);
-			bB.v.Y = _mm256_fmadd_ps(bB.invM, P.Y, bB.v.Y);
+			bA.w = mulsub(bA.w, bA.invI, b2CrossW(c->rA1, P));
+			bA.v.X = mulsub(bA.v.X, bA.invM, P.X);
+			bA.v.Y = mulsub(bA.v.Y, bA.invM, P.Y);
+			bB.w = muladd(bB.w, bB.invI, b2CrossW(c->rB1, P));
+			bB.v.X = muladd(bB.v.X, bB.invM, P.X);
+			bB.v.Y = muladd(bB.v.Y, bB.invM, P.Y);
 		}
 
 		{
 			b2Vec2W P;
 			P.X = add(mul(c->normalImpulse2, c->normal.X), mul(c->tangentImpulse2, tangentX));
 			P.Y = add(mul(c->normalImpulse2, c->normal.Y), mul(c->tangentImpulse2, tangentY));
-			bA.w = _mm256_fnmadd_ps(bA.invI, b2CrossW(c->rA2, P), bA.w);
-			bA.v.X = _mm256_fnmadd_ps(bA.invM, P.X, bA.v.X);
-			bA.v.Y = _mm256_fnmadd_ps(bA.invM, P.Y, bA.v.Y);
-			bB.w = _mm256_fmadd_ps(bB.invI, b2CrossW(c->rB2, P), bB.w);
-			bB.v.X = _mm256_fmadd_ps(bB.invM, P.X, bB.v.X);
-			bB.v.Y = _mm256_fmadd_ps(bB.invM, P.Y, bB.v.Y);
+			bA.w = mulsub(bA.w, bA.invI, b2CrossW(c->rA2, P));
+			bA.v.X = mulsub(bA.v.X, bA.invM, P.X);
+			bA.v.Y = mulsub(bA.v.Y, bA.invM, P.Y);
+			bB.w = muladd(bB.w, bB.invI, b2CrossW(c->rB2, P));
+			bB.v.X = muladd(bB.v.X, bB.invM, P.X);
+			bB.v.Y = muladd(bB.v.Y, bB.invM, P.Y);
 		}
 
 		b2ScatterBodies(bodies, c->indexA, &bA);
