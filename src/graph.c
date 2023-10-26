@@ -20,8 +20,7 @@
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-
-#define B2_AVX 1
+#include <string.h>
 
 // Kinematic bodies have to be treated like dynamic bodies in graph coloring. Unlike static bodies, we cannot use a dummy solver body for
 // kinematic bodies. We cannot access a kinematic body from multiple threads efficiently because the SIMD solver body scatter would write to
