@@ -621,8 +621,6 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	// Solve constraints using graph coloring
 	b2SolveGraph(world, context);
 
-	b2ValidateNoEnlarged(&world->broadPhase);
-
 	b2TracyCZoneEnd(graph_solver);
 
 	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
@@ -800,6 +798,8 @@ static void b2Solve(b2World* world, b2StepContext* context)
 			world->userTreeTask = NULL;
 		}
 	}
+
+	b2ValidateNoEnlarged(&world->broadPhase);
 
 	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
 
