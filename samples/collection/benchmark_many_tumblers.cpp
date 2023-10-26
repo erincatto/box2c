@@ -19,8 +19,8 @@ class BenchmarkManyTumblers : public Sample
 		b2BodyDef bd = b2DefaultBodyDef();
 		m_groundId = b2World_CreateBody(m_worldId, &bd);
 
-		m_rowCount = g_sampleDebug ? 1 : 19;
-		m_columnCount = g_sampleDebug ? 1 : 19;
+		m_rowCount = g_sampleDebug ? 2 : 19;
+		m_columnCount = g_sampleDebug ? 2 : 19;
 
 		m_tumblerIds = nullptr;
 		m_jointIds = nullptr;
@@ -122,7 +122,7 @@ class BenchmarkManyTumblers : public Sample
 
 		free(m_bodyIds);
 
-		int32_t bodiesPerTumbler = g_sampleDebug ? 1 : 50;
+		int32_t bodiesPerTumbler = g_sampleDebug ? 8 : 50;
 		m_bodyCount = bodiesPerTumbler * m_tumblerCount;
 
 		m_bodyIds = static_cast<b2BodyId*>(malloc(m_bodyCount * sizeof(b2BodyId)));
@@ -169,6 +169,7 @@ class BenchmarkManyTumblers : public Sample
 		{
 			b2ShapeDef sd = b2DefaultShapeDef();
 			sd.density = 1.0f;
+			//sd.restitution = 0.5f;
 
 			b2Circle circle = {{0.0f, 0.0f}, 0.125f};
 			b2Polygon polygon = b2MakeBox(0.125f, 0.125f);

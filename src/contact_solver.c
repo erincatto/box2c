@@ -619,6 +619,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 				constraint->indexA[j] = B2_NULL_INDEX;
 				constraint->indexB[j] = B2_NULL_INDEX;
 				((float*)&constraint->friction)[j] = 0.0f;
+				((float*)&constraint->restitution)[j] = 0.0f;
 				((float*)&constraint->impulseCoefficient)[j] = 0.0f;
 				((float*)&constraint->massCoefficient)[j] = 0.0f;
 				((float*)&constraint->biasCoefficient)[j] = 0.0f;
@@ -907,7 +908,7 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 			__m256 test1 = _mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, _CMP_GT_OQ);
 			__m256 test2 = _mm256_cmp_ps(c->normalImpulse1, zero, _CMP_EQ_OQ);
 			__m256 test = _mm256_or_ps(test1, test2);
-			__m256 mass = _mm256_blendv_ps(zero, c->normalMass1, test);
+			__m256 mass = _mm256_blendv_ps(c->normalMass1, zero, test);
 
 			// Relative velocity at contact
 			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));

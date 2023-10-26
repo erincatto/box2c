@@ -96,7 +96,7 @@ class Bridge : public Sample
   public:
 	enum
 	{
-		e_count = 20
+		e_count = 80
 	};
 
 	Bridge(const Settings& settings)
