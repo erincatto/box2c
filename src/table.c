@@ -156,6 +156,8 @@ static void b2GrowTable(b2Set* set)
 
 bool b2ContainsKey(const b2Set* set, uint64_t key)
 {
+	// key of zero is a sentinel
+	B2_ASSERT(key != 0);
 	uint32_t hash = b2KeyHash(key);
 	int32_t index = b2FindSlot(set, key, hash);
 	return set->items[index].key == key;
@@ -163,7 +165,12 @@ bool b2ContainsKey(const b2Set* set, uint64_t key)
 
 bool b2AddKey(b2Set* set, uint64_t key)
 {
+	// key of zero is a sentinel
+	B2_ASSERT(key != 0);
+
 	uint32_t hash = b2KeyHash(key);
+	B2_ASSERT(hash != 0);
+
 	int32_t index = b2FindSlot(set, key, hash);
 	if (set->items[index].hash != 0)
 	{

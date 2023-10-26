@@ -11,6 +11,7 @@ BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: true
   AfterUnion: true
+  BeforeWhile: true
 
 ColumnLimit: 140
 PointerAlignment: Left
@@ -18,7 +19,7 @@ UseTab: Always
 BreakConstructorInitializers: BeforeComma
 
 # when VS updates clang-format to v16
-# InsertNewlineAtEOF: true
+InsertNewlineAtEOF: true
 
 IncludeBlocks: Regroup
 

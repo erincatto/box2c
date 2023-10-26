@@ -36,6 +36,10 @@ typedef struct b2Body
 	b2Vec2 linearVelocity;
 	float angularVelocity;
 
+	// These are the change in position/angle that accumulate across constraint substeps
+	b2Vec2 deltaPosition;
+	float deltaAngle;
+
 	b2Vec2 force;
 	float torque;
 
@@ -78,6 +82,22 @@ typedef struct b2Body
 	bool isFast;
 	bool enlargeAABB;
 } b2Body;
+
+// TODO_ERIN every non-static body gets a solver body. No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
+// Keep two solver body arrays: awake and sleeping
+// 12 + 12 + 8 = 32 bytes
+typedef struct b2SolverBody
+{
+	b2Vec2 linearVelocity; // 8
+	float angularVelocity; // 4
+
+	// These are the change in position/angle that accumulate across constraint substeps
+	b2Vec2 deltaPosition; // 8
+	float deltaAngle;     // 4
+
+	float invMass; // 4
+	float invI;    // 4
+} b2SolverBody;
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 

@@ -16,10 +16,15 @@
 #include <stdio.h>
 #include <string.h>
 
-bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
+bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context)
 {
 	Sample* sample = static_cast<Sample*>(context);
-	return sample->PreSolve(shapeIdA, shapeIdB, manifold);
+	if (sample->m_collectContacts)
+	{
+		return sample->PreSolve(shapeIdA, shapeIdB, manifold, color);
+	}
+
+	return true;
 }
 
 static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
@@ -62,8 +67,7 @@ Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
-	// TODO_ERIN want core count, not including hyper-threads which don't work well for physics
-	uint32_t maxThreads = enki::GetNumHardwareThreads() / 2;
+	uint32_t maxThreads = B2_MIN(8, enki::GetNumHardwareThreads());
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
@@ -72,17 +76,21 @@ Sample::Sample(const Settings& settings)
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
 	worldDef.finishAllTasks = &FinishAllTasks;
-	worldDef.bodyCapacity = 1024;
-	worldDef.contactCapacity = 4 * 1024;
 	worldDef.userTaskContext = this;
-	worldDef.stackAllocatorCapacity = 20 * 1024;
 	worldDef.enableSleep = settings.m_enableSleep;
+
+	// These are not ideal, but useful for testing Box2D
+	worldDef.bodyCapacity = 2;
+	worldDef.contactCapacity = 2;
+	worldDef.stackAllocatorCapacity = 0;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
 	m_textIncrement = 18;
 	m_mouseJointId = b2_nullJointId;
 	m_pointCount = 0;
+	m_collectContacts =
+		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;
 
 	// m_destructionListener.test = this;
 	// m_world->SetDestructionListener(&m_destructionListener);
@@ -166,7 +174,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			float dampingRatio = 0.7f;
 			float mass = b2Body_GetMass(queryContext.bodyId);
 
-			b2MouseJointDef jd;
+			b2MouseJointDef jd = b2DefaultMouseJointDef();
 			jd.bodyIdA = m_groundBodyId;
 			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;
@@ -194,6 +202,8 @@ void Sample::MouseMove(b2Vec2 p)
 	if (B2_NON_NULL(m_mouseJointId))
 	{
 		b2MouseJoint_SetTarget(m_mouseJointId, p);
+		b2BodyId bodyIdB = b2Joint_GetBodyB(m_mouseJointId);
+		b2Body_Wake(bodyIdB);
 	}
 }
 
@@ -226,14 +236,18 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawShapes = settings.m_drawShapes;
 	g_draw.m_debugDraw.drawJoints = settings.m_drawJoints;
 	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
-	g_draw.m_debugDraw.drawCOMs = settings.m_drawCOMs;
+	g_draw.m_debugDraw.drawMass = settings.m_drawMass;
+
+	m_collectContacts =
+		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;
 
 	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
+	b2World_EnableWarmStarting(m_worldId, settings.m_enableWarmStarting);
 
-	// m_world->SetWarmStarting(settings.m_enableWarmStarting);
-	// m_world->SetContinuousPhysics(settings.m_enableContinuous);
-
-	m_pointCount = 0;
+	if (timeStep > 0.0f)
+	{
+		m_pointCount = 0;
+	}
 
 	for (int32_t i = 0; i < 1; ++i)
 	{
@@ -255,6 +269,22 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "proxies/height = %d/%d", s.proxyCount, s.treeHeight);
+		m_textLine += m_textIncrement;
+
+		int32_t totalCount = 0;
+		char buffer[256] = {0};
+		int32_t offset = sprintf_s(buffer, 256, "colors: ");
+		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		{
+			offset += sprintf_s(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
+			totalCount += s.colorCounts[i];
+		}
+		totalCount += s.colorCounts[b2_graphColorCount];
+		sprintf_s(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
+		g_draw.DrawString(5, m_textLine, buffer);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "tree: proxies/height = %d/%d", s.proxyCount, s.treeHeight);
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
@@ -336,11 +366,22 @@ void Sample::Step(Settings& settings)
 		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
 		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
 
+		b2HexColor colors[b2_graphColorCount + 1] = {b2_colorRed,	b2_colorOrange, b2_colorYellow, b2_colorGreen,	   b2_colorCyan,
+													 b2_colorBlue,	b2_colorViolet, b2_colorPink,	b2_colorChocolate, b2_colorGoldenrod,
+													 b2_colorCoral, b2_colorAqua,	b2_colorBlack};
+
 		for (int32_t i = 0; i < m_pointCount; ++i)
 		{
 			ContactPoint* point = m_points + i;
 
-			if (point->separation > b2_linearSlop)
+			if (0 <= point->color && point->color <= b2_graphColorCount)
+			{
+				// graph color
+				float pointSize = point->color == b2_graphColorCount ? 7.5f : 5.0f;
+				g_draw.DrawPoint(point->position, pointSize, b2MakeColor(colors[point->color], 1.0f));
+				// g_draw.DrawString(point->position, "%d", point->color);
+			}
+			else if (point->separation > b2_linearSlop)
 			{
 				// Speculative
 				g_draw.DrawPoint(point->position, 5.0f, speculativeColor);
@@ -388,7 +429,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 }
 
 // Thread-safe callback
-bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold)
+bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color)
 {
 	long startCount = m_pointCount.fetch_add(manifold->pointCount);
 	if (startCount >= k_maxContactPoints)
@@ -411,6 +452,7 @@ bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifo
 		cp->normalImpulse = manifold->points[j].normalImpulse;
 		cp->tangentImpulse = manifold->points[j].tangentImpulse;
 		cp->persisted = manifold->points[j].persisted;
+		cp->color = color;
 		++j;
 	}
 

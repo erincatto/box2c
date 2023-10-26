@@ -9,6 +9,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+// TODO_ERIN make these kinematic
 class BenchmarkManyTumblers : public Sample
 {
   public:
@@ -18,8 +19,8 @@ class BenchmarkManyTumblers : public Sample
 		b2BodyDef bd = b2DefaultBodyDef();
 		m_groundId = b2World_CreateBody(m_worldId, &bd);
 
-		m_rowCount = g_sampleDebug ? 1 : 19;
-		m_columnCount = g_sampleDebug ? 1 : 19;
+		m_rowCount = g_sampleDebug ? 2 : 19;
+		m_columnCount = g_sampleDebug ? 2 : 19;
 
 		m_tumblerIds = nullptr;
 		m_jointIds = nullptr;
@@ -30,7 +31,7 @@ class BenchmarkManyTumblers : public Sample
 		m_bodyCount = 0;
 		m_bodyIndex = 0;
 
-		m_motorSpeed = 0.0f;
+		m_motorSpeed = 25.0f;
 		m_shapeType = 0;
 
 		CreateScene();
@@ -48,7 +49,6 @@ class BenchmarkManyTumblers : public Sample
 	{
 		b2BodyDef bd = b2DefaultBodyDef();
 		bd.type = b2_dynamicBody;
-		bd.enableSleep = false;
 		bd.position = {position.x, position.y};
 		b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 		m_tumblerIds[index] = bodyId;
@@ -122,7 +122,7 @@ class BenchmarkManyTumblers : public Sample
 
 		free(m_bodyIds);
 
-		int32_t bodiesPerTumbler = g_sampleDebug ? 1 : 50;
+		int32_t bodiesPerTumbler = g_sampleDebug ? 8 : 50;
 		m_bodyCount = bodiesPerTumbler * m_tumblerCount;
 
 		m_bodyIds = static_cast<b2BodyId*>(malloc(m_bodyCount * sizeof(b2BodyId)));
@@ -154,6 +154,7 @@ class BenchmarkManyTumblers : public Sample
 			for (int i = 0; i < m_tumblerCount; ++i)
 			{
 				b2RevoluteJoint_SetMotorSpeed(m_jointIds[i], (b2_pi / 180.0f) * m_motorSpeed);
+				b2Body_Wake(m_tumblerIds[i]);
 			}
 		}
 
@@ -168,6 +169,7 @@ class BenchmarkManyTumblers : public Sample
 		{
 			b2ShapeDef sd = b2DefaultShapeDef();
 			sd.density = 1.0f;
+			//sd.restitution = 0.5f;
 
 			b2Circle circle = {{0.0f, 0.0f}, 0.125f};
 			b2Polygon polygon = b2MakeBox(0.125f, 0.125f);

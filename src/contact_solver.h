@@ -4,40 +4,76 @@
 #pragma once
 
 #include "solver_data.h"
-#include "stack_allocator.h"
 
-#include "box2d/callbacks.h"
+#include <immintrin.h>
 
-typedef struct b2ContactSolverDef
+typedef struct b2Contact b2Contact;
+
+typedef struct b2ContactConstraintPoint
 {
-	const b2StepContext* context;
-	struct b2World* world;
-	int32_t contactList;
-	int32_t contactCount;
-} b2ContactSolverDef;
+	b2Vec2 rA, rB;
+	float separation;
+	float relativeVelocity;
+	float normalImpulse;
+	float tangentImpulse;
+	float normalMass;
+	float tangentMass;
+} b2ContactConstraintPoint;
 
-typedef struct b2ContactSolver
+typedef struct b2ContactConstraint
 {
-	const b2StepContext* context;
-	struct b2World* world;
-	struct b2ContactPositionConstraint* positionConstraints;
-	struct b2ContactVelocityConstraint* velocityConstraints;
-	int32_t contactList;
-	int32_t contactCount;
-	int32_t constraintCount;
-} b2ContactSolver;
+	b2Contact* contact;
+	int32_t indexA;
+	int32_t indexB;
+	b2ContactConstraintPoint points[2];
+	b2Vec2 normal;
+	float friction;
+	float restitution;
+	float massCoefficient;
+	float biasCoefficient;
+	float impulseCoefficient;
+	int32_t pointCount;
+} b2ContactConstraint;
 
-b2ContactSolver* b2CreateContactSolver(b2ContactSolverDef* def);
+// Wide float
+typedef __m256 b2FloatW;
 
-static inline void b2DestroyContactSolver(b2ContactSolver* solver, b2StackAllocator* alloc)
+// Wide vec2
+typedef struct b2Vec2W
 {
-	b2FreeStackItem(alloc, solver->velocityConstraints);
-	b2FreeStackItem(alloc, solver->positionConstraints);
-	b2FreeStackItem(alloc, solver);
-}
+	b2FloatW X, Y;
+} b2Vec2W;
 
-void b2ContactSolver_Initialize(b2ContactSolver* solver);
-void b2ContactSolver_SolveVelocityConstraints(b2ContactSolver* solver);
-void b2ContactSolver_ApplyRestitution(b2ContactSolver* solver);
-void b2ContactSolver_StoreImpulses(b2ContactSolver* solver);
-bool b2ContactSolver_SolvePositionConstraintsBlock(b2ContactSolver* solver);
+typedef struct b2ContactConstraintSIMD
+{
+	int32_t indexA[8];
+	int32_t indexB[8];
+
+	b2Vec2W normal;
+	__m256 friction;
+	__m256 restitution;
+	b2Vec2W rA1, rB1;
+	b2Vec2W rA2, rB2;
+	__m256 separation1, separation2;
+	__m256 relativeVelocity1, relativeVelocity2;
+	__m256 normalImpulse1, normalImpulse2;
+	__m256 tangentImpulse1, tangentImpulse2;
+	__m256 normalMass1, tangentMass1;
+	__m256 normalMass2, tangentMass2;
+	__m256 massCoefficient;
+	__m256 biasCoefficient;
+	__m256 impulseCoefficient;
+} b2ContactConstraintAVX;
+
+// Scalar
+void b2PrepareOverflowContacts(b2SolverTaskContext* context);
+void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias);
+void b2ApplyOverflowRestitution(b2SolverTaskContext* context);
+void b2StoreOverflowImpulses(b2SolverTaskContext* context);
+
+// AVX versions
+void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);
+void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias);
+void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex);
+void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context);

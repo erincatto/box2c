@@ -65,11 +65,11 @@ set(BOX2D_SAMPLES
 
 	collection/benchmark_barrel.cpp
 	collection/benchmark_create_destroy.cpp
-	collection/benchmark_joint_grid.cpp
+	collection/sample_joints.cpp
 	collection/benchmark_many_tumblers.cpp
 	collection/benchmark_pyramid.cpp
 	collection/benchmark_tumbler.cpp
-
+	collection/behavior.cpp
 	collection/sample_continuous1.cpp
 	collection/sample_distance.cpp
 	collection/sample_dynamic_tree.cpp

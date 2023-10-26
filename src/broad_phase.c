@@ -75,7 +75,7 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 
 static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
 {
-	bool found = b2RemoveKey(&bp->moveSet, proxyKey);
+	bool found = b2RemoveKey(&bp->moveSet, proxyKey + 1);
 
 	if (found)
 	{
@@ -177,8 +177,8 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	bool moved = b2ContainsKey(&bp->moveSet, proxyKey);
-	if (moved && proxyKey > queryContext->queryProxyKey)
+	bool moved = b2ContainsKey(&bp->moveSet, proxyKey + 1);
+	if (moved && proxyKey < queryContext->queryProxyKey)
 	{
 		// Both proxies are moving. Avoid duplicate pairs.
 		return true;
@@ -234,6 +234,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
+	// TODO_ERIN per thread to eliminate atomic?
 	int pairIndex = atomic_fetch_add(&bp->movePairIndex, 1);
 
 	b2MovePair* pair;
@@ -282,7 +283,7 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 			continue;
 		}
 
-		int32_t proxyType = B2_PROXY_TYPE(proxyKey);
+		b2BodyType proxyType = B2_PROXY_TYPE(proxyKey);
 		int32_t proxyId = B2_PROXY_ID(proxyKey);
 		queryContext.queryProxyKey = proxyKey;
 
@@ -296,12 +297,12 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 		// Query trees
 		if (proxyType == b2_dynamicBody)
 		{
-			queryContext.queryTreeType = b2_dynamicBody;
-			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
-			queryContext.queryTreeType = b2_kinematicBody;
-			b2DynamicTree_Query(bp->trees + b2_kinematicBody, fatAABB, b2PairQueryCallback, &queryContext);
 			queryContext.queryTreeType = b2_staticBody;
 			b2DynamicTree_Query(bp->trees + b2_staticBody, fatAABB, b2PairQueryCallback, &queryContext);
+			queryContext.queryTreeType = b2_kinematicBody;
+			b2DynamicTree_Query(bp->trees + b2_kinematicBody, fatAABB, b2PairQueryCallback, &queryContext);
+			queryContext.queryTreeType = b2_dynamicBody;
+			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
 		}
 		else if (proxyType == b2_kinematicBody)
 		{

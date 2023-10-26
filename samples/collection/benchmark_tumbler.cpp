@@ -4,6 +4,7 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "sample.h"
+#include "settings.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -57,14 +58,14 @@ public:
 			m_jointId = b2World_CreateRevoluteJoint(m_worldId, &jd);
 		}
 
-		m_maxCount = g_sampleDebug ? 500 : 2000;
+		m_maxCount = g_sampleDebug ? 300 : 2000;
 		m_count = 0;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 80.0f));
 		ImGui::Begin("Tumbler", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
@@ -77,22 +78,26 @@ public:
 
 	void Step(Settings& settings) override
 	{
-		Sample::Step(settings);
-
-		for (int32_t i = 0; i < 10 && m_count < m_maxCount; ++i)
+		if (settings.m_pause == false || settings.m_singleStep == true)
 		{
-			b2BodyDef bd = b2DefaultBodyDef();
-			bd.type = b2_dynamicBody;
-			bd.position = {0.25f * i, 10.0f};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
+			float a = 0.125f;
+			for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
+			{
+				b2BodyDef bd = b2DefaultBodyDef();
+				bd.type = b2_dynamicBody;
+				bd.position = {5.0f * a  + 2.0f * a * i, 10.0f + 2.0f * a * (m_stepCount % 5)};
+				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
-			b2ShapeDef sd = b2DefaultShapeDef();
-			sd.density = 1.0f;
+				b2ShapeDef sd = b2DefaultShapeDef();
+				sd.density = 1.0f;
 
-			b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
-			b2Body_CreatePolygon(bodyId, &sd, &polygon);
-			++m_count;
+				b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
+				b2Body_CreatePolygon(bodyId, &sd, &polygon);
+				++m_count;
+			}
 		}
+
+		Sample::Step(settings);
 	}
 
 	static Sample* Create(const Settings& settings)

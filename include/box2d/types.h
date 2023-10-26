@@ -27,6 +27,12 @@ typedef struct b2Vec2
 	float x, y;
 } b2Vec2;
 
+/// 3D vector
+typedef struct b2Vec3
+{
+	float x, y, z;
+} b2Vec3;
+
 /// 2D rotation
 typedef struct b2Rot
 {
@@ -47,6 +53,13 @@ typedef struct b2Mat22
 	/// columns
 	b2Vec2 cx, cy;
 } b2Mat22;
+
+/// A 3-by-3 Matrix
+typedef struct b2Mat33
+{
+	/// columns
+	b2Vec3 cx, cy, cz;
+} b2Mat33;
 
 /// Axis-aligned bounding box
 typedef struct b2AABB
@@ -98,6 +111,12 @@ typedef struct b2WorldDef
 	/// Restitution velocity threshold, usually in m/s. Collisions above this
 	/// speed have restitution applied (will bounce).
 	float restitutionThreshold;
+
+	/// This parameter controls how fast overlap is resolved and has units of meters per second
+	float maxPushoutVelocity;
+
+	/// This parameter affects the stiffness of contacts. Cycles per second.
+	float contactHertz;
 
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
@@ -239,6 +258,8 @@ static inline b2WorldDef b2DefaultWorldDef(void)
 	b2WorldDef def = {0};
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.maxPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0f;
 	def.enableSleep = true;
 	def.bodyCapacity = 8;
 	def.shapeCapacity = 8;

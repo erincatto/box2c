@@ -6,10 +6,13 @@
 #include "bitset.h"
 #include "broad_phase.h"
 #include "island.h"
+#include "graph.h"
 #include "pool.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
+
+#define B2_GRAPH_COLOR 1
 
 typedef struct b2Contact b2Contact;
 
@@ -26,6 +29,8 @@ typedef struct b2TaskContext
 	// Used to sort shapes that have enlarged AABBs
 	b2BitSet shapeBitSet;
 
+	// Used to wake islands
+	b2BitSet awakeIslandBitSet;
 } b2TaskContext;
 
 /// The world class manages all physics entities, dynamic simulation,
@@ -39,6 +44,7 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
+	b2Graph graph;
 
 	b2Pool bodyPool;
 	b2Pool contactPool;
@@ -68,15 +74,8 @@ typedef struct b2World
 	// Hot data split from b2Contact
 	int32_t* contactAwakeIndexArray;
 
-	// This transient array holds islands created from splitting a larger island.
-	int32_t* splitIslandArray;
-
-	// Transient index of the island being split this time step. May be B2_NULL_INDEX.
-	int32_t splitIslandIndex;
-
 	// Array of fast bodies that need continuous collision handling
 	int32_t* fastBodies;
-	int32_t fastBodyCapacity;
 	_Atomic int fastBodyCount;
 
 	// Id that is incremented every time step
@@ -84,6 +83,8 @@ typedef struct b2World
 
 	b2Vec2 gravity;
 	float restitutionThreshold;
+	float maximumPushoutVelocity;
+	float contactHertz;
 
 	// This is used to compute the time step ratio to support a variable time step.
 	float inv_dt0;
@@ -106,9 +107,11 @@ typedef struct b2World
 
 	void* userTreeTask;
 
+	int32_t splitIslandIndex;
+
 	bool enableSleep;
 	bool locked;
-	bool warmStarting;
+	bool enableWarmStarting;
 	bool enableContinuous;
 } b2World;
 

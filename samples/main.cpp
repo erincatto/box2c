@@ -53,14 +53,14 @@ static b2Vec2 s_clickPointWS = b2Vec2_zero;
 static float s_windowScale = 1.0f;
 static float s_framebufferScale = 1.0f;
 
-void* AllocFcn(int32_t size)
+void* AllocFcn(uint32_t size)
 {
-	size_t size16 = ((size - 1) | 0xF) + 1;
-	assert((size16 & 0xF) == 0);
+	size_t size32 = ((size - 1) | 0x1F) + 1;
+	assert((size32 & 0x1F) == 0);
 #if defined(_WIN64)
-	void* ptr = _aligned_malloc(size16, 16);
+	void* ptr = _aligned_malloc(size32, 32);
 #else
-	void* ptr = aligned_alloc(16, size16);
+	void* ptr = aligned_alloc(32, size32);
 #endif
 	return ptr;
 }
@@ -410,7 +410,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Contact Normals", &s_settings.m_drawContactNormals);
 				ImGui::Checkbox("Contact Impulses", &s_settings.m_drawContactImpulse);
 				ImGui::Checkbox("Friction Impulses", &s_settings.m_drawFrictionImpulse);
-				ImGui::Checkbox("Center of Masses", &s_settings.m_drawCOMs);
+				ImGui::Checkbox("Center of Masses", &s_settings.m_drawMass);
 				ImGui::Checkbox("Statistics", &s_settings.m_drawStats);
 				ImGui::Checkbox("Profile", &s_settings.m_drawProfile);
 
@@ -565,7 +565,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	sprintf(buffer, "Box2D Version %d.%d.%d c", b2_version.major, b2_version.minor, b2_version.revision);
+	sprintf(buffer, "Box2D Version %d.%d.%d Graph Color", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{
@@ -694,7 +694,7 @@ int main(int, char**)
 
 		UpdateUI();
 
-		// ImGui::ShowDemoWindow();
+		//ImGui::ShowDemoWindow();
 
 		// if (g_draw.m_showUI)
 		{

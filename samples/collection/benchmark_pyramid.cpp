@@ -8,11 +8,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-BOX2D_API int32_t b2_awakeContactCount;
-
-BOX2D_API int b2_collideMinRange;
-BOX2D_API int b2_islandMinRange;
-
 class BenchmarkPyramid : public Sample
 {
   public:
@@ -22,8 +17,8 @@ class BenchmarkPyramid : public Sample
 		m_extent = 0.5f;
 		m_round = 0.0f;
 		m_baseCount = 10;
-		m_rowCount = g_sampleDebug ? 1 : 16;
-		m_columnCount = g_sampleDebug ? 4 : 16;
+		m_rowCount = g_sampleDebug ? 4 : 14;
+		m_columnCount = g_sampleDebug ? 4 : 13;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
@@ -41,7 +36,7 @@ class BenchmarkPyramid : public Sample
 		CreateScene();
 	}
 
-	~BenchmarkPyramid()
+	~BenchmarkPyramid() override
 	{
 		free(m_bodyIds);
 	}
@@ -57,13 +52,16 @@ class BenchmarkPyramid : public Sample
 		float h = m_extent - m_round;
 		b2Polygon cuboid = b2MakeRoundedBox(h, h, m_round);
 
+		float shift = 1.0f * h;
+
 		for (int32_t i = 0; i < m_baseCount; ++i)
 		{
-			float y = (2.0f * i  + 1.0f) * m_extent + baseY;
+			float y = (2.0f * i + 1.0f) * shift + baseY;
 
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{
-				float x = (i + 1.0f) * m_extent + 2.0f * (j - i) * m_extent + centerX;
+				float x = (i + 1.0f) * shift + 2.0f * (j - i) * shift + centerX - 0.5f;
+
 				bodyDef.position = {x, y};
 
 				assert(m_bodyIndex < m_bodyCount);
@@ -104,7 +102,8 @@ class BenchmarkPyramid : public Sample
 
 		for (int32_t i = 0; i < m_rowCount; ++i)
 		{
-			b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
+			//b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
+			b2Segment segment = {{-0.5f * 2.0f * groundWidth, groundY}, {0.5f * 2.0f * groundWidth, groundY}};
 			b2Body_CreateSegment(m_groundId, &shapeDef, &segment);
 			groundY += groundDeltaY;
 		}
@@ -139,9 +138,6 @@ class BenchmarkPyramid : public Sample
 
 		changed = changed || ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
-
-		ImGui::SliderInt("Collide Min", &b2_collideMinRange, 1, 200);
-		ImGui::SliderInt("Island Min", &b2_islandMinRange, 1, 10);
 
 		if (changed)
 		{

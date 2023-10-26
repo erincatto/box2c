@@ -115,3 +115,49 @@ static inline struct b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 	def.collideConnected = false;
 	return def;
 }
+
+typedef struct b2WeldJointDef
+{
+	/// The first attached body.
+	b2BodyId bodyIdA;
+
+	/// The second attached body.
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin.
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin.
+	b2Vec2 localAnchorB;
+
+	/// The bodyB angle minus bodyA angle in the reference state (radians).
+	/// This defines the zero angle for the joint limit.
+	float referenceAngle;
+
+	/// Stiffness expressed as hertz (oscillations per second). Use zero for maximum stiffness.
+	float linearHertz;
+	float angularHertz;
+
+	/// Damping ratio, non-dimensional. Use 1 for critical damping.
+	float linearDampingRatio;
+	float angularDampingRatio;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+} b2WeldJointDef;
+
+static inline struct b2WeldJointDef b2DefaultWeldJointDef(void)
+{
+	b2WeldJointDef def = {0};
+	def.bodyIdA = b2_nullBodyId;
+	def.bodyIdB = b2_nullBodyId;
+	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.localAnchorB = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.referenceAngle = 0.0f;
+	def.linearHertz = 0.0f;
+	def.angularHertz = 0.0f;
+	def.linearDampingRatio = 1.0f;
+	def.angularDampingRatio = 1.0f;
+	def.collideConnected = false;
+	return def;
+}

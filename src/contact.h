@@ -50,8 +50,6 @@ enum b2ContactFlags
 
 	// This contact stopped touching
 	b2_contactStoppedTouching = 0x00000080,
-
-	b2_contactIslandFlag = 0x0100
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
@@ -63,8 +61,11 @@ typedef struct b2Contact
 
 	uint32_t flags;
 
-	// This is too hot and has been moved to a separate array
-	//int32_t awakeIndex;
+	// The color of this constraint in the graph coloring
+	int32_t colorIndex;
+
+	// Index of contact within color
+	int32_t colorSubIndex;
 
 	b2ContactEdge edges[2];
 
@@ -85,6 +86,8 @@ typedef struct b2Contact
 
 	// For conveyor belts
 	float tangentSpeed;
+
+	bool isMarked;
 } b2Contact;
 
 void b2InitializeContactRegisters(void);

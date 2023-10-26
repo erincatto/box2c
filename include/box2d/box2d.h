@@ -31,17 +31,6 @@ BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityI
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 
-/// Enable/disable sleep.
-BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
-
-/// Enable/disable continuous collision.
-BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
-
-/// Get the current profile.
-BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
-
-BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
-
 /// Create a rigid body given a definition. No reference to the definition is retained.
 /// @warning This function is locked during callbacks.
 BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
@@ -74,7 +63,11 @@ BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
 BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
 BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
+BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
 BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
+
+BOX2D_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
+BOX2D_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
 
@@ -82,8 +75,10 @@ BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
+BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
-/// This function receives shapes found in the AABB query.
+	/// This function receives shapes found in the AABB query.
 /// @return true if the query should continue
 typedef bool b2QueryCallbackFcn(b2ShapeId shapeId, void* context);
 
@@ -91,3 +86,30 @@ typedef bool b2QueryCallbackFcn(b2ShapeId shapeId, void* context);
 /// @param callback a user implemented callback function.
 /// @param aabb the query box.
 BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context);
+
+
+/// Advanced API for testing and special cases
+
+/// Enable/disable sleep.
+BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
+
+/// Enable/disable contact warm starting. Improves stacking stability.
+BOX2D_API void b2World_EnableWarmStarting(b2WorldId worldId, bool flag);
+
+/// Enable/disable continuous collision.
+BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
+
+/// Adjust the restitution threshold
+BOX2D_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
+
+/// Adjust the maximum contact constraint push out velocity
+BOX2D_API void b2World_SetMaximumPushoutVelocity(b2WorldId worldId, float value);
+
+/// Adjust the contact stiffness in cycles per second.
+BOX2D_API void b2World_SetContactHertz(b2WorldId worldId, float value);
+
+/// Get the current profile
+BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
+
+/// Get counters and sizes
+BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);

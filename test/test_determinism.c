@@ -116,6 +116,8 @@ void TiltedStacks(int testIndex, int workerCount)
 	worldDef.finishAllTasks = FinishAllTasks;
 	worldDef.workerCount = workerCount;
 	worldDef.enableSleep = false;
+	worldDef.bodyCapacity = 1024;
+	worldDef.contactCapacity = 4 * 1024;
 
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 

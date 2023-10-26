@@ -860,7 +860,11 @@ void DrawPointFcn(b2Vec2 p, float size, b2Color color, void* context)
 	static_cast<Draw*>(context)->DrawPoint(p, size, color);
 }
 
-//
+void DrawStringFcn(b2Vec2 p, const char* s, void* context)
+{
+	static_cast<Draw*>(context)->DrawString(p, s);
+}
+
 Draw::Draw()
 {
 	m_showUI = true;
@@ -871,7 +875,6 @@ Draw::Draw()
 	m_debugDraw = {};
 }
 
-//
 Draw::~Draw()
 {
 	assert(m_points == nullptr);
@@ -879,7 +882,6 @@ Draw::~Draw()
 	assert(m_triangles == nullptr);
 }
 
-//
 void Draw::Create()
 {
 	m_points = static_cast<GLRenderPoints*>(malloc(sizeof(GLRenderPoints)));
@@ -901,6 +903,7 @@ void Draw::Create()
 				   DrawSegmentFcn,
 				   DrawTransformFcn,
 				   DrawPointFcn,
+				   DrawStringFcn,
 				   true,
 				   true,
 				   false,
@@ -908,7 +911,6 @@ void Draw::Create()
 				   this};
 }
 
-//
 void Draw::Destroy()
 {
 	m_points->Destroy();
@@ -928,7 +930,6 @@ void Draw::Destroy()
 	m_roundedTriangles = nullptr;
 }
 
-//
 void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
 {
 	b2Vec2 p1 = vertices[vertexCount - 1];
@@ -941,7 +942,6 @@ void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color colo
 	}
 }
 
-//
 void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
 {
 	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
@@ -1038,7 +1038,6 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 	}
 }
 
-//
 void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 {
 	const float k_segments = 32.0f;
@@ -1061,7 +1060,6 @@ void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 	}
 }
 
-//
 void Draw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color)
 {
 	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
@@ -1166,7 +1164,6 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	m_lines->Vertex(p2, color);
 }
 
-//
 void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 {
 	float length;
@@ -1267,14 +1264,12 @@ void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	m_lines->Vertex(p2, color);
 }
 
-//
 void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color)
 {
 	m_lines->Vertex(p1, color);
 	m_lines->Vertex(p2, color);
 }
 
-//
 void Draw::DrawTransform(b2Transform xf)
 {
 	const float k_axisScale = 0.4f;
@@ -1291,13 +1286,11 @@ void Draw::DrawTransform(b2Transform xf)
 	m_lines->Vertex(p2, green);
 }
 
-//
 void Draw::DrawPoint(b2Vec2 p, float size, b2Color color)
 {
 	m_points->Vertex(p, color, size);
 }
 
-//
 void Draw::DrawString(int x, int y, const char* string, ...)
 {
 	// if (m_showUI == false)
@@ -1316,7 +1309,6 @@ void Draw::DrawString(int x, int y, const char* string, ...)
 	va_end(arg);
 }
 
-//
 void Draw::DrawString(b2Vec2 pw, const char* string, ...)
 {
 	b2Vec2 ps = g_camera.ConvertWorldToScreen(pw);
@@ -1327,12 +1319,11 @@ void Draw::DrawString(b2Vec2 pw, const char* string, ...)
 				 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
 					 ImGuiWindowFlags_NoScrollbar);
 	ImGui::SetCursorPos(ImVec2(ps.x, ps.y));
-	ImGui::TextColoredV(ImColor(230, 153, 153, 255), string, arg);
+	ImGui::TextColoredV(ImColor(230, 230, 230, 255), string, arg);
 	ImGui::End();
 	va_end(arg);
 }
 
-//
 void Draw::DrawAABB(b2AABB aabb, b2Color c)
 {
 	b2Vec2 p1 = aabb.lowerBound;
@@ -1353,7 +1344,6 @@ void Draw::DrawAABB(b2AABB aabb, b2Color c)
 	m_lines->Vertex(p1, c);
 }
 
-//
 void Draw::Flush()
 {
 	m_roundedTriangles->Flush();

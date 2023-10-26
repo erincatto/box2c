@@ -48,7 +48,7 @@ typedef void b2EndContactFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* conte
 /// get an EndContact callback. However, you may get a BeginContact callback
 /// the next step.
 /// - the supplied manifold has impulse values from the previous frame
-typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
+typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context);
 BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
 /// This lets you inspect a contact after the solver is finished. This is useful

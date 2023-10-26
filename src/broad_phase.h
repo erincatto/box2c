@@ -65,7 +65,8 @@ void b2ValidateNoEnlarged(const b2BroadPhase* bp);
 // Warning: this must be called in deterministic order
 static inline void b2BufferMove(b2BroadPhase* bp, int32_t proxyKey)
 {
-	bool alreadyAdded = b2AddKey(&bp->moveSet, proxyKey);
+	// Adding 1 because 0 is the sentinel
+	bool alreadyAdded = b2AddKey(&bp->moveSet, proxyKey + 1);
 	if (alreadyAdded == false)
 	{
 		b2Array_Push(bp->moveArray, proxyKey);

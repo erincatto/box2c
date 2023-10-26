@@ -197,6 +197,9 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contact->islandIndex = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
+	contact->colorSubIndex = B2_NULL_INDEX;
+	contact->colorIndex = B2_NULL_INDEX;
+	contact->isMarked = false;
 
 	b2Body* bodyA = world->bodies + shapeA->bodyIndex;
 	b2Body* bodyB = world->bodies + shapeB->bodyIndex;
@@ -267,6 +270,11 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
 	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
+
+	if (contact->colorIndex != B2_NULL_INDEX)
+	{
+		b2RemoveContactFromGraph(world, contact);
+	}
 
 	// if (contactListener && contact->IsTouching())
 	//{
@@ -411,6 +419,8 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
+			mp2->anchorA = b2Sub(mp2->point, bodyA->position);
+			mp2->anchorB = b2Sub(mp2->point, bodyB->position);
 			mp2->normalImpulse = 0.0f;
 			mp2->tangentImpulse = 0.0f;
 			mp2->persisted = false;
@@ -428,18 +438,13 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 					break;
 				}
 			}
-
-			// For debugging ids
-			// if (mp2->persisted == false && contact->manifold.pointCount == oldManifold.pointCount)
-			//{
-			//	i += 0;
-			//}
 		}
 
 		if (touching && world->preSolveFcn)
 		{
 			// TODO_ERIN this call assumes thread safety
-			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
+			int32_t colorIndex = contact->colorIndex;
+			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, colorIndex, world->preSolveContext);
 			if (collide == false)
 			{
 				// disable contact

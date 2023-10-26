@@ -34,7 +34,7 @@
 static b2AllocFcn* b2_allocFcn = NULL;
 static b2FreeFcn* b2_freeFcn = NULL;
 
-static _Atomic int32_t b2_byteCount;
+static _Atomic uint32_t b2_byteCount;
 
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
@@ -42,7 +42,7 @@ void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 	b2_freeFcn = freeFcn;
 }
 
-void* b2Alloc(int32_t size)
+void* b2Alloc(uint32_t size)
 {
 	atomic_fetch_add_explicit(&b2_byteCount, size, memory_order_relaxed);
 
@@ -50,21 +50,27 @@ void* b2Alloc(int32_t size)
 	{
 		void* ptr = b2_allocFcn(size);
 		b2TracyCAlloc(ptr, size);
+
+		B2_ASSERT(((uintptr_t)ptr & 0x1F) == 0);
+
 		return ptr;
 	}
 
-	size_t size16 = ((size - 1) | 0xF) + 1;
+	uint32_t size32 = ((size - 1) | 0x1F) + 1;
 #ifdef B2_PLATFORM_WINDOWS
-	void* ptr = _aligned_malloc(size16, 16);
+	void* ptr = _aligned_malloc(size32, 32);
 #else
-	void* ptr = aligned_alloc(16, size16);
+	void* ptr = aligned_alloc(32, size32);
 #endif
 
 	b2TracyCAlloc(ptr, size);
+
+	B2_ASSERT(((uintptr_t)ptr & 0x1F) == 0);
+	
 	return ptr;
 }
 
-void b2Free(void* mem, int32_t size)
+void b2Free(void* mem, uint32_t size)
 {
 	if (mem == NULL)
 	{
@@ -89,7 +95,7 @@ void b2Free(void* mem, int32_t size)
 	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);
 }
 
-int32_t b2GetByteCount(void)
+uint32_t b2GetByteCount(void)
 {
 	return atomic_load_explicit(&b2_byteCount, memory_order_relaxed);
 }

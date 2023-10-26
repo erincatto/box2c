@@ -2,6 +2,7 @@
 
 set(BOX2D_TESTS
     main.c
+    test_bitset.c
     test_collision.c
     test_determinism.c
     test_distance.c

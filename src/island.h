@@ -52,14 +52,6 @@ typedef struct b2Island
 
 	// Keeps track of how many contacts have been removed from this island.
 	int32_t constraintRemoveCount;
-
-	// This island has been chosen to be split up into smaller islands because a sufficient
-	// number of contacts have been removed.
-	bool maySplit;
-
-	// Transient solver data
-	b2StepContext* stepContext;
-	struct b2ContactSolver* contactSolver;
 } b2Island;
 
 void b2CreateIsland(b2Island* island);
@@ -80,14 +72,8 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
-void b2SortIslands(b2World* world, b2Island** islands, int32_t count);
 
-void b2PrepareIsland(b2Island* island, b2StepContext* stepContext);
-
-void b2SolveIsland(b2Island* island, uint32_t threadIndex);
-
-void b2CompleteIsland(b2Island* island);
-void b2CompleteBaseSplitIsland(b2Island* island);
+void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context);
 void b2CompleteSplitIsland(b2Island* island);
 
-void b2ValidateIsland(b2Island* island);
+void b2ValidateIsland(b2Island* island, bool checkSleep);

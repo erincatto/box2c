@@ -32,6 +32,7 @@ typedef struct b2Statistics
 	int32_t stackCapacity;
 	int32_t stackUsed;
 	int32_t byteCount;
+	int32_t colorCounts[b2_graphColorCount + 1];
 } b2Statistics;
 
 /// Timer for profiling. This has platform specific code and may

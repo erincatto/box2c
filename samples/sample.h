@@ -70,6 +70,8 @@ struct ContactPoint
 	float normalImpulse;
 	float tangentImpulse;
 	float separation;
+	int32_t constraintIndex;
+	int32_t color;
 };
 
 class SampleTask : public enki::ITaskSet
@@ -112,7 +114,7 @@ class Sample
 	void ResetProfile();
 	void ShiftOrigin(b2Vec2 newOrigin);
 
-	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold);
+	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color);
 
 	friend class DestructionListener;
 	friend class BoundaryListener;
@@ -133,6 +135,7 @@ class Sample
 	int32_t m_textIncrement;
 	b2Profile m_maxProfile;
 	b2Profile m_totalProfile;
+	bool m_collectContacts;
 };
 
 typedef Sample* SampleCreateFcn(const Settings& settings);

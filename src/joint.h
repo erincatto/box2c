@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/id.h"
-#include "box2d/types.h"
-
 #include "pool.h"
+
+#include "box2d/types.h"
 
 #include <stdint.h>
 
@@ -22,7 +21,7 @@ typedef enum b2JointType
 	b2_mouseJoint,
 	b2_gearJoint,
 	b2_wheelJoint,
-    b2_weldJoint,
+	b2_weldJoint,
 	b2_frictionJoint,
 	b2_motorJoint
 } b2JointType;
@@ -52,10 +51,10 @@ typedef struct b2MouseJoint
 	float gamma;
 
 	// Solver temp
+	int32_t indexB;
+	b2Vec2 positionB;
 	b2Vec2 rB;
 	b2Vec2 localCenterB;
-	float invMassB;
-	float invIB;
 	b2Mat22 mass;
 	b2Vec2 C;
 } b2MouseJoint;
@@ -76,32 +75,65 @@ typedef struct b2RevoluteJoint
 	float upperAngle;
 
 	// Solver temp
-	b2Vec2 rA;
-	b2Vec2 rB;
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 positionA;
+	b2Vec2 positionB;
+	float angleA;
+	float angleB;
 	b2Vec2 localCenterA;
 	b2Vec2 localCenterB;
-	float invMassA;
-	float invMassB;
-	float invIA;
-	float invIB;
-	b2Mat22 K;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
 	float angle;
 	float axialMass;
 } b2RevoluteJoint;
+
+typedef struct b2WeldJoint
+{
+	// Solver shared
+	float referenceAngle;
+	float linearHertz;
+	float linearDampingRatio;
+	float angularHertz;
+	float angularDampingRatio;
+	float linearBiasCoefficient;
+	float linearMassCoefficient;
+	float linearImpulseCoefficient;
+	float angularBiasCoefficient;
+	float angularMassCoefficient;
+	float angularImpulseCoefficient;
+	b2Vec3 impulse;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 positionA;
+	b2Vec2 positionB;
+	float angleA;
+	float angleB;
+	b2Vec2 localCenterA;
+	b2Vec2 localCenterB;
+} b2WeldJoint;
 
 /// The base joint class. Joints are used to constraint two bodies together in
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
 {
 	b2Object object;
-
 	b2JointType type;
-
 	b2JointEdge edges[2];
 
 	int32_t islandIndex;
 	int32_t islandPrev;
 	int32_t islandNext;
+
+	// The color of this constraint in the graph coloring
+	int32_t colorIndex;
+
+	// Index of joint within color
+	int32_t colorSubIndex;
 
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
@@ -110,16 +142,13 @@ typedef struct b2Joint
 	{
 		b2MouseJoint mouseJoint;
 		b2RevoluteJoint revoluteJoint;
+		b2WeldJoint weldJoint;
 	};
 
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
 
-void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data);
-void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data);
-
-// This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data);
-
+void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
+void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOverlap);
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

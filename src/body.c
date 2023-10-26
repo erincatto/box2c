@@ -9,6 +9,7 @@
 #include "body.h"
 #include "contact.h"
 #include "core.h"
+#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "world.h"
@@ -46,6 +47,8 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->localCenter = b2Vec2_zero;
 	b->linearVelocity = def->linearVelocity;
 	b->angularVelocity = def->angularVelocity;
+	b->deltaPosition = b2Vec2_zero;
+	b->deltaAngle = 0.0f;
 	b->force = b2Vec2_zero;
 	b->torque = 0.0f;
 	b->shapeList = B2_NULL_INDEX;
@@ -64,7 +67,6 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b->sleepTime = 0.0f;
 	b->userData = def->userData;
 	b->world = worldId.index;
-	b->islandIndex = 0;
 	b->enableSleep = def->enableSleep;
 	b->fixedRotation = def->fixedRotation;
 	b->isEnabled = def->isEnabled;
@@ -127,6 +129,12 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		int32_t twinIndex = twinKey & 1;
 
 		b2Contact* contact = world->contacts + contactIndex;
+
+		if (contact->colorIndex != B2_NULL_INDEX)
+		{
+			b2RemoveContactFromGraph(world, contact);
+		}
+
 		b2ContactEdge* twin = contact->edges + twinIndex;
 
 		// Remove contact from other body's doubly linked list
@@ -228,23 +236,8 @@ void b2World_DestroyBody(b2BodyId bodyId)
 				B2_ASSERT(island->contactCount == 0);
 				B2_ASSERT(island->jointCount == 0);
 
-				// Remove from awake islands array
-				if (island->awakeIndex != B2_NULL_INDEX)
-				{
-					int32_t islandCount = b2Array(world->awakeIslandArray).count;
-					B2_ASSERT(islandCount > 0);
-					b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
-					if (island->awakeIndex < islandCount - 1)
-					{
-						// Fix awake index on swapped island
-						int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
-						world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
-					}
-				}
-
 				// Free the island
 				b2DestroyIsland(island);
-				b2FreeObject(&world->islandPool, &island->object);
 				islandDestroyed = true;
 			}
 		}
@@ -256,7 +249,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 		if (islandDestroyed == false)
 		{
 			b2WakeIsland(island);
-			b2ValidateIsland(island);
+			b2ValidateIsland(island, true);
 		}
 	}
 
@@ -678,7 +671,7 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 		int32_t otherEdgeIndex = edgeIndex ^ 1;
 
 		b2Joint* joint = world->joints + jointIndex;
-		if (joint->edges[otherEdgeIndex].bodyIndex == otherBodyIndex)
+		if (joint->collideConnected == false && joint->edges[otherEdgeIndex].bodyIndex == otherBodyIndex)
 		{
 			return false;
 		}

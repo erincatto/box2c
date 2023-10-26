@@ -14,7 +14,7 @@ b2BitSet b2CreateBitSet(uint32_t bitCapacity)
 	bitSet.wordCapacity = (bitCapacity + sizeof(uint64_t) * 8 - 1) / (sizeof(uint64_t) * 8);
 	bitSet.wordCount = 0;
 	bitSet.bits = b2Alloc(bitSet.wordCapacity * sizeof(uint64_t));
-
+	memset(bitSet.bits, 0, bitSet.wordCapacity * sizeof(uint64_t));
 	return bitSet;
 }
 
@@ -40,7 +40,24 @@ void b2SetBitCountAndClear(b2BitSet* bitSet, uint32_t bitCount)
 	memset(bitSet->bits, 0, bitSet->wordCount * sizeof(uint64_t));
 }
 
-void b2InPlaceUnion(b2BitSet* setA, const b2BitSet* setB)
+void b2GrowBitSet(b2BitSet* bitSet, uint32_t wordCount)
+{
+	B2_ASSERT(wordCount > bitSet->wordCount);
+	if (wordCount > bitSet->wordCapacity)
+	{
+		uint32_t oldCapacity = bitSet->wordCapacity;
+		bitSet->wordCapacity = wordCount + wordCount / 2;
+		uint64_t* newBits = b2Alloc(bitSet->wordCapacity * sizeof(uint64_t));
+		memset(newBits, 0, bitSet->wordCapacity * sizeof(uint64_t));
+		memcpy(newBits, bitSet->bits, bitSet->wordCount * sizeof(uint64_t));
+		b2Free(bitSet->bits, oldCapacity * sizeof(uint64_t));
+		bitSet->bits = newBits;
+	}
+
+	bitSet->wordCount = wordCount;
+}
+
+void b2InPlaceUnion(b2BitSet* restrict setA, const b2BitSet* restrict setB)
 {
 	B2_ASSERT(setA->wordCount == setB->wordCount);
 	uint32_t wordCount = setA->wordCount;

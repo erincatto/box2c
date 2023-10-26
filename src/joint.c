@@ -116,6 +116,8 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	joint->islandIndex = B2_NULL_INDEX;
 	joint->islandPrev = B2_NULL_INDEX;
 	joint->islandNext = B2_NULL_INDEX;
+	joint->colorIndex = B2_NULL_INDEX;
+	joint->colorSubIndex = B2_NULL_INDEX;
 
 	joint->isMarked = false;
 
@@ -123,6 +125,12 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	{
 		// Add edge to island graph
 		b2LinkJoint(world, joint);
+
+		if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
+		{
+			// TODO_JOINT_GRAPH
+			//b2AddJointToGraph(world, joint);
+		}
 	}
 
 	return joint;
@@ -181,9 +189,9 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_mouseJoint;
-
 	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
 	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
+	joint->collideConnected = true;
 
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
@@ -217,9 +225,9 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_revoluteJoint;
-
 	joint->localAnchorA = def->localAnchorA;
 	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
 
 	b2RevoluteJoint empty = {0};
 	joint->revoluteJoint = empty;
@@ -237,6 +245,50 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
 	joint->revoluteJoint.angle = 0.0f;
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+
+	return jointId;
+}
+
+b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_weldJoint;
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
+
+	b2WeldJoint empty = {0};
+	joint->weldJoint = empty;
+	joint->weldJoint.referenceAngle = def->referenceAngle;
+	joint->weldJoint.linearHertz = def->linearHertz;
+	joint->weldJoint.linearDampingRatio = def->linearDampingRatio;
+	joint->weldJoint.angularHertz = def->angularHertz;
+	joint->weldJoint.angularDampingRatio = def->angularDampingRatio;
+	joint->weldJoint.impulse = b2Vec3_zero;
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
@@ -320,22 +372,72 @@ void b2World_DestroyJoint(b2JointId jointId)
 
 	b2UnlinkJoint(world, joint);
 
+	// TODO_JOINT_GRAPH
+	// b2RemoveJointFromGraph(joint);
+
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
-extern void b2InitializeMouse(b2Joint* base, b2StepContext* data);
-extern void b2InitializeRevolute(b2Joint* base, b2StepContext* data);
+b2BodyId b2Joint_GetBodyA(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
 
-void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data)
+	if (world->locked)
+	{
+		return b2_nullBodyId;
+	}
+
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	int32_t bodyIndex = joint->edges[0].bodyIndex;
+
+	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + bodyIndex;
+	b2BodyId bodyId = {bodyIndex, jointId.world, body->object.revision};
+	return bodyId;
+}
+
+b2BodyId b2Joint_GetBodyB(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullBodyId;
+	}
+
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + jointId.index;
+	int32_t bodyIndex = joint->edges[1].bodyIndex;
+
+	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + bodyIndex;
+	b2BodyId bodyId = {bodyIndex, jointId.world, body->object.revision};
+	return bodyId;
+}
+
+extern void b2PrepareMouse(b2Joint* base, b2StepContext* context);
+extern void b2PrepareRevolute(b2Joint* base, b2StepContext* context);
+extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
+
+void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2InitializeMouse(joint, data);
+			b2PrepareMouse(joint, context);
 			break;
 
 		case b2_revoluteJoint:
-			b2InitializeRevolute(joint, data);
+			b2PrepareRevolute(joint, context);
+			break;
+
+		case b2_weldJoint:
+			b2PrepareWeld(joint, context);
 			break;
 
 		default:
@@ -343,38 +445,31 @@ void b2InitVelocityConstraints(b2Joint* joint, b2StepContext* data)
 	}
 }
 
-extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* data);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* data);
+extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context);
+extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool removeOverlap);
+extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool removeOverlap);
 
-void b2SolveVelocityConstraints(b2Joint* joint, b2StepContext* data)
+void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOverlap)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			b2SolveMouseVelocity(joint, data);
+			if (removeOverlap)
+			{
+				b2SolveMouseVelocity(joint, context);
+			}
 			break;
 
 		case b2_revoluteJoint:
-			b2SolveRevoluteVelocity(joint, data);
+			b2SolveRevoluteVelocity(joint, context, removeOverlap);
+			break;
+
+		case b2_weldJoint:
+			b2SolveWeldVelocity(joint, context, removeOverlap);
 			break;
 
 		default:
 			B2_ASSERT(false);
-	}
-}
-
-extern bool b2SolveRevolutePosition(b2Joint* base, b2StepContext* data);
-
-// This returns true if the position errors are within tolerance.
-bool b2SolvePositionConstraints(b2Joint* joint, b2StepContext* data)
-{
-	switch (joint->type)
-	{
-		case b2_revoluteJoint:
-			return b2SolveRevolutePosition(joint, data);
-
-		default:
-			return true;
 	}
 }
 

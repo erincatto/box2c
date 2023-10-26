@@ -14,8 +14,8 @@ public:
 
 	enum
 	{
-		e_maxColumns = 500,
-		e_maxRows = 100,
+		e_maxColumns = 50,
+		e_maxRows = 30,
 		e_maxBullets = 20
 	};
 
@@ -55,9 +55,9 @@ public:
 			m_bullets[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_boxShape;
-		m_rowCount = g_sampleDebug ? 2 : 50;
-		m_columnCount = g_sampleDebug ? 1 : 200;
+		m_shapeType = e_circleShape;
+		m_rowCount = 1;
+		m_columnCount = g_sampleDebug ? 1 : e_maxColumns;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -78,8 +78,8 @@ public:
 		b2Circle circle = {0};
 		circle.radius = 0.5f;
 
-		//b2Polygon box = b2MakeBox(0.5f, 0.5f);
-		b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
+		b2Polygon box = b2MakeBox(0.5f, 0.5f);
+		//b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
 		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;
@@ -93,7 +93,7 @@ public:
 		}
 		else
 		{
-			offset = 0.0f; // 0.01f;
+			offset = 0.01f;
 		}
 
 		float dx = 3.0f;
@@ -111,8 +111,8 @@ public:
 				int32_t n = j * m_rowCount + i;
 
 				float shift = (i % 2 == 0 ? -offset : offset);
-				//bd.position = {x + shift, 0.505f + 1.01f * i};
-				bd.position = {x + shift, 2.0f + 1.51f * i};
+				bd.position = {x + shift, 0.5f + 1.0f * i};
+				//bd.position = {x + shift, 1.0f + 1.51f * i};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;
