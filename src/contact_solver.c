@@ -389,7 +389,7 @@ typedef struct b2SimdBody
 // This is a load and 8x8 transpose
 static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* restrict indices)
 {
-	_Static_assert(sizeof(b2SolverBody) == 32);
+	_Static_assert(sizeof(b2SolverBody) == 32, "b2SolverBody not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
 	__m256 zero = _mm256_setzero_ps();
 	__m256 b0 = indices[0] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[0]));
@@ -434,7 +434,7 @@ static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* r
 // This writes everything back to the solver bodies but only the velocities change
 static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
 {
-	_Static_assert(sizeof(b2SolverBody) == 32);
+	_Static_assert(sizeof(b2SolverBody) == 32, "b2SolverBody not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
 	__m256 t0 = _mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
 	__m256 t1 = _mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
