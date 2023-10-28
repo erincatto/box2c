@@ -244,7 +244,58 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->revoluteJoint.motorSpeed = def->motorSpeed;
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
-	joint->revoluteJoint.angle = 0.0f;
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+
+	return jointId;
+}
+
+b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_prismaticJoint;
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
+
+	b2PrismaticJoint empty = {0};
+	joint->prismaticJoint = empty;
+
+	joint->prismaticJoint.localAxisA = b2Normalize(def->localAxisA);
+	joint->prismaticJoint.referenceAngle = def->referenceAngle;
+	joint->prismaticJoint.impulse = b2Vec2_zero;
+	joint->prismaticJoint.axialMass = 0.0f;
+	joint->prismaticJoint.motorImpulse = 0.0f;
+	joint->prismaticJoint.lowerImpulse = 0.0f;
+	joint->prismaticJoint.upperImpulse = 0.0f;
+	joint->prismaticJoint.lowerTranslation = def->lowerTranslation;
+	joint->prismaticJoint.upperTranslation = def->upperTranslation;
+	joint->prismaticJoint.maxMotorForce = def->maxMotorForce;
+	joint->prismaticJoint.motorSpeed = def->motorSpeed;
+	joint->prismaticJoint.enableLimit = def->enableLimit;
+	joint->prismaticJoint.enableMotor = def->enableMotor;
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)

@@ -98,7 +98,8 @@ typedef struct b2RevoluteJointDef
 	bool collideConnected;
 } b2RevoluteJointDef;
 
-static inline struct b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
+/// Use this to initialize your joint definition
+static inline b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 {
 	b2RevoluteJointDef def = {0};
 	def.bodyIdA = b2_nullBodyId;
@@ -114,6 +115,72 @@ static inline struct b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 	def.enableMotor = false;
 	def.collideConnected = false;
 	return def;
+}
+
+/// Prismatic joint definition. This requires defining a line of
+/// motion using an axis and an anchor point. The definition uses local
+/// anchor points and a local axis so that the initial configuration
+/// can violate the constraint slightly. The joint translation is zero
+/// when the local anchor points coincide in world space.
+typedef struct b2PrismaticJointDef
+{
+	/// The first attached body.
+	b2BodyId bodyIdA;
+
+	/// The second attached body.
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin.
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin.
+	b2Vec2 localAnchorB;
+
+	/// The local translation unit axis in bodyA.
+	b2Vec2 localAxisA;
+
+	/// The constrained angle between the bodies: bodyB_angle - bodyA_angle.
+	float referenceAngle;
+
+	/// Enable/disable the joint limit.
+	bool enableLimit;
+
+	/// The lower translation limit, usually in meters.
+	float lowerTranslation;
+
+	/// The upper translation limit, usually in meters.
+	float upperTranslation;
+
+	/// Enable/disable the joint motor.
+	bool enableMotor;
+
+	/// The maximum motor torque, usually in N-m.
+	float maxMotorForce;
+
+	/// The desired motor speed in radians per second.
+	float motorSpeed;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+} b2PrismaticJointDef;
+
+/// Use this to initialize your joint definition
+static inline b2PrismaticJointDef b2DefaultPrismaticJointDef(void)
+{
+	b2PrismaticJointDef def = {0};
+	def.bodyIdA = b2_nullBodyId;
+	def.bodyIdB = b2_nullBodyId;
+	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.localAnchorB = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.localAxisA = B2_LITERAL(b2Vec2){1.0f, 0.0f};
+	def.referenceAngle = 0.0f;
+	def.enableLimit = false;
+	def.lowerTranslation = 0.0f;
+	def.upperTranslation = 0.0f;
+	def.enableMotor = false;
+	def.maxMotorForce = 0.0f;
+	def.motorSpeed = 0.0f;
+	def.collideConnected = false;
 }
 
 typedef struct b2WeldJointDef
@@ -146,7 +213,8 @@ typedef struct b2WeldJointDef
 	bool collideConnected;
 } b2WeldJointDef;
 
-static inline struct b2WeldJointDef b2DefaultWeldJointDef(void)
+/// Use this to initialize your joint definition
+static inline b2WeldJointDef b2DefaultWeldJointDef(void)
 {
 	b2WeldJointDef def = {0};
 	def.bodyIdA = b2_nullBodyId;
