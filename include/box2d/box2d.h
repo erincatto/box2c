@@ -5,6 +5,7 @@
 
 #include "box2d/api.h"
 #include "box2d/id.h"
+#include "box2d/geometry.h"
 #include "box2d/joint_types.h"
 #include "box2d/timer.h"
 #include "box2d/types.h"
@@ -48,7 +49,10 @@ BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);
 BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
 
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
+BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
+BOX2D_API float b2Body_GetInertiaTensor(b2BodyId bodyId);
+BOX2D_API void b2Body_SetMassData(b2MassData massData);
 BOX2D_API void b2Body_Wake(b2BodyId bodyId);
 
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
@@ -62,6 +66,7 @@ BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
 BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
+BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
 BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
 BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
 BOX2D_API void b2World_DestroyJoint(b2JointId jointId);

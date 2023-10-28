@@ -13,17 +13,16 @@ typedef struct b2World b2World;
 
 typedef enum b2JointType
 {
-	b2_unknownJoint,
-	b2_revoluteJoint,
-	b2_prismaticJoint,
 	b2_distanceJoint,
-	b2_pulleyJoint,
-	b2_mouseJoint,
-	b2_gearJoint,
-	b2_wheelJoint,
-	b2_weldJoint,
 	b2_frictionJoint,
-	b2_motorJoint
+	b2_gearJoint,
+	b2_motorJoint,
+	b2_mouseJoint,
+	b2_prismaticJoint,
+	b2_pulleyJoint,
+	b2_revoluteJoint,
+	b2_weldJoint,
+	b2_wheelJoint,
 } b2JointType;
 
 /// A joint edge is used to connect bodies and joints together

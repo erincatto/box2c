@@ -472,6 +472,7 @@ b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 }
 
 extern void b2PrepareMouse(b2Joint* base, b2StepContext* context);
+extern void b2PreparePrismatic(b2Joint* base, b2StepContext* context);
 extern void b2PrepareRevolute(b2Joint* base, b2StepContext* context);
 extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
 
@@ -481,6 +482,10 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 	{
 		case b2_mouseJoint:
 			b2PrepareMouse(joint, context);
+			break;
+
+		case b2_prismaticJoint:
+			b2PreparePrismatic(joint, context);
 			break;
 
 		case b2_revoluteJoint:
@@ -497,26 +502,31 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 }
 
 extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool removeOverlap);
-extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool removeOverlap);
+extern void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool useBias);
 
-void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOverlap)
+void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
 {
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			if (removeOverlap)
+			if (useBias)
 			{
 				b2SolveMouseVelocity(joint, context);
 			}
 			break;
 
+		case b2_prismaticJoint:
+			b2SolvePrismaticVelocity(joint, context, useBias);
+			break;
+
 		case b2_revoluteJoint:
-			b2SolveRevoluteVelocity(joint, context, removeOverlap);
+			b2SolveRevoluteVelocity(joint, context, useBias);
 			break;
 
 		case b2_weldJoint:
-			b2SolveWeldVelocity(joint, context, removeOverlap);
+			b2SolveWeldVelocity(joint, context, useBias);
 			break;
 
 		default:
@@ -524,6 +534,7 @@ void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOve
 	}
 }
 
+extern void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
@@ -567,6 +578,10 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawSegment(target, pB, c2, draw->context);
 		}
 		break;
+
+		case b2_prismaticJoint:
+			b2DrawPrismatic(draw, joint, bodyA, bodyB);
+			break;
 
 		case b2_revoluteJoint:
 			b2DrawRevolute(draw, joint, bodyA, bodyB);

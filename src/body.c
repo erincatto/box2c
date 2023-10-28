@@ -626,6 +626,18 @@ b2BodyType b2Body_GetType(b2BodyId bodyId)
 	return world->bodies[bodyId.index].type;
 }
 
+void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	b2Body* body = world->bodies + bodyId.index;
+	if (body->type == type)
+	{
+		return;
+	}
+	B2_ASSERT(false);
+}
+
 float b2Body_GetMass(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);

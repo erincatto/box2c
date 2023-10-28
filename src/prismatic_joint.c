@@ -200,15 +200,21 @@ void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBia
 	// Solve motor constraint
 	if (joint->enableMotor)
 	{
-		float Cdot = wB - wA - joint->motorSpeed;
-		float impulse = -joint->axialMass * Cdot;
+		float Cdot = b2Dot(axis, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
+		float impulse = joint->axialMass * (joint->motorSpeed - Cdot);
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->dt * joint->maxMotorForce;
 		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 
-		wA -= iA * impulse;
-		wB += iB * impulse;
+		b2Vec2 P = b2MulSV(impulse, axis);
+		float LA = impulse * a1;
+		float LB = impulse * a2;
+
+		vA = b2MulSub(vA, mA, P);
+		wA -= iA * LA;
+		vB = b2MulAdd(vB, mB, P);
+		wB += iB * LB;
 	}
 
 	if (joint->enableLimit)
@@ -254,6 +260,7 @@ void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBia
 		// Note: signs are flipped to keep C positive when the constraint is satisfied.
 		// This also keeps the impulse positive when the limit is active.
 		{
+			// sign flipped
 			float C = joint->upperTranslation - translation;
 			float bias = 0.0f;
 			float massScale = 1.0f;
@@ -272,7 +279,8 @@ void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBia
 			}
 
 			float oldImpulse = joint->upperImpulse;
-			float Cdot = b2Dot(axis, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
+			// sign flipped
+			float Cdot = b2Dot(axis, b2Sub(vA, vB)) + a1 * wA - a2 * wB;
 			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
 			joint->upperImpulse = B2_MAX(oldImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
@@ -281,10 +289,11 @@ void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBia
 			float LA = impulse * a1;
 			float LB = impulse * a2;
 
-			vA = b2MulSub(vA, mA, P);
-			wA -= iA * LA;
-			vB = b2MulAdd(vB, mB, P);
-			wB += iB * LB;
+			// sign flipped
+			vA = b2MulAdd(vA, mA, P);
+			wA += iA * LA;
+			vB = b2MulSub(vB, mB, P);
+			wB -= iB * LB;
 		}
 	}
 

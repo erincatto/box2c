@@ -47,7 +47,7 @@ class BodyType : public Sample
 
 			b2Polygon box = b2MakeOffsetBox(0.5f, 4.0f, {4.0f, 0.0f}, 0.5f * b2_pi);
 
-			b2ShapeDef shapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.6f;
 			shapeDef.density = 2.0f;
 			b2Body_CreatePolygon(m_platformId, &shapeDef, &box);
@@ -66,16 +66,17 @@ class BodyType : public Sample
 			b2Vec2 anchor = {0.0f, 5.0f};
 			prismaticDef.bodyIdA = groundId;
 			prismaticDef.bodyIdB = m_platformId;
-			revoluteDef.localAnchorA = b2Body_GetLocalPoint(groundId, anchor);
-			revoluteDef.localAnchorB = b2Body_GetLocalPoint(m_platformId, anchor);
+			prismaticDef.localAnchorA = b2Body_GetLocalPoint(groundId, anchor);
+			prismaticDef.localAnchorB = b2Body_GetLocalPoint(m_platformId, anchor);
 			prismaticDef.localAxisA = {1.0f, 0.0f};
 			prismaticDef.maxMotorForce = 1000.0f;
+			prismaticDef.motorSpeed = 0.0f;
 			prismaticDef.enableMotor = true;
 			prismaticDef.lowerTranslation = -10.0f;
 			prismaticDef.upperTranslation = 10.0f;
 			prismaticDef.enableLimit = true;
 
-			m_world->CreateJoint(&pjd);
+			b2World_CreatePrismaticJoint(m_worldId, &prismaticDef);
 
 			m_speed = 3.0f;
 		}
@@ -84,12 +85,12 @@ class BodyType : public Sample
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.position.Set(0.0f, 8.0f);
+			bodyDef.position = {0.0f, 8.0f};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.75f, 0.75f);
 
-			b2ShapeDef shapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.6f;
 			shapeDef.density = 2.0f;
 
@@ -103,22 +104,42 @@ class BodyType : public Sample
 		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
 		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		if (ImGui::Checkbox("Limit", &m_enableLimit))
+		b2BodyType bodyType = b2Body_GetType(m_platformId);
+
+		if (ImGui::RadioButton("Static", bodyType == b2_staticBody))
 		{
-			b2RevoluteJoint_EnableLimit(m_joint1, m_enableLimit);
+			b2Body_SetType(m_platformId, b2_staticBody);
 		}
 
-		if (ImGui::Checkbox("Motor", &m_enableMotor))
+		if (ImGui::RadioButton("Kinematic", bodyType == b2_kinematicBody))
 		{
-			b2RevoluteJoint_EnableMotor(m_joint1, m_enableMotor);
+			b2Body_SetType(m_platformId, b2_kinematicBody);
 		}
-
-		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -20.0f, 20.0f, "%.0f"))
+		
+		if (ImGui::RadioButton("Dynamic", bodyType == b2_dynamicBody))
 		{
-			b2RevoluteJoint_SetMotorSpeed(m_joint1, m_motorSpeed);
+			b2Body_SetType(m_platformId, b2_dynamicBody);
 		}
 
 		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		// Drive the kinematic body.
+		//if (b2Body_GetType(m_platformId) == b2_kinematicBody)
+		//{
+		//	b2Vec2 p = m_platform->GetTransform().p;
+		//	b2Vec2 v = m_platform->GetLinearVelocity();
+
+		//	if ((p.x < -10.0f && v.x < 0.0f) || (p.x > 10.0f && v.x > 0.0f))
+		//	{
+		//		v.x = -v.x;
+		//		m_platform->SetLinearVelocity(v);
+		//	}
+		//}
+
+		Sample::Step(settings);
 	}
 
 	static Sample* Create(const Settings& settings)
