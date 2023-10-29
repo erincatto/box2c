@@ -7,6 +7,7 @@
 #include "contact.h"
 #include "core.h"
 #include "shape.h"
+#include "solver_data.h"
 #include "world.h"
 
 #include "box2d/debug_draw.h"
@@ -123,6 +124,9 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
 	{
+		// TODO_ERIN
+		B2_ASSERT(bodyA->isEnabled == true && bodyB->isEnabled == true);
+		
 		// Add edge to island graph
 		b2LinkJoint(world, joint);
 
@@ -244,7 +248,58 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->revoluteJoint.motorSpeed = def->motorSpeed;
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
-	joint->revoluteJoint.angle = 0.0f;
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+
+	return jointId;
+}
+
+b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_prismaticJoint;
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
+
+	b2PrismaticJoint empty = {0};
+	joint->prismaticJoint = empty;
+
+	joint->prismaticJoint.localAxisA = b2Normalize(def->localAxisA);
+	joint->prismaticJoint.referenceAngle = def->referenceAngle;
+	joint->prismaticJoint.impulse = b2Vec2_zero;
+	joint->prismaticJoint.axialMass = 0.0f;
+	joint->prismaticJoint.motorImpulse = 0.0f;
+	joint->prismaticJoint.lowerImpulse = 0.0f;
+	joint->prismaticJoint.upperImpulse = 0.0f;
+	joint->prismaticJoint.lowerTranslation = def->lowerTranslation;
+	joint->prismaticJoint.upperTranslation = def->upperTranslation;
+	joint->prismaticJoint.maxMotorForce = def->maxMotorForce;
+	joint->prismaticJoint.motorSpeed = def->motorSpeed;
+	joint->prismaticJoint.enableLimit = def->enableLimit;
+	joint->prismaticJoint.enableMotor = def->enableMotor;
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
@@ -421,15 +476,28 @@ b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 }
 
 extern void b2PrepareMouse(b2Joint* base, b2StepContext* context);
+extern void b2PreparePrismatic(b2Joint* base, b2StepContext* context);
 extern void b2PrepareRevolute(b2Joint* base, b2StepContext* context);
 extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
+	// TODO_ERIN temp until joints are in graph
+	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
+	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	{
+		return;
+	}
+
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
 			b2PrepareMouse(joint, context);
+			break;
+
+		case b2_prismaticJoint:
+			b2PreparePrismatic(joint, context);
 			break;
 
 		case b2_revoluteJoint:
@@ -446,26 +514,39 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 }
 
 extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool removeOverlap);
-extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool removeOverlap);
+extern void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool useBias);
 
-void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOverlap)
+void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
 {
+	// TODO_ERIN temp until joints are in graph
+	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
+	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	{
+		return;
+	}
+
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
-			if (removeOverlap)
+			if (useBias)
 			{
 				b2SolveMouseVelocity(joint, context);
 			}
 			break;
 
+		case b2_prismaticJoint:
+			b2SolvePrismaticVelocity(joint, context, useBias);
+			break;
+
 		case b2_revoluteJoint:
-			b2SolveRevoluteVelocity(joint, context, removeOverlap);
+			b2SolveRevoluteVelocity(joint, context, useBias);
 			break;
 
 		case b2_weldJoint:
-			b2SolveWeldVelocity(joint, context, removeOverlap);
+			b2SolveWeldVelocity(joint, context, useBias);
 			break;
 
 		default:
@@ -473,12 +554,17 @@ void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOve
 	}
 }
 
+extern void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
 	b2Body* bodyA = world->bodies + joint->edges[0].bodyIndex;
 	b2Body* bodyB = world->bodies + joint->edges[1].bodyIndex;
+	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	{
+		return;
+	}
 
 	b2Transform xfA = bodyA->transform;
 	b2Transform xfB = bodyB->transform;
@@ -516,6 +602,10 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawSegment(target, pB, c2, draw->context);
 		}
 		break;
+
+		case b2_prismaticJoint:
+			b2DrawPrismatic(draw, joint, bodyA, bodyB);
+			break;
 
 		case b2_revoluteJoint:
 			b2DrawRevolute(draw, joint, bodyA, bodyB);

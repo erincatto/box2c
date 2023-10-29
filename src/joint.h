@@ -13,17 +13,16 @@ typedef struct b2World b2World;
 
 typedef enum b2JointType
 {
-	b2_unknownJoint,
-	b2_revoluteJoint,
-	b2_prismaticJoint,
 	b2_distanceJoint,
-	b2_pulleyJoint,
-	b2_mouseJoint,
-	b2_gearJoint,
-	b2_wheelJoint,
-	b2_weldJoint,
 	b2_frictionJoint,
-	b2_motorJoint
+	b2_gearJoint,
+	b2_motorJoint,
+	b2_mouseJoint,
+	b2_prismaticJoint,
+	b2_pulleyJoint,
+	b2_revoluteJoint,
+	b2_weldJoint,
+	b2_wheelJoint,
 } b2JointType;
 
 /// A joint edge is used to connect bodies and joints together
@@ -86,9 +85,39 @@ typedef struct b2RevoluteJoint
 	float biasCoefficient;
 	float massCoefficient;
 	float impulseCoefficient;
-	float angle;
 	float axialMass;
 } b2RevoluteJoint;
+
+typedef struct b2PrismaticJoint
+{
+	// Solver shared
+	b2Vec2 localAxisA;
+	b2Vec2 impulse;
+	float motorImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	bool enableMotor;
+	float maxMotorForce;
+	float motorSpeed;
+	bool enableLimit;
+	float referenceAngle;
+	float lowerTranslation;
+	float upperTranslation;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 positionA;
+	b2Vec2 positionB;
+	float angleA;
+	float angleB;
+	b2Vec2 localCenterA;
+	b2Vec2 localCenterB;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
+	float axialMass;
+} b2PrismaticJoint;
 
 typedef struct b2WeldJoint
 {
@@ -142,6 +171,7 @@ typedef struct b2Joint
 	{
 		b2MouseJoint mouseJoint;
 		b2RevoluteJoint revoluteJoint;
+		b2PrismaticJoint prismaticJoint;
 		b2WeldJoint weldJoint;
 	};
 

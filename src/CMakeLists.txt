@@ -35,6 +35,7 @@ set(BOX2D_SOURCE_FILES
 	polygon_shape.h
 	pool.c
 	pool.h
+	prismatic_joint.c
 	revolute_joint.c
 	shape.c
 	shape.h
