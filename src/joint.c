@@ -7,6 +7,7 @@
 #include "contact.h"
 #include "core.h"
 #include "shape.h"
+#include "solver_data.h"
 #include "world.h"
 
 #include "box2d/debug_draw.h"
@@ -123,6 +124,9 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
 	{
+		// TODO_ERIN
+		B2_ASSERT(bodyA->isEnabled == true && bodyB->isEnabled == true);
+		
 		// Add edge to island graph
 		b2LinkJoint(world, joint);
 
@@ -478,6 +482,14 @@ extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
+	// TODO_ERIN temp until joints are in graph
+	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
+	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	{
+		return;
+	}
+
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
@@ -508,6 +520,14 @@ extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool useB
 
 void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
 {
+	// TODO_ERIN temp until joints are in graph
+	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
+	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
+	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	{
+		return;
+	}
+
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
@@ -541,6 +561,10 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
 	b2Body* bodyA = world->bodies + joint->edges[0].bodyIndex;
 	b2Body* bodyB = world->bodies + joint->edges[1].bodyIndex;
+	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	{
+		return;
+	}
 
 	b2Transform xfA = bodyA->transform;
 	b2Transform xfB = bodyB->transform;

@@ -47,6 +47,8 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 
 void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf)
 {
+	B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
+
 	// Create proxies in the broad-phase.
 	shape->aabb = b2Shape_ComputeAABB(shape, xf);
 
@@ -63,8 +65,11 @@ void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Tr
 
 void b2Shape_DestroyProxy(b2Shape* shape, b2BroadPhase* bp)
 {
-	b2BroadPhase_DestroyProxy(bp, shape->proxyKey);
-	shape->proxyKey = B2_NULL_INDEX;
+	if (shape->proxyKey != B2_NULL_INDEX)
+	{
+		b2BroadPhase_DestroyProxy(bp, shape->proxyKey);
+		shape->proxyKey = B2_NULL_INDEX;
+	}
 }
 
 b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)

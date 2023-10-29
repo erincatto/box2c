@@ -88,8 +88,9 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 
 	b2BodyType typeA = world->bodies[bodyIndexA].type;
 	b2BodyType typeB = world->bodies[bodyIndexB].type;
+	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
 
-	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
+	if (typeA != b2_staticBody && typeB != b2_staticBody)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
@@ -108,7 +109,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 			break;
 		}
 	}
-	else if (typeA == b2_dynamicBody)
+	else if (typeA != b2_staticBody)
 	{
 		// Static contacts never in color 0
 		for (int32_t i = 1; i < b2_graphColorCount; ++i)
@@ -127,7 +128,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 			break;
 		}
 	}
-	else if (typeB == b2_dynamicBody)
+	else if (typeB != b2_staticBody)
 	{
 		// Static contacts never in color 0
 		for (int32_t i = 1; i < b2_graphColorCount; ++i)
@@ -188,8 +189,9 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 
 	b2BodyType typeA = world->bodies[bodyIndexA].type;
 	b2BodyType typeB = world->bodies[bodyIndexB].type;
+	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
 
-	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
+	if (typeA != b2_staticBody && typeB != b2_staticBody)
 	{
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA) && b2GetBit(&color->bodySet, bodyIndexB));
@@ -206,7 +208,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		b2ClearBit(&color->bodySet, bodyIndexA);
 		b2ClearBit(&color->bodySet, bodyIndexB);
 	}
-	else if (typeA == b2_dynamicBody)
+	else if (typeA != b2_staticBody)
 	{
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
@@ -222,7 +224,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 
 		b2ClearBit(&color->bodySet, bodyIndexA);
 	}
-	else if (typeB == b2_dynamicBody)
+	else if (typeB != b2_staticBody)
 	{
 		b2GraphColor* color = graph->colors + contact->colorIndex;
 		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));

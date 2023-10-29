@@ -100,8 +100,8 @@ class BodyType : public Sample
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 150.0f));
 		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		b2BodyType bodyType = b2Body_GetType(m_platformId);
@@ -114,11 +114,26 @@ class BodyType : public Sample
 		if (ImGui::RadioButton("Kinematic", bodyType == b2_kinematicBody))
 		{
 			b2Body_SetType(m_platformId, b2_kinematicBody);
+			b2Body_SetLinearVelocity(m_platformId, {-m_speed, 0.0f});
+			b2Body_SetAngularVelocity(m_platformId, 0.0f);
 		}
 		
 		if (ImGui::RadioButton("Dynamic", bodyType == b2_dynamicBody))
 		{
 			b2Body_SetType(m_platformId, b2_dynamicBody);
+		}
+
+		bool isEnabled = b2Body_IsEnabled(m_platformId);
+		if (ImGui::Checkbox("Enable", &isEnabled))
+		{
+			if (isEnabled)
+			{
+				b2Body_Enable(m_platformId);
+			}
+			else
+			{
+				b2Body_Disable(m_platformId);
+			}
 		}
 
 		ImGui::End();
@@ -127,17 +142,17 @@ class BodyType : public Sample
 	void Step(Settings& settings) override
 	{
 		// Drive the kinematic body.
-		//if (b2Body_GetType(m_platformId) == b2_kinematicBody)
-		//{
-		//	b2Vec2 p = m_platform->GetTransform().p;
-		//	b2Vec2 v = m_platform->GetLinearVelocity();
+		if (b2Body_GetType(m_platformId) == b2_kinematicBody)
+		{
+			b2Vec2 p = b2Body_GetPosition(m_platformId);
+			b2Vec2 v = b2Body_GetLinearVelocity(m_platformId);
 
-		//	if ((p.x < -10.0f && v.x < 0.0f) || (p.x > 10.0f && v.x > 0.0f))
-		//	{
-		//		v.x = -v.x;
-		//		m_platform->SetLinearVelocity(v);
-		//	}
-		//}
+			if ((p.x < -14.0f && v.x < 0.0f) || (p.x > 6.0f && v.x > 0.0f))
+			{
+				v.x = -v.x;
+				b2Body_SetLinearVelocity(m_platformId, v);
+			}
+		}
 
 		Sample::Step(settings);
 	}
@@ -153,3 +168,16 @@ class BodyType : public Sample
 };
 
 static int sampleBodyType = RegisterSample("Bodies", "Body Type", BodyType::Create);
+
+
+// Test all these APIs:
+#if 0
+void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
+float b2Body_GetMass(b2BodyId bodyId);
+float b2Body_GetInertiaTensor(b2BodyId bodyId);
+float b2Body_GetCenterOfMass(b2BodyId bodyId);
+void b2Body_SetMassData(b2MassData massData);
+void b2Body_Wake(b2BodyId bodyId);
+void b2Body_Disable(b2BodyId bodyId);
+void b2Body_Enable(b2BodyId bodyId);
+#endif

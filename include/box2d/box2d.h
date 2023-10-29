@@ -4,8 +4,8 @@
 #pragma once
 
 #include "box2d/api.h"
-#include "box2d/id.h"
 #include "box2d/geometry.h"
+#include "box2d/id.h"
 #include "box2d/joint_types.h"
 #include "box2d/timer.h"
 #include "box2d/types.h"
@@ -42,18 +42,50 @@ BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
-BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
-
 BOX2D_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
+
+BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
+BOX2D_API b2Vec2 b2Body_GetWorldPoint(b2BodyId bodyId, b2Vec2 localPoint);
+
+BOX2D_API b2Vec2 b2Body_GetLinearVelocity(b2BodyId bodyId);
+BOX2D_API float  b2Body_GetAngularVelocity(b2BodyId bodyId);
 BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);
 BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
 
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+
+/// Get the mass of the body (kilograms)
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
+
+/// Get the inertia tensor of the body. In 2D this is a single number. (kilograms * meters^2)
 BOX2D_API float b2Body_GetInertiaTensor(b2BodyId bodyId);
+
+/// Get the center of mass position of the body in local space.
+BOX2D_API b2Vec2 b2Body_GetLocalCenterOfMass(b2BodyId bodyId);
+
+/// Get the center of mass position of the body in world space.
+BOX2D_API b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId);
+
+/// Override the body's mass properties. Normally this is computed automatically using the
+///	shape geometry and density. This information is lost if a shape is added or removed or if the
+///	body type changes.
 BOX2D_API void b2Body_SetMassData(b2MassData massData);
+
+/// Is this body awake?
+BOX2D_API void b2Body_IsAwake(b2BodyId bodyId);
+
+/// Wake a body from sleep. This wakes the entire island the body is touching.
 BOX2D_API void b2Body_Wake(b2BodyId bodyId);
+
+/// Is this body enabled?
+BOX2D_API bool b2Body_IsEnabled(b2BodyId bodyId);
+
+/// Disable a body by removing it completely from the simulation
+BOX2D_API void b2Body_Disable(b2BodyId bodyId);
+
+/// Enable a body by adding it to the simulation
+BOX2D_API void b2Body_Enable(b2BodyId bodyId);
 
 /// Create a shape and attach it to a body. Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
@@ -83,7 +115,7 @@ BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseT
 BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
-	/// This function receives shapes found in the AABB query.
+/// This function receives shapes found in the AABB query.
 /// @return true if the query should continue
 typedef bool b2QueryCallbackFcn(b2ShapeId shapeId, void* context);
 
@@ -91,7 +123,6 @@ typedef bool b2QueryCallbackFcn(b2ShapeId shapeId, void* context);
 /// @param callback a user implemented callback function.
 /// @param aabb the query box.
 BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context);
-
 
 /// Advanced API for testing and special cases
 

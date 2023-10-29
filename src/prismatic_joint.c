@@ -66,6 +66,7 @@ void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
 	int32_t indexB = base->edges[1].bodyIndex;
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
+
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 

@@ -132,6 +132,7 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 
 void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 {
+	B2_ASSERT(proxyKey != B2_NULL_INDEX);
 	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
 	int32_t proxyId = B2_PROXY_ID(proxyKey);
 
