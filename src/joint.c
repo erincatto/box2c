@@ -13,7 +13,8 @@
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
 
-void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA, b2BodyId bodyIdB)
+void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
+					   b2BodyId bodyIdB)
 {
 	B2_ASSERT(bodyIdA.world == bodyIdB.world);
 
@@ -45,7 +46,8 @@ void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, f
 	*damping = 2.0f * mass * dampingRatio * omega;
 }
 
-void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA, b2BodyId bodyIdB)
+void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
+						b2BodyId bodyIdB)
 {
 	B2_ASSERT(bodyIdA.world == bodyIdB.world);
 
@@ -122,18 +124,14 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	joint->isMarked = false;
 
-	if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
+	if ((bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody) && bodyA->isEnabled == true && bodyB->isEnabled == true)
 	{
-		// TODO_ERIN
-		B2_ASSERT(bodyA->isEnabled == true && bodyB->isEnabled == true);
-		
 		// Add edge to island graph
 		b2LinkJoint(world, joint);
 
 		if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 		{
-			// TODO_JOINT_GRAPH
-			//b2AddJointToGraph(world, joint);
+			b2AddJointToGraph(world, joint);
 		}
 	}
 
@@ -427,8 +425,7 @@ void b2World_DestroyJoint(b2JointId jointId)
 
 	b2UnlinkJoint(world, joint);
 
-	// TODO_JOINT_GRAPH
-	// b2RemoveJointFromGraph(joint);
+	b2RemoveJointFromGraph(world, joint);
 
 	b2FreeObject(&world->jointPool, &joint->object);
 }

@@ -700,8 +700,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 			while (jointIndex != B2_NULL_INDEX)
 			{
 				b2Joint* joint = joints + jointIndex;
-				// TODO_JOINT_GRAPH
-				// b2RemoveJointFromGraph(world, joint);
+				b2RemoveJointFromGraph(world, joint);
 				jointIndex = joint->islandNext;
 			}
 		}

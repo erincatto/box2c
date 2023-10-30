@@ -99,6 +99,7 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
 		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX)
 	endif()
 else()
+	# FMA -mfma
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
 endif()
 

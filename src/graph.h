@@ -9,7 +9,7 @@
 
 typedef struct b2Contact b2Contact;
 typedef struct b2ContactConstraint b2ContactConstraint;
-typedef struct b2ContactConstraintSIMD b2ContactConstraintAVX;
+typedef struct b2ContactConstraintSIMD b2ContactConstraintSIMD;
 typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
@@ -23,10 +23,7 @@ typedef struct b2GraphColor
 	int32_t* jointArray;
 
 	// transient
-	b2ContactConstraint* contactConstraints;
-
-	// TODO_ERIN these could be split up by worker so that workers get a contiguous array of constraints across colors
-	b2ContactConstraintAVX* contactConstraintAVXs;
+	b2ContactConstraintSIMD* contactConstraints;
 } b2GraphColor;
 
 // This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
@@ -35,6 +32,8 @@ typedef struct
 {
 	int32_t* contactArray;
 	int32_t* jointArray;
+
+	// transient
 	b2ContactConstraint* contactConstraints;
 } b2GraphOverflow;
 
