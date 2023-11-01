@@ -66,7 +66,7 @@ typedef struct b2ContactConstraintSIMD
 } b2ContactConstraintSIMD;
 
 // Scalar
-void b2PrepareOverflowContacts(b2SolverTaskContext* context);
+void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context);
 void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias);
 void b2ApplyOverflowRestitution(b2SolverTaskContext* context);
 void b2StoreOverflowImpulses(b2SolverTaskContext* context);

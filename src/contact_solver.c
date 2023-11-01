@@ -16,7 +16,7 @@
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 
-void b2PrepareOverflowContacts(b2SolverTaskContext* context)
+void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
@@ -484,7 +484,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2Contact* contacts = world->contacts;
 	const int32_t* bodyMap = context->bodyToSolverMap;
 	b2SolverBody* solverBodies = context->solverBodies;
-	b2ContactConstraintSIMD* constraints = context->constraintAVXs;
+	b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* contactIndices = context->contactIndices;
 	
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
@@ -984,7 +984,7 @@ void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
 	b2Contact* contacts = context->world->contacts;
-	const b2ContactConstraintSIMD* constraints = context->constraintAVXs;
+	const b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* indices = context->contactIndices;
 
 	b2Manifold dummy = {0};

@@ -107,6 +107,37 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 	solverBodyB->angularVelocity = wB;
 }
 
+void b2WarmStartMouse(b2Joint* base, b2StepContext* context)
+{
+	B2_ASSERT(base->type == b2_mouseJoint);
+
+	b2MouseJoint* joint = &base->mouseJoint;
+
+	b2SolverBody* bodyB = context->solverBodies + joint->indexB;
+	b2Vec2 vB = bodyB->linearVelocity;
+	float wB = bodyB->angularVelocity;
+
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
+
+	// TODO_ERIN damp angular velocity?
+	// wB *= 1.0f / (1.0f + 0.02f * context->dt);
+
+	if (context->enableWarmStarting)
+	{
+		joint->impulse = b2MulSV(context->dtRatio, joint->impulse);
+		vB = b2MulAdd(vB, mB, joint->impulse);
+		wB += iB * b2Cross(joint->rB, joint->impulse);
+	}
+	else
+	{
+		joint->impulse = b2Vec2_zero;
+	}
+
+	bodyB->linearVelocity = vB;
+	bodyB->angularVelocity = wB;
+}
+
 void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context)
 {
 	b2MouseJoint* joint = &base->mouseJoint;

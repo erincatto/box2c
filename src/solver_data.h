@@ -50,7 +50,7 @@ typedef enum b2SolverStageType
 	b2_stageWarmStart,
 	b2_stageSolve,
 	b2_stageIntegratePositions,
-	b2_stageCalm,
+	b2_stageRelax,
 	b2_stageRestitution,
 	b2_stageStoreImpulses
 } b2SolverStageType;
@@ -87,22 +87,25 @@ typedef struct b2SolverStage
 	_Atomic int completionCount;
 } b2SolverStage;
 
+// TODO_ERIN combine with b2StepContext
 typedef struct b2SolverTaskContext
 {
 	struct b2World* world;
 	struct b2Graph* graph;
 	struct b2Body** awakeBodies;
 	struct b2SolverBody* solverBodies;
+	
 	int32_t* bodyToSolverMap;
 	int32_t* solverToBodyMap;
+
+	int32_t* jointIndices;
 	int32_t* contactIndices;
 
 	b2StepContext* stepContext;
-	struct b2ContactConstraint* constraints;
-	struct b2ContactConstraintSIMD* constraintAVXs;
+	struct b2ContactConstraintSIMD* contactConstraints;
 	int32_t activeColorCount;
 	int32_t velocityIterations;
-	int32_t calmIterations;
+	int32_t relaxIterations;
 	int32_t workerCount;
 
 	float timeStep;

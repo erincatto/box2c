@@ -479,14 +479,6 @@ extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
-	// TODO_ERIN temp until joints are in graph
-	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
-	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
-	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
-	{
-		return;
-	}
-
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
@@ -503,6 +495,36 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 
 		case b2_weldJoint:
 			b2PrepareWeld(joint, context);
+			break;
+
+		default:
+			B2_ASSERT(false);
+	}
+}
+
+extern void b2WarmStartMouse(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartRevolute(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartWeld(b2Joint* base, b2StepContext* context);
+
+void b2WarmStartJoint(b2Joint* joint, b2StepContext* context)
+{
+	switch (joint->type)
+	{
+		case b2_mouseJoint:
+			b2WarmStartMouse(joint, context);
+			break;
+
+		case b2_prismaticJoint:
+			b2WarmStartPrismatic(joint, context);
+			break;
+
+		case b2_revoluteJoint:
+			b2WarmStartRevolute(joint, context);
+			break;
+
+		case b2_weldJoint:
+			b2WarmStartWeld(joint, context);
 			break;
 
 		default:
