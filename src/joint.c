@@ -10,6 +10,7 @@
 #include "solver_data.h"
 #include "world.h"
 
+#include "box2d/color.h"
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
 
@@ -634,5 +635,15 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawSegment(xfA.p, pA, color, draw->context);
 			draw->DrawSegment(pA, pB, color, draw->context);
 			draw->DrawSegment(xfB.p, pB, color, draw->context);
+	}
+
+	b2HexColor colors[b2_graphColorCount + 1] = {
+		b2_colorRed,  b2_colorOrange,	 b2_colorYellow,	b2_colorGreen, b2_colorCyan, b2_colorBlue, b2_colorViolet,
+		b2_colorPink, b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral, b2_colorAqua, b2_colorBlack};
+
+	if (joint->colorIndex != B2_NULL_INDEX)
+	{
+		b2Vec2 p = b2Lerp(pA, pB, 0.5f);
+		draw->DrawPoint(p, 5.0f, b2MakeColor(colors[joint->colorIndex], 1.0f), draw->context);
 	}
 }

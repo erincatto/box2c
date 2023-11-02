@@ -9,7 +9,7 @@ typedef struct b2Color
 	float r, g, b, a;
 } b2Color;
 
-enum b2HexColor
+typedef enum b2HexColor
 {
 	b2_colorAliceBlue = 0xf0f8ff,
 	b2_colorAntiqueWhite = 0xfaebd7,
@@ -577,7 +577,7 @@ enum b2HexColor
 	b2_colorYellow3 = 0xcdcd00,
 	b2_colorYellow4 = 0x8b8b00,
 	b2_colorYellowGreen = 0x9acd32,
-};
+} b2HexColor;
 
 #ifdef __cplusplus
 extern "C"

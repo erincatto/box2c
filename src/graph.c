@@ -465,6 +465,8 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2So
 
 static void b2PrepareJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
+	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
+
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
 	b2StepContext* stepContext = context->stepContext;
@@ -472,18 +474,22 @@ static void b2PrepareJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		int32_t j = jointIndices[i];
-		B2_ASSERT(0 <= j && j < world->jointPool.capacity);
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
-		b2Joint* joint = joints + jointIndices[i];
+		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
 		b2PrepareJoint(joint, stepContext);
 	}
+
+	b2TracyCZoneEnd(prepare_joints);
 }
 
 static void b2WarmStartJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
+	b2TracyCZoneNC(warm_joints, "WarmJoints", b2_colorGold, true);
+
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
 	b2StepContext* stepContext = context->stepContext;
@@ -491,18 +497,22 @@ static void b2WarmStartJoints(int32_t startIndex, int32_t endIndex, b2SolverTask
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		int32_t j = jointIndices[i];
-		B2_ASSERT(0 <= j && j < world->jointPool.capacity);
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
-		b2Joint* joint = joints + jointIndices[i];
+		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
 		b2WarmStartJoint(joint, stepContext);
 	}
+
+	b2TracyCZoneEnd(warm_joints);
 }
 
 static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
 {
+	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
+
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
 	b2StepContext* stepContext = context->stepContext;
@@ -510,14 +520,16 @@ static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		int32_t j = jointIndices[i];
-		B2_ASSERT(0 <= j && j < world->jointPool.capacity);
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
-		b2Joint* joint = joints + jointIndices[i];
+		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
 		b2SolveJointVelocity(joint, stepContext, useBias);
 	}
+
+	b2TracyCZoneEnd(solve_joints);
 }
 
 static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
