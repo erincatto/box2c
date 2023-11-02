@@ -91,6 +91,23 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	{
 		joint->motorImpulse = 0.0f;
 	}
+}
+
+void b2WarmStartRevolute(b2Joint* base, b2StepContext* context)
+{
+	B2_ASSERT(base->type == b2_revoluteJoint);
+
+	b2RevoluteJoint* joint = &base->revoluteJoint;
+
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	b2SolverBody dummyBody = {0};
+
+	// Note: must warm start solver bodies
+	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
+	float iA = bodyA->invI;
+
+	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
+	float iB = bodyB->invI;
 
 	if (context->enableWarmStarting)
 	{
@@ -105,8 +122,8 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 		// TODO_ERIN is warm starting axial stuff useful?
 		float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-		solverBodyA->angularVelocity -= iA * axialImpulse;
-		solverBodyB->angularVelocity += iB * axialImpulse;
+		bodyA->angularVelocity -= iA * axialImpulse;
+		bodyB->angularVelocity += iB * axialImpulse;
 	}
 	else
 	{

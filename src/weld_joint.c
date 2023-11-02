@@ -82,6 +82,12 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 	joint->impulse = b2Vec3_zero;
 }
 
+void b2WarmStartWeld(b2Joint* base, b2StepContext* context)
+{
+	B2_MAYBE_UNUSED(base);
+	B2_MAYBE_UNUSED(context);
+}
+
 void b2SolveWeldVelocity(b2Joint* base, const b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_weldJoint);

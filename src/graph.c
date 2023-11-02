@@ -312,9 +312,13 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 		}
 	}
 
-	// TODO_ERIN handle joint overflow
-
-	B2_ASSERT(joint->colorIndex != B2_NULL_INDEX && joint->colorSubIndex != B2_NULL_INDEX);
+	// Overflow
+	if (joint->colorIndex == B2_NULL_INDEX)
+	{
+		joint->colorSubIndex = b2Array(graph->overflow.jointArray).count;
+		b2Array_Push(graph->overflow.jointArray, joint->object.index);
+		joint->colorIndex = b2_overflowIndex;
+	}
 }
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
@@ -323,6 +327,25 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 	B2_ASSERT(joint->colorSubIndex != B2_NULL_INDEX);
 
 	b2Graph* graph = &world->graph;
+
+	// Overflow
+	if (joint->colorIndex == b2_overflowIndex)
+	{
+		int32_t colorSubIndex = joint->colorSubIndex;
+		b2Array_RemoveSwap(graph->overflow.jointArray, colorSubIndex);
+		if (colorSubIndex < b2Array(graph->overflow.jointArray).count)
+		{
+			// Fix index on swapped joint
+			int32_t swappedIndex = graph->overflow.jointArray[colorSubIndex];
+			B2_ASSERT(world->joints[swappedIndex].colorIndex == b2_overflowIndex);
+			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
+		}
+
+		joint->colorIndex = B2_NULL_INDEX;
+		joint->colorSubIndex = B2_NULL_INDEX;
+
+		return;
+	}
 
 	B2_ASSERT(0 <= joint->colorIndex && joint->colorIndex < b2_graphColorCount);
 	int32_t bodyIndexA = joint->edges[0].bodyIndex;
@@ -1459,8 +1482,8 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	// Prepare joints
 	stage->type = b2_stagePrepareJoints;
-	stage->blocks = NULL;
-	stage->blockCount = 0;
+	stage->blocks = jointBlocks;
+	stage->blockCount = jointBlockCount;
 	stage->colorIndex = -1;
 	stage->completionCount = 0;
 	stage += 1;
