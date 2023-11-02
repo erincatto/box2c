@@ -96,7 +96,7 @@ class Bridge : public Sample
   public:
 	enum
 	{
-		e_count = 80
+		e_count = 160
 	};
 
 	Bridge(const Settings& settings)
@@ -194,7 +194,7 @@ class Bridge : public Sample
 
 		// Slider takes half the window
 		ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
-		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 10000.0f, "%2.f");
+		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 1000.0f, "%2.f");
 		if (updateFriction)
 		{
 			for (int32_t i = 0; i <= e_count; ++i)
@@ -222,7 +222,7 @@ class BallAndChain : public Sample
   public:
 	enum
 	{
-		e_count = 30
+		e_count = 50
 	};
 
 	BallAndChain(const Settings& settings)
@@ -357,7 +357,7 @@ class BallAndChain : public Sample
 		ImGui::SetNextWindowSize(ImVec2(300.0f, 60.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
-		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 10000.0f, "%2.f");
+		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 1000.0f, "%2.f");
 		if (updateFriction)
 		{
 			for (int32_t i = 0; i <= e_count; ++i)
