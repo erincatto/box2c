@@ -63,12 +63,8 @@ set(BOX2D_SAMPLES
 	settings.h
 	settings.cpp
 
-	collection/benchmark_barrel.cpp
-	collection/benchmark_create_destroy.cpp
+	collection/benchmark.cpp
 	collection/sample_joints.cpp
-	collection/benchmark_many_tumblers.cpp
-	collection/benchmark_pyramid.cpp
-	collection/benchmark_tumbler.cpp
 	collection/sample_robustness.cpp
 	collection/sample_bodies.cpp
 	collection/sample_continuous.cpp
