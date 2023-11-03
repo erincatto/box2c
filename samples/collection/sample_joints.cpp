@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
+#include "settings.h"
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 
 // #include <GLFW/glfw3.h>
+#include "box2d/math.h"
+
 #include <imgui.h>
 
 class BenchmarkJointGrid : public Sample
@@ -448,3 +451,124 @@ class Cantilever : public Sample
 };
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);
+
+class UserConstraint : public Sample
+{
+  public:
+	UserConstraint(const Settings& settings)
+		: Sample(settings)
+	{
+		b2Polygon box = b2MakeBox(1.0f, 0.5f);
+
+		b2ShapeDef sd = b2DefaultShapeDef();
+		sd.density = 20.0f;
+
+		b2BodyDef bd = b2DefaultBodyDef();
+		bd.type = b2_dynamicBody;
+		bd.gravityScale = 1.0f;
+		bd.angularDamping = 0.5f;
+		bd.linearDamping = 0.2f;
+		m_bodyId = b2World_CreateBody(m_worldId, &bd);
+		b2Body_CreatePolygon(m_bodyId, &sd, &box);
+
+		m_impulses[0] = 0.0f;
+		m_impulses[1] = 0.0f;
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		b2Transform axes = b2Transform_identity;
+		g_draw.DrawTransform(axes);
+
+		if (settings.m_pause)
+		{
+			return;
+		}
+
+		float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : 0.0f;
+		if (timeStep == 0.0f)
+		{
+			return;
+		}
+
+		float invTimeStep = settings.m_hertz;
+
+		static float hertz = 3.0f;
+		static float zeta = 0.7f;
+		static float maxForce = 1000.0f;
+		float omega = 2.0f * b2_pi * hertz;
+		float sigma = 2.0f * zeta + timeStep * omega;
+		float s = timeStep * omega * sigma;
+		float impulseCoefficient = 1.0f / (1.0f + s);
+		float massCoefficient = s * impulseCoefficient;
+		float biasCoefficient = omega / sigma;
+
+		b2Vec2 localAnchors[2] = {{1.0f, -0.5f}, {1.0f, 0.5f}};
+		float mass = b2Body_GetMass(m_bodyId);
+		float invMass = mass < 0.0001f ? 0.0f : 1.0f / mass;
+		float I = b2Body_GetInertiaTensor(m_bodyId);
+		float invI = I < 0.0001f ? 0.0f : 1.0f / I;
+
+		b2Vec2 vB = b2Body_GetLinearVelocity(m_bodyId);
+		float omegaB = b2Body_GetAngularVelocity(m_bodyId);
+		b2Vec2 pB = b2Body_GetWorldCenterOfMass(m_bodyId);
+
+		for (int i = 0; i < 2; ++i)
+		{
+			b2Vec2 anchorA = {3.0f, 0.0f};
+			b2Vec2 anchorB = b2Body_GetWorldPoint(m_bodyId, localAnchors[i]);
+
+			b2Vec2 deltaAnchor = b2Sub(anchorB, anchorA);
+
+			float slackLength = 1.0f;
+			float length = b2Length(deltaAnchor);
+			float C = length - slackLength;
+			if (C < 0.0f || length < 0.001f)
+			{
+				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan, 1.0f));
+				m_impulses[i] = 0.0f;
+				continue;
+			}
+
+			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet, 1.0f));
+			b2Vec2 axis = b2Normalize(deltaAnchor);
+			
+			b2Vec2 rB = b2Sub(anchorB, pB);
+			float Jb = b2Cross(rB, axis);
+			float K = invMass + Jb * invI * Jb;
+			float invK = K < 0.0001f ? 0.0f : 1.0f / K;
+
+			vB = b2MulAdd(vB, invMass * m_impulses[i], axis);
+			omegaB += m_impulses[i] * invI * Jb;
+
+			float Cdot = b2Dot(vB, axis) + Jb * omegaB;
+			float impulse = -massCoefficient * invK * (Cdot + biasCoefficient * C) - impulseCoefficient * m_impulses[i];
+
+			float totalImpulse = B2_CLAMP(m_impulses[i] + impulse, -maxForce * timeStep, 0.0f);
+			float appliedImpulse = totalImpulse - m_impulses[i];
+
+			vB = b2MulAdd(vB, invMass * appliedImpulse, axis);
+			omegaB += appliedImpulse * invI * Jb;
+
+			m_impulses[i] = totalImpulse;
+		}
+
+		b2Body_SetLinearVelocity(m_bodyId, vB);
+		b2Body_SetAngularVelocity(m_bodyId, omegaB);
+
+		g_draw.DrawString(5, m_textLine, "forces = %g, %g", m_impulses[0] * invTimeStep, m_impulses[1] * invTimeStep);
+		m_textLine += m_textIncrement;
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new UserConstraint(settings);
+	}
+
+	b2BodyId m_bodyId;
+	float m_impulses[2];
+};
+
+static int sampleUserConstraintIndex = RegisterSample("Joints", "User Constraint", UserConstraint::Create);

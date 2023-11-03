@@ -216,7 +216,7 @@ void Sample::ResetProfile()
 
 void Sample::Step(Settings& settings)
 {
-	float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : float(0.0f);
+	float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : 0.0f;
 
 	if (settings.m_pause)
 	{
