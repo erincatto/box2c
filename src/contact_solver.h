@@ -63,10 +63,10 @@ typedef struct b2ContactConstraintSIMD
 	__m256 massCoefficient;
 	__m256 biasCoefficient;
 	__m256 impulseCoefficient;
-} b2ContactConstraintAVX;
+} b2ContactConstraintSIMD;
 
 // Scalar
-void b2PrepareOverflowContacts(b2SolverTaskContext* context);
+void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context);
 void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias);
 void b2ApplyOverflowRestitution(b2SolverTaskContext* context);
 void b2StoreOverflowImpulses(b2SolverTaskContext* context);

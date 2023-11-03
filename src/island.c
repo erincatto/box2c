@@ -227,8 +227,7 @@ void b2WakeIsland(b2Island* island)
 	{
 		b2Joint* joint = world->joints + jointIndex;
 		B2_ASSERT(joint->islandIndex == islandIndex);
-		// TODO_JOINT_GRAPH
-		// b2AddJointToGraph(world, joint);
+		b2AddJointToGraph(world, joint);
 		jointIndex = joint->islandNext;
 	}
 }

@@ -180,5 +180,6 @@ typedef struct b2Joint
 } b2Joint;
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
-void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool removeOverlap);
+void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
+void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias);
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

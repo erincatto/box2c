@@ -49,11 +49,6 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 
 	b2Vec2 cB = bodyB->position;
 	b2Rot qB = bodyB->transform.q;
-
-	b2SolverBody* solverBodyB = context->solverBodies + joint->indexB;
-	b2Vec2 vB = solverBodyB->linearVelocity;
-	float wB = solverBodyB->angularVelocity;
-
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
@@ -88,9 +83,23 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 
 	joint->C = b2Add(cB, b2Sub(joint->rB, joint->targetA));
 	joint->C = b2MulSV(joint->beta, joint->C);
+}
 
-	// Cheat with some damping
-	wB *= B2_MAX(0.0f, 1.0f - 0.02f * (60.0f * h));
+void b2WarmStartMouse(b2Joint* base, b2StepContext* context)
+{
+	B2_ASSERT(base->type == b2_mouseJoint);
+
+	b2MouseJoint* joint = &base->mouseJoint;
+
+	b2SolverBody* bodyB = context->solverBodies + joint->indexB;
+	b2Vec2 vB = bodyB->linearVelocity;
+	float wB = bodyB->angularVelocity;
+
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
+
+	// TODO_ERIN damp angular velocity?
+	// wB *= 1.0f / (1.0f + 0.02f * context->dt);
 
 	if (context->enableWarmStarting)
 	{
@@ -103,8 +112,8 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 		joint->impulse = b2Vec2_zero;
 	}
 
-	solverBodyB->linearVelocity = vB;
-	solverBodyB->angularVelocity = wB;
+	bodyB->linearVelocity = vB;
+	bodyB->angularVelocity = wB;
 }
 
 void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context)

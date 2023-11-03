@@ -13,14 +13,12 @@ BraceWrapping:
   AfterUnion: true
   BeforeWhile: true
 
-ColumnLimit: 140
+ColumnLimit: 130
 PointerAlignment: Left
 UseTab: Always
 BreakConstructorInitializers: BeforeComma
 
-# when VS updates clang-format to v16
 InsertNewlineAtEOF: true
-
 IncludeBlocks: Regroup
 
 IncludeCategories:

@@ -81,17 +81,10 @@ void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
 	joint->angleA = bodyA->angle;
 	joint->angleB = bodyB->angle;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
-
-	// Note: must warm start solver bodies
-	b2SolverBody* solverBodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
-	float mA = solverBodyA->invMass;
-	float iA = solverBodyA->invI;
-
-	b2SolverBody* solverBodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
-	float mB = solverBodyB->invMass;
-	float iB = solverBodyB->invI;
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
 
 	b2Rot qA = bodyA->transform.q;
 	b2Rot qB = bodyB->transform.q;
@@ -129,6 +122,36 @@ void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
 	{
 		joint->motorImpulse = 0.0f;
 	}
+}
+
+void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context)
+{
+	B2_ASSERT(base->type == b2_prismaticJoint);
+
+	b2PrismaticJoint* joint = &base->prismaticJoint;
+
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	b2SolverBody dummyBody = {0};
+
+	// Note: must warm start solver bodies
+	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+
+	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
+
+	b2Rot qA = b2MakeRot(joint->angleA);
+	b2Rot qB = b2MakeRot(joint->angleB);
+
+	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
+	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
+	b2Vec2 d = b2Add(b2Sub(joint->positionB, joint->positionA), b2Sub(rB, rA));
+
+	b2Vec2 axis = b2RotateVector(qA, joint->localAxisA);
+	float a1 = b2Cross(b2Add(d, rA), axis);
+	float a2 = b2Cross(rB, axis);
 
 	if (context->enableWarmStarting)
 	{
@@ -141,16 +164,15 @@ void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
 		joint->upperImpulse *= dtRatio;
 
 		float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
-\
+
 		b2Vec2 P = b2MulSV(axialImpulse, axis);
 		float LA = axialImpulse * a1;
 		float LB = axialImpulse * a2;
 
-		solverBodyA->linearVelocity = b2MulSub(solverBodyA->linearVelocity, mA, P);
-		solverBodyA->angularVelocity -= iA * LA;
-
-		solverBodyB->linearVelocity = b2MulAdd(solverBodyB->linearVelocity, mB, P);
-		solverBodyB->angularVelocity += iB * LB;
+		bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
+		bodyA->angularVelocity -= iA * LA;
+		bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
+		bodyB->angularVelocity += iB * LB;
 	}
 	else
 	{

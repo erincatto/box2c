@@ -71,7 +71,9 @@ typedef struct b2World
 	// but a bit set is used to prevent duplicates
 	int32_t* awakeContactArray;
 
-	// Hot data split from b2Contact
+	// Hot data split from b2Contact. Used when a contact is destroyed and needs to be removed from the awake contact array.
+	// A contact is destroyed when a shape/body is destroyed or when the shape AABBs stop overlapping.
+	// TODO_ERIN use a bit array somehow?
 	int32_t* contactAwakeIndexArray;
 
 	// Array of fast bodies that need continuous collision handling

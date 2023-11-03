@@ -10,10 +10,12 @@
 #include "solver_data.h"
 #include "world.h"
 
+#include "box2d/color.h"
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
 
-void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA, b2BodyId bodyIdB)
+void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
+					   b2BodyId bodyIdB)
 {
 	B2_ASSERT(bodyIdA.world == bodyIdB.world);
 
@@ -45,7 +47,8 @@ void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, f
 	*damping = 2.0f * mass * dampingRatio * omega;
 }
 
-void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA, b2BodyId bodyIdB)
+void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
+						b2BodyId bodyIdB)
 {
 	B2_ASSERT(bodyIdA.world == bodyIdB.world);
 
@@ -122,18 +125,14 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	joint->isMarked = false;
 
-	if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
+	if ((bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody) && bodyA->isEnabled == true && bodyB->isEnabled == true)
 	{
-		// TODO_ERIN
-		B2_ASSERT(bodyA->isEnabled == true && bodyB->isEnabled == true);
-		
 		// Add edge to island graph
 		b2LinkJoint(world, joint);
 
 		if (b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB))
 		{
-			// TODO_JOINT_GRAPH
-			//b2AddJointToGraph(world, joint);
+			b2AddJointToGraph(world, joint);
 		}
 	}
 
@@ -427,8 +426,7 @@ void b2World_DestroyJoint(b2JointId jointId)
 
 	b2UnlinkJoint(world, joint);
 
-	// TODO_JOINT_GRAPH
-	// b2RemoveJointFromGraph(joint);
+	b2RemoveJointFromGraph(world, joint);
 
 	b2FreeObject(&world->jointPool, &joint->object);
 }
@@ -482,14 +480,6 @@ extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
-	// TODO_ERIN temp until joints are in graph
-	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
-	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
-	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
-	{
-		return;
-	}
-
 	switch (joint->type)
 	{
 		case b2_mouseJoint:
@@ -506,6 +496,36 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 
 		case b2_weldJoint:
 			b2PrepareWeld(joint, context);
+			break;
+
+		default:
+			B2_ASSERT(false);
+	}
+}
+
+extern void b2WarmStartMouse(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartRevolute(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartWeld(b2Joint* base, b2StepContext* context);
+
+void b2WarmStartJoint(b2Joint* joint, b2StepContext* context)
+{
+	switch (joint->type)
+	{
+		case b2_mouseJoint:
+			b2WarmStartMouse(joint, context);
+			break;
+
+		case b2_prismaticJoint:
+			b2WarmStartPrismatic(joint, context);
+			break;
+
+		case b2_revoluteJoint:
+			b2WarmStartRevolute(joint, context);
+			break;
+
+		case b2_weldJoint:
+			b2WarmStartWeld(joint, context);
 			break;
 
 		default:
@@ -615,5 +635,15 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawSegment(xfA.p, pA, color, draw->context);
 			draw->DrawSegment(pA, pB, color, draw->context);
 			draw->DrawSegment(xfB.p, pB, color, draw->context);
+	}
+
+	b2HexColor colors[b2_graphColorCount + 1] = {
+		b2_colorRed,  b2_colorOrange,	 b2_colorYellow,	b2_colorGreen, b2_colorCyan, b2_colorBlue, b2_colorViolet,
+		b2_colorPink, b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral, b2_colorAqua, b2_colorBlack};
+
+	if (joint->colorIndex != B2_NULL_INDEX)
+	{
+		b2Vec2 p = b2Lerp(pA, pB, 0.5f);
+		draw->DrawPoint(p, 5.0f, b2MakeColor(colors[joint->colorIndex], 1.0f), draw->context);
 	}
 }

@@ -700,8 +700,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 			while (jointIndex != B2_NULL_INDEX)
 			{
 				b2Joint* joint = joints + jointIndex;
-				// TODO_JOINT_GRAPH
-				// b2RemoveJointFromGraph(world, joint);
+				b2RemoveJointFromGraph(world, joint);
 				jointIndex = joint->islandNext;
 			}
 		}
@@ -927,7 +926,7 @@ static void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneEnd(solve);
 }
 
-void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations)
+void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t relaxIterations)
 {
 	if (timeStep == 0.0f)
 	{
@@ -961,7 +960,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	b2StepContext context = {0};
 	context.dt = timeStep;
 	context.velocityIterations = velocityIterations;
-	context.positionIterations = positionIterations;
+	context.relaxIterations = relaxIterations;
 	if (timeStep > 0.0f)
 	{
 		context.inv_dt = 1.0f / timeStep;

@@ -66,7 +66,7 @@ int HelloWorld()
 	// in most game scenarios.
 	float timeStep = 1.0f / 60.0f;
 	int32_t velocityIterations = 6;
-	int32_t positionIterations = 2;
+	int32_t relaxIterations = 2;
 
 	b2Vec2 position = b2Body_GetPosition(bodyId);
 	float angle = b2Body_GetAngle(bodyId);
@@ -76,7 +76,7 @@ int HelloWorld()
 	{
 		// Instruct the world to perform a single step of simulation.
 		// It is generally best to keep the time step and iterations fixed.
-		b2World_Step(worldId, timeStep, velocityIterations, positionIterations);
+		b2World_Step(worldId, timeStep, velocityIterations, relaxIterations);
 
 		// Now print the position and angle of the body.
 		position = b2Body_GetPosition(bodyId);

@@ -21,8 +21,8 @@ typedef struct b2StepContext
 	// Velocity iterations for constraint solver. Controls the accuracy of internal forces.
 	int32_t velocityIterations;
 
-	// Position iterations for constraint solver. Controls the accuracy of shape overlap and joint alignment.
-	int32_t positionIterations;
+	// Relax iterations for constraint solver. Reduces constraint bounce.
+	int32_t relaxIterations;
 
 	float restitutionThreshold;
 
@@ -44,18 +44,25 @@ typedef struct b2StepContext
 
 typedef enum b2SolverStageType
 {
-	b2_stageIntegrateVelocities = 0,
-	b2_stagePrepareContacts,
-	b2_stageWarmStartContacts,
+	b2_stageIntegrateVelocities,
 	b2_stagePrepareJoints,
-	b2_stageSolveJoints,
-	b2_stageSolveContacts,
+	b2_stagePrepareContacts,
+	b2_stageWarmStart,
+	b2_stageSolve,
 	b2_stageIntegratePositions,
-	b2_stageCalmJoints,
-	b2_stageCalmContacts,
+	b2_stageRelax,
 	b2_stageRestitution,
 	b2_stageStoreImpulses
 } b2SolverStageType;
+
+typedef enum b2SolverBlockType
+{
+	b2_bodyBlock,
+	b2_jointBlock,
+	b2_contactBlock,
+	b2_graphJointBlock,
+	b2_graphContactBlock
+} b2SolverBlockType;
 
 // Each block of work has a sync index that gets incremented when a worker claims the block. This ensures only a single worker claims a
 // block, yet lets work be distributed dynamically across multiple workers (work stealing). This also reduces contention on a single block
@@ -64,7 +71,8 @@ typedef enum b2SolverStageType
 typedef struct b2SolverBlock
 {
 	int32_t startIndex;
-	int32_t endIndex;
+	int16_t count;
+	int16_t blockType; // b2SolverBlockType
 	_Atomic int syncIndex;
 } b2SolverBlock;
 
@@ -79,22 +87,25 @@ typedef struct b2SolverStage
 	_Atomic int completionCount;
 } b2SolverStage;
 
+// TODO_ERIN combine with b2StepContext
 typedef struct b2SolverTaskContext
 {
 	struct b2World* world;
 	struct b2Graph* graph;
 	struct b2Body** awakeBodies;
 	struct b2SolverBody* solverBodies;
+	
 	int32_t* bodyToSolverMap;
 	int32_t* solverToBodyMap;
+
+	int32_t* jointIndices;
 	int32_t* contactIndices;
 
 	b2StepContext* stepContext;
-	struct b2ContactConstraint* constraints;
-	struct b2ContactConstraintSIMD* constraintAVXs;
+	struct b2ContactConstraintSIMD* contactConstraints;
 	int32_t activeColorCount;
 	int32_t velocityIterations;
-	int32_t calmIterations;
+	int32_t relaxIterations;
 	int32_t workerCount;
 
 	float timeStep;

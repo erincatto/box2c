@@ -16,7 +16,7 @@
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 
-void b2PrepareOverflowContacts(b2SolverTaskContext* context)
+void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
@@ -484,7 +484,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2Contact* contacts = world->contacts;
 	const int32_t* bodyMap = context->bodyToSolverMap;
 	b2SolverBody* solverBodies = context->solverBodies;
-	b2ContactConstraintAVX* constraints = context->constraintAVXs;
+	b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* contactIndices = context->contactIndices;
 	
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
@@ -499,7 +499,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2ContactConstraintAVX* constraint = constraints + i;
+		b2ContactConstraintSIMD* constraint = constraints + i;
 
 		for (int32_t j = 0; j < 8; ++j)
 		{
@@ -662,11 +662,11 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskC
 	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen1, true);
 
 	b2SolverBody* bodies = context->solverBodies;
-	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
+	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2ContactConstraintAVX* c = constraints + i;
+		b2ContactConstraintSIMD* c = constraints + i;
 		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
 
@@ -709,13 +709,13 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
 	b2SolverBody* bodies = context->solverBodies;
-	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
+	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 	float inv_dt = context->invTimeStep;
 	const float pushout = context->world->maximumPushoutVelocity;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2ContactConstraintAVX* c = constraints + i;
+		b2ContactConstraintSIMD* c = constraints + i;
 
 		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
@@ -758,7 +758,6 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 
 			// Compute normal impulse
 			__m256 negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
-			// float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
 
 			// Clamp the accumulated impulse
 			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
@@ -894,13 +893,13 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
 
 	b2SolverBody* bodies = context->solverBodies;
-	b2ContactConstraintAVX* constraints = context->graph->colors[colorIndex].contactConstraintAVXs;
+	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 	b2FloatW threshold = _mm256_set1_ps(context->world->restitutionThreshold);
 	b2FloatW zero = _mm256_setzero_ps();
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2ContactConstraintAVX* c = constraints + i;
+		b2ContactConstraintSIMD* c = constraints + i;
 
 		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
@@ -985,14 +984,14 @@ void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
 	b2Contact* contacts = context->world->contacts;
-	const b2ContactConstraintAVX* constraints = context->constraintAVXs;
+	const b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* indices = context->contactIndices;
 
 	b2Manifold dummy = {0};
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		const b2ContactConstraintAVX* c = constraints + i;
+		const b2ContactConstraintSIMD* c = constraints + i;
 		const float* normalImpulse1 = (float*)&c->normalImpulse1;
 		const float* normalImpulse2 = (float*)&c->normalImpulse2;
 		const float* tangentImpulse1 = (float*)&c->tangentImpulse1;

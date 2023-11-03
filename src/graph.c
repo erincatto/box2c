@@ -52,9 +52,7 @@ void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity
 
 		color->contactArray = b2CreateArray(sizeof(int32_t), contactCapacity);
 		color->jointArray = b2CreateArray(sizeof(int32_t), jointCapacity);
-
 		color->contactConstraints = NULL;
-		color->contactConstraintAVXs = NULL;
 	}
 
 	graph->overflow.contactArray = b2CreateArray(sizeof(int32_t), contactCapacity);
@@ -314,9 +312,13 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 		}
 	}
 
-	// TODO_ERIN handle joint overflow
-
-	B2_ASSERT(joint->colorIndex != B2_NULL_INDEX && joint->colorSubIndex != B2_NULL_INDEX);
+	// Overflow
+	if (joint->colorIndex == B2_NULL_INDEX)
+	{
+		joint->colorSubIndex = b2Array(graph->overflow.jointArray).count;
+		b2Array_Push(graph->overflow.jointArray, joint->object.index);
+		joint->colorIndex = b2_overflowIndex;
+	}
 }
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
@@ -325,6 +327,25 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 	B2_ASSERT(joint->colorSubIndex != B2_NULL_INDEX);
 
 	b2Graph* graph = &world->graph;
+
+	// Overflow
+	if (joint->colorIndex == b2_overflowIndex)
+	{
+		int32_t colorSubIndex = joint->colorSubIndex;
+		b2Array_RemoveSwap(graph->overflow.jointArray, colorSubIndex);
+		if (colorSubIndex < b2Array(graph->overflow.jointArray).count)
+		{
+			// Fix index on swapped joint
+			int32_t swappedIndex = graph->overflow.jointArray[colorSubIndex];
+			B2_ASSERT(world->joints[swappedIndex].colorIndex == b2_overflowIndex);
+			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
+		}
+
+		joint->colorIndex = B2_NULL_INDEX;
+		joint->colorSubIndex = B2_NULL_INDEX;
+
+		return;
+	}
 
 	B2_ASSERT(0 <= joint->colorIndex && joint->colorIndex < b2_graphColorCount);
 	int32_t bodyIndexA = joint->edges[0].bodyIndex;
@@ -442,42 +463,73 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2So
 	b2TracyCZoneEnd(integrate_velocity);
 }
 
-static void b2PrepareJointsTask(b2SolverTaskContext* context)
+static void b2PrepareJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
+	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
+
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
-	int32_t jointCapacity = world->jointPool.capacity;
 	b2StepContext* stepContext = context->stepContext;
+	const int32_t* jointIndices = context->jointIndices;
 
-	for (int32_t i = 0; i < jointCapacity; ++i)
+	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2Joint* joint = joints + i;
-		if (b2ObjectValid(&joint->object) == false)
-		{
-			continue;
-		}
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
+
+		b2Joint* joint = joints + index;
+		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
 		b2PrepareJoint(joint, stepContext);
 	}
+
+	b2TracyCZoneEnd(prepare_joints);
 }
 
-static void b2SolveJointsTask(b2SolverTaskContext* context, bool useBias)
+static void b2WarmStartJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
+	b2TracyCZoneNC(warm_joints, "WarmJoints", b2_colorGold, true);
+
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
-	int32_t jointCapacity = world->jointPool.capacity;
 	b2StepContext* stepContext = context->stepContext;
+	int32_t* jointIndices = context->graph->colors[colorIndex].jointArray;
 
-	for (int32_t i = 0; i < jointCapacity; ++i)
+	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2Joint* joint = joints + i;
-		if (b2ObjectValid(&joint->object) == false)
-		{
-			continue;
-		}
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
+
+		b2Joint* joint = joints + index;
+		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+
+		b2WarmStartJoint(joint, stepContext);
+	}
+
+	b2TracyCZoneEnd(warm_joints);
+}
+
+static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+{
+	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
+
+	b2World* world = context->world;
+	b2Joint* joints = world->joints;
+	b2StepContext* stepContext = context->stepContext;
+	int32_t* jointIndices = context->graph->colors[colorIndex].jointArray;
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
+
+		b2Joint* joint = joints + index;
+		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
 		b2SolveJointVelocity(joint, stepContext, useBias);
 	}
+
+	b2TracyCZoneEnd(solve_joints);
 }
 
 static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
@@ -636,47 +688,93 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	b2TracyCZoneEnd(finalize_bodies);
 }
 
-static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, int32_t startIndex, int32_t endIndex)
+/*
+ typedef enum b2SolverStageType
 {
-	b2SolverStageType type = stage->type;
+	b2_stageIntegrateVelocities,
+	b2_stagePrepareJoints,
+	b2_stagePrepareContacts,
+	b2_stageWarmStart,
+	b2_stageSolve,
+	b2_stageIntegratePositions,
+	b2_stageRelax,
+	b2_stageRestitution,
+	b2_stageStoreImpulses
+} b2SolverStageType;
 
-	switch (type)
+typedef enum b2SolverBlockType
+{
+	b2_bodyBlock,
+	b2_jointBlock,
+	b2_contactBlock,
+	b2_graphJointBlock,
+	b2_graphContactBlock
+} b2SolverBlockType;
+*/
+
+static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b2SolverBlock* block)
+{
+	b2SolverStageType stageType = stage->type;
+	b2SolverBlockType blockType = block->blockType;
+	int32_t startIndex = block->startIndex;
+	int32_t endIndex = startIndex + block->count;
+
+	switch (stageType)
 	{
 		case b2_stageIntegrateVelocities:
 			b2IntegrateVelocitiesTask(startIndex, endIndex, context);
+			break;
+
+		case b2_stagePrepareJoints:
+			b2PrepareJoints(startIndex, endIndex, context);
 			break;
 
 		case b2_stagePrepareContacts:
 			b2PrepareContactsSIMD(startIndex, endIndex, context);
 			break;
 
-		case b2_stageWarmStartContacts:
-			b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
+		case b2_stageWarmStart:
+			if (blockType == b2_graphContactBlock)
+			{
+				b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
+			}
+			else if (blockType == b2_graphJointBlock)
+			{
+				b2WarmStartJoints(startIndex, endIndex, context, stage->colorIndex);
+			}
 			break;
 
-		case b2_stagePrepareJoints:
-			break;
-
-		case b2_stageSolveJoints:
-			break;
-
-		case b2_stageSolveContacts:
-			b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, true);
+		case b2_stageSolve:
+			if (blockType == b2_graphContactBlock)
+			{
+				b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, true);
+			}
+			else if (blockType == b2_graphJointBlock)
+			{
+				b2SolveJoints(startIndex, endIndex, context, stage->colorIndex, true);
+			}
 			break;
 
 		case b2_stageIntegratePositions:
 			b2IntegratePositionsTask(startIndex, endIndex, context);
 			break;
 
-		case b2_stageCalmJoints:
-			break;
-
-		case b2_stageCalmContacts:
-			b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, false);
+		case b2_stageRelax:
+			if (blockType == b2_graphContactBlock)
+			{
+				b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, false);
+			}
+			else if (blockType == b2_graphJointBlock)
+			{
+				b2SolveJoints(startIndex, endIndex, context, stage->colorIndex, false);
+			}
 			break;
 
 		case b2_stageRestitution:
-			b2ApplyRestitutionSIMD(startIndex, endIndex, context, stage->colorIndex);
+			if (blockType == b2_graphContactBlock)
+			{
+				b2ApplyRestitutionSIMD(startIndex, endIndex, context, stage->colorIndex);
+			}
 			break;
 
 		case b2_stageStoreImpulses:
@@ -722,7 +820,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 
 		B2_ASSERT(completedCount < blockCount);
 
-		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex);
+		b2ExecuteBlock(stage, context, blocks + blockIndex);
 
 		completedCount += 1;
 		blockIndex += 1;
@@ -752,7 +850,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 			break;
 		}
 
-		b2ExecuteBlock(stage, context, blocks[blockIndex].startIndex, blocks[blockIndex].endIndex);
+		b2ExecuteBlock(stage, context, blocks + blockIndex);
 		completedCount += 1;
 		blockIndex -= 1;
 	}
@@ -770,7 +868,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 
 	if (blockCount == 1)
 	{
-		b2ExecuteBlock(stage, context, stage->blocks[0].startIndex, stage->blocks[0].endIndex);
+		b2ExecuteBlock(stage, context, stage->blocks);
 	}
 	else
 	{
@@ -816,14 +914,12 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 		/*
 		b2_stageIntegrateVelocities = 0,
-		b2_stagePrepareContacts,
-		b2_stageWarmStartContacts,
 		b2_stagePrepareJoints,
-		b2_stageSolveJoints,
-		b2_stageSolveContacts,
+		b2_stagePrepareContacts,
+		b2_stageWarmStart,
+		b2_stageSolve,
 		b2_stageIntegratePositions,
-		b2_stageCalmJoints,
-		b2_stageCalmContacts,
+		b2_stageRelax,
 		b2_stageRestitution,
 		b2_stageStoreImpulses
 		*/
@@ -836,6 +932,13 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		stageIndex += 1;
 		bodySyncIndex += 1;
 
+		uint32_t jointSyncIndex = 1;
+		syncBits = (jointSyncIndex << 16) | stageIndex;
+		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareJoints);
+		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
+		stageIndex += 1;
+		jointSyncIndex += 1;
+
 		uint32_t constraintSyncIndex = 1;
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareContacts);
@@ -847,18 +950,13 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 		{
 			syncBits = (graphSyncIndex << 16) | stageIndex;
-			B2_ASSERT(stages[stageIndex].type == b2_stageWarmStartContacts);
+			B2_ASSERT(stages[stageIndex].type == b2_stageWarmStart);
 			b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 			stageIndex += 1;
 		}
 		graphSyncIndex += 1;
 
-		// TODO_ERIN single threaded
-		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareJoints);
-		b2PrepareJointsTask(context);
-		stageIndex += 1;
-
-		b2PrepareOverflowContacts(context);
+		b2PrepareAndWarmStartOverflowContacts(context);
 
 		int32_t velocityIterations = context->velocityIterations;
 		for (int32_t i = 0; i < velocityIterations; ++i)
@@ -866,21 +964,16 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			// stage index restarted each iteration
 			int32_t iterStageIndex = stageIndex;
 
-			// TODO_ERIN single threaded
-			B2_ASSERT(stages[iterStageIndex].type == b2_stageSolveJoints);
-			b2SolveJointsTask(context, true);
-			iterStageIndex += 1;
-
-			b2SolveOverflowContacts(context, true);
-
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
-				B2_ASSERT(stages[iterStageIndex].type == b2_stageSolveContacts);
+				B2_ASSERT(stages[iterStageIndex].type == b2_stageSolve);
 				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
+
+			b2SolveOverflowContacts(context, true);
 
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegratePositions);
 			syncBits = (bodySyncIndex << 16) | iterStageIndex;
@@ -888,37 +981,30 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			bodySyncIndex += 1;
 		}
 
-		stageIndex += 1 + activeColorCount + 1;
+		stageIndex += activeColorCount + 1;
 
-		int32_t calmIterations = context->calmIterations;
-		for (int32_t i = 0; i < calmIterations; ++i)
+		int32_t relaxIterations = context->relaxIterations;
+		for (int32_t i = 0; i < relaxIterations; ++i)
 		{
 			// stage index restarted each iteration
 			int32_t iterStageIndex = stageIndex;
 
-			B2_ASSERT(stages[iterStageIndex].type == b2_stageCalmJoints);
-			b2SolveJointsTask(context, false);
-			iterStageIndex += 1;
-
-			b2SolveOverflowContacts(context, false);
-
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
-				B2_ASSERT(stages[iterStageIndex].type == b2_stageCalmContacts);
+				B2_ASSERT(stages[iterStageIndex].type == b2_stageRelax);
 				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
+
+			b2SolveOverflowContacts(context, false);
 		}
 
-		stageIndex += 1 + activeColorCount;
+		stageIndex += activeColorCount;
 
 		// Restitution
 		{
-			b2ApplyOverflowRestitution(context);
-
-			// stage index restarted each iteration
 			int32_t iterStageIndex = stageIndex;
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
@@ -928,6 +1014,8 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
+
+			b2ApplyOverflowRestitution(context);
 		}
 
 		stageIndex += activeColorCount;
@@ -1032,7 +1120,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2SolverBody* solverBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2SolverBody), "solver bodies");
 
 	// Map from solver body to body
-	// TODO_ERIN have body directly reference solver body for user access
+	// TODO_ERIN have body directly reference solver body for user access?
 	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
 
 	// Map from world body to solver body
@@ -1041,8 +1129,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	int32_t* bodyToSolverMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
 	memset(bodyToSolverMap, 0xFF, bodyCapacity * sizeof(int32_t));
 
-	// Build array of awake bodies
-	// Also search for an awake island to split
+	// Build array of awake bodies and also search for an awake island to split
 	int32_t splitIslandIndex = B2_NULL_INDEX;
 	int32_t maxRemovedContacts = 0;
 	int32_t splitIslandBodyCount = 0;
@@ -1080,103 +1167,182 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 	B2_ASSERT(index == awakeBodyCount);
 
+	// Each worker receives at most M blocks of work. The workers may receive less than there is not sufficient work.
+	// Each block of work has a minimum number of elements (block size). This in turn may limit number of blocks.
+	// If there are many elements then the block size is increased so there are still at most M blocks of work per worker.
+	// M is a tunable number that has two goals:
+	// 1. keep M small to reduce overhead
+	// 2. keep M large enough for other workers to be able to steal work
+	// The block size is a power of two to make math efficient.
+
 	int32_t workerCount = world->workerCount;
-	const int32_t blocksPerWorker = 6;
+	const int32_t blocksPerWorker = 4;
+	const int32_t maxBlockCount = blocksPerWorker * workerCount;
 
 	// Configure blocks for tasks that parallel-for bodies
 	int32_t bodyBlockSize = 1 << 5;
-	int32_t bodyBlockCount = ((awakeBodyCount - 1) >> 5) + 1;
-	if (awakeBodyCount > blocksPerWorker * bodyBlockSize * workerCount)
+	int32_t bodyBlockCount;
+	if (awakeBodyCount > bodyBlockSize * maxBlockCount)
 	{
-		bodyBlockSize = awakeBodyCount / (blocksPerWorker * workerCount);
-		bodyBlockCount = blocksPerWorker * workerCount;
+		// Too many blocks, increase block size
+		bodyBlockSize = awakeBodyCount / maxBlockCount;
+		bodyBlockCount = maxBlockCount;
+	}
+	else
+	{
+		bodyBlockCount = ((awakeBodyCount - 1) >> 5) + 1;
 	}
 
+	// Configure blocks for tasks parallel-for each active graph color
+	// The blocks are a mix of SIMD contact blocks and joint blocks
 	int32_t activeColorIndices[b2_graphColorCount];
-	int32_t colorConstraintCounts[b2_graphColorCount];
-	int32_t colorBlockSize[b2_graphColorCount];
-	int32_t colorBlockCounts[b2_graphColorCount];
+
+	int32_t colorContactCounts[b2_graphColorCount];
+	int32_t colorContactBlockSizes[b2_graphColorCount];
+	int32_t colorContactBlockCounts[b2_graphColorCount];
+
+	int32_t colorJointCounts[b2_graphColorCount];
+	int32_t colorJointBlockSizes[b2_graphColorCount];
+	int32_t colorJointBlockCounts[b2_graphColorCount];
 
 	int32_t activeColorCount = 0;
 	int32_t graphBlockCount = 0;
-	int32_t constraintCount = 0;
+	int32_t contactCount = 0;
+	int32_t jointCount = 0;
 
 	int32_t c = 0;
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
-		int32_t count = b2Array(colors[i].contactArray).count;
-		graph->occupancy[i] = count;
+		int32_t colorContactCount = b2Array(colors[i].contactArray).count;
+		int32_t colorJointCount = b2Array(colors[i].jointArray).count;
 
-		if (count > 0)
+		graph->occupancy[i] = colorContactCount + colorJointCount;
+
+		if (colorContactCount + colorJointCount > 0)
 		{
-			int32_t avxCount = ((count - 1) >> 3) + 1;
 			activeColorIndices[c] = i;
-			colorConstraintCounts[c] = avxCount;
 
-			int32_t blockSize = 4;
-			int32_t blockCount = ((avxCount - 1) >> 2) + 1;
+			// 8-way SIMD
+			int32_t colorContactCountSIMD = colorContactCount > 0 ? ((colorContactCount - 1) >> 3) + 1 : 0;
 
-			colorBlockSize[c] = blockSize;
-			colorBlockCounts[c] = blockCount;
-			graphBlockCount += blockCount;
-			constraintCount += avxCount;
+			colorContactCounts[c] = colorContactCountSIMD;
+			colorContactBlockSizes[c] = 4;
+			if (colorContactCountSIMD > 4 * maxBlockCount)
+			{
+				// Too many contact blocks
+				colorContactBlockSizes[c] = colorContactCountSIMD / maxBlockCount;
+				colorContactBlockCounts[c] = maxBlockCount;
+			}
+			else if (colorContactCountSIMD > 0)
+			{
+				colorContactBlockCounts[c] = ((colorContactCountSIMD - 1) >> 2) + 1;
+			}
+			else
+			{
+				colorContactBlockCounts[c] = 0;
+			}
+
+			colorJointCounts[c] = colorJointCount;
+			colorJointBlockSizes[c] = 4;
+			if (colorJointCount > 4 * maxBlockCount)
+			{
+				// Too many joint blocks
+				colorJointBlockSizes[c] = colorJointCount / maxBlockCount;
+				colorJointBlockCounts[c] = maxBlockCount;
+			}
+			else if (colorJointCount > 0)
+			{
+				colorJointBlockCounts[c] = ((colorJointCount - 1) >> 2) + 1;
+			}
+			else
+			{
+				colorJointBlockCounts[c] = 0;
+			}
+
+			graphBlockCount += colorContactBlockCounts[c] + colorJointBlockCounts[c];
+			contactCount += colorContactCountSIMD;
+			jointCount += colorJointCount;
 			c += 1;
 		}
 	}
 	activeColorCount = c;
 
-	b2ContactConstraintAVX* constraints =
-		b2AllocateStackItem(world->stackAllocator, constraintCount * sizeof(b2ContactConstraintAVX), "contact constraint");
+	b2ContactConstraintSIMD* contactConstraints =
+		b2AllocateStackItem(world->stackAllocator, contactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
 
-	int32_t* contactIndices = b2AllocateStackItem(world->stackAllocator, 8 * constraintCount * sizeof(int32_t), "contact indices");
+	int32_t* contactIndices = b2AllocateStackItem(world->stackAllocator, 8 * contactCount * sizeof(int32_t), "contact indices");
+	int32_t* jointIndices = b2AllocateStackItem(world->stackAllocator, jointCount * sizeof(int32_t), "joint indices");
+
 	int32_t overflowContactCount = b2Array(graph->overflow.contactArray).count;
 	graph->occupancy[b2_overflowIndex] = overflowContactCount;
 	graph->overflow.contactConstraints =
 		b2AllocateStackItem(world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
+	// Distribute transient constraints to each graph color
 	int32_t base = 0;
+	int32_t jointIndex = 0;
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
 		int32_t j = activeColorIndices[i];
 		b2GraphColor* color = colors + j;
 
-		color->contactConstraintAVXs = constraints + base;
+		int32_t colorJointCount = b2Array(color->jointArray).count;
+		memcpy(jointIndices + jointIndex, color->jointArray, colorJointCount * sizeof(int32_t));
+		jointIndex += colorJointCount;
 
 		int32_t colorContactCount = b2Array(color->contactArray).count;
+
+		if (colorContactCount == 0)
+		{
+			color->contactConstraints = NULL;
+			continue;
+		}
+
+		color->contactConstraints = contactConstraints + base;
+
 		for (int32_t k = 0; k < colorContactCount; ++k)
 		{
 			contactIndices[8 * base + k] = color->contactArray[k];
 		}
 
 		// remainder
-		int32_t colorConstraintCount = colorConstraintCounts[i];
-		for (int32_t k = colorContactCount; k < 8 * colorConstraintCount; ++k)
+		int32_t colorContactCountSIMD = ((colorContactCount - 1) >> 3) + 1;
+		for (int32_t k = colorContactCount; k < 8 * colorContactCountSIMD; ++k)
 		{
 			contactIndices[8 * base + k] = B2_NULL_INDEX;
 		}
 
-		base += colorConstraintCount;
+		base += colorContactCountSIMD;
 	}
 
-	int32_t storeBlockSize = 4;
-	int32_t storeBlockCount = constraintCount > 0 ? ((constraintCount - 1) >> 2) + 1 : 0;
-	if (constraintCount > blocksPerWorker * storeBlockSize * workerCount)
+	// Define work blocks for preparing contacts and storing contact impulses
+	int32_t contactBlockSize = 4;
+	int32_t contactBlockCount = contactCount > 0 ? ((contactCount - 1) >> 2) + 1 : 0;
+	if (contactCount > contactBlockSize * maxBlockCount)
 	{
-		storeBlockSize = constraintCount / (blocksPerWorker * workerCount);
-		storeBlockCount = blocksPerWorker * workerCount;
+		// Too many blocks, increase block size
+		contactBlockSize = contactCount / maxBlockCount;
+		contactBlockCount = maxBlockCount;
+	}
+
+	// Define work blocks for preparing joints
+	int32_t jointBlockSize = 4;
+	int32_t jointBlockCount = jointCount > 0 ? ((jointCount - 1) >> 2) + 1 : 0;
+	if (jointCount > jointBlockSize * maxBlockCount)
+	{
+		// Too many blocks, increase block size
+		jointBlockSize = jointCount / maxBlockCount;
+		jointBlockCount = maxBlockCount;
 	}
 
 	/*
 	b2_stageIntegrateVelocities = 0,
-	b2_stagePrepareContacts,
-	b2_stageWarmStartContacts,
 	b2_stagePrepareJoints,
-	b2_stageSolveJoints,
-	b2_stageSolveContacts,
+	b2_stagePrepareContacts,
+	b2_stageWarmStart,
+	b2_stageSolve,
 	b2_stageIntegratePositions,
-	b2_stageFinalizePositions,
-	b2_stageCalmJoints,
-	b2_stageCalmContacts,
+	b2_stageRelax,
 	b2_stageRestitution,
 	b2_stageStoreImpulses
 	*/
@@ -1186,16 +1352,16 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	// b2_stageIntegrateVelocities
 	stageCount += 1;
-	// b2_stagePrepareContacts
-	stageCount += 1;
-	// b2_stageWarmStartContacts
-	stageCount += activeColorCount;
 	// b2_stagePrepareJoints
 	stageCount += 1;
-	// b2_stageSolveJoints, b2_stageSolveContacts, b2_stageIntegratePositions
-	stageCount += 1 + activeColorCount + 1;
-	// b2_stageCalmJoints, b2_stageCalmContacts
-	stageCount += 1 + activeColorCount;
+	// b2_stagePrepareContacts
+	stageCount += 1;
+	// b2_stageWarmStart
+	stageCount += activeColorCount;
+	// b2_stageSolve, b2_stageIntegratePositions
+	stageCount += activeColorCount + 1;
+	// b2_stageRelax
+	stageCount += activeColorCount;
 	// b2_stageRestitution
 	stageCount += activeColorCount;
 	// b2_stageStoreImpulses
@@ -1203,8 +1369,9 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	b2SolverStage* stages = b2AllocateStackItem(world->stackAllocator, stageCount * sizeof(b2SolverStage), "stages");
 	b2SolverBlock* bodyBlocks = b2AllocateStackItem(world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
+	b2SolverBlock* contactBlocks = b2AllocateStackItem(world->stackAllocator, contactBlockCount * sizeof(b2SolverBlock), "contact blocks");
+	b2SolverBlock* jointBlocks = b2AllocateStackItem(world->stackAllocator, jointBlockCount * sizeof(b2SolverBlock), "joint blocks");
 	b2SolverBlock* graphBlocks = b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
-	b2SolverBlock* storeBlocks = b2AllocateStackItem(world->stackAllocator, storeBlockCount * sizeof(b2SolverBlock), "store blocks");
 
 	// TODO_ERIN cannot do this in parallel with FinalizeBodies
 	// Split an awake island. This modifies:
@@ -1229,47 +1396,91 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		}
 	}
 
+	// Prepare body work blocks
 	for (int32_t i = 0; i < bodyBlockCount; ++i)
 	{
 		b2SolverBlock* block = bodyBlocks + i;
 		block->startIndex = i * bodyBlockSize;
-		block->endIndex = block->startIndex + bodyBlockSize;
+		block->count = (int16_t)bodyBlockSize;
+		block->blockType = b2_bodyBlock;
 		block->syncIndex = 0;
 	}
-	bodyBlocks[bodyBlockCount - 1].endIndex = awakeBodyCount;
+	bodyBlocks[bodyBlockCount - 1].count = (int16_t)(awakeBodyCount - (bodyBlockCount - 1) * bodyBlockSize);
 
-	b2SolverBlock* colorBlocks[b2_graphColorCount];
+	// Prepare joint work blocks
+	for (int32_t i = 0; i < jointBlockCount; ++i)
+	{
+		b2SolverBlock* block = jointBlocks + i;
+		block->startIndex = i * jointBlockSize;
+		block->count = (int16_t)jointBlockSize;
+		block->blockType = b2_jointBlock;
+		block->syncIndex = 0;
+	}
+
+	if (jointBlockCount > 0)
+	{
+		jointBlocks[jointBlockCount - 1].count = (int16_t)(jointCount - (jointBlockCount - 1) * jointBlockSize);
+	}
+
+	// Prepare contact work blocks
+	for (int32_t i = 0; i < contactBlockCount; ++i)
+	{
+		b2SolverBlock* block = contactBlocks + i;
+		block->startIndex = i * contactBlockSize;
+		block->count = (int16_t)contactBlockSize;
+		block->blockType = b2_contactBlock;
+		block->syncIndex = 0;
+	}
+
+	if (contactBlockCount > 0)
+	{
+		contactBlocks[contactBlockCount - 1].count = (int16_t)(contactCount - (contactBlockCount - 1) * contactBlockSize);
+	}
+
+	// Prepare graph work blocks
+	b2SolverBlock* graphColorBlocks[b2_graphColorCount];
 	b2SolverBlock* baseGraphBlock = graphBlocks;
 
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
-		int32_t blockCount = colorBlockCounts[i];
-		int32_t blockSize = colorBlockSize[i];
-		for (int32_t j = 0; j < blockCount; ++j)
+		graphColorBlocks[i] = baseGraphBlock;
+
+		int32_t colorJointBlockCount = colorJointBlockCounts[i];
+		int32_t colorJointBlockSize = colorJointBlockSizes[i];
+		for (int32_t j = 0; j < colorJointBlockCount; ++j)
 		{
 			b2SolverBlock* block = baseGraphBlock + j;
-			block->startIndex = j * blockSize;
-			block->endIndex = block->startIndex + blockSize;
-			atomic_store(&block->syncIndex, 0);
+			block->startIndex = j * colorJointBlockSize;
+			block->count = (int16_t)colorJointBlockSize;
+			block->blockType = b2_graphJointBlock;
+			block->syncIndex = 0;
 		}
-		baseGraphBlock[blockCount - 1].endIndex = colorConstraintCounts[i];
 
-		colorBlocks[i] = baseGraphBlock;
-		baseGraphBlock += blockCount;
+		if (colorJointBlockCount > 0)
+		{
+			baseGraphBlock[colorJointBlockCount - 1].count = (int16_t)(colorJointCounts[i] - (colorJointBlockCount - 1) * colorJointBlockSize);
+			baseGraphBlock += colorJointBlockCount;
+		}
+
+		int32_t colorContactBlockCount = colorContactBlockCounts[i];
+		int32_t colorContactBlockSize = colorContactBlockSizes[i];
+		for (int32_t j = 0; j < colorContactBlockCount; ++j)
+		{
+			b2SolverBlock* block = baseGraphBlock + j;
+			block->startIndex = j * colorContactBlockSize;
+			block->count = (int16_t)colorContactBlockSize;
+			block->blockType = b2_graphContactBlock;
+			block->syncIndex = 0;
+		}
+
+		if (colorContactBlockCount > 0)
+		{
+			baseGraphBlock[colorContactBlockCount - 1].count = (int16_t)(colorContactCounts[i] - (colorContactBlockCount - 1) * colorContactBlockSize);
+			baseGraphBlock += colorContactBlockCount;
+		}
 	}
 
-	for (int32_t i = 0; i < storeBlockCount; ++i)
-	{
-		b2SolverBlock* block = storeBlocks + i;
-		block->startIndex = i * storeBlockSize;
-		block->endIndex = block->startIndex + storeBlockSize;
-		block->syncIndex = 0;
-	}
-
-	if (storeBlockCount > 0)
-	{
-		storeBlocks[storeBlockCount - 1].endIndex = constraintCount;
-	}
+	B2_ASSERT((ptrdiff_t)(baseGraphBlock - graphBlocks) == graphBlockCount);
 
 	b2SolverStage* stage = stages;
 
@@ -1281,47 +1492,39 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stage->completionCount = 0;
 	stage += 1;
 
-	// Prepare constraints
-	stage->type = b2_stagePrepareContacts;
-	stage->blocks = storeBlocks;
-	stage->blockCount = storeBlockCount;
+	// Prepare joints
+	stage->type = b2_stagePrepareJoints;
+	stage->blocks = jointBlocks;
+	stage->blockCount = jointBlockCount;
 	stage->colorIndex = -1;
 	stage->completionCount = 0;
 	stage += 1;
 
-	// Warm start contacts
+	// Prepare contacts
+	stage->type = b2_stagePrepareContacts;
+	stage->blocks = contactBlocks;
+	stage->blockCount = contactBlockCount;
+	stage->colorIndex = -1;
+	stage->completionCount = 0;
+	stage += 1;
+
+	// Warm start
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
-		stage->type = b2_stageWarmStartContacts;
-		stage->blocks = colorBlocks[i];
-		stage->blockCount = colorBlockCounts[i];
+		stage->type = b2_stageWarmStart;
+		stage->blocks = graphColorBlocks[i];
+		stage->blockCount = colorJointBlockCounts[i] + colorContactBlockCounts[i];
 		stage->colorIndex = activeColorIndices[i];
 		stage->completionCount = 0;
 		stage += 1;
 	}
 
-	// Prepare joints
-	stage->type = b2_stagePrepareJoints;
-	stage->blocks = NULL;
-	stage->blockCount = 0;
-	stage->colorIndex = -1;
-	stage->completionCount = 0;
-	stage += 1;
-
-	// Solve joints
-	stage->type = b2_stageSolveJoints;
-	stage->blocks = NULL;
-	stage->blockCount = 0;
-	stage->colorIndex = -1;
-	stage->completionCount = 0;
-	stage += 1;
-
-	// Solve constraints
+	// Solve graph
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
-		stage->type = b2_stageSolveContacts;
-		stage->blocks = colorBlocks[i];
-		stage->blockCount = colorBlockCounts[i];
+		stage->type = b2_stageSolve;
+		stage->blocks = graphColorBlocks[i];
+		stage->blockCount = colorJointBlockCounts[i] + colorContactBlockCounts[i];
 		stage->colorIndex = activeColorIndices[i];
 		stage->completionCount = 0;
 		stage += 1;
@@ -1335,31 +1538,24 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stage->completionCount = 0;
 	stage += 1;
 
-	// Calm joints
-	stage->type = b2_stageCalmJoints;
-	stage->blocks = NULL;
-	stage->blockCount = 0;
-	stage->colorIndex = -1;
-	stage->completionCount = 0;
-	stage += 1;
-
-	// Calm constraints
+	// Relax constraints
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
-		stage->type = b2_stageCalmContacts;
-		stage->blocks = colorBlocks[i];
-		stage->blockCount = colorBlockCounts[i];
+		stage->type = b2_stageRelax;
+		stage->blocks = graphColorBlocks[i];
+		stage->blockCount = colorJointBlockCounts[i] + colorContactBlockCounts[i];
 		stage->colorIndex = activeColorIndices[i];
 		stage->completionCount = 0;
 		stage += 1;
 	}
 
 	// Restitution
+	// Note: joint blocks mixed in, could have joint limit restitution
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
 		stage->type = b2_stageRestitution;
-		stage->blocks = colorBlocks[i];
-		stage->blockCount = colorBlockCounts[i];
+		stage->blocks = graphColorBlocks[i];
+		stage->blockCount = colorJointBlockCounts[i] + colorContactBlockCounts[i];
 		stage->colorIndex = activeColorIndices[i];
 		stage->completionCount = 0;
 		stage += 1;
@@ -1367,17 +1563,16 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	// Store impulses
 	stage->type = b2_stageStoreImpulses;
-	stage->blocks = storeBlocks;
-	stage->blockCount = storeBlockCount;
+	stage->blocks = contactBlocks;
+	stage->blockCount = contactBlockCount;
 	stage->colorIndex = -1;
 	stage->completionCount = 0;
 	stage += 1;
 
 	B2_ASSERT((int32_t)(stage - stages) == stageCount);
 
-	// TODO_ERIN
-	B2_ASSERT(workerCount <= 16);
-	b2WorkerContext workerContext[16];
+	B2_ASSERT(workerCount <= b2_maxWorkers);
+	b2WorkerContext workerContext[b2_maxWorkers];
 
 	int32_t velIters = B2_MAX(1, stepContext->velocityIterations);
 
@@ -1393,12 +1588,12 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	context.bodyToSolverMap = bodyToSolverMap;
 	context.solverToBodyMap = solverToBodyMap;
 	context.stepContext = stepContext;
-	context.constraints = NULL;
-	context.constraintAVXs = constraints;
+	context.contactConstraints = contactConstraints;
+	context.jointIndices = jointIndices;
 	context.contactIndices = contactIndices;
 	context.activeColorCount = activeColorCount;
 	context.velocityIterations = velIters;
-	context.calmIterations = stepContext->positionIterations;
+	context.relaxIterations = stepContext->relaxIterations;
 	context.workerCount = workerCount;
 	context.stageCount = stageCount;
 	context.stages = stages;
@@ -1471,13 +1666,15 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		b2FinalizeBodiesTask(0, awakeBodyCount, 0, &context);
 	}
 
-	b2FreeStackItem(world->stackAllocator, storeBlocks);
 	b2FreeStackItem(world->stackAllocator, graphBlocks);
+	b2FreeStackItem(world->stackAllocator, jointBlocks);
+	b2FreeStackItem(world->stackAllocator, contactBlocks);
 	b2FreeStackItem(world->stackAllocator, bodyBlocks);
 	b2FreeStackItem(world->stackAllocator, stages);
 	b2FreeStackItem(world->stackAllocator, graph->overflow.contactConstraints);
+	b2FreeStackItem(world->stackAllocator, jointIndices);
 	b2FreeStackItem(world->stackAllocator, contactIndices);
-	b2FreeStackItem(world->stackAllocator, constraints);
+	b2FreeStackItem(world->stackAllocator, contactConstraints);
 	b2FreeStackItem(world->stackAllocator, bodyToSolverMap);
 	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
 	b2FreeStackItem(world->stackAllocator, solverBodies);
