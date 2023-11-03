@@ -163,11 +163,11 @@ void TiltedStacks(int testIndex, int workerCount)
 
 	float timeStep = 1.0f / 60.0f;
 	int velocityIterations = 6;
-	int positionIterations = 2;
+	int relaxIterations = 2;
 
 	for (int i = 0; i < 100; ++i)
 	{
-		b2World_Step(worldId, timeStep, velocityIterations, positionIterations);
+		b2World_Step(worldId, timeStep, velocityIterations, relaxIterations);
 		TracyCFrameMark;
 	}
 

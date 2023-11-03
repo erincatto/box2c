@@ -21,8 +21,8 @@ typedef struct b2StepContext
 	// Velocity iterations for constraint solver. Controls the accuracy of internal forces.
 	int32_t velocityIterations;
 
-	// Position iterations for constraint solver. Controls the accuracy of shape overlap and joint alignment.
-	int32_t positionIterations;
+	// Relax iterations for constraint solver. Reduces constraint bounce.
+	int32_t relaxIterations;
 
 	float restitutionThreshold;
 

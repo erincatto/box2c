@@ -391,7 +391,7 @@ static void UpdateUI()
 			if (ImGui::BeginTabItem("Controls"))
 			{
 				ImGui::SliderInt("Vel Iters", &s_settings.m_velocityIterations, 0, 50);
-				ImGui::SliderInt("Pos Iters", &s_settings.m_positionIterations, 0, 50);
+				ImGui::SliderInt("Relax Iters", &s_settings.m_relaxIterations, 0, 50);
 				ImGui::SliderFloat("Hertz", &s_settings.m_hertz, 5.0f, 120.0f, "%.0f hz");
 
 				ImGui::Separator();

@@ -92,7 +92,7 @@ class BenchmarkCreateDestroy : public Sample
 		for (int32_t i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
-			b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_positionIterations);
+			b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_relaxIterations);
 		}
 
 		Sample::Step(settings);

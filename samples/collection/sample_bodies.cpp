@@ -25,7 +25,6 @@ class BodyType : public Sample
 			b2Body_CreateSegment(groundId, &shapeDef, &segment);
 		}
 
-#if 1
 		// Define attachment
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -38,7 +37,6 @@ class BodyType : public Sample
 			shapeDef.density = 1.0f;
 			b2Body_CreatePolygon(m_attachmentId, &shapeDef, &box);
 		}
-#endif
 
 		// Define platform
 		{
@@ -54,7 +52,6 @@ class BodyType : public Sample
 			shapeDef.density = 2.0f;
 			b2Body_CreatePolygon(m_platformId, &shapeDef, &box);
 
-#if 1
 			b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
 			b2Vec2 pivot = {0.0f, 5.0f};
 			revoluteDef.bodyIdA = m_attachmentId;
@@ -64,7 +61,6 @@ class BodyType : public Sample
 			revoluteDef.maxMotorTorque = 50.0f;
 			revoluteDef.enableMotor = true;
 			b2World_CreateRevoluteJoint(m_worldId, &revoluteDef);
-#endif
 
 			b2PrismaticJointDef prismaticDef = b2DefaultPrismaticJointDef();
 			b2Vec2 anchor = {0.0f, 5.0f};
@@ -85,7 +81,6 @@ class BodyType : public Sample
 			m_speed = 3.0f;
 		}
 
-#if 1
 		// Create a payload
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -101,7 +96,6 @@ class BodyType : public Sample
 
 			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
 		}
-#endif
 	}
 
 	void UpdateUI() override

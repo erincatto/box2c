@@ -1538,7 +1538,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stage->completionCount = 0;
 	stage += 1;
 
-	// Calm constraints
+	// Relax constraints
 	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
 		stage->type = b2_stageRelax;
@@ -1593,7 +1593,7 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	context.contactIndices = contactIndices;
 	context.activeColorCount = activeColorCount;
 	context.velocityIterations = velIters;
-	context.relaxIterations = stepContext->positionIterations;
+	context.relaxIterations = stepContext->relaxIterations;
 	context.workerCount = workerCount;
 	context.stageCount = stageCount;
 	context.stages = stages;

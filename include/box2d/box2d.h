@@ -26,8 +26,8 @@ BOX2D_API void b2DestroyWorld(b2WorldId worldId);
 /// and constraint solution.
 /// @param timeStep the amount of time to simulate, this should not vary.
 /// @param velocityIterations for the velocity constraint solver.
-/// @param positionIterations for the position constraint solver.
-BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t positionIterations);
+/// @param relaxIterations for reducing constraint bounce solver.
+BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t relaxIterations);
 
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
