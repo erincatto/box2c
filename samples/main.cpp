@@ -411,6 +411,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Contact Impulses", &s_settings.m_drawContactImpulse);
 				ImGui::Checkbox("Friction Impulses", &s_settings.m_drawFrictionImpulse);
 				ImGui::Checkbox("Center of Masses", &s_settings.m_drawMass);
+				ImGui::Checkbox("Graph Colors", &s_settings.m_drawGraphColors);
 				ImGui::Checkbox("Statistics", &s_settings.m_drawStats);
 				ImGui::Checkbox("Profile", &s_settings.m_drawProfile);
 

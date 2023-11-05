@@ -14,6 +14,27 @@
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
 
+// Get joint from id with validation
+b2Joint* b2GetJoint(b2JointId id, b2JointType type)
+{
+	B2_MAYBE_UNUSED(type);
+
+	b2World* world = b2GetWorldFromIndex(id.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return NULL;
+	}
+
+	B2_ASSERT(0 <= id.index && id.index < world->jointPool.capacity);
+
+	b2Joint* joint = world->joints + id.index;
+	B2_ASSERT(joint->object.index == joint->object.next);
+	B2_ASSERT(joint->object.revision == id.revision);
+	B2_ASSERT(joint->type == type);
+	return joint;
+}
+
 void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
 					   b2BodyId bodyIdB)
 {
@@ -170,6 +191,52 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 			b2DestroyContact(world, contact);
 		}
 	}
+}
+
+b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_distanceJoint;
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
+
+	b2DistanceJoint empty = {0};
+	joint->distanceJoint = empty;
+	joint->distanceJoint.hertz = def->hertz;
+	joint->distanceJoint.dampingRatio = def->dampingRatio;
+	joint->distanceJoint.length = def->length;
+	joint->distanceJoint.minLength = def->minLength;
+	joint->distanceJoint.maxLength = def->maxLength;
+	joint->distanceJoint.impulse = 0.0f;
+	joint->distanceJoint.lowerImpulse = 0.0f;
+	joint->distanceJoint.upperImpulse = 0.0f;
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+
+	return jointId;
 }
 
 b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
@@ -473,6 +540,7 @@ b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 	return bodyId;
 }
 
+extern void b2PrepareDistance(b2Joint* base, b2StepContext* context);
 extern void b2PrepareMouse(b2Joint* base, b2StepContext* context);
 extern void b2PreparePrismatic(b2Joint* base, b2StepContext* context);
 extern void b2PrepareRevolute(b2Joint* base, b2StepContext* context);
@@ -482,6 +550,10 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
 	switch (joint->type)
 	{
+		case b2_distanceJoint:
+			b2PrepareDistance(joint, context);
+			break;
+
 		case b2_mouseJoint:
 			b2PrepareMouse(joint, context);
 			break;
@@ -503,6 +575,7 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 	}
 }
 
+extern void b2WarmStartDistance(b2Joint* base, b2StepContext* context);
 extern void b2WarmStartMouse(b2Joint* base, b2StepContext* context);
 extern void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context);
 extern void b2WarmStartRevolute(b2Joint* base, b2StepContext* context);
@@ -512,6 +585,10 @@ void b2WarmStartJoint(b2Joint* joint, b2StepContext* context)
 {
 	switch (joint->type)
 	{
+		case b2_distanceJoint:
+			b2WarmStartDistance(joint, context);
+			break;
+
 		case b2_mouseJoint:
 			b2WarmStartMouse(joint, context);
 			break;
@@ -533,6 +610,7 @@ void b2WarmStartJoint(b2Joint* joint, b2StepContext* context)
 	}
 }
 
+extern void b2SolveDistanceVelocity(b2Joint* base, b2StepContext* context, bool useBias);
 extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context);
 extern void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBias);
 extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias);
@@ -540,16 +618,12 @@ extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool useB
 
 void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
 {
-	// TODO_ERIN temp until joints are in graph
-	b2Body* bodyA = context->bodies + joint->edges[0].bodyIndex;
-	b2Body* bodyB = context->bodies + joint->edges[1].bodyIndex;
-	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
-	{
-		return;
-	}
-
 	switch (joint->type)
 	{
+		case b2_distanceJoint:
+			b2SolveDistanceVelocity(joint, context, useBias);
+			break;
+
 		case b2_mouseJoint:
 			if (useBias)
 			{
@@ -574,6 +648,7 @@ void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
 	}
 }
 
+extern void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 
@@ -596,7 +671,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 	switch (joint->type)
 	{
 		case b2_distanceJoint:
-			draw->DrawSegment(pA, pB, color, draw->context);
+			b2DrawDistance(draw, joint, bodyA, bodyB);
 			break;
 
 			// case b2_pulleyJoint:
@@ -637,13 +712,16 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawSegment(xfB.p, pB, color, draw->context);
 	}
 
-	b2HexColor colors[b2_graphColorCount + 1] = {
-		b2_colorRed,  b2_colorOrange,	 b2_colorYellow,	b2_colorGreen, b2_colorCyan, b2_colorBlue, b2_colorViolet,
-		b2_colorPink, b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral, b2_colorAqua, b2_colorBlack};
-
-	if (joint->colorIndex != B2_NULL_INDEX)
+	if (draw->drawGraphColors)
 	{
-		b2Vec2 p = b2Lerp(pA, pB, 0.5f);
-		draw->DrawPoint(p, 5.0f, b2MakeColor(colors[joint->colorIndex], 1.0f), draw->context);
+		b2HexColor colors[b2_graphColorCount + 1] = {
+			b2_colorRed,  b2_colorOrange,	 b2_colorYellow,	b2_colorGreen, b2_colorCyan, b2_colorBlue, b2_colorViolet,
+			b2_colorPink, b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral, b2_colorAqua, b2_colorBlack};
+
+		if (joint->colorIndex != B2_NULL_INDEX)
+		{
+			b2Vec2 p = b2Lerp(pA, pB, 0.5f);
+			draw->DrawPoint(p, 5.0f, b2MakeColor(colors[joint->colorIndex], 1.0f), draw->context);
+		}
 	}
 }

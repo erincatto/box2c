@@ -260,6 +260,13 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias
 		float impulseScale = 0.0f;
 		if (useBias)
 		{
+			// Compute change in separation (small angle approximation of sin(angle) == angle)
+			//b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rB));
+			//b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
+			//float ds = b2Dot(b2Sub(prB, prA), normal);
+			//float s = cp->separation + ds;
+
+
 			b2Vec2 separation = b2Add(b2Sub(rB, rA), b2Sub(cB, cA));
 			bias = b2MulSV(joint->biasCoefficient, separation);
 			massScale = joint->massCoefficient;
@@ -343,37 +350,13 @@ void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
-	{
-		return 0.0f;
-	}
-
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
-	B2_ASSERT(joint->object.index == joint->object.next);
-	B2_ASSERT(joint->object.revision == jointId.revision);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
+	b2Joint* joint = b2GetJoint(jointId, b2_revoluteJoint);
 	return inverseTimeStep * joint->revoluteJoint.motorImpulse;
 }
 
 void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
-	{
-		return;
-	}
-
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
-	B2_ASSERT(joint->object.index == joint->object.next);
-	B2_ASSERT(joint->object.revision == jointId.revision);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
+	b2Joint* joint = b2GetJoint(jointId, b2_revoluteJoint);
 	joint->revoluteJoint.maxMotorTorque = torque;
 }
 

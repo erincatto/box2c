@@ -97,17 +97,29 @@ BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
+/// Create a joint
+BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
 BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
 BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
 BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
 BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
+
+/// Destroy a joint
 BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
 
 BOX2D_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 BOX2D_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 
+/// Distance joint access
+BOX2D_API float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float timeStep);
+BOX2D_API void b2DistanceJoint_SetLength(b2JointId jointId, float length, float minLength, float maxLength);
+BOX2D_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
+BOX2D_API void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);
+
+/// Mouse joint access
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
 
+// Revolute joint access
 BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);

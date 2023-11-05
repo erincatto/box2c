@@ -237,6 +237,7 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawJoints = settings.m_drawJoints;
 	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
 	g_draw.m_debugDraw.drawMass = settings.m_drawMass;
+	g_draw.m_debugDraw.drawGraphColors = settings.m_drawGraphColors;
 
 	m_collectContacts =
 		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;

@@ -532,6 +532,7 @@ static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 	b2TracyCZoneEnd(solve_joints);
 }
 
+// TODO_ERIN this could compute sin/cos 8 bodies at a time. Would help with determinism as well.
 static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(integrate_positions, "IntPos", b2_colorDarkSeaGreen, true);

@@ -22,6 +22,7 @@ struct Settings
 	bool m_drawContactImpulse = false;
 	bool m_drawFrictionImpulse = false;
 	bool m_drawMass = false;
+	bool m_drawGraphColors = false;
 	bool m_drawStats = false;
 	bool m_drawProfile = false;
 	bool m_enableWarmStarting = true;
