@@ -150,11 +150,11 @@ BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
 /// Adjust the restitution threshold
 BOX2D_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 
-/// Adjust the maximum contact constraint push out velocity
-BOX2D_API void b2World_SetMaximumPushoutVelocity(b2WorldId worldId, float value);
-
-/// Adjust the contact stiffness in cycles per second.
-BOX2D_API void b2World_SetContactHertz(b2WorldId worldId, float value);
+/// Adjust contact tuning parameters:
+/// - hertz is the contact stiffness (cycles per second)
+/// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)
+/// - push velocity is the maximum contact constraint push out velocity (meters per second)
+BOX2D_API void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio, float pushVelocity);
 
 /// Get the current profile
 BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);

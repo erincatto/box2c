@@ -83,6 +83,11 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 
 	joint->C = b2Add(cB, b2Sub(joint->rB, joint->targetA));
 	joint->C = b2MulSV(joint->beta, joint->C);
+
+	if (context->enableWarmStarting == false)
+	{
+		joint->impulse = b2Vec2_zero;
+	}
 }
 
 void b2WarmStartMouse(b2Joint* base, b2StepContext* context)
@@ -101,16 +106,9 @@ void b2WarmStartMouse(b2Joint* base, b2StepContext* context)
 	// TODO_ERIN damp angular velocity?
 	// wB *= 1.0f / (1.0f + 0.02f * context->dt);
 
-	if (context->enableWarmStarting)
-	{
-		joint->impulse = b2MulSV(context->dtRatio, joint->impulse);
-		vB = b2MulAdd(vB, mB, joint->impulse);
-		wB += iB * b2Cross(joint->rB, joint->impulse);
-	}
-	else
-	{
-		joint->impulse = b2Vec2_zero;
-	}
+	joint->impulse = b2MulSV(context->dtRatio, joint->impulse);
+	vB = b2MulAdd(vB, mB, joint->impulse);
+	wB += iB * b2Cross(joint->rB, joint->impulse);
 
 	bodyB->linearVelocity = vB;
 	bodyB->angularVelocity = wB;

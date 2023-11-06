@@ -41,14 +41,12 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
-	joint->localCenterA = bodyA->localCenter;
-	joint->localCenterB = bodyB->localCenter;
-	joint->positionA = bodyA->position;
-	joint->positionB = bodyB->position;
 	joint->angleA = bodyA->angle;
 	joint->angleB = bodyB->angle;
 
+	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
+	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
 	joint->axialMass = iA + iB;
@@ -62,6 +60,27 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	{
 		fixedRotation = true;
 	}
+
+	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
+	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
+	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
+
+	b2Vec2 rA = joint->rA;
+	b2Vec2 rB = joint->rB;
+
+	// J = [-I -r1_skew I r2_skew]
+	// r_skew = [-ry; rx]
+
+	// Matlab
+	// K = [ mA+r1y^2*iA+mB+r2y^2*iB,  -r1y*iA*r1x-r2y*iB*r2x]
+	//     [  -r1y*iA*r1x-r2y*iB*r2x, mA+r1x^2*iA+mB+r2x^2*iB]
+
+	b2Mat22 K;
+	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
+	K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+	K.cx.y = K.cy.x;
+	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
+	joint->pivotMass = b2GetInverse22(K);
 
 	// hertz = 1/4 * substep Hz
 	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
@@ -84,6 +103,24 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	{
 		joint->motorImpulse = 0.0f;
 	}
+
+	if (context->enableWarmStarting)
+	{
+		float dtRatio = context->dtRatio;
+
+		// Soft step works best when bilateral constraints have no warm starting.
+		joint->impulse = b2Vec2_zero;
+		joint->motorImpulse *= dtRatio;
+		joint->lowerImpulse *= dtRatio;
+		joint->upperImpulse *= dtRatio;
+	}
+	else
+	{
+		joint->impulse = b2Vec2_zero;
+		joint->motorImpulse = 0.0f;
+		joint->lowerImpulse = 0.0f;
+		joint->upperImpulse = 0.0f;
+	}
 }
 
 void b2WarmStartRevolute(b2Joint* base, b2StepContext* context)
@@ -102,29 +139,11 @@ void b2WarmStartRevolute(b2Joint* base, b2StepContext* context)
 	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
 	float iB = bodyB->invI;
 
-	if (context->enableWarmStarting)
-	{
-		float dtRatio = context->dtRatio;
+	// TODO_ERIN is warm starting axial stuff useful?
+	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = b2Vec2_zero;
-		joint->motorImpulse *= dtRatio;
-		joint->lowerImpulse *= dtRatio;
-		joint->upperImpulse *= dtRatio;
-
-		// TODO_ERIN is warm starting axial stuff useful?
-		float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
-
-		bodyA->angularVelocity -= iA * axialImpulse;
-		bodyB->angularVelocity += iB * axialImpulse;
-	}
-	else
-	{
-		joint->impulse = b2Vec2_zero;
-		joint->motorImpulse = 0.0f;
-		joint->lowerImpulse = 0.0f;
-		joint->upperImpulse = 0.0f;
-	}
+	bodyA->angularVelocity -= iA * axialImpulse;
+	bodyB->angularVelocity += iB * axialImpulse;
 }
 
 void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias)
@@ -148,9 +167,7 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	const b2Vec2 cA = b2Add(joint->positionA, bodyA->deltaPosition);
 	const float aA = joint->angleA + bodyA->deltaAngle;
-	const b2Vec2 cB = b2Add(joint->positionB, bodyB->deltaPosition);
 	const float aB = joint->angleB + bodyB->deltaAngle;
 
 	bool fixedRotation = (iA + iB == 0.0f);
@@ -234,25 +251,13 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias
 
 	// Solve point-to-point constraint
 	{
-		// J = [-I -r1_skew I r2_skew]
-		// r_skew = [-ry; rx]
+		// Approximate change in anchors
+		// small angle approximation of sin(delta_angle) == delta_angle, cos(delta_angle) == 1
+		b2Vec2 drA = b2CrossSV(bodyA->deltaAngle, joint->rA);
+		b2Vec2 drB = b2CrossSV(bodyB->deltaAngle, joint->rB);
 
-		// Matlab
-		// K = [ mA+r1y^2*iA+mB+r2y^2*iB,  -r1y*iA*r1x-r2y*iB*r2x]
-		//     [  -r1y*iA*r1x-r2y*iB*r2x, mA+r1x^2*iA+mB+r2x^2*iB]
-
-		// TODO_ERIN approximate the separation similar to contacts. Test if updating K makes a difference.
-		b2Rot qA = b2MakeRot(aA);
-		b2Rot qB = b2MakeRot(aB);
-		b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
-		b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
-
-		b2Mat22 K;
-		K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
-		K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
-		K.cx.y = K.cy.x;
-		K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
-
+		b2Vec2 rA = b2Add(joint->rA, drA);
+		b2Vec2 rB = b2Add(joint->rB, drB);
 		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
 
 		b2Vec2 bias = b2Vec2_zero;
@@ -260,20 +265,15 @@ void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias
 		float impulseScale = 0.0f;
 		if (useBias)
 		{
-			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			//b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rB));
-			//b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
-			//float ds = b2Dot(b2Sub(prB, prA), normal);
-			//float s = cp->separation + ds;
+			b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(drB, drA));
+			b2Vec2 separation = b2Add(joint->separation, ds);
 
-
-			b2Vec2 separation = b2Add(b2Sub(rB, rA), b2Sub(cB, cA));
 			bias = b2MulSV(joint->biasCoefficient, separation);
 			massScale = joint->massCoefficient;
 			impulseScale = joint->impulseCoefficient;
 		}
 
-		b2Vec2 b = b2Solve22(K, b2Add(Cdot, bias));
+		b2Vec2 b = b2MulMV(joint->pivotMass, b2Add(Cdot, bias));
 		b2Vec2 impulse;
 		impulse.x = -massScale * b.x - impulseScale * joint->impulse.x;
 		impulse.y = -massScale * b.y - impulseScale * joint->impulse.y;

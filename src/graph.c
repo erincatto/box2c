@@ -27,6 +27,9 @@
 // the same kinematic body from multiple threads. Even if these writes don't modify the body, they will cause horrible cache stalls. To make
 // this feasible I would need a way to block these writes.
 
+// This is used for debugging making all constraints be assigned to overflow.
+#define B2_FORCE_OVERFLOW 0
+
 extern bool b2_parallel;
 
 typedef struct b2WorkerContext
@@ -81,6 +84,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 
 	b2Graph* graph = &world->graph;
 
+#if B2_FORCE_OVERFLOW == 0
 	int32_t bodyIndexA = contact->edges[0].bodyIndex;
 	int32_t bodyIndexB = contact->edges[1].bodyIndex;
 
@@ -145,6 +149,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 			break;
 		}
 	}
+#endif
 
 	// Overflow
 	if (contact->colorIndex == B2_NULL_INDEX)
@@ -250,6 +255,7 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 
 	b2Graph* graph = &world->graph;
 
+#if B2_FORCE_OVERFLOW == 0
 	int32_t bodyIndexA = joint->edges[0].bodyIndex;
 	int32_t bodyIndexB = joint->edges[1].bodyIndex;
 
@@ -311,6 +317,7 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 			break;
 		}
 	}
+#endif
 
 	// Overflow
 	if (joint->colorIndex == B2_NULL_INDEX)
@@ -735,13 +742,16 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b
 			break;
 
 		case b2_stageWarmStart:
-			if (blockType == b2_graphContactBlock)
+			if (context->world->enableWarmStarting)
 			{
-				b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
-			}
-			else if (blockType == b2_graphJointBlock)
-			{
-				b2WarmStartJoints(startIndex, endIndex, context, stage->colorIndex);
+				if (blockType == b2_graphContactBlock)
+				{
+					b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
+				}
+				else if (blockType == b2_graphJointBlock)
+				{
+					b2WarmStartJoints(startIndex, endIndex, context, stage->colorIndex);
+				}
 			}
 			break;
 
@@ -957,6 +967,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		}
 		graphSyncIndex += 1;
 
+		b2PrepareAndWarmStartOverflowJoints(context);
 		b2PrepareAndWarmStartOverflowContacts(context);
 
 		int32_t velocityIterations = context->velocityIterations;
@@ -974,6 +985,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			}
 			graphSyncIndex += 1;
 
+			b2SolveOverflowJoints(context, true);
 			b2SolveOverflowContacts(context, true);
 
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegratePositions);
@@ -999,6 +1011,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			}
 			graphSyncIndex += 1;
 
+			b2SolveOverflowJoints(context, false);
 			b2SolveOverflowContacts(context, false);
 		}
 
@@ -1068,21 +1081,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 	}
 }
 
-// TODO_ERIN this comment is out of data
-// Threading:
-// 1. build array of awake bodies, maybe copy to contiguous array
-// 2. parallel-for integrate velocities
-// 3. parallel prepare constraints by color
-// Loop sub-steps:
-// 4. parallel solve constraints by color
-// 5. parallel-for update position deltas (and positions on last iter)
-// End Loop
-// Loop bias-removal:
-// 6. parallel solve constraints by color
-// End loop
-// 7. parallel-for store impulses
-// 8. parallel-for update aabbs, build proxy update set, build awake contact set
-void b2SolveGraph(b2World* world, b2StepContext* stepContext)
+static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 {
 	b2TracyCZoneNC(prepare_stages, "Prepare Stages", b2_colorDarkOrange, true);
 
@@ -1280,40 +1279,43 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		b2AllocateStackItem(world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
 	// Distribute transient constraints to each graph color
-	int32_t base = 0;
-	int32_t jointIndex = 0;
-	for (int32_t i = 0; i < activeColorCount; ++i)
 	{
-		int32_t j = activeColorIndices[i];
-		b2GraphColor* color = colors + j;
-
-		int32_t colorJointCount = b2Array(color->jointArray).count;
-		memcpy(jointIndices + jointIndex, color->jointArray, colorJointCount * sizeof(int32_t));
-		jointIndex += colorJointCount;
-
-		int32_t colorContactCount = b2Array(color->contactArray).count;
-
-		if (colorContactCount == 0)
+		int32_t base = 0;
+		int32_t jointBaseIndex = 0;
+		for (int32_t i = 0; i < activeColorCount; ++i)
 		{
-			color->contactConstraints = NULL;
-			continue;
+			int32_t j = activeColorIndices[i];
+			b2GraphColor* color = colors + j;
+
+			int32_t colorJointCount = b2Array(color->jointArray).count;
+			memcpy(jointIndices + jointBaseIndex, color->jointArray, colorJointCount * sizeof(int32_t));
+			jointBaseIndex += colorJointCount;
+
+			int32_t colorContactCount = b2Array(color->contactArray).count;
+
+			if (colorContactCount == 0)
+			{
+				color->contactConstraints = NULL;
+				continue;
+			}
+
+			color->contactConstraints = contactConstraints + base;
+
+			for (int32_t k = 0; k < colorContactCount; ++k)
+			{
+				contactIndices[8 * base + k] = color->contactArray[k];
+			}
+
+			// remainder
+			int32_t colorContactCountSIMD = ((colorContactCount - 1) >> 3) + 1;
+			for (int32_t k = colorContactCount; k < 8 * colorContactCountSIMD; ++k)
+			{
+				contactIndices[8 * base + k] = B2_NULL_INDEX;
+			}
+
+			base += colorContactCountSIMD;
 		}
-
-		color->contactConstraints = contactConstraints + base;
-
-		for (int32_t k = 0; k < colorContactCount; ++k)
-		{
-			contactIndices[8 * base + k] = color->contactArray[k];
-		}
-
-		// remainder
-		int32_t colorContactCountSIMD = ((colorContactCount - 1) >> 3) + 1;
-		for (int32_t k = colorContactCount; k < 8 * colorContactCountSIMD; ++k)
-		{
-			contactIndices[8 * base + k] = B2_NULL_INDEX;
-		}
-
-		base += colorContactCountSIMD;
+	
 	}
 
 	// Define work blocks for preparing contacts and storing contact impulses
@@ -1680,4 +1682,527 @@ void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
 	b2FreeStackItem(world->stackAllocator, solverBodies);
 	b2FreeStackItem(world->stackAllocator, awakeBodies);
+
+	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
+
+	// Prepare awake contact bit set so that putting islands to sleep can clear bits
+	// for the associated contacts.
+	b2BitSet* awakeContactBitSet = &world->taskContextArray[0].awakeContactBitSet;
+	for (uint32_t i = 1; i < world->workerCount; ++i)
+	{
+		b2InPlaceUnion(awakeContactBitSet, &world->taskContextArray[i].awakeContactBitSet);
+	}
+
+	{
+		b2BitSet* awakeIslandBitSet = &world->taskContextArray[0].awakeIslandBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(awakeIslandBitSet, &world->taskContextArray[i].awakeIslandBitSet);
+		}
+
+		b2Contact* contacts = world->contacts;
+		b2Joint* joints = world->joints;
+		b2Island* islands = world->islands;
+
+		int32_t count = b2Array(world->awakeIslandArray).count;
+		for (int32_t i = 0; i < count; ++i)
+		{
+			int32_t islandIndex = world->awakeIslandArray[i];
+			if (b2GetBit(awakeIslandBitSet, islandIndex) == true)
+			{
+				continue;
+			}
+
+			// Put island to sleep
+			b2Island* island = islands + islandIndex;
+			island->awakeIndex = B2_NULL_INDEX;
+
+			// Put contacts to sleep. Remember only touching contacts are in the island.
+			// So a body may have more contacts than those in the island.
+			// This is expensive on the main thread, but this only happens when an island goes
+			// to sleep.
+			int32_t bodyIndex = island->headBody;
+			while (bodyIndex != B2_NULL_INDEX)
+			{
+				b2Body* body = bodies + bodyIndex;
+				int32_t contactKey = body->contactList;
+				while (contactKey != B2_NULL_INDEX)
+				{
+					int32_t contactIndex = contactKey >> 1;
+					int32_t edgeIndex = contactKey & 1;
+					b2Contact* contact = contacts + contactIndex;
+
+					// IMPORTANT: clear awake contact bit
+					b2ClearBit(awakeContactBitSet, contactIndex);
+
+					contactKey = contact->edges[edgeIndex].nextKey;
+				}
+
+				bodyIndex = body->islandNext;
+			}
+
+			// Remove edges from graph
+			int32_t contactIndex = island->headContact;
+			while (contactIndex != B2_NULL_INDEX)
+			{
+				b2Contact* contact = contacts + contactIndex;
+				b2RemoveContactFromGraph(world, contact);
+
+				contactIndex = contact->islandNext;
+			}
+
+			int32_t jointIndex = island->headJoint;
+			while (jointIndex != B2_NULL_INDEX)
+			{
+				b2Joint* joint = joints + jointIndex;
+				b2RemoveJointFromGraph(world, joint);
+				jointIndex = joint->islandNext;
+			}
+		}
+
+		// Clear awake island array
+		b2Array_Clear(world->awakeIslandArray);
+
+		// Use bitSet to build awake island array. No need to add edges.
+		uint64_t word;
+		uint32_t wordCount = awakeIslandBitSet->wordCount;
+		uint64_t* bits = awakeIslandBitSet->bits;
+		int32_t awakeIndex = 0;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t islandIndex = 64 * k + ctz;
+
+				B2_ASSERT(b2ObjectValid(&islands[islandIndex].object));
+
+				b2Array_Push(world->awakeIslandArray, islandIndex);
+
+				// Reference index. This tells the island and bodies they are awake.
+				islands[islandIndex].awakeIndex = awakeIndex;
+				awakeIndex += 1;
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+#if B2_VALIDATE
+	for (int32_t i = 0; i < world->islandPool.capacity; ++i)
+	{
+		b2Island* island = world->islands + i;
+		if (b2ObjectValid(&island->object) == false)
+		{
+			continue;
+		}
+
+		b2ValidateIsland(island, true);
+	}
+#endif
+
+	b2TracyCZoneEnd(awake_islands);
+
+	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
+
+	// Build awake contact array
+	{
+		b2Array_Clear(world->awakeContactArray);
+
+		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
+
+		// Iterate the bit set
+		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
+		// that body A or body B or both bodies wake the contact.
+		uint64_t word;
+		uint32_t wordCount = awakeContactBitSet->wordCount;
+		uint64_t* bits = awakeContactBitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t contactIndex = 64 * k + ctz;
+
+				B2_ASSERT(contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
+
+				// This cache miss is brutal but is necessary to make contact destruction reasonably quick.
+				contactAwakeIndexArray[contactIndex] = b2Array(world->awakeContactArray).count;
+
+				// This is fast
+				b2Array_Push(world->awakeContactArray, contactIndex);
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(awake_contacts);
+}
+
+struct b2ContinuousContext
+{
+	b2World* world;
+	b2Body* fastBody;
+	b2Shape* fastShape;
+	b2Sweep sweep;
+	float fraction;
+};
+
+static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	struct b2ContinuousContext* continuousContext = context;
+	b2Shape* fastShape = continuousContext->fastShape;
+
+	// Skip same shape
+	if (shapeIndex == fastShape->object.index)
+	{
+		return true;
+	}
+
+	b2World* world = continuousContext->world;
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+	b2Shape* shape = world->shapes + shapeIndex;
+	B2_ASSERT(shape->object.index == shape->object.next);
+
+	// Skip same body
+	if (shape->bodyIndex == fastShape->bodyIndex)
+	{
+		return true;
+	}
+
+	// Skip filtered shapes
+	bool canCollide = b2ShouldShapesCollide(fastShape->filter, shape->filter);
+	if (canCollide == false)
+	{
+		return true;
+	}
+
+	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
+	b2Body* body = world->bodies + shape->bodyIndex;
+	B2_ASSERT(body->type == b2_staticBody);
+
+	// Skip filtered bodies
+	canCollide = b2ShouldBodiesCollide(world, continuousContext->fastBody, body);
+	if (canCollide == false)
+	{
+		return true;
+	}
+
+	b2TOIInput input;
+	input.proxyA = b2Shape_MakeDistanceProxy(shape);
+	input.proxyB = b2Shape_MakeDistanceProxy(fastShape);
+	input.sweepA = b2MakeSweep(body);
+	input.sweepB = continuousContext->sweep;
+	input.tMax = continuousContext->fraction;
+
+	b2TOIOutput output = b2TimeOfImpact(&input);
+	if (0.0f < output.t && output.t < continuousContext->fraction)
+	{
+		continuousContext->fraction = output.t;
+	}
+
+	return true;
+}
+
+// Continuous collision of dynamic versus static
+static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
+{
+	b2Body* fastBody = world->bodies + bodyIndex;
+	B2_ASSERT(b2ObjectValid(&fastBody->object));
+	B2_ASSERT(fastBody->type == b2_dynamicBody && fastBody->isFast);
+
+	b2Shape* shapes = world->shapes;
+
+	b2Sweep sweep = b2MakeSweep(fastBody);
+
+	b2Transform xf1;
+	xf1.q = b2MakeRot(sweep.a1);
+	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
+
+	b2Transform xf2;
+	xf2.q = b2MakeRot(sweep.a2);
+	xf2.p = b2Sub(sweep.c2, b2RotateVector(xf2.q, sweep.localCenter));
+
+	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
+
+	struct b2ContinuousContext context;
+	context.world = world;
+	context.sweep = sweep;
+	context.fastBody = fastBody;
+	context.fraction = 1.0f;
+
+	int32_t shapeIndex = fastBody->shapeList;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		b2Shape* fastShape = shapes + shapeIndex;
+		B2_ASSERT(fastShape->isFast == true);
+
+		// Clear flag (keep set on body)
+		fastShape->isFast = false;
+
+		context.fastShape = fastShape;
+
+		b2AABB box1 = fastShape->aabb;
+		b2AABB box2 = b2Shape_ComputeAABB(fastShape, xf2);
+		b2AABB box = b2AABB_Union(box1, box2);
+
+		// Store this for later
+		fastShape->aabb = box2;
+
+		b2DynamicTree_Query(staticTree, box, b2ContinuousQueryCallback, &context);
+
+		shapeIndex = fastShape->nextShapeIndex;
+	}
+
+	if (context.fraction < 1.0f)
+	{
+		// Handle time of impact event
+
+		b2Vec2 c = b2Lerp(sweep.c1, sweep.c2, context.fraction);
+		float a = sweep.a1 + context.fraction * (sweep.a2 - sweep.a1);
+
+		// Advance body
+		fastBody->angle0 = a;
+		fastBody->angle = a;
+		fastBody->position0 = c;
+		fastBody->position = c;
+
+		b2Transform xf;
+		xf.q = b2MakeRot(a);
+		xf.p = b2Sub(c, b2RotateVector(fastBody->transform.q, sweep.localCenter));
+		fastBody->transform = xf;
+
+		// Prepare AABBs for broad-phase
+		shapeIndex = fastBody->shapeList;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = shapes + shapeIndex;
+
+			// Must recompute aabb at the interpolated transform
+			shape->aabb = b2Shape_ComputeAABB(shape, xf);
+
+			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			{
+				shape->fatAABB = b2AABB_Extend(shape->aabb);
+				shape->enlargedAABB = true;
+				fastBody->enlargeAABB = true;
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
+	}
+	else
+	{
+		// No time of impact event
+
+		// Advance body
+		fastBody->angle0 = fastBody->angle;
+		fastBody->position0 = fastBody->position;
+
+		// Prepare AABBs for broad-phase
+		shapeIndex = fastBody->shapeList;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = shapes + shapeIndex;
+
+			// shape->aabb is still valid
+
+			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			{
+				shape->fatAABB = b2AABB_Extend(shape->aabb);
+				shape->enlargedAABB = true;
+				fastBody->enlargeAABB = true;
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
+	}
+}
+
+static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2TracyCZoneNC(continuous_task, "Continuous Task", b2_colorAqua, true);
+
+	b2World* world = taskContext;
+
+	B2_ASSERT(startIndex <= endIndex);
+	B2_ASSERT(startIndex <= world->bodyPool.capacity);
+	B2_ASSERT(endIndex <= world->bodyPool.capacity);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		int32_t index = world->fastBodies[i];
+		b2SolveContinuous(world, index);
+	}
+
+	b2TracyCZoneEnd(continuous_task);
+}
+
+// Solve with graph coloring
+void b2Solve(b2World* world, b2StepContext* context)
+{
+	b2TracyCZoneNC(solve, "Solve", b2_colorMistyRose, true);
+
+	b2Timer timer = b2CreateTimer();
+
+	world->stepId += 1;
+
+	b2MergeAwakeIslands(world);
+
+	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
+
+	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
+
+	// Solve constraints using graph coloring
+	b2SolveGraph(world, context);
+
+	b2TracyCZoneEnd(graph_solver);
+
+	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
+
+	// Finish the user tree task that was queued early in the time step. This must be done before touching the broadphase.
+	if (b2_parallel)
+	{
+		if (world->userTreeTask != NULL)
+		{
+			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
+			world->userTreeTask = NULL;
+		}
+	}
+
+	b2ValidateNoEnlarged(&world->broadPhase);
+
+	b2TracyCZoneNC(broad_phase, "Broadphase", b2_colorPurple, true);
+
+	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
+
+	// Enlarge broad-phase proxies and build move array
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+
+		// Gather bits for all shapes that have enlarged AABBs
+		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
+		}
+
+		// Apply shape AABB changes to broadphase. This also create the move array which must be
+		// ordered to ensure determinism.
+		b2Shape* shapes = world->shapes;
+		uint64_t word;
+		uint32_t wordCount = bitSet->wordCount;
+		uint64_t* bits = bitSet->bits;
+		for (uint32_t k = 0; k < wordCount; ++k)
+		{
+			word = bits[k];
+			while (word != 0)
+			{
+				uint32_t ctz = b2CTZ(word);
+				uint32_t shapeIndex = 64 * k + ctz;
+
+				b2Shape* shape = shapes + shapeIndex;
+				B2_ASSERT(b2ObjectValid(&shape->object));
+				if (shape->isFast == false)
+				{
+					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+				}
+				else
+				{
+					// Shape is fast. It's aabb will be enlarged in continuous collision.
+					b2BufferMove(broadPhase, shape->proxyKey);
+				}
+
+				// Clear the smallest set bit
+				word = word & (word - 1);
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(enlarge_proxies);
+
+	b2ValidateBroadphase(&world->broadPhase);
+
+	world->profile.broadphase = b2GetMilliseconds(&timer);
+
+	b2TracyCZoneEnd(broad_phase);
+
+	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
+
+	// Parallel continuous collision
+	if (b2_parallel)
+	{
+		int32_t minRange = 8;
+		void* userContinuousTask =
+			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
+	}
+	else
+	{
+		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
+	}
+
+	// Serially enlarge broad-phase proxies for fast shapes
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+		b2Body* bodies = world->bodies;
+		b2Shape* shapes = world->shapes;
+		int32_t* fastBodies = world->fastBodies;
+		int32_t fastBodyCount = world->fastBodyCount;
+		b2DynamicTree* tree = broadPhase->trees + b2_dynamicBody;
+
+		// Warning: this loop has non-deterministic order
+		for (int32_t i = 0; i < fastBodyCount; ++i)
+		{
+			b2Body* fastBody = bodies + fastBodies[i];
+			if (fastBody->enlargeAABB == false)
+			{
+				continue;
+			}
+
+			// clear flag
+			fastBody->enlargeAABB = false;
+
+			int32_t shapeIndex = fastBody->shapeList;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = shapes + shapeIndex;
+				if (shape->enlargedAABB == false)
+				{
+					continue;
+				}
+
+				// clear flag
+				shape->enlargedAABB = false;
+
+				int32_t proxyKey = shape->proxyKey;
+				int32_t proxyId = B2_PROXY_ID(proxyKey);
+				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
+
+				// all fast shapes should already be in the move buffer
+
+				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
+
+				shapeIndex = shape->nextShapeIndex;
+			}
+		}
+	}
+
+	b2TracyCZoneEnd(continuous_collision);
+
+	b2FreeStackItem(world->stackAllocator, world->fastBodies);
+	world->fastBodies = NULL;
+
+	world->profile.continuous = b2GetMilliseconds(&timer);
+
+	b2TracyCZoneEnd(solve);
 }

@@ -107,7 +107,9 @@ static void SortTests()
 static void RestartTest()
 {
 	delete s_sample;
+	s_settings.m_restart = true;
 	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn(s_settings);
+	s_settings.m_restart = false;
 }
 
 static void CreateUI(GLFWwindow* window, const char* glslVersion)

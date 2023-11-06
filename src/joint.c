@@ -648,6 +648,62 @@ void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
 	}
 }
 
+void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context)
+{
+	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
+
+	b2World* world = context->world;
+	b2Graph* graph = context->graph;
+	b2Joint* joints = world->joints;
+	b2StepContext* stepContext = context->stepContext;
+	int32_t* jointIndices = graph->overflow.jointArray;
+	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
+	bool enableWarmStarting = world->enableWarmStarting;
+
+	for (int32_t i = 0; i < jointCount; ++i)
+	{
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
+
+		b2Joint* joint = joints + index;
+		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+
+		b2PrepareJoint(joint, stepContext);
+
+		if (enableWarmStarting)
+		{
+			b2WarmStartJoint(joint, stepContext);
+		}
+	}
+
+	b2TracyCZoneEnd(prepare_joints);
+}
+
+void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias)
+{
+	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
+
+	b2World* world = context->world;
+	b2Graph* graph = context->graph;
+	b2Joint* joints = world->joints;
+	b2StepContext* stepContext = context->stepContext;
+	int32_t* jointIndices = graph->overflow.jointArray;
+	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
+
+	for (int32_t i = 0; i < jointCount; ++i)
+	{
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
+
+		b2Joint* joint = joints + index;
+		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+
+		b2SolveJointVelocity(joint, stepContext, useBias);
+	}
+
+	b2TracyCZoneEnd(solve_joints);
+}
+
 extern void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);

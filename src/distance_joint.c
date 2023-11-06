@@ -44,34 +44,24 @@ void b2PrepareDistance(b2Joint* base, b2StepContext* context)
 
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
-	joint->localCenterA = bodyA->localCenter;
-	joint->localCenterB = bodyB->localCenter;
-	joint->positionA = bodyA->position;
-	joint->positionB = bodyB->position;
-	joint->angleA = bodyA->angle;
-	joint->angleB = bodyB->angle;
 
-	b2Vec2 cA = bodyA->position;
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
-
-	b2Vec2 cB = bodyB->position;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	b2Rot qA = bodyA->transform.q;
-	b2Rot qB = bodyB->transform.q;
-
 	// Compute the effective masses.
-	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
-	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
+	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
+	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
+	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
 
-	b2Vec2 axis = b2Add(b2Sub(cB, cA), b2Sub(rB, rA));
-	axis = b2NormalizeChecked(axis);
+	b2Vec2 rA = joint->rA;
+	b2Vec2 rB = joint->rB;
+
+	b2Vec2 axis = b2NormalizeChecked(joint->separation);
 
 	float crA = b2Cross(rA, axis);
 	float crB = b2Cross(rB, axis);
-
 	float k = mA + mB + iA * crA * crA + iB * crB * crB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
@@ -109,6 +99,22 @@ void b2PrepareDistance(b2Joint* base, b2StepContext* context)
 		joint->limitImpulseCoefficient = a3;
 		joint->limitMassCoefficient = a2 * a3;
 	}
+
+	if (context->enableWarmStarting)
+	{
+		float dtRatio = context->dtRatio;
+
+		// Soft step works best when bilateral constraints have no warm starting.
+		joint->impulse = 0.0f;
+		joint->lowerImpulse *= dtRatio;
+		joint->upperImpulse *= dtRatio;
+	}
+	else
+	{
+		joint->impulse = 0.0f;
+		joint->lowerImpulse = 0.0f;
+		joint->upperImpulse = 0.0f;
+	}
 }
 
 void b2WarmStartDistance(b2Joint* base, b2StepContext* context)
@@ -129,41 +135,18 @@ void b2WarmStartDistance(b2Joint* base, b2StepContext* context)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	b2Vec2 cA = joint->positionA;
-	b2Vec2 cB = joint->positionB;
+	b2Vec2 rA = joint->rA;
+	b2Vec2 rB = joint->rB;
 
-	b2Rot qA = b2MakeRot(joint->angleA);
-	b2Rot qB = b2MakeRot(joint->angleB);
+	b2Vec2 axis = b2NormalizeChecked(joint->separation);
 
-	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
-	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
+	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
+	b2Vec2 P = b2MulSV(axialImpulse, axis);
 
-	b2Vec2 axis = b2Add(b2Sub(cB, cA), b2Sub(rB, rA));
-	axis = b2NormalizeChecked(axis);
-
-	if (context->enableWarmStarting)
-	{
-		float dtRatio = context->dtRatio;
-
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = 0.0f;
-		joint->lowerImpulse *= dtRatio;
-		joint->upperImpulse *= dtRatio;
-
-		float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
-		b2Vec2 P = b2MulSV(axialImpulse, axis);
-
-		bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
-		bodyA->angularVelocity -= iA * b2Cross(rA, P);
-		bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
-		bodyB->angularVelocity += iB * b2Cross(rB, P);
-	}
-	else
-	{
-		joint->impulse = 0.0f;
-		joint->lowerImpulse = 0.0f;
-		joint->upperImpulse = 0.0f;
-	}
+	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
+	bodyA->angularVelocity -= iA * b2Cross(rA, P);
+	bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
+	bodyB->angularVelocity += iB * b2Cross(rB, P);
 }
 
 void b2SolveDistanceVelocity(b2Joint* base, b2StepContext* context, bool useBias)
@@ -187,20 +170,18 @@ void b2SolveDistanceVelocity(b2Joint* base, b2StepContext* context, bool useBias
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	const b2Vec2 cA = b2Add(joint->positionA, bodyA->deltaPosition);
-	const float aA = joint->angleA + bodyA->deltaAngle;
-	const b2Vec2 cB = b2Add(joint->positionB, bodyB->deltaPosition);
-	const float aB = joint->angleB + bodyB->deltaAngle;
+	// Approximate change in anchors
+	// small angle approximation of sin(delta_angle) == delta_angle, cos(delta_angle) == 1
+	b2Vec2 drA = b2CrossSV(bodyA->deltaAngle, joint->rA);
+	b2Vec2 drB = b2CrossSV(bodyB->deltaAngle, joint->rB);
 
-	b2Rot qA = b2MakeRot(aA);
-	b2Rot qB = b2MakeRot(aB);
+	b2Vec2 rA = b2Add(joint->rA, drA);
+	b2Vec2 rB = b2Add(joint->rB, drB);
+	b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(drB, drA));
+	b2Vec2 separation = b2Add(joint->separation, ds);
 
-	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
-	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
-
-	b2Vec2 axis = b2Add(b2Sub(cB, cA), b2Sub(rB, rA));
-	float L = b2Length(axis);
-	axis = b2NormalizeChecked(axis);
+	float L = b2Length(separation);
+	b2Vec2 axis = b2NormalizeChecked(separation);
 
 	if (joint->minLength < joint->maxLength)
 	{
@@ -350,6 +331,10 @@ void b2DistanceJoint_SetLength(b2JointId jointId, float length, float minLength,
 	maxLength = B2_CLAMP(maxLength, b2_linearSlop, b2_huge);
 	joint->minLength = B2_MIN(minLength, maxLength);
 	joint->maxLength = B2_MAX(minLength, maxLength);
+
+	joint->impulse = 0.0f;
+	joint->lowerImpulse = 0.0f;
+	joint->upperImpulse = 0.0f;
 }
 
 float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
@@ -432,16 +417,25 @@ void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 
 	if (joint->minLength < joint->maxLength)
 	{
+		b2Vec2 pMin = b2MulAdd(pA, joint->minLength, axis);
+		b2Vec2 pMax = b2MulAdd(pA, joint->maxLength, axis);
+		b2Vec2 offset = b2MulSV(0.05f * b2_lengthUnitsPerMeter, b2RightPerp(axis));
+
 		if (joint->minLength > b2_linearSlop)
 		{
-			b2Vec2 pMin = b2MulAdd(pA, joint->minLength, axis);
-			draw->DrawPoint(pMin, 4.0f, c2, draw->context);
+			//draw->DrawPoint(pMin, 4.0f, c2, draw->context);
+			draw->DrawSegment(b2Sub(pMin, offset), b2Add(pMin, offset), c2, draw->context);
 		}
 
 		if (joint->maxLength < b2_huge)
 		{
-			b2Vec2 pMax = b2MulAdd(pA, joint->maxLength, axis);
-			draw->DrawPoint(pMax, 4.0f, c3, draw->context);
+			//draw->DrawPoint(pMax, 4.0f, c3, draw->context);
+			draw->DrawSegment(b2Sub(pMax, offset), b2Add(pMax, offset), c3, draw->context);
+		}
+
+		if (joint->minLength > b2_linearSlop && joint->maxLength < b2_huge)
+		{
+			draw->DrawSegment(pMin, pMax, c4, draw->context);
 		}
 	}
 }

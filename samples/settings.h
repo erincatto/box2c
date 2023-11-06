@@ -30,4 +30,5 @@ struct Settings
 	bool m_enableSleep = false;
 	bool m_pause = false;
 	bool m_singleStep = false;
+	bool m_restart = false;
 };

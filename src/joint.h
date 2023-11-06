@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
+typedef struct b2SolverTaskContext b2SolverTaskContext;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
@@ -53,12 +54,9 @@ typedef struct b2DistanceJoint
 	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 positionA;
-	b2Vec2 positionB;
-	float angleA;
-	float angleB;
-	b2Vec2 localCenterA;
-	b2Vec2 localCenterB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 separation;
 	float springBiasCoefficient;
 	float springMassCoefficient;
 	float springImpulseCoefficient;
@@ -107,12 +105,12 @@ typedef struct b2RevoluteJoint
 	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 positionA;
-	b2Vec2 positionB;
 	float angleA;
 	float angleB;
-	b2Vec2 localCenterA;
-	b2Vec2 localCenterB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 separation;
+	b2Mat22 pivotMass;
 	float biasCoefficient;
 	float massCoefficient;
 	float impulseCoefficient;
@@ -214,6 +212,10 @@ typedef struct b2Joint
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
 void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias);
+
+void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context);
+void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias);
+
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);
 
 // Get joint from id with validation

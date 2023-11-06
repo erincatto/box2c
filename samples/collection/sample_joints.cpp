@@ -39,7 +39,7 @@ class Bridge : public Sample
 
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
 			int32_t jointIndex = 0;
-			m_maxMotorTorque = 0.0f;
+			m_frictionTorque = 200.0f;
 
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
@@ -58,7 +58,7 @@ class Bridge : public Sample
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 				jointDef.enableMotor = true;
-				jointDef.maxMotorTorque = m_maxMotorTorque;
+				jointDef.maxMotorTorque = m_frictionTorque;
 				m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jointDef);
 
 				prevBodyId = bodyId;
@@ -70,7 +70,7 @@ class Bridge : public Sample
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.enableMotor = true;
-			jointDef.maxMotorTorque = m_maxMotorTorque;
+			jointDef.maxMotorTorque = m_frictionTorque;
 			m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jointDef);
 
 			assert(jointIndex == e_count + 1);
@@ -117,12 +117,12 @@ class Bridge : public Sample
 
 		// Slider takes half the window
 		ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
-		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_maxMotorTorque, 0.0f, 1000.0f, "%2.f");
+		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_frictionTorque, 0.0f, 1000.0f, "%2.f");
 		if (updateFriction)
 		{
 			for (int32_t i = 0; i <= e_count; ++i)
 			{
-				b2RevoluteJoint_SetMaxMotorTorque(m_jointIds[i], m_maxMotorTorque);
+				b2RevoluteJoint_SetMaxMotorTorque(m_jointIds[i], m_frictionTorque);
 			}
 		}
 
@@ -135,7 +135,7 @@ class Bridge : public Sample
 	}
 
 	b2JointId m_jointIds[e_count + 1];
-	float m_maxMotorTorque;
+	float m_frictionTorque;
 };
 
 static int sampleBridgeIndex = RegisterSample("Joints", "Bridge", Bridge::Create);
@@ -310,7 +310,7 @@ class Cantilever : public Sample
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);
 
-
+// Test the distance joint and all options
 class DistanceJoint : public Sample
 {
   public:
@@ -322,6 +322,11 @@ class DistanceJoint : public Sample
 	DistanceJoint(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.m_restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+		}
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
@@ -367,6 +372,8 @@ class DistanceJoint : public Sample
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 20.0f;
 
+		float yOffset = 20.0f;
+
 		b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
 
 		b2BodyId prevBodyId = m_groundId;
@@ -374,12 +381,12 @@ class DistanceJoint : public Sample
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {m_length * (i + 1.0f), 10.0f};
+			bodyDef.position = {m_length * (i + 1.0f), yOffset};
 			m_bodyIds[i] = b2World_CreateBody(m_worldId, &bodyDef);
 			b2Body_CreateCircle(m_bodyIds[i], &shapeDef, &circle);
 
-			b2Vec2 pivotA = {m_length * i, 10.0f};
-			b2Vec2 pivotB = {m_length * (i + 1.0f), 10.0f};
+			b2Vec2 pivotA = {m_length * i, yOffset};
+			b2Vec2 pivotB = {m_length * (i + 1.0f), yOffset};
 			jointDef.bodyIdA = prevBodyId;
 			jointDef.bodyIdB = m_bodyIds[i];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivotA);
@@ -389,6 +396,7 @@ class DistanceJoint : public Sample
 			jointDef.length = m_length;
 			jointDef.minLength = m_minLength;
 			jointDef.maxLength = m_maxLength;
+			jointDef.collideConnected = true;
 			m_jointIds[i] = b2World_CreateDistanceJoint(m_worldId, &jointDef);
 
 			prevBodyId = m_bodyIds[i];
@@ -398,7 +406,7 @@ class DistanceJoint : public Sample
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, 260.0f));
+		ImGui::SetNextWindowSize(ImVec2(300.0f, 220.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
