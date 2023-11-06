@@ -122,6 +122,24 @@ void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
 	{
 		joint->motorImpulse = 0.0f;
 	}
+
+	if (context->enableWarmStarting)
+	{
+		float dtRatio = context->dtRatio;
+
+		// Soft step works best when bilateral constraints have no warm starting.
+		joint->impulse = b2Vec2_zero;
+		joint->motorImpulse *= dtRatio;
+		joint->lowerImpulse *= dtRatio;
+		joint->upperImpulse *= dtRatio;
+	}
+	else
+	{
+		joint->impulse = b2Vec2_zero;
+		joint->motorImpulse = 0.0f;
+		joint->lowerImpulse = 0.0f;
+		joint->upperImpulse = 0.0f;
+	}
 }
 
 void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context)
@@ -153,34 +171,16 @@ void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context)
 	float a1 = b2Cross(b2Add(d, rA), axis);
 	float a2 = b2Cross(rB, axis);
 
-	if (context->enableWarmStarting)
-	{
-		float dtRatio = context->dtRatio;
+	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = b2Vec2_zero;
-		joint->motorImpulse *= dtRatio;
-		joint->lowerImpulse *= dtRatio;
-		joint->upperImpulse *= dtRatio;
+	b2Vec2 P = b2MulSV(axialImpulse, axis);
+	float LA = axialImpulse * a1;
+	float LB = axialImpulse * a2;
 
-		float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
-
-		b2Vec2 P = b2MulSV(axialImpulse, axis);
-		float LA = axialImpulse * a1;
-		float LB = axialImpulse * a2;
-
-		bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
-		bodyA->angularVelocity -= iA * LA;
-		bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
-		bodyB->angularVelocity += iB * LB;
-	}
-	else
-	{
-		joint->impulse = b2Vec2_zero;
-		joint->motorImpulse = 0.0f;
-		joint->lowerImpulse = 0.0f;
-		joint->upperImpulse = 0.0f;
-	}
+	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
+	bodyA->angularVelocity -= iA * LA;
+	bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
+	bodyB->angularVelocity += iB * LB;
 }
 
 void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBias)

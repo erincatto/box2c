@@ -5,6 +5,60 @@
 
 #include "box2d/types.h"
 
+/// Distance joint definition. This requires defining an anchor point on both
+/// bodies and the non-zero distance of the distance joint. The definition uses
+/// local anchor points so that the initial configuration can violate the
+/// constraint slightly. This helps when saving and loading a game.
+typedef struct b2DistanceJointDef
+{
+	/// The first attached body.
+	b2BodyId bodyIdA;
+
+	/// The second attached body.
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin.
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin.
+	b2Vec2 localAnchorB;
+
+	/// The rest length of this joint. Clamped to a stable minimum value.
+	float length;
+
+	/// Minimum length. Clamped to a stable minimum value.
+	float minLength;
+
+	/// Maximum length. Must be greater than or equal to the minimum length.
+	float maxLength;
+
+	/// The linear stiffness hertz (cycles per second)
+	float hertz;
+
+	/// The linear damping ratio (non-dimensional)
+	float dampingRatio;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+
+} b2DistanceJointDef;
+
+static inline b2DistanceJointDef b2DefaultDistanceJointDef(void)
+{
+	b2DistanceJointDef def = {0};
+	def.bodyIdA = b2_nullBodyId;
+	def.bodyIdB = b2_nullBodyId;
+	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.localAnchorB = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.length = 1.0f;
+	def.minLength = 0.0f;
+	def.maxLength = b2_huge;
+	def.hertz = 0.0f;
+	def.dampingRatio = 0.0f;
+	def.collideConnected = false;
+	return def;
+}
+
 /// A mouse joint is used to make a point on a body track a
 /// specified world point. This a soft constraint with a maximum
 /// force. This allows the constraint to stretch without

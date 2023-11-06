@@ -20,6 +20,7 @@ set(BOX2D_SOURCE_FILES
 	core.c
 	core.h
 	distance.c
+	distance_joint.c
 	dynamic_tree.c
 	geometry.c
 	graph.c

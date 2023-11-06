@@ -37,6 +37,7 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 	// const float contactHertz = 45.0f;
 	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
 	const float contactHertz = world->contactHertz;
+	const float contactDampingRatio = world->contactDampingRatio;
 
 	float h = context->timeStep;
 	bool enableWarmStarting = world->enableWarmStarting;
@@ -77,12 +78,11 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 		float iB = solverBodyB->invI;
 
 		// Stiffer for static contacts to avoid bodies getting pushed through the ground
-		const float zeta = 1.0f;
 		float omega = 2.0f * b2_pi * hertz;
-		float c = h * omega * (2.0f * zeta + h * omega);
+		float c = h * omega * (2.0f * contactDampingRatio + h * omega);
 		constraint->impulseCoefficient = 1.0f / (1.0f + c);
 		constraint->massCoefficient = c * constraint->impulseCoefficient;
-		constraint->biasCoefficient = omega / (2.0f * zeta + h * omega);
+		constraint->biasCoefficient = omega / (2.0f * contactDampingRatio + h * omega);
 
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(constraint->normal);
@@ -124,6 +124,11 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 				wB += iB * b2Cross(cp->rB, P);
 				vB = b2MulAdd(vB, mB, P);
 			}
+			else
+			{
+				cp->normalImpulse = 0.0f;
+				cp->tangentImpulse = 0.0f;
+			}
 		}
 
 		solverBodyA->linearVelocity = vA;
@@ -143,7 +148,7 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 	b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
 	int32_t count = b2Array(context->graph->overflow.contactArray).count;
 	float inv_dt = context->invTimeStep;
-	const float pushout = context->world->maximumPushoutVelocity;
+	const float pushout = context->world->contactPushoutVelocity;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
@@ -181,16 +186,16 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			// Relative velocity at contact
-			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
-			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
-			b2Vec2 dv = b2Sub(vrB, vrA);
+			// Approximate change in anchor points
+			b2Vec2 drA = b2CrossSV(daA, cp->rA);
+			b2Vec2 drB = b2CrossSV(daB, cp->rB);
 
 			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			b2Vec2 prB = b2Add(dpB, b2CrossSV(daB, cp->rB));
-			b2Vec2 prA = b2Add(dpA, b2CrossSV(daA, cp->rA));
+			b2Vec2 prA = b2Add(dpA, drA);
+			b2Vec2 prB = b2Add(dpB, drB);
 			float ds = b2Dot(b2Sub(prB, prA), normal);
 			float s = cp->separation + ds;
+
 			float bias = 0.0f;
 			float massScale = 1.0f;
 			float impulseScale = 0.0f;
@@ -208,8 +213,15 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 				impulseScale = impulseCoefficient;
 			}
 
+			b2Vec2 rA = b2Add(cp->rA, drA);
+			b2Vec2 rB = b2Add(cp->rB, drB);
+
+			// Relative velocity at contact
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
+			float vn = b2Dot(b2Sub(vrB, vrA), normal);
+
 			// Compute normal impulse
-			float vn = b2Dot(dv, normal);
 			float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
 			// float impulse = -cp->normalMass * (vn + bias + cp->gamma * cp->normalImpulse);
 
@@ -494,7 +506,9 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	// const float contactHertz = 45.0f;
 	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
 	const float contactHertz = world->contactHertz;
-
+	const float contactDampingRatio = world->contactDampingRatio;
+	
+	float warmStartScale = world->enableWarmStarting ? 1.0f : 0.0f;
 	float h = context->timeStep;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
@@ -526,9 +540,8 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 				float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
 
 				// Stiffer for static contacts to avoid bodies getting pushed through the ground
-				const float zeta = 1.0f;
 				float omega = 2.0f * b2_pi * hertz;
-				float d = (2.0f * zeta + h * omega);
+				float d = (2.0f * contactDampingRatio + h * omega);
 				float c = h * omega * d;
 				float impulseCoefficient = 1.0f / (1.0f + c);
 
@@ -546,9 +559,10 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 
 				{
 					const b2ManifoldPoint* mp = manifold->points + 0;
+
 					((float*)&constraint->separation1)[j] = mp->separation;
-					((float*)&constraint->normalImpulse1)[j] = mp->normalImpulse;
-					((float*)&constraint->tangentImpulse1)[j] = mp->tangentImpulse;
+					((float*)&constraint->normalImpulse1)[j] = warmStartScale * mp->normalImpulse;
+					((float*)&constraint->tangentImpulse1)[j] = warmStartScale * mp->tangentImpulse;
 
 					((float*)&constraint->rA1.X)[j] = mp->anchorA.x;
 					((float*)&constraint->rA1.Y)[j] = mp->anchorA.y;
@@ -578,8 +592,8 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 				{
 					const b2ManifoldPoint* mp = manifold->points + 1;
 					((float*)&constraint->separation2)[j] = mp->separation;
-					((float*)&constraint->normalImpulse2)[j] = mp->normalImpulse;
-					((float*)&constraint->tangentImpulse2)[j] = mp->tangentImpulse;
+					((float*)&constraint->normalImpulse2)[j] = warmStartScale * mp->normalImpulse;
+					((float*)&constraint->tangentImpulse2)[j] = warmStartScale * mp->tangentImpulse;
 
 					((float*)&constraint->rA2.X)[j] = mp->anchorA.x;
 					((float*)&constraint->rA2.Y)[j] = mp->anchorA.y;
@@ -711,7 +725,7 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2SolverBody* bodies = context->solverBodies;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 	float inv_dt = context->invTimeStep;
-	const float pushout = context->world->maximumPushoutVelocity;
+	const float pushout = context->world->contactPushoutVelocity;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{

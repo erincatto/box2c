@@ -107,7 +107,9 @@ static void SortTests()
 static void RestartTest()
 {
 	delete s_sample;
+	s_settings.m_restart = true;
 	s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn(s_settings);
+	s_settings.m_restart = false;
 }
 
 static void CreateUI(GLFWwindow* window, const char* glslVersion)
@@ -411,6 +413,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Contact Impulses", &s_settings.m_drawContactImpulse);
 				ImGui::Checkbox("Friction Impulses", &s_settings.m_drawFrictionImpulse);
 				ImGui::Checkbox("Center of Masses", &s_settings.m_drawMass);
+				ImGui::Checkbox("Graph Colors", &s_settings.m_drawGraphColors);
 				ImGui::Checkbox("Statistics", &s_settings.m_drawStats);
 				ImGui::Checkbox("Profile", &s_settings.m_drawProfile);
 

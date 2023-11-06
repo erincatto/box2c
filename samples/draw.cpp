@@ -820,7 +820,8 @@ void DrawSolidPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color,
 	static_cast<Draw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
 }
 
-void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor, b2Color lineColor, void* context)
+void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor, b2Color lineColor,
+						   void* context)
 {
 	static_cast<Draw*>(context)->DrawRoundedPolygon(vertices, vertexCount, radius, fillColor, lineColor);
 }
@@ -893,22 +894,23 @@ void Draw::Create()
 	m_roundedTriangles = static_cast<GLRenderRoundedTriangles*>(malloc(sizeof(GLRenderRoundedTriangles)));
 	m_roundedTriangles->Create();
 
-	m_debugDraw = {DrawPolygonFcn,
-				   DrawSolidPolygonFcn,
-				   DrawRoundedPolygonFcn,
-				   DrawCircleFcn,
-				   DrawSolidCircleFcn,
-				   DrawCapsuleFcn,
-				   DrawSolidCapsuleFcn,
-				   DrawSegmentFcn,
-				   DrawTransformFcn,
-				   DrawPointFcn,
-				   DrawStringFcn,
-				   true,
-				   true,
-				   false,
-				   false,
-				   this};
+	m_debugDraw = {	DrawPolygonFcn,
+					DrawSolidPolygonFcn,
+					DrawRoundedPolygonFcn,
+					DrawCircleFcn,
+					DrawSolidCircleFcn,
+					DrawCapsuleFcn,
+					DrawSolidCapsuleFcn,
+					DrawSegmentFcn,
+					DrawTransformFcn,
+					DrawPointFcn,
+					DrawStringFcn,
+					true,
+					true,
+					false,
+					false,
+					false,
+					this};
 }
 
 void Draw::Destroy()

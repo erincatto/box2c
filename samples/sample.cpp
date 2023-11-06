@@ -216,7 +216,7 @@ void Sample::ResetProfile()
 
 void Sample::Step(Settings& settings)
 {
-	float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : float(0.0f);
+	float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : 0.0f;
 
 	if (settings.m_pause)
 	{
@@ -237,6 +237,7 @@ void Sample::Step(Settings& settings)
 	g_draw.m_debugDraw.drawJoints = settings.m_drawJoints;
 	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
 	g_draw.m_debugDraw.drawMass = settings.m_drawMass;
+	g_draw.m_debugDraw.drawGraphColors = settings.m_drawGraphColors;
 
 	m_collectContacts =
 		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;

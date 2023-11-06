@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
+#include "settings.h"
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
@@ -79,7 +80,7 @@ class HighMassRatio1 : public Sample
 	}
 };
 
-static int sampleIndex1 = RegisterSample("Behavior", "HighMassRatio1", HighMassRatio1::Create);
+static int sampleIndex1 = RegisterSample("Robustness", "HighMassRatio1", HighMassRatio1::Create);
 
 // Big box on small boxes
 class HighMassRatio2 : public Sample
@@ -133,7 +134,7 @@ class HighMassRatio2 : public Sample
 	}
 };
 
-static int sampleIndex2 = RegisterSample("Behavior", "HighMassRatio2", HighMassRatio2::Create);
+static int sampleIndex2 = RegisterSample("Robustness", "HighMassRatio2", HighMassRatio2::Create);
 
 class Friction : public Sample
 {
@@ -195,7 +196,7 @@ class Friction : public Sample
 	}
 };
 
-static int sampleIndex3 = RegisterSample("Behavior", "Friction", Friction::Create);
+static int sampleIndex3 = RegisterSample("Robustness", "Friction", Friction::Create);
 
 class OverlapRecovery : public Sample
 {
@@ -203,6 +204,12 @@ class OverlapRecovery : public Sample
 	OverlapRecovery(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.m_restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+			g_camera.m_center = {0.0f, 5.0f};
+		}
+
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
 		m_baseCount = 4;
@@ -210,6 +217,7 @@ class OverlapRecovery : public Sample
 		m_extent = 0.3f;
 		m_pushout = 3.0f;
 		m_hertz = 30.0f;
+		m_dampingRatio = 1.0f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
@@ -236,8 +244,7 @@ class OverlapRecovery : public Sample
 			b2World_DestroyBody(m_bodyIds[i]);
 		}
 
-		b2World_SetMaximumPushoutVelocity(m_worldId, m_pushout);
-		b2World_SetContactHertz(m_worldId, m_hertz);
+		b2World_SetContactTuning(m_worldId, m_hertz, m_dampingRatio, m_pushout);
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
@@ -276,7 +283,7 @@ class OverlapRecovery : public Sample
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowSize(ImVec2(260.0f, 220.0f));
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -285,6 +292,7 @@ class OverlapRecovery : public Sample
 		changed = changed || ImGui::SliderFloat("Overlap", &m_overlap, 0.0f, 1.0f, "%.1f");
 		changed = changed || ImGui::SliderFloat("Pushout", &m_pushout, 0.0f, 10.0f, "%.1f");
 		changed = changed || ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 120.0f, "%.1f");
+		changed = changed || ImGui::SliderFloat("Damping Ratio", &m_dampingRatio, 0.0f, 4.0f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
 
 		if (changed)
@@ -307,6 +315,7 @@ class OverlapRecovery : public Sample
 	float m_extent;
 	float m_pushout;
 	float m_hertz;
+	float m_dampingRatio;
 };
 
-static int sampleIndex4 = RegisterSample("Behavior", "Overlap Recovery", OverlapRecovery::Create);
+static int sampleIndex4 = RegisterSample("Robustness", "Overlap Recovery", OverlapRecovery::Create);

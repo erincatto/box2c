@@ -57,4 +57,4 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 void b2AddJointToGraph(b2World* world, b2Joint* joint);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint);
 
-void b2SolveGraph(b2World* world, b2StepContext* stepContext);
+void b2Solve(b2World* world, b2StepContext* stepContext);
