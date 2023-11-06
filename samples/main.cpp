@@ -720,10 +720,10 @@ int main(int, char**)
 
 		if (s_selection != s_settings.m_sampleIndex)
 		{
+			g_camera.ResetView();
 			s_settings.m_sampleIndex = s_selection;
 			delete s_sample;
 			s_sample = g_sampleEntries[s_settings.m_sampleIndex].createFcn(s_settings);
-			g_camera.ResetView();
 		}
 
 		glfwPollEvents();

@@ -243,9 +243,13 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
+			// Approximate anchor points
+			b2Vec2 rA = b2Add(cp->rA, b2CrossSV(daA, cp->rA));
+			b2Vec2 rB = b2Add(cp->rB, b2CrossSV(daB, cp->rB));
+
 			// Relative velocity at contact
-			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
-			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
 			b2Vec2 dv = b2Sub(vrB, vrA);
 
 			// Compute tangent force
