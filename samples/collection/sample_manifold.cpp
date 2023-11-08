@@ -270,18 +270,19 @@ public:
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 			b2Polygon box = b2MakeSquare(0.5f);
+			box.radius = m_round;
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollidePolygonAndCircle(&box, xf1, &circle, xf2, b2_speculativeDistance);
+			b2Manifold m = b2CollidePolygonAndCircle(&box, xf1, &circle, xf2);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
 			}
-			g_draw.DrawPolygon(vertices, box.count, color1);
+			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, fillColor1, color1);
 
 			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});

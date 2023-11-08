@@ -170,8 +170,7 @@ b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA,
 	return manifold;
 }
 
-b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
-									 float maxDistance)
+b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
 	b2Manifold manifold = {0};
 
@@ -196,7 +195,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		}
 	}
 
-	if (separation - radius > maxDistance)
+	if (separation > radius + b2_speculativeDistance)
 	{
 		return manifold;
 	}
@@ -215,25 +214,37 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 	{
 		// Circle center is closest to v1 and safely outside the polygon
 		b2Vec2 normal = b2Normalize(b2Sub(c, v1));
-		manifold.pointCount = 1;
+		separation = b2Dot(b2Sub(c, v1), normal);
+		if (separation > radius + b2_speculativeDistance)
+		{
+			return manifold;
+		}
+
+		b2Vec2 cA = b2MulAdd(v1, polygonA->radius, normal);
+		b2Vec2 cB = b2MulSub(c, circleB->radius, normal);
 		manifold.normal = b2RotateVector(xfA.q, normal);
-		b2Vec2 cA = v1;
-		b2Vec2 cB = b2MulAdd(c, -radius, normal);
 		manifold.points[0].point = b2TransformPoint(xfA, b2Lerp(cA, cB, 0.5f));
-		manifold.points[0].separation = b2Dot(b2Sub(cB, cA), normal);
+		manifold.points[0].separation = separation;
 		manifold.points[0].id = 0;
+		manifold.pointCount = 1;
 	}
 	else if (u2 < 0.0f && separation > FLT_EPSILON)
 	{
 		// Circle center is closest to v2 and safely outside the polygon
 		b2Vec2 normal = b2Normalize(b2Sub(c, v2));
-		manifold.pointCount = 1;
+		separation = b2Dot(b2Sub(c, v2), normal);
+		if (separation > radius + b2_speculativeDistance)
+		{
+			return manifold;
+		}
+
+		b2Vec2 cA = b2MulAdd(v2, polygonA->radius, normal);
+		b2Vec2 cB = b2MulSub(c, circleB->radius, normal);
 		manifold.normal = b2RotateVector(xfA.q, normal);
-		b2Vec2 cA = v2;
-		b2Vec2 cB = b2MulAdd(c, -radius, normal);
 		manifold.points[0].point = b2TransformPoint(xfA, b2Lerp(cA, cB, 0.5f));
 		manifold.points[0].separation = b2Dot(b2Sub(cB, cA), normal);
 		manifold.points[0].id = 0;
+		manifold.pointCount = 1;
 	}
 	else
 	{
@@ -242,10 +253,10 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		manifold.normal = b2RotateVector(xfA.q, normal);
 
 		// cA is the projection of the circle center onto to the reference edge
-		b2Vec2 cA = b2MulAdd(c, -b2Dot(b2Sub(c, v1), normal), normal);
+		b2Vec2 cA = b2MulAdd(c, polygonA->radius - b2Dot(b2Sub(c, v1), normal), normal);
 
 		// cB is the deepest point on the circle with respect to the reference edge
-		b2Vec2 cB = b2MulAdd(c, -radius, normal);
+		b2Vec2 cB = b2MulSub(c, circleB->radius, normal);
 
 		// The contact point is the midpoint in world space
 		manifold.points[0].point = b2TransformPoint(xfA, b2Lerp(cA, cB, 0.5f));
@@ -284,6 +295,8 @@ b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA
 static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB, int32_t edgeA,
 								int32_t edgeB, float maxDistance, bool flip)
 {
+	B2_MAYBE_UNUSED(maxDistance);
+
 	b2Manifold manifold = {0};
 
 	// reference polygon
@@ -386,7 +399,6 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 		manifold.normal = b2RotateVector(xfA.q, normal);
 		b2ManifoldPoint* cp = manifold.points + 0;
 
-		if (separationLower <= radius + maxDistance)
 		{
 			cp->point = b2TransformPoint(xfA, vLower);
 			cp->separation = separationLower - radius;
@@ -395,7 +407,6 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 			cp += 1;
 		}
 
-		if (separationUpper <= radius + maxDistance)
 		{
 			cp->point = b2TransformPoint(xfA, vUpper);
 			cp->separation = separationUpper - radius;
@@ -408,7 +419,6 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 		manifold.normal = b2RotateVector(xfB.q, b2Neg(normal));
 		b2ManifoldPoint* cp = manifold.points + 0;
 
-		if (separationUpper <= radius + maxDistance)
 		{
 			cp->point = b2TransformPoint(xfB, vUpper);
 			cp->separation = separationUpper - radius;
@@ -417,7 +427,6 @@ static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b
 			cp += 1;
 		}
 
-		if (separationLower <= radius + maxDistance)
 		{
 			cp->point = b2TransformPoint(xfB, vLower);
 			cp->separation = separationLower - radius;

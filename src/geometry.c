@@ -46,6 +46,33 @@ b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 	return shape;
 }
 
+b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform transform)
+{
+	B2_ASSERT(hull->count >= 3);
+
+	b2Polygon shape;
+	shape.count = hull->count;
+	shape.radius = radius;
+
+	// Copy vertices
+	for (int32_t i = 0; i < shape.count; ++i)
+	{
+		shape.vertices[i] = b2TransformPoint(transform, hull->points[i]);
+	}
+
+	// Compute normals. Ensure the edges have non-zero length.
+	for (int32_t i = 0; i < shape.count; ++i)
+	{
+		int32_t i1 = i;
+		int32_t i2 = i + 1 < shape.count ? i + 1 : 0;
+		b2Vec2 edge = b2Sub(shape.vertices[i2], shape.vertices[i1]);
+		B2_ASSERT(b2Dot(edge, edge) > FLT_EPSILON * FLT_EPSILON);
+		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
+	}
+
+	return shape;
+}
+
 b2Polygon b2MakeSquare(float h)
 {
 	return b2MakeBox(h, h);

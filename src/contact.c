@@ -88,7 +88,8 @@ static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform 
 											 float maxDistance, b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(cache);
-	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB, maxDistance);
+	B2_MAYBE_UNUSED(maxDistance);
+	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
 }
 
 static b2Manifold b2PolygonAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
@@ -409,7 +410,8 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		float maxDistance = (bodyA->isFast || bodyB->isFast) ? b2_huge : b2_speculativeDistance;
+		//float maxDistance = (bodyA->isFast || bodyB->isFast) ? b2_huge : b2_speculativeDistance;
+		float maxDistance = b2_speculativeDistance;
 		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, maxDistance, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;

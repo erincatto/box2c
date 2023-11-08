@@ -906,6 +906,12 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneEnd(solve_contact);
 }
 
+// TODO_ERIN selects are broken!!!!!!
+// TODO_ERIN selects are broken!!!!!!
+// TODO_ERIN selects are broken!!!!!!
+// TODO_ERIN selects are broken!!!!!!
+// TODO_ERIN selects are broken!!!!!!
+// TODO_ERIN selects are broken!!!!!!
 void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
@@ -962,7 +968,7 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 			__m256 test1 = _mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, _CMP_GT_OQ);
 			__m256 test2 = _mm256_cmp_ps(c->normalImpulse2, zero, _CMP_EQ_OQ);
 			__m256 test = _mm256_or_ps(test1, test2);
-			__m256 mass = _mm256_blendv_ps(zero, c->normalMass2, test);
+			__m256 mass = _mm256_blendv_ps(c->normalMass2, zero, test);
 
 			// Relative velocity at contact
 			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));

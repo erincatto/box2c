@@ -96,6 +96,7 @@ BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def,
 
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
+BOX2D_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
 
 /// Create a joint
 BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);

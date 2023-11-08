@@ -70,8 +70,7 @@ b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA,
 									 float maxDistance);
 
 /// Compute the collision manifold between a polygon and a circle.
-b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB,
-									 float maxDistance);
+b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB);
 
 /// Compute the collision manifold between a capsule and circle
 b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB, float maxDistance,

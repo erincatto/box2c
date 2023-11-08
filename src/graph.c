@@ -28,7 +28,7 @@
 // this feasible I would need a way to block these writes.
 
 // This is used for debugging making all constraints be assigned to overflow.
-#define B2_FORCE_OVERFLOW 0
+#define B2_FORCE_OVERFLOW 1
 
 extern bool b2_parallel;
 

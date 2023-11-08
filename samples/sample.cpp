@@ -244,6 +244,7 @@ void Sample::Step(Settings& settings)
 
 	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
 	b2World_EnableWarmStarting(m_worldId, settings.m_enableWarmStarting);
+	b2World_EnableContinuous(m_worldId, settings.m_enableContinuous);
 
 	if (timeStep > 0.0f)
 	{
