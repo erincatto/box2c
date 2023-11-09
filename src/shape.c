@@ -92,6 +92,15 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
 	}
 }
 
+static b2Shape* b2GetShape(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
+	b2Shape* shape = world->shapes + shapeId.index;
+	B2_ASSERT(b2ObjectValid(&shape->object));
+	return shape;
+}
+
 b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
@@ -134,4 +143,10 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 		default:
 			return false;
 	}
+}
+
+void b2Shape_SetFriction(b2ShapeId shapeId, float friction)
+{
+	b2Shape* shape = b2GetShape(shapeId);
+	shape->friction = friction;
 }

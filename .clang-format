@@ -31,3 +31,5 @@ IncludeCategories:
 
 IndentExternBlock: NoIndent
 IndentCaseLabels: true
+IndentAccessModifiers: false
+AccessModifierOffset: -4

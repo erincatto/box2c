@@ -84,6 +84,7 @@ BOX2D_API bool b2IsValidRay(const b2RayCastInput* input);
 
 /// Helper functions to make convex polygons
 BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);
+BOX2D_API b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform transform);
 BOX2D_API b2Polygon b2MakeSquare(float h);
 BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
 BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);

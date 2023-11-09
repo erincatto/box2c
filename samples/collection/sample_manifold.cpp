@@ -206,7 +206,7 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideCircles(&circle1, xf1, &circle2, xf2, b2_speculativeDistance);
+			b2Manifold m = b2CollideCircles(&circle1, xf1, &circle2, xf2);
 
 			b2Vec2 c1 = b2TransformPoint(xf1, circle1.point);
 			b2Vec2 c2 = b2TransformPoint(xf2, circle2.point);
@@ -228,7 +228,7 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideCapsuleAndCircle(&capsule, xf1, &circle, xf2, b2_speculativeDistance);
+			b2Manifold m = b2CollideCapsuleAndCircle(&capsule, xf1, &circle, xf2);
 
 			b2Vec2 v1 = b2TransformPoint(xf1, capsule.point1);
 			b2Vec2 v2 = b2TransformPoint(xf1, capsule.point2);
@@ -251,7 +251,7 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideSegmentAndCircle(&segment, xf1, &circle, xf2, b2_speculativeDistance);
+			b2Manifold m = b2CollideSegmentAndCircle(&segment, xf1, &circle, xf2);
 
 			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
@@ -270,18 +270,19 @@ public:
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 			b2Polygon box = b2MakeSquare(0.5f);
+			box.radius = m_round;
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollidePolygonAndCircle(&box, xf1, &circle, xf2, b2_speculativeDistance);
+			b2Manifold m = b2CollidePolygonAndCircle(&box, xf1, &circle, xf2);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < box.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
 			}
-			g_draw.DrawPolygon(vertices, box.count, color1);
+			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, fillColor1, color1);
 
 			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
@@ -304,7 +305,7 @@ public:
 				m_capcapCache = b2_emptyDistanceCache;
 			}
 
-			b2Manifold m = b2CollideCapsules(&capsule, xf1, &capsule, xf2, b2_speculativeDistance, &m_capcapCache);
+			b2Manifold m = b2CollideCapsules(&capsule, xf1, &capsule, xf2, &m_capcapCache);
 
 			b2Vec2 v1 = b2TransformPoint(xf1, capsule.point1);
 			b2Vec2 v2 = b2TransformPoint(xf1, capsule.point2);
@@ -328,7 +329,7 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2DistanceCache cache = b2_emptyDistanceCache;
-			b2Manifold m = b2CollidePolygonAndCapsule(&box, xf1, &capsule, xf2, b2_speculativeDistance, &cache);
+			b2Manifold m = b2CollidePolygonAndCapsule(&box, xf1, &capsule, xf2, &cache);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < box.count; ++i)
@@ -354,7 +355,7 @@ public:
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideSegmentAndCapsule(&segment, xf1, &capsule, xf2, b2_speculativeDistance, &m_segcapCache);
+			b2Manifold m = b2CollideSegmentAndCapsule(&segment, xf1, &capsule, xf2, &m_segcapCache);
 
 			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
@@ -379,7 +380,7 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 			//b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&box, xf1, &box, xf2, b2_speculativeDistance, &m_boxboxCache);
+			b2Manifold m = b2CollidePolygons(&box, xf1, &box, xf2, &m_boxboxCache);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < box.count; ++i)
@@ -409,7 +410,7 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 			//b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&box, xf1, &rox, xf2, b2_speculativeDistance, &m_boxroxCache);
+			b2Manifold m = b2CollidePolygons(&box, xf1, &rox, xf2, &m_boxroxCache);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < box.count; ++i)
@@ -439,7 +440,7 @@ public:
 			//b2Transform xf1 = {{6.48024225f, 2.07872653f}, {-0.938356698f, 0.345668465f}};
 			//b2Transform xf2 = {{5.52862263f, 2.51146317f}, {-0.859374702f, -0.511346340f}};
 
-			b2Manifold m = b2CollidePolygons(&rox, xf1, &rox, xf2, b2_speculativeDistance, &m_roxroxCache);
+			b2Manifold m = b2CollidePolygons(&rox, xf1, &rox, xf2, &m_roxroxCache);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < rox.count; ++i)
@@ -469,7 +470,7 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 			//b2Transform xf2 = {b2Add({-1.44583416f, 0.397352695f}, offset), m_transform.q};
 
-			b2Manifold m = b2CollideSegmentAndPolygon(&segment, xf1, &rox, xf2, b2_speculativeDistance, &m_segroxCache);
+			b2Manifold m = b2CollideSegmentAndPolygon(&segment, xf1, &rox, xf2, &m_segroxCache);
 
 			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
@@ -503,7 +504,7 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&wox, xf1, &wox, xf2, b2_speculativeDistance, &m_woxwoxCache);
+			b2Manifold m = b2CollidePolygons(&wox, xf1, &wox, xf2, &m_woxwoxCache);
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < wox.count; ++i)

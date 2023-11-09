@@ -1,18 +1,84 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "sample.h"
+
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
-#include "sample.h"
+#include "box2d/hull.h"
+#include "box2d/math.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-class Continuous1 : public Sample
+class BallDrop : public Sample
 {
 public:
+	BallDrop(const Settings& settings)
+		: Sample(settings)
+	{
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
-	Continuous1(const Settings& settings)
+			b2Segment segment = {{-10.0f, -10.0f}, {10.0f, 10.0f}};
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		m_bodyId = b2_nullBodyId;
+
+		Launch();
+	}
+
+	void Launch()
+	{
+		if (B2_NON_NULL(m_bodyId))
+		{
+			b2World_DestroyBody(m_bodyId);
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.position = {0.0f, 8.0f};
+		bodyDef.linearVelocity = {0.0f, -100.0f};
+
+		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+
+		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Launch"))
+		{
+			Launch();
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new BallDrop(settings);
+	}
+
+	b2BodyId m_bodyId;
+};
+
+static int sampleBallDrop = RegisterSample("Continuous", "BallDrop", BallDrop::Create);
+
+class SkinnyBox : public Sample
+{
+public:
+	SkinnyBox(const Settings& settings)
 		: Sample(settings)
 	{
 		{
@@ -51,7 +117,7 @@ public:
 		}
 
 		m_angularVelocity = RandomFloat(-50.0f, 50.0f);
-		//m_angularVelocity = -30.6695766f;
+		// m_angularVelocity = -30.6695766f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
@@ -92,7 +158,7 @@ public:
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
-		ImGui::Begin("Continuous1", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::Checkbox("Capsule", &m_capsule);
 
@@ -118,7 +184,7 @@ public:
 
 	static Sample* Create(const Settings& settings)
 	{
-		return new Continuous1(settings);
+		return new SkinnyBox(settings);
 	}
 
 	b2BodyId m_bodyId, m_bulletId;
@@ -129,4 +195,225 @@ public:
 	bool m_bullet;
 };
 
-static int sampleIndex = RegisterSample("Continuous", "Continuous1", Continuous1::Create);
+static int sampleSkinnyBox = RegisterSample("Continuous", "Skinny Box", SkinnyBox::Create);
+
+// This sample shows ghost collisions
+class GhostCollision : public Sample
+{
+public:
+	enum ShapeType
+	{
+		e_circleShape = 0,
+		e_boxShape
+	};
+
+	GhostCollision(const Settings& settings)
+		: Sample(settings)
+	{
+		m_groundId = b2_nullBodyId;
+		m_bodyId = b2_nullBodyId;
+		m_shapeId = b2_nullShapeId;
+
+		m_shapeType = e_circleShape;
+		m_round = 0.0f;
+		m_friction = 0.5f;
+		m_bevel = 0.0f;
+
+		CreateScene();
+		Launch();
+	}
+
+	void CreateScene()
+	{
+		if (B2_NON_NULL(m_groundId))
+		{
+			b2World_DestroyBody(m_groundId);
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		float m = 1.0f / sqrt(2.0f);
+		float hx = 4.0f, hy = 0.25f;
+		float x, y;
+
+		b2Hull hull = {0};
+
+		if (m_bevel > 0.0f)
+		{
+			float hb = m_bevel;
+			b2Vec2 vs[8] = {{hx + hb, hy - 0.05f},	 {hx, hy},	 {-hx, hy}, {-hx - hb, hy - 0.05f},
+							{-hx - hb, -hy + 0.05f}, {-hx, -hy}, {hx, -hy}, {hx + hb, -hy + 0.05f}};
+			hull = b2ComputeHull(vs, 8);
+		}
+		else
+		{
+			b2Vec2 vs[4] = {{hx, hy}, {-hx, hy}, {-hx, -hy}, {hx, -hy}};
+			hull = b2ComputeHull(vs, 4);
+		}
+
+		b2Transform transform;
+
+		// Left slope
+		x = -3.0f * hx - m * hx - m * hy;
+		y = hy + m * hx - m * hy;
+		transform.q = b2MakeRot(-0.25f * b2_pi);
+
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x -= 2.0f * m * hx;
+			y += 2.0f * m * hx;
+		}
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x -= 2.0f * m * hx;
+			y += 2.0f * m * hx;
+		}
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x -= 2.0f * m * hx;
+			y += 2.0f * m * hx;
+		}
+
+		x = -2.0f * hx;
+		y = 0.0f;
+		transform.q = b2MakeRot(0.0f);
+
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x += 2.0f * hx;
+		}
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x += 2.0f * hx;
+		}
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x += 2.0f * hx;
+		}
+
+		x = 3.0f * hx + m * hx + m * hy;
+		y = hy + m * hx - m * hy;
+		transform.q = b2MakeRot(0.25f * b2_pi);
+
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x += 2.0f * m * hx;
+			y += 2.0f * m * hx;
+		}
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x += 2.0f * m * hx;
+			y += 2.0f * m * hx;
+		}
+		{
+			transform.p = {x, y};
+			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+			x += 2.0f * m * hx;
+			y += 2.0f * m * hx;
+		}
+	}
+
+	void Launch()
+	{
+		if (B2_NON_NULL(m_bodyId))
+		{
+			b2World_DestroyBody(m_bodyId);
+			m_shapeId = b2_nullShapeId;
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.position = {-28.0f, 18.0f};
+		bodyDef.linearVelocity = {0.0f, 0.0f};
+		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+		shapeDef.friction = m_friction;
+
+		if (m_shapeType == e_circleShape)
+		{
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+			m_shapeId = b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+		}
+		else
+		{
+			b2Polygon box = b2MakeBox(0.5f, 0.5f);
+			m_shapeId = b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("Round", &m_round, 0.0f, 0.5f, "%.2f"))
+		{
+			CreateScene();
+		}
+
+		if (ImGui::SliderFloat("Bevel", &m_bevel, 0.0f, 1.0f, "%.2f"))
+		{
+			CreateScene();
+		}
+
+		{
+			const char* shapeTypes[] = {"Circle", "Box"};
+			int shapeType = int(m_shapeType);
+			ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
+			m_shapeType = ShapeType(shapeType);
+		}
+
+		if (ImGui::SliderFloat("Friction", &m_friction, 0.0f, 1.0f, "%.2f"))
+		{
+			if (B2_NON_NULL(m_shapeId))
+			{
+				b2Shape_SetFriction(m_shapeId, m_friction);
+			}
+		}
+
+		if (ImGui::Button("Launch"))
+		{
+			Launch();
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new GhostCollision(settings);
+	}
+
+	b2BodyId m_groundId;
+	b2BodyId m_bodyId;
+	b2ShapeId m_shapeId;
+	ShapeType m_shapeType;
+	float m_round;
+	float m_friction;
+	float m_bevel;
+};
+
+static int sampleGhostCollision = RegisterSample("Continuous", "Ghost Collision", GhostCollision::Create);
