@@ -205,6 +205,7 @@ static void b2EnableBody(b2World* world, b2Body* body)
 		b2Body* bodyB = world->bodies + joint->edges[1].bodyIndex;
 		if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
 		{
+			b2AddJointToGraph(world, joint);
 			b2LinkJoint(world, joint);
 		}
 		jointKey = joint->edges[edgeIndex].nextKey;
@@ -232,6 +233,11 @@ static void b2DisableBody(b2World* world, b2Body* body)
 		int32_t jointIndex = jointKey >> 1;
 		int32_t edgeIndex = jointKey & 1;
 		b2Joint* joint = world->joints + jointIndex;
+		if (joint->colorIndex != B2_NULL_INDEX)
+		{
+			b2RemoveJointFromGraph(world, joint);
+		}
+
 		if (joint->islandIndex != B2_NULL_INDEX)
 		{
 			b2UnlinkJoint(world, joint);

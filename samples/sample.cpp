@@ -376,7 +376,7 @@ void Sample::Step(Settings& settings)
 		{
 			ContactPoint* point = m_points + i;
 
-			if (0 <= point->color && point->color <= b2_graphColorCount)
+			if (settings.m_drawGraphColors && 0 <= point->color && point->color <= b2_graphColorCount)
 			{
 				// graph color
 				float pointSize = point->color == b2_graphColorCount ? 7.5f : 5.0f;

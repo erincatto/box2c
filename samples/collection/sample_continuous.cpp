@@ -198,7 +198,7 @@ public:
 static int sampleSkinnyBox = RegisterSample("Continuous", "Skinny Box", SkinnyBox::Create);
 
 // This sample shows ghost collisions
-class Bowl : public Sample
+class GhostCollision : public Sample
 {
 public:
 	enum ShapeType
@@ -207,7 +207,7 @@ public:
 		e_boxShape
 	};
 
-	Bowl(const Settings& settings)
+	GhostCollision(const Settings& settings)
 		: Sample(settings)
 	{
 		m_groundId = b2_nullBodyId;
@@ -404,7 +404,7 @@ public:
 
 	static Sample* Create(const Settings& settings)
 	{
-		return new Bowl(settings);
+		return new GhostCollision(settings);
 	}
 
 	b2BodyId m_groundId;
@@ -416,4 +416,4 @@ public:
 	float m_bevel;
 };
 
-static int sampleBowl = RegisterSample("Continuous", "Bowl", Bowl::Create);
+static int sampleGhostCollision = RegisterSample("Continuous", "Ghost Collision", GhostCollision::Create);
