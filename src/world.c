@@ -108,6 +108,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
 
+	world->chainPool = b2CreatePool(sizeof(b2ChainShape), 4);
+	world->chains = (b2ChainShape*)world->chainPool.memory;
+
 	world->contactPool = b2CreatePool(sizeof(b2Contact), B2_MAX(def->contactCapacity, 1));
 	world->contacts = (b2Contact*)world->contactPool.memory;
 
@@ -185,9 +188,7 @@ void b2DestroyWorld(b2WorldId id)
 	}
 
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
-
 	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
-
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
 	b2DestroyArray(world->contactAwakeIndexArray, sizeof(int32_t));
 
@@ -195,6 +196,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyPool(&world->jointPool);
 	b2DestroyPool(&world->contactPool);
 	b2DestroyPool(&world->shapePool);
+	b2DestroyPool(&world->chainPool);
 	b2DestroyPool(&world->bodyPool);
 
 	b2DestroyGraph(&world->graph);

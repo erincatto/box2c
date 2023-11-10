@@ -283,6 +283,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->force = b2Vec2_zero;
 	body->torque = 0.0f;
 	body->shapeList = B2_NULL_INDEX;
+	body->chainList = B2_NULL_INDEX;
 	body->jointList = B2_NULL_INDEX;
 	body->jointCount = 0;
 	body->contactList = B2_NULL_INDEX;
@@ -345,6 +346,18 @@ void b2World_DestroyBody(b2BodyId bodyId)
 
 		b2Shape_DestroyProxy(shape, &world->broadPhase);
 		b2FreeObject(&world->shapePool, &shape->object);
+	}
+
+	// Delete the attached chains
+	int32_t chainIndex = body->chainList;
+	while (chainIndex != B2_NULL_INDEX)
+	{
+		b2ChainShape* chain = world->chains + chainIndex;
+		chainIndex = chain->nextIndex;
+
+		b2Free(chain->shapeIndices);
+		chain->shapeIndices = NULL;
+		b2FreeObject(&world->chainPool, &chain->object);
 	}
 
 	b2RemoveBodyFromIsland(world, body);

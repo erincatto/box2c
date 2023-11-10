@@ -17,6 +17,7 @@ typedef enum b2ShapeType
 	b2_circleShape,
 	b2_polygonShape,
 	b2_segmentShape,
+	b2_chainShape,
 	b2_shapeTypeCount
 } b2ShapeType;
 
@@ -49,8 +50,18 @@ typedef struct b2Shape
 		b2Circle circle;
 		b2Polygon polygon;
 		b2Segment segment;
+		b2Chain chain;
 	};
 } b2Shape;
+
+typedef struct b2ChainShape
+{
+	b2Object object;
+	int32_t bodyIndex;
+	int32_t nextIndex;
+	int32_t* shapeIndices;
+	int32_t count;
+} b2ChainShape;
 
 b2MassData b2Shape_ComputeMass(const b2Shape* shape);
 b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf);

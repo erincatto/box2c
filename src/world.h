@@ -50,6 +50,7 @@ typedef struct b2World
 	b2Pool contactPool;
 	b2Pool jointPool;
 	b2Pool shapePool;
+	b2Pool chainPool;
 	b2Pool islandPool;
 
 	// These are sparse arrays that point into the pools above
@@ -57,6 +58,7 @@ typedef struct b2World
 	struct b2Contact* contacts;
 	struct b2Joint* joints;
 	struct b2Shape* shapes;
+	struct b2ChainShape* chains;
 	struct b2Island* islands;
 
 	// Per thread storage

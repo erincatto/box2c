@@ -65,10 +65,9 @@ typedef struct b2Segment
 } b2Segment;
 
 /// A smooth line segment with one-sided collision. Only collides on the right side.
-/// Normally these are generated from a chain shape.
+/// Several of these are generated for a chain shape.
 /// ghost1 -> point1 -> point2 -> ghost2
-/// This is only relevant for contact manifolds, otherwise use a regular segment.
-typedef struct b2SmoothSegment
+typedef struct b2Chain
 {
 	/// The tail ghost vertex
 	b2Vec2 ghost1;
@@ -78,7 +77,7 @@ typedef struct b2SmoothSegment
 
 	/// The head ghost vertex
 	b2Vec2 ghost2;
-} b2SmoothSegment;
+} b2Chain;
 
 BOX2D_API bool b2IsValidRay(const b2RayCastInput* input);
 

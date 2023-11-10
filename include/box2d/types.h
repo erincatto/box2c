@@ -253,6 +253,42 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
+/// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
+///	- DO NOT use chain shapes unless you understand the limitations. This is an advanced feature!
+///	- chains are one-sided
+///	- chains have no mass and should be used on static bodies
+///	- the front side of the chain points the right of the point sequence
+///	- chains are either a loop or open
+/// - a chain must have at least 4 points
+///	- the distance between any two points must be greater than b2_linearSlop
+///	- a chain shape should not self intersect (this is not validated)
+///	- an open chain shape has NO COLLISION on the first and final edge
+///	- you may overlap two open chains on their first three and/or last three points to get smooth collision
+///	- a chain shape creates multiple hidden shapes on the body
+typedef struct b2ChainDef
+{
+	/// An array of at least 4 points. These are cloned and may be temporary.
+	const b2Vec2* points;
+
+	/// The point count, must be 4 or more.
+	int32_t count;
+
+	/// Indicates a closed chain formed by connecting the first and last points
+	bool loop;
+
+	/// Use this to store application specific shape data.
+	void* userData;
+
+	/// The friction coefficient, usually in the range [0,1].
+	float friction;
+
+	/// The restitution (elasticity) usually in the range [0,1].
+	float restitution;
+
+	/// Contact filtering data.
+	b2Filter filter;
+} b2ChainDef;
+
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
 /// Make a world definition with default values.
