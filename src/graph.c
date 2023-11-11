@@ -664,7 +664,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			}
 			else
 			{
-				shape->aabb = b2Shape_ComputeAABB(shape, body->transform);
+				shape->aabb = b2ComputeShapeAABB(shape, body->transform);
 
 				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 				{
@@ -1896,8 +1896,8 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	}
 
 	b2TOIInput input;
-	input.proxyA = b2Shape_MakeDistanceProxy(shape);
-	input.proxyB = b2Shape_MakeDistanceProxy(fastShape);
+	input.proxyA = b2MakeShapeDistanceProxy(shape);
+	input.proxyB = b2MakeShapeDistanceProxy(fastShape);
 	input.sweepA = b2MakeSweep(body);
 	input.sweepB = continuousContext->sweep;
 	input.tMax = continuousContext->fraction;
@@ -1950,7 +1950,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		context.fastShape = fastShape;
 
 		b2AABB box1 = fastShape->aabb;
-		b2AABB box2 = b2Shape_ComputeAABB(fastShape, xf2);
+		b2AABB box2 = b2ComputeShapeAABB(fastShape, xf2);
 		b2AABB box = b2AABB_Union(box1, box2);
 
 		// Store this for later
@@ -1986,7 +1986,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 			b2Shape* shape = shapes + shapeIndex;
 
 			// Must recompute aabb at the interpolated transform
-			shape->aabb = b2Shape_ComputeAABB(shape, xf);
+			shape->aabb = b2ComputeShapeAABB(shape, xf);
 
 			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 			{

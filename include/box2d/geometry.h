@@ -64,21 +64,6 @@ typedef struct b2Segment
 	b2Vec2 point1, point2;
 } b2Segment;
 
-/// A smooth line segment with one-sided collision. Only collides on the right side.
-/// Several of these are generated for a chain shape.
-/// ghost1 -> point1 -> point2 -> ghost2
-typedef struct b2Chain
-{
-	/// The tail ghost vertex
-	b2Vec2 ghost1;
-
-	/// The line segment
-	b2Vec2 point1, point2;
-
-	/// The head ghost vertex
-	b2Vec2 ghost2;
-} b2Chain;
-
 BOX2D_API bool b2IsValidRay(const b2RayCastInput* input);
 
 /// Helper functions to make convex polygons

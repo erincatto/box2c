@@ -360,8 +360,8 @@ bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
 static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	b2DistanceInput input;
-	input.proxyA = b2Shape_MakeDistanceProxy(shapeA);
-	input.proxyB = b2Shape_MakeDistanceProxy(shapeB);
+	input.proxyA = b2MakeShapeDistanceProxy(shapeA);
+	input.proxyB = b2MakeShapeDistanceProxy(shapeB);
 	input.transformA = xfA;
 	input.transformB = xfB;
 	input.useRadii = true;

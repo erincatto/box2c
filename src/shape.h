@@ -21,6 +21,21 @@ typedef enum b2ShapeType
 	b2_shapeTypeCount
 } b2ShapeType;
 
+/// A smooth line segment with one-sided collision. Only collides on the right side.
+/// Several of these are generated for a chain shape.
+/// ghost1 -> point1 -> point2 -> ghost2
+typedef struct b2Chain
+{
+	/// The tail ghost vertex
+	b2Vec2 ghost1;
+
+	/// The line segment
+	b2Vec2 point1, point2;
+
+	/// The head ghost vertex
+	b2Vec2 ghost2;
+} b2Chain;
+
 typedef struct b2Shape
 {
 	b2Object object;
@@ -63,10 +78,10 @@ typedef struct b2ChainShape
 	int32_t count;
 } b2ChainShape;
 
-b2MassData b2Shape_ComputeMass(const b2Shape* shape);
-b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf);
+b2MassData b2ComputeShapeMass(const b2Shape* shape);
+b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf);
 
-void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
-void b2Shape_DestroyProxy(b2Shape* shape, b2BroadPhase* bp);
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
+void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp);
 
-b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape);
+b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);

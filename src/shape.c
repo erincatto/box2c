@@ -7,7 +7,7 @@
 #include "broad_phase.h"
 #include "world.h"
 
-b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
+b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf)
 {
 	switch (shape->type)
 	{
@@ -19,6 +19,8 @@ b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
 			return b2ComputePolygonAABB(&shape->polygon, xf);
 		case b2_segmentShape:
 			return b2ComputeSegmentAABB(&shape->segment, xf);
+		case b2_chainShape:
+			return b2ComputeChainAABB(&shape->chain, xf);
 		default: {
 			B2_ASSERT(false);
 			b2AABB empty = {xf.p, xf.p};
@@ -27,7 +29,7 @@ b2AABB b2Shape_ComputeAABB(const b2Shape* shape, b2Transform xf)
 	}
 }
 
-b2MassData b2Shape_ComputeMass(const b2Shape* shape)
+b2MassData b2ComputeShapeMass(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
@@ -45,12 +47,12 @@ b2MassData b2Shape_ComputeMass(const b2Shape* shape)
 	}
 }
 
-void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf)
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf)
 {
 	B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
 
 	// Create proxies in the broad-phase.
-	shape->aabb = b2Shape_ComputeAABB(shape, xf);
+	shape->aabb = b2ComputeShapeAABB(shape, xf);
 
 	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
 	float margin = type == b2_staticBody ? 4.0f * b2_linearSlop : b2_aabbMargin;
@@ -63,7 +65,7 @@ void b2Shape_CreateProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Tr
 	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_bodyTypeCount);
 }
 
-void b2Shape_DestroyProxy(b2Shape* shape, b2BroadPhase* bp)
+void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp)
 {
 	if (shape->proxyKey != B2_NULL_INDEX)
 	{
@@ -72,7 +74,7 @@ void b2Shape_DestroyProxy(b2Shape* shape, b2BroadPhase* bp)
 	}
 }
 
-b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
+b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape)
 {
 	switch (shape->type)
 	{
@@ -83,6 +85,8 @@ b2DistanceProxy b2Shape_MakeDistanceProxy(const b2Shape* shape)
 		case b2_polygonShape:
 			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
 		case b2_segmentShape:
+			return b2MakeProxy(&shape->segment.point1, 2, 0.0f);
+		case b2_chainShape:
 			return b2MakeProxy(&shape->segment.point1, 2, 0.0f);
 		default: {
 			B2_ASSERT(false);

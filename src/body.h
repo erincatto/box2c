@@ -102,8 +102,8 @@ typedef struct b2SolverBody
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
-void b2Body_DestroyShape(b2ShapeId shapeId);
+//b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
+//void b2Body_DestroyShape(b2ShapeId shapeId);
 
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 
