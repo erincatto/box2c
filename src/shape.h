@@ -17,24 +17,9 @@ typedef enum b2ShapeType
 	b2_circleShape,
 	b2_polygonShape,
 	b2_segmentShape,
-	b2_chainShape,
+	b2_smoothSegmentShape,
 	b2_shapeTypeCount
 } b2ShapeType;
-
-/// A smooth line segment with one-sided collision. Only collides on the right side.
-/// Several of these are generated for a chain shape.
-/// ghost1 -> point1 -> point2 -> ghost2
-typedef struct b2Chain
-{
-	/// The tail ghost vertex
-	b2Vec2 ghost1;
-
-	/// The line segment
-	b2Vec2 point1, point2;
-
-	/// The head ghost vertex
-	b2Vec2 ghost2;
-} b2Chain;
 
 typedef struct b2Shape
 {
@@ -65,7 +50,7 @@ typedef struct b2Shape
 		b2Circle circle;
 		b2Polygon polygon;
 		b2Segment segment;
-		b2Chain chain;
+		b2SmoothSegment smoothSegment;
 	};
 } b2Shape;
 

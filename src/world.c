@@ -819,6 +819,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.bodyCount = world->bodyPool.count;
 	s.contactCount = world->contactPool.count;
 	s.jointCount = world->jointPool.count;
+	s.pairCount = world->broadPhase.pairSet.count;
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
 	s.proxyCount = tree->nodeCount;

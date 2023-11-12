@@ -22,7 +22,7 @@ public:
 		m_box = b2MakeBox(0.5f, 0.5f);
 
 		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
-		m_smoothSegment = {{2.0f, 1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0}, {-2.0f, -1.0f}};
+		m_smoothSegment = {{2.0f, 1.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0}}, {-2.0f, -1.0f}};
 
 		m_transform = b2Transform_identity;
 		m_angle = 0.0f;

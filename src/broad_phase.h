@@ -30,7 +30,7 @@ typedef struct b2BroadPhase
 	// The move set and array are used to track shapes that have moved significantly
 	// and need a pair query for new contacts. The array has a deterministic order.
 	// TODO_ERIN perhaps just a move set?
-	b2Set moveSet;
+	b2HashSet moveSet;
 	int32_t* moveArray;
 
 	// These are the results from the pair query and are used to create new contacts
@@ -40,7 +40,7 @@ typedef struct b2BroadPhase
 	int32_t movePairCapacity;
 	_Atomic int movePairIndex;
 
-	b2Set pairSet;
+	b2HashSet pairSet;
 
 } b2BroadPhase;
 

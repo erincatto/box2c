@@ -19,9 +19,10 @@ b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf)
 			return b2ComputePolygonAABB(&shape->polygon, xf);
 		case b2_segmentShape:
 			return b2ComputeSegmentAABB(&shape->segment, xf);
-		case b2_chainShape:
-			return b2ComputeChainAABB(&shape->chain, xf);
-		default: {
+		case b2_smoothSegmentShape:
+			return b2ComputeSegmentAABB(&shape->smoothSegment.segment, xf);
+		default:
+		{
 			B2_ASSERT(false);
 			b2AABB empty = {xf.p, xf.p};
 			return empty;
@@ -39,7 +40,8 @@ b2MassData b2ComputeShapeMass(const b2Shape* shape)
 			return b2ComputeCircleMass(&shape->circle, shape->density);
 		case b2_polygonShape:
 			return b2ComputePolygonMass(&shape->polygon, shape->density);
-		default: {
+		default:
+		{
 			B2_ASSERT(false);
 			b2MassData data = {0};
 			return data;
@@ -86,9 +88,10 @@ b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape)
 			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
 		case b2_segmentShape:
 			return b2MakeProxy(&shape->segment.point1, 2, 0.0f);
-		case b2_chainShape:
-			return b2MakeProxy(&shape->segment.point1, 2, 0.0f);
-		default: {
+		case b2_smoothSegmentShape:
+			return b2MakeProxy(&shape->smoothSegment.segment.point1, 2, 0.0f);
+		default:
+		{
 			B2_ASSERT(false);
 			b2DistanceProxy empty = {0};
 			return empty;

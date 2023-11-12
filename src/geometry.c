@@ -388,18 +388,6 @@ b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform xf)
 	return aabb;
 }
 
-b2AABB b2ComputeChainAABB(const b2Chain* shape, b2Transform xf)
-{
-	b2Vec2 v1 = b2TransformPoint(xf, shape->point1);
-	b2Vec2 v2 = b2TransformPoint(xf, shape->point2);
-
-	b2Vec2 lower = b2Min(v1, v2);
-	b2Vec2 upper = b2Max(v1, v2);
-
-	b2AABB aabb = {lower, upper};
-	return aabb;
-}
-
 bool b2PointInCircle(b2Vec2 point, const b2Circle* shape)
 {
 	b2Vec2 center = shape->point;

@@ -660,101 +660,6 @@ b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA,
 	return b2CollideCapsuleAndCircle(&capsuleA, xfA, circleB, xfB);
 }
 
-#if 0
-b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Circle* circleB,
-										   b2Transform xfB)
-{
-	b2Manifold manifold = b2EmptyManifold();
-
-	// Compute circle in frame of segment
-	b2Vec2 Q = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
-
-	b2Vec2 A = segmentA->point1, B = segmentA->point2;
-	b2Vec2 e = b2Sub(B, A);
-
-	// Normal points to the right for a CCW winding
-	b2Vec2 n = {e.y, -e.x};
-	float offset = b2Dot(n, b2Sub(Q, A));
-	if (offset < 0.0f)
-	{
-		return manifold;
-	}
-
-	// Barycentric coordinates
-	float u = b2Dot(e, b2Sub(B, Q));
-	float v = b2Dot(e, b2Sub(Q, A));
-
-	b2ContactFeature cf;
-	cf.indexB = 0;
-	cf.typeB = b2_vertexFeature;
-
-	// Region A
-	if (v <= 0.0f)
-	{
-		b2Vec2 A1 = segmentA->ghost1;
-		b2Vec2 B1 = A;
-		b2Vec2 e1 = b2Sub(B1, A1);
-		float u1 = b2Dot(e1, b2Sub(B1, Q));
-
-		// Is the circle in Region AB of the previous edge?
-		if (u1 > 0.0f)
-		{
-			return manifold;
-		}
-
-		cf.indexA = 0;
-		cf.typeA = b2_vertexFeature;
-		manifold.pointCount = 1;
-		manifold.type = b2_manifoldCircles;
-		manifold.localNormal = b2Vec2_zero;
-		manifold.localPoint = A;
-		manifold.points[0].id.key = 0;
-		manifold.points[0].id.cf = cf;
-		manifold.points[0].localPoint = circleB->point;
-		return manifold;
-	}
-
-	// Region B
-	if (u <= 0.0f)
-	{
-		b2Vec2 B2 = segmentA->ghost2;
-		b2Vec2 A2 = B;
-		b2Vec2 e2 = b2Sub(B2, A2);
-		float v2 = b2Dot(e2, b2Sub(Q, A2));
-
-		// Is the circle in Region AB of the next edge?
-		if (v2 > 0.0f)
-		{
-			return manifold;
-		}
-
-		cf.indexA = 1;
-		cf.typeA = b2_vertexFeature;
-		manifold.pointCount = 1;
-		manifold.type = b2_manifoldCircles;
-		manifold.localNormal = b2Vec2_zero;
-		manifold.localPoint = B;
-		manifold.points[0].id.key = 0;
-		manifold.points[0].id.cf = cf;
-		manifold.points[0].localPoint = circleB->point;
-		return manifold;
-	}
-
-	// Region AB
-	n = b2Normalize(n);
-
-	cf.indexA = 0;
-	cf.typeA = b2_faceFeature;
-	manifold.pointCount = 1;
-	manifold.type = b2_manifoldFaceA;
-	manifold.localNormal = n;
-	manifold.localPoint = A;
-	manifold.points[0].id.key = 0;
-	manifold.points[0].id.cf = cf;
-	manifold.points[0].localPoint = circleB->point;
-	return manifold;
-}
-
 // Separating axis between segment and polygon
 typedef enum b2SPType
 {
@@ -856,13 +761,92 @@ static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2
 
 	return axis;
 }
-#endif
 
 b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB, b2Transform xfB,
 									  b2DistanceCache* cache)
 {
 	b2Polygon polygonA = b2MakeCapsule(segmentA->point1, segmentA->point2, 0.0f);
 	return b2CollidePolygons(&polygonA, xfA, polygonB, xfB, cache);
+}
+
+b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Circle* circleB,
+										   b2Transform xfB)
+{
+	b2Manifold manifold = {0};
+
+	// Compute circle in frame of segment
+	b2Vec2 pB = b2InvTransformPoint(xfA, b2TransformPoint(xfB, circleB->point));
+
+	b2Vec2 p1 = segmentA->segment.point1;
+	b2Vec2 p2 = segmentA->segment.point2;
+	b2Vec2 e = b2Sub(p2, p1);
+
+	// Normal points to the right
+	float offset = b2Dot(b2RightPerp(e), b2Sub(pB, p1));
+	if (offset < 0.0f)
+	{
+		// collision is one-sided
+		return manifold;
+	}
+
+	// Barycentric coordinates
+	float u = b2Dot(e, b2Sub(p2, pB));
+	float v = b2Dot(e, b2Sub(pB, p1));
+
+	b2Vec2 pA;
+
+	if (v <= 0.0f)
+	{
+		// Behind point1?
+		// Is pB in the voronoi region of the previous edge?
+		b2Vec2 prevEdge = b2Sub(p1, segmentA->ghost1);
+		float uPrev = b2Dot(prevEdge, b2Sub(pB, p1));
+		if (uPrev <= 0.0f)
+		{
+			return manifold;
+		}
+
+		pA = p1;
+	}
+	else if (u <= 0.0f)
+	{
+		// Ahead of point2?
+		b2Vec2 nextEdge = b2Sub(segmentA->ghost1, p2);
+		float vNext = b2Dot(nextEdge, b2Sub(pB, p2));
+
+		// Is pB in the voronoi region of the next edge?
+		if (vNext > 0.0f)
+		{
+			return manifold;
+		}
+
+		pA = p2;
+	}
+	else
+	{
+		float ee = b2Dot(e, e);
+		pA = (b2Vec2){u * p1.x + v * p2.x, u * p1.y + v * p2.y};
+		pA = ee > 0.0f ? b2MulSV(1.0f / ee, pA) : p1;
+	}
+
+	float distance;
+	b2Vec2 normal = b2GetLengthAndNormalize(&distance, b2Sub(pB, pA));
+
+	float radius = circleB->radius;
+	float separation = distance - radius;
+	if (separation > b2_speculativeDistance)
+	{
+		return manifold;
+	}
+
+	b2Vec2 cA = pA;
+	b2Vec2 cB = b2MulAdd(pB, -radius, normal);
+	manifold.normal = b2RotateVector(xfA.q, normal);
+	manifold.points[0].point = b2TransformPoint(xfA, b2Lerp(cA, cB, 0.5f));
+	manifold.points[0].separation = separation;
+	manifold.points[0].id = 0;
+	manifold.pointCount = 1;
+	return manifold;
 }
 
 #if 0

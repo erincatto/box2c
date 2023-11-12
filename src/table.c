@@ -39,9 +39,9 @@ static inline uint32_t b2RoundUpPowerOf2(uint32_t x)
 	return x + 1;
 }
 
-b2Set b2CreateSet(int32_t capacity)
+b2HashSet b2CreateSet(int32_t capacity)
 {
-	b2Set set = {0};
+	b2HashSet set = {0};
 
 	// Capacity must be a power of 2
 	if (capacity > 16)
@@ -60,7 +60,7 @@ b2Set b2CreateSet(int32_t capacity)
 	return set;
 }
 
-void b2DestroySet(b2Set* set)
+void b2DestroySet(b2HashSet* set)
 {
 	b2Free(set->items, set->capacity * sizeof(b2SetItem));
 	set->items = NULL;
@@ -68,7 +68,7 @@ void b2DestroySet(b2Set* set)
 	set->capacity = 0;
 }
 
-void b2ClearSet(b2Set* set)
+void b2ClearSet(b2HashSet* set)
 {
 	set->count = 0;
 	memset(set->items, 0, set->capacity * sizeof(b2SetItem));
@@ -95,7 +95,7 @@ static inline uint32_t b2KeyHash(uint64_t key)
 int32_t g_probeCount;
 #endif
 
-int32_t b2FindSlot(const b2Set* set, uint64_t key, uint32_t hash)
+int32_t b2FindSlot(const b2HashSet* set, uint64_t key, uint32_t hash)
 {
 	uint32_t capacity = set->capacity;
 	int32_t index = hash & (capacity - 1);
@@ -111,7 +111,7 @@ int32_t b2FindSlot(const b2Set* set, uint64_t key, uint32_t hash)
 	return index;
 }
 
-static void b2AddKeyHaveCapacity(b2Set* set, uint64_t key, uint32_t hash)
+static void b2AddKeyHaveCapacity(b2HashSet* set, uint64_t key, uint32_t hash)
 {
 	int32_t index = b2FindSlot(set, key, hash);
 	b2SetItem* items = set->items;
@@ -122,7 +122,7 @@ static void b2AddKeyHaveCapacity(b2Set* set, uint64_t key, uint32_t hash)
 	set->count += 1;
 }
 
-static void b2GrowTable(b2Set* set)
+static void b2GrowTable(b2HashSet* set)
 {
 	uint32_t oldCount = set->count;
 	B2_MAYBE_UNUSED(oldCount);
@@ -154,7 +154,7 @@ static void b2GrowTable(b2Set* set)
 	b2Free(oldItems, oldCapacity * sizeof(b2SetItem));
 }
 
-bool b2ContainsKey(const b2Set* set, uint64_t key)
+bool b2ContainsKey(const b2HashSet* set, uint64_t key)
 {
 	// key of zero is a sentinel
 	B2_ASSERT(key != 0);
@@ -163,7 +163,7 @@ bool b2ContainsKey(const b2Set* set, uint64_t key)
 	return set->items[index].key == key;
 }
 
-bool b2AddKey(b2Set* set, uint64_t key)
+bool b2AddKey(b2HashSet* set, uint64_t key)
 {
 	// key of zero is a sentinel
 	B2_ASSERT(key != 0);
@@ -189,7 +189,7 @@ bool b2AddKey(b2Set* set, uint64_t key)
 }
 
 // See https://en.wikipedia.org/wiki/Open_addressing
-bool b2RemoveKey(b2Set* set, uint64_t key)
+bool b2RemoveKey(b2HashSet* set, uint64_t key)
 {
 	uint32_t hash = b2KeyHash(key);
 	int32_t i = b2FindSlot(set, key, hash);
