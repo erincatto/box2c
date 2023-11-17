@@ -523,6 +523,35 @@ public:
 
 			offset = b2Add(offset, increment);
 		}
+
+		offset = {-10.0f, 20.0f};
+
+		// smooth-segment-circle
+		{
+			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSmoothSegmentAndCircle(&segment, xf1, &circle, xf2);
+
+			b2Vec2 g1 = b2TransformPoint(xf1, segment.ghost1);
+			b2Vec2 g2 = b2TransformPoint(xf1, segment.ghost2);
+			b2Vec2 p1 = b2TransformPoint(xf1, segment.segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment.segment.point2);
+			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+			g_draw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
 	}
 
 	static Sample* Create(const Settings& settings)
@@ -556,4 +585,5 @@ public:
 	bool m_enableCaching;
 };
 
-static int sampleIndex = RegisterSample("Collision", "Manifold", Manifold::Create);
+static int sampleManifold = RegisterSample("Collision", "Manifold", Manifold::Create);
+

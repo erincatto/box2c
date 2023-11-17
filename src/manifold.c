@@ -660,107 +660,7 @@ b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA,
 	return b2CollideCapsuleAndCircle(&capsuleA, xfA, circleB, xfB);
 }
 
-// Separating axis between segment and polygon
-typedef enum b2SPType
-{
-	b2_sp_unknown,
-	b2_sp_segmentA,
-	b2_sp_polygonB
-} b2SPType;
 
-typedef struct b2SPAxis
-{
-	b2Vec2 normal;
-	b2SPType type;
-	int32_t index;
-	float separation;
-} b2SPAxis;
-
-// This holds polygon B expressed in frame A.
-typedef struct b2TempPolygon
-{
-	b2Vec2 vertices[b2_maxPolygonVertices];
-	b2Vec2 normals[b2_maxPolygonVertices];
-	int32_t count;
-} b2TempPolygon;
-
-// Reference face used for clipping
-typedef struct b2ReferenceFace
-{
-	int32_t i1, i2;
-	b2Vec2 v1, v2;
-	b2Vec2 normal;
-
-	b2Vec2 sideNormal1;
-	float sideOffset1;
-
-	b2Vec2 sideNormal2;
-	float sideOffset2;
-} b2ReferenceFace;
-
-static b2SPAxis b2ComputeEdgeSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 normal1)
-{
-	b2SPAxis axis;
-	axis.type = b2_sp_segmentA;
-	axis.index = -1;
-	axis.separation = -FLT_MAX;
-	axis.normal = b2Vec2_zero;
-
-	b2Vec2 axes[2] = {normal1, b2Neg(normal1)};
-
-	// Find axis with least overlap (min-max problem)
-	for (int32_t j = 0; j < 2; ++j)
-	{
-		float sj = FLT_MAX;
-
-		// Find deepest polygon vertex along axis j
-		for (int32_t i = 0; i < polygonB->count; ++i)
-		{
-			float si = b2Dot(axes[j], b2Sub(polygonB->vertices[i], v1));
-			if (si < sj)
-			{
-				sj = si;
-			}
-		}
-
-		if (sj > axis.separation)
-		{
-			axis.index = j;
-			axis.separation = sj;
-			axis.normal = axes[j];
-		}
-	}
-
-	return axis;
-}
-
-static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 v2)
-{
-	b2SPAxis axis;
-	axis.type = b2_sp_unknown;
-	axis.index = -1;
-	axis.separation = -FLT_MAX;
-	axis.normal = b2Vec2_zero;
-
-	for (int32_t i = 0; i < polygonB->count; ++i)
-	{
-		b2Vec2 n = b2Neg(polygonB->normals[i]);
-
-		float s1 = b2Dot(n, b2Sub(polygonB->vertices[i], v1));
-		float s2 = b2Dot(n, b2Sub(polygonB->vertices[i], v2));
-		float s = B2_MIN(s1, s2);
-
-		if (s > axis.separation)
-		{
-			axis.type = b2_sp_polygonB;
-			axis.index = i;
-			axis.separation = s;
-			axis.normal = n;
-		}
-	}
-
-	return axis;
-}
 
 b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB, b2Transform xfB,
 									  b2DistanceCache* cache)
@@ -849,8 +749,462 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Tr
 	return manifold;
 }
 
-#if 0
+// Separating axis between segment and polygon
+typedef enum b2SPType
+{
+	b2_sp_unknown,
+	b2_sp_segmentA,
+	b2_sp_polygonB
+} b2SPType;
+
+typedef struct b2SPAxis
+{
+	b2Vec2 normal;
+	b2SPType type;
+	int32_t index;
+	int32_t incidentIndex;
+	float separation;
+} b2SPAxis;
+
+// This holds polygon B expressed in frame A.
+typedef struct b2TempPolygon
+{
+	b2Vec2 vertices[b2_maxPolygonVertices];
+	b2Vec2 normals[b2_maxPolygonVertices];
+	int32_t count;
+} b2TempPolygon;
+
+// Reference face used for clipping
+typedef struct b2ReferenceFace
+{
+	int32_t i1, i2;
+	b2Vec2 v1, v2;
+	b2Vec2 normal;
+
+	b2Vec2 sideNormal1;
+	float sideOffset1;
+
+	b2Vec2 sideNormal2;
+	float sideOffset2;
+} b2ReferenceFace;
+
+static b2SPAxis b2ComputeEdgeSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 normal1)
+{
+	b2SPAxis axis;
+	axis.type = b2_sp_segmentA;
+	axis.index = -1;
+	axis.incidentIndex = -1;
+	axis.separation = -FLT_MAX;
+	axis.normal = b2Vec2_zero;
+
+	b2Vec2 axes[2] = {normal1, b2Neg(normal1)};
+
+	// Find axis with least overlap (min-max problem)
+	for (int32_t j = 0; j < 2; ++j)
+	{
+		float sj = FLT_MAX;
+
+		// Find deepest polygon vertex along axis j
+		for (int32_t i = 0; i < polygonB->count; ++i)
+		{
+			float si = b2Dot(axes[j], b2Sub(polygonB->vertices[i], v1));
+			if (si < sj)
+			{
+				axis.incidentIndex;
+				sj = si;
+			}
+		}
+
+		if (sj > axis.separation)
+		{
+			axis.index = j;
+			axis.separation = sj;
+			axis.normal = axes[j];
+		}
+	}
+
+	return axis;
+}
+
+static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 v2)
+{
+	b2SPAxis axis;
+	axis.type = b2_sp_unknown;
+	axis.index = -1;
+	axis.separation = -FLT_MAX;
+	axis.normal = b2Vec2_zero;
+
+	for (int32_t i = 0; i < polygonB->count; ++i)
+	{
+		b2Vec2 n = b2Neg(polygonB->normals[i]);
+
+		float s1 = b2Dot(n, b2Sub(polygonB->vertices[i], v1));
+		float s2 = b2Dot(n, b2Sub(polygonB->vertices[i], v2));
+		float s = B2_MIN(s1, s2);
+
+		if (s > axis.separation)
+		{
+			axis.type = b2_sp_polygonB;
+			axis.index = i;
+			axis.separation = s;
+			axis.normal = n;
+		}
+	}
+
+	return axis;
+}
+
+static b2Manifold b2EdgeClip(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 normal, float ra, float rb, uint16_t id1, uint16_t id2)
+{
+	b2Manifold manifold = {0};
+
+	b2Vec2 tangent = b2RightPerp(normal);
+
+	// Barycentric coordinates of each point relative to a1 along tangent
+	float lower1 = 0.0f;
+	float upper1 = b2Dot(b2Sub(a2, a1), tangent);
+
+	// Incident edge points opposite of tangent due to CCW winding
+	float upper2 = b2Dot(b2Sub(b1, a1), tangent);
+	float lower2 = b2Dot(b2Sub(b2, a1), tangent);
+
+	// This check can fail slightly due to mismatch with GJK code.
+	// Perhaps fallback to a single point here? Otherwise we get two coincident points.
+	// if (upper2 < lower1 || upper1 < lower2)
+	//{
+	//	// numeric failure
+	//	B2_ASSERT(false);
+	//	return manifold;
+	//}
+
+	b2Vec2 vLower;
+	if (lower2 < lower1 && upper2 - lower2 > FLT_EPSILON)
+	{
+		vLower = b2Lerp(b2, b1, (lower1 - lower2) / (upper2 - lower2));
+	}
+	else
+	{
+		vLower = b2;
+	}
+
+	b2Vec2 vUpper;
+	if (upper2 > upper1 && upper2 - lower2 > FLT_EPSILON)
+	{
+		vUpper = b2Lerp(b2, b1, (upper1 - lower2) / (upper2 - lower2));
+	}
+	else
+	{
+		vUpper = b1;
+	}
+
+	// TODO_ERIN vLower can be very close to vUpper, reduce to one point?
+
+	float separationLower = b2Dot(b2Sub(vLower, a1), normal);
+	float separationUpper = b2Dot(b2Sub(vUpper, a1), normal);
+
+	// Put contact points at midpoint, accounting for radii
+	vLower = b2MulAdd(vLower, 0.5f * (ra - rb - separationLower), normal);
+	vUpper = b2MulAdd(vUpper, 0.5f * (ra - rb - separationUpper), normal);
+
+	float radius = ra + rb;
+
+	manifold.normal = normal;
+	{
+		b2ManifoldPoint* cp = manifold.points + 0;
+		cp->point = vLower;
+		cp->separation = separationLower - radius;
+		cp->id = id1;
+	}
+
+	{
+		b2ManifoldPoint* cp = manifold.points + 1;
+		cp->point = b2TransformPoint(xfA, vUpper);
+		cp->separation = separationUpper - radius;
+		cp->id = id2;
+	}
+
+	manifold.pointCount = 2;
+
+	return manifold;
+}
+
 b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
+											b2Transform xfB, b2DistanceCache* cache)
+{
+	b2Manifold manifold = b2EmptyManifold();
+
+	b2Transform xf = b2InvMulTransforms(xfA, xfB);
+
+	b2Vec2 centroidB = b2TransformPoint(xf, polygonB->centroid);
+
+	b2Vec2 p1 = segmentA->segment.point1;
+	b2Vec2 p2 = segmentA->segment.point2;
+
+	b2Vec2 edge1 = b2Normalize(b2Sub(p2, p1));
+
+	// Normal points to the right
+	b2Vec2 normal1 = b2RightPerp(edge1);
+	float offset = b2Dot(normal1, b2Sub(centroidB, p1));
+	if (offset < 0.0f)
+	{
+		// one-sided collision
+		return manifold;
+	}
+
+	// Get polygonB in frameA
+	b2TempPolygon tempPolygonB;
+	tempPolygonB.count = polygonB->count;
+	for (int32_t i = 0; i < polygonB->count; ++i)
+	{
+		tempPolygonB.vertices[i] = b2TransformPoint(xf, polygonB->vertices[i]);
+		tempPolygonB.normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
+	}
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeProxy(&segmentA->segment.point1, 2, 0.0f);
+	input.proxyB = b2MakeProxy(tempPolygonB.vertices, tempPolygonB.count, 0.0f);
+	input.transformA = b2Transform_identity;
+	input.transformB = b2Transform_identity;
+	input.useRadii = false;
+
+	b2DistanceOutput output = b2ShapeDistance(cache, &input);
+
+	if (output.distance > radius + b2_speculativeDistance)
+	{
+		return manifold;
+	}
+
+	if (output.distance > 0.1f * b2_linearSlop)
+	{
+		// extract features from GJK
+		// smooth normal logic
+		// clip
+	}
+
+	float edgeSeparation = -FLT_MAX;
+	int32_t incidentPolygonVertexIndex = -1;
+
+	for (int32_t i = 0; i < polygonB->count; ++i)
+	{
+		float short = b2Dot(normal1, b2Sub(tempPolygonB.vertices[i], p1));
+		if (s > edgeSeparation)
+		{
+			edgeSeparation = s;
+			incidentPolygonVertexIndex = i;
+		}
+	}
+
+	if (sj > axis.separation)
+	{
+		axis.index = j;
+		axis.separation = sj;
+		axis.normal = axes[j];
+	}
+
+	b2SPAxis edgeAxis = b2ComputeEdgeSeparation(&tempPolygonB, v1, normal1);
+	b2SPAxis polygonAxis = b2ComputePolygonSeparation(&tempPolygonB, v1, v2);
+
+	// Use hysteresis for jitter reduction.
+	const float k_relativeTol = 0.98f;
+	const float k_absoluteTol = 0.001f;
+
+	// Want the segment normal to be the reference axis
+	int32_t incidentAxis;
+	b2Vec2 normal;
+	if (edgeAxis.separation > k_relativeTol * polygonAxis.separation + k_absoluteTol)
+	{
+		flip = false;
+		incidentAxis = edgeAxis.
+		primaryAxis = edgeAxis;
+	}
+	else
+	{
+		flip = true;
+		primaryAxis = polygonAxis;
+	}
+
+	// Smooth collision
+	// See https://box2d.org/posts/2020/06/ghost-collisions/
+
+	// TODO_ERIN defer normalization
+	b2Vec2 edge0 = b2Normalize(b2Sub(p1, segmentA->ghost1));
+	b2Vec2 normal0 = b2RightPerp(edge0);
+	bool convex1 = b2Cross(edge0, edge1) >= 0.0f;
+
+	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, p2));
+	b2Vec2 normal2 = b2RightPerp(edge2);
+	bool convex2 = b2Cross(edge1, edge2) >= 0.0f;
+
+	const float sinTol = 0.1f;
+	bool side1 = b2Dot(primaryAxis.normal, edge1) <= 0.0f;
+
+	// Check Gauss Map
+	if (side1)
+	{
+		if (convex1)
+		{
+			if (b2Cross(primaryAxis.normal, normal0) > sinTol)
+			{
+				// Skip region
+				return manifold;
+			}
+
+			// Admit region
+		}
+		else
+		{
+			// Snap region
+			primaryAxis = edgeAxis;
+		}
+	}
+	else
+	{
+		if (convex2)
+		{
+			if (b2Cross(normal2, primaryAxis.normal) > sinTol)
+			{
+				// Skip region
+				return manifold;
+			}
+
+			// Admit region
+		}
+		else
+		{
+			// Snap region
+			primaryAxis = edgeAxis;
+		}
+	}
+
+	b2ClipVertex clipPoints[2];
+	b2ReferenceFace ref;
+	if (primaryAxis.type == b2_sp_segmentA)
+	{
+		manifold.type = b2_manifoldFaceA;
+
+		// Search for the polygon normal that is most anti-parallel to the edge normal.
+		int32_t bestIndex = 0;
+		float bestValue = b2Dot(primaryAxis.normal, tempPolygonB.normals[0]);
+		for (int32_t i = 1; i < tempPolygonB.count; ++i)
+		{
+			float value = b2Dot(primaryAxis.normal, tempPolygonB.normals[i]);
+			if (value < bestValue)
+			{
+				bestValue = value;
+				bestIndex = i;
+			}
+		}
+
+		int32_t i1 = bestIndex;
+		int32_t i2 = i1 + 1 < tempPolygonB.count ? i1 + 1 : 0;
+
+		clipPoints[0].v = tempPolygonB.vertices[i1];
+		clipPoints[0].id.cf.indexA = 0;
+		clipPoints[0].id.cf.indexB = (uint8_t)i1;
+		clipPoints[0].id.cf.typeA = b2_faceFeature;
+		clipPoints[0].id.cf.typeB = b2_vertexFeature;
+
+		clipPoints[1].v = tempPolygonB.vertices[i2];
+		clipPoints[1].id.cf.indexA = 0;
+		clipPoints[1].id.cf.indexB = (uint8_t)i2;
+		clipPoints[1].id.cf.typeA = b2_faceFeature;
+		clipPoints[1].id.cf.typeB = b2_vertexFeature;
+
+		ref.i1 = 0;
+		ref.i2 = 1;
+		ref.v1 = v1;
+		ref.v2 = v2;
+		ref.normal = primaryAxis.normal;
+		ref.sideNormal1 = b2Neg(edge1);
+		ref.sideNormal2 = edge1;
+	}
+	else
+	{
+		manifold.type = b2_manifoldFaceB;
+
+		clipPoints[0].v = v2;
+		clipPoints[0].id.cf.indexA = 1;
+		clipPoints[0].id.cf.indexB = (uint8_t)primaryAxis.index;
+		clipPoints[0].id.cf.typeA = b2_vertexFeature;
+		clipPoints[0].id.cf.typeB = b2_faceFeature;
+
+		clipPoints[1].v = v1;
+		clipPoints[1].id.cf.indexA = 0;
+		clipPoints[1].id.cf.indexB = (uint8_t)primaryAxis.index;
+		clipPoints[1].id.cf.typeA = b2_vertexFeature;
+		clipPoints[1].id.cf.typeB = b2_faceFeature;
+
+		ref.i1 = primaryAxis.index;
+		ref.i2 = ref.i1 + 1 < tempPolygonB.count ? ref.i1 + 1 : 0;
+		ref.v1 = tempPolygonB.vertices[ref.i1];
+		ref.v2 = tempPolygonB.vertices[ref.i2];
+		ref.normal = tempPolygonB.normals[ref.i1];
+
+		// CCW winding
+		ref.sideNormal1 = (b2Vec2){ref.normal.y, -ref.normal.x};
+		ref.sideNormal2 = b2Neg(ref.sideNormal1);
+	}
+
+	ref.sideOffset1 = b2Dot(ref.sideNormal1, ref.v1);
+	ref.sideOffset2 = b2Dot(ref.sideNormal2, ref.v2);
+
+	// Clip incident edge against reference face side planes
+	b2ClipVertex clipPoints1[2];
+	b2ClipVertex clipPoints2[2];
+	int32_t np;
+
+	// Clip to side 1
+	np = b2ClipSegmentToLine(clipPoints1, clipPoints, ref.sideNormal1, ref.sideOffset1, ref.i1);
+
+	if (np < b2_maxManifoldPoints)
+	{
+		return manifold;
+	}
+
+	// Clip to side 2
+	np = b2ClipSegmentToLine(clipPoints2, clipPoints1, ref.sideNormal2, ref.sideOffset2, ref.i2);
+
+	if (np < b2_maxManifoldPoints)
+	{
+		return manifold;
+	}
+
+	// Now clipPoints2 contains the clipped points.
+	if (primaryAxis.type == b2_sp_segmentA)
+	{
+		manifold.localNormal = ref.normal;
+		manifold.localPoint = ref.v1;
+	}
+	else
+	{
+		manifold.localNormal = polygonB->normals[ref.i1];
+		manifold.localPoint = polygonB->vertices[ref.i1];
+	}
+
+	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
+	{
+		b2ManifoldPoint* cp = manifold.points + i;
+
+		if (primaryAxis.type == b2_sp_segmentA)
+		{
+			cp->localPoint = b2InvTransformPoint(xf, clipPoints2[i].v);
+			cp->id = clipPoints2[i].id;
+		}
+		else
+		{
+			cp->localPoint = clipPoints2[i].v;
+			cp->id.cf.typeA = clipPoints2[i].id.cf.typeB;
+			cp->id.cf.typeB = clipPoints2[i].id.cf.typeA;
+			cp->id.cf.indexA = clipPoints2[i].id.cf.indexB;
+			cp->id.cf.indexB = clipPoints2[i].id.cf.indexA;
+		}
+	}
+
+	manifold.pointCount = b2_maxManifoldPoints;
+	return manifold;
+}
+
+b2Manifold b2CollideSmoothSegmentAndPolygonOld(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
 											b2Transform xfB)
 {
 	b2Manifold manifold = b2EmptyManifold();
@@ -859,16 +1213,17 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 	b2Vec2 centroidB = b2TransformPoint(xf, polygonB->centroid);
 
-	b2Vec2 v1 = segmentA->point1;
-	b2Vec2 v2 = segmentA->point2;
+	b2Vec2 p1 = segmentA->segment.point1;
+	b2Vec2 p2 = segmentA->segment.point2;
 
-	b2Vec2 edge1 = b2Normalize(b2Sub(v2, v1));
+	b2Vec2 edge1 = b2Normalize(b2Sub(p2, p1));
 
-	// Normal points to the right for a CCW winding
-	b2Vec2 normal1 = {edge1.y, -edge1.x};
-	float offset = b2Dot(normal1, b2Sub(centroidB, v1));
+	// Normal points to the right
+	b2Vec2 normal1 = b2RightPerp(edge1);
+	float offset = b2Dot(normal1, b2Sub(centroidB, p1));
 	if (offset < 0.0f)
 	{
+		// one-sided collision
 		return manifold;
 	}
 
@@ -1077,4 +1432,3 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 	manifold.pointCount = b2_maxManifoldPoints;
 	return manifold;
 }
-#endif
