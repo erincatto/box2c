@@ -54,6 +54,7 @@ typedef struct b2Polygon
 {
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
+	b2Vec2 centroid;
 	float radius;
 	int32_t count;
 } b2Polygon;

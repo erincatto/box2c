@@ -19,11 +19,43 @@ bool b2IsValidRay(const b2RayCastInput* input)
 	return isValid;
 }
 
+static b2Vec2 b2ComputePolygonCentroid(const b2Vec2* vertices, int32_t count)
+{
+	b2Vec2 center = {0.0f, 0.0f};
+	float area = 0.0f;
+
+	// Get a reference point for forming triangles.
+	// Use the first vertex to reduce round-off errors.
+	b2Vec2 origin = vertices[0];
+
+	for (int32_t i = 1; i < count - 1; ++i)
+	{
+		// Triangle edges
+		b2Vec2 e1 = b2Sub(vertices[i], origin);
+		b2Vec2 e2 = b2Sub(vertices[i + 1], origin);
+		float a = b2Cross(e1, e2);
+
+		// Area weighted centroid, r at origin
+		center = b2MulAdd(center, a, b2Add(e1, e2));
+		area += a;
+	}
+
+	B2_ASSERT(area > FLT_EPSILON);
+	float invArea = 1.0f / area;
+	center.x *= invArea;
+	center.y *= invArea;
+	
+	// Remove offset
+	center = b2Add(origin, center);
+
+	return center;
+}
+
 b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 {
 	B2_ASSERT(hull->count >= 3);
 
-	b2Polygon shape;
+	b2Polygon shape = {0};
 	shape.count = hull->count;
 	shape.radius = radius;
 
@@ -43,6 +75,8 @@ b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
 
+	shape.centroid = b2ComputePolygonCentroid(shape.vertices, shape.count);
+
 	return shape;
 }
 
@@ -50,7 +84,7 @@ b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform tran
 {
 	B2_ASSERT(hull->count >= 3);
 
-	b2Polygon shape;
+	b2Polygon shape = {0};
 	shape.count = hull->count;
 	shape.radius = radius;
 
@@ -70,6 +104,8 @@ b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform tran
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
 
+	shape.centroid = b2ComputePolygonCentroid(shape.vertices, shape.count);
+	
 	return shape;
 }
 
@@ -94,6 +130,7 @@ b2Polygon b2MakeBox(float hx, float hy)
 	shape.normals[2] = (b2Vec2){0.0f, 1.0f};
 	shape.normals[3] = (b2Vec2){-1.0f, 0.0f};
 	shape.radius = 0.0f;
+	shape.centroid = b2Vec2_zero;
 	return shape;
 }
 
@@ -121,6 +158,7 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[2] = b2RotateVector(xf.q, (b2Vec2){0.0f, 1.0f});
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
 	shape.radius = 0.0f;
+	shape.centroid = center;
 	return shape;
 }
 

@@ -10,8 +10,8 @@
 #include "box2d/math.h"
 
 #include <float.h>
-#include <string.h>
 #include <stdatomic.h>
+#include <string.h>
 
 #if 0
 b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform xfA, float radiusA, b2Transform xfB,
@@ -294,8 +294,8 @@ b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA
 }
 
 // Polygon clipper used by GJK and SAT to compute contact points when there are potentially two contact points.
-static b2Manifold b2PolygonClip(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB, int32_t edgeA,
-								int32_t edgeB, bool flip)
+static b2Manifold b2ClipPolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB, int32_t edgeA,
+								 int32_t edgeB, bool flip)
 {
 	b2Manifold manifold = {0};
 
@@ -533,7 +533,7 @@ static b2Manifold b2PolygonSAT(const b2Polygon* polyA, b2Transform xfA, const b2
 		}
 	}
 
-	return b2PolygonClip(polyA, xfA, polyB, xfB, edgeA, edgeB, flip);
+	return b2ClipPolygons(polyA, xfA, polyB, xfB, edgeA, edgeB, flip);
 }
 
 // Due to speculation, every polygon is rounded
@@ -652,7 +652,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		edgeB = dot1 < dot2 ? edgeB1 : edgeB2;
 	}
 
-	return b2PolygonClip(polyA, xfA, polyB, xfB, edgeA, edgeB, flip);
+	return b2ClipPolygons(polyA, xfA, polyB, xfB, edgeA, edgeB, flip);
 }
 
 b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
@@ -710,7 +710,7 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Tr
 	else if (u <= 0.0f)
 	{
 		// Ahead of point2?
-		b2Vec2 nextEdge = b2Sub(segmentA->ghost1, p2);
+		b2Vec2 nextEdge = b2Sub(segmentA->ghost2, p2);
 		float vNext = b2Dot(nextEdge, b2Sub(pB, p2));
 
 		// Is pB in the voronoi region of the next edge?
@@ -748,117 +748,12 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Tr
 	return manifold;
 }
 
-// Separating axis between segment and polygon
-typedef enum b2SPType
-{
-	b2_sp_unknown,
-	b2_sp_segmentA,
-	b2_sp_polygonB
-} b2SPType;
-
-typedef struct b2SPAxis
-{
-	b2Vec2 normal;
-	b2SPType type;
-	int32_t index;
-	int32_t incidentIndex;
-	float separation;
-} b2SPAxis;
-
-// This holds polygon B expressed in frame A.
-typedef struct b2TempPolygon
-{
-	b2Vec2 vertices[b2_maxPolygonVertices];
-	b2Vec2 normals[b2_maxPolygonVertices];
-	int32_t count;
-} b2TempPolygon;
-
-// Reference face used for clipping
-typedef struct b2ReferenceFace
-{
-	int32_t i1, i2;
-	b2Vec2 v1, v2;
-	b2Vec2 normal;
-
-	b2Vec2 sideNormal1;
-	float sideOffset1;
-
-	b2Vec2 sideNormal2;
-	float sideOffset2;
-} b2ReferenceFace;
-
-static b2SPAxis b2ComputeEdgeSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 normal1)
-{
-	b2SPAxis axis;
-	axis.type = b2_sp_segmentA;
-	axis.index = -1;
-	axis.incidentIndex = -1;
-	axis.separation = -FLT_MAX;
-	axis.normal = b2Vec2_zero;
-
-	b2Vec2 axes[2] = {normal1, b2Neg(normal1)};
-
-	// Find axis with least overlap (min-max problem)
-	for (int32_t j = 0; j < 2; ++j)
-	{
-		float sj = FLT_MAX;
-
-		// Find deepest polygon vertex along axis j
-		for (int32_t i = 0; i < polygonB->count; ++i)
-		{
-			float si = b2Dot(axes[j], b2Sub(polygonB->vertices[i], v1));
-			if (si < sj)
-			{
-				axis.incidentIndex;
-				sj = si;
-			}
-		}
-
-		if (sj > axis.separation)
-		{
-			axis.index = j;
-			axis.separation = sj;
-			axis.normal = axes[j];
-		}
-	}
-
-	return axis;
-}
-
-static b2SPAxis b2ComputePolygonSeparation(const b2TempPolygon* polygonB, b2Vec2 v1, b2Vec2 v2)
-{
-	b2SPAxis axis;
-	axis.type = b2_sp_unknown;
-	axis.index = -1;
-	axis.separation = -FLT_MAX;
-	axis.normal = b2Vec2_zero;
-
-	for (int32_t i = 0; i < polygonB->count; ++i)
-	{
-		b2Vec2 n = b2Neg(polygonB->normals[i]);
-
-		float s1 = b2Dot(n, b2Sub(polygonB->vertices[i], v1));
-		float s2 = b2Dot(n, b2Sub(polygonB->vertices[i], v2));
-		float s = B2_MIN(s1, s2);
-
-		if (s > axis.separation)
-		{
-			axis.type = b2_sp_polygonB;
-			axis.index = i;
-			axis.separation = s;
-			axis.normal = n;
-		}
-	}
-
-	return axis;
-}
-
-static b2Manifold b2EdgeClip(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 normal, float ra, float rb, uint16_t id1,
-							 uint16_t id2)
+static b2Manifold b2ClipSegments(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 normal, float ra, float rb, uint16_t id1,
+								 uint16_t id2)
 {
 	b2Manifold manifold = {0};
 
-	b2Vec2 tangent = b2RightPerp(normal);
+	b2Vec2 tangent = b2LeftPerp(normal);
 
 	// Barycentric coordinates of each point relative to a1 along tangent
 	float lower1 = 0.0f;
@@ -918,7 +813,7 @@ static b2Manifold b2EdgeClip(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 
 
 	{
 		b2ManifoldPoint* cp = manifold.points + 1;
-		cp->point = b2TransformPoint(xfA, vUpper);
+		cp->point = vUpper;
 		cp->separation = separationUpper - radius;
 		cp->id = id2;
 	}
@@ -928,14 +823,78 @@ static b2Manifold b2EdgeClip(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 
 	return manifold;
 }
 
+enum b2NormalType
+{
+	// This means the normal points in a direction that is non-smooth relative to a convex vertex and should be skipped
+	b2_normalSkip,
+
+	// This means the normal points in a direction that is smooth relative to a convex vertex and should be used for collision
+	b2_normalAdmit,
+
+	// This means the normal is in a region of a concave vertex and should be snapped to the smooth segment normal
+	b2_normalSnap
+};
+
+struct b2SmoothSegmentParams
+{
+	b2Vec2 edge1;
+	b2Vec2 normal0;
+	b2Vec2 normal2;
+	bool convex1;
+	bool convex2;
+};
+
+// Evaluate Guass map
+// See https://box2d.org/posts/2020/06/ghost-collisions/
+static enum b2NormalType b2ClassifyNormal(struct b2SmoothSegmentParams params, b2Vec2 normal)
+{
+	const float sinTol = 0.01f;
+
+	if (b2Dot(normal, params.edge1) <= 0.0f)
+	{
+		// Normal points towards the segment tail
+		if (params.convex1)
+		{
+			if (b2Cross(normal, params.normal0) > sinTol)
+			{
+				return b2_normalSkip;
+			}
+
+			return b2_normalAdmit;
+		}
+		else
+		{
+			return b2_normalSnap;
+		}
+	}
+	else
+	{
+		// Normal points towards segment head
+		if (params.convex2)
+		{
+			if (b2Cross(params.normal2, normal) > sinTol)
+			{
+				return b2_normalSkip;
+			}
+
+			return b2_normalAdmit;
+		}
+		else
+		{
+			return b2_normalSnap;
+		}
+	}
+}
+
 b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
 											b2Transform xfB, b2DistanceCache* cache)
 {
-	b2Manifold manifold = b2EmptyManifold();
+	b2Manifold manifold = {0};
 
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
 	b2Vec2 centroidB = b2TransformPoint(xf, polygonB->centroid);
+	float radiusB = polygonB->radius;
 
 	b2Vec2 p1 = segmentA->segment.point1;
 	b2Vec2 p2 = segmentA->segment.point2;
@@ -970,376 +929,198 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 	b2DistanceOutput output = b2ShapeDistance(cache, &input);
 
-	if (output.distance > radius + b2_speculativeDistance)
+	if (output.distance > radiusB + b2_speculativeDistance)
 	{
 		return manifold;
 	}
+
+	struct b2SmoothSegmentParams smoothParams;
+	smoothParams.edge1 = edge1;
+
+	const float convexTol = 0.01f;
+	b2Vec2 edge0 = b2Normalize(b2Sub(p1, segmentA->ghost1));
+	smoothParams.normal0 = b2RightPerp(edge0);
+	smoothParams.convex1 = b2Cross(edge0, edge1) >= convexTol;
+
+	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, p2));
+	smoothParams.normal2 = b2RightPerp(edge2);
+	smoothParams.convex2 = b2Cross(edge1, edge2) >= convexTol;
+
+	// Index of incident vertex on polygon
+	int32_t incidentIndex = -1;
 
 	if (output.distance > 0.1f * b2_linearSlop)
 	{
-		// extract features from GJK
-		// smooth normal logic
-		// clip
-	}
-
-	// SAT edge normal
-	float edgeSeparation = -FLT_MAX;
-	int32_t incidentIndex = -1;
-
-	for (int32_t i = 0; i < count; ++i)
-	{
-		float short = b2Dot(normal1, b2Sub(vertices[i], p1));
-		if (s > edgeSeparation)
+		if (cache->count == 1)
 		{
-			edgeSeparation = s;
-			incidentIndex = i;
-		}
-	}
+			// vertex-vertex collision
+			b2Vec2 pA = output.pointA;
+			b2Vec2 pB = output.pointB;
 
-	// SAT polygon normals
-	float polygonSeparation = -FLT_MAX;
-	int32_t referenceIndex = -1;
+			b2Vec2 normal = b2Normalize(b2Sub(pB, pA));
 
-	for (int32_t i = 0; i < count; ++i)
-	{
-		b2Vec2 p = vertices[i];
-		b2Vec2 n = normals[i];
-		float s1 = b2Dot(n, b2Sub(p, p1));
-		float s2 = b2Dot(n, b2Sub(p, p2));
-		float s = B2_MIN(s1, s2);
-
-		if (s > polygonSeparation)
-		{
-			polygonSeparation = s;
-			referenceIndex = i;
-		}
-	}
-
-	if (edgeSeparation >= polygonSeparation)
-	{
-	segmentAxis:
-		// No smoothing necessary
-
-		// Find incident polygon normal: normal adjacent to deepest vertex that is most anti-parallel to segment normal
-		b2Vec2 b1, b2;
-		int32_t ib1, ib2;
-		int32_t i2 = incidentIndex;
-		int32_t i1 = i2 > 0 ? i2 - 1 : count - 1;
-		float d1 = b2Dot(normal1, normals[i1]);
-		float d2 = b2Dot(normal1, normals[i2]);
-		if (d1 < d2)
-		{
-			ib1 = i1, ib2 = i2;
-			b1 = vertices[ib1];
-			b2 = vertices[ib2];
-		}
-		else
-		{
-			ib1 = i2, ib2 = i2 < count - 1 ? i2 + 1 : 0;
-			b1 = vertices[ib1];
-			b2 = vertices[ib2];
-		}
-
-		manifold = b2EdgeClip(p1, p2, b1, b2, normal1, 0.0f, polygonB->radius, 0, 1, ib1, ib2);
-		manifold.normal = b2RotateVector(xfA.q, manifold.normal);
-		manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
-		manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
-
-		return manifold;
-	}
-
-	// Smooth collision
-	// See https://box2d.org/posts/2020/06/ghost-collisions/
-
-	b2Vec2 normal = b2Neg(normals[referenceIndex]);
-
-	// TODO_ERIN defer normalization
-	b2Vec2 edge0 = b2Normalize(b2Sub(p1, segmentA->ghost1));
-	b2Vec2 normal0 = b2RightPerp(edge0);
-	bool convex1 = b2Cross(edge0, edge1) >= 0.0f;
-
-	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, p2));
-	b2Vec2 normal2 = b2RightPerp(edge2);
-	bool convex2 = b2Cross(edge1, edge2) >= 0.0f;
-
-	const float sinTol = 0.1f;
-	bool side1 = b2Dot(normal, edge1) <= 0.0f;
-
-	if (side1)
-	{
-		// Normal points towards the segment tail
-		if (convex1)
-		{
-			if (b2Cross(normal, normal0) > sinTol)
+			enum b2NormalType type = b2ClassifyNormal(smoothParams, normal);
+			if (type == b2_normalSkip)
 			{
-				// Skip region
 				return manifold;
 			}
-
-			// Admit region
+			else if (type == b2_normalAdmit)
+			{
+				manifold.normal = b2RotateVector(xfA.q, normal);
+				b2ManifoldPoint* cp = manifold.points + 0;
+				cp->point = b2TransformPoint(xfA, pA);
+				cp->separation = output.distance - radiusB;
+				cp->id = B2_MAKE_ID(cache->indexA[0], cache->indexB[0]);
+				manifold.pointCount = 1;
+				return manifold;
+			}
+			
+			// fall through b2_normalSnap
+			incidentIndex = cache->indexB[0];
 		}
 		else
 		{
-			// Snap region
-			goto segmentAxis;
+			// vertex-edge collision
+			B2_ASSERT(cache->count == 2);
+
+			int32_t ia1 = cache->indexA[0];
+			int32_t ia2 = cache->indexA[1];
+			int32_t ib1 = cache->indexB[0];
+			int32_t ib2 = cache->indexB[1];
+
+			if (ia1 == ia2)
+			{
+				// 1 point on A, expect 2 points on B
+				B2_ASSERT(ib1 != ib2);
+
+				// Find polygon normal most aligned with vector between closest points.
+				// This effectively sorts ib1 and ib2
+				b2Vec2 normal = b2Sub(output.pointA, output.pointB);
+				float dot1 = b2Dot(normal, normals[ib1]);
+				float dot2 = b2Dot(normal, normals[ib2]);
+				int32_t ib = dot1 > dot2 ? ib1 : ib2;
+
+				// Use accurate normal
+				normal = normals[ib];
+
+				enum b2NormalType type = b2ClassifyNormal(smoothParams, b2Neg(normal));
+				if (type == b2_normalSkip)
+				{
+					return manifold;
+				}
+				else if (type == b2_normalAdmit)
+				{
+					// Get polygon edge associated with normal
+					ib1 = ib;
+					ib2 = ib < count - 1 ? ib + 1 : 0;
+
+					b2Vec2 b1 = vertices[ib1];
+					b2Vec2 b2 = vertices[ib2];
+
+					manifold = b2ClipSegments(b1, b2, p1, p2, normal, radiusB, 0.0f, B2_MAKE_ID(ib1, 1), B2_MAKE_ID(ib2, 0));
+					manifold.normal = b2RotateVector(xfA.q, b2Neg(normal));
+					manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
+					manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
+					return manifold;
+				}
+
+				// fall through b2_normalSnap
+			}
+
+			// Get index of incident polygonB vertex
+			float dot1 = b2Dot(normal1, vertices[ib1]);
+			float dot2 = b2Dot(normal1, vertices[ib2]);
+			incidentIndex = dot1 < dot2 ? ib1 : ib2;
 		}
 	}
 	else
 	{
-		if (convex2)
+		// SAT edge normal
+		float edgeSeparation = FLT_MAX;
+
+		for (int32_t i = 0; i < count; ++i)
 		{
-			if (b2Cross(normal2, primaryAxis.normal) > sinTol)
+			float s = b2Dot(normal1, b2Sub(vertices[i], p1));
+			if (s < edgeSeparation)
 			{
-				// Skip region
+				edgeSeparation = s;
+				incidentIndex = i;
+			}
+		}
+
+		// SAT polygon normals
+		float polygonSeparation = -FLT_MAX;
+		int32_t referenceIndex = -1;
+
+		for (int32_t i = 0; i < count; ++i)
+		{
+			b2Vec2 p = vertices[i];
+			b2Vec2 n = normals[i];
+			float s1 = b2Dot(n, b2Sub(p1, p));
+			float s2 = b2Dot(n, b2Sub(p2, p));
+			float s = B2_MIN(s1, s2);
+
+			if (s > polygonSeparation)
+			{
+				polygonSeparation = s;
+				referenceIndex = i;
+			}
+		}
+
+		if (polygonSeparation > edgeSeparation)
+		{
+			b2Vec2 normal = normals[referenceIndex];
+			enum b2NormalType type = b2ClassifyNormal(smoothParams, b2Neg(normal));
+			if (type == b2_normalSkip)
+			{
 				return manifold;
 			}
+			else if (type == b2_normalAdmit)
+			{
+				int32_t ia1 = referenceIndex;
+				int32_t ia2 = ia1 < count - 1 ? ia1 + 1 : 0;
+				b2Vec2 a1 = vertices[ia1];
+				b2Vec2 a2 = vertices[ia2];
 
-			// Admit region
+				manifold = b2ClipSegments(a1, a2, p1, p2, normals[ia1], radiusB, 0.0f, B2_MAKE_ID(ia1, 1), B2_MAKE_ID(ia2, 0));
+				manifold.normal = b2RotateVector(xfA.q, b2Neg(normal));
+				manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
+				manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
+				return manifold;
+			}
 		}
-		else
-		{
-			// Snap region
-			goto segmentAxis;
-		}
+
+		// fall through segment normal axis
 	}
 
-	int32_t ia1 = referenceIndex;
-	int32_t ia2 = ia1 < count - 1 ? ia1 + 1 : 0;
-	b2Vec2 a1 = vertices[ia1];
-	b2Vec2 a2 = vertices[ia2];
+	B2_ASSERT(0 <= incidentIndex && incidentIndex < count);
 
-	manifold = b2EdgeClip(a1, a2, p1, p2, normals[ia1], polygonB->radius, 0.0f, ia1, ia2, 0, 1);
-	manifold.normal = b2RotateVector(xfA.q, normal);
+	// Segment normal
+
+	// Find incident polygon normal: normal adjacent to deepest vertex that is most anti-parallel to segment normal
+	b2Vec2 b1, b2;
+	int32_t ib1, ib2;
+	int32_t i2 = incidentIndex;
+	int32_t i1 = i2 > 0 ? i2 - 1 : count - 1;
+	float d1 = b2Dot(normal1, normals[i1]);
+	float d2 = b2Dot(normal1, normals[i2]);
+	if (d1 < d2)
+	{
+		ib1 = i1, ib2 = i2;
+		b1 = vertices[ib1];
+		b2 = vertices[ib2];
+	}
+	else
+	{
+		ib1 = i2, ib2 = i2 < count - 1 ? i2 + 1 : 0;
+		b1 = vertices[ib1];
+		b2 = vertices[ib2];
+	}
+
+	manifold = b2ClipSegments(p1, p2, b1, b2, normal1, 0.0f, radiusB, B2_MAKE_ID(0, ib2), B2_MAKE_ID(1, ib1));
+	manifold.normal = b2RotateVector(xfA.q, manifold.normal);
 	manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
 	manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
-	return manifold;
-}
 
-b2Manifold b2CollideSmoothSegmentAndPolygonOld(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
-											   b2Transform xfB)
-{
-	b2Manifold manifold = b2EmptyManifold();
-
-	b2Transform xf = b2InvMulTransforms(xfA, xfB);
-
-	b2Vec2 centroidB = b2TransformPoint(xf, polygonB->centroid);
-
-	b2Vec2 p1 = segmentA->segment.point1;
-	b2Vec2 p2 = segmentA->segment.point2;
-
-	b2Vec2 edge1 = b2Normalize(b2Sub(p2, p1));
-
-	// Normal points to the right
-	b2Vec2 normal1 = b2RightPerp(edge1);
-	float offset = b2Dot(normal1, b2Sub(centroidB, p1));
-	if (offset < 0.0f)
-	{
-		// one-sided collision
-		return manifold;
-	}
-
-	// Get polygonB in frameA
-	b2TempPolygon tempPolygonB;
-	tempPolygonB.count = polygonB->count;
-	for (int32_t i = 0; i < polygonB->count; ++i)
-	{
-		tempPolygonB.vertices[i] = b2TransformPoint(xf, polygonB->vertices[i]);
-		tempPolygonB.normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
-	}
-
-	b2SPAxis edgeAxis = b2ComputeEdgeSeparation(&tempPolygonB, v1, normal1);
-	b2SPAxis polygonAxis = b2ComputePolygonSeparation(&tempPolygonB, v1, v2);
-
-	// Use hysteresis for jitter reduction.
-	const float k_relativeTol = 0.98f;
-	const float k_absoluteTol = 0.001f;
-
-	b2SPAxis primaryAxis;
-	if (polygonAxis.separation > k_relativeTol * edgeAxis.separation + k_absoluteTol)
-	{
-		primaryAxis = polygonAxis;
-	}
-	else
-	{
-		primaryAxis = edgeAxis;
-	}
-
-	// Smooth collision
-	// See https://box2d.org/posts/2020/06/ghost-collisions/
-
-	b2Vec2 edge0 = b2Normalize(b2Sub(v1, segmentA->ghost1));
-	b2Vec2 normal0 = {edge0.y, -edge0.x};
-	bool convex1 = b2Cross(edge0, edge1) >= 0.0f;
-
-	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, v2));
-	b2Vec2 normal2 = {edge2.y, -edge2.x};
-	bool convex2 = b2Cross(edge1, edge2) >= 0.0f;
-
-	const float sinTol = 0.1f;
-	bool side1 = b2Dot(primaryAxis.normal, edge1) <= 0.0f;
-
-	// Check Gauss Map
-	if (side1)
-	{
-		if (convex1)
-		{
-			if (b2Cross(primaryAxis.normal, normal0) > sinTol)
-			{
-				// Skip region
-				return manifold;
-			}
-
-			// Admit region
-		}
-		else
-		{
-			// Snap region
-			primaryAxis = edgeAxis;
-		}
-	}
-	else
-	{
-		if (convex2)
-		{
-			if (b2Cross(normal2, primaryAxis.normal) > sinTol)
-			{
-				// Skip region
-				return manifold;
-			}
-
-			// Admit region
-		}
-		else
-		{
-			// Snap region
-			primaryAxis = edgeAxis;
-		}
-	}
-
-	b2ClipVertex clipPoints[2];
-	b2ReferenceFace ref;
-	if (primaryAxis.type == b2_sp_segmentA)
-	{
-		manifold.type = b2_manifoldFaceA;
-
-		// Search for the polygon normal that is most anti-parallel to the edge normal.
-		int32_t bestIndex = 0;
-		float bestValue = b2Dot(primaryAxis.normal, tempPolygonB.normals[0]);
-		for (int32_t i = 1; i < tempPolygonB.count; ++i)
-		{
-			float value = b2Dot(primaryAxis.normal, tempPolygonB.normals[i]);
-			if (value < bestValue)
-			{
-				bestValue = value;
-				bestIndex = i;
-			}
-		}
-
-		int32_t i1 = bestIndex;
-		int32_t i2 = i1 + 1 < tempPolygonB.count ? i1 + 1 : 0;
-
-		clipPoints[0].v = tempPolygonB.vertices[i1];
-		clipPoints[0].id.cf.indexA = 0;
-		clipPoints[0].id.cf.indexB = (uint8_t)i1;
-		clipPoints[0].id.cf.typeA = b2_faceFeature;
-		clipPoints[0].id.cf.typeB = b2_vertexFeature;
-
-		clipPoints[1].v = tempPolygonB.vertices[i2];
-		clipPoints[1].id.cf.indexA = 0;
-		clipPoints[1].id.cf.indexB = (uint8_t)i2;
-		clipPoints[1].id.cf.typeA = b2_faceFeature;
-		clipPoints[1].id.cf.typeB = b2_vertexFeature;
-
-		ref.i1 = 0;
-		ref.i2 = 1;
-		ref.v1 = v1;
-		ref.v2 = v2;
-		ref.normal = primaryAxis.normal;
-		ref.sideNormal1 = b2Neg(edge1);
-		ref.sideNormal2 = edge1;
-	}
-	else
-	{
-		manifold.type = b2_manifoldFaceB;
-
-		clipPoints[0].v = v2;
-		clipPoints[0].id.cf.indexA = 1;
-		clipPoints[0].id.cf.indexB = (uint8_t)primaryAxis.index;
-		clipPoints[0].id.cf.typeA = b2_vertexFeature;
-		clipPoints[0].id.cf.typeB = b2_faceFeature;
-
-		clipPoints[1].v = v1;
-		clipPoints[1].id.cf.indexA = 0;
-		clipPoints[1].id.cf.indexB = (uint8_t)primaryAxis.index;
-		clipPoints[1].id.cf.typeA = b2_vertexFeature;
-		clipPoints[1].id.cf.typeB = b2_faceFeature;
-
-		ref.i1 = primaryAxis.index;
-		ref.i2 = ref.i1 + 1 < tempPolygonB.count ? ref.i1 + 1 : 0;
-		ref.v1 = tempPolygonB.vertices[ref.i1];
-		ref.v2 = tempPolygonB.vertices[ref.i2];
-		ref.normal = tempPolygonB.normals[ref.i1];
-
-		// CCW winding
-		ref.sideNormal1 = (b2Vec2){ref.normal.y, -ref.normal.x};
-		ref.sideNormal2 = b2Neg(ref.sideNormal1);
-	}
-
-	ref.sideOffset1 = b2Dot(ref.sideNormal1, ref.v1);
-	ref.sideOffset2 = b2Dot(ref.sideNormal2, ref.v2);
-
-	// Clip incident edge against reference face side planes
-	b2ClipVertex clipPoints1[2];
-	b2ClipVertex clipPoints2[2];
-	int32_t np;
-
-	// Clip to side 1
-	np = b2ClipSegmentToLine(clipPoints1, clipPoints, ref.sideNormal1, ref.sideOffset1, ref.i1);
-
-	if (np < b2_maxManifoldPoints)
-	{
-		return manifold;
-	}
-
-	// Clip to side 2
-	np = b2ClipSegmentToLine(clipPoints2, clipPoints1, ref.sideNormal2, ref.sideOffset2, ref.i2);
-
-	if (np < b2_maxManifoldPoints)
-	{
-		return manifold;
-	}
-
-	// Now clipPoints2 contains the clipped points.
-	if (primaryAxis.type == b2_sp_segmentA)
-	{
-		manifold.localNormal = ref.normal;
-		manifold.localPoint = ref.v1;
-	}
-	else
-	{
-		manifold.localNormal = polygonB->normals[ref.i1];
-		manifold.localPoint = polygonB->vertices[ref.i1];
-	}
-
-	for (int32_t i = 0; i < b2_maxManifoldPoints; ++i)
-	{
-		b2ManifoldPoint* cp = manifold.points + i;
-
-		if (primaryAxis.type == b2_sp_segmentA)
-		{
-			cp->localPoint = b2InvTransformPoint(xf, clipPoints2[i].v);
-			cp->id = clipPoints2[i].id;
-		}
-		else
-		{
-			cp->localPoint = clipPoints2[i].v;
-			cp->id.cf.typeA = clipPoints2[i].id.cf.typeB;
-			cp->id.cf.typeB = clipPoints2[i].id.cf.typeA;
-			cp->id.cf.indexA = clipPoints2[i].id.cf.indexB;
-			cp->id.cf.indexB = clipPoints2[i].id.cf.indexA;
-		}
-	}
-
-	manifold.pointCount = b2_maxManifoldPoints;
 	return manifold;
 }

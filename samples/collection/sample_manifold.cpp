@@ -26,10 +26,11 @@ public:
 		m_segroxCache = b2_emptyDistanceCache;
 		m_segcapCache = b2_emptyDistanceCache;
 		m_woxwoxCache = b2_emptyDistanceCache;
+		m_smgroxCache = b2_emptyDistanceCache;
 
 		m_transform = b2Transform_identity;
 		m_angle = 0.0f;
-		m_round = 0.1f;
+		m_round = 0.0f;
 
 		m_startPoint = {0.0f, 0.0f};
 		m_basePosition = {0.0f, 0.0f};
@@ -526,7 +527,7 @@ public:
 
 		offset = {-10.0f, 20.0f};
 
-		// smooth-segment-circle
+		// smooth-segment vs circle
 		{
 			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
@@ -552,6 +553,45 @@ public:
 
 			offset = b2Add(offset, increment);
 		}
+
+		// smooth-segment vs rounded polygon
+		{
+			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSmoothSegmentAndPolygon(&segment, xf1, &rox, xf2, &m_smgroxCache);
+
+			b2Vec2 g1 = b2TransformPoint(xf1, segment.ghost1);
+			b2Vec2 g2 = b2TransformPoint(xf1, segment.ghost2);
+			b2Vec2 p1 = b2TransformPoint(xf1, segment.segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment.segment.point2);
+			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+			g_draw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+
+			if (m_round > 0.0f)
+			{
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+			}
+			else
+			{
+				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
+			}
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
 	}
 
 	static Sample* Create(const Settings& settings)
@@ -567,6 +607,7 @@ public:
 	b2DistanceCache m_segcapCache;
 	b2DistanceCache m_segroxCache;
 	b2DistanceCache m_woxwoxCache;
+	b2DistanceCache m_smgroxCache;
 
 	b2Hull m_wedge;
 

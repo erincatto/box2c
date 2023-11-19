@@ -94,6 +94,10 @@ b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA
 b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA, b2Transform xfA, const b2Circle* circleB,
 										   b2Transform xfB);
 
+/// Compute the collision manifold between a smooth segment and a rounded polygon.
+b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
+											b2Transform xfB, b2DistanceCache* cache);
+
 #ifdef __cplusplus
 }
 #endif
