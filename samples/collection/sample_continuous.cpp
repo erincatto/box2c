@@ -218,6 +218,7 @@ public:
 		m_round = 0.0f;
 		m_friction = 0.5f;
 		m_bevel = 0.0f;
+		m_useChain = true;
 
 		CreateScene();
 		Launch();
@@ -233,103 +234,138 @@ public:
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 		float m = 1.0f / sqrt(2.0f);
+		float mm = 2.0f * (sqrt(2.0f) - 1.0f);
 		float hx = 4.0f, hy = 0.25f;
-		float x, y;
 
-		b2Hull hull = {0};
-
-		if (m_bevel > 0.0f)
+		if (m_useChain)
 		{
-			float hb = m_bevel;
-			b2Vec2 vs[8] = {{hx + hb, hy - 0.05f},	 {hx, hy},	 {-hx, hy}, {-hx - hb, hy - 0.05f},
-							{-hx - hb, -hy + 0.05f}, {-hx, -hy}, {hx, -hy}, {hx + hb, -hy + 0.05f}};
-			hull = b2ComputeHull(vs, 8);
+			b2Vec2 points[20];
+			points[0] = {-3.0f * hx, hy};
+			points[1] = b2Add(points[0], {-2.0f * hx * m, 2.0f * hx * m});
+			points[2] = b2Add(points[1], {-2.0f * hx * m, 2.0f * hx * m});
+			points[3] = b2Add(points[2], {-2.0f * hx * m, 2.0f * hx * m});
+			points[4] = b2Add(points[3], {-2.0f * hy * m, -2.0f * hy * m});
+			points[5] = b2Add(points[4], {2.0f * hx * m, -2.0f * hx * m});
+			points[6] = b2Add(points[5], {2.0f * hx * m, -2.0f * hx * m});
+			points[7] = b2Add(points[6], {2.0f * hx * m + 2.0f * hy * (1.0f - m), -2.0f * hx * m - 2.0f * hy * (1.0f - m)});
+			points[8] = b2Add(points[7], {2.0f * hx + hy * mm, 0.0f});
+			points[9] = b2Add(points[8], {2.0f * hx, 0.0f});
+			points[10] = b2Add(points[9], {2.0f * hx + hy * mm, 0.0f});
+			points[11] = b2Add(points[10], {2.0f * hx * m + 2.0f * hy * (1.0f - m), 2.0f * hx * m + 2.0f * hy * (1.0f - m)});
+			points[12] = b2Add(points[11], {2.0f * hx * m, 2.0f * hx * m});
+			points[13] = b2Add(points[12], {2.0f * hx * m, 2.0f * hx * m});
+			points[14] = b2Add(points[13], {-2.0f * hy * m, 2.0f * hy * m});
+			points[15] = b2Add(points[14], {-2.0f * hx * m, -2.0f * hx * m});
+			points[16] = b2Add(points[15], {-2.0f * hx * m, -2.0f * hx * m});
+			points[17] = b2Add(points[16], {-2.0f * hx * m, -2.0f * hx * m});
+			points[18] = b2Add(points[17], {-2.0f * hx, 0.0f});
+			points[19] = b2Add(points[18], {-2.0f * hx, 0.0f});
+
+			b2ChainDef chainDef = b2DefaultChainDef();
+			chainDef.points = points;
+			chainDef.count = 20;
+			chainDef.loop = true;
+
+			b2Body_CreateChain(m_groundId, &chainDef);
 		}
 		else
 		{
-			b2Vec2 vs[4] = {{hx, hy}, {-hx, hy}, {-hx, -hy}, {hx, -hy}};
-			hull = b2ComputeHull(vs, 4);
-		}
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Hull hull = {0};
 
-		b2Transform transform;
+			if (m_bevel > 0.0f)
+			{
+				float hb = m_bevel;
+				b2Vec2 vs[8] = {{hx + hb, hy - 0.05f},	 {hx, hy},	 {-hx, hy}, {-hx - hb, hy - 0.05f},
+								{-hx - hb, -hy + 0.05f}, {-hx, -hy}, {hx, -hy}, {hx + hb, -hy + 0.05f}};
+				hull = b2ComputeHull(vs, 8);
+			}
+			else
+			{
+				b2Vec2 vs[4] = {{hx, hy}, {-hx, hy}, {-hx, -hy}, {hx, -hy}};
+				hull = b2ComputeHull(vs, 4);
+			}
 
-		// Left slope
-		x = -3.0f * hx - m * hx - m * hy;
-		y = hy + m * hx - m * hy;
-		transform.q = b2MakeRot(-0.25f * b2_pi);
+			b2Transform transform;
+			float x, y;
 
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x -= 2.0f * m * hx;
-			y += 2.0f * m * hx;
-		}
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x -= 2.0f * m * hx;
-			y += 2.0f * m * hx;
-		}
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x -= 2.0f * m * hx;
-			y += 2.0f * m * hx;
-		}
+			// Left slope
+			x = -3.0f * hx - m * hx - m * hy;
+			y = hy + m * hx - m * hy;
+			transform.q = b2MakeRot(-0.25f * b2_pi);
 
-		x = -2.0f * hx;
-		y = 0.0f;
-		transform.q = b2MakeRot(0.0f);
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x -= 2.0f * m * hx;
+				y += 2.0f * m * hx;
+			}
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x -= 2.0f * m * hx;
+				y += 2.0f * m * hx;
+			}
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x -= 2.0f * m * hx;
+				y += 2.0f * m * hx;
+			}
 
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x += 2.0f * hx;
-		}
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x += 2.0f * hx;
-		}
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x += 2.0f * hx;
-		}
+			x = -2.0f * hx;
+			y = 0.0f;
+			transform.q = b2MakeRot(0.0f);
 
-		x = 3.0f * hx + m * hx + m * hy;
-		y = hy + m * hx - m * hy;
-		transform.q = b2MakeRot(0.25f * b2_pi);
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x += 2.0f * hx;
+			}
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x += 2.0f * hx;
+			}
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x += 2.0f * hx;
+			}
 
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x += 2.0f * m * hx;
-			y += 2.0f * m * hx;
-		}
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x += 2.0f * m * hx;
-			y += 2.0f * m * hx;
-		}
-		{
-			transform.p = {x, y};
-			b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
-			b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
-			x += 2.0f * m * hx;
-			y += 2.0f * m * hx;
+			x = 3.0f * hx + m * hx + m * hy;
+			y = hy + m * hx - m * hy;
+			transform.q = b2MakeRot(0.25f * b2_pi);
+
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x += 2.0f * m * hx;
+				y += 2.0f * m * hx;
+			}
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x += 2.0f * m * hx;
+				y += 2.0f * m * hx;
+			}
+			{
+				transform.p = {x, y};
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				x += 2.0f * m * hx;
+				y += 2.0f * m * hx;
+			}
 		}
 	}
 
@@ -369,14 +405,22 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
-		if (ImGui::SliderFloat("Round", &m_round, 0.0f, 0.5f, "%.2f"))
+		if (ImGui::Checkbox("Chain", &m_useChain))
 		{
 			CreateScene();
 		}
 
-		if (ImGui::SliderFloat("Bevel", &m_bevel, 0.0f, 1.0f, "%.2f"))
+		if (m_useChain == false)
 		{
-			CreateScene();
+			if (ImGui::SliderFloat("Round", &m_round, 0.0f, 0.5f, "%.2f"))
+			{
+				CreateScene();
+			}
+
+			if (ImGui::SliderFloat("Bevel", &m_bevel, 0.0f, 1.0f, "%.2f"))
+			{
+				CreateScene();
+			}
 		}
 
 		{
@@ -414,6 +458,7 @@ public:
 	float m_round;
 	float m_friction;
 	float m_bevel;
+	bool m_useChain;
 };
 
 static int sampleGhostCollision = RegisterSample("Continuous", "Ghost Collision", GhostCollision::Create);

@@ -305,7 +305,7 @@ static void b2Collide(b2World* world)
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
-	// Tasks that can be done in parallel with the narrow-phase 
+	// Tasks that can be done in parallel with the narrow-phase
 	// - rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good
 	if (b2_parallel)
 	{
@@ -544,6 +544,16 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 			b2Vec2 p1 = b2TransformPoint(xf, segment->point1);
 			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
 			draw->DrawSegment(p1, p2, color, draw->context);
+		}
+		break;
+
+		case b2_smoothSegmentShape:
+		{
+			b2Segment* segment = &shape->smoothSegment.segment;
+			b2Vec2 p1 = b2TransformPoint(xf, segment->point1);
+			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
+			draw->DrawSegment(p1, p2, color, draw->context);
+			draw->DrawPoint(p2, 4.0f, color, draw->context);
 		}
 		break;
 

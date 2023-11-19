@@ -627,4 +627,3 @@ public:
 };
 
 static int sampleManifold = RegisterSample("Collision", "Manifold", Manifold::Create);
-

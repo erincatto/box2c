@@ -339,3 +339,16 @@ static inline struct b2ShapeDef b2DefaultShapeDef(void)
 	def.isSensor = false;
 	return def;
 }
+
+static inline struct b2ChainDef b2DefaultChainDef(void)
+{
+	b2ChainDef def = {0};
+	def.points = NULL;
+	def.count = 0;
+	def.loop = false;
+	def.userData = NULL;
+	def.friction = 0.6f;
+	def.restitution = 0.0f;
+	def.filter = b2_defaultFilter;
+	return def;
+}
