@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "sample.h"
+
 #include "box2d/distance.h"
+#include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
-#include "box2d/geometry.h"
-#include "sample.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -26,7 +27,8 @@ public:
 		m_segroxCache = b2_emptyDistanceCache;
 		m_segcapCache = b2_emptyDistanceCache;
 		m_woxwoxCache = b2_emptyDistanceCache;
-		m_smgroxCache = b2_emptyDistanceCache;
+		m_smgroxCache1 = b2_emptyDistanceCache;
+		m_smgroxCache2 = b2_emptyDistanceCache;
 
 		m_transform = b2Transform_identity;
 		m_angle = 0.0f;
@@ -154,8 +156,8 @@ public:
 
 			if (m_showIds)
 			{
-				//uint32_t indexA = mp->id >> 8;
-				//uint32_t indexB = 0xFF & mp->id;
+				// uint32_t indexA = mp->id >> 8;
+				// uint32_t indexB = 0xFF & mp->id;
 				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
 				g_draw.DrawString(p, "0x%04x", mp->id);
 			}
@@ -180,12 +182,12 @@ public:
 
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
 
-		//box = b2MakeRoundedBox(10.0f, 10.0f, 10.0f);
-		//box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
+		// box = b2MakeRoundedBox(10.0f, 10.0f, 10.0f);
+		// box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
 
-		//b2Color fill = {0.345098048f, 0.431372553f, 0.458823532f, 1.0f};
-		//b2Color outline = {0.933333337f, 0.909803927f, 0.835294127f, 1.0f};
-		//g_draw.DrawRoundedPolygon(box.vertices, box.count, box.radius, fill, outline);
+		// b2Color fill = {0.345098048f, 0.431372553f, 0.458823532f, 1.0f};
+		// b2Color outline = {0.933333337f, 0.909803927f, 0.835294127f, 1.0f};
+		// g_draw.DrawRoundedPolygon(box.vertices, box.count, box.radius, fill, outline);
 
 		if (m_enableCaching == false)
 		{
@@ -197,6 +199,8 @@ public:
 			m_roxroxCache = b2_emptyDistanceCache;
 			m_segroxCache = b2_emptyDistanceCache;
 			m_woxwoxCache = b2_emptyDistanceCache;
+			m_smgroxCache1 = b2_emptyDistanceCache;
+			m_smgroxCache2 = b2_emptyDistanceCache;
 		}
 
 		// circle-circle
@@ -379,7 +383,7 @@ public:
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
-			//b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
+			// b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
 			b2Manifold m = b2CollidePolygons(&box, xf1, &box, xf2, &m_boxboxCache);
 
@@ -409,7 +413,7 @@ public:
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
-			//b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
+			// b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
 			b2Manifold m = b2CollidePolygons(&box, xf1, &rox, xf2, &m_boxroxCache);
 
@@ -438,8 +442,8 @@ public:
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
-			//b2Transform xf1 = {{6.48024225f, 2.07872653f}, {-0.938356698f, 0.345668465f}};
-			//b2Transform xf2 = {{5.52862263f, 2.51146317f}, {-0.859374702f, -0.511346340f}};
+			// b2Transform xf1 = {{6.48024225f, 2.07872653f}, {-0.938356698f, 0.345668465f}};
+			// b2Transform xf2 = {{5.52862263f, 2.51146317f}, {-0.859374702f, -0.511346340f}};
 
 			b2Manifold m = b2CollidePolygons(&rox, xf1, &rox, xf2, &m_roxroxCache);
 
@@ -469,7 +473,7 @@ public:
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
-			//b2Transform xf2 = {b2Add({-1.44583416f, 0.397352695f}, offset), m_transform.q};
+			// b2Transform xf2 = {b2Add({-1.44583416f, 0.397352695f}, offset), m_transform.q};
 
 			b2Manifold m = b2CollideSegmentAndPolygon(&segment, xf1, &rox, xf2, &m_segroxCache);
 
@@ -556,22 +560,36 @@ public:
 
 		// smooth-segment vs rounded polygon
 		{
-			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
 			float h = 0.5f - m_round;
 			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideSmoothSegmentAndPolygon(&segment, xf1, &rox, xf2, &m_smgroxCache);
+			b2Manifold m1 = b2CollideSmoothSegmentAndPolygon(&segment1, xf1, &rox, xf2, &m_smgroxCache1);
+			b2Manifold m2 = b2CollideSmoothSegmentAndPolygon(&segment2, xf1, &rox, xf2, &m_smgroxCache2);
 
-			b2Vec2 g1 = b2TransformPoint(xf1, segment.ghost1);
-			b2Vec2 g2 = b2TransformPoint(xf1, segment.ghost2);
-			b2Vec2 p1 = b2TransformPoint(xf1, segment.segment.point1);
-			b2Vec2 p2 = b2TransformPoint(xf1, segment.segment.point2);
-			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
-			g_draw.DrawSegment(p1, p2, color1);
-			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment1.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
+				// g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			}
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p1, p2, color1);
+				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			}
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < rox.count; ++i)
@@ -588,7 +606,8 @@ public:
 				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
 			}
 
-			DrawManifold(&m);
+			DrawManifold(&m1);
+			DrawManifold(&m2);
 
 			offset = b2Add(offset, increment);
 		}
@@ -607,7 +626,8 @@ public:
 	b2DistanceCache m_segcapCache;
 	b2DistanceCache m_segroxCache;
 	b2DistanceCache m_woxwoxCache;
-	b2DistanceCache m_smgroxCache;
+	b2DistanceCache m_smgroxCache1;
+	b2DistanceCache m_smgroxCache2;
 
 	b2Hull m_wedge;
 
@@ -626,4 +646,277 @@ public:
 	bool m_enableCaching;
 };
 
-static int sampleManifold = RegisterSample("Collision", "Manifold", Manifold::Create);
+static int sampleManifoldIndex = RegisterSample("Collision", "Manifold", Manifold::Create);
+
+class SmoothManifold : public Sample
+{
+public:
+	enum ShapeType
+	{
+		e_circleShape = 0,
+		e_boxShape
+	};
+
+	SmoothManifold(const Settings& settings)
+		: Sample(settings)
+	{
+		m_shapeType = e_boxShape;
+		m_transform = {{0.0f, 20.0f}, b2Rot_identity};
+		m_angle = 0.0f;
+		m_round = 0.0f;
+
+		m_startPoint = {0.0f, 00.0f};
+		m_basePosition = {0.0f, 0.0f};
+		m_baseAngle = 0.0f;
+
+		m_dragging = false;
+		m_rotating = false;
+		m_showIds = false;
+		m_showSeparation = false;
+
+		// https://betravis.github.io/shape-tools/path-to-polygon/
+		float coorinates[] = {-37.042, 21.833,	-21.167, 21.833,  -15.875, 32.417,	-5.292,	 32.417,  5.292,   43.000,	21.167,
+							  43.000,  27.000,	40.250,	 27.000,  32.417,  47.625,	32.417,	 63.500,  43.000,  100.542, 48.292,
+							  111.125, 32.417,	137.583, 27.125,  142.875, 5.958,	153.458, -25.792, 127.000, -41.667, 95.250,
+							  -46.958, 79.375,	-36.375, 84.667,  -20.500, 63.500,	11.250,	 47.625,  -41.667, 26.458,	-36.375,
+							  10.583,  -36.375, 15.875,	 -4.625,  5.292,   -4.625,	-4.036,	 -12.916, -42.333, -46.958, -63.500,
+							  -36.375, -42.333, -20.500, -63.500, -15.208, -79.375, -4.625,	 -79.375, 16.542,  -68.792, 32.417,
+							  -58.208, 11.250,	-47.625, 16.542,  -42.333, 21.833};
+
+
+		b2Vec2 points[sizeof(coorinates) / sizeof(coorinates[0]) / 2];
+		m_count = sizeof(coorinates) / sizeof(coorinates[0]) / 2;
+		float scale = 0.25f;
+		float xoffset = -10.0f;
+		float yoffset = 20.0f;
+
+		for (int i = 0; i < m_count; ++i)
+		{
+			points[m_count - i - 1] = {scale * coorinates[2 * i] + xoffset, yoffset - scale * coorinates[2 * i + 1]};
+		}
+
+		m_segments = (b2SmoothSegment*)malloc(m_count * sizeof(b2SmoothSegment));
+
+		for (int i = 0; i < m_count; ++i)
+		{
+			int i0 = i > 0 ? i - 1 : m_count - 1;
+			int i1 = i;
+			int i2 = i1 < m_count - 1 ? i1 + 1 : 0;
+			int i3 = i2 < m_count - 1 ? i2 + 1 : 0;
+
+			b2Vec2 g1 = points[i0];
+			b2Vec2 p1 = points[i1];
+			b2Vec2 p2 = points[i2];
+			b2Vec2 g2 = points[i3];
+
+			m_segments[i] = {g1, {p1, p2}, g2};
+		}
+	}
+
+	virtual ~SmoothManifold() override
+	{
+		free(m_segments);
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 260.0f));
+		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		{
+			const char* shapeTypes[] = {"Circle", "Box"};
+			int shapeType = int(m_shapeType);
+			ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
+			m_shapeType = ShapeType(shapeType);
+		}
+
+		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
+
+		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		{
+			m_transform.q = b2MakeRot(m_angle);
+		}
+
+		ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f");
+		ImGui::Checkbox("show ids", &m_showIds);
+		ImGui::Checkbox("show separation", &m_showSeparation);
+
+		if (ImGui::Button("Reset"))
+		{
+			m_transform = b2Transform_identity;
+			m_angle = 0.0f;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: drag");
+		ImGui::Text("mouse button 1 + shift: rotate");
+
+		ImGui::End();
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_dragging = true;
+				m_startPoint = p;
+				m_basePosition = m_transform.p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_startPoint = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_transform.p.x = m_basePosition.x + (p.x - m_startPoint.x);
+			m_transform.p.y = m_basePosition.y + (p.y - m_startPoint.y);
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPoint.x;
+			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_transform.q = b2MakeRot(m_angle);
+		}
+	}
+
+	void DrawManifold(const b2Manifold* manifold)
+	{
+		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
+		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
+
+		for (int i = 0; i < manifold->pointCount; ++i)
+		{
+			const b2ManifoldPoint* mp = manifold->points + i;
+
+			b2Vec2 p1 = mp->point;
+			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
+			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+
+			if (m_showIds)
+			{
+				// uint32_t indexA = mp->id >> 8;
+				// uint32_t indexB = 0xFF & mp->id;
+				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
+				g_draw.DrawString(p, "0x%04x", mp->id);
+			}
+
+			if (m_showSeparation)
+			{
+				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
+				g_draw.DrawString(p, "%.3f", mp->separation);
+			}
+		}
+	}
+
+	void Step(Settings&) override
+	{
+		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
+		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
+		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
+		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
+
+		b2Transform xf1 = b2Transform_identity;
+		b2Transform xf2 = m_transform;
+
+		for (int i = 0; i < m_count; ++i)
+		{
+			const b2SmoothSegment* segment = m_segments + i;
+			b2Vec2 p1 = b2TransformPoint(xf1, segment->segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment->segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+			g_draw.DrawPoint(p1, 4.0f, color1);
+		}
+
+		// smooth-segment vs circle
+		if (m_shapeType == e_circleShape)
+		{
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+
+			for (int i = 0; i < m_count; ++i)
+			{
+				const b2SmoothSegment* segment = m_segments + i;
+				b2Manifold m = b2CollideSmoothSegmentAndCircle(segment, xf1, &circle, xf2);
+				DrawManifold(&m);
+			}
+		}
+		else if (m_shapeType == e_boxShape)
+		{
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+
+			if (m_round > 0.0f)
+			{
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+			}
+			else
+			{
+				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
+			}
+
+			for (int i = 0; i < m_count; ++i)
+			{
+				const b2SmoothSegment* segment = m_segments + i;
+				b2DistanceCache cache = {};
+				b2Manifold m = b2CollideSmoothSegmentAndPolygon(segment, xf1, &rox, xf2, &cache);
+				DrawManifold(&m);
+			}
+		}
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new SmoothManifold(settings);
+	}
+
+	ShapeType m_shapeType;
+
+	b2SmoothSegment* m_segments;
+	int m_count;
+
+	b2Transform m_transform;
+	float m_angle;
+	float m_round;
+
+	b2Vec2 m_basePosition;
+	b2Vec2 m_startPoint;
+	float m_baseAngle;
+
+	bool m_dragging;
+	bool m_rotating;
+	bool m_showIds;
+	bool m_showSeparation;
+};
+
+static int sampleSmoothManifoldIndex = RegisterSample("Collision", "Smooth Manifold", SmoothManifold::Create);

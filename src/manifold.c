@@ -748,6 +748,13 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Tr
 	return manifold;
 }
 
+b2Manifold b2CollideSmoothSegmentAndCapsule(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
+									  b2DistanceCache* cache)
+{
+	b2Polygon polyB = b2MakeCapsule(capsuleB->point1, capsuleB->point2, capsuleB->radius);
+	return b2CollideSmoothSegmentAndPolygon(segmentA, xfA, &polyB, xfB, cache);
+}
+
 static b2Manifold b2ClipSegments(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 normal, float ra, float rb, uint16_t id1,
 								 uint16_t id2)
 {
@@ -1048,17 +1055,66 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 			}
 		}
 
+		if (smoothParams.convex1)
+		{
+			float s0 = FLT_MAX;
+
+			for (int32_t i = 0; i < count; ++i)
+			{
+				float s = b2Dot(smoothParams.normal0, b2Sub(vertices[i], p1));
+				if (s < s0)
+				{
+					s0 = s;
+				}
+			}
+
+			if (s0 > edgeSeparation)
+			{
+				edgeSeparation = s0;
+				incidentIndex = -1;
+			}
+		}
+
+		if (smoothParams.convex2)
+		{
+			float s2 = FLT_MAX;
+
+			for (int32_t i = 0; i < count; ++i)
+			{
+				float s = b2Dot(smoothParams.normal2, b2Sub(vertices[i], p2));
+				if (s < s2)
+				{
+					s2 = s;
+				}
+			}
+
+			if (s2 > edgeSeparation)
+			{
+				edgeSeparation = s2;
+				incidentIndex = -1;
+			}
+		}
+
 		// SAT polygon normals
 		float polygonSeparation = -FLT_MAX;
 		int32_t referenceIndex = -1;
 
+		// Snap concave tangents for partial polygon
+		b2Vec2 t0 = smoothParams.convex1 ? edge0 : edge1;
+		b2Vec2 t2 = smoothParams.convex2 ? edge2 : edge1;
+
 		for (int32_t i = 0; i < count; ++i)
 		{
-			b2Vec2 p = vertices[i];
 			b2Vec2 n = normals[i];
-			float s1 = b2Dot(n, b2Sub(p1, p));
-			float s2 = b2Dot(n, b2Sub(p2, p));
-			float s = B2_MIN(s1, s2);
+
+			// Check the infinite sides of the partial polygon
+			if (b2Dot(n, t0) > 0.0f || b2Dot(n, t2) < 0.0f)
+			{
+				continue;
+			}
+
+			b2Vec2 p = vertices[i];
+			float s = B2_MIN(b2Dot(n, b2Sub(p2, p)), b2Dot(n, b2Sub(p1, p)));
 
 			if (s > polygonSeparation)
 			{
@@ -1069,25 +1125,22 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 		if (polygonSeparation > edgeSeparation)
 		{
-			b2Vec2 normal = normals[referenceIndex];
-			enum b2NormalType type = b2ClassifyNormal(smoothParams, b2Neg(normal));
-			if (type == b2_normalSkip)
-			{
-				return manifold;
-			}
-			else if (type == b2_normalAdmit)
-			{
-				int32_t ia1 = referenceIndex;
-				int32_t ia2 = ia1 < count - 1 ? ia1 + 1 : 0;
-				b2Vec2 a1 = vertices[ia1];
-				b2Vec2 a2 = vertices[ia2];
+			int32_t ia1 = referenceIndex;
+			int32_t ia2 = ia1 < count - 1 ? ia1 + 1 : 0;
+			b2Vec2 a1 = vertices[ia1];
+			b2Vec2 a2 = vertices[ia2];
 
-				manifold = b2ClipSegments(a1, a2, p1, p2, normals[ia1], radiusB, 0.0f, B2_MAKE_ID(ia1, 1), B2_MAKE_ID(ia2, 0));
-				manifold.normal = b2RotateVector(xfA.q, b2Neg(normal));
-				manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
-				manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
-				return manifold;
-			}
+			manifold = b2ClipSegments(a1, a2, p1, p2, normals[ia1], radiusB, 0.0f, B2_MAKE_ID(ia1, 1), B2_MAKE_ID(ia2, 0));
+			manifold.normal = b2RotateVector(xfA.q, b2Neg(normals[ia1]));
+			manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
+			manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
+			return manifold;
+		}
+
+		if (incidentIndex == -1)
+		{
+			// adjacent edge is the separating axis
+			return manifold;
 		}
 
 		// fall through segment normal axis
