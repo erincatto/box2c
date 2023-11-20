@@ -953,11 +953,18 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 	smoothParams.normal2 = b2RightPerp(edge2);
 	smoothParams.convex2 = b2Cross(edge1, edge2) >= convexTol;
 
+	// Snap concave normals for partial polygon
+	b2Vec2 n0 = smoothParams.convex1 ? smoothParams.normal0 : normal1;
+	b2Vec2 n2 = smoothParams.convex2 ? smoothParams.normal2 : normal1;
+
 	// Index of incident vertex on polygon
 	int32_t incidentIndex = -1;
 
 	if (output.distance > 0.1f * b2_linearSlop)
 	{
+		// The closest features may be two vertices or an edge and a vertex even when there should
+		// be face contact
+
 		if (cache->count == 1)
 		{
 			// vertex-vertex collision
@@ -1002,15 +1009,15 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 				// Find polygon normal most aligned with vector between closest points.
 				// This effectively sorts ib1 and ib2
-				b2Vec2 normal = b2Sub(output.pointA, output.pointB);
-				float dot1 = b2Dot(normal, normals[ib1]);
-				float dot2 = b2Dot(normal, normals[ib2]);
+				b2Vec2 normalB = b2Sub(output.pointA, output.pointB);
+				float dot1 = b2Dot(normalB, normals[ib1]);
+				float dot2 = b2Dot(normalB, normals[ib2]);
 				int32_t ib = dot1 > dot2 ? ib1 : ib2;
 
 				// Use accurate normal
-				normal = normals[ib];
+				normalB = normals[ib];
 
-				enum b2NormalType type = b2ClassifyNormal(smoothParams, b2Neg(normal));
+				enum b2NormalType type = b2ClassifyNormal(smoothParams, b2Neg(normalB));
 				if (type == b2_normalSkip)
 				{
 					return manifold;
@@ -1024,8 +1031,29 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 					b2Vec2 b1 = vertices[ib1];
 					b2Vec2 b2 = vertices[ib2];
 
-					manifold = b2ClipSegments(b1, b2, p1, p2, normal, radiusB, 0.0f, B2_MAKE_ID(ib1, 1), B2_MAKE_ID(ib2, 0));
-					manifold.normal = b2RotateVector(xfA.q, b2Neg(normal));
+					// Find incident segment vertex
+					dot1 = b2Dot(normalB, b2Sub(p1, b1));
+					dot2 = b2Dot(normalB, b2Sub(p2, b1));
+
+					if (dot1 < dot2)
+					{
+						if (b2Dot(n0, normalB) < b2Dot(normal1, normalB))
+						{
+							// Neighbor is incident
+							return manifold;
+						}
+					}
+					else
+					{
+						if (b2Dot(n2, normalB) < b2Dot(normal1, normalB))
+						{
+							// Neighbor is incident
+							return manifold;
+						}
+					}
+
+					manifold = b2ClipSegments(b1, b2, p1, p2, normalB, radiusB, 0.0f, B2_MAKE_ID(ib1, 1), B2_MAKE_ID(ib2, 0));
+					manifold.normal = b2RotateVector(xfA.q, b2Neg(normalB));
 					manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
 					manifold.points[1].point = b2TransformPoint(xfA, manifold.points[1].point);
 					return manifold;
@@ -1055,6 +1083,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 			}
 		}
 
+		// Check convex neighbor for edge separation
 		if (smoothParams.convex1)
 		{
 			float s0 = FLT_MAX;
@@ -1071,10 +1100,13 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 			if (s0 > edgeSeparation)
 			{
 				edgeSeparation = s0;
+
+				// Indicate neighbor owns edge separation
 				incidentIndex = -1;
 			}
 		}
 
+		// Check convex neighbor for edge separation
 		if (smoothParams.convex2)
 		{
 			float s2 = FLT_MAX;
@@ -1091,6 +1123,8 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 			if (s2 > edgeSeparation)
 			{
 				edgeSeparation = s2;
+
+				// Indicate neighbor owns edge separation
 				incidentIndex = -1;
 			}
 		}
@@ -1099,16 +1133,12 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 		float polygonSeparation = -FLT_MAX;
 		int32_t referenceIndex = -1;
 
-		// Snap concave tangents for partial polygon
-		b2Vec2 t0 = smoothParams.convex1 ? edge0 : edge1;
-		b2Vec2 t2 = smoothParams.convex2 ? edge2 : edge1;
-
 		for (int32_t i = 0; i < count; ++i)
 		{
 			b2Vec2 n = normals[i];
 
 			// Check the infinite sides of the partial polygon
-			if (b2Dot(n, t0) > 0.0f || b2Dot(n, t2) < 0.0f)
+			if (b2Cross(n0, n) > 0.0f || b2Cross(n, n2) > 0.0f)
 			{
 				continue;
 			}
@@ -1130,6 +1160,28 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 			b2Vec2 a1 = vertices[ia1];
 			b2Vec2 a2 = vertices[ia2];
 
+			b2Vec2 n = normals[ia1];
+
+			float dot1 = b2Dot(n, b2Sub(p1, a1));
+			float dot2 = b2Dot(n, b2Sub(p2, a1));
+
+			if (dot1 < dot2)
+			{
+				if (b2Dot(n0, n) < b2Dot(normal1, n))
+				{
+					// Neighbor is incident
+					return manifold;
+				}
+			}
+			else
+			{
+				if (b2Dot(n2, n) < b2Dot(normal1, n))
+				{
+					// Neighbor is incident
+					return manifold;
+				}
+			}
+
 			manifold = b2ClipSegments(a1, a2, p1, p2, normals[ia1], radiusB, 0.0f, B2_MAKE_ID(ia1, 1), B2_MAKE_ID(ia2, 0));
 			manifold.normal = b2RotateVector(xfA.q, b2Neg(normals[ia1]));
 			manifold.points[0].point = b2TransformPoint(xfA, manifold.points[0].point);
@@ -1139,7 +1191,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 		if (incidentIndex == -1)
 		{
-			// adjacent edge is the separating axis
+			// neighboring segment is the separating axis
 			return manifold;
 		}
 

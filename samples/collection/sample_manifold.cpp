@@ -560,8 +560,12 @@ public:
 
 		// smooth-segment vs rounded polygon
 		{
-			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
-			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
+			//b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			//b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
+			b2SmoothSegment segment1 = {{2.0f, 0.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2SmoothSegment segment2 = {{3.0f, 0.0f}, {{2.0f, 0.0f}, {1.0f, 0.0f}}, {-1.0f, 0.0f}};
+			//b2SmoothSegment segment1 = {{0.5f, 1.0f}, {{0.0f, 2.0f}, {-0.5f, 1.0f}}, {-1.0f, 0.0f}};
+			//b2SmoothSegment segment2 = {{1.0f, 0.0f}, {{0.5f, 1.0f}, {0.0f, 2.0f}}, {-0.5f, 1.0f}};
 			float h = 0.5f - m_round;
 			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
 
@@ -569,27 +573,31 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m1 = b2CollideSmoothSegmentAndPolygon(&segment1, xf1, &rox, xf2, &m_smgroxCache1);
-			b2Manifold m2 = b2CollideSmoothSegmentAndPolygon(&segment2, xf1, &rox, xf2, &m_smgroxCache2);
+			//b2Manifold m2 = b2CollideSmoothSegmentAndPolygon(&segment2, xf1, &rox, xf2, &m_smgroxCache2);
 
 			{
 				b2Vec2 g1 = b2TransformPoint(xf1, segment1.ghost1);
 				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
-				// g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
 				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
 				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
 			}
 
-			{
-				b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
-				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
-				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
-				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
-				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
-				g_draw.DrawSegment(p1, p2, color1);
-				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
-			}
+			//{
+			//	b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
+			//	b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
+			//	b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
+			//	b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
+			//	g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+			//	g_draw.DrawSegment(p1, p2, color1);
+			//	g_draw.DrawPoint(p1, 4.0f, color1);
+			//	g_draw.DrawPoint(p2, 4.0f, color1);
+			//	// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			//}
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < rox.count; ++i)
@@ -606,8 +614,10 @@ public:
 				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
 			}
 
+			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro, 1.0f));
+
 			DrawManifold(&m1);
-			DrawManifold(&m2);
+			//DrawManifold(&m2);
 
 			offset = b2Add(offset, increment);
 		}
@@ -675,26 +685,46 @@ public:
 		m_showSeparation = false;
 
 		// https://betravis.github.io/shape-tools/path-to-polygon/
-		float coorinates[] = {-37.042, 21.833,	-21.167, 21.833,  -15.875, 32.417,	-5.292,	 32.417,  5.292,   43.000,	21.167,
-							  43.000,  27.000,	40.250,	 27.000,  32.417,  47.625,	32.417,	 63.500,  43.000,  100.542, 48.292,
-							  111.125, 32.417,	137.583, 27.125,  142.875, 5.958,	153.458, -25.792, 127.000, -41.667, 95.250,
-							  -46.958, 79.375,	-36.375, 84.667,  -20.500, 63.500,	11.250,	 47.625,  -41.667, 26.458,	-36.375,
-							  10.583,  -36.375, 15.875,	 -4.625,  5.292,   -4.625,	-4.036,	 -12.916, -42.333, -46.958, -63.500,
-							  -36.375, -42.333, -20.500, -63.500, -15.208, -79.375, -4.625,	 -79.375, 16.542,  -68.792, 32.417,
-							  -58.208, 11.250,	-47.625, 16.542,  -42.333, 21.833};
+		m_count = 36;
 
-
-		b2Vec2 points[sizeof(coorinates) / sizeof(coorinates[0]) / 2];
-		m_count = sizeof(coorinates) / sizeof(coorinates[0]) / 2;
-		float scale = 0.25f;
-		float xoffset = -10.0f;
-		float yoffset = 20.0f;
-
-		for (int i = 0; i < m_count; ++i)
-		{
-			points[m_count - i - 1] = {scale * coorinates[2 * i] + xoffset, yoffset - scale * coorinates[2 * i + 1]};
-		}
-
+		b2Vec2 points[36];
+		points[0] = {-20.58325, 14.54175};
+		points[1] = {-21.90625, 15.8645};
+		points[2] = {-24.552, 17.1875};
+		points[3] = {-27.198, 11.89575};
+		points[4] = {-29.84375, 15.8645};
+		points[5] = {-29.84375, 21.15625};
+		points[6] = {-25.875, 23.802};
+		points[7] = {-20.58325, 25.125};
+		points[8] = {-25.875, 29.09375};
+		points[9] = {-20.58325, 31.7395};
+		points[10] = {-11.0089998, 23.2290001};
+		points[11] = {-8.67700005, 21.15625};
+		points[12] = {-6.03125, 21.15625};
+		points[13] = {-7.35424995, 29.09375};
+		points[14] = {-3.38549995, 29.09375};
+		points[15] = {1.90625, 30.41675};
+		points[16] = {5.875, 17.1875};
+		points[17] = {11.16675, 25.125};
+		points[18] = {9.84375, 29.09375};
+		points[19] = {13.8125, 31.7395};
+		points[20] = {21.75, 30.41675};
+		points[21] = {28.3644981, 26.448};
+		points[22] = {25.71875, 18.5105};
+		points[23] = {24.3957481, 13.21875};
+		points[24] = {17.78125, 11.89575};
+		points[25] = {15.1355, 7.92700005};
+		points[26] = {5.875, 9.25};
+		points[27] = {1.90625, 11.89575};
+		points[28] = {-3.25, 11.89575};
+		points[29] = {-3.25, 9.9375};
+		points[30] = {-4.70825005, 9.25};
+		points[31] = {-8.67700005, 9.25};
+		points[32] = {-11.323, 11.89575};
+		points[33] = {-13.96875, 11.89575};
+		points[34] = {-15.29175, 14.54175};
+		points[35] = {-19.2605, 14.54175};
+		
 		m_segments = (b2SmoothSegment*)malloc(m_count * sizeof(b2SmoothSegment));
 
 		for (int i = 0; i < m_count; ++i)

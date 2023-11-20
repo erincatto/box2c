@@ -298,21 +298,21 @@ public:
 
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x -= 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x -= 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x -= 2.0f * m * hx;
 				y += 2.0f * m * hx;
@@ -324,19 +324,19 @@ public:
 
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * hx;
 			}
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * hx;
 			}
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * hx;
 			}
@@ -347,21 +347,21 @@ public:
 
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
-				b2Polygon polygon = b2MakeOffsetPolygon(&hull, m_round, transform);
+				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
 				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * m * hx;
 				y += 2.0f * m * hx;
@@ -394,7 +394,8 @@ public:
 		}
 		else
 		{
-			b2Polygon box = b2MakeBox(0.5f, 0.5f);
+			float h = 0.5f - m_round;
+			b2Polygon box = b2MakeRoundedBox(h, h, m_round);
 			m_shapeId = b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
 		}
 	}
@@ -412,11 +413,6 @@ public:
 
 		if (m_useChain == false)
 		{
-			if (ImGui::SliderFloat("Round", &m_round, 0.0f, 0.5f, "%.2f"))
-			{
-				CreateScene();
-			}
-
 			if (ImGui::SliderFloat("Bevel", &m_bevel, 0.0f, 1.0f, "%.2f"))
 			{
 				CreateScene();
@@ -428,6 +424,11 @@ public:
 			int shapeType = int(m_shapeType);
 			ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
 			m_shapeType = ShapeType(shapeType);
+		}
+
+		if (m_shapeType == e_boxShape)
+		{
+			ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.2f");
 		}
 
 		if (ImGui::SliderFloat("Friction", &m_friction, 0.0f, 1.0f, "%.2f"))
