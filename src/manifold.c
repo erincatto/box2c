@@ -748,8 +748,8 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* segmentA, b2Tr
 	return manifold;
 }
 
-b2Manifold b2CollideSmoothSegmentAndCapsule(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
-									  b2DistanceCache* cache)
+b2Manifold b2CollideSmoothSegmentAndCapsule(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Capsule* capsuleB,
+											b2Transform xfB, b2DistanceCache* cache)
 {
 	b2Polygon polyB = b2MakeCapsule(capsuleB->point1, capsuleB->point2, capsuleB->radius);
 	return b2CollideSmoothSegmentAndPolygon(segmentA, xfA, &polyB, xfB, cache);
@@ -770,14 +770,11 @@ static b2Manifold b2ClipSegments(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2V
 	float upper2 = b2Dot(b2Sub(b1, a1), tangent);
 	float lower2 = b2Dot(b2Sub(b2, a1), tangent);
 
-	// This check can fail slightly due to mismatch with GJK code.
-	// Perhaps fallback to a single point here? Otherwise we get two coincident points.
-	// if (upper2 < lower1 || upper1 < lower2)
-	//{
-	//	// numeric failure
-	//	B2_ASSERT(false);
-	//	return manifold;
-	//}
+	// Do segments overlap?
+	if (upper2 < lower1 || upper1 < lower2)
+	{
+		return manifold;
+	}
 
 	b2Vec2 vLower;
 	if (lower2 < lower1 && upper2 - lower2 > FLT_EPSILON)
@@ -908,10 +905,34 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 	b2Vec2 edge1 = b2Normalize(b2Sub(p2, p1));
 
+	struct b2SmoothSegmentParams smoothParams;
+	smoothParams.edge1 = edge1;
+
+	const float convexTol = 0.01f;
+	b2Vec2 edge0 = b2Normalize(b2Sub(p1, segmentA->ghost1));
+	smoothParams.normal0 = b2RightPerp(edge0);
+	smoothParams.convex1 = b2Cross(edge0, edge1) >= convexTol;
+
+	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, p2));
+	smoothParams.normal2 = b2RightPerp(edge2);
+	smoothParams.convex2 = b2Cross(edge1, edge2) >= convexTol;
+
 	// Normal points to the right
 	b2Vec2 normal1 = b2RightPerp(edge1);
-	float offset = b2Dot(normal1, b2Sub(centroidB, p1));
-	if (offset < 0.0f)
+	bool behind1 = b2Dot(normal1, b2Sub(centroidB, p1)) < 0.0f;
+	bool behind0 = true;
+	bool behind2 = true;
+	if (smoothParams.convex1)
+	{
+		behind0 = b2Dot(smoothParams.normal0, b2Sub(centroidB, p1)) < 0.0f;
+	}
+
+	if (smoothParams.convex2)
+	{
+		behind2 = b2Dot(smoothParams.normal2, b2Sub(centroidB, p2)) < 0.0f;
+	}
+
+	if (behind1 && behind0 && behind2)
 	{
 		// one-sided collision
 		return manifold;
@@ -927,6 +948,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 		normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
 	}
 
+	// Distance doesn't work correctly with partial polygons
 	b2DistanceInput input;
 	input.proxyA = b2MakeProxy(&segmentA->segment.point1, 2, 0.0f);
 	input.proxyB = b2MakeProxy(vertices, count, 0.0f);
@@ -941,18 +963,6 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 		return manifold;
 	}
 
-	struct b2SmoothSegmentParams smoothParams;
-	smoothParams.edge1 = edge1;
-
-	const float convexTol = 0.01f;
-	b2Vec2 edge0 = b2Normalize(b2Sub(p1, segmentA->ghost1));
-	smoothParams.normal0 = b2RightPerp(edge0);
-	smoothParams.convex1 = b2Cross(edge0, edge1) >= convexTol;
-
-	b2Vec2 edge2 = b2Normalize(b2Sub(segmentA->ghost2, p2));
-	smoothParams.normal2 = b2RightPerp(edge2);
-	smoothParams.convex2 = b2Cross(edge1, edge2) >= convexTol;
-
 	// Snap concave normals for partial polygon
 	b2Vec2 n0 = smoothParams.convex1 ? smoothParams.normal0 : normal1;
 	b2Vec2 n2 = smoothParams.convex2 ? smoothParams.normal2 : normal1;
@@ -960,7 +970,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 	// Index of incident vertex on polygon
 	int32_t incidentIndex = -1;
 
-	if (output.distance > 0.1f * b2_linearSlop)
+	if (behind1 == false && output.distance > 0.1f * b2_linearSlop)
 	{
 		// The closest features may be two vertices or an edge and a vertex even when there should
 		// be face contact
@@ -988,7 +998,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 				manifold.pointCount = 1;
 				return manifold;
 			}
-			
+
 			// fall through b2_normalSnap
 			incidentIndex = cache->indexB[0];
 		}

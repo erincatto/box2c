@@ -29,6 +29,8 @@ public:
 		m_woxwoxCache = b2_emptyDistanceCache;
 		m_smgroxCache1 = b2_emptyDistanceCache;
 		m_smgroxCache2 = b2_emptyDistanceCache;
+		m_smgcapCache1 = b2_emptyDistanceCache;
+		m_smgcapCache2 = b2_emptyDistanceCache;
 
 		m_transform = b2Transform_identity;
 		m_angle = 0.0f;
@@ -201,6 +203,8 @@ public:
 			m_woxwoxCache = b2_emptyDistanceCache;
 			m_smgroxCache1 = b2_emptyDistanceCache;
 			m_smgroxCache2 = b2_emptyDistanceCache;
+			m_smgcapCache1 = b2_emptyDistanceCache;
+			m_smgcapCache2 = b2_emptyDistanceCache;
 		}
 
 		// circle-circle
@@ -555,15 +559,15 @@ public:
 
 			DrawManifold(&m);
 
-			offset = b2Add(offset, increment);
+			offset.x += 2.0f * increment.x;
 		}
 
 		// smooth-segment vs rounded polygon
 		{
-			//b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
-			//b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
-			b2SmoothSegment segment1 = {{2.0f, 0.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
-			b2SmoothSegment segment2 = {{3.0f, 0.0f}, {{2.0f, 0.0f}, {1.0f, 0.0f}}, {-1.0f, 0.0f}};
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
+			//b2SmoothSegment segment1 = {{2.0f, 0.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			//b2SmoothSegment segment2 = {{3.0f, 0.0f}, {{2.0f, 0.0f}, {1.0f, 0.0f}}, {-1.0f, 0.0f}};
 			//b2SmoothSegment segment1 = {{0.5f, 1.0f}, {{0.0f, 2.0f}, {-0.5f, 1.0f}}, {-1.0f, 0.0f}};
 			//b2SmoothSegment segment2 = {{1.0f, 0.0f}, {{0.5f, 1.0f}, {0.0f, 2.0f}}, {-0.5f, 1.0f}};
 			float h = 0.5f - m_round;
@@ -573,31 +577,31 @@ public:
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
 
 			b2Manifold m1 = b2CollideSmoothSegmentAndPolygon(&segment1, xf1, &rox, xf2, &m_smgroxCache1);
-			//b2Manifold m2 = b2CollideSmoothSegmentAndPolygon(&segment2, xf1, &rox, xf2, &m_smgroxCache2);
+			b2Manifold m2 = b2CollideSmoothSegmentAndPolygon(&segment2, xf1, &rox, xf2, &m_smgroxCache2);
 
 			{
 				b2Vec2 g1 = b2TransformPoint(xf1, segment1.ghost1);
 				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
-				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				//g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
 				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
 			}
 
-			//{
-			//	b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
-			//	b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
-			//	b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
-			//	b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
-			//	g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
-			//	g_draw.DrawSegment(p1, p2, color1);
-			//	g_draw.DrawPoint(p1, 4.0f, color1);
-			//	g_draw.DrawPoint(p2, 4.0f, color1);
-			//	// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
-			//}
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				//g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			}
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < rox.count; ++i)
@@ -608,6 +612,7 @@ public:
 			if (m_round > 0.0f)
 			{
 				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+				g_draw.DrawPolygon(vertices, rox.count, color2);
 			}
 			else
 			{
@@ -617,9 +622,57 @@ public:
 			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro, 1.0f));
 
 			DrawManifold(&m1);
-			//DrawManifold(&m2);
+			DrawManifold(&m2);
 
-			offset = b2Add(offset, increment);
+			offset.x += 2.0f * increment.x;
+		}
+
+		// smooth-segment vs capsule
+		{
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m1 = b2CollideSmoothSegmentAndCapsule(&segment1, xf1, &capsule, xf2, &m_smgcapCache1);
+			b2Manifold m2 = b2CollideSmoothSegmentAndCapsule(&segment2, xf1, &capsule, xf2, &m_smgcapCache2);
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment1.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
+				//g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			}
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				//g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			}
+
+			b2Vec2 p1 = b2TransformPoint(xf2, capsule.point1);
+			b2Vec2 p2 = b2TransformPoint(xf2, capsule.point2);
+			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
+
+			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro, 1.0f));
+
+			DrawManifold(&m1);
+			DrawManifold(&m2);
+
+			offset.x += 2.0f * increment.x;
 		}
 	}
 
@@ -638,6 +691,8 @@ public:
 	b2DistanceCache m_woxwoxCache;
 	b2DistanceCache m_smgroxCache1;
 	b2DistanceCache m_smgroxCache2;
+	b2DistanceCache m_smgcapCache1;
+	b2DistanceCache m_smgcapCache2;
 
 	b2Hull m_wedge;
 

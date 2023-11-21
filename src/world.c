@@ -196,6 +196,17 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyPool(&world->jointPool);
 	b2DestroyPool(&world->contactPool);
 	b2DestroyPool(&world->shapePool);
+
+	int32_t chainCapacity = world->chainPool.capacity;
+	for (int32_t i = 0; i < chainCapacity; ++i)
+	{
+		b2ChainShape* chain = world->chains + i;
+		if (b2ObjectValid(&chain->object))
+		{
+			b2Free(chain->shapeIndices, chain->count * sizeof(int32_t));
+		}
+	}
+
 	b2DestroyPool(&world->chainPool);
 	b2DestroyPool(&world->bodyPool);
 

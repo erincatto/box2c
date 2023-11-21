@@ -204,6 +204,7 @@ public:
 	enum ShapeType
 	{
 		e_circleShape = 0,
+		e_capsuleShape,
 		e_boxShape
 	};
 
@@ -213,10 +214,9 @@ public:
 		m_groundId = b2_nullBodyId;
 		m_bodyId = b2_nullBodyId;
 		m_shapeId = b2_nullShapeId;
-
 		m_shapeType = e_circleShape;
 		m_round = 0.0f;
-		m_friction = 0.5f;
+		m_friction = 0.2f;
 		m_bevel = 0.0f;
 		m_useChain = true;
 
@@ -231,9 +231,10 @@ public:
 			b2World_DestroyBody(m_groundId);
 		}
 
+		m_shapeId = b2_nullShapeId;
+
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
-
 
 		float m = 1.0f / sqrt(2.0f);
 		float mm = 2.0f * (sqrt(2.0f) - 1.0f);
@@ -267,12 +268,15 @@ public:
 			chainDef.points = points;
 			chainDef.count = 20;
 			chainDef.loop = true;
+			chainDef.friction = m_friction;
 
 			b2Body_CreateChain(m_groundId, &chainDef);
 		}
 		else
 		{
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.friction = m_friction;
+
 			b2Hull hull = {0};
 
 			if (m_bevel > 0.0f)
@@ -392,6 +396,11 @@ public:
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 			m_shapeId = b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
 		}
+		else if (m_shapeType == e_capsuleShape)
+		{
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+			m_shapeId = b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+		}
 		else
 		{
 			float h = 0.5f - m_round;
@@ -420,7 +429,7 @@ public:
 		}
 
 		{
-			const char* shapeTypes[] = {"Circle", "Box"};
+			const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
 			int shapeType = int(m_shapeType);
 			ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
 			m_shapeType = ShapeType(shapeType);
@@ -428,15 +437,17 @@ public:
 
 		if (m_shapeType == e_boxShape)
 		{
-			ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.2f");
+			ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
 		}
 
-		if (ImGui::SliderFloat("Friction", &m_friction, 0.0f, 1.0f, "%.2f"))
+		if (ImGui::SliderFloat("Friction", &m_friction, 0.0f, 1.0f, "%.1f"))
 		{
 			if (B2_NON_NULL(m_shapeId))
 			{
 				b2Shape_SetFriction(m_shapeId, m_friction);
 			}
+
+			CreateScene();
 		}
 
 		if (ImGui::Button("Launch"))
