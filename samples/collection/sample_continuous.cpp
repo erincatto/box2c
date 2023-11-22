@@ -73,7 +73,7 @@ public:
 	b2BodyId m_bodyId;
 };
 
-static int sampleBallDrop = RegisterSample("Continuous", "BallDrop", BallDrop::Create);
+static int sampleBallDrop = RegisterSample("Continuous", "Ball Drop", BallDrop::Create);
 
 class SkinnyBox : public Sample
 {
@@ -125,27 +125,26 @@ public:
 		bodyDef.angularVelocity = m_angularVelocity;
 		bodyDef.linearVelocity = {0.0f, -100.0f};
 
-		b2Polygon polygon;
-
-		if (m_capsule)
-		{
-			polygon = b2MakeCapsule({0.0f, -1.0f}, {0.0f, 1.0f}, 0.1f);
-		}
-		else
-		{
-			polygon = b2MakeBox(2.0f, 0.05f);
-		}
-
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.9f;
 
 		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
-		b2Body_CreatePolygon(m_bodyId, &shapeDef, &polygon);
+
+		if (m_capsule)
+		{
+			b2Capsule capsule = {{0.0f, -1.0f}, {0.0f, 1.0f}, 0.1f};
+			b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+		}
+		else
+		{
+			b2Polygon polygon = b2MakeBox(2.0f, 0.05f);
+			b2Body_CreatePolygon(m_bodyId, &shapeDef, &polygon);
+		}
 
 		if (m_bullet)
 		{
-			polygon = b2MakeBox(0.25f, 0.25f);
+			b2Polygon polygon = b2MakeBox(0.25f, 0.25f);
 			m_x = RandomFloat(-1.0f, 1.0f);
 			bodyDef.position = {m_x, 10.0f};
 			bodyDef.linearVelocity = {0.0f, -50.0f};

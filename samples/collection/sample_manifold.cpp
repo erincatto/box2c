@@ -345,7 +345,7 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
 			}
-			g_draw.DrawPolygon(vertices, box.count, color1);
+			g_draw.DrawSolidPolygon(vertices, box.count, color1);
 
 			b2Vec2 v1 = b2TransformPoint(xf2, capsule.point1);
 			b2Vec2 v2 = b2TransformPoint(xf2, capsule.point2);

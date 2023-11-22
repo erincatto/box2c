@@ -47,6 +47,7 @@ add_library(imgui STATIC
 )
 target_link_libraries(imgui PUBLIC glfw glad)
 target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
 # jsmn for json
 set(JSMN_DIR ${CMAKE_SOURCE_DIR}/extern/jsmn)
@@ -75,6 +76,7 @@ set(BOX2D_SAMPLES
 	collection/sample_ray_cast.cpp
 	collection/sample_restitution.cpp
 	collection/sample_revolute_joint.cpp
+	collection/sample_shapes.cpp
 	collection/sample_shape_cast.cpp
 	collection/sample_tilted_stacks.cpp
 	collection/sample_time_of_impact.cpp
