@@ -4,6 +4,7 @@
 #pragma once
 
 #include "box2d/api.h"
+#include "box2d/callbacks.h"
 #include "box2d/geometry.h"
 #include "box2d/id.h"
 #include "box2d/joint_types.h"
@@ -48,7 +49,7 @@ BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
 BOX2D_API b2Vec2 b2Body_GetWorldPoint(b2BodyId bodyId, b2Vec2 localPoint);
 
 BOX2D_API b2Vec2 b2Body_GetLinearVelocity(b2BodyId bodyId);
-BOX2D_API float  b2Body_GetAngularVelocity(b2BodyId bodyId);
+BOX2D_API float b2Body_GetAngularVelocity(b2BodyId bodyId);
 BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);
 BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
 
@@ -95,12 +96,16 @@ BOX2D_API b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
 
-BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
-BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
-
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
+BOX2D_API void* b2Shape_GetUserData(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 BOX2D_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
+BOX2D_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
+
+BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
+BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
+BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
+BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 
 /// Create a joint
 BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
@@ -132,14 +137,21 @@ BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseT
 BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
-/// This function receives shapes found in the AABB query.
-/// @return true if the query should continue
-typedef bool b2QueryCallbackFcn(b2ShapeId shapeId, void* context);
-
-/// Query the world for all shapse that potentially overlap the provided AABB.
-/// @param callback a user implemented callback function.
+/// Query the world for all fixtures that potentially overlap the
+/// provided AABB.
+/// @param callback a user implemented callback class.
 /// @param aabb the query box.
-BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context);
+BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter,
+								 void* context);
+
+/// Ray-cast the world for all fixtures in the path of the ray. Your callback
+/// controls whether you get the closest point, any point, or n-points.
+/// The ray-cast ignores shapes that contain the starting point.
+/// @param callback a user implemented callback class.
+/// @param point1 the ray starting point
+/// @param point2 the ray ending point
+BOX2D_API void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Vec2 point2, b2QueryFilter filter,
+							   void* context);
 
 /// Advanced API for testing and special cases
 

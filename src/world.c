@@ -855,63 +855,129 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	return s;
 }
 
-#if 0
-struct b2WorldRayCastWrapper
+typedef struct WorldQueryContext
 {
-	float RayCastCallback(const b2RayCastInput& input, int32 proxyId)
+	b2World* world;
+	b2QueryResultFcn* fcn;
+	b2QueryFilter filter;
+	void* userContext;
+} WorldQueryContext;
+
+static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	WorldQueryContext* worldContext = context;
+	b2World* world = worldContext->world;
+
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+
+	b2Shape* shape = world->shapes + shapeIndex;
+	b2Filter shapeFilter = shape->filter;
+	b2QueryFilter queryFilter = worldContext->filter;
+
+	if ((shapeFilter.categoryBits & queryFilter.maskBits) == 0 || (shapeFilter.maskBits & queryFilter.categoryBits) == 0)
 	{
-		void* userData = broadPhase->GetUserData(proxyId);
-		b2FixtureProxy* proxy = (b2FixtureProxy*)userData;
-		b2Shape* shape = proxy->shape;
-		int32 index = proxy->childIndex;
-		b2RayCastOutput output;
-		bool hit = shape->RayCast(&output, input, index);
-
-		if (hit)
-		{
-			float fraction = output.fraction;
-			b2Vec2 point = (1.0f - fraction) * input.p1 + fraction * input.p2;
-			return callback->ReportFixture(shape, point, output.normal, fraction);
-		}
-
-		return input.maxFraction;
+		return true;
 	}
 
-	const b2BroadPhase* broadPhase;
-	b2RayCastCallback* callback;
-};
+	B2_ASSERT(shape->object.index == shape->object.next);
 
-void b2World::RayCast(b2RayCastCallback* callback, const b2Vec2& point1, const b2Vec2& point2) const
-{
-	b2WorldRayCastWrapper wrapper;
-	wrapper.broadPhase = &m_contactManager.m_broadPhase;
-	wrapper.callback = callback;
-	b2RayCastInput input;
-	input.maxFraction = 1.0f;
-	input.p1 = point1;
-	input.p2 = point2;
-	m_contactManager.m_broadPhase.RayCast(&wrapper, input);
+	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
+	bool result = worldContext->fcn(shapeId, worldContext->userContext);
+	return result;
 }
 
-int32 b2World::GetProxyCount() const
+void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context)
 {
-	return m_contactManager.m_broadPhase.GetProxyCount();
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	WorldQueryContext worldContext = {world, fcn, filter, context};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeQueryCallback, &worldContext);
+	}
 }
 
-int32 b2World::GetTreeHeight() const
+typedef struct WorldRayCastContext
 {
-	return m_contactManager.m_broadPhase.GetTreeHeight();
+	b2World* world;
+	b2RayResultFcn* fcn;
+	b2QueryFilter filter;
+	float fraction;
+	void* userContext;
+} WorldRayCastContext;
+
+static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	WorldRayCastContext* worldContext = context;
+	b2World* world = worldContext->world;
+
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+
+	b2Shape* shape = world->shapes + shapeIndex;
+	b2Filter shapeFilter = shape->filter;
+	b2QueryFilter queryFilter = worldContext->filter;
+
+	if ((shapeFilter.categoryBits & queryFilter.maskBits) == 0 || (shapeFilter.maskBits & queryFilter.categoryBits) == 0)
+	{
+		return input->maxFraction;
+	}
+
+	int32_t bodyIndex = shape->bodyIndex;
+	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+
+	b2Body* body = world->bodies + shape->bodyIndex;
+	B2_ASSERT(b2ObjectValid(&body->object));
+
+	b2RayCastOutput output = b2RayCastShape(input, shape, body->transform);
+
+	if (output.hit)
+	{
+		b2ShapeId shapeId = {shapeIndex, world->index, shape->object.revision};
+		float fraction = worldContext->fcn(shapeId, output.point, output.normal, output.fraction, worldContext->userContext);
+		worldContext->fraction = fraction;
+		return fraction;
+	}
+
+	return input->maxFraction;
 }
 
-int32 b2World::GetTreeBalance() const
+void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Vec2 point2, b2QueryFilter filter,
+					 void* context)
 {
-	return m_contactManager.m_broadPhase.GetTreeBalance();
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2RayCastInput input = {point1, point2, 0.0f, 1.0f};
+	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
+		
+		if (worldContext.fraction == 0.0f)
+		{
+			return;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
 }
 
-float b2World::GetTreeQuality() const
-{
-	return m_contactManager.m_broadPhase.GetTreeQuality();
-}
+#if 0
 
 void b2World::ShiftOrigin(const b2Vec2& newOrigin)
 {
@@ -1000,47 +1066,6 @@ void b2World::Dump()
 	b2CloseDump();
 }
 #endif
-
-typedef struct WorldQueryContext
-{
-	b2World* world;
-	b2QueryCallbackFcn* fcn;
-	void* userContext;
-} WorldQueryContext;
-
-static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
-{
-	B2_MAYBE_UNUSED(proxyId);
-
-	WorldQueryContext* worldContext = (WorldQueryContext*)context;
-	b2World* world = worldContext->world;
-
-	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
-
-	b2Shape* shape = world->shapes + shapeIndex;
-	B2_ASSERT(shape->object.index == shape->object.next);
-
-	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
-	bool result = worldContext->fcn(shapeId, worldContext->userContext);
-	return result;
-}
-
-void b2World_QueryAABB(b2WorldId worldId, b2AABB aabb, b2QueryCallbackFcn* fcn, void* context)
-{
-	b2World* world = b2GetWorldFromId(worldId);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
-	{
-		return;
-	}
-
-	WorldQueryContext worldContext = {world, fcn, context};
-
-	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
-	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeQueryCallback, &worldContext);
-	}
-}
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id)
 {

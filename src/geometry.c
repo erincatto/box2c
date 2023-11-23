@@ -667,8 +667,19 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 }
 
 // Ray vs line segment
-b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape)
+b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, bool oneSided)
 {
+	if (oneSided)
+	{
+		// Skip back-side collision
+		float offset = b2Cross(b2Sub(input->p1, shape->point1), b2Sub(shape->point2, shape->point1));
+		if (offset < 0.0f)
+		{
+			b2RayCastOutput output = {0};
+			return output;
+		}
+	}
+
 	if (input->radius == 0.0f)
 	{
 		// Put the ray into the edge's frame of reference.

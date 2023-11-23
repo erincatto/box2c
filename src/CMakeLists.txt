@@ -12,7 +12,6 @@ set(BOX2D_SOURCE_FILES
 	body.h
 	broad_phase.c
 	broad_phase.h
-	chain_shape.h
 	contact.c
 	contact.h
 	contact_solver.c

@@ -75,7 +75,7 @@ typedef struct b2WorldCallbacks
 /// See b2World_Query
 /// Called for each shape found in the query AABB.
 /// @return false to terminate the query.
-typedef bool b2QueryResultFcn(b2ShapeId shapeId);
+typedef bool b2QueryResultFcn(b2ShapeId shapeId, void* context);
 
 /// Callback class for ray casts.
 /// See b2World::RayCast
@@ -91,5 +91,4 @@ typedef bool b2QueryResultFcn(b2ShapeId shapeId);
 /// @param fraction the fraction along the ray at the point of intersection
 /// @return -1 to filter, 0 to terminate, fraction to clip the ray for
 /// closest hit, 1 to continue
-typedef float b2RayResultFcn(b2ShapeId shape, b2Vec2 point, b2Vec2 normal, float fraction);
-
+typedef float b2RayResultFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);

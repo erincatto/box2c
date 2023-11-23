@@ -110,5 +110,5 @@ BOX2D_API bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape);
 // Ray cast versus shape in shape local space. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape);
 BOX2D_API b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape);
-BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape);
+BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, bool oneSided);
 BOX2D_API b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape);

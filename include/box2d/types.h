@@ -229,6 +229,17 @@ typedef struct b2Filter
 	int32_t groupIndex;
 } b2Filter;
 
+/// This holds contact filtering data.
+typedef struct b2QueryFilter
+{
+	/// The collision category bits. Normally you would just set one bit.
+	uint32_t categoryBits;
+
+	/// The collision mask bits. This states the categories that this
+	/// shape would accept for collision.
+	uint32_t maskBits;
+} b2QueryFilter;
+
 /// Used to create a shape
 typedef struct b2ShapeDef
 {
@@ -290,6 +301,7 @@ typedef struct b2ChainDef
 } b2ChainDef;
 
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
+static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
 
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef(void)

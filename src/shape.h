@@ -63,10 +63,12 @@ typedef struct b2ChainShape
 	int32_t count;
 } b2ChainShape;
 
-b2MassData b2ComputeShapeMass(const b2Shape* shape);
-b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf);
-
 void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
 void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp);
 
+b2MassData b2ComputeShapeMass(const b2Shape* shape);
+b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf);
+
 b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
+
+b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf);

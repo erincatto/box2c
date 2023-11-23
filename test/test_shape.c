@@ -106,7 +106,7 @@ static int RayCastShapeTest()
 	}
 
 	{
-		b2RayCastOutput output = b2RayCastSegment(&input, &segment);
+		b2RayCastOutput output = b2RayCastSegment(&input, &segment, true);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);

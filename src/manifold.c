@@ -942,11 +942,16 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 	int32_t count = polygonB->count;
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
+	//b2Vec2 sum = b2Vec2_zero;
 	for (int32_t i = 0; i < count; ++i)
 	{
 		vertices[i] = b2TransformPoint(xf, polygonB->vertices[i]);
 		normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
+
+		//sum = b2Add(sum, b2Sub(vertices[i], centroidB));
 	}
+
+	//float sumLength = b2Length(sum);
 
 	// Distance doesn't work correctly with partial polygons
 	b2DistanceInput input;
@@ -969,6 +974,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 
 	// Index of incident vertex on polygon
 	int32_t incidentIndex = -1;
+	int32_t incidentNormal = -1;
 
 	if (behind1 == false && output.distance > 0.1f * b2_linearSlop)
 	{
@@ -1070,12 +1076,15 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 				}
 
 				// fall through b2_normalSnap
+				incidentNormal = ib;
 			}
-
-			// Get index of incident polygonB vertex
-			float dot1 = b2Dot(normal1, vertices[ib1]);
-			float dot2 = b2Dot(normal1, vertices[ib2]);
-			incidentIndex = dot1 < dot2 ? ib1 : ib2;
+			else
+			{
+				// Get index of incident polygonB vertex
+				float dot1 = b2Dot(normal1, b2Sub(vertices[ib1], p1));
+				float dot2 = b2Dot(normal1, b2Sub(vertices[ib2], p2));
+				incidentIndex = dot1 < dot2 ? ib1 : ib2;
+			}
 		}
 	}
 	else
@@ -1148,7 +1157,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 			b2Vec2 n = normals[i];
 
 			// Check the infinite sides of the partial polygon
-			if (b2Cross(n0, n) > 0.0f || b2Cross(n, n2) > 0.0f)
+			if ((smoothParams.convex1 && b2Cross(n0, n) > 0.0f) || (smoothParams.convex2 && b2Cross(n, n2) > 0.0f))
 			{
 				continue;
 			}
@@ -1208,28 +1217,39 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 		// fall through segment normal axis
 	}
 
-	B2_ASSERT(0 <= incidentIndex && incidentIndex < count);
+	B2_ASSERT(incidentNormal != -1 || incidentIndex != -1);
 
 	// Segment normal
 
 	// Find incident polygon normal: normal adjacent to deepest vertex that is most anti-parallel to segment normal
 	b2Vec2 b1, b2;
 	int32_t ib1, ib2;
-	int32_t i2 = incidentIndex;
-	int32_t i1 = i2 > 0 ? i2 - 1 : count - 1;
-	float d1 = b2Dot(normal1, normals[i1]);
-	float d2 = b2Dot(normal1, normals[i2]);
-	if (d1 < d2)
+
+	if (incidentNormal != -1)
 	{
-		ib1 = i1, ib2 = i2;
+		ib1 = incidentNormal;
+		ib2 = ib1 < count - 1 ? ib1 + 1 : 0;
 		b1 = vertices[ib1];
 		b2 = vertices[ib2];
 	}
 	else
 	{
-		ib1 = i2, ib2 = i2 < count - 1 ? i2 + 1 : 0;
-		b1 = vertices[ib1];
-		b2 = vertices[ib2];
+		int32_t i2 = incidentIndex;
+		int32_t i1 = i2 > 0 ? i2 - 1 : count - 1;
+		float d1 = b2Dot(normal1, normals[i1]);
+		float d2 = b2Dot(normal1, normals[i2]);
+		if (d1 < d2)
+		{
+			ib1 = i1, ib2 = i2;
+			b1 = vertices[ib1];
+			b2 = vertices[ib2];
+		}
+		else
+		{
+			ib1 = i2, ib2 = i2 < count - 1 ? i2 + 1 : 0;
+			b1 = vertices[ib1];
+			b2 = vertices[ib2];
+		}
 	}
 
 	manifold = b2ClipSegments(p1, p2, b1, b2, normal1, 0.0f, radiusB, B2_MAKE_ID(0, ib2), B2_MAKE_ID(1, ib1));

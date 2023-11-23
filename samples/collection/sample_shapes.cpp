@@ -26,8 +26,11 @@ public:
 	{
 		m_groundId = b2_nullBodyId;
 		m_bodyId = b2_nullBodyId;
+		m_chainId = b2_nullChainId;
+		m_shapeId = b2_nullShapeId;
 		m_shapeType = e_circleShape;
-
+		m_restitution = 0.0f;
+		m_friction = 0.2f;
 		CreateScene();
 		Launch();
 	}
@@ -62,7 +65,7 @@ public:
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
-		b2Body_CreateChain(m_groundId, &chainDef);
+		m_chainId = b2Body_CreateChain(m_groundId, &chainDef);
 	}
 
 	void Launch()
@@ -79,42 +82,50 @@ public:
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
-		shapeDef.friction = 0.2f;
+		shapeDef.friction = m_friction;
+		shapeDef.restitution = m_restitution;
 
 		if (m_shapeType == e_circleShape)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-			b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+			m_shapeId = b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
 			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
-			b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+			m_shapeId = b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
 		}
 		else
 		{
 			float h = 0.5f;
 			b2Polygon box = b2MakeBox(h, h);
-			b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
+			m_shapeId = b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
 		}
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 160.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
+		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
+		int shapeType = int(m_shapeType);
+		if (ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes)))
 		{
-			const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
-			int shapeType = int(m_shapeType);
-			ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
 			m_shapeType = ShapeType(shapeType);
+			Launch();
 		}
 
-		if (ImGui::Button("Launch"))
+		if (ImGui::SliderFloat("Friction", &m_friction, 0.0f, 1.0f, "%.1f"))
 		{
-			Launch();
+			b2Shape_SetFriction(m_shapeId, m_friction);
+			b2Chain_SetFriction(m_chainId, m_friction);
+		}
+
+		if (ImGui::SliderFloat("Restitution", &m_restitution, 0.0f, 2.0f, "%.1f"))
+		{
+			b2Shape_SetRestitution(m_shapeId, m_restitution);
 		}
 
 		ImGui::End();
@@ -127,7 +138,11 @@ public:
 
 	b2BodyId m_groundId;
 	b2BodyId m_bodyId;
+	b2ChainId m_chainId;
 	ShapeType m_shapeType;
+	b2ShapeId m_shapeId;
+	float m_restitution;
+	float m_friction;
 };
 
 static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape::Create);

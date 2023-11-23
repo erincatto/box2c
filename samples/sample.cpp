@@ -166,7 +166,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 		// Query the world for overlapping shapes.
 		QueryContext queryContext = {p, b2_nullBodyId};
-		b2World_QueryAABB(m_worldId, box, QueryCallback, &queryContext);
+		b2World_QueryAABB(m_worldId, QueryCallback, box,b2_defaultQueryFilter, &queryContext);
 
 		if (B2_NON_NULL(queryContext.bodyId))
 		{

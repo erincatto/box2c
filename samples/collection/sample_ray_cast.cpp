@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
@@ -307,7 +308,7 @@ class RayCast : public Sample
 			b2Vec2 end = b2InvTransformPoint(xf, m_rayEnd);
 			b2RayCastInput input = {start, end, m_rayRadius, maxFraction};
 
-			b2RayCastOutput localOutput = b2RayCastSegment(&input, &m_segment);
+			b2RayCastOutput localOutput = b2RayCastSegment(&input, &m_segment, false);
 			if (localOutput.hit)
 			{
 				output = localOutput;
@@ -352,3 +353,378 @@ class RayCast : public Sample
 };
 
 static int sampleIndex = RegisterSample("Collision", "Ray Cast", RayCast::Create);
+
+
+// This shows how to filter a specific shape using using data.
+struct ShapeUserData
+{
+	bool ignore;
+};
+
+// Context for ray cast callbacks. Do what you want with this.
+struct RayCastContext
+{
+	b2Vec2 points[3];
+	b2Vec2 normal[3];
+	int count;
+};
+
+// This callback finds the closest hit. This is the most common callback used in games.
+float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext rayContext = (RayCastContext)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this fixture and
+		// continue the ray-cast to the next fixture.
+		return -1.0f;
+	}
+
+	rayContext->points[0] = point;
+	rayContext->normals[0] = normal;
+	rayContext->count = 1;
+
+	// By returning the current fraction, we instruct the calling code to clip the ray and
+	// continue the ray-cast to the next fixture. WARNING: do not assume that fixtures
+	// are reported in order. However, by clipping, we can always get the closest fixture.
+	return fraction;
+}
+
+// This callback finds any hit. For this type of query we are usually just checking for obstruction,
+// so the hit data is not relevant.
+// NOTE: shape hits are not ordered, so this may not return the closest hit
+float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext rayContext = (RayCastContext)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this fixture and
+		// continue the ray-cast to the next fixture.
+		return -1.0f;
+	}
+
+	rayContext->points[0] = point;
+	rayContext->normals[0] = normal;
+	rayContext->count = 1;
+
+	// At this point we have a hit, so we know the ray is obstructed.
+	// By returning 0, we instruct the calling code to terminate the ray-cast.
+	return 0.0f;
+}
+
+// This ray cast collects multiple hits along the ray. Polygon 0 is filtered.
+// The fixtures are not necessary reported in order, so we might not capture
+// the closest fixture.
+// NOTE: shape hits are not ordered, so this may return hits in any order
+float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext rayContext = (RayCastContext)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this fixture and
+		// continue the ray-cast to the next fixture.
+		return -1.0f;
+	}
+
+	count = rayContext->count;
+	assert(count < 3);
+
+	rayContext->points[count] = point;
+	rayContext->normals[count] = normal;
+	rayContext->count = count + 1;
+
+	if (count == 3)
+	{
+		// At this point the buffer is full.
+		// By returning 0, we instruct the calling code to terminate the ray-cast.
+		return 0.0f;
+	}
+
+	// By returning 1, we instruct the caller to continue without clipping the ray.
+	return 1.0f;
+}
+
+class RayCastWorld : public Test
+{
+public:
+	enum Mode
+	{
+		e_any = 0,
+		e_closest = 1,
+		e_multiple = 2
+	};
+
+	enum
+	{
+		e_maxCount = 256
+	};
+
+	RayCast()
+	{
+		// Ground body
+		{
+			b2BodyDef bodyDef;
+			b2BodyId groundId = m_world->CreateBody(&bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Segment segment = {{-40.0f, 0.0f}, {40.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		{
+			b2Vec2 vertices[3];
+			vertices[0].Set(-0.5f, 0.0f);
+			vertices[1].Set(0.5f, 0.0f);
+			vertices[2].Set(0.0f, 1.5f);
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			m_polygons[0] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		{
+			b2Vec2 vertices[3];
+			vertices[0].Set(-0.1f, 0.0f);
+			vertices[1].Set(0.1f, 0.0f);
+			vertices[2].Set(0.0f, 1.5f);
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			m_polygons[1] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		{
+			float w = 1.0f;
+			float b = w / (2.0f + b2Sqrt(2.0f));
+			float s = b2Sqrt(2.0f) * b;
+
+			b2Vec2 vertices[8];
+			vertices[0].Set(0.5f * s, 0.0f);
+			vertices[1].Set(0.5f * w, b);
+			vertices[2].Set(0.5f * w, b + s);
+			vertices[3].Set(0.5f * s, w);
+			vertices[4].Set(-0.5f * s, w);
+			vertices[5].Set(-0.5f * w, b + s);
+			vertices[6].Set(-0.5f * w, b);
+			vertices[7].Set(-0.5f * s, 0.0f);
+
+			b2Hull hull = b2ComputeHull(vertices, 8);
+			m_polygons[2] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		m_polygons[3] = b2MakeBox(0.5f, 0.5f);
+		m_circle = {{0.0f, 0.0f}, 0.5f};
+		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0f}};
+
+		m_bodyIndex = 0;
+
+		for (int i = 0; i < e_maxCount; ++i)
+		{
+			m_bodyIds[i] = b2_nullBodyId;
+		}
+
+		m_degrees = 0.0f;
+		m_mode = e_closest;
+	}
+
+	void Create(int index)
+	{
+		if (B2_IS_NULL(m_bodyIds[m_bodyIndex]))
+		{
+			b2World_DestroyBody(m_worldIds, m_bodyIds[m_bodyIndex]);
+			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
+		}
+
+		float x = RandomFloat(-10.0f, 10.0f);
+		float y = RandomFloat(0.0f, 20.0f);
+
+		b2BodyDef bodyDef;
+		bodyDef.position = {x, y};
+		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
+
+		m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
+
+		const int ignoreIndex = 7;
+
+		b2ShapeDef shapeDef;
+		shapeDef.userData = m_userData + index;
+		m_userData[index].ignore = m_bodyIndex == ignoreIndex ? true : false;
+
+		if (index < 4)
+		{
+			b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
+		}
+		else if (index < 5)
+		{
+			b2Body_CreateCircle(m_bodyIdes[m_bodyIndex], &shapeDef, &m_circle);
+		}
+		else
+		{
+			b2Body_CreateSegment(m_bodyIdes[m_bodyIndex], &shapeDef, &m_segment);
+		}
+
+		m_bodyIndex = (m_bodyIndex + 1) % e_maxBodies;
+	}
+
+	void DestroyBody()
+	{
+		for (int32 i = 0; i < e_maxBodies; ++i)
+		{
+			if (B2_NON_NULL(m_bodyIds[i]))
+			{
+				b2World_DestroyBody(m_bodyIds[i]);
+				m_bodyIds[i] = b2_nullBodyId;
+				return;
+			}
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 300.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Shape 1"))
+		{
+			Create(0);
+		}
+
+		if (ImGui::Button("Shape 2"))
+		{
+			Create(1);
+		}
+
+		if (ImGui::Button("Shape 3"))
+		{
+			Create(2);
+		}
+
+		if (ImGui::Button("Shape 4"))
+		{
+			Create(3);
+		}
+
+		if (ImGui::Button("Shape 5"))
+		{
+			Create(4);
+		}
+
+		if (ImGui::Button("Shape 6"))
+		{
+			Create(5);
+		}
+
+		if (ImGui::Button("Destroy Shape"))
+		{
+			DestroyBody();
+		}
+
+		ImGui::RadioButton("Any", &m_mode, e_any);
+		ImGui::RadioButton("Closest", &m_mode, e_closest);
+		ImGui::RadioButton("Multiple", &m_mode, e_multiple);
+
+		ImGui::SliderFloat("Angle", &m_degrees, 0.0f, 360.0f, "%.0f");
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Test::Step(settings);
+
+		g_debugDraw.DrawString(5, m_textLine, "Shape 7 is intentionally ignored by the ray");
+		m_textLine += m_textIncrement;
+		switch (m_mode)
+		{
+			case e_closest:
+				g_debugDraw.DrawString(5, m_textLine, "Ray-cast mode: closest - find closest fixture along the ray");
+				break;
+
+			case e_any:
+				g_debugDraw.DrawString(5, m_textLine, "Ray-cast mode: any - check for obstruction");
+				break;
+
+			case e_multiple:
+				g_debugDraw.DrawString(5, m_textLine, "Ray-cast mode: multiple - gather multiple fixtures");
+				break;
+		}
+
+		m_textLine += m_textIncrement;
+
+		float angle = b2_pi * m_degrees / 180.0f;
+		float L = 11.0f;
+		b2Vec2 point1(0.0f, 10.0f);
+		b2Vec2 d(L * cosf(angle), L * sinf(angle));
+		b2Vec2 point2 = point1 + d;
+
+		if (m_mode == e_closest)
+		{
+			RayCastContext context = {0};
+			b2World_RayCast(m_worldId, RayCastClosestCallback, point1, point2, b2_defaultQueryFilter, &context);
+
+			if (context.count > 0)
+			{
+				g_debugDraw.DrawPoint(callback.m_points[0], 5.0f, b2Color(0.4f, 0.9f, 0.4f));
+				g_debugDraw.DrawSegment(point1, callback.m_points[0], b2Color(0.8f, 0.8f, 0.8f));
+				b2Vec2 head = b2Lerp(callback.m_points[0], callback.m_normals[0], 0.5f);
+				g_debugDraw.DrawSegment(callback.m_point, head, b2Color(0.9f, 0.9f, 0.4f));
+			}
+			else
+			{
+				g_debugDraw.DrawSegment(point1, point2, b2Color(0.8f, 0.8f, 0.8f));
+			}
+		}
+		else if (m_mode == e_any)
+		{
+			RayCastContext context = {0};
+			b2World_RayCast(m_worldId, RayCastAnyCallback, point1, point2, &context);
+
+			if (callback.count > 0)
+			{
+				g_debugDraw.DrawPoint(callback.m_points[0], 5.0f, b2Color(0.4f, 0.9f, 0.4f));
+				g_debugDraw.DrawSegment(point1, callback.m_points[0], b2Color(0.8f, 0.8f, 0.8f));
+				b2Vec2 head = b2Lerp(callback.m_points[0], callback.m_normals[0], 0.5f);
+				g_debugDraw.DrawSegment(callback.m_point, head, b2Color(0.9f, 0.9f, 0.4f));
+			}
+			else
+			{
+				g_debugDraw.DrawSegment(point1, point2, b2Color(0.8f, 0.8f, 0.8f));
+			}
+		}
+		else if (m_mode == e_multiple)
+		{
+			RayCastContext context = {0};
+			b2World_RayCast(m_worldId, RayCastMultipleCallback, point1, point2, &context;
+			g_debugDraw.DrawSegment(point1, point2, b2Color(0.8f, 0.8f, 0.8f));
+
+			for (int32 i = 0; i < callback.m_count; ++i)
+			{
+				b2Vec2 p = callback.m_points[i];
+				b2Vec2 n = callback.m_normals[i];
+				g_debugDraw.DrawPoint(p, 5.0f, b2Color(0.4f, 0.9f, 0.4f));
+				g_debugDraw.DrawSegment(point1, p, b2Color(0.8f, 0.8f, 0.8f));
+				b2Vec2 head = p + 0.5f * n;
+				g_debugDraw.DrawSegment(p, head, b2Color(0.9f, 0.9f, 0.4f));
+			}
+		}
+	}
+
+	static Test* Create()
+	{
+		return new RayCastWorld;
+	}
+
+	int m_bodyIndex;
+	b2BodyId m_bodyIds[e_maxBodies];
+	ShapeUserData m_userData[e_maxBodies];
+	b2Polygon m_polygons[4];
+	b2Circle m_circle;
+	b2Segment m_segment;
+	float m_degrees;
+	int m_mode;
+};
+
+static int sampleRayCastWorld = RegisterTest("Collision", "Ray Cast World", RayCastWorld::Create);
