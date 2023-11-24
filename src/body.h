@@ -81,6 +81,7 @@ typedef struct b2Body
 	bool isEnabled;
 	bool isMarked;
 	bool isFast;
+	bool isSpeedCapped;
 	bool enlargeAABB;
 } b2Body;
 

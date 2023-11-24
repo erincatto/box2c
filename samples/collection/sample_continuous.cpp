@@ -12,71 +12,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-class BallDrop : public Sample
-{
-public:
-	BallDrop(const Settings& settings)
-		: Sample(settings)
-	{
-		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
-
-			b2Segment segment = {{-10.0f, -10.0f}, {10.0f, 10.0f}};
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
-		}
-
-		m_bodyId = b2_nullBodyId;
-
-		Launch();
-	}
-
-	void Launch()
-	{
-		if (B2_NON_NULL(m_bodyId))
-		{
-			b2World_DestroyBody(m_bodyId);
-		}
-
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		bodyDef.type = b2_dynamicBody;
-		bodyDef.position = {0.0f, 8.0f};
-		bodyDef.linearVelocity = {0.0f, -100.0f};
-
-		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
-		shapeDef.density = 1.0f;
-
-		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
-		b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
-	}
-
-	void UpdateUI() override
-	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
-
-		if (ImGui::Button("Launch"))
-		{
-			Launch();
-		}
-
-		ImGui::End();
-	}
-
-	static Sample* Create(const Settings& settings)
-	{
-		return new BallDrop(settings);
-	}
-
-	b2BodyId m_bodyId;
-};
-
-static int sampleBallDrop = RegisterSample("Continuous", "Ball Drop", BallDrop::Create);
-
-// This tests continuous collision robustness and also demonstraints the speed limits imposed
+// This tests continuous collision robustness and also demonstrates the speed limits imposed
 // by b2_maxTranslation and b2_maxRotation.
 class BounceHouse : public Sample
 {

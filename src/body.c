@@ -245,6 +245,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->isMarked = false;
 	body->enlargeAABB = false;
 	body->isFast = false;
+	body->isSpeedCapped = false;
 	body->islandIndex = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
@@ -437,6 +438,9 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	shape->reportContacts = false;
 	shape->isFast = false;
 	shape->proxyKey = B2_NULL_INDEX;
+	shape->localCentroid = b2GetShapeCentroid(shape);
+	shape->aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
+	shape->fatAABB = (b2AABB){b2Vec2_zero, b2Vec2_zero};
 
 	if (body->isEnabled)
 	{

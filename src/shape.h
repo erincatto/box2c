@@ -33,6 +33,7 @@ typedef struct b2Shape
 
 	b2AABB aabb;
 	b2AABB fatAABB;
+	b2Vec2 localCentroid;
 	int32_t proxyKey;
 
 	b2Filter filter;
@@ -68,6 +69,7 @@ void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp);
 
 b2MassData b2ComputeShapeMass(const b2Shape* shape);
 b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf);
+b2Vec2 b2GetShapeCentroid(const b2Shape* shape);
 
 b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
 

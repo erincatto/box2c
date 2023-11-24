@@ -539,7 +539,6 @@ static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 	b2TracyCZoneEnd(solve_joints);
 }
 
-// TODO_ERIN this could compute sin/cos 8 bodies at a time. Would help with determinism as well.
 static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(integrate_positions, "IntPos", b2_colorDarkSeaGreen, true);
@@ -597,10 +596,12 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		b2Vec2 v = solverBody->linearVelocity;
 		float w = solverBody->angularVelocity;
 
+		body->isSpeedCapped = false;
 		float ratioLinear = 1.0f;
 		b2Vec2 translation = b2MulSV(timeStep, v);
 		if (b2Dot(translation, translation) > b2_maxTranslationSquared)
 		{
+			body->isSpeedCapped = true;
 			ratioLinear = b2_maxTranslation / b2Length(translation);
 		}
 
@@ -608,6 +609,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		float rotation = timeStep * w;
 		if (rotation * rotation > b2_maxRotationSquared)
 		{
+			body->isSpeedCapped = true;
 			ratioAngular = b2_maxRotation / B2_ABS(rotation);
 		}
 
@@ -621,6 +623,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->position = b2Add(body->position, solverBody->deltaPosition);
 		body->angle += solverBody->deltaAngle;
 
+		// TODO_ERIN separate loop to compute rotations in SIMD
 		body->transform.q = b2MakeRot(body->angle);
 		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
 
@@ -1368,7 +1371,6 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2_stageStoreImpulses
 	*/
 
-	// TODO_ERIN joint tasks
 	int32_t stageCount = 0;
 
 	// b2_stageIntegrateVelocities
@@ -1394,14 +1396,13 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2SolverBlock* jointBlocks = b2AllocateStackItem(world->stackAllocator, jointBlockCount * sizeof(b2SolverBlock), "joint blocks");
 	b2SolverBlock* graphBlocks = b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
 
-	// TODO_ERIN cannot do this in parallel with FinalizeBodies
 	// Split an awake island. This modifies:
 	// - stack allocator
 	// - awake island array
 	// - island pool
 	// - island indices on bodies, contacts, and joints
-	// I'm squeezing this task in here because it may be expensive and this
-	// is a safe place to put it.
+	// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
+	// Note: cannot split islands in parallel with FinalizeBodies
 	world->splitIslandIndex = splitIslandIndex;
 	void* splitIslandTask = NULL;
 	if (splitIslandIndex != B2_NULL_INDEX)
@@ -1867,6 +1868,7 @@ struct b2ContinuousContext
 	b2World* world;
 	b2Body* fastBody;
 	b2Shape* fastShape;
+	b2Vec2 centroid1, centroid2;
 	b2Sweep sweep;
 	float fraction;
 };
@@ -1916,8 +1918,19 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	// Prevent pausing on smooth segment junctions
 	if (shape->type == b2_smoothSegmentShape)
 	{
-		// TODO_ERIN if there fast shape centroid does not pass through the smooth
-		// segment, then early return
+		b2Vec2 p1 = shape->smoothSegment.segment.point1;
+		b2Vec2 p2 = shape->smoothSegment.segment.point2;
+		b2Vec2 e = b2Sub(p2, p1);
+		b2Vec2 c1 = continuousContext->centroid1;
+		b2Vec2 c2 = continuousContext->centroid2;
+		float offset1 = b2Cross(b2Sub(c1, p1), e);
+		float offset2 = b2Cross(b2Sub(c2, p1), e);
+
+		if (offset1 < 0.0f || offset2 > 0.0f)
+		{
+			// Started behind or finished in front
+			return true;
+		}
 	}
 
 	b2TOIInput input;
@@ -1947,9 +1960,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 
 	b2Sweep sweep = b2MakeSweep(fastBody);
 
-	b2Transform xf1;
-	xf1.q = b2MakeRot(sweep.a1);
-	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
+	b2Transform xf1 = fastBody->transform;
 
 	b2Transform xf2;
 	xf2.q = b2MakeRot(sweep.a2);
@@ -1973,6 +1984,8 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		fastShape->isFast = false;
 
 		context.fastShape = fastShape;
+		context.centroid1 = b2TransformPoint(xf1, fastShape->localCentroid);
+		context.centroid2 = b2TransformPoint(xf2, fastShape->localCentroid);
 
 		b2AABB box1 = fastShape->aabb;
 		b2AABB box2 = b2ComputeShapeAABB(fastShape, xf2);

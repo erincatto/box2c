@@ -30,6 +30,25 @@ b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf)
 	}
 }
 
+b2Vec2 b2GetShapeCentroid(const b2Shape* shape)
+{
+	switch (shape->type)
+	{
+		case b2_capsuleShape:
+			return b2Lerp(shape->capsule.point1, shape->capsule.point2, 0.5f);
+		case b2_circleShape:
+			return shape->circle.point;
+		case b2_polygonShape:
+			return shape->polygon.centroid;
+		case b2_segmentShape:
+			return b2Lerp(shape->segment.point1, shape->segment.point2, 0.5f);
+		case b2_smoothSegmentShape:
+			return b2Lerp(shape->smoothSegment.segment.point1, shape->smoothSegment.segment.point2, 0.5f);
+		default:
+			return b2Vec2_zero;
+	}
+}
+
 b2MassData b2ComputeShapeMass(const b2Shape* shape)
 {
 	switch (shape->type)

@@ -607,11 +607,15 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				if (b->type == b2_dynamicBody && b->mass == 0.0f)
 				{
 					// Bad body
-					b2DrawShape(draw, shape, xf, (b2Color){1.0f, 0.0f, 0.0f, 1.0f});
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorRed, 0.5f));
 				}
 				else if (b->isEnabled == false)
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.5f, 0.3f, 1.0f});
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorSlateGray2, 0.5f));
+				}
+				else if (b->isSpeedCapped)
+				{
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorYellow, 1.0f));
 				}
 				else if (b->isFast)
 				{
@@ -619,7 +623,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				}
 				else if (b->type == b2_staticBody)
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.5f, 0.9f, 0.5f, 1.0f});
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorPaleGreen, 1.0f));
 				}
 				else if (b->type == b2_kinematicBody)
 				{
@@ -627,7 +631,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				}
 				else if (isAwake)
 				{
-					b2DrawShape(draw, shape, xf, (b2Color){0.9f, 0.7f, 0.7f, 1.0f});
+					b2DrawShape(draw, shape, xf, b2MakeColor(b2_colorPink3, 1.0f));
 				}
 				else
 				{
@@ -935,7 +939,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	int32_t bodyIndex = shape->bodyIndex;
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 
-	b2Body* body = world->bodies + shape->bodyIndex;
+	b2Body* body = world->bodies + bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
 	b2RayCastOutput output = b2RayCastShape(input, shape, body->transform);
