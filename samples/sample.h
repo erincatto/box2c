@@ -16,7 +16,6 @@
 #include <stdlib.h>
 
 struct Settings;
-class Test;
 
 #ifdef _DEBUG
 constexpr bool g_sampleDebug = true;

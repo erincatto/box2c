@@ -701,7 +701,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 		}
 
 		// Normal points to the right, looking from v1 towards v2
-		b2Vec2 normal = {eUnit.y, -eUnit.x};
+		b2Vec2 normal = b2RightPerp(eUnit);
 
 		// Intersect ray with infinite segment using normal
 		// Similar to intersecting a ray with an infinite plane
@@ -744,6 +744,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 		}
 
 		output.fraction = t;
+		output.point = b2MulAdd(p1, t, d);
 		output.normal = normal;
 		output.hit = true;
 
