@@ -1913,6 +1913,13 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 		return true;
 	}
 
+	// Prevent pausing on smooth segment junctions
+	if (shape->type == b2_smoothSegmentShape)
+	{
+		// TODO_ERIN if there fast shape centroid does not pass through the smooth
+		// segment, then early return
+	}
+
 	b2TOIInput input;
 	input.proxyA = b2MakeShapeDistanceProxy(shape);
 	input.proxyB = b2MakeShapeDistanceProxy(fastShape);

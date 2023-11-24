@@ -979,7 +979,7 @@ void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Ve
 
 #if 0
 
-void b2World::ShiftOrigin(const b2Vec2& newOrigin)
+void b2World_ShiftOrigin(b2WorldId worldId, b2Vec2 newOrigin)
 {
 	B2_ASSERT(m_locked == false);
 	if (m_locked)
@@ -1002,7 +1002,7 @@ void b2World::ShiftOrigin(const b2Vec2& newOrigin)
 	m_contactManager.m_broadPhase.ShiftOrigin(newOrigin);
 }
 
-void b2World::Dump()
+void b2World_Dump()
 {
 	if (m_locked)
 	{
