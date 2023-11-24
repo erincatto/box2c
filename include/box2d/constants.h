@@ -55,7 +55,7 @@ extern "C"
 /// The maximum linear translation of a body per step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this. Meters.
 /// @warning modifying this can have a significant impact on stability
-#define b2_maxTranslation (20.0f * b2_lengthUnitsPerMeter)
+#define b2_maxTranslation (4.0f * b2_lengthUnitsPerMeter)
 #define b2_maxTranslationSquared (b2_maxTranslation * b2_maxTranslation)
 
 /// The maximum angular velocity of a body. This limit is very large and is used

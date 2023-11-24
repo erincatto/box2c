@@ -371,7 +371,7 @@ struct RayCastContext
 };
 
 // This callback finds the closest hit. This is the most common callback used in games.
-float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
 {
 	RayCastContext* rayContext = (RayCastContext*)context;
 
@@ -396,7 +396,7 @@ float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, flo
 // This callback finds any hit. For this type of query we are usually just checking for obstruction,
 // so the hit data is not relevant.
 // NOTE: shape hits are not ordered, so this may not return the closest hit
-float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+static float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
 {
 	RayCastContext* rayContext = (RayCastContext*)context;
 
@@ -423,7 +423,7 @@ float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float f
 // NOTE: shape hits are not ordered, so this may return hits in any order. This means that
 // if you limit the number of results, you may discard the closest hit. You can see this
 // behavior in the sample.
-float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+static float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
 {
 	RayCastContext* rayContext = (RayCastContext*)context;
 

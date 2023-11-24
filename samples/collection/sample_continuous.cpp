@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
+#include "settings.h"
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
@@ -74,6 +75,120 @@ public:
 };
 
 static int sampleBallDrop = RegisterSample("Continuous", "Ball Drop", BallDrop::Create);
+
+// This tests continuous collision robustness and also demonstraints the speed limits imposed
+// by b2_maxTranslation and b2_maxRotation.
+class BounceHouse : public Sample
+{
+public:
+	enum ShapeType
+	{
+		e_circleShape = 0,
+		e_capsuleShape,
+		e_boxShape
+	};
+
+	BounceHouse(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.m_restart == false)
+		{
+			g_camera.m_center = {0.0f, 0.0f};
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		{
+			b2Segment segment = {{-10.0f, -10.0f}, {10.0f, -10.0f}};
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		{
+			b2Segment segment = {{10.0f, -10.0f}, {10.0f, 10.0f}};
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		{
+			b2Segment segment = {{10.0f, 10.0f}, {-10.0f, 10.0f}};
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		{
+			b2Segment segment = {{-10.0f, 10.0f}, {-10.0f, -10.0f}};
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		m_shapeType = e_circleShape;
+		m_bodyId = b2_nullBodyId;
+
+		Launch();
+	}
+
+	void Launch()
+	{
+		if (B2_NON_NULL(m_bodyId))
+		{
+			b2World_DestroyBody(m_bodyId);
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.linearVelocity = {10.0f, 20.0f};
+		bodyDef.position = {0.0f, 0.0f};
+		bodyDef.gravityScale = 0.0f;
+		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+		shapeDef.restitution = 1.2f;
+
+		if (m_shapeType == e_circleShape)
+		{
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+			b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+		}
+		else if (m_shapeType == e_capsuleShape)
+		{
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+			b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+		}
+		else
+		{
+			float h = 0.5f;
+			b2Polygon box = b2MakeBox(h, h);
+			b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 70.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+
+		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
+		int shapeType = int(m_shapeType);
+		if (ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes)))
+		{
+			m_shapeType = ShapeType(shapeType);
+			Launch();
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new BounceHouse(settings);
+	}
+
+	b2BodyId m_bodyId;
+	ShapeType m_shapeType;
+};
+
+static int sampleBounceHouse = RegisterSample("Continuous", "Bounce House", BounceHouse::Create);
 
 class SkinnyBox : public Sample
 {

@@ -597,6 +597,24 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		b2Vec2 v = solverBody->linearVelocity;
 		float w = solverBody->angularVelocity;
 
+		float ratioLinear = 1.0f;
+		b2Vec2 translation = b2MulSV(timeStep, v);
+		if (b2Dot(translation, translation) > b2_maxTranslationSquared)
+		{
+			ratioLinear = b2_maxTranslation / b2Length(translation);
+		}
+
+		float ratioAngular = 1.0f;
+		float rotation = timeStep * w;
+		if (rotation * rotation > b2_maxRotationSquared)
+		{
+			ratioAngular = b2_maxRotation / B2_ABS(rotation);
+		}
+
+		float ratio = B2_MIN(ratioLinear, ratioAngular);
+		v = b2MulSV(ratio, v);
+		w = ratio * w;
+
 		body->linearVelocity = v;
 		body->angularVelocity = w;
 

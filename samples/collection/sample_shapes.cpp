@@ -10,7 +10,23 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-// TODO_ERIN fix tunnel with mouse joint and fast box slide into convex corner
+struct RayCastContext
+{
+	b2Vec2 point;
+	b2Vec2 normal;
+	bool hit;
+};
+
+static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext* rayContext = (RayCastContext*)context;
+	rayContext->point = point;
+	rayContext->normal = normal;
+	rayContext->hit = true;
+	return fraction;
+}
+
+// TODO_ERIN fix bounce tunnel
 class ChainShape : public Sample
 {
 public:
@@ -129,6 +145,11 @@ public:
 		}
 
 		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
 	}
 
 	static Sample* Create(const Settings& settings)
