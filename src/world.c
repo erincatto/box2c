@@ -658,22 +658,6 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		}
 	}
 
-	// if (debugDraw->drawPi & b2Draw::e_pairBit)
-	//{
-	//		b2Color color(0.3f, 0.9f, 0.9f);
-	//		for (b2Contact* c = m_contactManager.m_contactList; c; c = c->GetNext())
-	//		{
-	//		b2Shape* fixtureA = c->GetFixtureA();
-	//		b2Shape* fixtureB = c->GetFixtureB();
-	//		int32 indexA = c->GetChildIndexA();
-	//		int32 indexB = c->GetChildIndexB();
-	//		b2Vec2 cA = fixtureA->GetAABB(indexA).GetCenter();
-	//		b2Vec2 cB = fixtureB->GetAABB(indexB).GetCenter();
-
-	//		m_debugDraw->DrawSegment(cA, cB, color);
-	//		}
-	//}
-
 	if (draw->drawAABBs)
 	{
 		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
@@ -707,22 +691,6 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				shapeIndex = shape->nextShapeIndex;
 			}
 		}
-
-		// for (b2Shape* f = b->GetFixtureList(); f; f = f->GetNext())
-		//{
-		//	for (int32 i = 0; i < f->m_proxyCount; ++i)
-		//	{
-		//		b2FixtureProxy* proxy = f->m_proxies + i;
-		//		b2AABB aabb = bp->GetFatAABB(proxy->proxyId);
-		//		b2Vec2 vs[4];
-		//		vs[0].Set(aabb.lowerBound.x, aabb.lowerBound.y);
-		//		vs[1].Set(aabb.upperBound.x, aabb.lowerBound.y);
-		//		vs[2].Set(aabb.upperBound.x, aabb.upperBound.y);
-		//		vs[3].Set(aabb.lowerBound.x, aabb.upperBound.y);
-
-		//		m_debugDraw->DrawPolygon(vs, 4, color);
-		//	}
-		//}
 	}
 
 	if (draw->drawMass)

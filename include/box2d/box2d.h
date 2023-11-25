@@ -137,14 +137,13 @@ BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseT
 BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
-/// Query the world for all fixtures that potentially overlap the
-/// provided AABB.
+/// Query the world for all shapes that potentially overlap the provided AABB.
 /// @param callback a user implemented callback class.
 /// @param aabb the query box.
 BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter,
 								 void* context);
 
-/// Ray-cast the world for all fixtures in the path of the ray. Your callback
+/// Ray-cast the world for all shapes in the path of the ray. Your callback
 /// controls whether you get the closest point, any point, or n-points.
 /// The ray-cast ignores shapes that contain the starting point.
 /// @param callback a user implemented callback class.

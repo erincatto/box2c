@@ -35,7 +35,7 @@ enum b2ContactFlags
 	// This contact can be disabled (by user)
 	b2_contactEnabledFlag = 0x00000004,
 
-	// This contact needs filtering because a fixture filter was changed.
+	// This contact needs filtering because a shape filter was changed.
 	// TODO_ERIN don't defer this anymore
 	b2_contactFilterFlag = 0x00000008,
 

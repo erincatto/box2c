@@ -940,107 +940,7 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 }
 
 #if 0
-void b2Body::SetType(b2BodyType type)
-{
-	b2Assert(m_world->IsLocked() == false);
-	if (m_world->IsLocked() == true)
-	{
-		return;
-	}
-
-	if (m_type == type)
-	{
-		return;
-	}
-
-	m_type = type;
-
-	ResetMassData();
-
-	if (m_type == b2_staticBody)
-	{
-		m_linearVelocity.SetZero();
-		m_angularVelocity = 0.0f;
-		m_sweep.a0 = m_sweep.a;
-		m_sweep.c0 = m_sweep.c;
-		m_flags &= ~e_awakeFlag;
-		SynchronizeFixtures();
-	}
-
-	SetAwake(true);
-
-	m_force.SetZero();
-	m_torque = 0.0f;
-
-	// Delete the attached contacts.
-	b2ContactEdge* ce = m_contactList;
-	while (ce)
-	{
-		b2ContactEdge* ce0 = ce;
-		ce = ce->next;
-		m_world->m_contactManager.Destroy(ce0->contact);
-	}
-	m_contactList = nullptr;
-
-	// Touch the proxies so that new contacts will be created (when appropriate)
-	b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
-	for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
-	{
-		int32 proxyCount = f->m_proxyCount;
-		for (int32 i = 0; i < proxyCount; ++i)
-		{
-			broadPhase->TouchProxy(f->m_proxies[i].proxyId);
-		}
-	}
-}
-
-void b2Body::SetEnabled(bool flag)
-{
-	b2Assert(m_world->IsLocked() == false);
-
-	if (flag == IsEnabled())
-	{
-		return;
-	}
-
-	if (flag)
-	{
-		m_flags |= e_enabledFlag;
-
-		// Create all proxies.
-		b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
-		for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
-		{
-			f->CreateProxies(broadPhase, m_xf);
-		}
-
-		// Contacts are created at the beginning of the next
-		m_world->m_newContacts = true;
-	}
-	else
-	{
-		m_flags &= ~e_enabledFlag;
-
-		// Destroy all proxies.
-		b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
-		for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
-		{
-			f->DestroyProxies(broadPhase);
-		}
-
-		// Destroy the attached contacts.
-		b2ContactEdge* ce = m_contactList;
-		while (ce)
-		{
-			b2ContactEdge* ce0 = ce;
-			ce = ce->next;
-			m_world->m_contactManager.Destroy(ce0->contact);
-		}
-		m_contactList = nullptr;
-	}
-}
-
-void b2Body::SetFixedRotation(bool flag)
+void b2Body_SetFixedRotation(bool flag)
 {
 	bool status = (m_flags & e_fixedRotationFlag) == e_fixedRotationFlag;
 	if (status == flag)
@@ -1086,10 +986,10 @@ void b2Body_Dump(b2Body* b)
 	b2Dump("  bd.gravityScale = %.9g;\n", m_gravityScale);
 	b2Dump("  bodies[%d] = m_world->CreateBody(&bd);\n", m_islandIndex);
 	b2Dump("\n");
-	for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
+	for (b2Shape* shape = m_shapeList; shape; shape = shape->m_next)
 	{
 		b2Dump("  {\n");
-		f->Dump(bodyIndex);
+		shape->Dump(bodyIndex);
 		b2Dump("  }\n");
 	}
 	b2Dump("}\n");

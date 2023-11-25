@@ -36,13 +36,6 @@ public:
 			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
 			b2ShapeDef sd = b2DefaultShapeDef();
 			b2Body_CreatePolygon(groundId, &sd, &box);
-
-			//b2EdgeShape shape;
-			//shape.SetTwoSided(b2Vec2(-40.0f, 0.0f), b2Vec2(40.0f, 0.0f));
-			//ground->CreateFixture(&shape, 0.0f);
-
-			//shape.SetTwoSided(b2Vec2(20.0f, 0.0f), b2Vec2(20.0f, 20.0f));
-			//ground->CreateFixture(&shape, 0.0f);
 		}
 
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)

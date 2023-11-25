@@ -38,7 +38,7 @@
 // - As long as contacts are created in deterministic order, island link order is deterministic.
 // - This keeps the order of contacts in islands deterministic
 
-// Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
+// Friction mixing law. The idea is to allow either shape to drive the friction to zero.
 // For example, anything slides on ice.
 static inline float b2MixFriction(float friction1, float friction2)
 {
@@ -396,7 +396,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 }
 
 // Update the contact manifold and touching status.
-// Note: do not assume the fixture AABBs are overlapping or are valid.
+// Note: do not assume the shape AABBs are overlapping or are valid.
 void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB, b2Body* bodyB)
 {
 	b2Manifold oldManifold = contact->manifold;

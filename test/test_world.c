@@ -49,7 +49,7 @@ int HelloWorld()
 	// Define another box shape for our dynamic body.
 	b2Polygon dynamicBox = b2MakeBox(1.0f, 1.0f);
 
-	// Define the dynamic body fixture.
+	// Define the dynamic body shape
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 	// Set the box density to be non-zero, so it will be dynamic.

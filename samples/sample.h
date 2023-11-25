@@ -43,20 +43,6 @@ inline float RandomFloat(float lo, float hi)
 	return r;
 }
 
-#if 0
-// This is called when a joint in the world is implicitly destroyed
-// because an attached body is destroyed. This gives us a chance to
-// nullify the mouse joint.
-class DestructionListener : public b2DestructionListener
-{
-public:
-	void SayGoodbye(b2Fixture* fixture) override { B2_MAYBE_UNUSED(fixture); }
-	void SayGoodbye(b2Joint* joint) override;
-
-	Test* test;
-};
-#endif
-
 constexpr int32_t k_maxContactPoints = 12 * 2048;
 
 struct ContactPoint

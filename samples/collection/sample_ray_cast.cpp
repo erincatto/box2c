@@ -367,6 +367,7 @@ struct RayCastContext
 {
 	b2Vec2 points[3];
 	b2Vec2 normals[3];
+	float fractions[3];
 	int count;
 };
 
@@ -378,8 +379,8 @@ static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 norm
 	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
 	if (userData != nullptr && userData->ignore)
 	{
-		// By returning -1, we instruct the calling code to ignore this fixture and
-		// continue the ray-cast to the next fixture.
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
 		return -1.0f;
 	}
 
@@ -388,8 +389,8 @@ static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 norm
 	rayContext->count = 1;
 
 	// By returning the current fraction, we instruct the calling code to clip the ray and
-	// continue the ray-cast to the next fixture. WARNING: do not assume that fixtures
-	// are reported in order. However, by clipping, we can always get the closest fixture.
+	// continue the ray-cast to the next shape. WARNING: do not assume that shapes
+	// are reported in order. However, by clipping, we can always get the closest shape.
 	return fraction;
 }
 
@@ -403,8 +404,8 @@ static float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, 
 	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
 	if (userData != nullptr && userData->ignore)
 	{
-		// By returning -1, we instruct the calling code to ignore this fixture and
-		// continue the ray-cast to the next fixture.
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
 		return -1.0f;
 	}
 
@@ -417,9 +418,9 @@ static float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, 
 	return 0.0f;
 }
 
-// This ray cast collects multiple hits along the ray. Polygon 0 is filtered.
-// The fixtures are not necessary reported in order, so we might not capture
-// the closest fixture.
+// This ray cast collects multiple hits along the ray.
+// The shapes are not necessary reported in order, so we might not capture
+// the closest shape.
 // NOTE: shape hits are not ordered, so this may return hits in any order. This means that
 // if you limit the number of results, you may discard the closest hit. You can see this
 // behavior in the sample.
@@ -430,8 +431,8 @@ static float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 nor
 	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
 	if (userData != nullptr && userData->ignore)
 	{
-		// By returning -1, we instruct the calling code to ignore this fixture and
-		// continue the ray-cast to the next fixture.
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
 		return -1.0f;
 	}
 
@@ -453,6 +454,63 @@ static float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 nor
 	return 1.0f;
 }
 
+// This ray cast collects multiple hits along the ray and sorts them.
+static float RayCastSortedCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext* rayContext = (RayCastContext*)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData != nullptr && userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
+		return -1.0f;
+	}
+
+	int count = rayContext->count;
+	assert(count <= 3);
+
+	int index = 3;
+	while (fraction < rayContext->fractions[index-1])
+	{
+		index -= 1;
+
+		if (index == 0)
+		{
+			break;
+		}
+	}
+
+	if (index == 3)
+	{
+		// not closer, continue but tell the caller not to consider fractions further than the largest fraction acquired
+		// this only happens once the buffer is full
+		assert(rayContext->count == 3);
+		assert(rayContext->fractions[2] <= 1.0f);
+		return rayContext->fractions[2];
+	}
+
+	for (int j = 2; j > index; --j)
+	{
+		rayContext->points[j] = rayContext->points[j - 1];
+		rayContext->normals[j] = rayContext->normals[j - 1];
+		rayContext->fractions[j] = rayContext->fractions[j - 1];
+	}
+
+	rayContext->points[index] = point;
+	rayContext->normals[index] = normal;
+	rayContext->fractions[index] = fraction;
+	rayContext->count = count < 3 ? count + 1 : 3;
+
+	if (rayContext->count == 3)
+	{
+		return rayContext->fractions[2];
+	}
+
+	// By returning 1, we instruct the caller to continue without clipping the ray.
+	return 1.0f;
+}
+
 class RayCastWorld : public Sample
 {
 public:
@@ -460,7 +518,8 @@ public:
 	{
 		e_any = 0,
 		e_closest = 1,
-		e_multiple = 2
+		e_multiple = 2,
+		e_sorted = 3
 	};
 
 	enum
@@ -617,36 +676,50 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(210.0f, 300.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 310.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		if (ImGui::Button("Polygon 1")) Create(0);
+		if (ImGui::Button("Polygon 1"))
+			Create(0);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Poly1")) CreateN(0, 10);
+		if (ImGui::Button("10x##Poly1"))
+			CreateN(0, 10);
 
-		if (ImGui::Button("Polygon 2")) Create(1);
+		if (ImGui::Button("Polygon 2"))
+			Create(1);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Poly2")) CreateN(1, 10);
+		if (ImGui::Button("10x##Poly2"))
+			CreateN(1, 10);
 
-		if (ImGui::Button("Polygon 3")) Create(2);
+		if (ImGui::Button("Polygon 3"))
+			Create(2);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Poly3")) CreateN(2, 10);
+		if (ImGui::Button("10x##Poly3"))
+			CreateN(2, 10);
 
-		if (ImGui::Button("Box")) Create(3);
+		if (ImGui::Button("Box"))
+			Create(3);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Box")) CreateN(3, 10);
+		if (ImGui::Button("10x##Box"))
+			CreateN(3, 10);
 
-		if (ImGui::Button("Circle")) Create(4);
+		if (ImGui::Button("Circle"))
+			Create(4);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Circle")) CreateN(4, 10);
+		if (ImGui::Button("10x##Circle"))
+			CreateN(4, 10);
 
-		if (ImGui::Button("Capsule")) Create(5);
+		if (ImGui::Button("Capsule"))
+			Create(5);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Capsule")) CreateN(5, 10);
+		if (ImGui::Button("10x##Capsule"))
+			CreateN(5, 10);
 
-		if (ImGui::Button("Segment")) Create(6);
+		if (ImGui::Button("Segment"))
+			Create(6);
 		ImGui::SameLine();
-		if (ImGui::Button("10x##Segment")) CreateN(6, 10);
+		if (ImGui::Button("10x##Segment"))
+			CreateN(6, 10);
 
 		if (ImGui::Button("Destroy Shape"))
 		{
@@ -656,6 +729,7 @@ public:
 		ImGui::RadioButton("Any", &m_mode, e_any);
 		ImGui::RadioButton("Closest", &m_mode, e_closest);
 		ImGui::RadioButton("Multiple", &m_mode, e_multiple);
+		ImGui::RadioButton("Sorted", &m_mode, e_sorted);
 
 		ImGui::End();
 	}
@@ -671,7 +745,7 @@ public:
 		switch (m_mode)
 		{
 			case e_closest:
-				g_draw.DrawString(5, m_textLine, "Ray-cast mode: closest - find closest fixture along the ray");
+				g_draw.DrawString(5, m_textLine, "Ray-cast mode: closest - find closest shape along the ray");
 				break;
 
 			case e_any:
@@ -679,7 +753,11 @@ public:
 				break;
 
 			case e_multiple:
-				g_draw.DrawString(5, m_textLine, "Ray-cast mode: multiple - gather multiple fixtures - unsorted");
+				g_draw.DrawString(5, m_textLine, "Ray-cast mode: multiple - gather multiple shapes - unsorted");
+				break;
+
+			case e_sorted:
+				g_draw.DrawString(5, m_textLine, "Ray-cast mode: sorted - gather multiple shapes sorted by closeness");
 				break;
 		}
 
@@ -710,7 +788,7 @@ public:
 		else if (m_mode == e_any)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastAnyCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, & context);
+			b2World_RayCast(m_worldId, RayCastAnyCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
 
 			if (context.count > 0)
 			{
@@ -727,8 +805,8 @@ public:
 		else if (m_mode == e_multiple)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastMultipleCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, & context);
-			
+			b2World_RayCast(m_worldId, RayCastMultipleCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+
 			if (context.count > 0)
 			{
 				for (int i = 0; i < context.count; ++i)
@@ -736,6 +814,37 @@ public:
 					b2Vec2 p = context.points[i];
 					b2Vec2 n = context.normals[i];
 					g_draw.DrawPoint(p, 5.0f, color1);
+					g_draw.DrawSegment(m_rayStart, p, color2);
+					b2Vec2 head = b2MulAdd(p, 0.5f, n);
+					g_draw.DrawSegment(p, head, color3);
+				}
+			}
+			else
+			{
+				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+			}
+		}
+		else if (m_mode == e_sorted)
+		{
+			RayCastContext context = {0};
+
+			// Must initialize fractions for sorting
+			context.fractions[0] = FLT_MAX;
+			context.fractions[1] = FLT_MAX;
+			context.fractions[2] = FLT_MAX;
+
+			b2World_RayCast(m_worldId, RayCastSortedCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+
+			if (context.count > 0)
+			{
+				assert(context.count <= 3);
+				b2Color colors[3] = {b2MakeColor(b2_colorRed, 1.0f), b2MakeColor(b2_colorGreen, 1.0f),
+									 b2MakeColor(b2_colorBlue, 1.0f)};
+				for (int i = 0; i < context.count; ++i)
+				{
+					b2Vec2 p = context.points[i];
+					b2Vec2 n = context.normals[i];
+					g_draw.DrawPoint(p, 5.0f, colors[i]);
 					g_draw.DrawSegment(m_rayStart, p, color2);
 					b2Vec2 head = b2MulAdd(p, 0.5f, n);
 					g_draw.DrawSegment(p, head, color3);
