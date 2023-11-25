@@ -28,6 +28,7 @@ typedef struct b2Statistics
 	int32_t contactCount;
 	int32_t jointCount;
 	int32_t proxyCount;
+	int32_t pairCount;
 	int32_t treeHeight;
 	int32_t stackCapacity;
 	int32_t stackUsed;

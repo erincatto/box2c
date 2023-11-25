@@ -44,6 +44,7 @@ typedef struct b2Body
 	float torque;
 
 	int32_t shapeList;
+	int32_t chainList;
 
 	// This is a key: [jointIndex:31, edgeIndex:1]
 	int32_t jointList;
@@ -80,6 +81,7 @@ typedef struct b2Body
 	bool isEnabled;
 	bool isMarked;
 	bool isFast;
+	bool isSpeedCapped;
 	bool enlargeAABB;
 } b2Body;
 
@@ -101,8 +103,8 @@ typedef struct b2SolverBody
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
-void b2Body_DestroyShape(b2ShapeId shapeId);
+//b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
+//void b2Body_DestroyShape(b2ShapeId shapeId);
 
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 

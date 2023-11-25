@@ -19,11 +19,43 @@ bool b2IsValidRay(const b2RayCastInput* input)
 	return isValid;
 }
 
+static b2Vec2 b2ComputePolygonCentroid(const b2Vec2* vertices, int32_t count)
+{
+	b2Vec2 center = {0.0f, 0.0f};
+	float area = 0.0f;
+
+	// Get a reference point for forming triangles.
+	// Use the first vertex to reduce round-off errors.
+	b2Vec2 origin = vertices[0];
+
+	for (int32_t i = 1; i < count - 1; ++i)
+	{
+		// Triangle edges
+		b2Vec2 e1 = b2Sub(vertices[i], origin);
+		b2Vec2 e2 = b2Sub(vertices[i + 1], origin);
+		float a = b2Cross(e1, e2);
+
+		// Area weighted centroid, r at origin
+		center = b2MulAdd(center, a, b2Add(e1, e2));
+		area += a;
+	}
+
+	B2_ASSERT(area > FLT_EPSILON);
+	float invArea = 1.0f / area;
+	center.x *= invArea;
+	center.y *= invArea;
+	
+	// Remove offset
+	center = b2Add(origin, center);
+
+	return center;
+}
+
 b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 {
 	B2_ASSERT(hull->count >= 3);
 
-	b2Polygon shape;
+	b2Polygon shape = {0};
 	shape.count = hull->count;
 	shape.radius = radius;
 
@@ -43,6 +75,8 @@ b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
 
+	shape.centroid = b2ComputePolygonCentroid(shape.vertices, shape.count);
+
 	return shape;
 }
 
@@ -50,7 +84,7 @@ b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform tran
 {
 	B2_ASSERT(hull->count >= 3);
 
-	b2Polygon shape;
+	b2Polygon shape = {0};
 	shape.count = hull->count;
 	shape.radius = radius;
 
@@ -70,6 +104,8 @@ b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform tran
 		shape.normals[i] = b2Normalize(b2CrossVS(edge, 1.0f));
 	}
 
+	shape.centroid = b2ComputePolygonCentroid(shape.vertices, shape.count);
+	
 	return shape;
 }
 
@@ -94,6 +130,7 @@ b2Polygon b2MakeBox(float hx, float hy)
 	shape.normals[2] = (b2Vec2){0.0f, 1.0f};
 	shape.normals[3] = (b2Vec2){-1.0f, 0.0f};
 	shape.radius = 0.0f;
+	shape.centroid = b2Vec2_zero;
 	return shape;
 }
 
@@ -121,6 +158,7 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[2] = b2RotateVector(xf.q, (b2Vec2){0.0f, 1.0f});
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
 	shape.radius = 0.0f;
+	shape.centroid = center;
 	return shape;
 }
 
@@ -167,17 +205,27 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 	float length = b2Length(b2Sub(p2, p1));
 	float ll = length * length;
 
+	float circleMass = density * (b2_pi * radius * radius);
+	float boxMass = density * (2.0f * radius * length);
+
 	b2MassData massData;
-	massData.mass = density * (b2_pi * radius + 2.0f * length) * radius;
+	massData.mass = circleMass + boxMass;
 	massData.center.x = 0.5f * (p1.x + p2.x);
 	massData.center.y = 0.5f * (p1.y + p2.y);
 
 	// two offset half circles, both halves add up to full circle and each half is offset by half length
-	// half circles = 2 * (1/4 * radius*radius + 1/4 * length*length)
-	// rectangle = (width*width * length*length)/12
-	float circleInertia = 0.5f * (rr + ll);
-	float boxInertia = (4.0f * rr + ll) / 12.0f;
-	massData.I = massData.mass * (circleInertia + boxInertia);
+	// semi-circle centroid = 4 r / 3 pi
+	// Need to apply parallel-axis theorem twice:
+	// 1. shift semi-circle centroid to origin
+	// 2. shift semi-circle to box end
+	// m * ((h + lc)^2 - lc^2) = m * (h^2 + 2 * h * lc)
+	// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
+	// I verified this formula by computing the convex hull of a 128 vertex capsule
+	float lc = 4.0f * radius / (3.0f * b2_pi);
+	float h = 0.5f * length;
+	float circleInertia = circleMass * (0.5f * rr + h * h + 2.0f * h * lc);
+	float boxInertia = boxMass * (4.0f * rr + ll) / 12.0f;
+	massData.I = circleInertia + boxInertia;
 
 	massData.minExtent = radius;
 	massData.maxExtent = B2_MAX(b2Length(shape->point1), b2Length(shape->point2)) + shape->radius;
@@ -629,8 +677,19 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 }
 
 // Ray vs line segment
-b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape)
+b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, bool oneSided)
 {
+	if (oneSided)
+	{
+		// Skip back-side collision
+		float offset = b2Cross(b2Sub(input->p1, shape->point1), b2Sub(shape->point2, shape->point1));
+		if (offset < 0.0f)
+		{
+			b2RayCastOutput output = {0};
+			return output;
+		}
+	}
+
 	if (input->radius == 0.0f)
 	{
 		// Put the ray into the edge's frame of reference.
@@ -652,7 +711,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 		}
 
 		// Normal points to the right, looking from v1 towards v2
-		b2Vec2 normal = {eUnit.y, -eUnit.x};
+		b2Vec2 normal = b2RightPerp(eUnit);
 
 		// Intersect ray with infinite segment using normal
 		// Similar to intersecting a ray with an infinite plane
@@ -695,6 +754,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 		}
 
 		output.fraction = t;
+		output.point = b2MulAdd(p1, t, d);
 		output.normal = normal;
 		output.hit = true;
 

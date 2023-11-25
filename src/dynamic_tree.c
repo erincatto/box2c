@@ -1281,13 +1281,12 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 
 		if (b2IsLeaf(node))
 		{
-			b2RayCastInput subInput;
+			b2RayCastInput subInput = *input;
 			subInput.p1 = input->p1;
 			subInput.p2 = input->p2;
 			subInput.maxFraction = maxFraction;
 
 			float value = callback(&subInput, nodeId, node->userData, context);
-			B2_ASSERT(value >= 0.0f);
 
 			if (value == 0.0f)
 			{
@@ -1295,7 +1294,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 				return;
 			}
 
-			if (value < maxFraction)
+			if (0.0f < value && value < maxFraction)
 			{
 				// Update segment bounding box.
 				maxFraction = value;

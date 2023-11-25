@@ -17,7 +17,7 @@ int TableTest()
 
 	for (int32_t iter = 0; iter < 1; ++iter)
 	{
-		b2Set set = b2CreateSet(16);
+		b2HashSet set = b2CreateSet(16);
 
 		// Fill set
 		for (int32_t i = 0; i < N; ++i)

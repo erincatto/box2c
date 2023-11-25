@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #define _CRT_SECURE_NO_WARNINGS
+#define _CRTDBG_MAP_ALLOC
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS 1
 
 #include "draw.h"
@@ -35,7 +36,7 @@ static int MyAllocHook(int allocType, void* userData, size_t size, int blockType
 					   int lineNumber)
 {
 	// This hook can help find leaks
-	if (size == 33660)
+	if (size == 143)
 	{
 		size += 0;
 	}
@@ -511,27 +512,8 @@ int main(int, char**)
 #if defined(_WIN32)
 	// Enable memory-leak reports
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
-	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
-	//_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
-	//_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
-	//_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
-	//_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
-	{
-		// Get the current bits
-		// int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-
-		// Clear the upper 16 bits and OR in the desired frequency
-		// tmp = (tmp & 0x0000FFFF) | _CRTDBG_CHECK_EVERY_16_DF;
-
-		// Set the new bits
-		//_CrtSetDbgFlag(tmp);
-
-		//_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF | _CRTDBG_DELAY_FREE_MEM_DF | _CRTDBG_CHECK_CRT_DF | _CRTDBG_LEAK_CHECK_DF);
-		//_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF | _CRTDBG_DELAY_FREE_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
-		//_CrtSetDbgFlag(_CRTDBG_DELAY_FREE_MEM_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
-	}
-	_CrtSetAllocHook(MyAllocHook);
-	//_CrtSetBreakAlloc(196);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+	//_CrtSetAllocHook(MyAllocHook);
 #endif
 
 	// Install memory hooks
@@ -568,7 +550,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	sprintf(buffer, "Box2D Version %d.%d.%d Graph Color", b2_version.major, b2_version.minor, b2_version.revision);
+	sprintf(buffer, "Box2D Version %d.%d.%d Smooth", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{

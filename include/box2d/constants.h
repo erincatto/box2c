@@ -39,8 +39,7 @@ extern "C"
 /// @warning modifying this can have a significant impact on stability
 #define b2_angularSlop (2.0f / 180.0f * b2_pi)
 
-/// The maximum number of vertices on a convex polygon. You cannot increase
-/// this too much because b2BlockAllocator has a maximum object size.
+/// The maximum number of vertices on a convex polygon. Large values reduce may performance.
 /// You may define this externally.
 #ifndef b2_maxPolygonVertices
 #define b2_maxPolygonVertices 8
@@ -55,7 +54,7 @@ extern "C"
 /// The maximum linear translation of a body per step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this. Meters.
 /// @warning modifying this can have a significant impact on stability
-#define b2_maxTranslation (20.0f * b2_lengthUnitsPerMeter)
+#define b2_maxTranslation (4.0f * b2_lengthUnitsPerMeter)
 #define b2_maxTranslationSquared (b2_maxTranslation * b2_maxTranslation)
 
 /// The maximum angular velocity of a body. This limit is very large and is used

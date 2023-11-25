@@ -212,7 +212,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	b2Shape* shapeA = world->shapes + shapeIndexA;
 	b2Shape* shapeB = world->shapes + shapeIndexB;
 
-	// Are the fixtures on the same body?
+	// Are the shapes on the same body?
 	if (shapeA->bodyIndex == shapeB->bodyIndex)
 	{
 		return true;
@@ -365,7 +365,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 		while (pair != NULL)
 		{
 			// TODO_ERIN Check user filtering.
-			// if (m_contactFilter && m_contactFilter->ShouldCollide(fixtureA, fixtureB) == false)
+			// if (m_contactFilter && m_contactFilter->ShouldCollide(shapeA, shapeB) == false)
 			//{
 			//	return;
 			//}

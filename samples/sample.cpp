@@ -166,7 +166,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 		// Query the world for overlapping shapes.
 		QueryContext queryContext = {p, b2_nullBodyId};
-		b2World_QueryAABB(m_worldId, box, QueryCallback, &queryContext);
+		b2World_QueryAABB(m_worldId, QueryCallback, box,b2_defaultQueryFilter, &queryContext);
 
 		if (B2_NON_NULL(queryContext.bodyId))
 		{
@@ -270,7 +270,7 @@ void Sample::Step(Settings& settings)
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "proxies/height = %d/%d", s.proxyCount, s.treeHeight);
+		g_draw.DrawString(5, m_textLine, "pairs/proxies/height = %d/%d/%d", s.pairCount, s.proxyCount, s.treeHeight);
 		m_textLine += m_textIncrement;
 
 		int32_t totalCount = 0;

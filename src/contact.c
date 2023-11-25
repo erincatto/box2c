@@ -38,7 +38,7 @@
 // - As long as contacts are created in deterministic order, island link order is deterministic.
 // - This keeps the order of contacts in islands deterministic
 
-// Friction mixing law. The idea is to allow either fixture to drive the friction to zero.
+// Friction mixing law. The idea is to allow either shape to drive the friction to zero.
 // For example, anything slides on ice.
 static inline float b2MixFriction(float friction1, float friction2)
 {
@@ -52,7 +52,8 @@ static inline float b2MixRestitution(float restitution1, float restitution2)
 	return restitution1 > restitution2 ? restitution1 : restitution2;
 }
 
-typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache);
+typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+								 b2DistanceCache* cache);
 
 struct b2ContactRegister
 {
@@ -71,54 +72,73 @@ static b2Manifold b2CircleManifold(const b2Shape* shapeA, b2Transform xfA, const
 }
 
 static b2Manifold b2CapsuleAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
-								   b2DistanceCache* cache)
+											 b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(cache);
 	return b2CollideCapsuleAndCircle(&shapeA->capsule, xfA, &shapeB->circle, xfB);
 }
 
 static b2Manifold b2CapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
-								   b2DistanceCache* cache)
+									b2DistanceCache* cache)
 {
 	return b2CollideCapsules(&shapeA->capsule, xfA, &shapeB->capsule, xfB, cache);
 }
 
 static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
-											  b2DistanceCache* cache)
+											 b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(cache);
 	return b2CollidePolygonAndCircle(&shapeA->polygon, xfA, &shapeB->circle, xfB);
 }
 
 static b2Manifold b2PolygonAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
-											 b2DistanceCache* cache)
+											  b2DistanceCache* cache)
 {
 	return b2CollidePolygonAndCapsule(&shapeA->polygon, xfA, &shapeB->capsule, xfB, cache);
 }
 
-static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, 
+static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 									b2DistanceCache* cache)
 {
 	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
 }
 
-static b2Manifold b2SegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, 
-								   b2DistanceCache* cache)
+static b2Manifold b2SegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+											 b2DistanceCache* cache)
 {
 	B2_MAYBE_UNUSED(cache);
 	return b2CollideSegmentAndCircle(&shapeA->segment, xfA, &shapeB->circle, xfB);
 }
 
-static b2Manifold b2SegmentAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, 
-								   b2DistanceCache* cache)
+static b2Manifold b2SegmentAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+											  b2DistanceCache* cache)
 {
 	return b2CollideSegmentAndCapsule(&shapeA->segment, xfA, &shapeB->capsule, xfB, cache);
 }
 
-static b2Manifold b2SegmentAndPolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, 
-								   b2DistanceCache* cache)
+static b2Manifold b2SegmentAndPolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+											  b2DistanceCache* cache)
 {
 	return b2CollideSegmentAndPolygon(&shapeA->segment, xfA, &shapeB->polygon, xfB, cache);
+}
+
+static b2Manifold b2SmoothSegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+												   b2DistanceCache* cache)
+{
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideSmoothSegmentAndCircle(&shapeA->smoothSegment, xfA, &shapeB->circle, xfB);
+}
+
+static b2Manifold b2SmoothSegmentAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
+												   b2DistanceCache* cache)
+{
+	return b2CollideSmoothSegmentAndCapsule(&shapeA->smoothSegment, xfA, &shapeB->capsule, xfB, cache);
+}
+
+static b2Manifold b2SmoothSegmentAndPolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB,
+													b2Transform xfB, b2DistanceCache* cache)
+{
+	return b2CollideSmoothSegmentAndPolygon(&shapeA->smoothSegment, xfA, &shapeB->polygon, xfB, cache);
 }
 
 static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
@@ -149,6 +169,9 @@ void b2InitializeContactRegisters(void)
 		b2AddType(b2SegmentAndCircleManifold, b2_segmentShape, b2_circleShape);
 		b2AddType(b2SegmentAndCapsuleManifold, b2_segmentShape, b2_capsuleShape);
 		b2AddType(b2SegmentAndPolygonManifold, b2_segmentShape, b2_polygonShape);
+		b2AddType(b2SmoothSegmentAndCircleManifold, b2_smoothSegmentShape, b2_circleShape);
+		b2AddType(b2SmoothSegmentAndCapsuleManifold, b2_smoothSegmentShape, b2_capsuleShape);
+		b2AddType(b2SmoothSegmentAndPolygonManifold, b2_smoothSegmentShape, b2_polygonShape);
 		s_initialized = true;
 	}
 }
@@ -360,8 +383,8 @@ bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
 static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
 {
 	b2DistanceInput input;
-	input.proxyA = b2Shape_MakeDistanceProxy(shapeA);
-	input.proxyB = b2Shape_MakeDistanceProxy(shapeB);
+	input.proxyA = b2MakeShapeDistanceProxy(shapeA);
+	input.proxyB = b2MakeShapeDistanceProxy(shapeB);
 	input.transformA = xfA;
 	input.transformB = xfB;
 	input.useRadii = true;
@@ -373,7 +396,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 }
 
 // Update the contact manifold and touching status.
-// Note: do not assume the fixture AABBs are overlapping or are valid.
+// Note: do not assume the shape AABBs are overlapping or are valid.
 void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB, b2Body* bodyB)
 {
 	b2Manifold oldManifold = contact->manifold;
