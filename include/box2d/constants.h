@@ -39,8 +39,7 @@ extern "C"
 /// @warning modifying this can have a significant impact on stability
 #define b2_angularSlop (2.0f / 180.0f * b2_pi)
 
-/// The maximum number of vertices on a convex polygon. You cannot increase
-/// this too much because b2BlockAllocator has a maximum object size.
+/// The maximum number of vertices on a convex polygon. Large values reduce may performance.
 /// You may define this externally.
 #ifndef b2_maxPolygonVertices
 #define b2_maxPolygonVertices 8

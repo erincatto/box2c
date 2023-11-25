@@ -815,7 +815,8 @@ class BenchmarkJointGrid : public Sample
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
-		shapeDef.filter.maskBits = 0;
+		shapeDef.filter.categoryBits = 2;
+		shapeDef.filter.maskBits = ~2u;
 
 		b2Circle circle = {0};
 		circle.radius = rad;

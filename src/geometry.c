@@ -205,17 +205,27 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 	float length = b2Length(b2Sub(p2, p1));
 	float ll = length * length;
 
+	float circleMass = density * (b2_pi * radius * radius);
+	float boxMass = density * (2.0f * radius * length);
+
 	b2MassData massData;
-	massData.mass = density * (b2_pi * radius + 2.0f * length) * radius;
+	massData.mass = circleMass + boxMass;
 	massData.center.x = 0.5f * (p1.x + p2.x);
 	massData.center.y = 0.5f * (p1.y + p2.y);
 
 	// two offset half circles, both halves add up to full circle and each half is offset by half length
-	// half circles = 2 * (1/4 * radius*radius + 1/4 * length*length)
-	// rectangle = (width*width * length*length)/12
-	float circleInertia = 0.5f * (rr + ll);
-	float boxInertia = (4.0f * rr + ll) / 12.0f;
-	massData.I = massData.mass * (circleInertia + boxInertia);
+	// semi-circle centroid = 4 r / 3 pi
+	// Need to apply parallel-axis theorem twice:
+	// 1. shift semi-circle centroid to origin
+	// 2. shift semi-circle to box end
+	// m * ((h + lc)^2 - lc^2) = m * (h^2 + 2 * h * lc)
+	// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
+	// I verified this formula by computing the convex hull of a 128 vertex capsule
+	float lc = 4.0f * radius / (3.0f * b2_pi);
+	float h = 0.5f * length;
+	float circleInertia = circleMass * (0.5f * rr + h * h + 2.0f * h * lc);
+	float boxInertia = boxMass * (4.0f * rr + ll) / 12.0f;
+	massData.I = circleInertia + boxInertia;
 
 	massData.minExtent = radius;
 	massData.maxExtent = B2_MAX(b2Length(shape->point1), b2Length(shape->point2)) + shape->radius;
