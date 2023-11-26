@@ -36,16 +36,44 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 	b2Body* bodyB = context->bodies + indexB;
 	B2_ASSERT(bodyA->object.index == bodyA->object.next);
 	B2_ASSERT(bodyB->object.index == bodyB->object.next);
+	
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
 
 	b2WeldJoint* joint = &base->weldJoint;
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
-	joint->localCenterA = bodyA->localCenter;
-	joint->localCenterB = bodyB->localCenter;
-	joint->positionA = bodyA->position;
-	joint->positionB = bodyB->position;
-	joint->angleA = bodyA->angle;
-	joint->angleB = bodyB->angle;
+
+	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
+	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
+	joint->linearSeparation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
+	joint->angularSeparation = bodyB->angle - bodyA->angle - joint->referenceAngle;
+
+	b2Vec2 rA = joint->rA;
+	b2Vec2 rB = joint->rB;
+
+	b2Mat33 K;
+	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
+	K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+	K.cz.x = -rA.y * iA - rB.y * iB;
+	K.cx.y = K.cy.x;
+	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
+	K.cz.y = rA.x * iA + rB.x * iB;
+	K.cx.z = K.cz.x;
+	K.cy.z = K.cz.y;
+	K.cz.z = iA + iB;
+
+	if (K.cz.z == 0.0f)
+	{
+		// at least one body has fixed rotation
+		joint->effectiveMass = b2GetInverse33as22(K);
+	}
+	else
+	{
+		joint->effectiveMass = b2GetSymInverse33(K);
+	}
 
 	const float h = context->dt;
 
@@ -109,59 +137,41 @@ void b2SolveWeldVelocity(b2Joint* base, const b2StepContext* context, bool useBi
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	const b2Vec2 cA = b2Add(joint->positionA, bodyA->deltaPosition);
-	const float aA = joint->angleA + bodyA->deltaAngle;
-	const b2Vec2 cB = b2Add(joint->positionB, bodyB->deltaPosition);
-	const float aB = joint->angleB + bodyB->deltaAngle;
+	// Approximate change in anchors
+	// small angle approximation of sin(delta_angle) == delta_angle, cos(delta_angle) == 1
+	b2Vec2 drA = b2CrossSV(bodyA->deltaAngle, joint->rA);
+	b2Vec2 drB = b2CrossSV(bodyB->deltaAngle, joint->rB);
 
-	b2Rot qA = b2MakeRot(aA);
-	b2Rot qB = b2MakeRot(aB);
-
-	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
-	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
-
-	// TODO_ERIN handle fixed rotation
-	//bool fixedRotation = (iA + iB == 0.0f);
-
-	b2Mat33 K;
-	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
-	K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
-	K.cz.x = -rA.y * iA - rB.y * iB;
-	K.cx.y = K.cy.x;
-	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
-	K.cz.y = rA.x * iA + rB.x * iB;
-	K.cx.z = K.cz.x;
-	K.cy.z = K.cz.y;
-	K.cz.z = iA + iB;
-	
-	b2Vec2 Cdot1 = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
+	b2Vec2 rA = b2Add(joint->rA, drA);
+	b2Vec2 rB = b2Add(joint->rB, drB);
+	b2Vec2 Cdot1 = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
 	float Cdot2 = wB - wA;
 
-	float linearBiasScale = 0.0f;
+	b2Vec2 linearBias = b2Vec2_zero;
+	float angularBias = 0.0f;
+
 	float linearMassScale = 1.0f;
 	float linearImpulseScale = 0.0f;
-	float angularBiasScale = 0.0f;
 	float angularMassScale = 1.0f;
 	float angularImpulseScale = 0.0f;
 	if (useBias)
 	{
-		linearBiasScale = joint->linearBiasCoefficient;
+		b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(drB, drA));
+		b2Vec2 linearSeparation = b2Add(joint->linearSeparation, ds);
+		linearBias = b2MulSV(joint->linearBiasCoefficient, linearSeparation);
+
+		float angularSeperation = joint->angularSeparation + bodyB->deltaAngle - bodyA->deltaAngle;
+		angularBias = joint->angularBiasCoefficient * angularSeperation;
+
 		linearMassScale = joint->linearMassCoefficient;
 		linearImpulseScale = joint->linearImpulseCoefficient;
-		angularBiasScale = joint->angularBiasCoefficient;
 		angularMassScale = joint->angularMassCoefficient;
 		angularImpulseScale = joint->angularImpulseCoefficient;
 	}
 
-	b2Vec2 C1 = b2Add(b2Sub(cB, cA), b2Sub(rB, rA));
-	float C2 = aB - aA - joint->referenceAngle;
+	b2Vec3 Cdot = {Cdot1.x + linearBias.x, Cdot1.y + linearBias.y, Cdot2 + angularBias};
 
-	b2Vec3 Cdot;
-	Cdot.x = Cdot1.x + linearBiasScale * C1.x;
-	Cdot.y = Cdot1.y + linearBiasScale * C1.y;
-	Cdot.z = Cdot2 + angularBiasScale * C2;
-
-	b2Vec3 b = b2Solve33(K, Cdot);
+	b2Vec3 b = b2MulMV33(joint->effectiveMass, Cdot);
 	b2Vec3 impulse;
 	impulse.x = -linearMassScale * b.x - linearImpulseScale * joint->impulse.x;
 	impulse.y = -linearMassScale * b.y - linearImpulseScale * joint->impulse.y;
@@ -186,7 +196,7 @@ void b2SolveWeldVelocity(b2Joint* base, const b2StepContext* context, bool useBi
 }
 
 #if 0
-void b2WeldJoint::Dump()
+void b2DumpWeldJoint()
 {
 	int32 indexA = m_bodyA->m_islandIndex;
 	int32 indexB = m_bodyB->m_islandIndex;

@@ -732,6 +732,20 @@ b2Vec2 b2Body_GetWorldPoint(b2BodyId bodyId, b2Vec2 localPoint)
 	return b2TransformPoint(world->bodies[bodyId.index].transform, localPoint);
 }
 
+b2Vec2 b2Body_GetLocalVector(b2BodyId bodyId, b2Vec2 globalVector)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	return b2InvRotateVector(world->bodies[bodyId.index].transform.q, globalVector);
+}
+
+b2Vec2 b2Body_GetWorldVector(b2BodyId bodyId, b2Vec2 localVector)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
+	return b2RotateVector(world->bodies[bodyId.index].transform.q, localVector);
+}
+
 void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);

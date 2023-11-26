@@ -37,17 +37,17 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
+
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 	joint->angleA = bodyA->angle;
 	joint->angleB = bodyB->angle;
-
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
 
 	joint->axialMass = iA + iB;
 	bool fixedRotation;

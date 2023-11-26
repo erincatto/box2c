@@ -48,6 +48,9 @@ BOX2D_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle
 BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
 BOX2D_API b2Vec2 b2Body_GetWorldPoint(b2BodyId bodyId, b2Vec2 localPoint);
 
+BOX2D_API b2Vec2 b2Body_GetLocalVector(b2BodyId bodyId, b2Vec2 globalVector);
+BOX2D_API b2Vec2 b2Body_GetWorldVector(b2BodyId bodyId, b2Vec2 localVector);
+
 BOX2D_API b2Vec2 b2Body_GetLinearVelocity(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngularVelocity(b2BodyId bodyId);
 BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);

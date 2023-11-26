@@ -84,14 +84,15 @@ public:
 			{51.5935059, -16.2057514},	{43.6559982, -10.9139996},	{35.7184982, -10.9139996}, {27.7809982, -10.9139996},
 			{21.1664963, -14.2212505},	{11.9059982, -16.2057514},	{0, -16.2057514},		   {-10.5835037, -14.8827496},
 			{-17.1980019, -13.5597477}, {-21.1665001, -12.2370014}, {-25.1355019, -9.5909977}, {-31.75, -3.63799858},
-			{-38.3644981, 6.2840004},	{-42.3334999, 9.59125137},	{-47.625, 11.5755005},	   {-56.885498, 12.8985004}};
+			{-38.3644981, 6.2840004},	{-42.3334999, 9.59125137},	{-47.625, 11.5755005},	   {-56.885498, 12.8985004},
+		};
 
 		int count = sizeof(points) / sizeof(points[0]);
 
-		//float scale = 0.25f;
-		//b2Vec2 lower = {FLT_MAX, FLT_MAX};
-		//b2Vec2 upper = {-FLT_MAX, -FLT_MAX};
-		//for (int i = 0; i < count; ++i)
+		// float scale = 0.25f;
+		// b2Vec2 lower = {FLT_MAX, FLT_MAX};
+		// b2Vec2 upper = {-FLT_MAX, -FLT_MAX};
+		// for (int i = 0; i < count; ++i)
 		//{
 		//	points[i].x = 2.0f * scale * points[i].x;
 		//	points[i].y = -scale * points[i].y;
@@ -100,25 +101,25 @@ public:
 		//	upper = b2Max(upper, points[i]);
 		//}
 
-		//b2Vec2 center = b2MulSV(0.5f, b2Add(lower, upper));
-		//for (int i = 0; i < count; ++i)
+		// b2Vec2 center = b2MulSV(0.5f, b2Add(lower, upper));
+		// for (int i = 0; i < count; ++i)
 		//{
 		//	points[i] = b2Sub(points[i], center);
-		//}
+		// }
 
-		//for (int i = 0; i < count / 2; ++i)
+		// for (int i = 0; i < count / 2; ++i)
 		//{
 		//	b2Vec2 temp = points[i];
 		//	points[i] = points[count - 1 - i];
 		//	points[count - 1 - i] = temp;
-		//}
+		// }
 
-		//printf("{");
-		//for (int i = 0; i < count; ++i)
+		// printf("{");
+		// for (int i = 0; i < count; ++i)
 		//{
 		//	printf("{%.9g, %.9g},", points[i].x, points[i].y);
-		//}
-		//printf("};\n");
+		// }
+		// printf("};\n");
 
 		b2ChainDef chainDef = b2DefaultChainDef();
 		chainDef.points = points;

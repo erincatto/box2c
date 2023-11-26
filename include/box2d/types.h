@@ -95,7 +95,8 @@ typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t threa
 
 /// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
 /// Returns a pointer to the user's task object. May be nullptr.
-typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext);
+typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext,
+									void* userContext);
 
 /// Finishes a user task object that wraps a Box2D task.
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
@@ -213,6 +214,9 @@ typedef struct b2BodyDef
 	bool isEnabled;
 } b2BodyDef;
 
+static const b2BodyDef b2_defaultBodyDef = {b2_staticBody, {0.0f, 0.0f}, 0.0f, {0.0f, 0.0f}, 0.0f,	0.0f, 0.0f,
+											1.0f,		   NULL,		true, true,		   false, true};
+
 /// This holds contact filtering data.
 typedef struct b2Filter
 {
@@ -229,6 +233,8 @@ typedef struct b2Filter
 	int32_t groupIndex;
 } b2Filter;
 
+static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
+
 /// This holds contact filtering data.
 typedef struct b2QueryFilter
 {
@@ -240,6 +246,8 @@ typedef struct b2QueryFilter
 	uint32_t maskBits;
 } b2QueryFilter;
 
+static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
+
 /// Used to create a shape
 typedef struct b2ShapeDef
 {
@@ -249,7 +257,7 @@ typedef struct b2ShapeDef
 	/// The friction coefficient, usually in the range [0,1].
 	float friction;
 
-	/// The restitution (elasticity) usually in the range [0,1].
+	/// The restitution (bounce) usually in the range [0,1].
 	float restitution;
 
 	/// The density, usually in kg/m^2.
@@ -263,6 +271,8 @@ typedef struct b2ShapeDef
 	bool isSensor;
 
 } b2ShapeDef;
+
+static const b2ShapeDef b2_defaultShapeDef = {NULL, 0.6f, 0.0f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}, false};
 
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
 ///	- DO NOT use chain shapes unless you understand the limitations. This is an advanced feature!
@@ -299,9 +309,6 @@ typedef struct b2ChainDef
 	/// Contact filtering data.
 	b2Filter filter;
 } b2ChainDef;
-
-static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
-static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
 
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef(void)

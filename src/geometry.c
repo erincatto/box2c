@@ -167,6 +167,7 @@ b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
 	b2Polygon shape = {0};
 	shape.vertices[0] = p1;
 	shape.vertices[1] = p2;
+	shape.centroid = b2Lerp(p1, p2, 0.5f);
 
 	b2Vec2 axis = b2NormalizeChecked(b2Sub(p2, p1));
 	b2Vec2 normal = b2RightPerp(axis);
