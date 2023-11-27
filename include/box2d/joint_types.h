@@ -268,6 +268,10 @@ typedef struct b2WeldJointDef
 	bool collideConnected;
 } b2WeldJointDef;
 
+static const b2WeldJointDef b2_defaultWeldJointDef = {
+	{-1, -1, 0}, {-1, -1, 0}, {0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, false,
+};
+
 /// Use this to initialize your joint definition
 static inline b2WeldJointDef b2DefaultWeldJointDef(void)
 {

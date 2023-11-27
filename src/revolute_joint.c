@@ -37,17 +37,17 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
+
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 	joint->angleA = bodyA->angle;
 	joint->angleB = bodyB->angle;
-
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
 
 	joint->axialMass = iA + iB;
 	bool fixedRotation;
@@ -77,8 +77,8 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 
 	b2Mat22 K;
 	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
-	K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
-	K.cx.y = K.cy.x;
+	K.cx.y = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+	K.cy.x = K.cx.y;
 	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
 	joint->pivotMass = b2GetInverse22(K);
 

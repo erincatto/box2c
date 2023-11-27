@@ -12,6 +12,7 @@ BraceWrapping:
   AfterCaseLabel: true
   AfterUnion: true
   BeforeWhile: true
+# BreakBeforeBinaryOperators: All
 
 ColumnLimit: 130
 PointerAlignment: Left
@@ -33,3 +34,6 @@ IndentExternBlock: NoIndent
 IndentCaseLabels: true
 IndentAccessModifiers: false
 AccessModifierOffset: -4
+
+# AlignArrayOfStructures: Left
+# AlignAfterOpenBracket: BlockIndent

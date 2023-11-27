@@ -13,6 +13,152 @@
 
 #include <imgui.h>
 
+
+class RevoluteJoint : public Sample
+{
+public:
+	RevoluteJoint(const Settings& settings)
+		: Sample(settings)
+	{
+		b2BodyId ground = b2_nullBodyId;
+		{
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.position = {0.0f, -1.0f};
+			ground = b2World_CreateBody(m_worldId, &bd);
+
+			b2Polygon box = b2MakeBox(40.0f, 1.0f);
+
+			b2ShapeDef sd = b2DefaultShapeDef();
+			b2Body_CreatePolygon(ground, &sd, &box);
+		}
+
+		m_enableLimit = true;
+		m_enableMotor = false;
+		m_motorSpeed = 1.0f;
+
+		{
+			b2Polygon box = b2MakeOffsetBox(0.25f, 3.0f, {0.0f, 3.0f}, 0.0f);
+
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.type = b2_dynamicBody;
+			bd.position = {-10.0f, 20.0f};
+			b2BodyId body = b2World_CreateBody(m_worldId, &bd);
+
+			b2ShapeDef sd = b2DefaultShapeDef();
+			sd.density = 5.0f;
+			b2Body_CreatePolygon(body, &sd, &box);
+
+			b2Vec2 pivot = {-10.0f, 20.5f};
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			jd.bodyIdA = ground;
+			jd.bodyIdB = body;
+			jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
+			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
+			jd.motorSpeed = m_motorSpeed;
+			jd.maxMotorTorque = 10000.0f;
+			jd.enableMotor = m_enableMotor;
+			jd.lowerAngle = -0.25f * b2_pi;
+			jd.upperAngle = 0.5f * b2_pi;
+			jd.enableLimit = m_enableLimit;
+
+			m_joint1 = b2World_CreateRevoluteJoint(m_worldId, &jd);
+		}
+
+		{
+			b2Circle circle = {0};
+			circle.radius = 2.0f;
+
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.type = b2_dynamicBody;
+			bd.position = {5.0f, 30.0f};
+			m_ball = b2World_CreateBody(m_worldId, &bd);
+
+			b2ShapeDef sd = b2DefaultShapeDef();
+			sd.density = 5.0f;
+
+			b2Body_CreateCircle(m_ball, &sd, &circle);
+		}
+
+		{
+			b2BodyDef bd = b2DefaultBodyDef();
+			bd.position = {20.0f, 10.0f};
+			bd.type = b2_dynamicBody;
+			b2BodyId body = b2World_CreateBody(m_worldId, &bd);
+
+			b2Polygon box = b2MakeOffsetBox(10.0f, 0.5f, {-10.0f, 0.0f}, 0.0f);
+			b2ShapeDef sd = b2DefaultShapeDef();
+			sd.density = 2.0f;
+			b2Body_CreatePolygon(body, &sd, &box);
+
+			b2Vec2 pivot = {19.0f, 10.0f};
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			jd.bodyIdA = ground;
+			jd.bodyIdB = body;
+			jd.localAnchorA = b2Body_GetLocalPoint(jd.bodyIdA, pivot);
+			jd.localAnchorB = b2Body_GetLocalPoint(jd.bodyIdB, pivot);
+			jd.lowerAngle = -0.25f * b2_pi;
+			jd.upperAngle = 0.0f * b2_pi;
+			jd.enableLimit = true;
+			jd.enableMotor = true;
+			jd.motorSpeed = 0.0f;
+			jd.maxMotorTorque = 10000.0f;
+
+			m_joint2 = b2World_CreateRevoluteJoint(m_worldId, &jd);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
+		ImGui::Begin("Joint Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Checkbox("Limit", &m_enableLimit))
+		{
+			b2RevoluteJoint_EnableLimit(m_joint1, m_enableLimit);
+		}
+
+		if (ImGui::Checkbox("Motor", &m_enableMotor))
+		{
+			b2RevoluteJoint_EnableMotor(m_joint1, m_enableMotor);
+		}
+
+		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -20.0f, 20.0f, "%.0f"))
+		{
+			b2RevoluteJoint_SetMotorSpeed(m_joint1, m_motorSpeed);
+		}
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		float torque1 = b2RevoluteJoint_GetMotorTorque(m_joint1, settings.m_hertz);
+		g_draw.DrawString(5, m_textLine, "Motor Torque 1= %4.0f", torque1);
+		m_textLine += m_textIncrement;
+
+		float torque2 = b2RevoluteJoint_GetMotorTorque(m_joint2, settings.m_hertz);
+		g_draw.DrawString(5, m_textLine, "Motor Torque 2= %4.0f", torque2);
+		m_textLine += m_textIncrement;
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new RevoluteJoint(settings);
+	}
+
+	b2BodyId m_ball;
+	b2JointId m_joint1;
+	b2JointId m_joint2;
+	float m_motorSpeed;
+	bool m_enableMotor;
+	bool m_enableLimit;
+};
+
+static int sampleRevolute = RegisterSample("Joints", "Revolute", RevoluteJoint::Create);
+
 // A suspension bridge
 class Bridge : public Sample
 {
@@ -281,6 +427,7 @@ class Cantilever : public Sample
 				jointDef.bodyIdB = bodyId;
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+				// jointDef.angularHertz = i == 0 ? 0.0f : 1.0f;
 				// jointDef.linearHertz = 5.0f;
 				b2World_CreateWeldJoint(m_worldId, &jointDef);
 
@@ -497,7 +644,156 @@ class DistanceJoint : public Sample
 	bool m_fixedLength;
 };
 
-static int sampleDistanceJOint = RegisterSample("Joints", "Distance Joint", DistanceJoint::Create);
+static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", DistanceJoint::Create);
+
+class AllJoints : public Sample
+{
+public:
+	enum
+	{
+		e_count = 5
+	};
+
+	AllJoints(const Settings& settings)
+		: Sample(settings)
+	{
+		m_groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+		m_fixedRotation = false;
+
+		for (int i = 0; i < 5; ++i)
+		{
+			m_bodyIds[i] = b2_nullBodyId;
+			m_jointIds[i] = b2_nullJointId;
+		}
+
+		CreateScene();
+	}
+
+	void CreateScene()
+	{
+		for (int i = 0; i < 5; ++i)
+		{
+			if (B2_NON_NULL(m_jointIds[i]))
+			{
+				b2World_DestroyJoint(m_jointIds[i]);
+				m_jointIds[i] = b2_nullJointId;
+			}
+
+			if (B2_NON_NULL(m_bodyIds[i]))
+			{
+				b2World_DestroyBody(m_bodyIds[i]);
+				m_bodyIds[i] = b2_nullBodyId;
+			}
+		}
+
+		b2Vec2 position = {-20.0f, 10.0f};
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.enableSleep = false;
+		bodyDef.fixedRotation = m_fixedRotation;
+
+		b2Polygon box = b2MakeBox(1.0f, 1.0f);
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		shapeDef.density = 1.0f;
+
+		int index = 0;
+		{
+			bodyDef.position = position;
+			m_bodyIds[index] = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(m_bodyIds[index], &shapeDef, &box);
+
+			b2Vec2 pivot = {position.x - 1.0f, position.y};
+			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
+			jointDef.bodyIdA = m_groundId;
+			jointDef.bodyIdB = m_bodyIds[index];
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			m_jointIds[index] = b2World_CreateWeldJoint(m_worldId, &jointDef);
+		}
+
+		position.x += 5.0f;
+		++index;
+
+		{
+			bodyDef.position = position;
+			m_bodyIds[index] = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(m_bodyIds[index], &shapeDef, &box);
+
+			b2Vec2 pivot = {position.x - 1.0f, position.y};
+			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			jointDef.bodyIdA = m_groundId;
+			jointDef.bodyIdB = m_bodyIds[index];
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			m_jointIds[index] = b2World_CreateRevoluteJoint(m_worldId, &jointDef);
+		}
+
+		position.x += 5.0f;
+		++index;
+
+		{
+			bodyDef.position = position;
+			m_bodyIds[index] = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(m_bodyIds[index], &shapeDef, &box);
+
+			b2Vec2 pivot = {position.x - 1.0f, position.y};
+			b2PrismaticJointDef jointDef = b2DefaultPrismaticJointDef();
+			jointDef.bodyIdA = m_groundId;
+			jointDef.bodyIdB = m_bodyIds[index];
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, {1.0f, 0.0f});
+			m_jointIds[index] = b2World_CreatePrismaticJoint(m_worldId, &jointDef);
+		}
+
+		position.x += 5.0f;
+		++index;
+
+		{
+			bodyDef.position = position;
+			m_bodyIds[index] = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(m_bodyIds[index], &shapeDef, &box);
+
+			float length = 2.0f;
+			b2Vec2 pivot1 = {position.x, position.y + 1.0f + length};
+			b2Vec2 pivot2 = {position.x, position.y + 1.0f};
+			b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+			jointDef.bodyIdA = m_groundId;
+			jointDef.bodyIdB = m_bodyIds[index];
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot1);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot2);
+			jointDef.minLength = length;
+			jointDef.maxLength = length;
+			m_jointIds[index] = b2World_CreateDistanceJoint(m_worldId, &jointDef);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(300.0f, 60.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Checkbox("fixed rotation", &m_fixedRotation))
+		{
+			CreateScene();
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new AllJoints(settings);
+	}
+
+	b2BodyId m_groundId;
+	b2BodyId m_bodyIds[5];
+	b2JointId m_jointIds[5];
+	bool m_fixedRotation;
+};
+
+static int sampleAllJoints = RegisterSample("Joints", "All Joints", AllJoints::Create);
 
 class UserConstraint : public Sample
 {

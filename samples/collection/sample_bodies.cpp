@@ -170,6 +170,177 @@ class BodyType : public Sample
 static int sampleBodyType = RegisterSample("Bodies", "Body Type", BodyType::Create);
 
 
+/// This is a test of typical character collision scenarios. This does not
+/// show how you should implement a character in your application.
+/// Instead this is used to test smooth collision on edge chains.
+class Character : public Sample
+{
+public:
+	Character(const Settings& settings)
+		: Sample(settings)
+	{
+		// Ground body
+		{
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		// Collinear edges with no adjacency information.
+		// This shows the problematic case where a box shape can hit
+		// an internal vertex.
+		{
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			
+			b2Segment segment1 = {{-8.0f, 1.0f}, {-6.0f, 1.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment1);
+
+			b2Segment segment2 = {{-6.0f, 1.0f}, {-4.0f, 1.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment2);
+
+			b2Segment segment3 = {{-4.0f, 1.0f}, {-2.0f, 1.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment3);
+		}
+
+		// Chain shape
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.angle = 0.25f * b2_pi;
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Vec2 points[4] = {{8.0f, 7.0f}, {7.0f, 8.0f}, {6.0f, 8.0f}, {5.0f, 7.0f}};
+			b2ChainDef chainDef = b2DefaultChainDef();
+			chainDef.points = points;
+			chainDef.count = 4;
+			chainDef.loop = true;
+
+			b2Body_CreateChain(groundId, &chainDef);
+		}
+
+		// Square tiles. This shows that adjacency shapes may have non-smooth collision. Box2D has no solution
+		// to this problem.
+		// TODO_ERIN try this: https://briansemrau.github.io/dealing-with-ghost-collisions/
+		{
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+
+			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {4.0f, 3.0f}, 0.0f);
+			b2Body_CreatePolygon(groundId, &b2_defaultShapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 1.0f, {6.0f, 3.0f}, 0.0f);
+			b2Body_CreatePolygon(groundId, &b2_defaultShapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 1.0f, {8.0f, 3.0f}, 0.0f);
+			b2Body_CreatePolygon(groundId, &b2_defaultShapeDef, &box);
+		}
+
+		// Square made from a chain loop. Collision should be smooth.
+		{
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+
+			b2Vec2 points[4] = {{-1.0f, 3.0}, {1.0f, 3.0f}, {1.0f, 5.0f}, {-1.0f, 5.0}};
+			b2ChainDef chainDef = b2DefaultChainDef();
+			chainDef.points = points;
+			chainDef.count = 4;
+			chainDef.loop = true;
+			b2Body_CreateChain(groundId, &chainDef);
+		}
+
+		// Chain loop. Collision should be smooth.
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.position = {-10.0f, 4.0f};
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Vec2 points[10] = {{0.0f, 0.0f}, {6.0f, 0.0f},  {6.0f, 2.0f},	 {4.0f, 1.0f},	{2.0f, 2.0f},
+								 {0.0f, 2.0f}, {-2.0f, 2.0f}, {-4.0f, 3.0f}, {-6.0f, 2.0f}, {-6.0f, 0.0f}};
+			b2ChainDef chainDef = b2DefaultChainDef();
+			chainDef.points = points;
+			chainDef.count = 10;
+			chainDef.loop = true;
+			b2Body_CreateChain(groundId, &chainDef);
+		}
+
+		// Circle character
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.position = {-7.0f, 6.0f};
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.fixedRotation = true;
+			bodyDef.enableSleep = false;
+
+			m_circleCharacterId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Circle circle = {{0.0f, 0.0f}, 0.25f};
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.density = 20.0f;
+			shapeDef.friction = 0.2f;
+			b2Body_CreateCircle(m_circleCharacterId, &shapeDef, &circle);
+		}
+
+		// Capsule character
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.position = {3.0f, 5.0f};
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.fixedRotation = true;
+			bodyDef.enableSleep = false;
+
+			m_capsuleCharacterId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule = {{0.0f, 0.25f}, {0.0f, 0.75f}, 0.25f};
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.density = 20.0f;
+			shapeDef.friction = 0.2f;
+			b2Body_CreateCapsule(m_capsuleCharacterId, &shapeDef, &capsule);
+		}
+
+		// Square character
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.position = {-3.0f, 8.0f};
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.fixedRotation = true;
+			bodyDef.enableSleep = false;
+
+			m_boxCharacterId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(0.4f, 0.4f);
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.density = 20.0f;
+			shapeDef.friction = 0.2f;
+			b2Body_CreatePolygon(m_boxCharacterId, &shapeDef, &box);
+		}
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawString(5, m_textLine, "This tests various character collision shapes.");
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "Limitation: square and hexagon can snag on aligned boxes.");
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "Feature: edge chains have smooth collision inside and out.");
+		m_textLine += m_textIncrement;
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Character(settings);
+	}
+
+	b2BodyId m_circleCharacterId;
+	b2BodyId m_capsuleCharacterId;
+	b2BodyId m_boxCharacterId;
+};
+
+static int sampleCharacter = RegisterSample("Bodies", "Character", Character::Create);
+
+
 // Test all these APIs:
 #if 0
 void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
@@ -178,6 +349,4 @@ float b2Body_GetInertiaTensor(b2BodyId bodyId);
 float b2Body_GetCenterOfMass(b2BodyId bodyId);
 void b2Body_SetMassData(b2MassData massData);
 void b2Body_Wake(b2BodyId bodyId);
-void b2Body_Disable(b2BodyId bodyId);
-void b2Body_Enable(b2BodyId bodyId);
 #endif

@@ -58,7 +58,7 @@ void b2PrepareDistance(b2Joint* base, b2StepContext* context)
 	b2Vec2 rA = joint->rA;
 	b2Vec2 rB = joint->rB;
 
-	b2Vec2 axis = b2NormalizeChecked(joint->separation);
+	b2Vec2 axis = b2Normalize(joint->separation);
 
 	float crA = b2Cross(rA, axis);
 	float crB = b2Cross(rB, axis);
@@ -138,7 +138,7 @@ void b2WarmStartDistance(b2Joint* base, b2StepContext* context)
 	b2Vec2 rA = joint->rA;
 	b2Vec2 rB = joint->rB;
 
-	b2Vec2 axis = b2NormalizeChecked(joint->separation);
+	b2Vec2 axis = b2Normalize(joint->separation);
 
 	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
 	b2Vec2 P = b2MulSV(axialImpulse, axis);
@@ -181,7 +181,7 @@ void b2SolveDistanceVelocity(b2Joint* base, b2StepContext* context, bool useBias
 	b2Vec2 separation = b2Add(joint->separation, ds);
 
 	float L = b2Length(separation);
-	b2Vec2 axis = b2NormalizeChecked(separation);
+	b2Vec2 axis = b2Normalize(separation);
 
 	if (joint->minLength < joint->maxLength)
 	{
