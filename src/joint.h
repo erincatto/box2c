@@ -162,7 +162,8 @@ typedef struct b2WeldJoint
 	float angularBiasCoefficient;
 	float angularMassCoefficient;
 	float angularImpulseCoefficient;
-	b2Vec3 impulse;
+	b2Vec2 pivotImpulse;
+	float axialImpulse;
 
 	// Solver temp
 	int32_t indexA;
@@ -171,7 +172,8 @@ typedef struct b2WeldJoint
 	b2Vec2 rB;
 	b2Vec2 linearSeparation;
 	float angularSeparation;
-	b2Mat33 effectiveMass;
+	b2Mat22 pivotMass;
+	float axialMass;
 } b2WeldJoint;
 
 /// The base joint class. Joints are used to constraint two bodies together in

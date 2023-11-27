@@ -77,8 +77,8 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 
 	b2Mat22 K;
 	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
-	K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
-	K.cx.y = K.cy.x;
+	K.cx.y = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+	K.cy.x = K.cx.y;
 	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
 	joint->pivotMass = b2GetInverse22(K);
 

@@ -71,6 +71,7 @@ set(BOX2D_SAMPLES
 	collection/sample_continuous.cpp
 	collection/sample_distance.cpp
 	collection/sample_dynamic_tree.cpp
+	collection/sample_events.cpp
 	collection/sample_hull.cpp
 	collection/sample_manifold.cpp
 	collection/sample_ray_cast.cpp

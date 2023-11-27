@@ -1960,11 +1960,11 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 
 	b2Sweep sweep = b2MakeSweep(fastBody);
 
-	b2Transform xf1 = fastBody->transform;
+	b2Transform xf1;
+	xf1.q = b2MakeRot(sweep.a1);
+	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
 
-	b2Transform xf2;
-	xf2.q = b2MakeRot(sweep.a2);
-	xf2.p = b2Sub(sweep.c2, b2RotateVector(xf2.q, sweep.localCenter));
+	b2Transform xf2 = fastBody->transform;
 
 	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
 

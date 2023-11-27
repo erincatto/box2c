@@ -409,7 +409,8 @@ b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	joint->weldJoint.linearDampingRatio = def->linearDampingRatio;
 	joint->weldJoint.angularHertz = def->angularHertz;
 	joint->weldJoint.angularDampingRatio = def->angularDampingRatio;
-	joint->weldJoint.impulse = b2Vec3_zero;
+	joint->weldJoint.pivotImpulse = b2Vec2_zero;
+	joint->weldJoint.axialImpulse = 0.0f;
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)

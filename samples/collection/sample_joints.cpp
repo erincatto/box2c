@@ -427,6 +427,7 @@ class Cantilever : public Sample
 				jointDef.bodyIdB = bodyId;
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+				// jointDef.angularHertz = i == 0 ? 0.0f : 1.0f;
 				// jointDef.linearHertz = 5.0f;
 				b2World_CreateWeldJoint(m_worldId, &jointDef);
 
