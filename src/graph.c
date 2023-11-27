@@ -41,7 +41,7 @@ typedef struct b2WorkerContext
 
 void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
 {
-	memset(graph, 0, sizeof(b2Graph));
+	*graph = (b2Graph){0};
 
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
 	contactCapacity = B2_MAX(contactCapacity, 8);

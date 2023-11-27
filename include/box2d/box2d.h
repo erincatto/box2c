@@ -5,6 +5,7 @@
 
 #include "box2d/api.h"
 #include "box2d/callbacks.h"
+#include "box2d/event_types.h"
 #include "box2d/geometry.h"
 #include "box2d/id.h"
 #include "box2d/joint_types.h"
@@ -58,6 +59,9 @@ BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity)
 
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+
+/// Get the user data stored in a body
+BOX2D_API void* b2Body_GetUserData(b2BodyId bodyId);
 
 /// Get the mass of the body (kilograms)
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
@@ -154,6 +158,18 @@ BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AAB
 /// @param point2 the ray ending point
 BOX2D_API void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Vec2 point2, b2QueryFilter filter,
 							   void* context);
+
+/// World events
+
+/// Get sensor events for the current time step. Do not store a reference to this data.
+BOX2D_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
+
+/// Id validation. These allow validation for up 64K allocations.
+BOX2D_API bool b2World_IsValid(b2WorldId id);
+BOX2D_API bool b2Body_IsValid(b2BodyId id);
+BOX2D_API bool b2Shape_IsValid(b2ShapeId id);
+BOX2D_API bool b2Chain_IsValid(b2ChainId id);
+BOX2D_API bool b2Joint_IsValid(b2JointId id);
 
 /// Advanced API for testing and special cases
 

@@ -13,13 +13,13 @@
 
 #include <imgui.h>
 
-#define SIDES 5
+#define SIDES 7
 
 struct Ring
 {
 	b2BodyId bodyIds[SIDES];
 	b2JointId jointIds[SIDES];
-	float creationTime;
+	bool valid;
 };
 
 class Sensor : public Sample
@@ -144,7 +144,7 @@ public:
 			}
 
 			{
-				b2Polygon box = b2MakeOffsetBox(5.0f, 5.0f, {0.0f, -20.0f}, 0.0f);
+				b2Polygon box = b2MakeOffsetBox(4.0f, 1.0f, {0.0f, -30.5f}, 0.0f);
 				b2ShapeDef shapeDef = b2_defaultShapeDef;
 				shapeDef.isSensor = true;
 				b2Body_CreatePolygon(groundId, &shapeDef, &box);
@@ -157,13 +157,12 @@ public:
 			{
 				m_rings[i].bodyIds[j] = b2_nullBodyId;
 				m_rings[i].jointIds[j] = b2_nullJointId;
-				m_rings[i].creationTime = -FLT_MAX;
 			}
+			m_rings[i].valid = false;
 		}
 
-		m_wait = 1.0f;
+		m_wait = 0.5f;
 		m_side = -15.0f;
-		CreateRing();
 		CreateRing();
 	}
 
@@ -172,7 +171,7 @@ public:
 		int index = -1;
 		for (int i = 0; i < e_count; ++i)
 		{
-			if (B2_IS_NULL(m_rings[i].bodyIds[0]))
+			if (m_rings[i].valid == false)
 			{
 				index = i;
 				break;
@@ -192,7 +191,7 @@ public:
 
 		b2Capsule capsule = {{0.0f, -0.5f * length}, {0.0f, 0.5f * length}, 0.25f};
 
-		b2Vec2 center = {m_side, 30.0f};
+		b2Vec2 center = {m_side, 29.5f};
 
 		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
@@ -231,12 +230,15 @@ public:
 			prevBodyId = weldDef.bodyIdB;
 		}
 
+		ring->valid = true;
 		m_side = -m_side;
 	}
 
 	void DestroyRing(int index)
 	{
 		Ring* ring = m_rings + index;
+		assert(ring->valid == true);
+
 		for (int i = 0; i < SIDES; ++i)
 		{
 			b2World_DestroyJoint(ring->jointIds[i]);
@@ -248,20 +250,49 @@ public:
 			b2World_DestroyBody(ring->bodyIds[i]);
 			ring->bodyIds[i] = b2_nullBodyId;
 		}
+
+		ring->valid = false;
 	}
 
 	void Step(Settings& settings) override
 	{
 		Sample::Step(settings);
 
-		if (settings.m_hertz > 0.0f)
+		// Discover rings that touch the bottom sensor
+		bool deferredDestructions[e_count] = {0};
+		b2SensorEvents sensorEvents = b2World_GetSensorEvents(m_worldId);
+		for (int i = 0; i < sensorEvents.beginCount; ++i)
+		{
+			b2SensorBeginTouchEvent event = sensorEvents.beginEvents[i];
+			b2ShapeId visitorId = sensorEvents.beginEvents[i].visitorShapeId;
+			b2BodyId ringBodyId = b2Shape_GetBody(visitorId);
+			Ring* ring = (Ring*)b2Body_GetUserData(ringBodyId);
+			if (ring != nullptr && ring->valid)
+			{
+				int index = ring - m_rings;
+				assert(0 <= index && index < e_count);
+
+				// Defer destruction to avoid double destruction and event invalidation (orphaned shape ids)
+				deferredDestructions[index] = true;
+			}
+		}
+
+		// Safely destroy rings that hit the bottom sensor
+		for (int i = 0; i < e_count; ++i)
+		{
+			if (deferredDestructions[i])
+			{
+				DestroyRing(i);
+			}
+		}
+
+		if (settings.m_hertz > 0.0f && settings.m_pause == false)
 		{
 			m_wait -= 1.0f / settings.m_hertz;
 			if (m_wait < 0.0f)
 			{
 				CreateRing();
-				CreateRing();
-				m_wait += 1.0f;
+				m_wait += 0.5f;
 			}
 		}
 	}
