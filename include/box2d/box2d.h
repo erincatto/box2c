@@ -145,10 +145,19 @@ BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque
 BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
 /// Query the world for all shapes that potentially overlap the provided AABB.
-/// @param callback a user implemented callback class.
-/// @param aabb the query box.
-BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter,
-								 void* context);
+BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context);
+
+/// Query the world for all shapes that overlap the provided circle.
+BOX2D_API void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Circle* circle, b2Transform transform,
+									 b2QueryFilter filter, void* context);
+
+/// Query the world for all shapes that overlap the provided capsule.
+BOX2D_API void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
+									  b2QueryFilter filter, void* context);
+
+/// Query the world for all shapes that overlap the provided polygon.
+BOX2D_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
+									  b2QueryFilter filter, void* context);
 
 /// Ray-cast the world for all shapes in the path of the ray. Your callback
 /// controls whether you get the closest point, any point, or n-points.

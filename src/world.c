@@ -1054,6 +1054,119 @@ void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2
 	}
 }
 
+typedef struct WorldOverlapContext
+{
+	b2World* world;
+	b2QueryResultFcn* fcn;
+	b2QueryFilter filter;
+	b2DistanceProxy proxy;
+	b2Transform transform;
+	void* userContext;
+} WorldOverlapContext;
+
+static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	WorldOverlapContext* worldContext = context;
+	b2World* world = worldContext->world;
+
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+
+	b2Shape* shape = world->shapes + shapeIndex;
+	b2Filter shapeFilter = shape->filter;
+	b2QueryFilter queryFilter = worldContext->filter;
+
+	if ((shapeFilter.categoryBits & queryFilter.maskBits) == 0 || (shapeFilter.maskBits & queryFilter.categoryBits) == 0)
+	{
+		return true;
+	}
+
+	B2_ASSERT(shape->object.index == shape->object.next);
+
+	b2DistanceInput input;
+	input.proxyA = worldContext->proxy;
+	input.proxyB = b2MakeShapeDistanceProxy(shape);
+	input.transformA = worldContext->transform;
+	input.transformB = world->bodies[shape->bodyIndex].transform;
+	input.useRadii = true;
+
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+
+	if (output.distance > 0.0f)
+	{
+		return true;
+	}
+
+	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
+	bool result = worldContext->fcn(shapeId, worldContext->userContext);
+	return result;
+}
+
+void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Circle* circle, b2Transform transform,
+						   b2QueryFilter filter, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2AABB aabb = b2ComputeCircleAABB(circle, transform);
+	WorldOverlapContext worldContext = {
+		world, fcn, filter, b2MakeProxy(&circle->point, 1, circle->radius), transform, context,
+	};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
+	}
+}
+
+void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
+						  b2QueryFilter filter, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2AABB aabb = b2ComputeCapsuleAABB(capsule, transform);
+	WorldOverlapContext worldContext = {
+		world, fcn, filter, b2MakeProxy(&capsule->point1, 2, capsule->radius), transform, context,
+	};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
+	}
+}
+
+void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
+						  b2QueryFilter filter, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2AABB aabb = b2ComputePolygonAABB(polygon, transform);
+	WorldOverlapContext worldContext = {
+		world, fcn, filter, b2MakeProxy(polygon->vertices, polygon->count, polygon->radius), transform, context,
+	};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
+	}
+}
+
 typedef struct WorldRayCastContext
 {
 	b2World* world;

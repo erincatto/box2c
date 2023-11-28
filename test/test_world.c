@@ -95,3 +95,25 @@ int HelloWorld()
 
 	return 0;
 }
+
+int EmptyWorld()
+{
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld(&worldDef);
+	ENSURE(b2World_IsValid(worldId) == true);
+
+	float timeStep = 1.0f / 60.0f;
+	int32_t velocityIterations = 6;
+	int32_t relaxIterations = 2;
+
+	for (int32_t i = 0; i < 60; ++i)
+	{
+		b2World_Step(worldId, timeStep, velocityIterations, relaxIterations);
+	}
+
+	b2DestroyWorld(worldId);
+
+	ENSURE(b2World_IsValid(worldId) == false);
+
+	return 0;
+}
