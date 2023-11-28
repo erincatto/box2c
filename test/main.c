@@ -24,6 +24,7 @@ extern int CollisionTest();
 extern int DeterminismTest();
 extern int DistanceTest();
 extern int HelloWorld();
+extern int EmptyWorld();
 extern int ShapeTest();
 extern int TableTest();
 
@@ -46,6 +47,7 @@ int main(void)
 	RUN_TEST(DeterminismTest);
 	RUN_TEST(DistanceTest);
 	RUN_TEST(HelloWorld);
+	RUN_TEST(EmptyWorld);
 	RUN_TEST(ShapeTest);
 	RUN_TEST(TableTest);
 	RUN_TEST(BitSetTest);
