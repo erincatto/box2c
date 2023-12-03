@@ -387,6 +387,7 @@ static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 norm
 
 	rayContext->points[0] = point;
 	rayContext->normals[0] = normal;
+	rayContext->fractions[0] = fraction;
 	rayContext->count = 1;
 
 	// By returning the current fraction, we instruct the calling code to clip the ray and
@@ -412,6 +413,7 @@ static float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, 
 
 	rayContext->points[0] = point;
 	rayContext->normals[0] = normal;
+	rayContext->fractions[0] = fraction;
 	rayContext->count = 1;
 
 	// At this point we have a hit, so we know the ray is obstructed.
@@ -442,6 +444,7 @@ static float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 nor
 
 	rayContext->points[count] = point;
 	rayContext->normals[count] = normal;
+	rayContext->fractions[count] = fraction;
 	rayContext->count = count + 1;
 
 	if (rayContext->count == 3)
@@ -551,6 +554,7 @@ public:
 			b2Vec2 vertices[3] = {{-0.1f, 0.0f}, {0.1f, 0.0f}, {0.0f, 1.5f}};
 			b2Hull hull = b2ComputeHull(vertices, 3);
 			m_polygons[1] = b2MakePolygon(&hull, 0.0f);
+			m_polygons[1].radius = 0.5f;
 		}
 
 		{
@@ -582,6 +586,7 @@ public:
 
 		m_rayStart = {-20.0f, 10.0f};
 		m_rayEnd = {20.0f, 10.0f};
+		m_rayRadius = 0.0f;
 		m_rayDrag = false;
 	}
 
@@ -677,8 +682,12 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(210.0f, 310.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 330.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("radius", &m_rayRadius, 0.0f, 2.0f, "%.1f"))
+		{
+		}
 
 		if (ImGui::Button("Polygon 1"))
 			Create(0);
@@ -768,45 +777,71 @@ public:
 		b2Color color2 = {0.8f, 0.8f, 0.8f, 1.0f};
 		b2Color color3 = {0.9f, 0.9f, 0.4f, 1.0f};
 		b2Color green = b2MakeColor(b2_colorGreen, 0.7f);
+		b2Color yellow = b2MakeColor(b2_colorYellow, 0.7f);
+		b2Color gray = b2MakeColor(b2_colorGray, 0.7f);
+
+		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
 
 		if (m_mode == e_closest)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastClosestCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastClosestCallback, &context);
 
 			if (context.count > 0)
 			{
+				b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[0], rayTranslation);
 				g_draw.DrawPoint(context.points[0], 5.0f, color1);
-				g_draw.DrawSegment(m_rayStart, context.points[0], color2);
+				g_draw.DrawSegment(m_rayStart, c, color2);
 				b2Vec2 head = b2MulAdd(context.points[0], 0.5f, context.normals[0]);
 				g_draw.DrawSegment(context.points[0], head, color3);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayStart, context.fractions[0], rayTranslation), m_rayRadius, yellow);
+				}
 			}
 			else
 			{
 				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayEnd, context.fractions[0], rayTranslation), m_rayRadius, gray);
+				}
 			}
 		}
 		else if (m_mode == e_any)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastAnyCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastAnyCallback, &context);
 
 			if (context.count > 0)
 			{
+				b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[0], rayTranslation);
 				g_draw.DrawPoint(context.points[0], 5.0f, color1);
-				g_draw.DrawSegment(m_rayStart, context.points[0], color2);
+				g_draw.DrawSegment(m_rayStart, c, color2);
 				b2Vec2 head = b2MulAdd(context.points[0], 0.5f, context.normals[0]);
 				g_draw.DrawSegment(context.points[0], head, color3);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayStart, context.fractions[0], rayTranslation), m_rayRadius, yellow);
+				}
 			}
 			else
 			{
 				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayEnd, context.fractions[0], rayTranslation), m_rayRadius, gray);
+				}
 			}
 		}
 		else if (m_mode == e_multiple)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastMultipleCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation,  m_rayRadius, b2_defaultQueryFilter, RayCastMultipleCallback, &context);
 
 			if (context.count > 0)
 			{
@@ -814,15 +849,26 @@ public:
 				{
 					b2Vec2 p = context.points[i];
 					b2Vec2 n = context.normals[i];
+					b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[i], rayTranslation);
 					g_draw.DrawPoint(p, 5.0f, color1);
-					g_draw.DrawSegment(m_rayStart, p, color2);
+					g_draw.DrawSegment(m_rayStart, c, color2);
 					b2Vec2 head = b2MulAdd(p, 0.5f, n);
 					g_draw.DrawSegment(p, head, color3);
+
+					if (m_rayRadius > 0.0f)
+					{
+						g_draw.DrawCircle(b2MulAdd(m_rayStart, context.fractions[i], rayTranslation), m_rayRadius, yellow);
+					}
 				}
 			}
 			else
 			{
 				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayEnd, context.fractions[0], rayTranslation), m_rayRadius, gray);
+				}
 			}
 		}
 		else if (m_mode == e_sorted)
@@ -834,7 +880,7 @@ public:
 			context.fractions[1] = FLT_MAX;
 			context.fractions[2] = FLT_MAX;
 
-			b2World_RayCast(m_worldId, RayCastSortedCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastSortedCallback, &context);
 
 			if (context.count > 0)
 			{
@@ -843,17 +889,28 @@ public:
 									 b2MakeColor(b2_colorBlue, 1.0f)};
 				for (int i = 0; i < context.count; ++i)
 				{
+					b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[i], rayTranslation);
 					b2Vec2 p = context.points[i];
 					b2Vec2 n = context.normals[i];
 					g_draw.DrawPoint(p, 5.0f, colors[i]);
-					g_draw.DrawSegment(m_rayStart, p, color2);
+					g_draw.DrawSegment(m_rayStart, c, color2);
 					b2Vec2 head = b2MulAdd(p, 0.5f, n);
 					g_draw.DrawSegment(p, head, color3);
+
+					if (m_rayRadius > 0.0f)
+					{
+						g_draw.DrawCircle(b2MulAdd(m_rayStart, context.fractions[i], rayTranslation), m_rayRadius, yellow);
+					}
 				}
 			}
 			else
 			{
 				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayEnd, context.fractions[0], rayTranslation), m_rayRadius, gray);
+				}
 			}
 		}
 
@@ -884,6 +941,7 @@ public:
 
 	b2Vec2 m_rayStart;
 	b2Vec2 m_rayEnd;
+	float m_rayRadius;
 	bool m_rayDrag;
 };
 

@@ -71,6 +71,13 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 	if (linearHertz == 0.0f)
 	{
 		linearHertz = 0.25f * context->velocityIterations * context->inv_dt;
+
+		// no warm staring
+		joint->pivotImpulse = b2Vec2_zero;
+	}
+	else
+	{
+		joint->pivotImpulse = b2MulSV(context->dtRatio, joint->pivotImpulse);
 	}
 
 	{
@@ -86,6 +93,13 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 	if (angularHertz == 0.0f)
 	{
 		angularHertz = 0.25f * context->velocityIterations * context->inv_dt;
+
+		// no warm staring
+		joint->axialImpulse = 0.0f;
+	}
+	else
+	{
+		joint->axialImpulse = context->dtRatio * joint->axialImpulse;
 	}
 
 	{
@@ -96,16 +110,34 @@ void b2PrepareWeld(b2Joint* base, b2StepContext* context)
 		joint->angularImpulseCoefficient = 1.0f / (1.0f + a);
 		joint->angularMassCoefficient = a * joint->angularImpulseCoefficient;
 	}
-
-	// TODO_ERIN warm start intentional softness?
-	joint->pivotImpulse = b2Vec2_zero;
-	joint->axialImpulse = 0.0f;
 }
 
 void b2WarmStartWeld(b2Joint* base, b2StepContext* context)
 {
-	B2_MAYBE_UNUSED(base);
-	B2_MAYBE_UNUSED(context);
+	b2WeldJoint* joint = &base->weldJoint;
+
+	b2SolverBody* bodyA = context->solverBodies + joint->indexA;
+	b2Vec2 vA = bodyA->linearVelocity;
+	float wA = bodyA->angularVelocity;
+	float mA = bodyA->invMass;
+	float iA = bodyA->invI;
+
+	b2SolverBody* bodyB = context->solverBodies + joint->indexB;
+	b2Vec2 vB = bodyB->linearVelocity;
+	float wB = bodyB->angularVelocity;
+	float mB = bodyB->invMass;
+	float iB = bodyB->invI;
+
+	vA = b2MulSub(vA, mA, joint->pivotImpulse);
+	wA -= iA * (b2Cross(joint->rA, joint->pivotImpulse) + joint->axialImpulse);
+
+	vB = b2MulAdd(vB, mB, joint->pivotImpulse);
+	wB += iB * (b2Cross(joint->rB, joint->pivotImpulse) + joint->axialImpulse);
+
+	bodyA->linearVelocity = vA;
+	bodyA->angularVelocity = wA;
+	bodyB->linearVelocity = vB;
+	bodyB->angularVelocity = wB;
 }
 
 void b2SolveWeldVelocity(b2Joint* base, const b2StepContext* context, bool useBias)

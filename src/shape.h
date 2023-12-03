@@ -11,7 +11,7 @@
 
 typedef struct b2BroadPhase b2BroadPhase;
 
-typedef enum b2ShapeType
+typedef enum
 {
 	b2_capsuleShape,
 	b2_circleShape,
@@ -26,7 +26,7 @@ typedef struct b2Shape
 	b2Object object;
 	int32_t bodyIndex;
 	int32_t nextShapeIndex;
-	enum b2ShapeType type;
+	b2ShapeType type;
 	float density;
 	float friction;
 	float restitution;

@@ -101,7 +101,7 @@ typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int
 /// Finishes a user task object that wraps a Box2D task.
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 
-/// Finishes all tasks.
+/// Finishes all tasks. TODO_ERIN this must because the user may have other tasks running
 typedef void b2FinishAllTasksCallback(void* userContext);
 
 typedef struct b2WorldDef

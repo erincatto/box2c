@@ -1246,7 +1246,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 
 		// Add radius extension
 		segmentAABB.lowerBound = b2Sub(b2Min(p1, t), extension);
-		segmentAABB.upperBound = b2Sub(b2Max(p1, t), extension);
+		segmentAABB.upperBound = b2Add(b2Max(p1, t), extension);
 	}
 
 	int32_t stack[b2_treeStackSize];
@@ -1300,7 +1300,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 				maxFraction = value;
 				b2Vec2 t = b2MulAdd(p1, maxFraction, b2Sub(p2, p1));
 				segmentAABB.lowerBound = b2Sub(b2Min(p1, t), extension);
-				segmentAABB.upperBound = b2Sub(b2Max(p1, t), extension);
+				segmentAABB.upperBound = b2Add(b2Max(p1, t), extension);
 			}
 		}
 		else

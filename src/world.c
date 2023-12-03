@@ -328,6 +328,7 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+		B2_ASSERT(world->userTreeTask != NULL);
 	}
 	else
 	{
@@ -353,6 +354,7 @@ static void b2Collide(b2World* world)
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
 		int32_t minRange = 64;
 		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
+		B2_ASSERT(userCollideTask != NULL);
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
 	else
@@ -1213,7 +1215,8 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	return input->maxFraction;
 }
 
-void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Vec2 point2, b2QueryFilter filter, void* context)
+void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, float radius, b2QueryFilter filter,
+					 b2RayResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1222,7 +1225,7 @@ void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Ve
 		return;
 	}
 
-	b2RayCastInput input = {point1, point2, 0.0f, 1.0f};
+	b2RayCastInput input = {origin, b2Add(origin, translation), radius, 1.0f};
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
@@ -1359,11 +1362,4 @@ void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* co
 	b2World* world = b2GetWorldFromId(worldId);
 	world->preSolveFcn = fcn;
 	world->preSolveContext = context;
-}
-
-void b2World_SetPostSolveCallback(b2WorldId worldId, b2PostSolveFcn* fcn, void* context)
-{
-	b2World* world = b2GetWorldFromId(worldId);
-	world->postSolveFcn = fcn;
-	world->postSolveContext = context;
 }
