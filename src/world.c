@@ -1241,6 +1241,46 @@ void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, float
 	}
 }
 
+// This callback finds the closest hit. This is the most common callback used in games.
+static float b2RayCastClosestFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	b2RayResult* rayResult = (b2RayResult*)context;
+	rayResult->shapeId = shapeId;
+	rayResult->point = point;
+	rayResult->normal = normal;
+	rayResult->fraction = fraction;
+	rayResult->hit = true;
+	return fraction;
+}
+
+b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, float radius, b2QueryFilter filter)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return b2_emptyRayResult;
+	}
+
+	b2RayCastInput input = {origin, b2Add(origin, translation), radius, 1.0f};
+	b2RayResult result = b2_emptyRayResult;
+	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
+
+		if (worldContext.fraction == 0.0f)
+		{
+			return result;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+
+	return result;
+}
+
 #if 0
 
 void b2World_ShiftOrigin(b2WorldId worldId, b2Vec2 newOrigin)

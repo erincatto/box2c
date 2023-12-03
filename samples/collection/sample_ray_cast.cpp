@@ -475,7 +475,7 @@ static float RayCastSortedCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 norma
 	assert(count <= 3);
 
 	int index = 3;
-	while (fraction < rayContext->fractions[index-1])
+	while (fraction < rayContext->fractions[index - 1])
 	{
 		index -= 1;
 
@@ -522,8 +522,9 @@ public:
 	{
 		e_any = 0,
 		e_closest = 1,
-		e_multiple = 2,
-		e_sorted = 3
+		e_closestSimple = 2,
+		e_multiple = 3,
+		e_sorted = 4
 	};
 
 	enum
@@ -682,7 +683,7 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(210.0f, 330.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 360.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("radius", &m_rayRadius, 0.0f, 2.0f, "%.1f"))
@@ -738,6 +739,7 @@ public:
 
 		ImGui::RadioButton("Any", &m_mode, e_any);
 		ImGui::RadioButton("Closest", &m_mode, e_closest);
+		ImGui::RadioButton("Closest (simple)", &m_mode, e_closestSimple);
 		ImGui::RadioButton("Multiple", &m_mode, e_multiple);
 		ImGui::RadioButton("Sorted", &m_mode, e_sorted);
 
@@ -782,10 +784,11 @@ public:
 
 		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
 
-		if (m_mode == e_closest)
+		if (m_mode == e_any)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastClosestCallback, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastAnyCallback,
+							&context);
 
 			if (context.count > 0)
 			{
@@ -810,10 +813,11 @@ public:
 				}
 			}
 		}
-		else if (m_mode == e_any)
+		else if (m_mode == e_closest)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastAnyCallback, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastClosestCallback,
+							&context);
 
 			if (context.count > 0)
 			{
@@ -835,13 +839,42 @@ public:
 				if (m_rayRadius > 0.0f)
 				{
 					g_draw.DrawCircle(b2MulAdd(m_rayEnd, context.fractions[0], rayTranslation), m_rayRadius, gray);
+				}
+			}
+		}
+		else if (m_mode == e_closestSimple)
+		{
+			// This version doesn't have a callback, but it doesn't skip the ignored shape
+			b2RayResult result = b2World_RayCastClosest(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter);
+
+			if (result.hit == true)
+			{
+				b2Vec2 c = b2MulAdd(m_rayStart, result.fraction, rayTranslation);
+				g_draw.DrawPoint(result.point, 5.0f, color1);
+				g_draw.DrawSegment(m_rayStart, c, color2);
+				b2Vec2 head = b2MulAdd(result.point, 0.5f, result.normal);
+				g_draw.DrawSegment(result.point, head, color3);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayStart, result.fraction, rayTranslation), m_rayRadius, yellow);
+				}
+			}
+			else
+			{
+				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_rayRadius > 0.0f)
+				{
+					g_draw.DrawCircle(b2MulAdd(m_rayEnd, result.fraction, rayTranslation), m_rayRadius, gray);
 				}
 			}
 		}
 		else if (m_mode == e_multiple)
 		{
 			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, m_rayStart, rayTranslation,  m_rayRadius, b2_defaultQueryFilter, RayCastMultipleCallback, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastMultipleCallback,
+							&context);
 
 			if (context.count > 0)
 			{
@@ -880,7 +913,8 @@ public:
 			context.fractions[1] = FLT_MAX;
 			context.fractions[2] = FLT_MAX;
 
-			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastSortedCallback, &context);
+			b2World_RayCast(m_worldId, m_rayStart, rayTranslation, m_rayRadius, b2_defaultQueryFilter, RayCastSortedCallback,
+							&context);
 
 			if (context.count > 0)
 			{
@@ -946,7 +980,6 @@ public:
 };
 
 static int sampleRayCastWorld = RegisterSample("Collision", "Ray Cast World", RayCastWorld::Create);
-
 
 class OverlapWorld : public Sample
 {
@@ -1226,19 +1259,22 @@ public:
 
 		if (m_shapeType == e_circleShape)
 		{
-			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2_defaultQueryFilter, this);
+			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2_defaultQueryFilter,
+								  this);
 			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
-			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2_defaultQueryFilter, this);
+			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2_defaultQueryFilter,
+								   this);
 			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.point1);
 			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.point2);
 			g_draw.DrawCapsule(p1, p2, m_queryCapsule.radius, color);
 		}
 		else if (m_shapeType == e_boxShape)
 		{
-			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2_defaultQueryFilter, this);
+			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2_defaultQueryFilter,
+								   this);
 			b2Vec2 points[b2_maxPolygonVertices] = {0};
 			for (int i = 0; i < m_queryBox.count; ++i)
 			{
@@ -1302,7 +1338,7 @@ public:
 	b2Vec2 m_basePosition;
 	float m_angle;
 	float m_baseAngle;
-	
+
 	bool m_dragging;
 	bool m_rotating;
 };
