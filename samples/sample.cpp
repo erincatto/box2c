@@ -43,8 +43,9 @@ static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRan
 	}
 	else
 	{
+		// No way to recover from this
 		assert(false);
-		task(0, itemCount, 0, taskContext);
+		exit(1);
 		return nullptr;
 	}
 }

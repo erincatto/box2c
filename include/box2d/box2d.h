@@ -165,12 +165,11 @@ BOX2D_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, 
 /// @param callback a user implemented callback class.
 /// @param point1 the ray starting point
 /// @param point2 the ray ending point
-BOX2D_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, float radius, b2QueryFilter filter,
+BOX2D_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter,
 							   b2RayResultFcn* fcn, void* context);
 
 // Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
-BOX2D_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, float radius,
-											 b2QueryFilter filter);
+BOX2D_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter);
 
 BOX2D_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
 								 b2QueryFilter filter, b2RayResultFcn* fcn, void* context);

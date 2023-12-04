@@ -127,7 +127,7 @@ static int PointInShapeTest()
 
 static int RayCastShapeTest()
 {
-	b2RayCastInput input = {{-4.0f, 0.0f}, {4.0f, 0.0f}, 0.0f, 1.0f};
+	b2RayCastInput input = {{-4.0f, 0.0f}, {8.0f, 0.0f}, 1.0f};
 	
 	{
 		b2RayCastOutput output = b2RayCastCircle(&input, &circle);

@@ -112,3 +112,8 @@ BOX2D_API b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2C
 BOX2D_API b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape);
 BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, bool oneSided);
 BOX2D_API b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape);
+
+BOX2D_API b2RayCastOutput b2ShapeCastCircle(const b2ShapeCastInput* input, const b2Circle* shape);
+BOX2D_API b2RayCastOutput b2ShapeCastCapsule(const b2ShapeCastInput* input, const b2Capsule* shape);
+BOX2D_API b2RayCastOutput b2ShapeCastSegment(const b2ShapeCastInput* input, const b2Segment* shape);
+BOX2D_API b2RayCastOutput b2ShapeCastPolygon(const b2ShapeCastInput* input, const b2Polygon* shape);

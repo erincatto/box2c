@@ -654,7 +654,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* B2_RESTRICT cache, const b2Dis
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
 // TODO_ERIN this is failing when used to raycast a box
-b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input)
+b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 {
 	b2RayCastOutput output = {0};
 

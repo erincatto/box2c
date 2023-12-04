@@ -71,8 +71,7 @@ typedef struct b2AABB
 /// Ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
 typedef struct b2RayCastInput
 {
-	b2Vec2 p1, p2;
-	float radius;
+	b2Vec2 origin, translation;
 	float maxFraction;
 } b2RayCastInput;
 
@@ -85,6 +84,15 @@ typedef struct b2RayCastOutput
 	int32_t iterations;
 	bool hit;
 } b2RayCastOutput;
+
+typedef struct b2ShapeCastInput
+{
+	b2Vec2 points[b2_maxPolygonVertices];
+	int32_t count;
+	float radius;
+	b2Vec2 translation;
+	float maxFraction;
+} b2ShapeCastInput;
 
 /// Task interface
 /// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.

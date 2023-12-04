@@ -117,6 +117,23 @@ typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t prox
 void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2TreeRayCastCallbackFcn* callback,
 						   void* context);
 
+/// This function receives clipped raycast input for a proxy. The function
+/// returns the new ray fraction.
+/// - return a value of 0 to terminate the ray cast
+/// - return a value less than input->maxFraction to clip the ray
+/// - return a value of input->maxFraction to continue the ray cast without clipping
+typedef float b2TreeShapeCastCallbackFcn(const b2ShapeCastInput* input, int32_t proxyId, int32_t userData, void* context);
+
+/// Ray-cast against the proxies in the tree. This relies on the callback
+/// to perform a exact ray-cast in the case were the proxy contains a shape.
+/// The callback also performs the any collision filtering. This has performance
+/// roughly equal to k * log(n), where k is the number of collisions and n is the
+/// number of proxies in the tree.
+/// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
+/// @param callback a callback class that is called for each proxy that is hit by the ray.
+void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* input, uint32_t maskBits, b2TreeShapeCastCallbackFcn* callback,
+						   void* context);
+
 /// Validate this tree. For testing.
 void b2DynamicTree_Validate(const b2DynamicTree* tree);
 
