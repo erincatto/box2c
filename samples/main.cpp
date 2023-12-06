@@ -605,6 +605,7 @@ int main(int, char**)
 	glfwSetCursorPosCallback(g_mainWindow, MouseMotionCallback);
 	glfwSetScrollCallback(g_mainWindow, ScrollCallback);
 
+	// todo put this in s_settings
 	g_draw.Create();
 	CreateUI(g_mainWindow, glslVersion);
 

@@ -293,6 +293,9 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
 		m_textLine += m_textIncrement;
 
+		g_draw.DrawString(5, m_textLine, "task count = %d", s.taskCount);
+		m_textLine += m_textIncrement;
+
 		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);
 		m_textLine += m_textIncrement;
 	}

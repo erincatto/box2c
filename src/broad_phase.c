@@ -342,6 +342,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	{
 		int32_t minRange = 64;
 		void* userPairTask = world->enqueueTaskFcn(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
+		world->taskCount += 1;
 		B2_ASSERT(userPairTask != NULL);
 		world->finishTaskFcn(userPairTask, world->userTaskContext);
 	}

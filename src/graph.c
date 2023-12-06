@@ -1410,6 +1410,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		if (b2_parallel)
 		{
 			splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
+			world->taskCount += 1;
 			B2_ASSERT(splitIslandTask != NULL);
 		}
 		else
@@ -1636,6 +1637,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 			workerContext[i].context = &context;
 			workerContext[i].workerIndex = i;
 			workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
+			world->taskCount += 1;
 			B2_ASSERT(workerContext[i].userTask != NULL);
 		}
 	}
@@ -1683,6 +1685,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	if (b2_parallel)
 	{
 		finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, &context, world->userTaskContext);
+		world->taskCount += 1;
 		B2_ASSERT(finalizeBodiesTask != NULL);
 		world->finishTaskFcn(finalizeBodiesTask, world->userTaskContext);
 	}
@@ -2185,6 +2188,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 		int32_t minRange = 8;
 		void* userContinuousTask =
 			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+		world->taskCount += 1;
 		B2_ASSERT(userContinuousTask != NULL);
 		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
 	}

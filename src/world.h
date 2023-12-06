@@ -114,6 +114,8 @@ typedef struct b2World
 
 	int32_t splitIslandIndex;
 
+	int32_t taskCount;
+
 	bool enableSleep;
 	bool locked;
 	bool enableWarmStarting;

@@ -130,6 +130,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 
 	world->stepId = 0;
+	world->taskCount = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
@@ -328,6 +329,7 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+		world->taskCount += 1;
 		B2_ASSERT(world->userTreeTask != NULL);
 	}
 	else
@@ -354,6 +356,7 @@ static void b2Collide(b2World* world)
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
 		int32_t minRange = 64;
 		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
+		world->taskCount += 1;
 		B2_ASSERT(userCollideTask != NULL);
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
@@ -484,6 +487,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	}
 
 	world->profile = b2_emptyProfile;
+	world->taskCount = 0;
 
 	b2Timer stepTimer = b2CreateTimer();
 
@@ -999,6 +1003,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.stackCapacity = b2GetStackCapacity(world->stackAllocator);
 	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
 	s.byteCount = b2GetByteCount();
+	s.taskCount = world->taskCount;
 	for (int32_t i = 0; i <= b2_graphColorCount; ++i)
 	{
 		s.colorCounts[i] = world->graph.occupancy[i];
