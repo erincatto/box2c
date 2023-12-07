@@ -4,6 +4,7 @@
 #include "box2d/geometry.h"
 
 #include "core.h"
+#include "shape.h"
 
 #include "box2d/aabb.h"
 #include "box2d/distance.h"
@@ -14,8 +15,8 @@
 
 bool b2IsValidRay(const b2RayCastInput* input)
 {
-	bool isValid = b2IsValidVec2(input->p1) && b2IsValidVec2(input->p2) && b2IsValid(input->radius) && b2IsValid(input->maxFraction) &&
-				   0.0f <= input->radius && input->radius < b2_huge && 0.0f <= input->maxFraction && input->maxFraction < b2_huge;
+	bool isValid = b2IsValidVec2(input->origin) && b2IsValidVec2(input->translation) && b2IsValid(input->maxFraction) &&
+				   0.0f <= input->maxFraction && input->maxFraction < b2_huge;
 	return isValid;
 }
 
@@ -44,7 +45,7 @@ static b2Vec2 b2ComputePolygonCentroid(const b2Vec2* vertices, int32_t count)
 	float invArea = 1.0f / area;
 	center.x *= invArea;
 	center.y *= invArea;
-	
+
 	// Remove offset
 	center = b2Add(origin, center);
 
@@ -105,7 +106,7 @@ b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform tran
 	}
 
 	shape.centroid = b2ComputePolygonCentroid(shape.vertices, shape.count);
-	
+
 	return shape;
 }
 
@@ -496,9 +497,9 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* sha
 	b2RayCastOutput output = {0};
 
 	// Shift ray so circle center is the origin
-	b2Vec2 s = b2Sub(input->p1, p);
+	b2Vec2 s = b2Sub(input->origin, p);
 	float length;
-	b2Vec2 d = b2GetLengthAndNormalize(&length, b2Sub(input->p2, input->p1));
+	b2Vec2 d = b2GetLengthAndNormalize(&length, input->translation);
 	if (length == 0.0f)
 	{
 		// zero length ray
@@ -514,7 +515,7 @@ b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* sha
 	b2Vec2 c = b2MulAdd(s, t, d);
 
 	float cc = b2Dot(c, c);
-	float r = shape->radius + input->radius;
+	float r = shape->radius;
 	float rr = r * r;
 
 	if (cc > rr)
@@ -565,8 +566,8 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 		return b2RayCastCircle(input, &circle);
 	}
 
-	b2Vec2 p1 = input->p1;
-	b2Vec2 p2 = input->p2;
+	b2Vec2 p1 = input->origin;
+	b2Vec2 d = input->translation;
 
 	// Ray from capsule start to ray start
 	b2Vec2 q = b2Sub(p1, v1);
@@ -575,7 +576,7 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 	// Vector to ray start that is perpendicular to capsule axis
 	b2Vec2 qp = b2MulAdd(q, -qa, a);
 
-	float radius = input->radius + shape->radius;
+	float radius = shape->radius;
 
 	// Does the ray start within the infinite length capsule?
 	if (b2Dot(qp, qp) < radius * radius)
@@ -602,7 +603,7 @@ b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* s
 	b2Vec2 n = {a.y, -a.x};
 
 	float rayLength;
-	b2Vec2 u = b2GetLengthAndNormalize(&rayLength, b2Sub(p2, p1));
+	b2Vec2 u = b2GetLengthAndNormalize(&rayLength, d);
 
 	// Intersect ray with infinite length capsule
 	// v1 + radius * n + s1 * a = p1 + s2 * u
@@ -683,7 +684,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 	if (oneSided)
 	{
 		// Skip back-side collision
-		float offset = b2Cross(b2Sub(input->p1, shape->point1), b2Sub(shape->point2, shape->point1));
+		float offset = b2Cross(b2Sub(input->origin, shape->point1), b2Sub(shape->point2, shape->point1));
 		if (offset < 0.0f)
 		{
 			b2RayCastOutput output = {0};
@@ -691,91 +692,83 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 		}
 	}
 
-	if (input->radius == 0.0f)
+	// Put the ray into the edge's frame of reference.
+	b2Vec2 p1 = input->origin;
+	b2Vec2 d = input->translation;
+
+	b2Vec2 v1 = shape->point1;
+	b2Vec2 v2 = shape->point2;
+	b2Vec2 e = b2Sub(v2, v1);
+
+	b2RayCastOutput output = {0};
+
+	float length;
+	b2Vec2 eUnit = b2GetLengthAndNormalize(&length, e);
+	if (length == 0.0f)
 	{
-		// Put the ray into the edge's frame of reference.
-		b2Vec2 p1 = input->p1;
-		b2Vec2 p2 = input->p2;
-		b2Vec2 d = b2Sub(p2, p1);
-
-		b2Vec2 v1 = shape->point1;
-		b2Vec2 v2 = shape->point2;
-		b2Vec2 e = b2Sub(v2, v1);
-
-		b2RayCastOutput output = {0};
-
-		float length;
-		b2Vec2 eUnit = b2GetLengthAndNormalize(&length, e);
-		if (length == 0.0f)
-		{
-			return output;
-		}
-
-		// Normal points to the right, looking from v1 towards v2
-		b2Vec2 normal = b2RightPerp(eUnit);
-
-		// Intersect ray with infinite segment using normal
-		// Similar to intersecting a ray with an infinite plane
-		// p = p1 + t * d
-		// dot(normal, p - v1) = 0
-		// dot(normal, p1 - v1) + t * dot(normal, d) = 0
-		float numerator = b2Dot(normal, b2Sub(v1, p1));
-		float denominator = b2Dot(normal, d);
-
-		if (denominator == 0.0f)
-		{
-			// parallel
-			return output;
-		}
-
-		float t = numerator / denominator;
-		if (t < 0.0f || input->maxFraction < t)
-		{
-			// out of ray range
-			return output;
-		}
-
-		// Intersection point on infinite segment
-		b2Vec2 p = b2MulAdd(p1, t, d);
-
-		// Compute position of p along segment
-		// p = v1 + s * e
-		// s = dot(p - v1, e) / dot(e, e)
-
-		float s = b2Dot(b2Sub(p, v1), eUnit);
-		if (s < 0.0f || length < s)
-		{
-			// out of segment range
-			return output;
-		}
-
-		if (numerator > 0.0f)
-		{
-			normal = b2Neg(normal);
-		}
-
-		output.fraction = t;
-		output.point = b2MulAdd(p1, t, d);
-		output.normal = normal;
-		output.hit = true;
-
 		return output;
 	}
 
-	b2Capsule capsule = {shape->point1, shape->point2, 0.0f};
-	return b2RayCastCapsule(input, &capsule);
+	// Normal points to the right, looking from v1 towards v2
+	b2Vec2 normal = b2RightPerp(eUnit);
+
+	// Intersect ray with infinite segment using normal
+	// Similar to intersecting a ray with an infinite plane
+	// p = p1 + t * d
+	// dot(normal, p - v1) = 0
+	// dot(normal, p1 - v1) + t * dot(normal, d) = 0
+	float numerator = b2Dot(normal, b2Sub(v1, p1));
+	float denominator = b2Dot(normal, d);
+
+	if (denominator == 0.0f)
+	{
+		// parallel
+		return output;
+	}
+
+	float t = numerator / denominator;
+	if (t < 0.0f || input->maxFraction < t)
+	{
+		// out of ray range
+		return output;
+	}
+
+	// Intersection point on infinite segment
+	b2Vec2 p = b2MulAdd(p1, t, d);
+
+	// Compute position of p along segment
+	// p = v1 + s * e
+	// s = dot(p - v1, e) / dot(e, e)
+
+	float s = b2Dot(b2Sub(p, v1), eUnit);
+	if (s < 0.0f || length < s)
+	{
+		// out of segment range
+		return output;
+	}
+
+	if (numerator > 0.0f)
+	{
+		normal = b2Neg(normal);
+	}
+
+	output.fraction = t;
+	output.point = b2MulAdd(p1, t, d);
+	output.normal = normal;
+	output.hit = true;
+
+	return output;
 }
 
 b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape)
 {
 	B2_ASSERT(b2IsValidRay(input));
 
-	if (input->radius == 0.0f && shape->radius == 0.0f)
+	if (shape->radius == 0.0f)
 	{
 		// Put the ray into the polygon's frame of reference.
-		b2Vec2 p1 = input->p1;
-		b2Vec2 p2 = input->p2;
-		b2Vec2 d = b2Sub(p2, p1);
+		b2Vec2 p1 = input->origin;
+		b2Vec2 d = input->translation;
 
 		float lower = 0.0f, upper = input->maxFraction;
 
@@ -835,7 +828,7 @@ b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* s
 		{
 			output.fraction = lower;
 			output.normal = shape->normals[index];
-			output.point = b2Lerp(p1, p2, output.fraction);
+			output.point = b2MulAdd(p1, lower, d);
 			output.hit = true;
 		}
 
@@ -843,12 +836,68 @@ b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* s
 	}
 
 	// TODO_ERIN this is not working for ray vs box (zero radii)
-	b2ShapeCastInput castInput;
+	b2ShapeCastPairInput castInput;
 	castInput.proxyA = b2MakeProxy(shape->vertices, shape->count, shape->radius);
-	castInput.proxyB = b2MakeProxy(&input->p1, 1, input->radius);
+	castInput.proxyB = b2MakeProxy(&input->origin, 1, 0.0f);
 	castInput.transformA = b2Transform_identity;
 	castInput.transformB = b2Transform_identity;
-	castInput.translationB = b2Sub(input->p2, input->p1);
+	castInput.translationB = input->translation;
 	castInput.maxFraction = input->maxFraction;
 	return b2ShapeCast(&castInput);
+}
+
+b2RayCastOutput b2ShapeCastCircle(const b2ShapeCastInput* input, const b2Circle* shape)
+{
+	b2ShapeCastPairInput pairInput;
+	pairInput.proxyA = b2MakeProxy(&shape->point, 1, shape->radius);
+	pairInput.proxyB = b2MakeProxy(input->points, input->count, input->radius);
+	pairInput.transformA = b2Transform_identity;
+	pairInput.transformB = b2Transform_identity;
+	pairInput.translationB = input->translation;
+	pairInput.maxFraction = input->maxFraction;
+
+	b2RayCastOutput output = b2ShapeCast(&pairInput);
+	return output;
+}
+
+b2RayCastOutput b2ShapeCastCapsule(const b2ShapeCastInput* input, const b2Capsule* shape)
+{
+	b2ShapeCastPairInput pairInput;
+	pairInput.proxyA = b2MakeProxy(&shape->point1, 2, shape->radius);
+	pairInput.proxyB = b2MakeProxy(input->points, input->count, input->radius);
+	pairInput.transformA = b2Transform_identity;
+	pairInput.transformB = b2Transform_identity;
+	pairInput.translationB = input->translation;
+	pairInput.maxFraction = input->maxFraction;
+
+	b2RayCastOutput output = b2ShapeCast(&pairInput);
+	return output;
+}
+
+b2RayCastOutput b2ShapeCastSegment(const b2ShapeCastInput* input, const b2Segment* shape)
+{
+	b2ShapeCastPairInput pairInput;
+	pairInput.proxyA = b2MakeProxy(&shape->point1, 2, 0.0f);
+	pairInput.proxyB = b2MakeProxy(input->points, input->count, input->radius);
+	pairInput.transformA = b2Transform_identity;
+	pairInput.transformB = b2Transform_identity;
+	pairInput.translationB = input->translation;
+	pairInput.maxFraction = input->maxFraction;
+
+	b2RayCastOutput output = b2ShapeCast(&pairInput);
+	return output;
+}
+
+b2RayCastOutput b2ShapeCastPolygon(const b2ShapeCastInput* input, const b2Polygon* shape)
+{
+	b2ShapeCastPairInput pairInput;
+	pairInput.proxyA = b2MakeProxy(shape->vertices, shape->count, shape->radius);
+	pairInput.proxyB = b2MakeProxy(input->points, input->count, input->radius);
+	pairInput.transformA = b2Transform_identity;
+	pairInput.transformB = b2Transform_identity;
+	pairInput.translationB = input->translation;
+	pairInput.maxFraction = input->maxFraction;
+
+	b2RayCastOutput output = b2ShapeCast(&pairInput);
+	return output;
 }

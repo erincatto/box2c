@@ -3,6 +3,7 @@
 
 #pragma once
 
+// todo add camera and draw and remove globals
 struct Settings
 {
 	void Save();

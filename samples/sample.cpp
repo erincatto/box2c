@@ -43,6 +43,7 @@ static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRan
 	}
 	else
 	{
+		// This is not fatal but the maxTasks should be increased
 		assert(false);
 		task(0, itemCount, 0, taskContext);
 		return nullptr;
@@ -51,9 +52,12 @@ static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRan
 
 static void FinishTask(void* taskPtr, void* userContext)
 {
-	SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
-	Sample* sample = static_cast<Sample*>(userContext);
-	sample->m_scheduler.WaitforTask(sampleTask);
+	if (taskPtr != nullptr)
+	{
+		SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
+		Sample* sample = static_cast<Sample*>(userContext);
+		sample->m_scheduler.WaitforTask(sampleTask);
+	}
 }
 
 static void FinishAllTasks(void* userContext)
@@ -290,6 +294,9 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "task count = %d", s.taskCount);
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);

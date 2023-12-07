@@ -130,6 +130,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 
 	world->stepId = 0;
+	world->taskCount = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
 	world->revision += 1;
@@ -328,6 +329,7 @@ static void b2Collide(b2World* world)
 	if (b2_parallel)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+		world->taskCount += 1;
 	}
 	else
 	{
@@ -353,6 +355,7 @@ static void b2Collide(b2World* world)
 		// Task should take at least 40us on a 4GHz CPU (10K cycles)
 		int32_t minRange = 64;
 		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
+		world->taskCount += 1;
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
 	else
@@ -482,6 +485,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	}
 
 	world->profile = b2_emptyProfile;
+	world->taskCount = 0;
 
 	b2Timer stepTimer = b2CreateTimer();
 
@@ -997,6 +1001,7 @@ b2Statistics b2World_GetStatistics(b2WorldId worldId)
 	s.stackCapacity = b2GetStackCapacity(world->stackAllocator);
 	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
 	s.byteCount = b2GetByteCount();
+	s.taskCount = world->taskCount;
 	for (int32_t i = 0; i <= b2_graphColorCount; ++i)
 	{
 		s.colorCounts[i] = world->graph.occupancy[i];
@@ -1126,7 +1131,7 @@ void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Cir
 }
 
 void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
-						  b2QueryFilter filter, void* context)
+							b2QueryFilter filter, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1147,7 +1152,7 @@ void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Ca
 }
 
 void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
-						  b2QueryFilter filter, void* context)
+							b2QueryFilter filter, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1213,7 +1218,8 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	return input->maxFraction;
 }
 
-void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Vec2 point2, b2QueryFilter filter, void* context)
+void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
+					 void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1222,12 +1228,189 @@ void b2World_RayCast(b2WorldId worldId, b2RayResultFcn* fcn, b2Vec2 point1, b2Ve
 		return;
 	}
 
-	b2RayCastInput input = {point1, point2, 0.0f, 1.0f};
+	b2RayCastInput input = {origin, translation, 1.0f};
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
+
+		if (worldContext.fraction == 0.0f)
+		{
+			return;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+}
+
+// This callback finds the closest hit. This is the most common callback used in games.
+static float b2RayCastClosestFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	b2RayResult* rayResult = (b2RayResult*)context;
+	rayResult->shapeId = shapeId;
+	rayResult->point = point;
+	rayResult->normal = normal;
+	rayResult->fraction = fraction;
+	rayResult->hit = true;
+	return fraction;
+}
+
+b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return b2_emptyRayResult;
+	}
+
+	b2RayCastInput input = {origin, translation, 1.0f};
+	b2RayResult result = b2_emptyRayResult;
+	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
+
+		if (worldContext.fraction == 0.0f)
+		{
+			return result;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+
+	return result;
+}
+
+static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, int32_t shapeIndex, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	WorldRayCastContext* worldContext = context;
+	b2World* world = worldContext->world;
+
+	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
+
+	b2Shape* shape = world->shapes + shapeIndex;
+	b2Filter shapeFilter = shape->filter;
+	b2QueryFilter queryFilter = worldContext->filter;
+
+	if ((shapeFilter.categoryBits & queryFilter.maskBits) == 0 || (shapeFilter.maskBits & queryFilter.categoryBits) == 0)
+	{
+		return input->maxFraction;
+	}
+
+	int32_t bodyIndex = shape->bodyIndex;
+	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
+
+	b2Body* body = world->bodies + bodyIndex;
+	B2_ASSERT(b2ObjectValid(&body->object));
+
+	b2RayCastOutput output = b2ShapeCastShape(input, shape, body->transform);
+
+	if (output.hit)
+	{
+		b2ShapeId shapeId = {shapeIndex, world->index, shape->object.revision};
+		float fraction = worldContext->fcn(shapeId, output.point, output.normal, output.fraction, worldContext->userContext);
+		worldContext->fraction = fraction;
+		return fraction;
+	}
+
+	return input->maxFraction;
+}
+
+void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
+						b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2ShapeCastInput input;
+	input.points[0] = b2TransformPoint(originTransform, circle->point);
+	input.count = 1;
+	input.radius = circle->radius;
+	input.translation = translation;
+	input.maxFraction = 1.0f;
+
+	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
+
+		if (worldContext.fraction == 0.0f)
+		{
+			return;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+}
+
+void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
+						 b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2ShapeCastInput input;
+	input.points[0] = b2TransformPoint(originTransform, capsule->point1);
+	input.points[1] = b2TransformPoint(originTransform, capsule->point2);
+	input.count = 2;
+	input.radius = capsule->radius;
+	input.translation = translation;
+	input.maxFraction = 1.0f;
+
+	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
+
+		if (worldContext.fraction == 0.0f)
+		{
+			return;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+}
+
+void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
+						 b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2ShapeCastInput input;
+	for (int i = 0; i < polygon->count; ++i)
+	{
+		input.points[i] = b2TransformPoint(originTransform, polygon->vertices[i]);
+	}
+	input.count = polygon->count;
+	input.radius = polygon->radius;
+	input.translation = translation;
+	input.maxFraction = 1.0f;
+
+	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
+
+	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	{
+		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
 		if (worldContext.fraction == 0.0f)
 		{
@@ -1359,11 +1542,4 @@ void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* co
 	b2World* world = b2GetWorldFromId(worldId);
 	world->preSolveFcn = fcn;
 	world->preSolveContext = context;
-}
-
-void b2World_SetPostSolveCallback(b2WorldId worldId, b2PostSolveFcn* fcn, void* context)
-{
-	b2World* world = b2GetWorldFromId(worldId);
-	world->postSolveFcn = fcn;
-	world->postSolveContext = context;
 }

@@ -104,9 +104,6 @@ typedef struct b2World
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;
 
-	b2PostSolveFcn* postSolveFcn;
-	void* postSolveContext;
-
 	uint32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
@@ -116,6 +113,8 @@ typedef struct b2World
 	void* userTreeTask;
 
 	int32_t splitIslandIndex;
+
+	int32_t taskCount;
 
 	bool enableSleep;
 	bool locked;

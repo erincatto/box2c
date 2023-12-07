@@ -71,7 +71,7 @@ typedef struct b2DistanceOutput
 b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input);
 
 /// Input parameters for b2ShapeCast
-typedef struct b2ShapeCastInput
+typedef struct b2ShapeCastPairInput
 {
 	b2DistanceProxy proxyA;
 	b2DistanceProxy proxyB;
@@ -79,11 +79,11 @@ typedef struct b2ShapeCastInput
 	b2Transform transformB;
 	b2Vec2 translationB;
 	float maxFraction;
-} b2ShapeCastInput;
+} b2ShapeCastPairInput;
 
 /// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
 /// @returns true if hit, false if there is no hit or an initial overlap
-b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input);
+b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input);
 
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);
 

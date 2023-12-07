@@ -36,7 +36,6 @@ public:
 
 		m_rayStart = {0.0f, 30.0f};
 		m_rayEnd = {0.0f, 0.0f};
-		m_rayRadius = 0.0f;
 
 		m_rayDrag = false;
 		m_translating = false;
@@ -64,9 +63,9 @@ public:
 			m_transform.q = b2MakeRot(m_angle);
 		}
 
-		if (ImGui::SliderFloat("ray radius", &m_rayRadius, 0.0f, 1.0f, "%.1f"))
-		{
-		}
+		// if (ImGui::SliderFloat("ray radius", &m_rayRadius, 0.0f, 1.0f, "%.1f"))
+		//{
+		// }
 
 		if (ImGui::Checkbox("show fraction", &m_showFraction))
 		{
@@ -161,11 +160,11 @@ public:
 			b2Vec2 n = b2MulAdd(p, 1.0f, output->normal);
 			g_draw.DrawSegment(p, n, violet);
 
-			if (m_rayRadius > 0.0f)
-			{
-				g_draw.DrawCircle(p1, m_rayRadius, green);
-				g_draw.DrawCircle(p, m_rayRadius, red);
-			}
+			// if (m_rayRadius > 0.0f)
+			//{
+			//	g_draw.DrawCircle(p1, m_rayRadius, green);
+			//	g_draw.DrawCircle(p, m_rayRadius, red);
+			// }
 
 			if (m_showFraction)
 			{
@@ -179,11 +178,11 @@ public:
 			g_draw.DrawPoint(p1, 5.0f, green);
 			g_draw.DrawPoint(p2, 5.0f, red);
 
-			if (m_rayRadius > 0.0f)
-			{
-				g_draw.DrawCircle(p1, m_rayRadius, green);
-				g_draw.DrawCircle(p2, m_rayRadius, red);
-			}
+			// if (m_rayRadius > 0.0f)
+			//{
+			//	g_draw.DrawCircle(p1, m_rayRadius, green);
+			//	g_draw.DrawCircle(p2, m_rayRadius, red);
+			// }
 		}
 	}
 
@@ -206,8 +205,8 @@ public:
 			g_draw.DrawSolidCircle(c, m_circle.radius, axis, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
-			b2Vec2 end = b2InvTransformPoint(xf, m_rayEnd);
-			b2RayCastInput input = {start, end, m_rayRadius, maxFraction};
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
 
 			b2RayCastOutput localOutput = b2RayCastCircle(&input, &m_circle);
 			if (localOutput.hit)
@@ -229,8 +228,8 @@ public:
 			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
-			b2Vec2 end = b2InvTransformPoint(xf, m_rayEnd);
-			b2RayCastInput input = {start, end, m_rayRadius, maxFraction};
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
 
 			b2RayCastOutput localOutput = b2RayCastCapsule(&input, &m_capsule);
 			if (localOutput.hit)
@@ -256,8 +255,8 @@ public:
 			g_draw.DrawSolidPolygon(vertices, m_box.count, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
-			b2Vec2 end = b2InvTransformPoint(xf, m_rayEnd);
-			b2RayCastInput input = {start, end, m_rayRadius, maxFraction};
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
 
 			b2RayCastOutput localOutput = b2RayCastPolygon(&input, &m_box);
 			if (localOutput.hit)
@@ -283,8 +282,8 @@ public:
 			g_draw.DrawSolidPolygon(vertices, m_triangle.count, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
-			b2Vec2 end = b2InvTransformPoint(xf, m_rayEnd);
-			b2RayCastInput input = {start, end, m_rayRadius, maxFraction};
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
 
 			b2RayCastOutput localOutput = b2RayCastPolygon(&input, &m_triangle);
 			if (localOutput.hit)
@@ -307,8 +306,8 @@ public:
 			g_draw.DrawSegment(p1, p2, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
-			b2Vec2 end = b2InvTransformPoint(xf, m_rayEnd);
-			b2RayCastInput input = {start, end, m_rayRadius, maxFraction};
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
 
 			b2RayCastOutput localOutput = b2RayCastSegment(&input, &m_segment, false);
 			if (localOutput.hit)
@@ -341,7 +340,6 @@ public:
 
 	b2Vec2 m_rayStart;
 	b2Vec2 m_rayEnd;
-	float m_rayRadius;
 
 	b2Vec2 m_basePosition;
 	float m_baseAngle;
@@ -387,6 +385,7 @@ static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 norm
 
 	rayContext->points[0] = point;
 	rayContext->normals[0] = normal;
+	rayContext->fractions[0] = fraction;
 	rayContext->count = 1;
 
 	// By returning the current fraction, we instruct the calling code to clip the ray and
@@ -412,6 +411,7 @@ static float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, 
 
 	rayContext->points[0] = point;
 	rayContext->normals[0] = normal;
+	rayContext->fractions[0] = fraction;
 	rayContext->count = 1;
 
 	// At this point we have a hit, so we know the ray is obstructed.
@@ -442,6 +442,7 @@ static float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 nor
 
 	rayContext->points[count] = point;
 	rayContext->normals[count] = normal;
+	rayContext->fractions[count] = fraction;
 	rayContext->count = count + 1;
 
 	if (rayContext->count == 3)
@@ -472,7 +473,7 @@ static float RayCastSortedCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 norma
 	assert(count <= 3);
 
 	int index = 3;
-	while (fraction < rayContext->fractions[index-1])
+	while (fraction < rayContext->fractions[index - 1])
 	{
 		index -= 1;
 
@@ -523,6 +524,14 @@ public:
 		e_sorted = 3
 	};
 
+	enum CastType
+	{
+		e_rayCast = 0,
+		e_circleCast = 1,
+		e_capsuleCast = 2,
+		e_polygonCast = 3
+	};
+
 	enum
 	{
 		e_maxCount = 64
@@ -551,6 +560,7 @@ public:
 			b2Vec2 vertices[3] = {{-0.1f, 0.0f}, {0.1f, 0.0f}, {0.0f, 1.5f}};
 			b2Hull hull = b2ComputeHull(vertices, 3);
 			m_polygons[1] = b2MakePolygon(&hull, 0.0f);
+			m_polygons[1].radius = 0.5f;
 		}
 
 		{
@@ -580,9 +590,19 @@ public:
 		m_mode = e_closest;
 		m_ignoreIndex = 7;
 
+		m_castType = e_rayCast;
+		m_castRadius = 0.5f;
+
 		m_rayStart = {-20.0f, 10.0f};
 		m_rayEnd = {20.0f, 10.0f};
-		m_rayDrag = false;
+		m_dragging = false;
+
+		m_angle = 0.0f;
+		m_baseAngle = 0.0f;
+		m_angleAnchor = {0.0f, 0.0f};
+		m_rotating = false;
+
+		m_simple = false;
 	}
 
 	void Create(int index)
@@ -655,30 +675,72 @@ public:
 	{
 		if (button == GLFW_MOUSE_BUTTON_1)
 		{
-			m_rayStart = p;
-			m_rayEnd = p;
-			m_rayDrag = true;
+			if (mods == 0 && m_rotating == false)
+			{
+				m_rayStart = p;
+				m_rayEnd = p;
+				m_dragging = true;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_angleAnchor = p;
+				m_baseAngle = m_angle;
+			}
 		}
 	}
 
 	void MouseUp(b2Vec2, int button) override
 	{
-		m_rayDrag = false;
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
 	}
 
 	void MouseMove(b2Vec2 p) override
 	{
-		if (m_rayDrag)
+		if (m_dragging)
 		{
 			m_rayEnd = p;
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_angleAnchor.x;
+			m_angle = m_baseAngle + 1.0f * dx;
 		}
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(210.0f, 310.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 360.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::Checkbox("Simple", &m_simple);
+
+		if (m_simple == false)
+		{
+			const char* castTypes[] = {"Ray", "Circle", "Capsule", "Polygon"};
+			int castType = int(m_castType);
+			if (ImGui::Combo("Cast Type", &castType, castTypes, IM_ARRAYSIZE(castTypes)))
+			{
+				m_castType = CastType(castType);
+			}
+
+			if (m_castType != e_rayCast)
+			{
+				ImGui::SliderFloat("radius", &m_castRadius, 0.0f, 2.0f, "%.1f");
+			}
+
+			const char* modes[] = {"Any", "Closest", "Multiple", "Sorted"};
+			int mode = int(m_mode);
+			if (ImGui::Combo("Mode", &mode, modes, IM_ARRAYSIZE(modes)))
+			{
+				m_mode = Mode(mode);
+			}
+		}
 
 		if (ImGui::Button("Polygon 1"))
 			Create(0);
@@ -727,11 +789,6 @@ public:
 			DestroyBody();
 		}
 
-		ImGui::RadioButton("Any", &m_mode, e_any);
-		ImGui::RadioButton("Closest", &m_mode, e_closest);
-		ImGui::RadioButton("Multiple", &m_mode, e_multiple);
-		ImGui::RadioButton("Sorted", &m_mode, e_sorted);
-
 		ImGui::End();
 	}
 
@@ -743,24 +800,6 @@ public:
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "Shape 7 is intentionally ignored by the ray");
 		m_textLine += m_textIncrement;
-		switch (m_mode)
-		{
-			case e_closest:
-				g_draw.DrawString(5, m_textLine, "Ray-cast mode: closest - find closest shape along the ray");
-				break;
-
-			case e_any:
-				g_draw.DrawString(5, m_textLine, "Ray-cast mode: any - check for obstruction - unsorted");
-				break;
-
-			case e_multiple:
-				g_draw.DrawString(5, m_textLine, "Ray-cast mode: multiple - gather multiple shapes - unsorted");
-				break;
-
-			case e_sorted:
-				g_draw.DrawString(5, m_textLine, "Ray-cast mode: sorted - gather multiple shapes sorted by closeness");
-				break;
-		}
 
 		m_textLine += m_textIncrement;
 
@@ -768,65 +807,58 @@ public:
 		b2Color color2 = {0.8f, 0.8f, 0.8f, 1.0f};
 		b2Color color3 = {0.9f, 0.9f, 0.4f, 1.0f};
 		b2Color green = b2MakeColor(b2_colorGreen, 0.7f);
+		b2Color yellow = b2MakeColor(b2_colorYellow, 0.7f);
+		b2Color gray = b2MakeColor(b2_colorGray, 0.7f);
 
-		if (m_mode == e_closest)
+		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
+
+		if (m_simple)
 		{
-			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastClosestCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			g_draw.DrawString(5, m_textLine, "Simple closest point ray cast");
+			m_textLine += m_textIncrement;
 
-			if (context.count > 0)
+			// This version doesn't have a callback, but it doesn't skip the ignored shape
+			b2RayResult result = b2World_RayCastClosest(m_worldId, m_rayStart, rayTranslation, b2_defaultQueryFilter);
+
+			if (result.hit == true)
 			{
-				g_draw.DrawPoint(context.points[0], 5.0f, color1);
-				g_draw.DrawSegment(m_rayStart, context.points[0], color2);
-				b2Vec2 head = b2MulAdd(context.points[0], 0.5f, context.normals[0]);
-				g_draw.DrawSegment(context.points[0], head, color3);
+				b2Vec2 c = b2MulAdd(m_rayStart, result.fraction, rayTranslation);
+				g_draw.DrawPoint(result.point, 5.0f, color1);
+				g_draw.DrawSegment(m_rayStart, c, color2);
+				b2Vec2 head = b2MulAdd(result.point, 0.5f, result.normal);
+				g_draw.DrawSegment(result.point, head, color3);
 			}
 			else
 			{
 				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
 			}
 		}
-		else if (m_mode == e_any)
+		else
 		{
-			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastAnyCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			switch (m_mode)
+			{
+				case e_any:
+					g_draw.DrawString(5, m_textLine, "Cast mode: any - check for obstruction - unsorted");
+					break;
 
-			if (context.count > 0)
-			{
-				g_draw.DrawPoint(context.points[0], 5.0f, color1);
-				g_draw.DrawSegment(m_rayStart, context.points[0], color2);
-				b2Vec2 head = b2MulAdd(context.points[0], 0.5f, context.normals[0]);
-				g_draw.DrawSegment(context.points[0], head, color3);
-			}
-			else
-			{
-				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
-			}
-		}
-		else if (m_mode == e_multiple)
-		{
-			RayCastContext context = {0};
-			b2World_RayCast(m_worldId, RayCastMultipleCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+				case e_closest:
+					g_draw.DrawString(5, m_textLine, "Cast mode: closest - find closest shape along the cast");
+					break;
 
-			if (context.count > 0)
-			{
-				for (int i = 0; i < context.count; ++i)
-				{
-					b2Vec2 p = context.points[i];
-					b2Vec2 n = context.normals[i];
-					g_draw.DrawPoint(p, 5.0f, color1);
-					g_draw.DrawSegment(m_rayStart, p, color2);
-					b2Vec2 head = b2MulAdd(p, 0.5f, n);
-					g_draw.DrawSegment(p, head, color3);
-				}
+				case e_multiple:
+					g_draw.DrawString(5, m_textLine, "Cast mode: multiple - gather multiple shapes - unsorted");
+					break;
+
+				case e_sorted:
+					g_draw.DrawString(5, m_textLine, "Cast mode: sorted - gather multiple shapes sorted by closeness");
+					break;
 			}
-			else
-			{
-				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
-			}
-		}
-		else if (m_mode == e_sorted)
-		{
+
+			m_textLine += m_textIncrement;
+
+			b2RayResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback, RayCastSortedCallback};
+			b2RayResultFcn* modeFcn = fcns[m_mode];
+
 			RayCastContext context = {0};
 
 			// Must initialize fractions for sorting
@@ -834,7 +866,29 @@ public:
 			context.fractions[1] = FLT_MAX;
 			context.fractions[2] = FLT_MAX;
 
-			b2World_RayCast(m_worldId, RayCastSortedCallback, m_rayStart, m_rayEnd, b2_defaultQueryFilter, &context);
+			b2Circle circle = {{0.0f, 0.0f}, m_castRadius};
+			b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, m_castRadius};
+			b2Polygon box = b2MakeRoundedBox(0.25f, 0.5f, m_castRadius);
+			b2Transform transform = {m_rayStart, b2MakeRot(m_angle)};
+
+			switch (m_castType)
+			{
+				case e_rayCast:
+					b2World_RayCast(m_worldId, m_rayStart, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					break;
+
+				case e_circleCast:
+					b2World_CircleCast(m_worldId, &circle, transform, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					break;
+
+				case e_capsuleCast:
+					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					break;
+
+				case e_polygonCast:
+					b2World_PolygonCast(m_worldId, &box, transform, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					break;
+			}
 
 			if (context.count > 0)
 			{
@@ -843,17 +897,76 @@ public:
 									 b2MakeColor(b2_colorBlue, 1.0f)};
 				for (int i = 0; i < context.count; ++i)
 				{
+					b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[i], rayTranslation);
 					b2Vec2 p = context.points[i];
 					b2Vec2 n = context.normals[i];
 					g_draw.DrawPoint(p, 5.0f, colors[i]);
-					g_draw.DrawSegment(m_rayStart, p, color2);
+					g_draw.DrawSegment(m_rayStart, c, color2);
 					b2Vec2 head = b2MulAdd(p, 0.5f, n);
 					g_draw.DrawSegment(p, head, color3);
+
+					b2Vec2 t = b2MulSV(context.fractions[i], rayTranslation);
+
+					if (m_castType == e_circleCast)
+					{
+						g_draw.DrawCircle(b2Add(m_rayStart, t), m_castRadius, yellow);
+					}
+					else if (m_castType == e_capsuleCast)
+					{
+						b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.point1), t);
+						b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.point2), t);
+						g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
+					}
+					else if (m_castType == e_polygonCast)
+					{
+						b2Vec2 points[b2_maxPolygonVertices];
+						for (int j = 0; j < box.count; ++j)
+						{
+							points[j] = b2Add(b2TransformPoint(transform, box.vertices[j]), t);
+						}
+
+						if (box.radius == 0.0f)
+						{
+							g_draw.DrawPolygon(points, box.count, yellow);
+						}
+						else
+						{
+							g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow, yellow);
+						}
+					}
 				}
 			}
 			else
 			{
 				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_castType == e_circleCast)
+				{
+					g_draw.DrawCircle(b2Add(m_rayStart, rayTranslation), m_castRadius, gray);
+				}
+				else if (m_castType == e_capsuleCast)
+				{
+					b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.point1), rayTranslation);
+					b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.point2), rayTranslation);
+					g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
+				}
+				else if (m_castType == e_polygonCast)
+				{
+					b2Vec2 points[b2_maxPolygonVertices];
+					for (int j = 0; j < box.count; ++j)
+					{
+						points[j] = b2Add(b2TransformPoint(transform, box.vertices[j]), rayTranslation);
+					}
+
+					if (box.radius == 0.0f)
+					{
+						g_draw.DrawPolygon(points, box.count, yellow);
+					}
+					else
+					{
+						g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow, yellow);
+					}
+				}
 			}
 		}
 
@@ -879,16 +992,26 @@ public:
 	b2Capsule m_capsule;
 	b2Circle m_circle;
 	b2Segment m_segment;
+
+	bool m_simple;
+
 	int m_mode;
 	int m_ignoreIndex;
 
+	CastType m_castType;
+	float m_castRadius;
+
+	b2Vec2 m_angleAnchor;
+	float m_baseAngle;
+	float m_angle;
+	bool m_rotating;
+
 	b2Vec2 m_rayStart;
 	b2Vec2 m_rayEnd;
-	bool m_rayDrag;
+	bool m_dragging;
 };
 
 static int sampleRayCastWorld = RegisterSample("Collision", "Ray Cast World", RayCastWorld::Create);
-
 
 class OverlapWorld : public Sample
 {
@@ -1168,19 +1291,22 @@ public:
 
 		if (m_shapeType == e_circleShape)
 		{
-			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2_defaultQueryFilter, this);
+			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2_defaultQueryFilter,
+								  this);
 			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
-			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2_defaultQueryFilter, this);
+			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2_defaultQueryFilter,
+								   this);
 			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.point1);
 			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.point2);
 			g_draw.DrawCapsule(p1, p2, m_queryCapsule.radius, color);
 		}
 		else if (m_shapeType == e_boxShape)
 		{
-			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2_defaultQueryFilter, this);
+			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2_defaultQueryFilter,
+								   this);
 			b2Vec2 points[b2_maxPolygonVertices] = {0};
 			for (int i = 0; i < m_queryBox.count; ++i)
 			{
@@ -1244,7 +1370,7 @@ public:
 	b2Vec2 m_basePosition;
 	float m_angle;
 	float m_baseAngle;
-	
+
 	bool m_dragging;
 	bool m_rotating;
 };

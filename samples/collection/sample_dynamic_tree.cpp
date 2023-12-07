@@ -256,7 +256,7 @@ class DynamicTree : public Sample
 
 		if (m_rayDrag)
 		{
-			b2RayCastInput input = {m_startPoint, m_endPoint, 0.0f, 1.0f};
+			b2RayCastInput input = {m_startPoint, b2Sub(m_endPoint, m_startPoint), 1.0f};
 			b2DynamicTree_RayCast(&m_tree, &input, b2_defaultMaskBits, RayCallback, this);
 
 			g_draw.DrawSegment(m_startPoint, m_endPoint, {1.0f, 1.0f, 1.0f, 1.0f});

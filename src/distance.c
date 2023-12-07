@@ -654,7 +654,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* B2_RESTRICT cache, const b2Dis
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
 // TODO_ERIN this is failing when used to raycast a box
-b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input)
+b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 {
 	b2RayCastOutput output = {0};
 
@@ -795,9 +795,14 @@ b2RayCastOutput b2ShapeCast(const b2ShapeCastInput* input)
 	return output;
 }
 
+#define B2_TOI_DEBUG 0
+
+// Warning: writing to these globals significantly slows multi-threading performance
+#if B2_TOI_DEBUG
 float b2_toiTime, b2_toiMaxTime;
 int32_t b2_toiCalls, b2_toiIters, b2_toiMaxIters;
 int32_t b2_toiRootIters, b2_toiMaxRootIters;
+#endif
 
 typedef enum b2SeparationType
 {
@@ -1013,8 +1018,10 @@ float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_
 // by computing the largest time at which separation is maintained.
 b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 {
+#if B2_TOI_DEBUG
 	b2Timer timer = b2CreateTimer();
 	++b2_toiCalls;
+#endif
 
 	b2TOIOutput output;
 	output.state = b2_toiStateUnknown;
@@ -1186,7 +1193,10 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 				}
 
 				++rootIterCount;
+
+#if B2_TOI_DEBUG
 				++b2_toiRootIters;
+#endif
 
 				float s = b2EvaluateSeparation(&fcn, indexA, indexB, t);
 
@@ -1215,7 +1225,9 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 				}
 			}
 
+#if B2_TOI_DEBUG
 			b2_toiMaxRootIters = B2_MAX(b2_toiMaxRootIters, rootIterCount);
+#endif
 
 			++pushBackIter;
 
@@ -1226,7 +1238,9 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 		}
 
 		++iter;
+#if B2_TOI_DEBUG
 		++b2_toiIters;
+#endif
 
 		if (done)
 		{
@@ -1242,11 +1256,13 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 		}
 	}
 
+#if B2_TOI_DEBUG
 	b2_toiMaxIters = B2_MAX(b2_toiMaxIters, iter);
 
 	float time = b2GetMilliseconds(&timer);
 	b2_toiMaxTime = B2_MAX(b2_toiMaxTime, time);
 	b2_toiTime += time;
+#endif
 
 	return output;
 }

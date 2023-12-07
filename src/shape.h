@@ -11,7 +11,7 @@
 
 typedef struct b2BroadPhase b2BroadPhase;
 
-typedef enum b2ShapeType
+typedef enum
 {
 	b2_capsuleShape,
 	b2_circleShape,
@@ -26,7 +26,7 @@ typedef struct b2Shape
 	b2Object object;
 	int32_t bodyIndex;
 	int32_t nextShapeIndex;
-	enum b2ShapeType type;
+	b2ShapeType type;
 	float density;
 	float friction;
 	float restitution;
@@ -74,3 +74,4 @@ b2Vec2 b2GetShapeCentroid(const b2Shape* shape);
 b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
 
 b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf);
+b2RayCastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf);

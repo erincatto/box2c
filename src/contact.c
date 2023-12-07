@@ -141,7 +141,7 @@ static b2Manifold b2SmoothSegmentAndPolygonManifold(const b2Shape* shapeA, b2Tra
 	return b2CollideSmoothSegmentAndPolygon(&shapeA->smoothSegment, xfA, &shapeB->polygon, xfB, cache);
 }
 
-static void b2AddType(b2ManifoldFcn* fcn, enum b2ShapeType type1, enum b2ShapeType type2)
+static void b2AddType(b2ManifoldFcn* fcn, b2ShapeType type1, b2ShapeType type2)
 {
 	B2_ASSERT(0 <= type1 && type1 < b2_shapeTypeCount);
 	B2_ASSERT(0 <= type2 && type2 < b2_shapeTypeCount);

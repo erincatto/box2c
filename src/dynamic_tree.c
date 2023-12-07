@@ -18,8 +18,8 @@
 // TODO_ERIN
 // - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
 
-static b2TreeNode b2_defaultTreeNode = {{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false,
-										{0, 0, 0, 0, 0, 0, 0, 0, 0}};
+static b2TreeNode b2_defaultTreeNode = {
+	{{0.0f, 0.0f}, {0.0f, 0.0f}}, 0, {B2_NULL_INDEX}, B2_NULL_INDEX, B2_NULL_INDEX, -1, -2, false, {0, 0, 0, 0, 0, 0, 0, 0, 0}};
 
 static inline bool b2IsLeaf(const b2TreeNode* node)
 {
@@ -535,76 +535,76 @@ static void b2RotateNodes(b2DynamicTree* tree, int32_t iA)
 
 		switch (bestRotation)
 		{
-		case b2_rotateNone:
-			break;
+			case b2_rotateNone:
+				break;
 
-		case b2_rotateBF:
-			A->child1 = iF;
-			C->child1 = iB;
+			case b2_rotateBF:
+				A->child1 = iF;
+				C->child1 = iB;
 
-			B->parent = iC;
-			F->parent = iA;
+				B->parent = iC;
+				F->parent = iA;
 
-			C->aabb = aabbBG;
-			C->height = 1 + B2_MAX(B->height, G->height);
-			A->height = 1 + B2_MAX(C->height, F->height);
-			C->categoryBits = B->categoryBits | G->categoryBits;
-			A->categoryBits = C->categoryBits | F->categoryBits;
-			C->enlarged = B->enlarged || G->enlarged;
-			A->enlarged = C->enlarged || F->enlarged;
-			break;
+				C->aabb = aabbBG;
+				C->height = 1 + B2_MAX(B->height, G->height);
+				A->height = 1 + B2_MAX(C->height, F->height);
+				C->categoryBits = B->categoryBits | G->categoryBits;
+				A->categoryBits = C->categoryBits | F->categoryBits;
+				C->enlarged = B->enlarged || G->enlarged;
+				A->enlarged = C->enlarged || F->enlarged;
+				break;
 
-		case b2_rotateBG:
-			A->child1 = iG;
-			C->child2 = iB;
+			case b2_rotateBG:
+				A->child1 = iG;
+				C->child2 = iB;
 
-			B->parent = iC;
-			G->parent = iA;
+				B->parent = iC;
+				G->parent = iA;
 
-			C->aabb = aabbBF;
-			C->height = 1 + B2_MAX(B->height, F->height);
-			A->height = 1 + B2_MAX(C->height, G->height);
-			C->categoryBits = B->categoryBits | F->categoryBits;
-			A->categoryBits = C->categoryBits | G->categoryBits;
-			C->enlarged = B->enlarged || F->enlarged;
-			A->enlarged = C->enlarged || G->enlarged;
-			break;
+				C->aabb = aabbBF;
+				C->height = 1 + B2_MAX(B->height, F->height);
+				A->height = 1 + B2_MAX(C->height, G->height);
+				C->categoryBits = B->categoryBits | F->categoryBits;
+				A->categoryBits = C->categoryBits | G->categoryBits;
+				C->enlarged = B->enlarged || F->enlarged;
+				A->enlarged = C->enlarged || G->enlarged;
+				break;
 
-		case b2_rotateCD:
-			A->child2 = iD;
-			B->child1 = iC;
+			case b2_rotateCD:
+				A->child2 = iD;
+				B->child1 = iC;
 
-			C->parent = iB;
-			D->parent = iA;
+				C->parent = iB;
+				D->parent = iA;
 
-			B->aabb = aabbCE;
-			B->height = 1 + B2_MAX(C->height, E->height);
-			A->height = 1 + B2_MAX(B->height, D->height);
-			B->categoryBits = C->categoryBits | E->categoryBits;
-			A->categoryBits = B->categoryBits | D->categoryBits;
-			B->enlarged = C->enlarged || E->enlarged;
-			A->enlarged = B->enlarged || D->enlarged;
-			break;
+				B->aabb = aabbCE;
+				B->height = 1 + B2_MAX(C->height, E->height);
+				A->height = 1 + B2_MAX(B->height, D->height);
+				B->categoryBits = C->categoryBits | E->categoryBits;
+				A->categoryBits = B->categoryBits | D->categoryBits;
+				B->enlarged = C->enlarged || E->enlarged;
+				A->enlarged = B->enlarged || D->enlarged;
+				break;
 
-		case b2_rotateCE:
-			A->child2 = iE;
-			B->child2 = iC;
+			case b2_rotateCE:
+				A->child2 = iE;
+				B->child2 = iC;
 
-			C->parent = iB;
-			E->parent = iA;
+				C->parent = iB;
+				E->parent = iA;
 
-			B->aabb = aabbCD;
-			B->height = 1 + B2_MAX(C->height, D->height);
-			A->height = 1 + B2_MAX(B->height, E->height);
-			B->categoryBits = C->categoryBits | D->categoryBits;
-			A->categoryBits = B->categoryBits | E->categoryBits;
-			B->enlarged = C->enlarged || D->enlarged;
-			A->enlarged = B->enlarged || E->enlarged;
-			break;
+				B->aabb = aabbCD;
+				B->height = 1 + B2_MAX(C->height, D->height);
+				A->height = 1 + B2_MAX(B->height, E->height);
+				B->categoryBits = C->categoryBits | D->categoryBits;
+				A->categoryBits = B->categoryBits | E->categoryBits;
+				B->enlarged = C->enlarged || D->enlarged;
+				A->enlarged = B->enlarged || E->enlarged;
+				break;
 
-		default:
-			B2_ASSERT(false);
-			break;
+			default:
+				B2_ASSERT(false);
+				break;
 		}
 	}
 }
@@ -1140,7 +1140,8 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 	}
 }
 
-void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback, void* context)
+void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
+								 void* context)
 {
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
@@ -1220,14 +1221,13 @@ void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCall
 	}
 }
 
-void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits, b2TreeRayCastCallbackFcn* callback,
-						   void* context)
+void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
+						   b2TreeRayCastCallbackFcn* callback, void* context)
 {
-	b2Vec2 p1 = input->p1;
-	b2Vec2 p2 = input->p2;
-	b2Vec2 extension = {input->radius, input->radius};
+	b2Vec2 p1 = input->origin;
+	b2Vec2 d = input->translation;
 
-	b2Vec2 r = b2Normalize(b2Sub(p2, p1));
+	b2Vec2 r = b2Normalize(d);
 
 	// v is perpendicular to the segment.
 	b2Vec2 v = b2CrossSV(1.0f, r);
@@ -1238,20 +1238,16 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 
 	float maxFraction = input->maxFraction;
 
-	// Build a bounding box for the segment.
-	b2AABB segmentAABB;
-	{
-		// t is the endpoint of the ray
-		b2Vec2 t = b2MulAdd(p1, maxFraction, b2Sub(p2, p1));
+	b2Vec2 p2 = b2MulAdd(p1, maxFraction, d);
 
-		// Add radius extension
-		segmentAABB.lowerBound = b2Sub(b2Min(p1, t), extension);
-		segmentAABB.upperBound = b2Sub(b2Max(p1, t), extension);
-	}
+	// Build a bounding box for the segment.
+	b2AABB segmentAABB = {b2Min(p1, p2), b2Max(p1, p2)};
 
 	int32_t stack[b2_treeStackSize];
 	int32_t stackCount = 0;
 	stack[stackCount++] = tree->root;
+
+	b2RayCastInput subInput = *input;
 
 	while (stackCount > 0)
 	{
@@ -1271,7 +1267,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		// |dot(v, p1 - c)| > dot(|v|, h)
 		// radius extension is added to the node in this case
 		b2Vec2 c = b2AABB_Center(node->aabb);
-		b2Vec2 h = b2Add(b2AABB_Extents(node->aabb), extension);
+		b2Vec2 h = b2AABB_Extents(node->aabb);
 		float term1 = B2_ABS(b2Dot(v, b2Sub(p1, c)));
 		float term2 = b2Dot(abs_v, h);
 		if (term2 < term1)
@@ -1281,9 +1277,6 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 
 		if (b2IsLeaf(node))
 		{
-			b2RayCastInput subInput = *input;
-			subInput.p1 = input->p1;
-			subInput.p2 = input->p2;
 			subInput.maxFraction = maxFraction;
 
 			float value = callback(&subInput, nodeId, node->userData, context);
@@ -1298,9 +1291,116 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 			{
 				// Update segment bounding box.
 				maxFraction = value;
-				b2Vec2 t = b2MulAdd(p1, maxFraction, b2Sub(p2, p1));
-				segmentAABB.lowerBound = b2Sub(b2Min(p1, t), extension);
-				segmentAABB.upperBound = b2Sub(b2Max(p1, t), extension);
+				p2 = b2MulAdd(p1, maxFraction, d);
+				segmentAABB.lowerBound = b2Min(p1, p2);
+				segmentAABB.upperBound = b2Max(p1, p2);
+			}
+		}
+		else
+		{
+			B2_ASSERT(stackCount < b2_treeStackSize - 1);
+			if (stackCount < b2_treeStackSize - 1)
+			{
+				// TODO_ERIN just put one node on the stack, continue on a child node
+				// TODO_ERIN test ordering children by nearest to ray origin
+				stack[stackCount++] = node->child1;
+				stack[stackCount++] = node->child2;
+			}
+		}
+	}
+}
+
+void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* input, uint32_t maskBits,
+							 b2TreeShapeCastCallbackFcn* callback, void* context)
+{
+	if (input->count == 0)
+	{
+		return;
+	}
+
+	b2AABB originAABB = {input->points[0], input->points[0]};
+	for (int i = 1; i < input->count; ++i)
+	{
+		originAABB.lowerBound = b2Min(originAABB.lowerBound, input->points[i]);
+		originAABB.upperBound = b2Max(originAABB.upperBound, input->points[i]);
+	}
+
+	b2Vec2 radius = {input->radius, input->radius};
+
+	originAABB.lowerBound = b2Sub(originAABB.lowerBound, radius);
+	originAABB.upperBound = b2Add(originAABB.upperBound, radius);
+
+	b2Vec2 p1 = b2AABB_Center(originAABB);
+	b2Vec2 extension = b2AABB_Extents(originAABB);
+
+	// v is perpendicular to the segment.
+	b2Vec2 r = input->translation;
+	b2Vec2 v = b2CrossSV(1.0f, r);
+	b2Vec2 abs_v = b2Abs(v);
+
+	// Separating axis for segment (Gino, p80).
+	// |dot(v, p1 - c)| > dot(|v|, h)
+
+	float maxFraction = input->maxFraction;
+
+	// Build total box for the shape cast
+	b2Vec2 t = b2MulSV(maxFraction, input->translation);
+	b2AABB totalAABB = {
+		b2Min(originAABB.lowerBound, b2Add(originAABB.lowerBound, t)),
+		b2Max(originAABB.upperBound, b2Add(originAABB.upperBound, t)),
+	};
+
+	b2ShapeCastInput subInput = *input;
+
+	int32_t stack[b2_treeStackSize];
+	int32_t stackCount = 0;
+	stack[stackCount++] = tree->root;
+
+	while (stackCount > 0)
+	{
+		int32_t nodeId = stack[--stackCount];
+		if (nodeId == B2_NULL_INDEX)
+		{
+			continue;
+		}
+
+		const b2TreeNode* node = tree->nodes + nodeId;
+		if (b2AABB_Overlaps(node->aabb, totalAABB) == false || (node->categoryBits & maskBits) == 0)
+		{
+			continue;
+		}
+
+		// Separating axis for segment (Gino, p80).
+		// |dot(v, p1 - c)| > dot(|v|, h)
+		// radius extension is added to the node in this case
+		b2Vec2 c = b2AABB_Center(node->aabb);
+		b2Vec2 h = b2Add(b2AABB_Extents(node->aabb), extension);
+		float term1 = B2_ABS(b2Dot(v, b2Sub(p1, c)));
+		float term2 = b2Dot(abs_v, h);
+		if (term2 < term1)
+		{
+			continue;
+		}
+
+		if (b2IsLeaf(node))
+		{
+			subInput.maxFraction = maxFraction;
+
+			float value = callback(&subInput, nodeId, node->userData, context);
+
+			if (value == 0.0f)
+			{
+				// The client has terminated the ray cast.
+				return;
+			}
+
+			if (0.0f < value && value < maxFraction)
+			{
+				// Update segment bounding box.
+				maxFraction = value;
+				t = b2MulSV(maxFraction, input->translation);
+				totalAABB.lowerBound = b2Min(originAABB.lowerBound, b2Add(originAABB.lowerBound, t));
+				totalAABB.upperBound = b2Max(originAABB.upperBound, b2Add(originAABB.upperBound, t));
 			}
 		}
 		else
@@ -1747,7 +1847,8 @@ static int32_t b2BuildTree(b2DynamicTree* tree, int32_t leafCount)
 #if B2_TREE_HEURISTIC == 0
 				newItem->splitIndex = b2PartitionMid(leafIndices + startIndex, leafCenters + startIndex, count);
 #else
-				newItem->splitIndex = b2PartitionSAH(leafIndices + startIndex, binIndices + startIndex, leafBoxes + startIndex, count);
+				newItem->splitIndex =
+					b2PartitionSAH(leafIndices + startIndex, binIndices + startIndex, leafBoxes + startIndex, count);
 #endif
 				newItem->splitIndex += startIndex;
 			}
@@ -1864,7 +1965,7 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
 		node = nodes + nodeIndex;
 	}
 
-	#if B2_VALIDATE == 1
+#if B2_VALIDATE == 1
 	int32_t capacity = tree->nodeCapacity;
 	for (int32_t i = 0; i < capacity; ++i)
 	{
@@ -1873,7 +1974,7 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
 			B2_ASSERT(nodes[i].enlarged == false);
 		}
 	}
-	#endif
+#endif
 
 	B2_ASSERT(leafCount <= proxyCount);
 

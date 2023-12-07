@@ -71,8 +71,8 @@ b2MassData b2ComputeShapeMass(const b2Shape* shape)
 b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)
 {
 	b2RayCastInput localInput = *input;
-	localInput.p1 = b2InvTransformPoint(xf, input->p1);
-	localInput.p2 = b2InvTransformPoint(xf, input->p2);
+	localInput.origin = b2InvTransformPoint(xf, input->origin);
+	localInput.translation = b2InvRotateVector(xf.q, input->translation);
 
 	b2RayCastOutput output = {0};
 	switch (shape->type)
@@ -91,6 +91,44 @@ b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape
 			break;
 		case b2_smoothSegmentShape:
 			output = b2RayCastSegment(&localInput, &shape->smoothSegment.segment, true);
+			break;
+		default:
+			return output;
+	}
+
+	output.point = b2TransformPoint(xf, output.point);
+	output.normal = b2RotateVector(xf.q, output.normal);
+	return output;
+}
+
+b2RayCastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf)
+{
+	b2ShapeCastInput localInput = *input;
+
+	for (int i = 0; i < localInput.count; ++i)
+	{
+		localInput.points[i] = b2InvTransformPoint(xf, input->points[i]);
+	}
+
+	localInput.translation = b2InvRotateVector(xf.q, input->translation);
+
+	b2RayCastOutput output = {0};
+	switch (shape->type)
+	{
+		case b2_capsuleShape:
+			output = b2ShapeCastCapsule(&localInput, &shape->capsule);
+			break;
+		case b2_circleShape:
+			output = b2ShapeCastCircle(&localInput, &shape->circle);
+			break;
+		case b2_polygonShape:
+			output = b2ShapeCastPolygon(&localInput, &shape->polygon);
+			break;
+		case b2_segmentShape:
+			output = b2ShapeCastSegment(&localInput, &shape->segment);
+			break;
+		case b2_smoothSegmentShape:
+			output = b2ShapeCastSegment(&localInput, &shape->smoothSegment.segment);
 			break;
 		default:
 			return output;

@@ -78,7 +78,7 @@ public:
 	{
 		Sample::Step(settings);
 
-		b2ShapeCastInput input;
+		b2ShapeCastPairInput input;
 		input.proxyA = b2MakeProxy(m_vAs, m_countA, m_radiusA);
 		input.proxyB = b2MakeProxy(m_vBs, m_countB, m_radiusB);
 		input.transformA = m_transformA;
