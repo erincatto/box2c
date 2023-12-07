@@ -1638,7 +1638,6 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 			workerContext[i].workerIndex = i;
 			workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 			world->taskCount += 1;
-			B2_ASSERT(workerContext[i].userTask != NULL);
 		}
 	}
 	else
@@ -1686,7 +1685,6 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	{
 		finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, &context, world->userTaskContext);
 		world->taskCount += 1;
-		B2_ASSERT(finalizeBodiesTask != NULL);
 		world->finishTaskFcn(finalizeBodiesTask, world->userTaskContext);
 	}
 	else
@@ -2189,7 +2187,6 @@ void b2Solve(b2World* world, b2StepContext* context)
 		void* userContinuousTask =
 			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
 		world->taskCount += 1;
-		B2_ASSERT(userContinuousTask != NULL);
 		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
 	}
 	else

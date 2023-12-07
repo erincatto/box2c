@@ -330,7 +330,6 @@ static void b2Collide(b2World* world)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
 		world->taskCount += 1;
-		B2_ASSERT(world->userTreeTask != NULL);
 	}
 	else
 	{
@@ -357,7 +356,6 @@ static void b2Collide(b2World* world)
 		int32_t minRange = 64;
 		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
 		world->taskCount += 1;
-		B2_ASSERT(userCollideTask != NULL);
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
 	else

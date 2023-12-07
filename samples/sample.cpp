@@ -43,18 +43,21 @@ static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRan
 	}
 	else
 	{
-		// No way to recover from this
+		// This is not fatal but the maxTasks should be increased
 		assert(false);
-		exit(1);
+		task(0, itemCount, 0, taskContext);
 		return nullptr;
 	}
 }
 
 static void FinishTask(void* taskPtr, void* userContext)
 {
-	SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
-	Sample* sample = static_cast<Sample*>(userContext);
-	sample->m_scheduler.WaitforTask(sampleTask);
+	if (taskPtr != nullptr)
+	{
+		SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
+		Sample* sample = static_cast<Sample*>(userContext);
+		sample->m_scheduler.WaitforTask(sampleTask);
+	}
 }
 
 static void FinishAllTasks(void* userContext)
