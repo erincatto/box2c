@@ -5,7 +5,8 @@
 
 #include "solver_data.h"
 
-#include <immintrin.h>
+//#include <immintrin.h>
+#include "x86/avx.h"
 
 typedef struct b2Contact b2Contact;
 
@@ -36,7 +37,7 @@ typedef struct b2ContactConstraint
 } b2ContactConstraint;
 
 // Wide float
-typedef __m256 b2FloatW;
+typedef simde__m256 b2FloatW;
 
 // Wide vec2
 typedef struct b2Vec2W
@@ -50,19 +51,19 @@ typedef struct b2ContactConstraintSIMD
 	int32_t indexB[8];
 
 	b2Vec2W normal;
-	__m256 friction;
-	__m256 restitution;
+	b2FloatW friction;
+	b2FloatW restitution;
 	b2Vec2W rA1, rB1;
 	b2Vec2W rA2, rB2;
-	__m256 separation1, separation2;
-	__m256 relativeVelocity1, relativeVelocity2;
-	__m256 normalImpulse1, normalImpulse2;
-	__m256 tangentImpulse1, tangentImpulse2;
-	__m256 normalMass1, tangentMass1;
-	__m256 normalMass2, tangentMass2;
-	__m256 massCoefficient;
-	__m256 biasCoefficient;
-	__m256 impulseCoefficient;
+	b2FloatW separation1, separation2;
+	b2FloatW relativeVelocity1, relativeVelocity2;
+	b2FloatW normalImpulse1, normalImpulse2;
+	b2FloatW tangentImpulse1, tangentImpulse2;
+	b2FloatW normalMass1, tangentMass1;
+	b2FloatW normalMass2, tangentMass2;
+	b2FloatW massCoefficient;
+	b2FloatW biasCoefficient;
+	b2FloatW impulseCoefficient;
 } b2ContactConstraintSIMD;
 
 // Scalar

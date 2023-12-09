@@ -10,7 +10,9 @@
 #include "graph.h"
 #include "world.h"
 
-#include <immintrin.h>
+// #include <immintrin.h>
+#include <x86/avx2.h>
+#include <x86/fma.h>
 
 // Soft constraints with constraint error substepping. Includes a bias removal stage to help remove excess energy.
 // http://mmacklin.com/smallsteps.pdf
@@ -385,13 +387,18 @@ void b2StoreOverflowImpulses(b2SolverTaskContext* context)
 }
 
 // SIMD WIP
-#define add(a, b) _mm256_add_ps((a), (b))
-#define sub(a, b) _mm256_sub_ps((a), (b))
-#define mul(a, b) _mm256_mul_ps((a), (b))
-#define muladd(a, b, c) _mm256_add_ps((a), _mm256_mul_ps((b), (c)))
-#define mulsub(a, b, c) _mm256_sub_ps((a), _mm256_mul_ps((b), (c)))
+#define add(a, b) simde_mm256_add_ps((a), (b))
+#define sub(a, b) simde_mm256_sub_ps((a), (b))
+#define mul(a, b) simde_mm256_mul_ps((a), (b))
 
-static inline __m256 b2CrossW(b2Vec2W a, b2Vec2W b)
+// todo SIMDE implementation of simde_mm256_fnmadd_ps is slow if FMA is not available
+//#define muladd(a, b, c) simde_mm256_fmadd_ps(b, c, a)
+//#define mulsub(a, b, c) simde_mm256_fnmadd_ps(b, c, a)
+
+#define muladd(a, b, c) simde_mm256_add_ps((a), simde_mm256_mul_ps((b), (c)))
+#define mulsub(a, b, c) simde_mm256_sub_ps((a), simde_mm256_mul_ps((b), (c)))
+
+static inline b2FloatW b2CrossW(b2Vec2W a, b2Vec2W b)
 {
 	return sub(mul(a.X, b.Y), mul(a.Y, b.X));
 }
@@ -399,10 +406,10 @@ static inline __m256 b2CrossW(b2Vec2W a, b2Vec2W b)
 typedef struct b2SimdBody
 {
 	b2Vec2W v;
-	__m256 w;
+	b2FloatW w;
 	b2Vec2W dp;
-	__m256 da;
-	__m256 invM, invI;
+	b2FloatW da;
+	b2FloatW invM, invI;
 } b2SimdBody;
 
 // This is a load and 8x8 transpose
@@ -410,42 +417,42 @@ static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* r
 {
 	_Static_assert(sizeof(b2SolverBody) == 32, "b2SolverBody not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
-	__m256 zero = _mm256_setzero_ps();
-	__m256 b0 = indices[0] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[0]));
-	__m256 b1 = indices[1] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[1]));
-	__m256 b2 = indices[2] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[2]));
-	__m256 b3 = indices[3] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[3]));
-	__m256 b4 = indices[4] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[4]));
-	__m256 b5 = indices[5] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[5]));
-	__m256 b6 = indices[6] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[6]));
-	__m256 b7 = indices[7] == B2_NULL_INDEX ? zero : _mm256_load_ps((float*)(bodies + indices[7]));
+	b2FloatW zero = simde_mm256_setzero_ps();
+	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[0]));
+	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[1]));
+	b2FloatW b2 = indices[2] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[2]));
+	b2FloatW b3 = indices[3] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[3]));
+	b2FloatW b4 = indices[4] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[4]));
+	b2FloatW b5 = indices[5] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[5]));
+	b2FloatW b6 = indices[6] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[6]));
+	b2FloatW b7 = indices[7] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[7]));
 
-	__m256 t0 = _mm256_unpacklo_ps(b0, b1);
-	__m256 t1 = _mm256_unpackhi_ps(b0, b1);
-	__m256 t2 = _mm256_unpacklo_ps(b2, b3);
-	__m256 t3 = _mm256_unpackhi_ps(b2, b3);
-	__m256 t4 = _mm256_unpacklo_ps(b4, b5);
-	__m256 t5 = _mm256_unpackhi_ps(b4, b5);
-	__m256 t6 = _mm256_unpacklo_ps(b6, b7);
-	__m256 t7 = _mm256_unpackhi_ps(b6, b7);
-	__m256 tt0 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt1 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt2 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt3 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt4 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt5 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW t0 = simde_mm256_unpacklo_ps(b0, b1);
+	b2FloatW t1 = simde_mm256_unpackhi_ps(b0, b1);
+	b2FloatW t2 = simde_mm256_unpacklo_ps(b2, b3);
+	b2FloatW t3 = simde_mm256_unpackhi_ps(b2, b3);
+	b2FloatW t4 = simde_mm256_unpacklo_ps(b4, b5);
+	b2FloatW t5 = simde_mm256_unpackhi_ps(b4, b5);
+	b2FloatW t6 = simde_mm256_unpacklo_ps(b6, b7);
+	b2FloatW t7 = simde_mm256_unpackhi_ps(b6, b7);
+	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt3 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt4 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt5 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
 
 	b2SimdBody simdBody;
-	simdBody.v.X = _mm256_permute2f128_ps(tt0, tt4, 0x20);
-	simdBody.v.Y = _mm256_permute2f128_ps(tt1, tt5, 0x20);
-	simdBody.w = _mm256_permute2f128_ps(tt2, tt6, 0x20);
-	simdBody.dp.X = _mm256_permute2f128_ps(tt3, tt7, 0x20);
-	simdBody.dp.Y = _mm256_permute2f128_ps(tt0, tt4, 0x31);
-	simdBody.da = _mm256_permute2f128_ps(tt1, tt5, 0x31);
-	simdBody.invM = _mm256_permute2f128_ps(tt2, tt6, 0x31);
-	simdBody.invI = _mm256_permute2f128_ps(tt3, tt7, 0x31);
+	simdBody.v.X = simde_mm256_permute2f128_ps(tt0, tt4, 0x20);
+	simdBody.v.Y = simde_mm256_permute2f128_ps(tt1, tt5, 0x20);
+	simdBody.w = simde_mm256_permute2f128_ps(tt2, tt6, 0x20);
+	simdBody.dp.X = simde_mm256_permute2f128_ps(tt3, tt7, 0x20);
+	simdBody.dp.Y = simde_mm256_permute2f128_ps(tt0, tt4, 0x31);
+	simdBody.da = simde_mm256_permute2f128_ps(tt1, tt5, 0x31);
+	simdBody.invM = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
+	simdBody.invI = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
 
 	return simdBody;
 }
@@ -455,41 +462,41 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 {
 	_Static_assert(sizeof(b2SolverBody) == 32, "b2SolverBody not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
-	__m256 t0 = _mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
-	__m256 t1 = _mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
-	__m256 t2 = _mm256_unpacklo_ps(simdBody->w, simdBody->dp.X);
-	__m256 t3 = _mm256_unpackhi_ps(simdBody->w, simdBody->dp.X);
-	__m256 t4 = _mm256_unpacklo_ps(simdBody->dp.Y, simdBody->da);
-	__m256 t5 = _mm256_unpackhi_ps(simdBody->dp.Y, simdBody->da);
-	__m256 t6 = _mm256_unpacklo_ps(simdBody->invM, simdBody->invI);
-	__m256 t7 = _mm256_unpackhi_ps(simdBody->invM, simdBody->invI);
-	__m256 tt0 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt1 = _mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt2 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt3 = _mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt4 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt5 = _mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
-	__m256 tt6 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
-	__m256 tt7 = _mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW t0 = simde_mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
+	b2FloatW t1 = simde_mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
+	b2FloatW t2 = simde_mm256_unpacklo_ps(simdBody->w, simdBody->dp.X);
+	b2FloatW t3 = simde_mm256_unpackhi_ps(simdBody->w, simdBody->dp.X);
+	b2FloatW t4 = simde_mm256_unpacklo_ps(simdBody->dp.Y, simdBody->da);
+	b2FloatW t5 = simde_mm256_unpackhi_ps(simdBody->dp.Y, simdBody->da);
+	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->invM, simdBody->invI);
+	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->invM, simdBody->invI);
+	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt3 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt4 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt5 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
 
 	// I don't use any dummy body in the body array because this will lead to multithreaded sharing and the
 	// associated cache flushing.
 	if (indices[0] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[0]), _mm256_permute2f128_ps(tt0, tt4, 0x20));
+		simde_mm256_store_ps((float*)(bodies + indices[0]), simde_mm256_permute2f128_ps(tt0, tt4, 0x20));
 	if (indices[1] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[1]), _mm256_permute2f128_ps(tt1, tt5, 0x20));
+		simde_mm256_store_ps((float*)(bodies + indices[1]), simde_mm256_permute2f128_ps(tt1, tt5, 0x20));
 	if (indices[2] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[2]), _mm256_permute2f128_ps(tt2, tt6, 0x20));
+		simde_mm256_store_ps((float*)(bodies + indices[2]), simde_mm256_permute2f128_ps(tt2, tt6, 0x20));
 	if (indices[3] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[3]), _mm256_permute2f128_ps(tt3, tt7, 0x20));
+		simde_mm256_store_ps((float*)(bodies + indices[3]), simde_mm256_permute2f128_ps(tt3, tt7, 0x20));
 	if (indices[4] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[4]), _mm256_permute2f128_ps(tt0, tt4, 0x31));
+		simde_mm256_store_ps((float*)(bodies + indices[4]), simde_mm256_permute2f128_ps(tt0, tt4, 0x31));
 	if (indices[5] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[5]), _mm256_permute2f128_ps(tt1, tt5, 0x31));
+		simde_mm256_store_ps((float*)(bodies + indices[5]), simde_mm256_permute2f128_ps(tt1, tt5, 0x31));
 	if (indices[6] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[6]), _mm256_permute2f128_ps(tt2, tt6, 0x31));
+		simde_mm256_store_ps((float*)(bodies + indices[6]), simde_mm256_permute2f128_ps(tt2, tt6, 0x31));
 	if (indices[7] != B2_NULL_INDEX)
-		_mm256_store_ps((float*)(bodies + indices[7]), _mm256_permute2f128_ps(tt3, tt7, 0x31));
+		simde_mm256_store_ps((float*)(bodies + indices[7]), simde_mm256_permute2f128_ps(tt3, tt7, 0x31));
 }
 
 void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
@@ -502,7 +509,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2SolverBody* solverBodies = context->solverBodies;
 	b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* contactIndices = context->contactIndices;
-	
+
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
 
@@ -511,7 +518,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
 	const float contactHertz = world->contactHertz;
 	const float contactDampingRatio = world->contactDampingRatio;
-	
+
 	float warmStartScale = world->enableWarmStarting ? 1.0f : 0.0f;
 	float h = context->timeStep;
 
@@ -688,8 +695,8 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskC
 		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
 
-		__m256 tangentX = c->normal.Y;
-		__m256 tangentY = sub(_mm256_setzero_ps(), c->normal.X);
+		b2FloatW tangentX = c->normal.Y;
+		b2FloatW tangentY = sub(simde_mm256_setzero_ps(), c->normal.X);
 
 		{
 			b2Vec2W P;
@@ -738,7 +745,7 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
 		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
 
-		__m256 biasCoeff, massCoeff, impulseCoeff;
+		b2FloatW biasCoeff, massCoeff, impulseCoeff;
 		if (useBias)
 		{
 			biasCoeff = c->biasCoefficient;
@@ -747,156 +754,156 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 		}
 		else
 		{
-			biasCoeff = _mm256_setzero_ps();
-			massCoeff = _mm256_set1_ps(1.0f);
-			impulseCoeff = _mm256_setzero_ps();
+			biasCoeff = simde_mm256_setzero_ps();
+			massCoeff = simde_mm256_set1_ps(1.0f);
+			impulseCoeff = simde_mm256_setzero_ps();
 		}
 
-		__m256 invDtMul = _mm256_set1_ps(inv_dt);
-		__m256 minBiasVel = _mm256_set1_ps(-pushout);
+		b2FloatW invDtMul = simde_mm256_set1_ps(inv_dt);
+		b2FloatW minBiasVel = simde_mm256_set1_ps(-pushout);
 
 		// first point non-penetration constraint
 		{
 			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB1.Y)), sub(bA.dp.X, mul(bA.da, c->rA1.Y)));
-			__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB1.X)), add(bA.dp.Y, mul(bA.da, c->rA1.X)));
-			__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
+			b2FloatW prx = sub(sub(bB.dp.X, mul(bB.da, c->rB1.Y)), sub(bA.dp.X, mul(bA.da, c->rA1.Y)));
+			b2FloatW pry = sub(add(bB.dp.Y, mul(bB.da, c->rB1.X)), add(bA.dp.Y, mul(bA.da, c->rA1.X)));
+			b2FloatW ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
 
-			__m256 s = add(c->separation1, ds);
+			b2FloatW s = add(c->separation1, ds);
 
-			__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
-			__m256 specBias = mul(s, invDtMul);
-			__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
-			__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
+			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), _CMP_GT_OQ);
+			b2FloatW specBias = mul(s, invDtMul);
+			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
 
 			// Relative velocity at contact
-			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
-			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
-			__m256 negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
+			b2FloatW negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
 
 			// Clamp the accumulated impulse
-			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
-			__m256 impulse = sub(newImpulse, c->normalImpulse1);
+			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse1, negImpulse), simde_mm256_setzero_ps());
+			b2FloatW impulse = sub(newImpulse, c->normalImpulse1);
 			c->normalImpulse1 = newImpulse;
 
 			// Apply contact impulse
-			__m256 Px = mul(impulse, c->normal.X);
-			__m256 Py = mul(impulse, c->normal.Y);
+			b2FloatW Px = mul(impulse, c->normal.X);
+			b2FloatW Py = mul(impulse, c->normal.Y);
 
-			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
+			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
+			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
+			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px)));
 
-			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
+			bB.v.X = muladd(bB.v.X, bB.invM, Px);
+			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
+			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px)));
 		}
 
 		// second point non-penetration constraint
 		{
 			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			__m256 prx = sub(sub(bB.dp.X, mul(bB.da, c->rB2.Y)), sub(bA.dp.X, mul(bA.da, c->rA2.Y)));
-			__m256 pry = sub(add(bB.dp.Y, mul(bB.da, c->rB2.X)), add(bA.dp.Y, mul(bA.da, c->rA2.X)));
-			__m256 ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
+			b2FloatW prx = sub(sub(bB.dp.X, mul(bB.da, c->rB2.Y)), sub(bA.dp.X, mul(bA.da, c->rA2.Y)));
+			b2FloatW pry = sub(add(bB.dp.Y, mul(bB.da, c->rB2.X)), add(bA.dp.Y, mul(bA.da, c->rA2.X)));
+			b2FloatW ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
 
-			__m256 s = add(c->separation2, ds);
+			b2FloatW s = add(c->separation2, ds);
 
-			__m256 test = _mm256_cmp_ps(s, _mm256_setzero_ps(), _CMP_GT_OQ);
-			__m256 specBias = mul(s, invDtMul);
-			__m256 softBias = _mm256_max_ps(mul(biasCoeff, s), minBiasVel);
-			__m256 bias = _mm256_blendv_ps(softBias, specBias, test);
+			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), _CMP_GT_OQ);
+			b2FloatW specBias = mul(s, invDtMul);
+			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
 
 			// Relative velocity at contact
-			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
-			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
-			__m256 negImpulse = add(mul(c->normalMass2, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse2));
+			b2FloatW negImpulse = add(mul(c->normalMass2, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse2));
 
 			// Clamp the accumulated impulse
-			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse2, negImpulse), _mm256_setzero_ps());
-			__m256 impulse = sub(newImpulse, c->normalImpulse2);
+			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse2, negImpulse), simde_mm256_setzero_ps());
+			b2FloatW impulse = sub(newImpulse, c->normalImpulse2);
 			c->normalImpulse2 = newImpulse;
 
 			// Apply contact impulse
-			__m256 Px = mul(impulse, c->normal.X);
-			__m256 Py = mul(impulse, c->normal.Y);
+			b2FloatW Px = mul(impulse, c->normal.X);
+			b2FloatW Py = mul(impulse, c->normal.Y);
 
-			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
+			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
+			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
+			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px)));
 
-			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
+			bB.v.X = muladd(bB.v.X, bB.invM, Px);
+			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
+			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px)));
 		}
 
-		__m256 tangentX = c->normal.Y;
-		__m256 tangentY = sub(_mm256_setzero_ps(), c->normal.X);
+		b2FloatW tangentX = c->normal.Y;
+		b2FloatW tangentY = sub(simde_mm256_setzero_ps(), c->normal.X);
 		// float friction = constraint->friction;
 
 		// first point friction constraint
 		{
 			// Relative velocity at contact
-			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
-			__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			b2FloatW vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
 
 			// Compute tangent force
-			__m256 negImpulse = mul(c->tangentMass1, vt);
+			b2FloatW negImpulse = mul(c->tangentMass1, vt);
 
 			// Clamp the accumulated force
-			__m256 maxFriction = mul(c->friction, c->normalImpulse1);
-			__m256 newImpulse = sub(c->tangentImpulse1, negImpulse);
-			newImpulse = _mm256_max_ps(sub(_mm256_setzero_ps(), maxFriction), _mm256_min_ps(newImpulse, maxFriction));
-			__m256 impulse = sub(newImpulse, c->tangentImpulse1);
+			b2FloatW maxFriction = mul(c->friction, c->normalImpulse1);
+			b2FloatW newImpulse = sub(c->tangentImpulse1, negImpulse);
+			newImpulse = simde_mm256_max_ps(sub(simde_mm256_setzero_ps(), maxFriction), simde_mm256_min_ps(newImpulse, maxFriction));
+			b2FloatW impulse = sub(newImpulse, c->tangentImpulse1);
 			c->tangentImpulse1 = newImpulse;
 
 			// Apply contact impulse
-			__m256 Px = mul(impulse, tangentX);
-			__m256 Py = mul(impulse, tangentY);
+			b2FloatW Px = mul(impulse, tangentX);
+			b2FloatW Py = mul(impulse, tangentY);
 
-			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
+			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
+			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
+			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px)));
 
-			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
+			bB.v.X = muladd(bB.v.X, bB.invM, Px);
+			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
+			bB.w = muladd(bB.w,  bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px)));
 		}
 
 		// second point friction constraint
 		{
 			// Relative velocity at contact
-			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
-			__m256 vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			b2FloatW vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
 
 			// Compute tangent force
-			__m256 negImpulse = mul(c->tangentMass2, vt);
+			b2FloatW negImpulse = mul(c->tangentMass2, vt);
 
 			// Clamp the accumulated force
-			__m256 maxFriction = mul(c->friction, c->normalImpulse2);
-			__m256 newImpulse = sub(c->tangentImpulse2, negImpulse);
-			newImpulse = _mm256_max_ps(sub(_mm256_setzero_ps(), maxFriction), _mm256_min_ps(newImpulse, maxFriction));
-			__m256 impulse = sub(newImpulse, c->tangentImpulse2);
+			b2FloatW maxFriction = mul(c->friction, c->normalImpulse2);
+			b2FloatW newImpulse = sub(c->tangentImpulse2, negImpulse);
+			newImpulse = simde_mm256_max_ps(sub(simde_mm256_setzero_ps(), maxFriction), simde_mm256_min_ps(newImpulse, maxFriction));
+			b2FloatW impulse = sub(newImpulse, c->tangentImpulse2);
 			c->tangentImpulse2 = newImpulse;
 
 			// Apply contact impulse
-			__m256 Px = mul(impulse, tangentX);
-			__m256 Py = mul(impulse, tangentY);
+			b2FloatW Px = mul(impulse, tangentX);
+			b2FloatW Py = mul(impulse, tangentY);
 
-			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
+			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
+			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
+			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px)));
 
-			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
+			bB.v.X = muladd(bB.v.X, bB.invM, Px);
+			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
+			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px)));
 		}
 
 		b2ScatterBodies(bodies, c->indexA, &bA);
@@ -906,20 +913,14 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneEnd(solve_contact);
 }
 
-// TODO_ERIN selects are broken!!!!!!
-// TODO_ERIN selects are broken!!!!!!
-// TODO_ERIN selects are broken!!!!!!
-// TODO_ERIN selects are broken!!!!!!
-// TODO_ERIN selects are broken!!!!!!
-// TODO_ERIN selects are broken!!!!!!
 void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
 
 	b2SolverBody* bodies = context->solverBodies;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
-	b2FloatW threshold = _mm256_set1_ps(context->world->restitutionThreshold);
-	b2FloatW zero = _mm256_setzero_ps();
+	b2FloatW threshold = simde_mm256_set1_ps(context->world->restitutionThreshold);
+	b2FloatW zero = simde_mm256_setzero_ps();
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
@@ -931,27 +932,27 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 		// first point non-penetration constraint
 		{
 			// Set effective mass to zero if restitution should not be applied
-			__m256 test1 = _mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, _CMP_GT_OQ);
-			__m256 test2 = _mm256_cmp_ps(c->normalImpulse1, zero, _CMP_EQ_OQ);
-			__m256 test = _mm256_or_ps(test1, test2);
-			__m256 mass = _mm256_blendv_ps(c->normalMass1, zero, test);
+			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, _CMP_GT_OQ);
+			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse1, zero, _CMP_EQ_OQ);
+			b2FloatW test = simde_mm256_or_ps(test1, test2);
+			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass1, zero, test);
 
 			// Relative velocity at contact
-			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
-			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
-			__m256 negImpulse = mul(mass, add(vn, mul(c->restitution, c->relativeVelocity1)));
+			b2FloatW negImpulse = mul(mass, add(vn, mul(c->restitution, c->relativeVelocity1)));
 
 			// Clamp the accumulated impulse
-			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse1, negImpulse), _mm256_setzero_ps());
-			__m256 impulse = sub(newImpulse, c->normalImpulse1);
+			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse1, negImpulse), simde_mm256_setzero_ps());
+			b2FloatW impulse = sub(newImpulse, c->normalImpulse1);
 			c->normalImpulse1 = newImpulse;
 
 			// Apply contact impulse
-			__m256 Px = mul(impulse, c->normal.X);
-			__m256 Py = mul(impulse, c->normal.Y);
+			b2FloatW Px = mul(impulse, c->normal.X);
+			b2FloatW Py = mul(impulse, c->normal.Y);
 
 			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
 			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
@@ -965,27 +966,27 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 		// second point non-penetration constraint
 		{
 			// Set effective mass to zero if restitution should not be applied
-			__m256 test1 = _mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, _CMP_GT_OQ);
-			__m256 test2 = _mm256_cmp_ps(c->normalImpulse2, zero, _CMP_EQ_OQ);
-			__m256 test = _mm256_or_ps(test1, test2);
-			__m256 mass = _mm256_blendv_ps(c->normalMass2, zero, test);
+			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, _CMP_GT_OQ);
+			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse2, zero, _CMP_EQ_OQ);
+			b2FloatW test = simde_mm256_or_ps(test1, test2);
+			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass2, zero, test);
 
 			// Relative velocity at contact
-			__m256 dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-			__m256 dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
-			__m256 vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
-			__m256 negImpulse = mul(mass, add(vn, mul(c->restitution, c->relativeVelocity2)));
+			b2FloatW negImpulse = mul(mass, add(vn, mul(c->restitution, c->relativeVelocity2)));
 
 			// Clamp the accumulated impulse
-			__m256 newImpulse = _mm256_max_ps(sub(c->normalImpulse2, negImpulse), _mm256_setzero_ps());
-			__m256 impulse = sub(newImpulse, c->normalImpulse2);
+			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse2, negImpulse), simde_mm256_setzero_ps());
+			b2FloatW impulse = sub(newImpulse, c->normalImpulse2);
 			c->normalImpulse2 = newImpulse;
 
 			// Apply contact impulse
-			__m256 Px = mul(impulse, c->normal.X);
-			__m256 Py = mul(impulse, c->normal.Y);
+			b2FloatW Px = mul(impulse, c->normal.X);
+			b2FloatW Py = mul(impulse, c->normal.Y);
 
 			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
 			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
