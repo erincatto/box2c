@@ -599,6 +599,7 @@ typedef SIMDE_POLY16_TYPE simde_poly16;
 #endif
 typedef SIMDE_POLY64_TYPE simde_poly64;
 
+#if 0 // todo box2d fix gcc build
 #if defined(SIMDE_POLY128_TYPE)
 #  undef SIMDE_POLY128_TYPE
 #endif
@@ -613,6 +614,7 @@ typedef SIMDE_POLY64_TYPE simde_poly64;
 #  define SIMDE_TARGET_NOT_SUPPORT_INT128_TYPE 1
 #endif
 typedef SIMDE_POLY128_TYPE simde_poly128;
+#endif
 
 #if defined(__cplusplus)
   typedef bool simde_bool;
