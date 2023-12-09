@@ -103,7 +103,7 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
 	endif()
 else()
 	# FMA -mfma
-	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx2 -mfma)
+	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
 endif()
 
 find_library(MATH_LIBRARY m)
