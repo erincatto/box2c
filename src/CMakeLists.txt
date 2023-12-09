@@ -84,6 +84,8 @@ target_include_directories(box2d
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+target_link_libraries(box2d PRIVATE simde)
+
 message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
 message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
@@ -92,16 +94,16 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# target_compile_options(box2d PRIVATE /W4 /WX)
 		target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
-		target_compile_options(box2d PRIVATE /arch:AVX)
-		# target_compile_options(box2d PRIVATE /arch:SSE2 /fp:except-)
+		target_compile_options(box2d PRIVATE /arch:AVX2)
+		# target_compile_options(box2d PRIVATE /arch:SSE2)
 		# target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 		message(STATUS "CMake using Clang-CL")
-		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX)
+		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX2)
 	endif()
 else()
 	# FMA -mfma
-	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
+	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx2 -mfma)
 endif()
 
 find_library(MATH_LIBRARY m)
@@ -110,6 +112,17 @@ if (MATH_LIBRARY)
 endif()
 
 if (BOX2D_PROFILE)
+	target_compile_definitions(box2d PRIVATE BOX2D_PROFILE)
+
+	FetchContent_Declare(
+		tracy
+		GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+		GIT_TAG master
+		GIT_SHALLOW TRUE
+		GIT_PROGRESS TRUE
+	)
+	FetchContent_MakeAvailable(tracy)
+
 	target_link_libraries(box2d PUBLIC TracyClient)
 endif()
 

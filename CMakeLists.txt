@@ -34,6 +34,7 @@ endif()
 
 SET(ENKITS_BUILD_EXAMPLES OFF CACHE BOOL "Build enkiTS examples")
 
+# Used in tests and samples
 FetchContent_Declare(
 	enkits
 	GIT_REPOSITORY https://github.com/dougbinks/enkiTS.git
@@ -43,19 +44,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(enkits)
 
-if (BOX2D_PROFILE)
-	add_compile_definitions(BOX2D_PROFILE)
-
-	FetchContent_Declare(
-		tracy
-		GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-		GIT_TAG master
-		GIT_SHALLOW TRUE
-		GIT_PROGRESS TRUE
-	)
-	FetchContent_MakeAvailable(tracy)
-endif()
-
+add_subdirectory(extern/simde)
 add_subdirectory(test)
 add_subdirectory(src)
 

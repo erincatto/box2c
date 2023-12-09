@@ -22,6 +22,10 @@
 #include <stdbool.h>
 #include <string.h>
 
+// Solver using graph coloring. Islands are only used for sleep.
+// High-Performance Physical Simulations on Next-Generation Architecture with Many Cores
+// http://web.eecs.umich.edu/~msmelyan/papers/physsim_onmanycore_itj.pdf
+
 // Kinematic bodies have to be treated like dynamic bodies in graph coloring. Unlike static bodies, we cannot use a dummy solver body for
 // kinematic bodies. We cannot access a kinematic body from multiple threads efficiently because the SIMD solver body scatter would write to
 // the same kinematic body from multiple threads. Even if these writes don't modify the body, they will cause horrible cache stalls. To make
