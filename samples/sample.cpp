@@ -71,7 +71,8 @@ Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
-	uint32_t maxThreads = B2_MIN(8, enki::GetNumHardwareThreads());
+	uint32_t maxThreads = B2_MIN(8, enki::GetNumHardwareThreads() / 2);
+	printf("Box2D worker count = %d\n", maxThreads);
 	m_scheduler.Initialize(maxThreads);
 	m_taskCount = 0;
 
