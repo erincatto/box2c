@@ -15,7 +15,7 @@ static b2Segment segment = {{0.0f, 1.0f}, {0.0f, -1.0f}};
 
 #define N 4
 
-static int ShapeMassTest()
+static int ShapeMassTest(void)
 {
 	{
 		b2MassData md = b2ComputeCircleMass(&circle, 1.0f);
@@ -72,7 +72,7 @@ static int ShapeMassTest()
 	return 0;
 }
 
-static int ShapeAABBTest()
+static int ShapeAABBTest(void)
 {
 	{
 		b2AABB b = b2ComputeCircleAABB(&circle, b2Transform_identity);
@@ -101,7 +101,7 @@ static int ShapeAABBTest()
 	return 0;
 }
 
-static int PointInShapeTest()
+static int PointInShapeTest(void)
 {
 	b2Vec2 p1 = {0.5f, 0.5f};
 	b2Vec2 p2 = {4.0f, -4.0f};
@@ -125,7 +125,7 @@ static int PointInShapeTest()
 	return 0;
 }
 
-static int RayCastShapeTest()
+static int RayCastShapeTest(void)
 {
 	b2RayCastInput input = {{-4.0f, 0.0f}, {8.0f, 0.0f}, 1.0f};
 	
@@ -156,7 +156,7 @@ static int RayCastShapeTest()
 	return 0;
 }
 
-int ShapeTest()
+int ShapeTest(void)
 {
 	box = b2MakeBox(1.0f, 1.0f);
 

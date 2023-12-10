@@ -13,7 +13,7 @@
 // box.
 // There are no graphics for this example. Box2D is meant to be used
 // with your rendering engine in your game engine.
-int HelloWorld()
+int HelloWorld(void)
 {
 	// Define the gravity vector.
 	b2Vec2 gravity = {0.0f, -10.0f};
@@ -96,7 +96,7 @@ int HelloWorld()
 	return 0;
 }
 
-int EmptyWorld()
+int EmptyWorld(void)
 {
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	b2WorldId worldId = b2CreateWorld(&worldDef);

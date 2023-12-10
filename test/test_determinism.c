@@ -188,7 +188,7 @@ void TiltedStacks(int testIndex, int workerCount)
 }
 
 // Test multi-threaded determinism.
-int DeterminismTest()
+int DeterminismTest(void)
 {
 	// Test 1 : 4 threads
 	TiltedStacks(0, 16);

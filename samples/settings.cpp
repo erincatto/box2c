@@ -100,7 +100,7 @@ void Settings::Load()
 			int count = tokens[i + 1].end - tokens[i + 1].start;
 			assert(count < 32);
 			const char* s = data + tokens[i + 1].start;
-			strncpy_s(buffer, 32, s, count);
+			strncpy(buffer, s, count);
 			char* dummy;
 			m_sampleIndex = strtol(buffer, &dummy, 10);
 		}

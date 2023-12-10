@@ -18,15 +18,15 @@
 //}
 #endif
 
-extern int BitSetTest();
-extern int MathTest();
-extern int CollisionTest();
-extern int DeterminismTest();
-extern int DistanceTest();
-extern int HelloWorld();
-extern int EmptyWorld();
-extern int ShapeTest();
-extern int TableTest();
+extern int BitSetTest(void);
+extern int MathTest(void);
+extern int CollisionTest(void);
+extern int DeterminismTest(void);
+extern int DistanceTest(void);
+extern int HelloWorld(void);
+extern int EmptyWorld(void);
+extern int ShapeTest(void);
+extern int TableTest(void);
 
 int main(void)
 {

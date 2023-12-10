@@ -7,7 +7,7 @@
 
 #define COUNT 169
 
-int BitSetTest()
+int BitSetTest(void)
 {
 	b2BitSet bitSet = b2CreateBitSet(COUNT);
 	

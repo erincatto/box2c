@@ -90,7 +90,7 @@ message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
 message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
 
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
+if (MSVC)
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# target_compile_options(box2d PRIVATE /W4 /WX)
 		target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
@@ -101,9 +101,12 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
 		message(STATUS "CMake using Clang-CL")
 		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX2)
 	endif()
-else()
+elseif(LINUX)
 	# FMA -mfma
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
+elseif(APPLE)
+	# enkiTS has some missing (void) on functions
+	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-strict-prototypes)
 endif()
 
 find_library(MATH_LIBRARY m)

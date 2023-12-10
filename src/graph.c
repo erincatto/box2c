@@ -17,6 +17,8 @@
 
 #include "box2d/aabb.h"
 
+#include "x86/sse2.h"
+
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -918,7 +920,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 
 		while (atomic_load(&stage->completionCount) != blockCount)
 		{
-			_mm_pause();
+			simde_mm_pause();
 		}
 
 		atomic_store(&stage->completionCount, 0);
@@ -1081,7 +1083,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		uint32_t syncBits = atomic_load(&context->syncBits);
 		while (syncBits == lastSyncBits)
 		{
-			_mm_pause();
+			simde_mm_pause();
 			syncBits = atomic_load(&context->syncBits);
 		}
 
