@@ -32,7 +32,7 @@
 #define B2_CPU_X64
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #define B2_CPU_ARM
-#elif defined(JPH_PLATFORM_WASM)
+#elif defined(__EMSCRIPTEN__)
 #define B2_CPU_WASM
 #else
 #error Unsupported CPU

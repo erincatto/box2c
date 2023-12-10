@@ -71,13 +71,11 @@ Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
-	uint32_t maxThreads = B2_MIN(8, enki::GetNumHardwareThreads() / 2);
-	printf("Box2D worker count = %d\n", maxThreads);
-	m_scheduler.Initialize(maxThreads);
+	m_scheduler.Initialize(settings.m_workerCount);
 	m_taskCount = 0;
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
-	worldDef.workerCount = maxThreads;
+	worldDef.workerCount = settings.m_workerCount;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
 	worldDef.finishAllTasks = &FinishAllTasks;
