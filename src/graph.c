@@ -975,7 +975,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareJoints);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 		stageIndex += 1;
-		jointSyncIndex += 1;
+		// jointSyncIndex += 1;
 
 		uint32_t constraintSyncIndex = 1;
 		syncBits = (constraintSyncIndex << 16) | stageIndex;
@@ -1054,7 +1054,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 				iterStageIndex += 1;
 			}
-			graphSyncIndex += 1;
+			// graphSyncIndex += 1;
 
 			b2ApplyOverflowRestitution(context);
 		}

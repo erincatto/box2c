@@ -530,7 +530,7 @@ static void b2RotateNodes(b2DynamicTree* tree, int32_t iA)
 		if (costCE < bestCost)
 		{
 			bestRotation = b2_rotateCE;
-			bestCost = costCE;
+			// bestCost = costCE;
 		}
 
 		switch (bestRotation)
