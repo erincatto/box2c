@@ -85,6 +85,7 @@ target_include_directories(box2d
 )
 
 target_link_libraries(box2d PRIVATE simde)
+#target_compile_definitions(box2d PRIVATE "$<$<CONFIG:DEBUG>:B2_DEBUG>")
 
 message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
 message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
@@ -96,7 +97,7 @@ if (MSVC)
 		target_compile_options(box2d PRIVATE /W4 /WX /experimental:c11atomics)
 		target_compile_options(box2d PRIVATE /arch:AVX2)
 		# target_compile_options(box2d PRIVATE /arch:SSE2)
-		# target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
+		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 		message(STATUS "CMake using Clang-CL")
 		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX2)

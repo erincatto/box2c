@@ -269,7 +269,7 @@ public:
 			Ring* ring = (Ring*)b2Body_GetUserData(ringBodyId);
 			if (ring != nullptr && ring->valid)
 			{
-				int index = ring - m_rings;
+				int index = (int)(ring - m_rings);
 				assert(0 <= index && index < e_count);
 
 				// Defer destruction to avoid double destruction and event invalidation (orphaned shape ids)

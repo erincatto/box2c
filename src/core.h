@@ -64,7 +64,7 @@
 #error Unknown platform
 #endif
 
-#if defined(_DEBUG) || defined(B2_ENABLE_ASSERT)
+#if !defined(NDEBUG) || defined(B2_ENABLE_ASSERT)
 #define B2_ASSERT(condition)                                                                                                               \
 	do                                                                                                                                     \
 	{                                                                                                                                      \
@@ -75,8 +75,8 @@
 #define B2_ASSERT(...) ((void)0)
 #endif
 
-#if defined(_DEBUG)
-#define B2_VALIDATE 1
-#else
+#if defined(NDEBUG)
 #define B2_VALIDATE 0
+#else
+#define B2_VALIDATE 1
 #endif
