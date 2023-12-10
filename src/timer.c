@@ -148,18 +148,21 @@ b2Timer b2CreateTimer(void)
 	return b2Timer;
 }
 
-float b2GetMilliseconds(const b2Timer*)
+float b2GetMilliseconds(const b2Timer* timer)
 {
+	B2_MAYBE_UNUSED(timer);
 	return 0.0f;
 }
 
-float b2GetMillisecondsAndReset(b2Timer*)
+float b2GetMillisecondsAndReset(b2Timer* timer)
 {
+	B2_MAYBE_UNUSED(timer);
 	return 0.0f;
 }
 
-void b2SleepMilliseconds(float)
+void b2SleepMilliseconds(float milliseconds)
 {
+	B2_MAYBE_UNUSED(milliseconds);
 }
 
 #endif

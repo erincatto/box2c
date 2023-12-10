@@ -15,6 +15,7 @@ struct Settings
 	float m_hertz = 60.0f;
 	int m_velocityIterations = 8;
 	int m_relaxIterations = 3;
+	int m_workerCount = 1;
 	bool m_drawShapes = true;
 	bool m_drawJoints = true;
 	bool m_drawAABBs = false;
