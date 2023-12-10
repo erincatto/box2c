@@ -12,10 +12,10 @@ add_library(
 target_include_directories(glad PUBLIC ${GLAD_DIR}/include)
 
 # glfw for windowing and input
-SET(GLFW_BUILD_DOCS OFF CACHE BOOL "GLFW Docs")
-SET(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "GLFW Examples")
-SET(GLFW_BUILD_TESTS OFF CACHE BOOL "GLFW Tests")
-SET(GLFW_INSTALL OFF CACHE BOOL "GLFW Install")
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "GLFW Docs")
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "GLFW Examples")
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "GLFW Tests")
+set(GLFW_INSTALL OFF CACHE BOOL "GLFW Install")
 
 FetchContent_Declare(
 	glfw
@@ -93,6 +93,10 @@ set_target_properties(samples PROPERTIES
 
 target_include_directories(samples PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${JSMN_DIR})
 target_link_libraries(samples PUBLIC box2d imgui glfw glad enkiTS)
+
+if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+	target_compile_definitions(samples PRIVATE _DEBUG)
+endif ()
 
 # message(STATUS "runtime = ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 # message(STATUS "binary = ${CMAKE_CURRENT_BINARY_DIR}")

@@ -279,14 +279,14 @@ void Sample::Step(Settings& settings)
 
 		int32_t totalCount = 0;
 		char buffer[256] = {0};
-		int32_t offset = sprintf_s(buffer, 256, "colors: ");
+		int32_t offset = snprintf(buffer, 256, "colors: ");
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
-			offset += sprintf_s(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
+			offset += snprintf(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
 			totalCount += s.colorCounts[i];
 		}
 		totalCount += s.colorCounts[b2_graphColorCount];
-		sprintf_s(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
+		snprintf(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
 		g_draw.DrawString(5, m_textLine, buffer);
 		m_textLine += m_textIncrement;
 

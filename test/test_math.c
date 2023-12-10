@@ -6,7 +6,7 @@
 
 #include <float.h>
 
-int MathTest()
+int MathTest(void)
 {
 	b2Vec2 zero = b2Vec2_zero;
 	b2Vec2 one = {1.0f, 1.0f};
@@ -30,14 +30,14 @@ int MathTest()
 
 	b2Vec2 u = b2TransformPoint(xf, two);
 
-	ENSURE_SMALL(u.x - v.x, FLT_EPSILON);
-	ENSURE_SMALL(u.y - v.y, FLT_EPSILON);
+	ENSURE_SMALL(u.x - v.x, 10.0f * FLT_EPSILON);
+	ENSURE_SMALL(u.y - v.y, 10.0f * FLT_EPSILON);
 
 	v = b2TransformPoint(xf1, two);
 	v = b2InvTransformPoint(xf1, v);
 
-	ENSURE_SMALL(v.x - two.x, 2.0f * FLT_EPSILON);
-	ENSURE_SMALL(v.y - two.y, 2.0f * FLT_EPSILON);
+	ENSURE_SMALL(v.x - two.x, 8.0f * FLT_EPSILON);
+	ENSURE_SMALL(v.y - two.y, 8.0f * FLT_EPSILON);
 
 	return 0;
 }

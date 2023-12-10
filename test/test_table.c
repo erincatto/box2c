@@ -9,7 +9,7 @@
 #define ITEM_COUNT ((SET_SPAN * SET_SPAN - SET_SPAN) / 2)
 
 
-int TableTest()
+int TableTest(void)
 {
 	const int32_t N = SET_SPAN;
 	const uint32_t itemCount = ITEM_COUNT;

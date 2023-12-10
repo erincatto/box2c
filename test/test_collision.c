@@ -5,7 +5,7 @@
 #include "box2d/math.h"
 #include "test_macros.h"
 
-static int AABBTest()
+static int AABBTest(void)
 {
 	b2AABB a;
 	a.lowerBound = (b2Vec2){-1.0f, -1.0f};
@@ -30,7 +30,7 @@ static int AABBTest()
 	return 0;
 }
 
-int CollisionTest()
+int CollisionTest(void)
 {
 	RUN_SUBTEST(AABBTest);
 

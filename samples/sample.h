@@ -17,7 +17,7 @@
 
 struct Settings;
 
-#ifdef _DEBUG
+#if defined(_DEBUG)
 constexpr bool g_sampleDebug = true;
 #else
 constexpr bool g_sampleDebug = false;

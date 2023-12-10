@@ -218,7 +218,7 @@ class DynamicTree : public Sample
 				m_startPoint = p;
 				m_endPoint = p;
 			}
-			else if (mods = GLFW_MOD_SHIFT && m_rayDrag == false)
+			else if (mods == GLFW_MOD_SHIFT && m_rayDrag == false)
 			{
 				m_queryDrag = true;
 				m_startPoint = p;

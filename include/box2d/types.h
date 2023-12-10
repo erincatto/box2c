@@ -13,8 +13,10 @@
 
 #ifdef __cplusplus
 #define B2_LITERAL(T) T
+#define B2_ZERO_INIT {}
 #else
 #define B2_LITERAL(T) (T)
+#define B2_ZERO_INIT {0}
 #endif
 
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
@@ -177,7 +179,7 @@ typedef struct b2BodyDef
 {
 	/// The body type: static, kinematic, or dynamic.
 	/// Note: if a dynamic body would have zero mass, the mass is set to one.
-	enum b2BodyType type;
+	b2BodyType type;
 
 	/// The world position of the body. Avoid creating bodies at the origin
 	/// since this can lead to many overlapping shapes.
@@ -342,7 +344,7 @@ static inline b2WorldDef b2DefaultWorldDef(void)
 /// Make a body definition with default values.
 static inline b2BodyDef b2DefaultBodyDef(void)
 {
-	b2BodyDef def = {0};
+	b2BodyDef def = B2_ZERO_INIT;
 	def.type = b2_staticBody;
 	def.position = B2_LITERAL(b2Vec2){0.0f, 0.0f};
 	def.angle = 0.0f;

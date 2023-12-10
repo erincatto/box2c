@@ -11,8 +11,8 @@
 #include "world.h"
 
 // #include <immintrin.h>
-#include <x86/avx2.h>
-#include <x86/fma.h>
+#include "x86/avx2.h"
+#include "x86/fma.h"
 
 // Soft constraints with constraint error substepping. Includes a bias removal stage to help remove excess energy.
 // http://mmacklin.com/smallsteps.pdf
@@ -435,14 +435,14 @@ static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* r
 	b2FloatW t5 = simde_mm256_unpackhi_ps(b4, b5);
 	b2FloatW t6 = simde_mm256_unpacklo_ps(b6, b7);
 	b2FloatW t7 = simde_mm256_unpackhi_ps(b6, b7);
-	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
-	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt3 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
-	b2FloatW tt4 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt5 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
-	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt3 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt4 = simde_mm256_shuffle_ps(t4, t6, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt5 = simde_mm256_shuffle_ps(t4, t6, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
 
 	b2SimdBody simdBody;
 	simdBody.v.X = simde_mm256_permute2f128_ps(tt0, tt4, 0x20);
@@ -470,14 +470,14 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 	b2FloatW t5 = simde_mm256_unpackhi_ps(simdBody->dp.Y, simdBody->da);
 	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->invM, simdBody->invI);
 	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->invM, simdBody->invI);
-	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 2, 3, 2));
-	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt3 = simde_mm256_shuffle_ps(t1, t3, _MM_SHUFFLE(3, 2, 3, 2));
-	b2FloatW tt4 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt5 = simde_mm256_shuffle_ps(t4, t6, _MM_SHUFFLE(3, 2, 3, 2));
-	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(1, 0, 1, 0));
-	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, _MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt3 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt4 = simde_mm256_shuffle_ps(t4, t6, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt5 = simde_mm256_shuffle_ps(t4, t6, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
+	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
+	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
 
 	// I don't use any dummy body in the body array because this will lead to multithreaded sharing and the
 	// associated cache flushing.
@@ -771,7 +771,7 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 
 			b2FloatW s = add(c->separation1, ds);
 
-			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), _CMP_GT_OQ);
+			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
 			b2FloatW specBias = mul(s, invDtMul);
 			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
@@ -811,7 +811,7 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 
 			b2FloatW s = add(c->separation2, ds);
 
-			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), _CMP_GT_OQ);
+			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
 			b2FloatW specBias = mul(s, invDtMul);
 			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
@@ -932,8 +932,8 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 		// first point non-penetration constraint
 		{
 			// Set effective mass to zero if restitution should not be applied
-			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, _CMP_GT_OQ);
-			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse1, zero, _CMP_EQ_OQ);
+			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, SIMDE_CMP_GT_OQ);
+			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse1, zero, SIMDE_CMP_EQ_OQ);
 			b2FloatW test = simde_mm256_or_ps(test1, test2);
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass1, zero, test);
 
@@ -966,8 +966,8 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 		// second point non-penetration constraint
 		{
 			// Set effective mass to zero if restitution should not be applied
-			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, _CMP_GT_OQ);
-			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse2, zero, _CMP_EQ_OQ);
+			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, SIMDE_CMP_GT_OQ);
+			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse2, zero, SIMDE_CMP_EQ_OQ);
 			b2FloatW test = simde_mm256_or_ps(test1, test2);
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass2, zero, test);
 
