@@ -94,10 +94,7 @@ set_target_properties(samples PROPERTIES
 target_include_directories(samples PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${JSMN_DIR})
 target_link_libraries(samples PUBLIC box2d imgui glfw glad enkiTS)
 
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-	target_compile_definitions(samples PRIVATE _DEBUG)
-endif ()
-
+# target_compile_definitions(samples PRIVATE "$<$<CONFIG:DEBUG>:SAMPLES_DEBUG>")
 # message(STATUS "runtime = ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 # message(STATUS "binary = ${CMAKE_CURRENT_BINARY_DIR}")
 

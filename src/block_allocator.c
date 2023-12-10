@@ -153,7 +153,7 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
 
 		b2Chunk* chunk = allocator->chunks + allocator->chunkCount;
 		chunk->blocks = (b2Block*)b2Alloc(b2_chunkSize);
-#if defined(_DEBUG)
+#if B2_DEBUG
 		memset(chunk->blocks, 0xcd, b2_chunkSize);
 #endif
 		int32_t blockSize = b2_blockSizes[index];
@@ -194,7 +194,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 	int32_t index = b2_sizeMap.values[size];
 	B2_ASSERT(0 <= index && index < b2_blockSizeCount);
 
-#if defined(_DEBUG)
+#if B2_DEBUG
 	// Verify the memory address and size is valid.
 	int32_t blockSize = b2_blockSizes[index];
 	bool found = false;

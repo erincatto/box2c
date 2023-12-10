@@ -17,10 +17,10 @@
 
 struct Settings;
 
-#if defined(_DEBUG)
-constexpr bool g_sampleDebug = true;
-#else
+#ifdef NDEBUG
 constexpr bool g_sampleDebug = false;
+#else
+constexpr bool g_sampleDebug = true;
 #endif
 
 #define RAND_LIMIT 32767
