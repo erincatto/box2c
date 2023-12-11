@@ -22,7 +22,7 @@
 
 #define BUFFER_OFFSET(x) ((const void*)(x))
 
-#define SHADER_TEXT(x) "#version 330\n" #x
+#define SHADER_TEXT(x) "#version 300 es\n" #x
 
 struct RGBA8
 {
@@ -206,7 +206,7 @@ struct GLRenderPoints
 {
 	void Create()
 	{
-		const char* vs = "#version 330\n"
+		const char* vs = "#version 300 es\n"
 						 "uniform mat4 projectionMatrix;\n"
 						 "layout(location = 0) in vec2 v_position;\n"
 						 "layout(location = 1) in vec4 v_color;\n"
@@ -219,7 +219,8 @@ struct GLRenderPoints
 						 "   gl_PointSize = v_size;\n"
 						 "}\n";
 
-		const char* fs = "#version 330\n"
+		const char* fs = "#version 300 es\n"
+						 "precision mediump float;\n"
 						 "in vec4 f_color;\n"
 						 "out vec4 color;\n"
 						 "void main(void)\n"
@@ -313,9 +314,9 @@ struct GLRenderPoints
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(float), m_sizes);
 
-		glEnable(GL_PROGRAM_POINT_SIZE);
+		//glEnable(GL_PROGRAM_POINT_SIZE);
 		glDrawArrays(GL_POINTS, 0, m_count);
-		glDisable(GL_PROGRAM_POINT_SIZE);
+		//glDisable(GL_PROGRAM_POINT_SIZE);
 
 		CheckGLError();
 
@@ -350,7 +351,7 @@ struct GLRenderLines
 {
 	void Create()
 	{
-		const char* vs = "#version 330\n"
+		const char* vs = "#version 300 es\n"
 						 "uniform mat4 projectionMatrix;\n"
 						 "layout(location = 0) in vec2 v_position;\n"
 						 "layout(location = 1) in vec4 v_color;\n"
@@ -361,7 +362,8 @@ struct GLRenderLines
 						 "	gl_Position = projectionMatrix * vec4(v_position, 0.0f, 1.0f);\n"
 						 "}\n";
 
-		const char* fs = "#version 330\n"
+		const char* fs = "#version 300 es\n"
+						 "precision mediump float;\n"
 						 "in vec4 f_color;\n"
 						 "out vec4 color;\n"
 						 "void main(void)\n"
@@ -478,7 +480,7 @@ struct GLRenderTriangles
 {
 	void Create()
 	{
-		const char* vs = "#version 330\n"
+		const char* vs = "#version 300 es\n"
 						 "uniform mat4 projectionMatrix;\n"
 						 "layout(location = 0) in vec2 v_position;\n"
 						 "layout(location = 1) in vec4 v_color;\n"
@@ -489,7 +491,8 @@ struct GLRenderTriangles
 						 "	gl_Position = projectionMatrix * vec4(v_position, 0.0f, 1.0f);\n"
 						 "}\n";
 
-		const char* fs = "#version 330\n"
+		const char* fs = "#version 300 es\n"
+						 "precision mediump float;\n"
 						 "in vec4 f_color;\n"
 						 "out vec4 color;\n"
 						 "void main(void)\n"
@@ -637,13 +640,14 @@ struct GLRenderRoundedTriangles
 			} Frag;
 
 			void main() {
-				gl_Position = projectionMatrix * vec4(position + radius * uv, 0, 1);
+				gl_Position = projectionMatrix * vec4(position + radius * uv, 0.0f, 1.0f);
 				Frag.uv = uv;
 				Frag.fillColor = fillColor;
 				Frag.outlineColor = outlineColor;
 			});
 
 		const char* fs = SHADER_TEXT(
+			precision mediump float;
 			in struct {
 				vec2 uv;
 				vec4 fillColor;
@@ -660,11 +664,11 @@ struct GLRenderRoundedTriangles
 
 				// mask is 1 inside rounded polygon, 0 outside with smoothing at the border
 				// smoothing needed to anti-alias the perimeter
-				float mask = 1 - smoothstep(1 - 0.5f * fw, 1, len);
+				float mask = 1.0f - smoothstep(1.0f - 0.5f * fw, 1.0f, len);
 
 				// outline mask is 1 outside polygon including a border strip that is roughly fixed pixel width
 				// smooth step needed to anti-alias the interior of the border
-				float outlineMask = smoothstep(1 - 1.5 * fw, 1 - fw, len);
+				float outlineMask = smoothstep(1.0f - 1.5f * fw, 1.0f - fw, len);
 
 				vec4 color = Frag.fillColor + (Frag.outlineColor - Frag.fillColor * Frag.outlineColor.a) * outlineMask;
 				outColor = color * mask;

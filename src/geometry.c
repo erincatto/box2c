@@ -280,7 +280,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 		return b2ComputeCapsuleMass(&capsule, density);
 	}
 
-	b2Vec2 vertices[b2_maxPolygonVertices];
+	b2Vec2 vertices[b2_maxPolygonVertices] = {0};
 	int32_t count = shape->count;
 	float radius = shape->radius;
 
