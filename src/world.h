@@ -107,13 +107,13 @@ typedef struct b2World
 	uint32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
-	b2FinishAllTasksCallback* finishAllTasksFcn;
 	void* userTaskContext;
 
 	void* userTreeTask;
 
 	int32_t splitIslandIndex;
 
+	int32_t activeTaskCount;
 	int32_t taskCount;
 
 	bool enableSleep;

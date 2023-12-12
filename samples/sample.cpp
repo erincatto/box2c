@@ -60,13 +60,6 @@ static void FinishTask(void* taskPtr, void* userContext)
 	}
 }
 
-static void FinishAllTasks(void* userContext)
-{
-	Sample* sample = static_cast<Sample*>(userContext);
-	sample->m_scheduler.WaitforAll();
-	sample->m_taskCount = 0;
-}
-
 Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
@@ -78,7 +71,6 @@ Sample::Sample(const Settings& settings)
 	worldDef.workerCount = settings.m_workerCount;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
-	worldDef.finishAllTasks = &FinishAllTasks;
 	worldDef.userTaskContext = this;
 	worldDef.enableSleep = settings.m_enableSleep;
 
@@ -257,6 +249,8 @@ void Sample::Step(Settings& settings)
 	for (int32_t i = 0; i < 1; ++i)
 	{
 		b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_relaxIterations);
+		m_taskCount = 0;
+
 	}
 	b2World_Draw(m_worldId, &g_draw.m_debugDraw);
 

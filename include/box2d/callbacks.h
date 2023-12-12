@@ -52,7 +52,7 @@ typedef bool b2QueryResultFcn(b2ShapeId shapeId, void* context);
 typedef float b2RayResultFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
 
 /// Use an instance of this structure and the callback below to get the closest hit.
-typedef struct
+typedef struct b2RayResult
 {
 	b2ShapeId shapeId;
 	b2Vec2 point;
