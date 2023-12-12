@@ -103,11 +103,17 @@ if (MSVC)
 		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX2)
 	endif()
 elseif(LINUX)
-	# FMA -mfma
-	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
+	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+		# raspberry pi
+		target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
+	else()
+		# FMA -mfma
+		target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
+	endif()
 elseif(APPLE)
-	# enkiTS has some missing (void) on functions
-	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-strict-prototypes)
+	# enkiTS had some missing (void) on functions
+	# target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-strict-prototypes)
+	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 find_library(MATH_LIBRARY m)
