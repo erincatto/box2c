@@ -51,7 +51,7 @@ typedef struct b2Manifold
 	int32_t pointCount;
 } b2Manifold;
 
-static const b2Manifold b2_emptyManifold = {0};
+static const b2Manifold b2_emptyManifold = B2_ZERO_INIT;
 
 #ifdef __cplusplus
 extern "C"

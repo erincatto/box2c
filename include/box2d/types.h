@@ -328,7 +328,7 @@ typedef struct b2ChainDef
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef(void)
 {
-	b2WorldDef def = {0};
+	b2WorldDef def = B2_ZERO_INIT;
 	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
@@ -365,7 +365,7 @@ static inline b2BodyDef b2DefaultBodyDef(void)
 
 static inline struct b2ShapeDef b2DefaultShapeDef(void)
 {
-	b2ShapeDef def = {0};
+	b2ShapeDef def = B2_ZERO_INIT;
 	def.friction = 0.6f;
 	def.restitution = 0.0f;
 	def.density = 0.0f;
@@ -376,7 +376,7 @@ static inline struct b2ShapeDef b2DefaultShapeDef(void)
 
 static inline struct b2ChainDef b2DefaultChainDef(void)
 {
-	b2ChainDef def = {0};
+	b2ChainDef def = B2_ZERO_INIT;
 	def.points = NULL;
 	def.count = 0;
 	def.loop = false;

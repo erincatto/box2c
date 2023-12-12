@@ -19,7 +19,7 @@ typedef struct b2Profile
 	float continuous;
 } b2Profile;
 
-static const b2Profile b2_emptyProfile = {0};
+static const b2Profile b2_emptyProfile = B2_ZERO_INIT;
 
 typedef struct b2Statistics
 {
@@ -46,6 +46,8 @@ typedef struct b2Timer
 #elif defined(__linux__) || defined(__APPLE__)
 	unsigned long long start_sec;
 	unsigned long long start_usec;
+#else
+	int dummy;
 #endif
 } b2Timer;
 

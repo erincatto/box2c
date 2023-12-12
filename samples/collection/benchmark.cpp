@@ -10,13 +10,15 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+// Note: reseting the scene is non-deterministic because the world uses freelists
 class BenchmarkBarrel : public Sample
 {
   public:
 	enum ShapeType
 	{
 		e_circleShape = 0,
-		e_boxShape
+		e_capsuleShape = 1,
+		e_boxShape = 2,
 	};
 
 	enum
@@ -38,16 +40,14 @@ class BenchmarkBarrel : public Sample
 			b2ShapeDef sd = b2DefaultShapeDef();
 			b2Body_CreatePolygon(groundId, &sd, &box);
 
-			bd.angle = 0.5f * b2_pi;
-			bd.position = {groundSize, 2.0f * groundSize};
-			groundId = b2World_CreateBody(m_worldId, &bd);
-
-			box = b2MakeBox(2.0f * groundSize, 1.2f);
+			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {-groundSize, 2.0f * groundSize}, 0.0f);
 			b2Body_CreatePolygon(groundId, &sd, &box);
 
-			bd.position = {-groundSize, 2.0f * groundSize};
-			groundId = b2World_CreateBody(m_worldId, &bd);
+			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {groundSize, 2.0f * groundSize}, 0.0f);
 			b2Body_CreatePolygon(groundId, &sd, &box);
+
+			b2Segment segment = {{-200.0f, -40.0f}, {200.0f, -40.0f}};
+			b2Body_CreateSegment(groundId, &sd, &segment);
 		}
 
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
@@ -87,13 +87,15 @@ class BenchmarkBarrel : public Sample
 		sd.friction = 0.5f;
 
 		b2Polygon cuboid = b2MakeBox(0.5f, 0.5f);
+		b2Capsule capsule = {{0.0f, -0.25f}, {0.0f, 0.25f}, rad};
+		b2Circle circle = {{0.0f, 0.0f}, rad};
 
-		b2Circle circle = {0};
-		circle.radius = rad;
+		float extray = m_shapeType == e_capsuleShape ? rad : 0.0f;
 
 		m_rowCount = g_sampleDebug ? 40 : e_maxRows;
 
 		int32_t index = 0;
+		float side = -0.05f;
 
 		for (int32_t i = 0; i < m_columnCount; ++i)
 		{
@@ -101,19 +103,24 @@ class BenchmarkBarrel : public Sample
 
 			for (int32_t j = 0; j < m_rowCount; ++j)
 			{
-				float y = j * shift + centery + 2.0f;
+				float y = j * (shift + extray) + centery + 2.0f;
 
-				bd.position = {x, y};
+				bd.position = {x + side, y};
+				side = -side;
 
 				m_bodies[index] = b2World_CreateBody(m_worldId, &bd);
 
-				if (m_shapeType == e_boxShape)
+				if (m_shapeType == e_circleShape)
 				{
-					b2Body_CreatePolygon(m_bodies[index], &sd, &cuboid);
+					b2Body_CreateCircle(m_bodies[index], &sd, &circle);
+				}
+				else if (m_shapeType == e_capsuleShape)
+				{
+					b2Body_CreateCapsule(m_bodies[index], &sd, &capsule);
 				}
 				else
 				{
-					b2Body_CreateCircle(m_bodies[index], &sd, &circle);
+					b2Body_CreatePolygon(m_bodies[index], &sd, &cuboid);
 				}
 
 				index += 1;
@@ -128,7 +135,7 @@ class BenchmarkBarrel : public Sample
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		const char* shapeTypes[] = {"Circle", "Box"};
+		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
 
 		int shapeType = int(m_shapeType);
 		changed = changed || ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
