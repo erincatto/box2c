@@ -145,7 +145,8 @@ void b2SleepMilliseconds(float milliseconds)
 
 b2Timer b2CreateTimer(void)
 {
-	return b2Timer;
+	b2Timer timer = {0};
+	return timer;
 }
 
 float b2GetMilliseconds(const b2Timer* timer)

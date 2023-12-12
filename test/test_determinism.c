@@ -85,14 +85,6 @@ static void FinishTask(void* userTask, void* userContext)
 	enkiWaitForTaskSet(scheduler, task);
 }
 
-static void FinishAllTasks(void* userContext)
-{
-	B2_MAYBE_UNUSED(userContext);
-
-	enkiWaitForAll(scheduler);
-	taskCount = 0;
-}
-
 void TiltedStacks(int testIndex, int workerCount)
 {
 	scheduler = enkiNewTaskScheduler();
@@ -113,7 +105,6 @@ void TiltedStacks(int testIndex, int workerCount)
 	worldDef.gravity = gravity;
 	worldDef.enqueueTask = EnqueueTask;
 	worldDef.finishTask = FinishTask;
-	worldDef.finishAllTasks = FinishAllTasks;
 	worldDef.workerCount = workerCount;
 	worldDef.enableSleep = false;
 	worldDef.bodyCapacity = 1024;

@@ -45,7 +45,7 @@ typedef struct b2DistanceJointDef
 
 static inline b2DistanceJointDef b2DefaultDistanceJointDef(void)
 {
-	b2DistanceJointDef def = {0};
+	b2DistanceJointDef def = B2_ZERO_INIT;
 	def.bodyIdA = b2_nullBodyId;
 	def.bodyIdB = b2_nullBodyId;
 	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};
@@ -91,7 +91,7 @@ typedef struct b2MouseJointDef
 
 static inline b2MouseJointDef b2DefaultMouseJointDef(void)
 {
-	b2MouseJointDef def = {0};
+	b2MouseJointDef def = B2_ZERO_INIT;
 	def.bodyIdA = b2_nullBodyId;
 	def.bodyIdB = b2_nullBodyId;
 	def.target = B2_LITERAL(b2Vec2){0.0f, 0.0f};
@@ -151,7 +151,7 @@ typedef struct b2PrismaticJointDef
 /// Use this to initialize your joint definition
 static inline b2PrismaticJointDef b2DefaultPrismaticJointDef(void)
 {
-	b2PrismaticJointDef def = {0};
+	b2PrismaticJointDef def = B2_ZERO_INIT;
 	def.bodyIdA = b2_nullBodyId;
 	def.bodyIdB = b2_nullBodyId;
 	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};
@@ -222,7 +222,7 @@ typedef struct b2RevoluteJointDef
 /// Use this to initialize your joint definition
 static inline b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 {
-	b2RevoluteJointDef def = {0};
+	b2RevoluteJointDef def = B2_ZERO_INIT;
 	def.bodyIdA = b2_nullBodyId;
 	def.bodyIdB = b2_nullBodyId;
 	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};
@@ -275,7 +275,7 @@ static const b2WeldJointDef b2_defaultWeldJointDef = {
 /// Use this to initialize your joint definition
 static inline b2WeldJointDef b2DefaultWeldJointDef(void)
 {
-	b2WeldJointDef def = {0};
+	b2WeldJointDef def = B2_ZERO_INIT;
 	def.bodyIdA = b2_nullBodyId;
 	def.bodyIdB = b2_nullBodyId;
 	def.localAnchorA = B2_LITERAL(b2Vec2){0.0f, 0.0f};

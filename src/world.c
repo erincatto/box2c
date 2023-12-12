@@ -66,11 +66,6 @@ static void b2DefaultFinishTaskFcn(void* userTask, void* userContext)
 	B2_MAYBE_UNUSED(userContext);
 }
 
-static void b2DefaultFinishAllTasksFcn(void* userContext)
-{
-	B2_MAYBE_UNUSED(userContext);
-}
-
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	b2WorldId id = b2_nullWorldId;
@@ -130,6 +125,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 
 	world->stepId = 0;
+	world->activeTaskCount = 0;
 	world->taskCount = 0;
 
 	// Globals start at 0. It should be fine for this to roll over.
@@ -151,12 +147,11 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	id.revision = world->revision;
 
-	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL && def->finishAllTasks != NULL)
+	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL)
 	{
 		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
 		world->enqueueTaskFcn = def->enqueueTask;
 		world->finishTaskFcn = def->finishTask;
-		world->finishAllTasksFcn = def->finishAllTasks;
 		world->userTaskContext = def->userTaskContext;
 	}
 	else
@@ -164,7 +159,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->workerCount = 1;
 		world->enqueueTaskFcn = b2DefaultAddTaskFcn;
 		world->finishTaskFcn = b2DefaultFinishTaskFcn;
-		world->finishAllTasksFcn = b2DefaultFinishAllTasksFcn;
 		world->userTaskContext = NULL;
 	}
 
@@ -330,6 +324,7 @@ static void b2Collide(b2World* world)
 	{
 		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
 		world->taskCount += 1;
+		world->activeTaskCount += world->userTreeTask == NULL ? 0 : 1;
 	}
 	else
 	{
@@ -485,6 +480,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 	}
 
 	world->profile = b2_emptyProfile;
+	world->activeTaskCount = 0;
 	world->taskCount = 0;
 
 	b2Timer stepTimer = b2CreateTimer();
@@ -542,17 +538,14 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
-	if (b2_parallel)
-	{
-		// This finishes tree rebuild and split island tasks
-		world->finishAllTasksFcn(world->userTaskContext);
-	}
-
 	B2_ASSERT(b2GetStackAllocation(world->stackAllocator) == 0);
 
 	// Ensure stack is large enough
 	b2GrowStack(world->stackAllocator);
 
+	// Make sure all tasks that were started were also finished
+	B2_ASSERT(world->activeTaskCount == 0);
+	
 	b2TracyCZoneEnd(world_step);
 }
 

@@ -1417,7 +1417,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		{
 			splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
 			world->taskCount += 1;
-			B2_ASSERT(splitIslandTask != NULL);
+			world->activeTaskCount += splitIslandTask == NULL ? 0 : 1;
 		}
 		else
 		{
@@ -1644,6 +1644,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 			workerContext[i].workerIndex = i;
 			workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 			world->taskCount += 1;
+			world->activeTaskCount += workerContext[i].userTask == NULL ? 0 : 1;
 		}
 	}
 	else
@@ -1662,15 +1663,21 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	if (splitIslandTask != NULL)
 	{
 		world->finishTaskFcn(splitIslandTask, world->userTaskContext);
-		world->splitIslandIndex = B2_NULL_INDEX;
+		world->activeTaskCount -= 1;
 	}
+	
+	world->splitIslandIndex = B2_NULL_INDEX;
 
 	// Finish solve
 	if (b2_parallel)
 	{
 		for (int32_t i = 0; i < workerCount; ++i)
 		{
-			world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+			if (workerContext[i].userTask != NULL)
+			{
+				world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+				world->activeTaskCount -= 1;
+			}
 		}
 	}
 
@@ -2123,6 +2130,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 		if (world->userTreeTask != NULL)
 		{
 			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
+			world->activeTaskCount -= 1;
 			world->userTreeTask = NULL;
 		}
 	}
