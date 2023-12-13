@@ -1182,7 +1182,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 			awakeBodies[index] = body;
 
-			B2_ASSERT(0 < bodyIndex && bodyIndex < bodyCapacity);
+			B2_ASSERT(0 <= bodyIndex && bodyIndex < bodyCapacity);
 			bodyToSolverMap[bodyIndex] = index;
 			solverToBodyMap[index] = bodyIndex;
 
