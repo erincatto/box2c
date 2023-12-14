@@ -286,7 +286,7 @@ typedef struct b2ShapeDef
 } b2ShapeDef;
 
 static const b2ShapeDef b2_defaultShapeDef = {
-	NULL, 0.6f, 0.0f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}, false,
+	NULL, 0.6f, 0.0f, 1.0f, {0x00000001, 0xFFFFFFFF, 0}, false,
 };
 
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.

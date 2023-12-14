@@ -761,9 +761,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
-			draw->DrawTransform(body->transform, draw->context);
+			b2Transform transform = {body->position, body->transform.q};
+			draw->DrawTransform(transform, draw->context);
 
-			b2Vec2 p = b2TransformPoint(body->transform, offset);
+			b2Vec2 p = b2TransformPoint(transform, offset);
 
 			char buffer[32];
 			sprintf(buffer, "%.1f", body->mass);

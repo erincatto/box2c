@@ -875,12 +875,28 @@ b2Vec2 b2Body_GetLocalCenterOfMass(b2BodyId bodyId)
 	b2Body* body = b2GetBody(world, bodyId);
 	return body->localCenter;
 }
-  
+
 b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
 	return body->position;
+}
+
+void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->mass = massData.mass;
+	body->I = massData.I;
+	body->localCenter = massData.center;
+
+	b2Vec2 p = b2TransformPoint(body->transform, massData.center);
+	body->position = p;
+	body->position0 = p;
+
+	body->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
+	body->invI = body->I > 0.0f ? 1.0f / body->I : 0.0f;
 }
 
 void b2Body_Wake(b2BodyId bodyId)

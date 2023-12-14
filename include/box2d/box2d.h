@@ -78,7 +78,7 @@ BOX2D_API b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId);
 /// Override the body's mass properties. Normally this is computed automatically using the
 ///	shape geometry and density. This information is lost if a shape is added or removed or if the
 ///	body type changes.
-BOX2D_API void b2Body_SetMassData(b2MassData massData);
+BOX2D_API void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData);
 
 /// Is this body awake?
 BOX2D_API void b2Body_IsAwake(b2BodyId bodyId);
