@@ -124,6 +124,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->sensorBeginEventArray = b2CreateArray(sizeof(b2SensorBeginTouchEvent), 4);
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 
+	world->contactBeginArray = b2CreateArray(sizeof(b2ContactBeginTouchEvent), 4);
+	world->contactPersistArray = b2CreateArray(sizeof(b2ContactPersistTouchEvent), 4);
+	world->contactEndArray = b2CreateArray(sizeof(b2ContactEndTouchEvent), 4);
+
 	world->stepId = 0;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
@@ -193,6 +197,10 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyArray(world->sensorBeginEventArray, sizeof(b2SensorBeginTouchEvent));
 	b2DestroyArray(world->sensorEndEventArray, sizeof(b2SensorEndTouchEvent));
+
+	b2DestroyArray(world->contactBeginArray, sizeof(b2ContactBeginTouchEvent));
+	b2DestroyArray(world->contactPersistArray, sizeof(b2ContactPersistTouchEvent));
+	b2DestroyArray(world->contactEndArray, sizeof(b2ContactEndTouchEvent));
 
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
@@ -371,6 +379,9 @@ static void b2Collide(b2World* world)
 	// Prepare to capture events
 	b2Array_Clear(world->sensorBeginEventArray);
 	b2Array_Clear(world->sensorEndEventArray);
+	b2Array_Clear(world->contactBeginArray);
+	b2Array_Clear(world->contactEndArray);
+
 	const b2Shape* shapes = world->shapes;
 	int16_t worldIndex = world->index;
 
@@ -389,9 +400,19 @@ static void b2Collide(b2World* world)
 			B2_ASSERT(contactIndex != B2_NULL_INDEX);
 
 			b2Contact* contact = world->contacts + contactIndex;
+			const b2Shape* shapeA = shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = shapes + contact->shapeIndexB;
+			b2ShapeId shapeIdA = {shapeA->object.index, worldIndex, shapeA->object.revision};
+			b2ShapeId shapeIdB = {shapeB->object.index, worldIndex, shapeB->object.revision};
 
 			if (contact->flags & b2_contactDisjoint)
 			{
+				if (contact->flags & b2_contactTouchingFlag)
+				{
+					b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
+					b2Array_Push(world->contactEndArray, event);
+				}
+
 				// Bounding boxes no longer overlap
 				b2DestroyContact(world, contact);
 			}
@@ -400,10 +421,6 @@ static void b2Collide(b2World* world)
 				B2_ASSERT(contact->islandIndex == B2_NULL_INDEX);
 				if (contact->flags & b2_contactSensorFlag)
 				{
-					const b2Shape* shapeA = shapes + contact->shapeIndexA;
-					const b2Shape* shapeB = shapes + contact->shapeIndexB;
-					b2ShapeId shapeIdA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-					b2ShapeId shapeIdB = {shapeB->object.index, worldIndex, shapeB->object.revision};
 					if (shapeA->isSensor)
 					{
 						b2SensorBeginTouchEvent event = {shapeIdA, shapeIdB};
@@ -418,6 +435,9 @@ static void b2Collide(b2World* world)
 				}
 				else
 				{
+					b2ContactBeginTouchEvent event = {shapeIdA, shapeIdB, contact->manifold};
+					b2Array_Push(world->contactBeginArray, event);
+
 					b2LinkContact(world, contact);
 					b2AddContactToGraph(world, contact);
 				}
@@ -446,6 +466,9 @@ static void b2Collide(b2World* world)
 				}
 				else
 				{
+					b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
+					b2Array_Push(world->contactEndArray, event);
+
 					b2UnlinkContact(world, contact);
 					b2RemoveContactFromGraph(world, contact);
 				}

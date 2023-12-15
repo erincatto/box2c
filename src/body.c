@@ -943,6 +943,36 @@ void b2Body_Enable(b2BodyId bodyId)
 	}
 }
 
+b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+
+	if (body->shapeList == B2_NULL_INDEX)
+	{
+		return b2_nullShapeId;
+	}
+
+	b2Shape* shape = world->shapes + body->shapeList;
+	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
+	return id;
+}
+
+b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	
+	if (shape->nextShapeIndex == B2_NULL_INDEX)
+	{
+		return b2_nullShapeId;
+	}
+
+	shape = world->shapes + shape->nextShapeIndex;
+	b2ShapeId id = {shape->object.index, shapeId.world, shape->object.revision};
+	return id;
+}
+
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
 	int32_t jointKey;

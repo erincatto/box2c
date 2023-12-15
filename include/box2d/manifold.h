@@ -14,6 +14,7 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 typedef struct b2SmoothSegment b2SmoothSegment;
 
+// todo internal
 #define B2_MAKE_ID(A, B) ((uint8_t)(A) << 8 | (uint8_t)(B))
 
 /// A manifold point is a contact point belonging to a contact

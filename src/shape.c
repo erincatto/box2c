@@ -189,12 +189,12 @@ b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape)
 	}
 }
 
-static b2Shape* b2GetShape(b2ShapeId shapeId)
+b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
 {
-	b2World* world = b2GetWorldFromIndex(shapeId.world);
 	B2_ASSERT(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
 	b2Shape* shape = world->shapes + shapeId.index;
 	B2_ASSERT(b2ObjectValid(&shape->object));
+	B2_ASSERT(shape->object.revision == shapeId.revision);
 	return shape;
 }
 
@@ -215,7 +215,8 @@ b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
 
 void* b2Shape_GetUserData(b2ShapeId shapeId)
 {
-	b2Shape* shape = b2GetShape(shapeId);
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
 	return shape->userData;
 }
 
@@ -250,13 +251,15 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 
 void b2Shape_SetFriction(b2ShapeId shapeId, float friction)
 {
-	b2Shape* shape = b2GetShape(shapeId);
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
 	shape->friction = friction;
 }
 
 void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution)
 {
-	b2Shape* shape = b2GetShape(shapeId);
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
 	shape->restitution = restitution;
 }
 

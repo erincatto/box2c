@@ -103,16 +103,26 @@ BOX2D_API b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
 
+BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
+BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
+
+/// Iterate over shapes on a body
+BOX2D_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
+BOX2D_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
+
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API void* b2Shape_GetUserData(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 BOX2D_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
 BOX2D_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
 
-BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
-BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
 BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
 BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
+
+/// Contacts
+BOX2D_API b2ContactId b2Body_GetFirstContact(b2BodyId bodyId);
+BOX2D_API b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId);
+BOX2D_API b2ContactData b2Contact_GetData(b2ContactId contactId);
 
 /// Create a joint
 BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);

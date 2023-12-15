@@ -370,8 +370,13 @@ public:
 
 			float mass = b2Body_GetMass(m_weebleId);
 			float I = b2Body_GetInertiaTensor(m_weebleId);
+			
+			float offset = 1.5f;
 
-			b2MassData massData = {mass, {0.0f, -1.5f}, I, 2.0f, 4.0f};
+			// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
+			I += mass * offset * offset;
+
+			b2MassData massData = {mass, {0.0f, -offset}, I, 2.0f, 4.0f};
 			b2Body_SetMassData(m_weebleId, massData);
 		}
 	}
