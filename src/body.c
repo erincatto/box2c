@@ -269,18 +269,8 @@ b2Body* b2GetBody(b2World* world, b2BodyId id)
 	return body;
 }
 
-void b2World_DestroyBody(b2BodyId bodyId)
+void b2DestroyBody(b2World* world, b2Body* body)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(world->locked == false);
-
-	if (world->locked)
-	{
-		return;
-	}
-
-	b2Body* body = b2GetBody(world, bodyId);
-
 	// User must destroy joints before destroying bodies
 	B2_ASSERT(body->jointList == B2_NULL_INDEX && body->jointCount == 0);
 
@@ -312,6 +302,67 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b2RemoveBodyFromIsland(world, body);
 
 	b2FreeObject(&world->bodyPool, &body->object);
+}
+
+void b2World_DestroyBody(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+	b2DestroyBody(world, body);
+}
+
+int32_t b2World_DestroyBodyAndGetTouching(b2BodyId bodyId, b2ShapeId* touchingShapes, int32_t maxShapes)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return 0;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+
+	// Find other shapes that are currently touching this body
+	int32_t contactKey = body->contactList;
+	int32_t reportCount = 0;
+	while (contactKey != B2_NULL_INDEX && reportCount < maxShapes)
+	{
+		int32_t contactIndex = contactKey >> 1;
+		int32_t edgeIndex = contactKey & 1;
+
+		b2Contact* contact = world->contacts + contactIndex;
+		if (contact->flags & b2_contactTouchingFlag)
+		{
+			b2Shape* otherShape;
+			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+			if (shapeA->bodyIndex == body->object.index)
+			{
+				otherShape = world->shapes + contact->shapeIndexB;
+			}
+			else
+			{
+				B2_ASSERT(world->shapes[contact->shapeIndexB].bodyIndex == body->object.index);
+				otherShape = world->shapes + contact->shapeIndexA;
+			}
+
+			b2ShapeId otherShapeId = {otherShape->object.index, bodyId.world, otherShape->object.revision};
+			touchingShapes[reportCount] = otherShapeId;
+			reportCount += 1;
+		}
+
+		contactKey = contact->edges[edgeIndex].nextKey;
+	}
+
+	b2DestroyBody(world, body);
+
+	return reportCount;
 }
 
 static void b2ComputeMass(b2World* world, b2Body* body)
@@ -672,6 +723,54 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 	B2_ASSERT(shape->object.revision == shapeId.revision);
 
 	b2DestroyShape(world, shape);
+}
+
+// Destroy a shape on a body. This doesn't need to be called when destroying a body.
+int32_t b2Body_DestroyShapeAndGetTouching(b2ShapeId shapeId, b2ShapeId* touchingShapes, int32_t maxShapes)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return 0;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+
+	// Find other shapes that are currently touching this shape
+	b2Body* body = world->bodies + shape->bodyIndex;
+	int32_t contactKey = body->contactList;
+	int32_t reportCount = 0;
+	while (contactKey != B2_NULL_INDEX && reportCount < maxShapes)
+	{
+		int32_t contactIndex = contactKey >> 1;
+		int32_t edgeIndex = contactKey & 1;
+
+		b2Contact* contact = world->contacts + contactIndex;
+		if (contact->flags & b2_contactTouchingFlag)
+		{
+			b2Shape* otherShape;
+			if (contact->shapeIndexA == shape->object.index)
+			{
+				otherShape = world->shapes + contact->shapeIndexB;
+			}
+			else
+			{
+				B2_ASSERT(contact->shapeIndexB == shape->object.index);
+				otherShape = world->shapes + contact->shapeIndexA;
+			}
+
+			b2ShapeId otherShapeId = {otherShape->object.index, shapeId.world, otherShape->object.revision};
+			touchingShapes[reportCount] = otherShapeId;
+			reportCount += 1;
+		}
+
+		contactKey = contact->edges[edgeIndex].nextKey;
+	}
+
+	b2DestroyShape(world, shape);
+
+	return reportCount;
 }
 
 void b2Body_DestroyChain(b2ChainId chainId)

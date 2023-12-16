@@ -43,7 +43,7 @@ BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
 /// Destroy a rigid body and get an array of all the shapes it was touching (on other bodies).
-BOX2D_API int32_t b2World_DestroyBodyWithResults(b2BodyId bodyId, b2ShapeId* touchingShapes, int32_t maxShapes);
+BOX2D_API int32_t b2World_DestroyBodyAndGetTouching(b2BodyId bodyId, b2ShapeId* touchingShapes, int32_t maxShapes);
 
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
@@ -107,7 +107,7 @@ BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
 
 /// Destroy a shape from a body and get an array of all the other shapes this shape was touching.
-BOX2D_API int32_t b2Body_DestroyShapeWithResults(b2ShapeId shapeId, b2ShapeId* touchingShapes, int32_t maxShapes);
+BOX2D_API int32_t b2Body_DestroyShapeAndGetTouching(b2ShapeId shapeId, b2ShapeId* touchingShapes, int32_t maxShapes);
 
 BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
