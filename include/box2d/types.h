@@ -266,6 +266,16 @@ typedef struct b2QueryFilter
 
 static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
 
+typedef enum b2ShapeType
+{
+	b2_capsuleShape,
+	b2_circleShape,
+	b2_polygonShape,
+	b2_segmentShape,
+	b2_smoothSegmentShape,
+	b2_shapeTypeCount
+} b2ShapeType;
+
 /// Used to create a shape
 typedef struct b2ShapeDef
 {

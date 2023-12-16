@@ -260,6 +260,53 @@ void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution)
 	shape->restitution = restitution;
 }
 
+b2ShapeType b2Shape_GetType(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->type;
+}
+
+const b2Circle* b2Shape_GetCircle(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	B2_ASSERT(shape->type == b2_circleShape);
+	return &shape->circle;
+}
+
+const b2Segment* b2Shape_GetSegment(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	B2_ASSERT(shape->type == b2_segmentShape);
+	return &shape->segment;
+}
+
+const b2SmoothSegment* b2Shape_GetSmoothSegment(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	B2_ASSERT(shape->type == b2_smoothSegmentShape);
+	return &shape->smoothSegment;
+}
+
+const b2Capsule* b2Shape_GetCapsule(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	B2_ASSERT(shape->type == b2_capsuleShape);
+	return &shape->capsule;
+}
+
+const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	B2_ASSERT(shape->type == b2_polygonShape);
+	return &shape->polygon;
+}
+
 void b2Chain_SetFriction(b2ChainId chainId, float friction)
 {
 	b2World* world = b2GetWorldFromIndex(chainId.world);

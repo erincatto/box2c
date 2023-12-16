@@ -122,6 +122,13 @@ BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 BOX2D_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
 BOX2D_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
 
+BOX2D_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
+BOX2D_API const b2Circle* b2Shape_GetCircle(b2ShapeId shapeId);
+BOX2D_API const b2Segment* b2Shape_GetSegment(b2ShapeId shapeId);
+BOX2D_API const b2Polygon* b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+BOX2D_API const b2Capsule* b2Shape_GetCapsule(b2ShapeId shapeId);
+BOX2D_API const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId);
+
 BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
 BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 

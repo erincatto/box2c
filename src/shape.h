@@ -13,16 +13,6 @@
 typedef struct b2BroadPhase b2BroadPhase;
 typedef struct b2World b2World;
 
-typedef enum
-{
-	b2_capsuleShape,
-	b2_circleShape,
-	b2_polygonShape,
-	b2_segmentShape,
-	b2_smoothSegmentShape,
-	b2_shapeTypeCount
-} b2ShapeType;
-
 typedef struct b2Shape
 {
 	b2Object object;
