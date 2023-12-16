@@ -553,98 +553,6 @@ b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2S
 	return b2CreateShape(bodyId, def, segment, b2_segmentShape);
 }
 
-b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
-{
-	B2_ASSERT(b2IsValid(def->friction) && def->friction >= 0.0f);
-	B2_ASSERT(b2IsValid(def->restitution) && def->restitution >= 0.0f);
-	B2_ASSERT(def->count >= 4);
-
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
-	{
-		return b2_nullChainId;
-	}
-
-	b2Body* body = b2GetBody(world, bodyId);
-
-	b2ChainShape* chainShape = (b2ChainShape*)b2AllocObject(&world->chainPool);
-	world->chains = (b2ChainShape*)world->chainPool.memory;
-
-	chainShape->bodyIndex = bodyId.index;
-	chainShape->nextIndex = body->chainList;
-	body->chainList = chainShape->object.index;
-
-	b2ShapeDef shapeDef = b2DefaultShapeDef();
-	shapeDef.userData = def->userData;
-	shapeDef.restitution = def->restitution;
-	shapeDef.friction = def->friction;
-	shapeDef.filter = def->filter;
-
-	int32_t n = def->count;
-	const b2Vec2* points = def->points;
-
-	if (def->loop)
-	{
-		chainShape->count = n;
-		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));
-
-		b2SmoothSegment smoothSegment;
-
-		int32_t prevIndex = n - 1;
-		for (int32_t i = 0; i < n - 2; ++i)
-		{
-			smoothSegment.ghost1 = points[prevIndex];
-			smoothSegment.segment.point1 = points[i];
-			smoothSegment.segment.point2 = points[i + 1];
-			smoothSegment.ghost2 = points[i + 2];
-			prevIndex = i;
-
-			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
-			chainShape->shapeIndices[i] = shapeId.index;
-		}
-
-		{
-			smoothSegment.ghost1 = points[n - 3];
-			smoothSegment.segment.point1 = points[n - 2];
-			smoothSegment.segment.point2 = points[n - 1];
-			smoothSegment.ghost2 = points[0];
-			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
-			chainShape->shapeIndices[n - 2] = shapeId.index;
-		}
-
-		{
-			smoothSegment.ghost1 = points[n - 2];
-			smoothSegment.segment.point1 = points[n - 1];
-			smoothSegment.segment.point2 = points[0];
-			smoothSegment.ghost2 = points[1];
-			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
-			chainShape->shapeIndices[n - 1] = shapeId.index;
-		}
-	}
-	else
-	{
-		chainShape->count = n - 3;
-		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));
-
-		b2SmoothSegment smoothSegment;
-
-		for (int32_t i = 0; i < n - 3; ++i)
-		{
-			smoothSegment.ghost1 = points[i];
-			smoothSegment.segment.point1 = points[i + 1];
-			smoothSegment.segment.point2 = points[i + 2];
-			smoothSegment.ghost2 = points[i + 3];
-
-			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
-			chainShape->shapeIndices[i] = shapeId.index;
-		}
-	}
-
-	b2ChainId id = {chainShape->object.index, bodyId.world, chainShape->object.revision};
-	return id;
-}
-
 // Destroy a shape on a body. This doesn't need to be called when destroying a body.
 static void b2DestroyShape(b2World* world, b2Shape* shape)
 {
@@ -773,6 +681,98 @@ int32_t b2Body_DestroyShapeAndGetTouching(b2ShapeId shapeId, b2ShapeId* touching
 	return reportCount;
 }
 
+b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
+{
+	B2_ASSERT(b2IsValid(def->friction) && def->friction >= 0.0f);
+	B2_ASSERT(b2IsValid(def->restitution) && def->restitution >= 0.0f);
+	B2_ASSERT(def->count >= 4);
+
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return b2_nullChainId;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+
+	b2ChainShape* chainShape = (b2ChainShape*)b2AllocObject(&world->chainPool);
+	world->chains = (b2ChainShape*)world->chainPool.memory;
+
+	chainShape->bodyIndex = bodyId.index;
+	chainShape->nextIndex = body->chainList;
+	body->chainList = chainShape->object.index;
+
+	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	shapeDef.userData = def->userData;
+	shapeDef.restitution = def->restitution;
+	shapeDef.friction = def->friction;
+	shapeDef.filter = def->filter;
+
+	int32_t n = def->count;
+	const b2Vec2* points = def->points;
+
+	if (def->loop)
+	{
+		chainShape->count = n;
+		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));
+
+		b2SmoothSegment smoothSegment;
+
+		int32_t prevIndex = n - 1;
+		for (int32_t i = 0; i < n - 2; ++i)
+		{
+			smoothSegment.ghost1 = points[prevIndex];
+			smoothSegment.segment.point1 = points[i];
+			smoothSegment.segment.point2 = points[i + 1];
+			smoothSegment.ghost2 = points[i + 2];
+			prevIndex = i;
+
+			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
+			chainShape->shapeIndices[i] = shapeId.index;
+		}
+
+		{
+			smoothSegment.ghost1 = points[n - 3];
+			smoothSegment.segment.point1 = points[n - 2];
+			smoothSegment.segment.point2 = points[n - 1];
+			smoothSegment.ghost2 = points[0];
+			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
+			chainShape->shapeIndices[n - 2] = shapeId.index;
+		}
+
+		{
+			smoothSegment.ghost1 = points[n - 2];
+			smoothSegment.segment.point1 = points[n - 1];
+			smoothSegment.segment.point2 = points[0];
+			smoothSegment.ghost2 = points[1];
+			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
+			chainShape->shapeIndices[n - 1] = shapeId.index;
+		}
+	}
+	else
+	{
+		chainShape->count = n - 3;
+		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));
+
+		b2SmoothSegment smoothSegment;
+
+		for (int32_t i = 0; i < n - 3; ++i)
+		{
+			smoothSegment.ghost1 = points[i];
+			smoothSegment.segment.point1 = points[i + 1];
+			smoothSegment.segment.point2 = points[i + 2];
+			smoothSegment.ghost2 = points[i + 3];
+
+			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
+			chainShape->shapeIndices[i] = shapeId.index;
+		}
+	}
+
+	b2ChainId id = {chainShape->object.index, bodyId.world, chainShape->object.revision};
+	return id;
+}
+
 void b2Body_DestroyChain(b2ChainId chainId)
 {
 	b2World* world = b2GetWorldFromIndex(chainId.world);
@@ -784,18 +784,38 @@ void b2Body_DestroyChain(b2ChainId chainId)
 
 	B2_ASSERT(0 <= chainId.index && chainId.index < world->chainPool.count);
 
-	b2ChainShape* chainShape = world->chains + chainId.index;
-	B2_ASSERT(chainShape->object.revision == chainId.revision);
+	b2ChainShape* chain = world->chains + chainId.index;
+	B2_ASSERT(chain->object.revision == chainId.revision);
 
-	int32_t count = chainShape->count;
+	int32_t count = chain->count;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
-		int32_t shapeIndex = chainShape->shapeIndices[i];
+		int32_t shapeIndex = chain->shapeIndices[i];
 		B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.count);
 		b2Shape* shape = world->shapes + shapeIndex;
 		b2DestroyShape(world, shape);
 	}
+
+	b2Free(chain->shapeIndices, count * sizeof(int32_t));
+
+	// Remove the chain from the body's singly linked list.
+	b2Body* body = world->bodies + chain->bodyIndex;
+	int32_t* indexPtr = &body->chainList;
+	bool found = false;
+	while (*indexPtr != B2_NULL_INDEX)
+	{
+		if (*indexPtr == chain->object.index)
+		{
+			*indexPtr = chain->nextIndex;
+			found = true;
+			break;
+		}
+
+		indexPtr = &(world->chains[*indexPtr].nextIndex);
+	}
+
+	b2FreeObject(&world->chainPool, &chain->object);
 }
 
 bool b2IsBodyAwake(b2World* world, b2Body* body)
