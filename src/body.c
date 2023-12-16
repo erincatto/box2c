@@ -795,18 +795,6 @@ void b2Body_DestroyChain(b2ChainId chainId)
 	b2ChainShape* chain = world->chains + chainId.index;
 	B2_ASSERT(chain->object.revision == chainId.revision);
 
-	int32_t count = chain->count;
-
-	for (int32_t i = 0; i < count; ++i)
-	{
-		int32_t shapeIndex = chain->shapeIndices[i];
-		B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.count);
-		b2Shape* shape = world->shapes + shapeIndex;
-		b2DestroyShape(world, shape);
-	}
-
-	b2Free(chain->shapeIndices, count * sizeof(int32_t));
-
 	// Remove the chain from the body's singly linked list.
 	b2Body* body = world->bodies + chain->bodyIndex;
 	int32_t* indexPtr = &body->chainList;
@@ -823,6 +811,22 @@ void b2Body_DestroyChain(b2ChainId chainId)
 		indexPtr = &(world->chains[*indexPtr].nextIndex);
 	}
 
+	B2_ASSERT(found == true);
+	if (found == false)
+	{
+		return;
+	}
+
+	int32_t count = chain->count;
+	for (int32_t i = 0; i < count; ++i)
+	{
+		int32_t shapeIndex = chain->shapeIndices[i];
+		B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.count);
+		b2Shape* shape = world->shapes + shapeIndex;
+		b2DestroyShape(world, shape);
+	}
+
+	b2Free(chain->shapeIndices, count * sizeof(int32_t));
 	b2FreeObject(&world->chainPool, &chain->object);
 }
 
