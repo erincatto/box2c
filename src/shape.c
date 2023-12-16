@@ -201,11 +201,8 @@ b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
 b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
-	B2_ASSERT(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
-	b2Shape* shape = world->shapes + shapeId.index;
-	B2_ASSERT(b2ObjectValid(&shape->object));
+	b2Shape* shape = b2GetShape(world, shapeId);
 
-	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
 	b2Body* body = world->bodies + shape->bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 

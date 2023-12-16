@@ -239,7 +239,7 @@ class BenchmarkTumbler : public Sample
 
 	void Step(Settings& settings) override
 	{
-		if (settings.m_pause == false || settings.m_singleStep == true)
+		if (settings.pause == false || settings.singleStep == true)
 		{
 			float a = 0.125f;
 			for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
@@ -786,12 +786,12 @@ class BenchmarkCreateDestroy : public Sample
 
 	void Step(Settings& settings) override
 	{
-		float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : float(0.0f);
+		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : float(0.0f);
 
 		for (int32_t i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
-			b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_relaxIterations);
+			b2World_Step(m_worldId, timeStep, settings.velocityIterations, settings.relaxIterations);
 		}
 
 		Sample::Step(settings);

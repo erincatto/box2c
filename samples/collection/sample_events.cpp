@@ -286,9 +286,9 @@ public:
 			}
 		}
 
-		if (settings.m_hertz > 0.0f && settings.m_pause == false)
+		if (settings.hertz > 0.0f && settings.pause == false)
 		{
-			m_wait -= 1.0f / settings.m_hertz;
+			m_wait -= 1.0f / settings.hertz;
 			if (m_wait < 0.0f)
 			{
 				CreateRing();

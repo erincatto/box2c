@@ -7,9 +7,11 @@
 
 #include "box2d/distance.h"
 #include "box2d/geometry.h"
+#include "box2d/id.h"
 #include "box2d/types.h"
 
 typedef struct b2BroadPhase b2BroadPhase;
+typedef struct b2World b2World;
 
 typedef enum
 {
@@ -40,7 +42,9 @@ typedef struct b2Shape
 	void* userData;
 
 	bool isSensor;
-	bool reportContacts;
+	bool enableSensorEvents;
+	bool enableContactEvents;
+	bool enablePreSolveEvents;
 	bool enlargedAABB;
 	bool isFast;
 

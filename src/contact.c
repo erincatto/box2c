@@ -13,6 +13,7 @@
 #include "world.h"
 
 #include "box2d/distance.h"
+#include "box2d/event_types.h"
 #include "box2d/manifold.h"
 #include "box2d/timer.h"
 
@@ -207,6 +208,21 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
 		contact->flags |= b2_contactSensorFlag;
+	}
+
+	if (shapeA->enableSensorEvents || shapeB->enableSensorEvents)
+	{
+		contact->flags |= b2_contactEnableSensorEvents;
+	}
+
+	if (shapeA->enableContactEvents || shapeB->enableContactEvents)
+	{
+		contact->flags |= b2_contactEnableContactEvents;
+	}
+
+	if (shapeA->enablePreSolveEvents || shapeB->enablePreSolveEvents)
+	{
+		contact->flags |= b2_contactEnablePreSolveEvents;
 	}
 
 	contact->shapeIndexA = shapeA->object.index;
@@ -461,7 +477,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 			}
 		}
 
-		if (touching && world->preSolveFcn)
+		if (touching && world->preSolveFcn && (contact->flags & b2_contactEnablePreSolveEvents) != 0)
 		{
 			// TODO_ERIN this call assumes thread safety
 			int32_t colorIndex = contact->colorIndex;
@@ -492,4 +508,71 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	//{
 	//	world->callbacks.endContactFcn(shapeIdA, shapeIdB);
 	// }
+}
+
+b2Contact* b2GetContact(b2World* world, b2ContactId contactId)
+{
+	B2_ASSERT(0 <= contactId.index && contactId.index < world->contactPool.capacity);
+	b2Contact* contact = world->contacts + contactId.index;
+	B2_ASSERT(b2ObjectValid(&contact->object));
+	B2_ASSERT(contact->object.revision == contactId.revision);
+	return contact;
+}
+
+b2ContactId b2Body_GetFirstContact(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+
+	if (body->contactList == B2_NULL_INDEX)
+	{
+		return b2_nullContactId;
+	}
+
+	b2Contact* contact = world->contacts + body->contactList;
+	b2ContactId id = {contact->object.index, bodyId.world, contact->object.revision};
+	return id;
+}
+
+b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId)
+{
+	b2World* world = b2GetWorldFromIndex(contactId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	b2Contact* contact = b2GetContact(world, contactId);
+
+	if (contact->edges[0].bodyIndex == body->object.index)
+	{
+		if (contact->edges[0].nextKey == B2_NULL_INDEX)
+		{
+			return b2_nullContactId;
+		}
+
+		contact = world->contacts + (contact->edges[0].nextKey >> 1);
+	}
+	else
+	{
+		B2_ASSERT(contact->edges[1].bodyIndex == body->object.index);
+
+		if (contact->edges[1].nextKey == B2_NULL_INDEX)
+		{
+			return b2_nullContactId;
+		}
+
+		contact = world->contacts + (contact->edges[1].nextKey >> 1);
+	}
+
+	b2ContactId id = {contact->object.index, bodyId.world, contact->object.revision};
+	return id;
+}
+
+b2ContactData b2Contact_GetData(b2ContactId contactId)
+{
+	b2World* world = b2GetWorldFromIndex(contactId.world);
+	b2Contact* contact = b2GetContact(world, contactId);
+	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+	b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+	b2ShapeId idA = {shapeA->object.index, contactId.world, shapeA->object.revision};
+	b2ShapeId idB = {shapeB->object.index, contactId.world, shapeB->object.revision};
+	b2ContactData data = {idA, idB, contact->manifold};
+	return data;
 }

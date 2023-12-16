@@ -58,7 +58,7 @@ typedef struct b2ChainId
 static const b2WorldId b2_nullWorldId = {-1, 0};
 static const b2BodyId b2_nullBodyId = {-1, -1, 0};
 static const b2ShapeId b2_nullShapeId = {-1, -1, 0};
-static const b2JointId b2_nullContactId = {-1, -1, 0};
+static const b2ContactId b2_nullContactId = {-1, -1, 0};
 static const b2JointId b2_nullJointId = {-1, -1, 0};
 static const b2ChainId b2_nullChainId = {-1, -1, 0};
 

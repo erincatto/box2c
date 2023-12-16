@@ -135,11 +135,11 @@ public:
 	{
 		Sample::Step(settings);
 
-		float torque1 = b2RevoluteJoint_GetMotorTorque(m_joint1, settings.m_hertz);
+		float torque1 = b2RevoluteJoint_GetMotorTorque(m_joint1, settings.hertz);
 		g_draw.DrawString(5, m_textLine, "Motor Torque 1= %4.0f", torque1);
 		m_textLine += m_textIncrement;
 
-		float torque2 = b2RevoluteJoint_GetMotorTorque(m_joint2, settings.m_hertz);
+		float torque2 = b2RevoluteJoint_GetMotorTorque(m_joint2, settings.hertz);
 		g_draw.DrawString(5, m_textLine, "Motor Torque 2= %4.0f", torque2);
 		m_textLine += m_textIncrement;
 	}
@@ -469,7 +469,7 @@ class DistanceJoint : public Sample
 	DistanceJoint(const Settings& settings)
 		: Sample(settings)
 	{
-		if (settings.m_restart == false)
+		if (settings.restart == false)
 		{
 			g_camera.m_zoom = 0.25f;
 		}
@@ -825,18 +825,18 @@ class UserConstraint : public Sample
 		b2Transform axes = b2Transform_identity;
 		g_draw.DrawTransform(axes);
 
-		if (settings.m_pause)
+		if (settings.pause)
 		{
 			return;
 		}
 
-		float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : 0.0f;
+		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
 		if (timeStep == 0.0f)
 		{
 			return;
 		}
 
-		float invTimeStep = settings.m_hertz;
+		float invTimeStep = settings.hertz;
 
 		static float hertz = 3.0f;
 		static float zeta = 0.7f;

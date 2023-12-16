@@ -41,7 +41,7 @@ public:
 	ChainShape(const Settings& settings)
 		: Sample(settings)
 	{
-		if (settings.m_restart == false)
+		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
 			g_camera.m_zoom = 1.75f;

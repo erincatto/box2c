@@ -350,13 +350,13 @@ void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
 {
-	b2Joint* joint = b2GetJoint(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
 	return inverseTimeStep * joint->revoluteJoint.motorImpulse;
 }
 
 void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
 {
-	b2Joint* joint = b2GetJoint(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
 	joint->revoluteJoint.maxMotorTorque = torque;
 }
 

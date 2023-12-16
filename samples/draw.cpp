@@ -905,11 +905,15 @@ void Draw::Create()
 					DrawTransformFcn,
 					DrawPointFcn,
 					DrawStringFcn,
-					true,
-					true,
-					false,
-					false,
-					false,
+					true, // shapes
+					true, // joints
+					false, // aabbs
+					false, // mass
+					false, // contacts
+					false, // colors
+					false, // normals
+					false, // impulse
+					false, // friction
 					this};
 }
 

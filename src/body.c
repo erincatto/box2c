@@ -260,7 +260,7 @@ b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
 }
 
 // Get a validated body from a world using an id.
-static b2Body* b2GetBody(b2World* world, b2BodyId id)
+b2Body* b2GetBody(b2World* world, b2BodyId id)
 {
 	B2_ASSERT(0 <= id.index && id.index < world->bodyPool.capacity);
 	b2Body* body = world->bodies + id.index;
@@ -441,7 +441,9 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	shape->userData = def->userData;
 	shape->isSensor = def->isSensor;
 	shape->enlargedAABB = false;
-	shape->reportContacts = false;
+	shape->enableSensorEvents = def->enableSensorEvents;
+	shape->enableContactEvents = def->enableContactEvents;
+	shape->enablePreSolveEvents = def->enablePreSolveEvents;
 	shape->isFast = false;
 	shape->proxyKey = B2_NULL_INDEX;
 	shape->localCentroid = b2GetShapeCentroid(shape);

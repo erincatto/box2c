@@ -29,7 +29,6 @@ typedef struct b2ContactEdge
 enum b2ContactFlags
 {
 	// Set when the shapes are touching.
-	// TODO_ERIN sensor only? Overlap?
 	b2_contactTouchingFlag = 0x00000002,
 
 	// This contact can be disabled (by user)
@@ -50,6 +49,15 @@ enum b2ContactFlags
 
 	// This contact stopped touching
 	b2_contactStoppedTouching = 0x00000080,
+
+	// This contact wants sensor events
+	b2_contactEnableSensorEvents = 0x00000100,
+
+	// This contact wants contact events
+	b2_contactEnableContactEvents = 0x00000200,
+
+	// This contact wants presolve events
+	b2_contactEnablePreSolveEvents = 0x00000400,
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
