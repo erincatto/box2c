@@ -61,7 +61,7 @@ typedef struct b2ContactEvents
 	int endCount;
 } b2ContactEvents;
 
-/// This is the data you can access using a b2ContactId
+/// This is the data you can access using a b2ContactId. 
 typedef struct b2ContactData
 {
 	b2ShapeId shapeIdA;

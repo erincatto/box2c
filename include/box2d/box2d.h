@@ -42,9 +42,6 @@ BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// @warning This function is locked during callbacks.
 BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
-/// Destroy a rigid body and get an array of all the shapes it was touching (on other bodies).
-BOX2D_API int32_t b2World_DestroyBodyAndGetTouching(b2BodyId bodyId, b2ShapeId* touchingShapes, int32_t maxShapes);
-
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
 BOX2D_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
@@ -107,7 +104,7 @@ BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
 
 /// Destroy a shape from a body and get an array of all the other shapes this shape was touching.
-BOX2D_API int32_t b2Body_DestroyShapeAndGetTouching(b2ShapeId shapeId, b2ShapeId* touchingShapes, int32_t maxShapes);
+BOX2D_API int32_t b2Body_GetTouching(b2ShapeId shapeId, b2ShapeId* touchingShapes, int32_t maxShapes);
 
 BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
@@ -133,9 +130,18 @@ BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
 BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 
 /// Contacts
-BOX2D_API b2ContactId b2Body_GetFirstContact(b2BodyId bodyId);
-BOX2D_API b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId);
-BOX2D_API b2ContactData b2Contact_GetData(b2ContactId contactId);
+
+/// Get the number of touching contacts on a body
+BOX2D_API int32_t b2Body_GetContactCount(b2BodyId bodyId);
+
+/// Get the touching contact data for a body
+BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+
+/// Get the number of touching contacts on a shape. For efficiency, this may be larger than the actual number.
+BOX2D_API int32_t b2Shape_GetContactCount(b2ShapeId shapeId);
+
+/// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
+BOX2D_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
 
 /// Create a joint
 BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);

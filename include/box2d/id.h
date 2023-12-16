@@ -64,3 +64,6 @@ static const b2ChainId b2_nullChainId = {-1, -1, 0};
 
 #define B2_IS_NULL(id) (id.index == -1)
 #define B2_NON_NULL(id) (id.index != -1)
+
+// Compare two ids for equality. Doesn't work for b2WorldId./
+#define B2_ID_EQUALS(id1, id2) (id1.index == id2.index && id1.world == id2.world && id1.revision == id2.revision)

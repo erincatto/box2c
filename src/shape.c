@@ -5,7 +5,10 @@
 
 #include "body.h"
 #include "broad_phase.h"
+#include "contact.h"
 #include "world.h"
+
+#include "box2d/event_types.h"
 
 b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf)
 {
@@ -355,4 +358,62 @@ void b2Chain_SetRestitution(b2ChainId chainId, float restitution)
 		b2Shape* shape = world->shapes + shapeIndex;
 		shape->restitution = restitution;
 	}
+}
+
+int32_t b2Shape_GetContactCount(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return 0;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	b2Body* body = world->bodies + shape->bodyIndex;
+
+	// Conservative and fast
+	return body->contactCount;
+}
+
+int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return 0;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+
+	b2Body* body = world->bodies + shape->bodyIndex;
+	int32_t contactKey = body->contactList;
+	int32_t index = 0;
+	while (contactKey != B2_NULL_INDEX && index < capacity)
+	{
+		int32_t contactIndex = contactKey >> 1;
+		int32_t edgeIndex = contactKey & 1;
+
+		b2Contact* contact = world->contacts + contactIndex;
+
+		// Does contact involve this shape and is it touching?
+		if ((contact->shapeIndexA == shapeId.index || contact->shapeIndexB == shapeId.index) &&
+			(contact->flags & b2_contactTouchingFlag) != 0)
+		{
+			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+
+			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index, shapeId.world, shapeA->object.revision};
+			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index, shapeId.world, shapeB->object.revision};
+			contactData[index].manifold = contact->manifold;
+			index += 1;
+		}
+
+		contactKey = contact->edges[edgeIndex].nextKey;
+	}
+
+	B2_ASSERT(index < capacity);
+
+	return index;
 }
