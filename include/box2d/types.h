@@ -349,6 +349,8 @@ typedef struct b2ChainDef
 	b2Filter filter;
 } b2ChainDef;
 
+static const b2ChainDef b2_defaultChainDef = {NULL, 0, false, NULL, 0.6f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}};
+
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef(void)
 {

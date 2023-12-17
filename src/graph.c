@@ -2235,6 +2235,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 				b2Shape* shape = shapes + shapeIndex;
 				if (shape->enlargedAABB == false)
 				{
+					shapeIndex = shape->nextShapeIndex;
 					continue;
 				}
 

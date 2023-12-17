@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "api.h"
 #include "types.h"
 
 #include <math.h>
@@ -23,9 +24,6 @@ static const b2Rot b2Rot_identity = {0.0f, 1.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 static const b2Mat33 b2Mat33_zero = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-
-bool b2IsValid(float a);
-bool b2IsValidVec2(b2Vec2 v);
 
 /// Make a vector
 static inline b2Vec2 b2MakeVec2(float x, float y)
@@ -166,14 +164,6 @@ static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 	c.y = B2_CLAMP(v.y, a.y, b.y);
 	return c;
 }
-
-/// Convert this vector into a unit vector
-b2Vec2 b2Normalize(b2Vec2 v);
-
-/// This asserts of the vector is too short
-b2Vec2 b2NormalizeChecked(b2Vec2 v);
-
-b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
 
 /// Get the length of this vector (the norm).
 static inline float b2Length(b2Vec2 v)
@@ -417,3 +407,14 @@ static inline b2Vec3 b2Solve33(b2Mat33 A, b2Vec3 b)
 #ifdef __cplusplus
 }
 #endif
+
+BOX2D_API bool b2IsValid(float a);
+BOX2D_API bool b2IsValidVec2(b2Vec2 v);
+
+/// Convert this vector into a unit vector
+BOX2D_API b2Vec2 b2Normalize(b2Vec2 v);
+
+/// This asserts of the vector is too short
+BOX2D_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
+
+BOX2D_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);

@@ -902,6 +902,23 @@ b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId)
 	return events;
 }
 
+b2ContactEvents b2World_GetContactEvents(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return (b2ContactEvents){0};
+	}
+
+	int beginCount = b2Array(world->contactBeginArray).count;
+	int endCount = b2Array(world->contactEndArray).count;
+
+	b2ContactEvents events = {world->contactBeginArray, world->contactEndArray, beginCount, endCount};
+	return events;
+
+}
+
 bool b2World_IsValid(b2WorldId id)
 {
 	if (id.index < 0 || b2_maxWorlds <= id.index)
@@ -1336,6 +1353,9 @@ void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2Que
 	}
 
 	b2RayCastInput input = {origin, translation, 1.0f};
+
+	// todo validate input
+
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)

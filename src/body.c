@@ -270,6 +270,30 @@ b2Body* b2GetBody(b2World* world, b2BodyId id)
 	return body;
 }
 
+bool b2IsBodyAwake(b2World* world, b2Body* body)
+{
+	if (body->islandIndex != B2_NULL_INDEX)
+	{
+		b2Island* island = world->islands + body->islandIndex;
+		return island->awakeIndex != B2_NULL_INDEX;
+	}
+
+	return false;
+}
+
+void b2WakeBody(b2World* world, b2Body* body)
+{
+	if (body->islandIndex != B2_NULL_INDEX)
+	{
+		int32_t islandIndex = body->islandIndex;
+		B2_ASSERT(0 <= islandIndex && islandIndex < world->islandPool.capacity);
+		b2WakeIsland(world->islands + islandIndex);
+		return;
+	}
+
+	B2_ASSERT(body->type == b2_staticBody);
+}
+
 void b2DestroyBody(b2World* world, b2Body* body)
 {
 	// User must destroy joints before destroying bodies
@@ -681,10 +705,7 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 		return;
 	}
 
-	B2_ASSERT(0 <= shapeId.index && shapeId.index < world->shapePool.count);
-
-	b2Shape* shape = world->shapes + shapeId.index;
-	B2_ASSERT(shape->object.revision == shapeId.revision);
+	b2Shape* shape = b2GetShape(world, shapeId);
 
 	b2DestroyShape(world, shape);
 }
@@ -830,18 +851,6 @@ void b2Body_DestroyChain(b2ChainId chainId)
 	b2FreeObject(&world->chainPool, &chain->object);
 }
 
-bool b2IsBodyAwake(b2World* world, b2Body* body)
-{
-	if (body->islandIndex != B2_NULL_INDEX)
-	{
-		b2Island* island = world->islands + body->islandIndex;
-		return island->awakeIndex != B2_NULL_INDEX;
-	}
-
-	B2_ASSERT(body->type == b2_staticBody);
-	return false;
-}
-
 b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
@@ -852,8 +861,15 @@ b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
 float b2Body_GetAngle(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(0 <= bodyId.index && bodyId.index < world->bodyPool.capacity);
-	return world->bodies[bodyId.index].angle;
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->angle;
+}
+
+b2Transform b2Body_GetTransform(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->transform;
 }
 
 b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint)
@@ -938,6 +954,11 @@ void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
 	body->linearVelocity = linearVelocity;
 }
 
@@ -945,7 +966,139 @@ void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
 	body->angularVelocity = angularVelocity;
+
+	if (angularVelocity != 0.0f)
+	{
+		b2WakeBody(world, body);
+	}
+}
+
+void b2Body_ApplyForce(b2BodyId bodyId, b2Vec2 force, b2Vec2 point, bool wake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
+	if (wake)
+	{
+		b2WakeBody(world, body);
+	}
+
+	if (b2IsBodyAwake(world, body))
+	{
+		body->force = b2Add(body->force, force);
+		body->torque += b2Cross(b2Sub(point, body->position), force);
+	}
+}
+
+void b2Body_ApplyForceToCenter(b2BodyId bodyId, b2Vec2 force, bool wake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
+	if (wake)
+	{
+		b2WakeBody(world, body);
+	}
+
+	if (b2IsBodyAwake(world, body))
+	{
+		body->force = b2Add(body->force, force);
+	}
+}
+
+void b2Body_ApplyTorque(b2BodyId bodyId, float torque, bool wake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
+	if (wake)
+	{
+		b2WakeBody(world, body);
+	}
+
+	if (b2IsBodyAwake(world, body))
+	{
+		body->torque += torque;
+	}
+}
+
+void b2Body_ApplyLinearImpulse(b2BodyId bodyId, b2Vec2 impulse, b2Vec2 point, bool wake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
+	if (wake)
+	{
+		b2WakeBody(world, body);
+	}
+
+	if (b2IsBodyAwake(world, body))
+	{
+		body->linearVelocity = b2MulAdd(body->linearVelocity, body->invMass, impulse);
+		body->angularVelocity += body->invI * b2Cross(b2Sub(point, body->position), impulse);
+	}
+}
+
+void b2Body_ApplyLinearImpulseToCenter(b2BodyId bodyId, b2Vec2 impulse, bool wake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
+	if (wake)
+	{
+		b2WakeBody(world, body);
+	}
+
+	if (b2IsBodyAwake(world, body))
+	{
+		body->linearVelocity = b2MulAdd(body->linearVelocity, body->invMass, impulse);
+	}
+}
+
+void b2Body_ApplyAngularImpulse(b2BodyId bodyId, float impulse, bool wake)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->type == b2_staticBody || body->isEnabled == false)
+	{
+		return;
+	}
+
+	if (wake)
+	{
+		b2WakeBody(world, body);
+	}
+
+	if (b2IsBodyAwake(world, body))
+	{
+		body->angularVelocity += impulse;
+	}
 }
 
 b2BodyType b2Body_GetType(b2BodyId bodyId)
@@ -1032,6 +1185,13 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	body->invI = body->I > 0.0f ? 1.0f / body->I : 0.0f;
 }
 
+bool b2Body_IsAwake(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return b2IsBodyAwake(world, body);
+}
+
 void b2Body_Wake(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
@@ -1041,10 +1201,7 @@ void b2Body_Wake(b2BodyId bodyId)
 		return;
 	}
 
-	int32_t islandIndex = body->islandIndex;
-	B2_ASSERT(0 <= islandIndex && islandIndex < world->islandPool.capacity);
-
-	b2WakeIsland(world->islands + islandIndex);
+	b2WakeBody(world, body);
 }
 
 bool b2Body_IsEnabled(b2BodyId bodyId)
