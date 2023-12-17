@@ -36,4 +36,9 @@ BOX2D_API void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 /// Total bytes allocated by Box2D
 BOX2D_API uint32_t b2GetByteCount(void);
 
-BOX2D_API b2AssertFcn* Box2DAssertCallback;
+#ifdef __cplusplus
+extern "C" b2AssertFcn* Box2DAssertCallback;
+#else
+extern b2AssertFcn* Box2DAssertCallback;
+#endif
+
