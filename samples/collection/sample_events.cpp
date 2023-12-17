@@ -434,6 +434,9 @@ public:
 
 	void Step(Settings& settings) override
 	{
+		g_draw.DrawString(5, m_textLine, "move using WASD");
+		m_textLine += m_textIncrement;
+
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
 		{
 			b2Body_ApplyForceToCenter(m_playerId, {-m_force, 0.0f}, true);

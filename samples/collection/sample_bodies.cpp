@@ -361,6 +361,7 @@ public:
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 3.0f};
+			bodyDef.angle = 0.25f * b2_pi;
 			m_weebleId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Capsule capsule = {{0.0f, -1.0f}, {0.0f, 1.0f}, 1.0f};

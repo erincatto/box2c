@@ -145,9 +145,6 @@ BOX2D_API b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
 
-/// Destroy a shape from a body and get an array of all the other shapes this shape was touching.
-BOX2D_API int32_t b2Body_GetTouching(b2ShapeId shapeId, b2ShapeId* touchingShapes, int32_t maxShapes);
-
 BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
 
@@ -250,13 +247,6 @@ BOX2D_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, 
 
 BOX2D_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
 								 b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
-
-/// Id validation. These allow validation for up 64K allocations.
-BOX2D_API bool b2World_IsValid(b2WorldId id);
-BOX2D_API bool b2Body_IsValid(b2BodyId id);
-BOX2D_API bool b2Shape_IsValid(b2ShapeId id);
-BOX2D_API bool b2Chain_IsValid(b2ChainId id);
-BOX2D_API bool b2Joint_IsValid(b2JointId id);
 
 /// Advanced API for testing and special cases
 

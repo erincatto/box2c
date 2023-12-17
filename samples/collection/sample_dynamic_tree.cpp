@@ -251,8 +251,8 @@ class DynamicTree : public Sample
 			g_draw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
 		}
 
-		// m_startPoint = {-42.0f, -6.0f};
-		// m_endPoint = {-38.0f, -2.0f};
+		 //m_startPoint = {-1.0f, 0.5f};
+		 //m_endPoint = {7.0f, 0.5f};
 
 		if (m_rayDrag)
 		{
@@ -299,7 +299,7 @@ class DynamicTree : public Sample
 				if (b2AABB_Contains(p->fatBox, p->box) == false)
 				{
 					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbMargin);
-					p->fatBox.upperBound = b2Add(p->box.lowerBound, aabbMargin);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbMargin);
 					p->moved = true;
 				}
 				else
