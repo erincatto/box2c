@@ -13,75 +13,7 @@
 #include <stdatomic.h>
 #include <string.h>
 
-#if 0
-b2WorldManifold b2ComputeWorldManifold(const b2Manifold* manifold, b2Transform xfA, float radiusA, b2Transform xfB,
-									   float radiusB)
-{
-	b2WorldManifold wm = {{0.0f, 0.0f}, {{0.0f, 0.0f}, {0.0f, 0.0f}}, {0.0f, 0.0f}};
-
-	if (manifold->pointCount == 0)
-	{
-		return wm;
-	}
-
-	switch (manifold->type)
-	{
-		case b2_manifoldCircles:
-		{
-			wm.normal = (b2Vec2){1.0f, 0.0f};
-			b2Vec2 pointA = b2TransformPoint(xfA, manifold->localPoint);
-			b2Vec2 pointB = b2TransformPoint(xfB, manifold->points[0].localPoint);
-			if (b2DistanceSquared(pointA, pointB) > FLT_EPSILON * FLT_EPSILON)
-			{
-				wm.normal = b2Normalize(b2Sub(pointB, pointA));
-			}
-
-			b2Vec2 cA = b2MulAdd(pointA, radiusA, wm.normal);
-			b2Vec2 cB = b2MulAdd(pointB, -radiusB, wm.normal);
-			wm.points[0] = b2MulSV(0.5f, b2Add(cA, cB));
-			wm.separations[0] = b2Dot(b2Sub(cB, cA), wm.normal);
-		}
-		break;
-
-		case b2_manifoldFaceA:
-		{
-			wm.normal = b2RotateVector(xfA.q, manifold->localNormal);
-			b2Vec2 planePoint = b2TransformPoint(xfA, manifold->localPoint);
-
-			for (int32_t i = 0; i < manifold->pointCount; ++i)
-			{
-				b2Vec2 clipPoint = b2TransformPoint(xfB, manifold->points[i].localPoint);
-				b2Vec2 cA = b2MulAdd(clipPoint, (radiusA - b2Dot(b2Sub(clipPoint, planePoint), wm.normal)), wm.normal);
-				b2Vec2 cB = b2MulAdd(clipPoint, -radiusB, wm.normal);
-				wm.points[i] = b2MulSV(0.5f, b2Add(cA, cB));
-				wm.separations[i] = b2Dot(b2Sub(cB, cA), wm.normal);
-			}
-		}
-		break;
-
-		case b2_manifoldFaceB:
-		{
-			wm.normal = b2RotateVector(xfB.q, manifold->localNormal);
-			b2Vec2 planePoint = b2TransformPoint(xfB, manifold->localPoint);
-
-			for (int32_t i = 0; i < manifold->pointCount; ++i)
-			{
-				b2Vec2 clipPoint = b2TransformPoint(xfA, manifold->points[i].localPoint);
-				b2Vec2 cB = b2MulAdd(clipPoint, (radiusB - b2Dot(b2Sub(clipPoint, planePoint), wm.normal)), wm.normal);
-				b2Vec2 cA = b2MulAdd(clipPoint, -radiusA, wm.normal);
-				wm.points[i] = b2MulSV(0.5f, b2Add(cA, cB));
-				wm.separations[i] = b2Dot(b2Sub(cA, cB), wm.normal);
-			}
-
-			// Ensure normal points from A to B.
-			wm.normal = b2Neg(wm.normal);
-		}
-		break;
-	}
-
-	return wm;
-}
-#endif
+#define B2_MAKE_ID(A, B) ((uint8_t)(A) << 8 | (uint8_t)(B))
 
 b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
@@ -942,16 +874,16 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* segmentA, b2T
 	int32_t count = polygonB->count;
 	b2Vec2 vertices[b2_maxPolygonVertices];
 	b2Vec2 normals[b2_maxPolygonVertices];
-	//b2Vec2 sum = b2Vec2_zero;
+	// b2Vec2 sum = b2Vec2_zero;
 	for (int32_t i = 0; i < count; ++i)
 	{
 		vertices[i] = b2TransformPoint(xf, polygonB->vertices[i]);
 		normals[i] = b2RotateVector(xf.q, polygonB->normals[i]);
 
-		//sum = b2Add(sum, b2Sub(vertices[i], centroidB));
+		// sum = b2Add(sum, b2Sub(vertices[i], centroidB));
 	}
 
-	//float sumLength = b2Length(sum);
+	// float sumLength = b2Length(sum);
 
 	// Distance doesn't work correctly with partial polygons
 	b2DistanceInput input;

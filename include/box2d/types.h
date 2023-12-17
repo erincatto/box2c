@@ -13,10 +13,15 @@
 
 #ifdef __cplusplus
 #define B2_LITERAL(T) T
-#define B2_ZERO_INIT {}
+#define B2_ZERO_INIT                                                                                                             \
+	{                                                                                                                            \
+	}
 #else
 #define B2_LITERAL(T) (T)
-#define B2_ZERO_INIT {0}
+#define B2_ZERO_INIT                                                                                                             \
+	{                                                                                                                            \
+		0                                                                                                                        \
+	}
 #endif
 
 #ifdef NDEBUG
@@ -261,6 +266,16 @@ typedef struct b2QueryFilter
 
 static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
 
+typedef enum b2ShapeType
+{
+	b2_capsuleShape,
+	b2_circleShape,
+	b2_polygonShape,
+	b2_segmentShape,
+	b2_smoothSegmentShape,
+	b2_shapeTypeCount
+} b2ShapeType;
+
 /// Used to create a shape
 typedef struct b2ShapeDef
 {
@@ -279,14 +294,23 @@ typedef struct b2ShapeDef
 	/// Contact filtering data.
 	b2Filter filter;
 
-	/// A sensor shape collects contact information but never generates a collision
-	/// response.
+	/// A sensor shape collects contact information but never generates a collision response.
 	bool isSensor;
+
+	/// Enable sensor events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	bool enableSensorEvents;
+
+	/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	bool enableContactEvents;
+
+	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
+	///	and must be carefully handled due to multi-threading. Ignored for sensors.
+	bool enablePreSolveEvents;
 
 } b2ShapeDef;
 
 static const b2ShapeDef b2_defaultShapeDef = {
-	NULL, 0.6f, 0.0f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}, false,
+	NULL, 0.6f, 0.0f, 1.0f, {0x00000001, 0xFFFFFFFF, 0}, false, true, true, false,
 };
 
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
@@ -324,6 +348,8 @@ typedef struct b2ChainDef
 	/// Contact filtering data.
 	b2Filter filter;
 } b2ChainDef;
+
+static const b2ChainDef b2_defaultChainDef = {NULL, 0, false, NULL, 0.6f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}};
 
 /// Make a world definition with default values.
 static inline b2WorldDef b2DefaultWorldDef(void)
@@ -371,6 +397,10 @@ static inline struct b2ShapeDef b2DefaultShapeDef(void)
 	def.density = 0.0f;
 	def.filter = b2_defaultFilter;
 	def.isSensor = false;
+	def.enableSensorEvents = true;
+	def.enableContactEvents = true;
+	def.enablePreSolveEvents = false;
+
 	return def;
 }
 

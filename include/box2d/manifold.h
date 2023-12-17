@@ -14,8 +14,6 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 typedef struct b2SmoothSegment b2SmoothSegment;
 
-#define B2_MAKE_ID(A, B) ((uint8_t)(A) << 8 | (uint8_t)(B))
-
 /// A manifold point is a contact point belonging to a contact
 /// manifold. It holds details related to the geometry and dynamics
 /// of the contact points.
@@ -24,7 +22,7 @@ typedef struct b2ManifoldPoint
 	/// world coordinates of contact point
 	b2Vec2 point;
 
-	/// Body anchors used by solver
+	/// body anchors used by solver internally
 	b2Vec2 anchorA, anchorB;
 
 	/// the separation of the contact point, negative if penetrating

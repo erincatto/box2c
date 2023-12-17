@@ -38,3 +38,6 @@ void b2Array_Grow(void** a, int32_t elementSize);
 #define b2Array_Pop(a) \
 	B2_ASSERT(0 < b2Array(a).count); \
 	b2Array(a).count--
+
+#define b2GetArrayCount(a) (b2Array(a).count)
+#define b2GetArrayCapacity(a) (b2Array(a).capacity)

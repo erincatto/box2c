@@ -124,6 +124,9 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->sensorBeginEventArray = b2CreateArray(sizeof(b2SensorBeginTouchEvent), 4);
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 
+	world->contactBeginArray = b2CreateArray(sizeof(b2ContactBeginTouchEvent), 4);
+	world->contactEndArray = b2CreateArray(sizeof(b2ContactEndTouchEvent), 4);
+
 	world->stepId = 0;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
@@ -193,6 +196,9 @@ void b2DestroyWorld(b2WorldId id)
 
 	b2DestroyArray(world->sensorBeginEventArray, sizeof(b2SensorBeginTouchEvent));
 	b2DestroyArray(world->sensorEndEventArray, sizeof(b2SensorEndTouchEvent));
+
+	b2DestroyArray(world->contactBeginArray, sizeof(b2ContactBeginTouchEvent));
+	b2DestroyArray(world->contactEndArray, sizeof(b2ContactEndTouchEvent));
 
 	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->jointPool);
@@ -371,6 +377,9 @@ static void b2Collide(b2World* world)
 	// Prepare to capture events
 	b2Array_Clear(world->sensorBeginEventArray);
 	b2Array_Clear(world->sensorEndEventArray);
+	b2Array_Clear(world->contactBeginArray);
+	b2Array_Clear(world->contactEndArray);
+
 	const b2Shape* shapes = world->shapes;
 	int16_t worldIndex = world->index;
 
@@ -389,21 +398,29 @@ static void b2Collide(b2World* world)
 			B2_ASSERT(contactIndex != B2_NULL_INDEX);
 
 			b2Contact* contact = world->contacts + contactIndex;
+			const b2Shape* shapeA = shapes + contact->shapeIndexA;
+			const b2Shape* shapeB = shapes + contact->shapeIndexB;
+			b2ShapeId shapeIdA = {shapeA->object.index, worldIndex, shapeA->object.revision};
+			b2ShapeId shapeIdB = {shapeB->object.index, worldIndex, shapeB->object.revision};
+			uint32_t flags = contact->flags;
 
-			if (contact->flags & b2_contactDisjoint)
+			if (flags & b2_contactDisjoint)
 			{
+				// Was touching?
+				if ((flags & b2_contactTouchingFlag) != 0 && (flags & b2_contactEnableContactEvents) != 0)
+				{
+					b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
+					b2Array_Push(world->contactEndArray, event);
+				}
+
 				// Bounding boxes no longer overlap
 				b2DestroyContact(world, contact);
 			}
-			else if (contact->flags & b2_contactStartedTouching)
+			else if (flags & b2_contactStartedTouching)
 			{
 				B2_ASSERT(contact->islandIndex == B2_NULL_INDEX);
-				if (contact->flags & b2_contactSensorFlag)
+				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
 				{
-					const b2Shape* shapeA = shapes + contact->shapeIndexA;
-					const b2Shape* shapeB = shapes + contact->shapeIndexB;
-					b2ShapeId shapeIdA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-					b2ShapeId shapeIdB = {shapeB->object.index, worldIndex, shapeB->object.revision};
 					if (shapeA->isSensor)
 					{
 						b2SensorBeginTouchEvent event = {shapeIdA, shapeIdB};
@@ -418,20 +435,23 @@ static void b2Collide(b2World* world)
 				}
 				else
 				{
+					if (flags & b2_contactEnableContactEvents)
+					{
+						b2ContactBeginTouchEvent event = {shapeIdA, shapeIdB, contact->manifold};
+						b2Array_Push(world->contactBeginArray, event);
+					}
+
 					b2LinkContact(world, contact);
 					b2AddContactToGraph(world, contact);
 				}
+
 				contact->flags &= ~b2_contactStartedTouching;
 			}
 			else
 			{
 				B2_ASSERT(contact->flags & b2_contactStoppedTouching);
-				if (contact->flags & b2_contactSensorFlag)
+				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
 				{
-					const b2Shape* shapeA = shapes + contact->shapeIndexA;
-					const b2Shape* shapeB = shapes + contact->shapeIndexB;
-					b2ShapeId shapeIdA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-					b2ShapeId shapeIdB = {shapeB->object.index, worldIndex, shapeB->object.revision};
 					if (shapeA->isSensor)
 					{
 						b2SensorEndTouchEvent event = {shapeIdA, shapeIdB};
@@ -446,9 +466,16 @@ static void b2Collide(b2World* world)
 				}
 				else
 				{
+					if (contact->flags & b2_contactEnableContactEvents)
+					{
+						b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
+						b2Array_Push(world->contactEndArray, event);
+					}
+
 					b2UnlinkContact(world, contact);
 					b2RemoveContactFromGraph(world, contact);
 				}
+
 				contact->flags &= ~b2_contactStoppedTouching;
 			}
 
@@ -761,13 +788,100 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
-			draw->DrawTransform(body->transform, draw->context);
+			b2Transform transform = {body->position, body->transform.q};
+			draw->DrawTransform(transform, draw->context);
 
-			b2Vec2 p = b2TransformPoint(body->transform, offset);
+			b2Vec2 p = b2TransformPoint(transform, offset);
 
 			char buffer[32];
 			sprintf(buffer, "%.1f", body->mass);
 			draw->DrawString(p, buffer, draw->context);
+		}
+	}
+
+	if (draw->drawContacts)
+	{
+		const float k_impulseScale = 1.0f;
+		const float k_axisScale = 0.3f;
+		b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
+		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
+		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
+		b2Color normalColor = {0.9f, 0.9f, 0.9f, 1.0f};
+		b2Color impulseColor = {0.9f, 0.9f, 0.3f, 1.0f};
+		b2Color frictionColor = {0.9f, 0.9f, 0.3f, 1.0f};
+
+		b2HexColor colors[b2_graphColorCount + 1] = {
+			b2_colorRed,  b2_colorOrange,	 b2_colorYellow,	b2_colorGreen, b2_colorCyan, b2_colorBlue, b2_colorViolet,
+			b2_colorPink, b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral, b2_colorAqua, b2_colorBlack};
+
+		int count = b2GetArrayCount(world->awakeContactArray);
+
+		for (int32_t i = 0; i < count; ++i)
+		{
+			int index = world->awakeContactArray[i];
+			if (index == B2_NULL_INDEX)
+			{
+				continue;
+			}
+
+			b2Contact* contact = world->contacts + index;
+			int pointCount = contact->manifold.pointCount;
+			int colorIndex = contact->colorIndex;
+			b2Vec2 normal = contact->manifold.normal;
+			char buffer[32];
+
+			for (int j = 0; j < pointCount; ++j)
+			{
+				b2ManifoldPoint* point = contact->manifold.points + j;
+
+				if (draw->drawGraphColors && 0 <= colorIndex && colorIndex <= b2_graphColorCount)
+				{
+					// graph color
+					float pointSize = colorIndex == b2_graphColorCount ? 7.5f : 5.0f;
+					draw->DrawPoint(point->point, pointSize, b2MakeColor(colors[colorIndex], 1.0f), draw->context);
+					// g_draw.DrawString(point->position, "%d", point->color);
+				}
+				else if (point->separation > b2_linearSlop)
+				{
+					// Speculative
+					draw->DrawPoint(point->point, 5.0f, speculativeColor, draw->context);
+				}
+				else if (point->persisted == false)
+				{
+					// Add
+					draw->DrawPoint(point->point, 10.0f, addColor, draw->context);
+				}
+				else if (point->persisted == true)
+				{
+					// Persist
+					draw->DrawPoint(point->point, 5.0f, persistColor, draw->context);
+				}
+
+				if (draw->drawContactNormals)
+				{
+					b2Vec2 p1 = point->point;
+					b2Vec2 p2 = b2MulAdd(p1, k_axisScale, normal);
+					draw->DrawSegment(p1, p2, normalColor, draw->context);
+				}
+				else if (draw->drawContactImpulses)
+				{
+					b2Vec2 p1 = point->point;
+					b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->normalImpulse, normal);
+					draw->DrawSegment(p1, p2, impulseColor, draw->context);
+					snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.2f", point->normalImpulse);
+					draw->DrawString(p1, buffer, draw->context);
+				}
+
+				if (draw->drawFrictionImpulses)
+				{
+					b2Vec2 tangent = b2RightPerp(normal);
+					b2Vec2 p1 = point->point;
+					b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->tangentImpulse, tangent);
+					draw->DrawSegment(p1, p2, frictionColor, draw->context);
+					snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.2f", point->normalImpulse);
+					draw->DrawString(p1, buffer, draw->context);
+				}
+			}
 		}
 	}
 }
@@ -786,6 +900,23 @@ b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId)
 
 	b2SensorEvents events = {world->sensorBeginEventArray, world->sensorEndEventArray, beginCount, endCount};
 	return events;
+}
+
+b2ContactEvents b2World_GetContactEvents(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return (b2ContactEvents){0};
+	}
+
+	int beginCount = b2Array(world->contactBeginArray).count;
+	int endCount = b2Array(world->contactEndArray).count;
+
+	b2ContactEvents events = {world->contactBeginArray, world->contactEndArray, beginCount, endCount};
+	return events;
+
 }
 
 bool b2World_IsValid(b2WorldId id)
@@ -1222,6 +1353,9 @@ void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2Que
 	}
 
 	b2RayCastInput input = {origin, translation, 1.0f};
+
+	// todo validate input
+
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)

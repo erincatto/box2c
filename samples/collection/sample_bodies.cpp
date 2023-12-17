@@ -17,37 +17,37 @@ class BodyType : public Sample
 	{
 		b2BodyId groundId = b2_nullBodyId;
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
 			groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			b2Body_CreateSegment(groundId, &shapeDef, &segment);
 		}
 
 		// Define attachment
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 3.0f};
 			m_attachmentId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.5f, 2.0f);
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 1.0f;
 			b2Body_CreatePolygon(m_attachmentId, &shapeDef, &box);
 		}
 
 		// Define platform
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {-4.0f, 5.0f};
 			m_platformId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(0.5f, 4.0f, {4.0f, 0.0f}, 0.5f * b2_pi);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = 0.6f;
 			shapeDef.density = 2.0f;
 			b2Body_CreatePolygon(m_platformId, &shapeDef, &box);
@@ -83,14 +83,14 @@ class BodyType : public Sample
 
 		// Create a payload
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 8.0f};
 			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.75f, 0.75f);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = 0.6f;
 			shapeDef.density = 2.0f;
 
@@ -340,13 +340,68 @@ public:
 
 static int sampleCharacter = RegisterSample("Bodies", "Character", Character::Create);
 
+class Weeble : public Sample
+{
+public:
+	Weeble(const Settings& settings)
+		: Sample(settings)
+	{
+		b2BodyId groundId = b2_nullBodyId;
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			groundId = b2World_CreateBody(m_worldId, &bodyDef);
 
-// Test all these APIs:
-#if 0
-void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
-float b2Body_GetMass(b2BodyId bodyId);
-float b2Body_GetInertiaTensor(b2BodyId bodyId);
-float b2Body_GetCenterOfMass(b2BodyId bodyId);
-void b2Body_SetMassData(b2MassData massData);
-void b2Body_Wake(b2BodyId bodyId);
-#endif
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		}
+
+		// Build weeble
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 3.0f};
+			bodyDef.angle = 0.25f * b2_pi;
+			m_weebleId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule = {{0.0f, -1.0f}, {0.0f, 1.0f}, 1.0f};
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.density = 1.0f;
+			b2Body_CreateCapsule(m_weebleId, &shapeDef, &capsule);
+
+			float mass = b2Body_GetMass(m_weebleId);
+			float I = b2Body_GetInertiaTensor(m_weebleId);
+			
+			float offset = 1.5f;
+
+			// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
+			I += mass * offset * offset;
+
+			b2MassData massData = {mass, {0.0f, -offset}, I, 2.0f, 4.0f};
+			b2Body_SetMassData(m_weebleId, massData);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 60.0f));
+		ImGui::Begin("Sample Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Teleport"))
+		{
+			b2Body_SetTransform(m_weebleId, {0.0f, 5.0f}, 0.95 * b2_pi);
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Weeble(settings);
+	}
+
+	b2BodyId m_weebleId;
+};
+
+static int sampleWeeble = RegisterSample("Bodies", "Weeble", Weeble::Create);

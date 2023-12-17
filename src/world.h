@@ -80,6 +80,8 @@ typedef struct b2World
 
 	struct b2SensorBeginTouchEvent* sensorBeginEventArray;
 	struct b2SensorEndTouchEvent* sensorEndEventArray;
+	struct b2ContactBeginTouchEvent* contactBeginArray;
+	struct b2ContactEndTouchEvent* contactEndArray;
 
 	// Array of fast bodies that need continuous collision handling
 	int32_t* fastBodies;

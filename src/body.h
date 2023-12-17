@@ -101,11 +101,8 @@ typedef struct b2SolverBody
 	float invI;    // 4
 } b2SolverBody;
 
+b2Body* b2GetBody(b2World* world, b2BodyId id);
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
-
-//b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
-//void b2Body_DestroyShape(b2ShapeId shapeId);
-
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 
 static inline b2Sweep b2MakeSweep(const b2Body* body)

@@ -42,8 +42,19 @@ BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// @warning This function is locked during callbacks.
 BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
+/// Get sensor events for the current time step. Do not store a reference to this data.
+BOX2D_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
+BOX2D_API b2ContactEvents b2World_GetContactEvents(b2WorldId worldId);
+
+BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
+BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+
+/// Get the user data stored in a body
+BOX2D_API void* b2Body_GetUserData(b2BodyId bodyId);
+
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
+BOX2D_API b2Transform b2Body_GetTransform(b2BodyId bodyId);
 BOX2D_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
 
 BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
@@ -57,11 +68,42 @@ BOX2D_API float b2Body_GetAngularVelocity(b2BodyId bodyId);
 BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);
 BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
 
-BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
-BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+/// Apply a force at a world point. If the force is not
+/// applied at the center of mass, it will generate a torque and
+/// affect the angular velocity. This wakes up the body.
+/// @param force the world force vector, usually in Newtons (N).
+/// @param point the world position of the point of application.
+/// @param wake also wake up the body
+BOX2D_API void b2Body_ApplyForce(b2BodyId bodyId, b2Vec2 force, b2Vec2 point, bool wake);
 
-/// Get the user data stored in a body
-BOX2D_API void* b2Body_GetUserData(b2BodyId bodyId);
+/// Apply a force to the center of mass. This wakes up the body.
+/// @param force the world force vector, usually in Newtons (N).
+/// @param wake also wake up the body
+BOX2D_API void b2Body_ApplyForceToCenter(b2BodyId bodyId, b2Vec2 force, bool wake);
+
+/// Apply a torque. This affects the angular velocity
+/// without affecting the linear velocity of the center of mass.
+/// @param torque about the z-axis (out of the screen), usually in N-m.
+/// @param wake also wake up the body
+BOX2D_API void b2Body_ApplyTorque(b2BodyId bodyId, float torque, bool wake);
+
+/// Apply an impulse at a point. This immediately modifies the velocity.
+/// It also modifies the angular velocity if the point of application
+/// is not at the center of mass. This wakes up the body.
+/// @param impulse the world impulse vector, usually in N-seconds or kg-m/s.
+/// @param point the world position of the point of application.
+/// @param wake also wake up the body
+BOX2D_API void b2Body_ApplyLinearImpulse(b2BodyId bodyId, b2Vec2 impulse, b2Vec2 point, bool wake);
+
+/// Apply an impulse to the center of mass. This immediately modifies the velocity.
+/// @param impulse the world impulse vector, usually in N-seconds or kg-m/s.
+/// @param wake also wake up the body
+BOX2D_API void b2Body_ApplyLinearImpulseToCenter(b2BodyId bodyId, b2Vec2 impulse, bool wake);
+
+/// Apply an angular impulse.
+/// @param impulse the angular impulse in units of kg*m*m/s
+/// @param wake also wake up the body
+BOX2D_API void b2Body_ApplyAngularImpulse(b2BodyId bodyId, float impulse, bool wake);
 
 /// Get the mass of the body (kilograms)
 BOX2D_API float b2Body_GetMass(b2BodyId bodyId);
@@ -78,10 +120,10 @@ BOX2D_API b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId);
 /// Override the body's mass properties. Normally this is computed automatically using the
 ///	shape geometry and density. This information is lost if a shape is added or removed or if the
 ///	body type changes.
-BOX2D_API void b2Body_SetMassData(b2MassData massData);
+BOX2D_API void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData);
 
 /// Is this body awake?
-BOX2D_API void b2Body_IsAwake(b2BodyId bodyId);
+BOX2D_API bool b2Body_IsAwake(b2BodyId bodyId);
 
 /// Wake a body from sleep. This wakes the entire island the body is touching.
 BOX2D_API void b2Body_Wake(b2BodyId bodyId);
@@ -103,16 +145,42 @@ BOX2D_API b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def,
 BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
 
+BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
+BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
+
+/// Iterate over shapes on a body
+BOX2D_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
+BOX2D_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
+
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API void* b2Shape_GetUserData(b2ShapeId shapeId);
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 BOX2D_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
 BOX2D_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
 
-BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
-BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
+BOX2D_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
+BOX2D_API const b2Circle* b2Shape_GetCircle(b2ShapeId shapeId);
+BOX2D_API const b2Segment* b2Shape_GetSegment(b2ShapeId shapeId);
+BOX2D_API const b2Polygon* b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+BOX2D_API const b2Capsule* b2Shape_GetCapsule(b2ShapeId shapeId);
+BOX2D_API const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId);
+
 BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
 BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
+
+/// Contacts
+
+/// Get the number of touching contacts on a body
+BOX2D_API int32_t b2Body_GetContactCount(b2BodyId bodyId);
+
+/// Get the touching contact data for a body
+BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+
+/// Get the number of touching contacts on a shape. For efficiency, this may be larger than the actual number.
+BOX2D_API int32_t b2Shape_GetContactCount(b2ShapeId shapeId);
+
+/// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
+BOX2D_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
 
 /// Create a joint
 BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
@@ -179,18 +247,6 @@ BOX2D_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, 
 
 BOX2D_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
 								 b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
-
-/// World events
-
-/// Get sensor events for the current time step. Do not store a reference to this data.
-BOX2D_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
-
-/// Id validation. These allow validation for up 64K allocations.
-BOX2D_API bool b2World_IsValid(b2WorldId id);
-BOX2D_API bool b2Body_IsValid(b2BodyId id);
-BOX2D_API bool b2Shape_IsValid(b2ShapeId id);
-BOX2D_API bool b2Chain_IsValid(b2ChainId id);
-BOX2D_API bool b2Joint_IsValid(b2JointId id);
 
 /// Advanced API for testing and special cases
 

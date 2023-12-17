@@ -1920,6 +1920,8 @@ int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild)
 	// Gather all proxy nodes that have grown and all internal nodes that haven't grown. Both are
 	// considered leaves in the tree rebuild.
 	// Free all internal nodes that have grown.
+	// todo use a node growth metric instead of simply enlarged to reduce rebuild size and frequency
+	// this should be weighed against b2_aabbMargin
 	while (true)
 	{
 		if (node->height == 0 || (node->enlarged == false && fullBuild == false))

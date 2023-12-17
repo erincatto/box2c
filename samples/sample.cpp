@@ -16,17 +16,6 @@
 #include <stdio.h>
 #include <string.h>
 
-bool PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context)
-{
-	Sample* sample = static_cast<Sample*>(context);
-	if (sample->m_collectContacts)
-	{
-		return sample->PreSolve(shapeIdA, shapeIdB, manifold, color);
-	}
-
-	return true;
-}
-
 static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext, void* userContext)
 {
 	Sample* sample = static_cast<Sample*>(userContext);
@@ -64,15 +53,15 @@ Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
-	m_scheduler.Initialize(settings.m_workerCount);
+	m_scheduler.Initialize(settings.workerCount);
 	m_taskCount = 0;
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
-	worldDef.workerCount = settings.m_workerCount;
+	worldDef.workerCount = settings.workerCount;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
 	worldDef.userTaskContext = this;
-	worldDef.enableSleep = settings.m_enableSleep;
+	worldDef.enableSleep = settings.enableSleep;
 
 	// These are not ideal, but useful for testing Box2D
 	worldDef.bodyCapacity = 2;
@@ -83,21 +72,10 @@ Sample::Sample(const Settings& settings)
 	m_textLine = 30;
 	m_textIncrement = 18;
 	m_mouseJointId = b2_nullJointId;
-	m_pointCount = 0;
-	m_collectContacts =
-		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;
-
-	// m_destructionListener.test = this;
-	// m_world->SetDestructionListener(&m_destructionListener);
-	// m_world->SetContactListener(this);
-
-	// TODO_ERIN too expensive
-	b2World_SetPreSolveCallback(m_worldId, PreSolveFcn, this);
 
 	m_stepCount = 0;
 
-	b2BodyDef bodyDef = b2DefaultBodyDef();
-	m_groundBodyId = b2World_CreateBody(m_worldId, &bodyDef);
+	m_groundBodyId = b2_nullBodyId;
 
 	m_maxProfile = b2_emptyProfile;
 	m_totalProfile = b2_emptyProfile;
@@ -168,6 +146,8 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			float frequencyHz = 5.0f;
 			float dampingRatio = 0.7f;
 			float mass = b2Body_GetMass(queryContext.bodyId);
+			
+			m_groundBodyId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2MouseJointDef jd = b2DefaultMouseJointDef();
 			jd.bodyIdA = m_groundBodyId;
@@ -189,6 +169,9 @@ void Sample::MouseUp(b2Vec2 p, int button)
 	{
 		b2World_DestroyJoint(m_mouseJointId);
 		m_mouseJointId = b2_nullJointId;
+
+		b2World_DestroyBody(m_groundBodyId);
+		m_groundBodyId = b2_nullBodyId;
 	}
 }
 
@@ -211,13 +194,13 @@ void Sample::ResetProfile()
 
 void Sample::Step(Settings& settings)
 {
-	float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : 0.0f;
+	float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
 
-	if (settings.m_pause)
+	if (settings.pause)
 	{
-		if (settings.m_singleStep)
+		if (settings.singleStep)
 		{
-			settings.m_singleStep = 0;
+			settings.singleStep = 0;
 		}
 		else
 		{
@@ -228,30 +211,26 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 	}
 
-	g_draw.m_debugDraw.drawShapes = settings.m_drawShapes;
-	g_draw.m_debugDraw.drawJoints = settings.m_drawJoints;
-	g_draw.m_debugDraw.drawAABBs = settings.m_drawAABBs;
-	g_draw.m_debugDraw.drawMass = settings.m_drawMass;
-	g_draw.m_debugDraw.drawGraphColors = settings.m_drawGraphColors;
+	g_draw.m_debugDraw.drawShapes = settings.drawShapes;
+	g_draw.m_debugDraw.drawJoints = settings.drawJoints;
+	g_draw.m_debugDraw.drawAABBs = settings.drawAABBs;
+	g_draw.m_debugDraw.drawMass = settings.drawMass;
+	g_draw.m_debugDraw.drawContacts = settings.drawContactPoints;
+	g_draw.m_debugDraw.drawGraphColors = settings.drawGraphColors;
+	g_draw.m_debugDraw.drawContactNormals = settings.drawContactNormals;
+	g_draw.m_debugDraw.drawContactImpulses = settings.drawContactImpulses;
+	g_draw.m_debugDraw.drawFrictionImpulses = settings.drawFrictionImpulses;
 
-	m_collectContacts =
-		settings.m_drawContactPoints || settings.m_drawContactNormals || settings.m_drawContactImpulse || settings.m_drawFrictionImpulse;
-
-	b2World_EnableSleeping(m_worldId, settings.m_enableSleep);
-	b2World_EnableWarmStarting(m_worldId, settings.m_enableWarmStarting);
-	b2World_EnableContinuous(m_worldId, settings.m_enableContinuous);
-
-	if (timeStep > 0.0f)
-	{
-		m_pointCount = 0;
-	}
+	b2World_EnableSleeping(m_worldId, settings.enableSleep);
+	b2World_EnableWarmStarting(m_worldId, settings.enableWarmStarting);
+	b2World_EnableContinuous(m_worldId, settings.enableContinuous);
 
 	for (int32_t i = 0; i < 1; ++i)
 	{
-		b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_relaxIterations);
+		b2World_Step(m_worldId, timeStep, settings.velocityIterations, settings.relaxIterations);
 		m_taskCount = 0;
-
 	}
+
 	b2World_Draw(m_worldId, &g_draw.m_debugDraw);
 
 	if (timeStep > 0.0f)
@@ -259,7 +238,7 @@ void Sample::Step(Settings& settings)
 		++m_stepCount;
 	}
 
-	if (settings.m_drawStats)
+	if (settings.drawStats)
 	{
 		b2Statistics s = b2World_GetStatistics(m_worldId);
 
@@ -318,7 +297,7 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.continuous += p.continuous;
 	}
 
-	if (settings.m_drawProfile)
+	if (settings.drawProfile)
 	{
 		b2Profile p = b2World_GetProfile(m_worldId);
 
@@ -360,105 +339,15 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 	}
 
-	if (settings.m_drawContactPoints)
+	if (settings.drawContactPoints)
 	{
-		const float k_impulseScale = 1.0f;
-		const float k_axisScale = 0.3f;
-		b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
-		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
-		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
 
-		b2HexColor colors[b2_graphColorCount + 1] = {b2_colorRed,	b2_colorOrange, b2_colorYellow, b2_colorGreen,	   b2_colorCyan,
-													 b2_colorBlue,	b2_colorViolet, b2_colorPink,	b2_colorChocolate, b2_colorGoldenrod,
-													 b2_colorCoral, b2_colorAqua,	b2_colorBlack};
-
-		for (int32_t i = 0; i < m_pointCount; ++i)
-		{
-			ContactPoint* point = m_points + i;
-
-			if (settings.m_drawGraphColors && 0 <= point->color && point->color <= b2_graphColorCount)
-			{
-				// graph color
-				float pointSize = point->color == b2_graphColorCount ? 7.5f : 5.0f;
-				g_draw.DrawPoint(point->position, pointSize, b2MakeColor(colors[point->color], 1.0f));
-				// g_draw.DrawString(point->position, "%d", point->color);
-			}
-			else if (point->separation > b2_linearSlop)
-			{
-				// Speculative
-				g_draw.DrawPoint(point->position, 5.0f, speculativeColor);
-			}
-			else if (point->persisted == false)
-			{
-				// Add
-				g_draw.DrawPoint(point->position, 10.0f, addColor);
-			}
-			else if (point->persisted == true)
-			{
-				// Persist
-				g_draw.DrawPoint(point->position, 5.0f, persistColor);
-			}
-
-			if (settings.m_drawContactNormals == 1)
-			{
-				b2Vec2 p1 = point->position;
-				b2Vec2 p2 = b2MulAdd(p1, k_axisScale, point->normal);
-				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.9f, 1.0f});
-			}
-			else if (settings.m_drawContactImpulse == 1)
-			{
-				b2Vec2 p1 = point->position;
-				b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->normalImpulse, point->normal);
-				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.3f, 1.0f});
-				g_draw.DrawString(p1, "%.2f", point->normalImpulse);
-			}
-
-			if (settings.m_drawFrictionImpulse == 1)
-			{
-				b2Vec2 tangent = b2CrossVS(point->normal, 1.0f);
-				b2Vec2 p1 = point->position;
-				b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->tangentImpulse, tangent);
-				g_draw.DrawSegment(p1, p2, {0.9f, 0.9f, 0.3f, 1.0f});
-				g_draw.DrawString(p1, "%.2f", point->tangentImpulse);
-			}
-		}
 	}
 }
 
 void Sample::ShiftOrigin(b2Vec2 newOrigin)
 {
 	// m_world->ShiftOrigin(newOrigin);
-}
-
-// Thread-safe callback
-bool Sample::PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color)
-{
-	long startCount = m_pointCount.fetch_add(manifold->pointCount);
-	if (startCount >= k_maxContactPoints)
-	{
-		m_pointCount.store(k_maxContactPoints);
-		return true;
-	}
-
-	long endCount = B2_MIN(k_maxContactPoints, startCount + manifold->pointCount);
-
-	int32_t j = 0;
-	for (long i = startCount; i < endCount; ++i)
-	{
-		ContactPoint* cp = m_points + i;
-		cp->shapeIdA = shapeIdA;
-		cp->shapeIdB = shapeIdB;
-		cp->normal = manifold->normal;
-		cp->position = manifold->points[j].point;
-		cp->separation = manifold->points[j].separation;
-		cp->normalImpulse = manifold->points[j].normalImpulse;
-		cp->tangentImpulse = manifold->points[j].tangentImpulse;
-		cp->persisted = manifold->points[j].persisted;
-		cp->color = color;
-		++j;
-	}
-
-	return true;
 }
 
 SampleEntry g_sampleEntries[MAX_SAMPLES] = {{nullptr}};

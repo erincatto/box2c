@@ -220,4 +220,4 @@ void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias);
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);
 
 // Get joint from id with validation
-b2Joint* b2GetJoint(b2JointId id, b2JointType type);
+b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);

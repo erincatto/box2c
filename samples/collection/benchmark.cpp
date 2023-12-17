@@ -46,7 +46,13 @@ class BenchmarkBarrel : public Sample
 			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {groundSize, 2.0f * groundSize}, 0.0f);
 			b2Body_CreatePolygon(groundId, &sd, &box);
 
-			b2Segment segment = {{-200.0f, -40.0f}, {200.0f, -40.0f}};
+			b2Segment segment = {{-400.0f, -60.0f}, {400.0f, -60.0f}};
+			b2Body_CreateSegment(groundId, &sd, &segment);
+
+			segment = {{-800.0f, 100.0f}, {-400.0f, -60.0f}};
+			b2Body_CreateSegment(groundId, &sd, &segment);
+			
+			segment = {{400.0f, -60.0f}, {800.0f, 100.0f}};
 			b2Body_CreateSegment(groundId, &sd, &segment);
 		}
 
@@ -55,7 +61,7 @@ class BenchmarkBarrel : public Sample
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_boxShape;
+		m_shapeType = e_circleShape;
 
 		CreateScene();
 	}
@@ -233,7 +239,7 @@ class BenchmarkTumbler : public Sample
 
 	void Step(Settings& settings) override
 	{
-		if (settings.m_pause == false || settings.m_singleStep == true)
+		if (settings.pause == false || settings.singleStep == true)
 		{
 			float a = 0.125f;
 			for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
@@ -780,12 +786,12 @@ class BenchmarkCreateDestroy : public Sample
 
 	void Step(Settings& settings) override
 	{
-		float timeStep = settings.m_hertz > 0.0f ? 1.0f / settings.m_hertz : float(0.0f);
+		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : float(0.0f);
 
 		for (int32_t i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
-			b2World_Step(m_worldId, timeStep, settings.m_velocityIterations, settings.m_relaxIterations);
+			b2World_Step(m_worldId, timeStep, settings.velocityIterations, settings.relaxIterations);
 		}
 
 		Sample::Step(settings);

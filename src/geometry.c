@@ -181,6 +181,21 @@ b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
 	return shape;
 }
 
+b2Polygon b2TransformPolygon(b2Transform transform, const b2Polygon* polygon)
+{
+	b2Polygon p = *polygon;
+
+	for (int i = 0; i < p.count; ++i)
+	{
+		p.vertices[i] = b2TransformPoint(transform, p.vertices[i]);
+		p.normals[i] = b2RotateVector(transform.q, p.normals[i]);
+	}
+
+	p.centroid = b2TransformPoint(transform, p.centroid);
+
+	return p;
+}
+
 b2MassData b2ComputeCircleMass(const b2Circle* shape, float density)
 {
 	float rr = shape->radius * shape->radius;

@@ -204,7 +204,7 @@ class OverlapRecovery : public Sample
 	OverlapRecovery(const Settings& settings)
 		: Sample(settings)
 	{
-		if (settings.m_restart == false)
+		if (settings.restart == false)
 		{
 			g_camera.m_zoom = 0.25f;
 			g_camera.m_center = {0.0f, 5.0f};

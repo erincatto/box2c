@@ -15,7 +15,7 @@
 #include "box2d/joint_types.h"
 
 // Get joint from id with validation
-b2Joint* b2GetJoint(b2JointId id, b2JointType type)
+b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type)
 {
 	B2_MAYBE_UNUSED(type);
 
@@ -32,6 +32,15 @@ b2Joint* b2GetJoint(b2JointId id, b2JointType type)
 	B2_ASSERT(joint->object.index == joint->object.next);
 	B2_ASSERT(joint->object.revision == id.revision);
 	B2_ASSERT(joint->type == type);
+	return joint;
+}
+
+b2Joint* b2GetJoint(b2World* world, b2JointId jointId)
+{
+	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
+	b2Joint* joint = world->joints + jointId.index;
+	B2_ASSERT(b2ObjectValid(&joint->object));
+	B2_ASSERT(joint->object.revision == jointId.revision);
 	return joint;
 }
 
@@ -703,6 +712,52 @@ void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias)
 	}
 
 	b2TracyCZoneEnd(solve_joints);
+}
+
+b2JointId b2Body_GetFirstJoint(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+
+	if (body->jointList == B2_NULL_INDEX)
+	{
+		return b2_nullJointId;
+	}
+
+	b2Joint* joint = world->joints + body->jointList;
+	b2JointId id = {joint->object.index, bodyId.world, joint->object.revision};
+	return id;
+}
+
+b2JointId b2Body_GetNextJoint(b2BodyId bodyId, b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	b2Joint* joint = b2GetJoint(world, jointId);
+
+	if (joint->edges[0].bodyIndex == body->object.index)
+	{
+		if (joint->edges[0].nextKey == B2_NULL_INDEX)
+		{
+			return b2_nullJointId;
+		}
+
+		joint = world->joints + (joint->edges[0].nextKey >> 1);
+	}
+	else
+	{
+		B2_ASSERT(joint->edges[1].bodyIndex == body->object.index);
+
+		if (joint->edges[1].nextKey == B2_NULL_INDEX)
+		{
+			return b2_nullJointId;
+		}
+
+		joint = world->joints + (joint->edges[1].nextKey >> 1);
+	}
+
+	b2JointId id = {joint->object.index, bodyId.world, joint->object.revision};
+	return id;
 }
 
 extern void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);

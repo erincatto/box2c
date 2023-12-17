@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "api.h"
+
+#include <stdbool.h>
 #include <stdint.h>
 
 /// These ids serve as handles to internal Box2D objects. These should be considered opaque data and passed by value.
@@ -31,6 +34,14 @@ typedef struct b2ShapeId
 	uint16_t revision;
 } b2ShapeId;
 
+/// References a contact instance
+typedef struct b2ContactId
+{
+	int32_t index;
+	int16_t world;
+	uint16_t revision;
+} b2ContactId;
+
 /// References a joint instance
 typedef struct b2JointId
 {
@@ -39,6 +50,7 @@ typedef struct b2JointId
 	uint16_t revision;
 } b2JointId;
 
+/// References a chain instances
 typedef struct b2ChainId
 {
 	int32_t index;
@@ -49,8 +61,19 @@ typedef struct b2ChainId
 static const b2WorldId b2_nullWorldId = {-1, 0};
 static const b2BodyId b2_nullBodyId = {-1, -1, 0};
 static const b2ShapeId b2_nullShapeId = {-1, -1, 0};
+static const b2ContactId b2_nullContactId = {-1, -1, 0};
 static const b2JointId b2_nullJointId = {-1, -1, 0};
 static const b2ChainId b2_nullChainId = {-1, -1, 0};
 
-#define B2_IS_NULL(ID) (ID.index == -1)
-#define B2_NON_NULL(ID) (ID.index != -1)
+#define B2_IS_NULL(id) (id.index == -1)
+#define B2_NON_NULL(id) (id.index != -1)
+
+// Compare two ids for equality. Doesn't work for b2WorldId./
+#define B2_ID_EQUALS(id1, id2) (id1.index == id2.index && id1.world == id2.world && id1.revision == id2.revision)
+
+/// Id validation. These allow validation for up 64K allocations.
+BOX2D_API bool b2World_IsValid(b2WorldId id);
+BOX2D_API bool b2Body_IsValid(b2BodyId id);
+BOX2D_API bool b2Shape_IsValid(b2ShapeId id);
+BOX2D_API bool b2Chain_IsValid(b2ChainId id);
+BOX2D_API bool b2Joint_IsValid(b2JointId id);
