@@ -9,7 +9,7 @@
 #include "box2d/hull.h"
 #include "box2d/joint_util.h"
 
-// #include <GLFW/glfw3.h>
+#include <GLFW/glfw3.h>
 #include "box2d/math.h"
 
 #include <imgui.h>
@@ -1135,3 +1135,270 @@ public:
 };
 
 static int sampleUserConstraintIndex = RegisterSample("Joints", "User Constraint", UserConstraint::Create);
+
+
+// This is a fun demo that shows off the wheel joint
+class Car : public Sample
+{
+public:
+	Car(const Settings& settings)
+		: Sample(settings)
+	{
+		b2BodyId groundId;
+		{
+			groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+
+			float hs[10] = {0.25f, 1.0f, 4.0f, 0.0f, 0.0f, -1.0f, -2.0f, -2.0f, -1.25f, 0.0f};
+
+			float x = 20.0f, y1 = 0.0f, dx = 5.0f;
+
+			for (int i = 0; i < 10; ++i)
+			{
+				float y2 = hs[i];
+				segment = {{x, y1}, {x + dx, y2}};
+				b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+				y1 = y2;
+				x += dx;
+			}
+
+			for (int i = 0; i < 10; ++i)
+			{
+				float y2 = hs[i];
+				segment = {{x, y1}, {x + dx, y2}};
+				b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+				y1 = y2;
+				x += dx;
+			}
+
+			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+
+			x += 80.0f;
+			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+
+			x += 40.0f;
+			segment = {{x, 0.0f}, {x + 10.0f, 5.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+
+			x += 20.0f;
+			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+
+			x += 40.0f;
+			segment = {{x, 0.0f}, {x, 20.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		// Teeter
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.position = {140.0f, 1.0f};
+			bodyDef.angularVelocity = 1.0f;
+			bodyDef.type = b2_dynamicBody;
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(10.0f, 0.25f);
+			b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
+
+			b2Vec2 pivot = bodyDef.position;
+			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			jointDef.bodyIdA = groundId;
+			jointDef.bodyIdB = bodyId;
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			jointDef.lowerAngle = -8.0f * b2_pi / 180.0f;
+			jointDef.upperAngle = 8.0f * b2_pi / 180.0f;
+			jointDef.enableLimit = true;
+			b2World_CreateRevoluteJoint(m_worldId, &jointDef);
+		}
+
+		// Bridge
+		{
+			int N = 20;
+			b2Polygon box = b2MakeBox(1.0f, 0.125f);
+
+			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+
+			b2BodyId prevBodyId = groundId;
+			for (int i = 0; i < N; ++i)
+			{
+				b2BodyDef bodyDef = b2_defaultBodyDef;
+				bodyDef.type = b2_dynamicBody;
+				bodyDef.position = {161.0f + 2.0f * i, -0.125f};
+				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+				b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
+
+				b2Vec2 pivot = {160.0f + 2.0f * i, -0.125f};
+				jointDef.bodyIdA = prevBodyId;
+				jointDef.bodyIdB = bodyId;
+				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+				b2World_CreateRevoluteJoint(m_worldId, &jointDef);
+
+				prevBodyId = bodyId;
+			}
+
+			b2Vec2 pivot = {160.0f + 2.0f * N, -0.125f};
+			jointDef.bodyIdA = prevBodyId;
+			jointDef.bodyIdB = groundId;
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			b2World_CreateRevoluteJoint(m_worldId, &jointDef);
+		}
+
+		// Boxes
+		{
+			b2Polygon box = b2MakeBox(0.5f, 0.5f);
+
+			b2BodyId bodyId;
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.friction = 0.25f;
+			shapeDef.restitution = 0.25f;
+			shapeDef.density = 0.25f;
+
+			bodyDef.position = {230.0f, 0.5f};
+			bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+
+			bodyDef.position = {230.0f, 1.5f};
+			bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+
+			bodyDef.position = {230.0f, 2.5f};
+			bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+
+			bodyDef.position = {230.0f, 3.5f};
+			bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+
+			bodyDef.position = {230.0f, 4.5f};
+			bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+		}
+
+		// Car
+		{
+			b2Vec2 vertices[] = {
+				{-1.5f, -0.5f}, {1.5f, -0.5f}, {1.5f, 0.0f}, {0.0f, 0.9f}, {-1.15f, 0.9f}, {-1.5f, 0.2f},
+			};
+
+			b2Hull hull = b2ComputeHull(vertices, B2_ARRAY_COUNT(vertices));
+			b2Polygon chassis = b2MakePolygon(&hull, 0.0f);
+
+			b2Circle circle = {{0.0f, 0.0f}, 0.4f};
+
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 1.0f};
+			m_carId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreatePolygon(m_carId, &b2_defaultShapeDef, &chassis);
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.density = 1.0f;
+			shapeDef.friction = 0.6f;
+
+			bodyDef.position = {-1.0f, 0.35f};
+			m_wheelId1 = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreateCircle(m_wheelId1, &shapeDef, &circle);
+
+			bodyDef.position = {1.0f, 0.4f};
+			m_wheelId2 = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreateCircle(m_wheelId2, &shapeDef, &circle);
+
+			b2Vec2 axis = {0.0f, 1.0f};
+
+			float mass1 = b2Body_GetMass(m_wheelId1);
+			float mass2 = b2Body_GetMass(m_wheelId2);
+
+			float hertz = 4.0f;
+			float dampingRatio = 0.7f;
+			float omega = 2.0f * b2_pi * hertz;
+
+			b2Vec2 pivot = b2Body_GetPosition(m_wheelId1);
+
+			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
+
+			jointDef.bodyIdA = m_carId;
+			jointDef.bodyIdB = m_wheelId1;
+			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, axis);
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			jointDef.motorSpeed = 0.0f;
+			jointDef.maxMotorTorque = 20.0f;
+			jointDef.enableMotor = true;
+			jointDef.stiffness = mass1 * omega * omega;
+			jointDef.damping = 2.0f * mass1 * dampingRatio * omega;
+			jointDef.lowerTranslation = -0.25f;
+			jointDef.upperTranslation = 0.25f;
+			jointDef.enableLimit = true;
+			m_jointId1 = b2World_CreateWheelJoint(m_worldId, &jointDef);
+
+			pivot = b2Body_GetPosition(m_wheelId2);
+			jointDef.bodyIdA = m_carId;
+			jointDef.bodyIdB = m_wheelId2;
+			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, axis);
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			jointDef.motorSpeed = 0.0f;
+			jointDef.maxMotorTorque = 10.0f;
+			jointDef.enableMotor = false;
+			jointDef.stiffness = mass2 * omega * omega;
+			jointDef.damping = 2.0f * mass2 * dampingRatio * omega;
+			jointDef.lowerTranslation = -0.25f;
+			jointDef.upperTranslation = 0.25f;
+			jointDef.enableLimit = true;
+			m_jointId2 = b2World_CreateWheelJoint(m_worldId, &jointDef);
+		}
+
+		m_speed = 50.0f;
+	}
+
+	void Step(Settings& settings) override
+	{
+		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
+		{
+			b2WheelJoint_SetMotorSpeed(m_jointId1, m_speed);
+		}
+
+		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)
+		{
+			b2WheelJoint_SetMotorSpeed(m_jointId1, 0.0f);
+		}
+
+		if (glfwGetKey(g_mainWindow, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			b2WheelJoint_SetMotorSpeed(m_jointId1, -m_speed);
+		}
+
+		g_draw.DrawString(5, m_textLine, "Keys: left = a, brake = s, right = d");
+		m_textLine += m_textIncrement;
+
+		b2Vec2 carPosition = b2Body_GetPosition(m_carId);
+		g_camera.m_center.x = carPosition.x;
+
+		Sample::Step(settings);
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Car(settings);
+	}
+
+	b2BodyId m_carId;
+	b2BodyId m_wheelId1;
+	b2BodyId m_wheelId2;
+
+	float m_speed;
+	b2JointId m_jointId1;
+	b2JointId m_jointId2;
+};
+
+static int sampleCar = RegisterSample("Joints", "Car", Car::Create);
