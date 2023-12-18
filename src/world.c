@@ -6,6 +6,7 @@
 #include "world.h"
 
 #include "allocate.h"
+#include "arena_allocator.h"
 #include "array.h"
 #include "bitset.h"
 #include "block_allocator.h"
@@ -19,7 +20,6 @@
 #include "pool.h"
 #include "shape.h"
 #include "solver_data.h"
-#include "stack_allocator.h"
 
 #include "box2d/aabb.h"
 #include "box2d/box2d.h"
@@ -572,7 +572,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	// Make sure all tasks that were started were also finished
 	B2_ASSERT(world->activeTaskCount == 0);
-	
+
 	b2TracyCZoneEnd(world_step);
 }
 
@@ -916,7 +916,6 @@ b2ContactEvents b2World_GetContactEvents(b2WorldId worldId)
 
 	b2ContactEvents events = {world->contactBeginArray, world->contactEndArray, beginCount, endCount};
 	return events;
-
 }
 
 bool b2World_IsValid(b2WorldId id)

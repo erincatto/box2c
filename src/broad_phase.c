@@ -6,12 +6,12 @@
 #include "broad_phase.h"
 
 #include "allocate.h"
+#include "arena_allocator.h"
 #include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "core.h"
 #include "shape.h"
-#include "stack_allocator.h"
 #include "world.h"
 
 #include "box2d/aabb.h"
@@ -21,17 +21,17 @@
 #include <stdbool.h>
 #include <string.h>
 
-//#include <stdio.h>
+// #include <stdio.h>
 
-//static FILE* s_file = NULL;
+// static FILE* s_file = NULL;
 
 void b2CreateBroadPhase(b2BroadPhase* bp)
 {
-	//if (s_file == NULL)
+	// if (s_file == NULL)
 	//{
 	//	s_file = fopen("pairs01.txt", "a");
 	//	fprintf(s_file, "============\n\n");
-	//}
+	// }
 
 	bp->proxyCount = 0;
 
@@ -66,11 +66,11 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 
 	memset(bp, 0, sizeof(b2BroadPhase));
 
-	//if (s_file != NULL)
+	// if (s_file != NULL)
 	//{
 	//	fclose(s_file);
 	//	s_file = NULL;
-	//}
+	// }
 }
 
 static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
@@ -357,7 +357,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	// - Create contacts in deterministic order
 	b2Shape* shapes = world->shapes;
 
-	//int32_t pairCount = 0;
+	// int32_t pairCount = 0;
 
 	for (int32_t i = 0; i < moveCount; ++i)
 	{
@@ -374,10 +374,10 @@ void b2UpdateBroadPhasePairs(b2World* world)
 			int32_t shapeIndexA = pair->shapeIndexA;
 			int32_t shapeIndexB = pair->shapeIndexB;
 
-			//if (s_file != NULL)
+			// if (s_file != NULL)
 			//{
 			//	fprintf(s_file, "%d %d\n", shapeIndexA, shapeIndexB);
-			//}
+			// }
 
 			//++pairCount;
 
@@ -398,16 +398,16 @@ void b2UpdateBroadPhasePairs(b2World* world)
 			}
 		}
 
-		//if (s_file != NULL)
+		// if (s_file != NULL)
 		//{
 		//	fprintf(s_file, "\n");
-		//}
+		// }
 	}
 
-	//if (s_file != NULL)
+	// if (s_file != NULL)
 	//{
 	//	fprintf(s_file, "count = %d\n\n", pairCount);
-	//}
+	// }
 
 	// Reset move buffer
 	b2Array_Clear(bp->moveArray);

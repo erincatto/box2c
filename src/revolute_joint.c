@@ -303,12 +303,9 @@ void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 		return;
 	}
 
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
-	B2_ASSERT(joint->object.index == joint->object.next);
-	B2_ASSERT(joint->object.revision == jointId.revision);
+	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
+
 	joint->revoluteJoint.enableLimit = enableLimit;
 }
 
@@ -321,12 +318,9 @@ void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 		return;
 	}
 
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
-	B2_ASSERT(joint->object.index == joint->object.next);
-	B2_ASSERT(joint->object.revision == jointId.revision);
+	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
+
 	joint->revoluteJoint.enableMotor = enableMotor;
 }
 
@@ -339,43 +333,49 @@ void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 		return;
 	}
 
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
-	B2_ASSERT(joint->object.index == joint->object.next);
-	B2_ASSERT(joint->object.revision == jointId.revision);
+	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
+
 	joint->revoluteJoint.motorSpeed = motorSpeed;
 }
 
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+
 	return inverseTimeStep * joint->revoluteJoint.motorImpulse;
 }
 
 void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+
 	joint->revoluteJoint.maxMotorTorque = torque;
 }
 
-b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
+b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
-	{
-		return b2Vec2_zero;
-	}
-
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
-	B2_ASSERT(joint->object.index == joint->object.next);
-	B2_ASSERT(joint->object.revision == jointId.revision);
+	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
-	return joint->revoluteJoint.impulse;
+
+	b2Vec2 force = b2MulSV(inverseTimeStep, joint->revoluteJoint.impulse);
+	return force;
+}
+
+float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+
+	const b2RevoluteJoint* revolute = &joint->revoluteJoint;
+	float torque = inverseTimeStep * (revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse);
+	return torque;
 }
 
 #if 0
@@ -445,7 +445,7 @@ void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 	draw->DrawSegment(pA, pB, color, draw->context);
 	draw->DrawSegment(xfB.p, pB, color, draw->context);
 
-	//char buffer[32];
-	//sprintf(buffer, "%.1f", b2Length(joint->impulse));
-	//draw->DrawString(pA, buffer, draw->context);
+	// char buffer[32];
+	// sprintf(buffer, "%.1f", b2Length(joint->impulse));
+	// draw->DrawString(pA, buffer, draw->context);
 }

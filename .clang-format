@@ -1,5 +1,6 @@
 # Reference: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
 # /c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/bin
+# https://clang-format-configurator.site/
 # default values:
 # https://github.com/llvm/llvm-project/blob/main/clang/lib/Format/Format.cpp
 ---

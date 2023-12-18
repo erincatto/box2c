@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// These macros handle some differences between C and C++
 #ifdef __cplusplus
 #define B2_LITERAL(T) T
 #define B2_ZERO_INIT                                                                                                             \

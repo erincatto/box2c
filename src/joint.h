@@ -16,11 +16,9 @@ typedef enum b2JointType
 {
 	b2_distanceJoint,
 	b2_frictionJoint,
-	b2_gearJoint,
 	b2_motorJoint,
 	b2_mouseJoint,
 	b2_prismaticJoint,
-	b2_pulleyJoint,
 	b2_revoluteJoint,
 	b2_weldJoint,
 	b2_wheelJoint,
@@ -136,16 +134,16 @@ typedef struct b2PrismaticJoint
 	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 positionA;
-	b2Vec2 positionB;
-	float angleA;
-	float angleB;
-	b2Vec2 localCenterA;
-	b2Vec2 localCenterB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 axisA;
+	b2Vec2 pivotSeparation;
+	float angleSeparation;
+	b2Mat22 pivotMass;
+	float axialMass;
 	float biasCoefficient;
 	float massCoefficient;
 	float impulseCoefficient;
-	float axialMass;
 } b2PrismaticJoint;
 
 typedef struct b2WeldJoint
@@ -176,6 +174,42 @@ typedef struct b2WeldJoint
 	float axialMass;
 } b2WeldJoint;
 
+typedef struct b2WheelJoint
+{
+	// Solver shared
+	b2Vec2 localAxisA;
+	float perpImpulse;
+	float motorImpulse;
+	float springImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	float maxMotorTorque;
+	float motorSpeed;
+	float lowerTranslation;
+	float upperTranslation;
+	float stiffness;
+	float damping;
+	bool enableMotor;
+	bool enableLimit;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 axisA;
+	b2Vec2 pivotSeparation;
+	float perpMass;
+	float motorMass;
+	float axialMass;
+	float springMass;
+	float bias;
+	float gamma;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
+} b2WheelJoint;
+
 /// The base joint class. Joints are used to constraint two bodies together in
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
@@ -204,11 +238,17 @@ typedef struct b2Joint
 		b2RevoluteJoint revoluteJoint;
 		b2PrismaticJoint prismaticJoint;
 		b2WeldJoint weldJoint;
+		b2WheelJoint wheelJoint;
 	};
 
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
+
+b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
+
+// todo remove this
+b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
@@ -218,6 +258,3 @@ void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context);
 void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);
-
-// Get joint from id with validation
-b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);

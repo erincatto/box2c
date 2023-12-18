@@ -188,6 +188,7 @@ BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJoi
 BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
 BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
 BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
+BOX2D_API b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
 
 /// Destroy a joint
 BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
@@ -210,7 +211,28 @@ BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
 BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
-BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
+BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
+// Prismatic joint access
+BOX2D_API void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+BOX2D_API void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+BOX2D_API void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+BOX2D_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
+BOX2D_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
+// Wheel joint access
+BOX2D_API void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness);
+BOX2D_API void b2WheelJoint_SetDamping(b2JointId jointId, float damping);
+BOX2D_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+BOX2D_API void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+BOX2D_API void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+BOX2D_API float b2WheelJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
+BOX2D_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
 /// Query the world for all shapes that potentially overlap the provided AABB.
 BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context);
