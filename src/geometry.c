@@ -238,8 +238,13 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 	// m * ((h + lc)^2 - lc^2) = m * (h^2 + 2 * h * lc)
 	// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
 	// I verified this formula by computing the convex hull of a 128 vertex capsule
+
+	// half circle centroid
 	float lc = 4.0f * radius / (3.0f * b2_pi);
+
+	// half length of rectangular portion of capsule
 	float h = 0.5f * length;
+
 	float circleInertia = circleMass * (0.5f * rr + h * h + 2.0f * h * lc);
 	float boxInertia = boxMass * (4.0f * rr + ll) / 12.0f;
 	massData.I = circleInertia + boxInertia;

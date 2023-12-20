@@ -33,7 +33,7 @@ void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 	base->mouseJoint.targetA = target;
 }
 
-void b2PrepareMouse(b2Joint* base, b2StepContext* context)
+void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
@@ -90,7 +90,7 @@ void b2PrepareMouse(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartMouse(b2Joint* base, b2StepContext* context)
+void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
@@ -114,7 +114,7 @@ void b2WarmStartMouse(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity = wB;
 }
 
-void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context)
+void b2SolveMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	b2MouseJoint* joint = &base->mouseJoint;
 	b2SolverBody* bodyB = context->solverBodies + joint->indexB;

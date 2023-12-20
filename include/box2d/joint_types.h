@@ -59,13 +59,50 @@ static inline b2DistanceJointDef b2DefaultDistanceJointDef(void)
 	return def;
 }
 
+/// A motor joint is used to control the relative motion
+/// between two bodies. A typical usage is to control the movement
+/// of a dynamic body with respect to the ground.
+typedef struct b2MotorJointDef
+{
+	/// The first attached body.
+	b2BodyId bodyIdA;
+
+	/// The second attached body.
+	b2BodyId bodyIdB;
+
+	/// Position of bodyB minus the position of bodyA, in bodyA's frame, in meters.
+	b2Vec2 linearOffset;
+
+	/// The bodyB angle minus bodyA angle in radians.
+	float angularOffset;
+
+	/// The maximum motor force in N.
+	float maxForce;
+
+	/// The maximum motor torque in N-m.
+	float maxTorque;
+
+	/// Position correction factor in the range [0,1].
+	float correctionFactor;
+} b2MotorJointDef;
+
+static inline b2MotorJointDef b2DefaultMotorJointDef(void)
+{
+	b2MotorJointDef def = B2_ZERO_INIT;
+	def.bodyIdA = b2_nullBodyId;
+	def.bodyIdB = b2_nullBodyId;
+	def.linearOffset = B2_LITERAL(b2Vec2){0.0f, 0.0f};
+	def.angularOffset = 0.0f;
+	def.maxForce = 1.0f;
+	def.maxTorque = 1.0f;
+	def.correctionFactor = 0.3f;
+	return def;
+}
+
 /// A mouse joint is used to make a point on a body track a
 /// specified world point. This a soft constraint with a maximum
 /// force. This allows the constraint to stretch without
 /// applying huge forces.
-/// NOTE: this joint is not documented in the manual because it was
-/// developed to be used in samples. If you want to learn how to
-/// use the mouse joint, look at the samples app.
 typedef struct b2MouseJointDef
 {
 	/// The first attached body.

@@ -56,7 +56,7 @@
 // s1 = cross(d + r1, u), s2 = cross(r2, u)
 // a1 = cross(d + r1, v), a2 = cross(r2, v)
 
-void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
+void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_prismaticJoint);
 
@@ -159,7 +159,7 @@ void b2PreparePrismatic(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context)
+void b2WarmStartPrismaticJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_prismaticJoint);
 
@@ -197,7 +197,7 @@ void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity += iB * LB;
 }
 
-void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBias)
+void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_prismaticJoint);
 

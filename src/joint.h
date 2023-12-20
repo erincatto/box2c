@@ -64,6 +64,28 @@ typedef struct b2DistanceJoint
 	float axialMass;
 } b2DistanceJoint;
 
+typedef struct b2MotorJoint
+{
+	// Solver shared
+	b2Vec2 linearOffset;
+	float angularOffset;
+	b2Vec2 linearImpulse;
+	float angularImpulse;
+	float maxForce;
+	float maxTorque;
+	float correctionFactor;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 linearSeparation;
+	float angularSeparation;
+	b2Mat22 linearMass;
+	float angularMass;
+} b2MotorJoint;
+
 typedef struct b2MouseJoint
 {
 	b2Vec2 targetA;
@@ -84,36 +106,6 @@ typedef struct b2MouseJoint
 	b2Mat22 mass;
 	b2Vec2 C;
 } b2MouseJoint;
-
-typedef struct b2RevoluteJoint
-{
-	// Solver shared
-	b2Vec2 impulse;
-	float motorImpulse;
-	float lowerImpulse;
-	float upperImpulse;
-	bool enableMotor;
-	float maxMotorTorque;
-	float motorSpeed;
-	bool enableLimit;
-	float referenceAngle;
-	float lowerAngle;
-	float upperAngle;
-
-	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
-	float angleA;
-	float angleB;
-	b2Vec2 rA;
-	b2Vec2 rB;
-	b2Vec2 separation;
-	b2Mat22 pivotMass;
-	float biasCoefficient;
-	float massCoefficient;
-	float impulseCoefficient;
-	float axialMass;
-} b2RevoluteJoint;
 
 typedef struct b2PrismaticJoint
 {
@@ -146,6 +138,36 @@ typedef struct b2PrismaticJoint
 	float impulseCoefficient;
 } b2PrismaticJoint;
 
+typedef struct b2RevoluteJoint
+{
+	// Solver shared
+	b2Vec2 impulse;
+	float motorImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	bool enableMotor;
+	float maxMotorTorque;
+	float motorSpeed;
+	bool enableLimit;
+	float referenceAngle;
+	float lowerAngle;
+	float upperAngle;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	float angleA;
+	float angleB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 separation;
+	b2Mat22 pivotMass;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
+	float axialMass;
+} b2RevoluteJoint;
+
 typedef struct b2WeldJoint
 {
 	// Solver shared
@@ -160,8 +182,8 @@ typedef struct b2WeldJoint
 	float angularBiasCoefficient;
 	float angularMassCoefficient;
 	float angularImpulseCoefficient;
-	b2Vec2 pivotImpulse;
-	float axialImpulse;
+	b2Vec2 linearImpulse;
+	float angularImpulse;
 
 	// Solver temp
 	int32_t indexA;
@@ -234,6 +256,7 @@ typedef struct b2Joint
 	union
 	{
 		b2DistanceJoint distanceJoint;
+		b2MotorJoint motorJoint;
 		b2MouseJoint mouseJoint;
 		b2RevoluteJoint revoluteJoint;
 		b2PrismaticJoint prismaticJoint;
@@ -252,7 +275,7 @@ b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
-void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias);
+void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias);
 
 void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context);
 void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias);

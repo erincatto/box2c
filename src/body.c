@@ -343,7 +343,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b2DestroyBody(world, body);
 }
 
-int32_t b2Body_GetContactCount(b2BodyId bodyId)
+int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	B2_ASSERT(world->locked == false);

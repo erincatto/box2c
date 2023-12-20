@@ -360,7 +360,7 @@ void b2Chain_SetRestitution(b2ChainId chainId, float restitution)
 	}
 }
 
-int32_t b2Shape_GetContactCount(b2ShapeId shapeId)
+int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
 	B2_ASSERT(world->locked == false);

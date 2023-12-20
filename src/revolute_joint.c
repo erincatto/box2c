@@ -26,7 +26,7 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
+void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
@@ -123,7 +123,7 @@ void b2PrepareRevolute(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartRevolute(b2Joint* base, b2StepContext* context)
+void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
@@ -146,7 +146,7 @@ void b2WarmStartRevolute(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity += iB * axialImpulse;
 }
 
-void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias)
+void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 

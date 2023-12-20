@@ -538,7 +538,7 @@ static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2SolveJointVelocity(joint, stepContext, useBias);
+		b2SolveJoint(joint, stepContext, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_joints);

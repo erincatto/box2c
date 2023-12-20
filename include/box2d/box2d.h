@@ -170,20 +170,21 @@ BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 
 /// Contacts
 
-/// Get the number of touching contacts on a body
-BOX2D_API int32_t b2Body_GetContactCount(b2BodyId bodyId);
+/// Get the maximum capacity required for retrieving all the touching contacts on a body
+BOX2D_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
 
 /// Get the touching contact data for a body
 BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
 
-/// Get the number of touching contacts on a shape. For efficiency, this may be larger than the actual number.
-BOX2D_API int32_t b2Shape_GetContactCount(b2ShapeId shapeId);
+/// Get the maximum capacity required for retrieving all the touching contacts on a shape
+BOX2D_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
 BOX2D_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
 
 /// Create a joint
 BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
+BOX2D_API b2JointId b2World_CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def);
 BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
 BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
 BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
@@ -193,6 +194,7 @@ BOX2D_API b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJoi
 /// Destroy a joint
 BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
 
+/// Generic joint access
 BOX2D_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 BOX2D_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 
@@ -202,17 +204,17 @@ BOX2D_API void b2DistanceJoint_SetLength(b2JointId jointId, float length, float 
 BOX2D_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
 BOX2D_API void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);
 
+/// Motor joint access
+BOX2D_API void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset);
+BOX2D_API void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset);
+BOX2D_API void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce);
+BOX2D_API void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque);
+BOX2D_API void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor);
+BOX2D_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
 /// Mouse joint access
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
-
-// Revolute joint access
-BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
-BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
-BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
-BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
-BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
-BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
-BOX2D_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
 // Prismatic joint access
 BOX2D_API void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit);
@@ -222,6 +224,15 @@ BOX2D_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId, float inverseT
 BOX2D_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
 BOX2D_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
 BOX2D_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
+// Revolute joint access
+BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
+BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
 // Wheel joint access
 BOX2D_API void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness);

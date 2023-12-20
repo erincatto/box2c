@@ -97,6 +97,9 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 		joint->springMass = ks > 0.0f ? 1.0f / ks : 0.0f;
 	}
 
+	float km = iA + iB;
+	joint->motorMass = km > 0.0f ? 1.0f / km : 0.0f;
+
 	//// hertz = 1/4 * substep Hz
 	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
 	const float zeta = 1.0f;
@@ -220,7 +223,7 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	if (joint->enableMotor && fixedRotation == false)
 	{
 		float Cdot = wB - wA - joint->motorSpeed;
-		float impulse = -joint->axialMass * Cdot;
+		float impulse = -joint->motorMass * Cdot;
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->dt * joint->maxMotorTorque;
 		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);

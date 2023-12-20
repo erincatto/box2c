@@ -8,11 +8,318 @@
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/joint_util.h"
-
-#include <GLFW/glfw3.h>
 #include "box2d/math.h"
 
+#include <GLFW/glfw3.h>
 #include <imgui.h>
+
+// Test the distance joint and all options
+class DistanceJoint : public Sample
+{
+public:
+	enum
+	{
+		e_maxCount = 10
+	};
+
+	DistanceJoint(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		}
+
+		m_count = 0;
+		m_hertz = 2.0f;
+		m_dampingRatio = 0.5f;
+		m_length = 1.0f;
+		m_minLength = 0.5f;
+		m_maxLength = 2.0f;
+		m_fixedLength = false;
+
+		for (int i = 0; i < e_maxCount; ++i)
+		{
+			m_bodyIds[i] = b2_nullBodyId;
+			m_jointIds[i] = b2_nullJointId;
+		}
+
+		CreateScene(1);
+	}
+
+	void CreateScene(int newCount)
+	{
+		// Must destroy joints before bodies
+		for (int i = 0; i < m_count; ++i)
+		{
+			b2World_DestroyJoint(m_jointIds[i]);
+			m_jointIds[i] = b2_nullJointId;
+		}
+
+		for (int i = 0; i < m_count; ++i)
+		{
+			b2World_DestroyBody(m_bodyIds[i]);
+			m_bodyIds[i] = b2_nullBodyId;
+		}
+
+		m_count = newCount;
+
+		float radius = 0.25f;
+		b2Circle circle = {{0.0f, 0.0f}, radius};
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 20.0f;
+
+		float yOffset = 20.0f;
+
+		b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+
+		b2BodyId prevBodyId = m_groundId;
+		for (int32_t i = 0; i < m_count; ++i)
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {m_length * (i + 1.0f), yOffset};
+			m_bodyIds[i] = b2World_CreateBody(m_worldId, &bodyDef);
+			b2Body_CreateCircle(m_bodyIds[i], &shapeDef, &circle);
+
+			b2Vec2 pivotA = {m_length * i, yOffset};
+			b2Vec2 pivotB = {m_length * (i + 1.0f), yOffset};
+			jointDef.bodyIdA = prevBodyId;
+			jointDef.bodyIdB = m_bodyIds[i];
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivotA);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivotB);
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
+			jointDef.length = m_length;
+			jointDef.minLength = m_minLength;
+			jointDef.maxLength = m_maxLength;
+			jointDef.collideConnected = true;
+			m_jointIds[i] = b2World_CreateDistanceJoint(m_worldId, &jointDef);
+
+			prevBodyId = m_bodyIds[i];
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(300.0f, 220.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
+		{
+			if (m_fixedLength)
+			{
+				m_minLength = m_length;
+				m_maxLength = m_length;
+			}
+
+			for (int32_t i = 0; i < m_count; ++i)
+			{
+				b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+			}
+		}
+
+		if (ImGui::Checkbox("fixed length", &m_fixedLength))
+		{
+			if (m_fixedLength)
+			{
+				m_minLength = m_length;
+				m_maxLength = m_length;
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+				}
+			}
+		}
+
+		if (m_fixedLength == false)
+		{
+			if (ImGui::SliderFloat("min length", &m_minLength, 0.1f, 4.0f, "%3.1f"))
+			{
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+				}
+			}
+
+			if (ImGui::SliderFloat("max length", &m_maxLength, 0.1f, 4.0f, "%3.1f"))
+			{
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+				}
+			}
+
+			if (ImGui::SliderFloat("hertz", &m_hertz, 0.0f, 15.0f, "%3.1f"))
+			{
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetTuning(m_jointIds[i], m_hertz, m_dampingRatio);
+				}
+			}
+
+			if (ImGui::SliderFloat("damping", &m_dampingRatio, 0.0f, 4.0f, "%3.1f"))
+			{
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetTuning(m_jointIds[i], m_hertz, m_dampingRatio);
+				}
+			}
+		}
+
+		int count = m_count;
+		if (ImGui::SliderInt("count", &count, 1, e_maxCount))
+		{
+			CreateScene(count);
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new DistanceJoint(settings);
+	}
+
+	b2BodyId m_groundId;
+	b2BodyId m_bodyIds[e_maxCount];
+	b2JointId m_jointIds[e_maxCount];
+	int32_t m_count;
+	float m_hertz;
+	float m_dampingRatio;
+	float m_length;
+	float m_minLength;
+	float m_maxLength;
+	bool m_fixedLength;
+};
+
+static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", DistanceJoint::Create);
+
+/// This test shows how to use a motor joint. A motor joint
+/// can be used to animate a dynamic body. With finite motor forces
+/// the body can be blocked by collision with other bodies.
+///	By setting the correction factor to zero, the motor joint acts
+///	like top-down dry friction.
+class MotorJoint : public Sample
+{
+public:
+	MotorJoint(const Settings& settings)
+		: Sample(settings)
+	{
+		b2BodyId groundId;
+		{
+			groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		// Define motorized body
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 8.0f};
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(2.0f, 0.5f);
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.density = 1.0f;
+			b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
+
+			m_maxForce = 500.0f;
+			m_maxTorque = 500.0f;
+			m_correctionFactor = 0.3f;
+
+			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
+			jointDef.bodyIdA = groundId;
+			jointDef.bodyIdB = bodyId;
+			jointDef.maxForce = m_maxForce;
+			jointDef.maxTorque = m_maxTorque;
+			jointDef.correctionFactor = m_correctionFactor;
+
+			m_jointId = b2World_CreateMotorJoint(m_worldId, &jointDef);
+		}
+
+		m_go = false;
+		m_time = 0.0f;
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(250.0f, 140.0f));
+		ImGui::Begin("Motor Joint", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Checkbox("Go", &m_go))
+		{
+		}
+
+		if (ImGui::SliderFloat("Max Force", &m_maxForce, 0.0f, 1000.0f, "%.0f"))
+		{
+			b2MotorJoint_SetMaxForce(m_jointId, m_maxForce);
+		}
+
+		if (ImGui::SliderFloat("Max Torque", &m_maxTorque, 0.0f, 1000.0f, "%.0f"))
+		{
+			b2MotorJoint_SetMaxTorque(m_jointId, m_maxTorque);
+		}
+
+		if (ImGui::SliderFloat("Correction", &m_correctionFactor, 0.0f, 1.0f, "%.1f"))
+		{
+			b2MotorJoint_SetCorrectionFactor(m_jointId, m_correctionFactor);
+		}
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		if (m_go && settings.hertz > 0.0f)
+		{
+			m_time += 1.0f / settings.hertz;
+		}
+
+		b2Vec2 linearOffset;
+		linearOffset.x = 6.0f * sinf(2.0f * m_time);
+		linearOffset.y = 8.0f + 4.0f * sinf(1.0f * m_time);
+
+		float angularOffset = b2_pi * sinf(-0.5f * m_time);
+
+		b2MotorJoint_SetLinearOffset(m_jointId, linearOffset);
+		b2MotorJoint_SetAngularOffset(m_jointId, angularOffset);
+
+		b2Transform transform = {linearOffset, b2MakeRot(angularOffset)};
+		g_draw.DrawTransform(transform);
+
+		Sample::Step(settings);
+
+		b2Vec2 force = b2MotorJoint_GetConstraintForce(m_jointId, settings.hertz);
+		float torque = b2MotorJoint_GetConstraintTorque(m_jointId, settings.hertz);
+
+		g_draw.DrawString(5, m_textLine, "force = {%g, %g}, torque = %g", force.x, force.y, torque);
+		m_textLine += 15;
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new MotorJoint(settings);
+	}
+
+	b2JointId m_jointId;
+	float m_time;
+	float m_maxForce;
+	float m_maxTorque;
+	float m_correctionFactor;
+	bool m_go;
+};
+
+static int sampleMotorJoint = RegisterSample("Joints", "Motor Joint", MotorJoint::Create);
 
 class RevoluteJoint : public Sample
 {
@@ -682,196 +989,8 @@ public:
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);
 
-// Test the distance joint and all options
-class DistanceJoint : public Sample
-{
-public:
-	enum
-	{
-		e_maxCount = 10
-	};
-
-	DistanceJoint(const Settings& settings)
-		: Sample(settings)
-	{
-		if (settings.restart == false)
-		{
-			g_camera.m_zoom = 0.25f;
-		}
-
-		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
-		}
-
-		m_count = 0;
-		m_hertz = 2.0f;
-		m_dampingRatio = 0.5f;
-		m_length = 1.0f;
-		m_minLength = 0.5f;
-		m_maxLength = 2.0f;
-		m_fixedLength = false;
-
-		for (int i = 0; i < e_maxCount; ++i)
-		{
-			m_bodyIds[i] = b2_nullBodyId;
-			m_jointIds[i] = b2_nullJointId;
-		}
-
-		CreateScene(1);
-	}
-
-	void CreateScene(int newCount)
-	{
-		// Must destroy joints before bodies
-		for (int i = 0; i < m_count; ++i)
-		{
-			b2World_DestroyJoint(m_jointIds[i]);
-			m_jointIds[i] = b2_nullJointId;
-		}
-
-		for (int i = 0; i < m_count; ++i)
-		{
-			b2World_DestroyBody(m_bodyIds[i]);
-			m_bodyIds[i] = b2_nullBodyId;
-		}
-
-		m_count = newCount;
-
-		float radius = 0.25f;
-		b2Circle circle = {{0.0f, 0.0f}, radius};
-
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
-		shapeDef.density = 20.0f;
-
-		float yOffset = 20.0f;
-
-		b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
-
-		b2BodyId prevBodyId = m_groundId;
-		for (int32_t i = 0; i < m_count; ++i)
-		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {m_length * (i + 1.0f), yOffset};
-			m_bodyIds[i] = b2World_CreateBody(m_worldId, &bodyDef);
-			b2Body_CreateCircle(m_bodyIds[i], &shapeDef, &circle);
-
-			b2Vec2 pivotA = {m_length * i, yOffset};
-			b2Vec2 pivotB = {m_length * (i + 1.0f), yOffset};
-			jointDef.bodyIdA = prevBodyId;
-			jointDef.bodyIdB = m_bodyIds[i];
-			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivotA);
-			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivotB);
-			jointDef.hertz = m_hertz;
-			jointDef.dampingRatio = m_dampingRatio;
-			jointDef.length = m_length;
-			jointDef.minLength = m_minLength;
-			jointDef.maxLength = m_maxLength;
-			jointDef.collideConnected = true;
-			m_jointIds[i] = b2World_CreateDistanceJoint(m_worldId, &jointDef);
-
-			prevBodyId = m_bodyIds[i];
-		}
-	}
-
-	void UpdateUI() override
-	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, 220.0f));
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
-
-		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
-		{
-			if (m_fixedLength)
-			{
-				m_minLength = m_length;
-				m_maxLength = m_length;
-			}
-
-			for (int32_t i = 0; i < m_count; ++i)
-			{
-				b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
-			}
-		}
-
-		if (ImGui::Checkbox("fixed length", &m_fixedLength))
-		{
-			if (m_fixedLength)
-			{
-				m_minLength = m_length;
-				m_maxLength = m_length;
-				for (int32_t i = 0; i < m_count; ++i)
-				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
-				}
-			}
-		}
-
-		if (m_fixedLength == false)
-		{
-			if (ImGui::SliderFloat("min length", &m_minLength, 0.1f, 4.0f, "%3.1f"))
-			{
-				for (int32_t i = 0; i < m_count; ++i)
-				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
-				}
-			}
-
-			if (ImGui::SliderFloat("max length", &m_maxLength, 0.1f, 4.0f, "%3.1f"))
-			{
-				for (int32_t i = 0; i < m_count; ++i)
-				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
-				}
-			}
-
-			if (ImGui::SliderFloat("hertz", &m_hertz, 0.0f, 15.0f, "%3.1f"))
-			{
-				for (int32_t i = 0; i < m_count; ++i)
-				{
-					b2DistanceJoint_SetTuning(m_jointIds[i], m_hertz, m_dampingRatio);
-				}
-			}
-
-			if (ImGui::SliderFloat("damping", &m_dampingRatio, 0.0f, 4.0f, "%3.1f"))
-			{
-				for (int32_t i = 0; i < m_count; ++i)
-				{
-					b2DistanceJoint_SetTuning(m_jointIds[i], m_hertz, m_dampingRatio);
-				}
-			}
-		}
-
-		int count = m_count;
-		if (ImGui::SliderInt("count", &count, 1, e_maxCount))
-		{
-			CreateScene(count);
-		}
-
-		ImGui::End();
-	}
-
-	static Sample* Create(const Settings& settings)
-	{
-		return new DistanceJoint(settings);
-	}
-
-	b2BodyId m_groundId;
-	b2BodyId m_bodyIds[e_maxCount];
-	b2JointId m_jointIds[e_maxCount];
-	int32_t m_count;
-	float m_hertz;
-	float m_dampingRatio;
-	float m_length;
-	float m_minLength;
-	float m_maxLength;
-	bool m_fixedLength;
-};
-
-static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", DistanceJoint::Create);
-
-class AllJoints : public Sample
+// This test ensures joints work correctly with bodies that have fixed rotation
+class FixedRotation : public Sample
 {
 public:
 	enum
@@ -879,11 +998,11 @@ public:
 		e_count = 5
 	};
 
-	AllJoints(const Settings& settings)
+	FixedRotation(const Settings& settings)
 		: Sample(settings)
 	{
 		m_groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
-		m_fixedRotation = false;
+		m_fixedRotation = true;
 
 		for (int i = 0; i < 5; ++i)
 		{
@@ -997,7 +1116,7 @@ public:
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(300.0f, 60.0f));
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Fixed Rotation", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("fixed rotation", &m_fixedRotation))
 		{
@@ -1009,7 +1128,7 @@ public:
 
 	static Sample* Create(const Settings& settings)
 	{
-		return new AllJoints(settings);
+		return new FixedRotation(settings);
 	}
 
 	b2BodyId m_groundId;
@@ -1018,8 +1137,9 @@ public:
 	bool m_fixedRotation;
 };
 
-static int sampleAllJoints = RegisterSample("Joints", "All Joints", AllJoints::Create);
+static int sampleFixedRotation = RegisterSample("Joints", "Fixed Rotation", FixedRotation::Create);
 
+// This shows how you can implement a constraint outside of Box2D
 class UserConstraint : public Sample
 {
 public:
@@ -1136,7 +1256,6 @@ public:
 
 static int sampleUserConstraintIndex = RegisterSample("Joints", "User Constraint", UserConstraint::Create);
 
-
 // This is a fun demo that shows off the wheel joint
 class Car : public Sample
 {
@@ -1219,7 +1338,7 @@ public:
 		// Bridge
 		{
 			int N = 20;
-			b2Polygon box = b2MakeBox(1.0f, 0.125f);
+			b2Capsule capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 0.125f};
 
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
 
@@ -1230,7 +1349,7 @@ public:
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {161.0f + 2.0f * i, -0.125f};
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
-				b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
+				b2Body_CreateCapsule(bodyId, &b2_defaultShapeDef, &capsule);
 
 				b2Vec2 pivot = {160.0f + 2.0f * i, -0.125f};
 				jointDef.bodyIdA = prevBodyId;
@@ -1247,6 +1366,8 @@ public:
 			jointDef.bodyIdB = groundId;
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			jointDef.enableMotor = true;
+			jointDef.maxMotorTorque = 50.0f;
 			b2World_CreateRevoluteJoint(m_worldId, &jointDef);
 		}
 
