@@ -737,6 +737,8 @@ b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	shapeDef.restitution = def->restitution;
 	shapeDef.friction = def->friction;
 	shapeDef.filter = def->filter;
+	shapeDef.enableContactEvents = false;
+	shapeDef.enableSensorEvents = false;
 
 	int32_t n = def->count;
 	const b2Vec2* points = def->points;
