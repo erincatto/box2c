@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "human.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -1591,3 +1592,29 @@ public:
 };
 
 static int sampleCar = RegisterSample("Joints", "Car", Car::Create);
+
+class Ragdoll : public Sample
+{
+public:
+	Ragdoll(const Settings& settings)
+		: Sample(settings)
+	{
+		b2BodyId groundId;
+		{
+			groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		m_human.Spawn(m_worldId, { 0.0f, 10.0f } , 1);
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Ragdoll(settings);
+	}
+
+	Human m_human;
+};
+
+static int sampleRagdoll = RegisterSample("Joints", "Ragdoll", Ragdoll::Create);

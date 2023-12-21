@@ -65,6 +65,8 @@ set(BOX2D_SAMPLES
 	settings.cpp
 
 	collection/benchmark.cpp
+	collection/human.cpp
+	collection/human.h
 	collection/sample_joints.cpp
 	collection/sample_robustness.cpp
 	collection/sample_bodies.cpp

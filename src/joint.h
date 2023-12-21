@@ -263,6 +263,7 @@ typedef struct b2Joint
 		b2WheelJoint wheelJoint;
 	};
 
+	float drawScale;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;

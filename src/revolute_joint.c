@@ -425,7 +425,7 @@ void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 	float aB = bodyB->angle;
 	float angle = aB - aA - joint->referenceAngle;
 
-	const float L = 0.5f;
+	const float L = 0.5f * base->drawScale;
 
 	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
 	draw->DrawSegment(pB, b2Add(pB, r), c1, draw->context);
