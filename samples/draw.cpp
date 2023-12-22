@@ -1278,7 +1278,7 @@ void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color)
 
 void Draw::DrawTransform(b2Transform xf)
 {
-	const float k_axisScale = 0.4f;
+	const float k_axisScale = 0.2f;
 	b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
 	b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
 	b2Vec2 p1 = xf.p, p2;

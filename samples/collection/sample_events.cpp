@@ -438,24 +438,26 @@ public:
 		g_draw.DrawString(5, m_textLine, "move using WASD");
 		m_textLine += m_textIncrement;
 
+		b2Vec2 position = b2Body_GetPosition(m_playerId);
+
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {-m_force, 0.0f}, true);
+			b2Body_ApplyForce(m_playerId, {-m_force, 0.0f}, position, true);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_D) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {m_force, 0.0f}, true);
+			b2Body_ApplyForce(m_playerId, {m_force, 0.0f}, position, true);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_W) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {0.0f, m_force}, true);
+			b2Body_ApplyForce(m_playerId, {0.0f, m_force}, position, true);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {0.0f, -m_force}, true);
+			b2Body_ApplyForce(m_playerId, {0.0f, -m_force}, position, true);
 		}
 
 		Sample::Step(settings);

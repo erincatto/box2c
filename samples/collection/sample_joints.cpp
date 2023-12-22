@@ -704,6 +704,11 @@ public:
 	Bridge(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 2.5f;
+		}
+
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -720,18 +725,20 @@ public:
 			int32_t jointIndex = 0;
 			m_frictionTorque = 200.0f;
 
+			float xbase = -80.0f;
+
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
 			{
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
-				bodyDef.position = {-34.5f + 1.0f * i, 20.0f};
-				// bodyDef.linearDamping = 0.1f;
-				// bodyDef.angularDamping = 0.1f;
+				bodyDef.position = {xbase + 0.5f + 1.0f * i, 20.0f};
+				bodyDef.linearDamping = 0.1f;
+				bodyDef.angularDamping = 0.1f;
 				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
 
-				b2Vec2 pivot = {-35.0f + 1.0f * i, 20.0f};
+				b2Vec2 pivot = {xbase + 1.0f * i, 20.0f};
 				jointDef.bodyIdA = prevBodyId;
 				jointDef.bodyIdB = bodyId;
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -743,7 +750,7 @@ public:
 				prevBodyId = bodyId;
 			}
 
-			b2Vec2 pivot = {-35.0f + 1.0f * e_count, 20.0f};
+			b2Vec2 pivot = {xbase + 1.0f * e_count, 20.0f};
 			jointDef.bodyIdA = prevBodyId;
 			jointDef.bodyIdB = groundId;
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -830,6 +837,11 @@ public:
 	BallAndChain(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, -5.0f};
+		}
+
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -863,7 +875,7 @@ public:
 				jointDef.bodyIdB = bodyId;
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
-				jointDef.enableMotor = true;
+				// jointDef.enableMotor = true;
 				jointDef.maxMotorTorque = m_frictionTorque;
 				m_jointIds[jointIndex++] = b2World_CreateRevoluteJoint(m_worldId, &jointDef);
 
@@ -920,6 +932,8 @@ public:
 
 static int sampleBallAndChainIndex = RegisterSample("Joints", "Ball & Chain", BallAndChain::Create);
 
+// This sample shows the limitations of an iterative solver. The cantilever sags even though the weld
+// joint is stiff as possible.
 class Cantilever : public Sample
 {
 public:
@@ -931,6 +945,12 @@ public:
 	Cantilever(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+			g_camera.m_center = {0.0f, 0.0f};
+		}
+
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -1599,6 +1619,12 @@ public:
 	Ragdoll(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+			g_camera.m_center = {0.0f, 5.0f};
+		}
+
 		b2BodyId groundId;
 		{
 			groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
@@ -1606,7 +1632,7 @@ public:
 			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
 		}
 
-		m_human.Spawn(m_worldId, { 0.0f, 10.0f } , 1);
+		m_human.Spawn(m_worldId, {0.0f, 10.0f}, 2.0f, 1);
 	}
 
 	static Sample* Create(const Settings& settings)

@@ -253,7 +253,7 @@ typedef struct b2RevoluteJointDef
 	float maxMotorTorque;
 
 	/// Scale the debug draw
-	float drawScale;
+	float drawSize;
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
@@ -274,7 +274,7 @@ static inline b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 	def.motorSpeed = 0.0f;
 	def.enableLimit = false;
 	def.enableMotor = false;
-	def.drawScale = 1.0f;
+	def.drawSize = 0.25f;
 	def.collideConnected = false;
 	return def;
 }

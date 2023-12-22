@@ -794,7 +794,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			b2Vec2 p = b2TransformPoint(transform, offset);
 
 			char buffer[32];
-			sprintf(buffer, "%.1f", body->mass);
+			sprintf(buffer, "%.2f", body->mass);
 			draw->DrawString(p, buffer, draw->context);
 		}
 	}

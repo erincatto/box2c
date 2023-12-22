@@ -153,7 +153,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	joint->colorIndex = B2_NULL_INDEX;
 	joint->colorSubIndex = B2_NULL_INDEX;
 
-	joint->drawScale = 1.0f;
+	joint->drawSize = 1.0f;
 	joint->isMarked = false;
 
 	if ((bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody) && bodyA->isEnabled == true && bodyB->isEnabled == true)
@@ -341,13 +341,13 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->localAnchorA = def->localAnchorA;
 	joint->localAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
-	joint->drawScale = def->drawScale;
+	joint->drawSize = def->drawSize;
 
 	b2RevoluteJoint empty = {0};
 	joint->revoluteJoint = empty;
 
 	joint->revoluteJoint.referenceAngle = def->referenceAngle;
-	joint->revoluteJoint.impulse = b2Vec2_zero;
+	joint->revoluteJoint.linearImpulse = b2Vec2_zero;
 	joint->revoluteJoint.axialMass = 0.0f;
 	joint->revoluteJoint.motorImpulse = 0.0f;
 	joint->revoluteJoint.lowerImpulse = 0.0f;

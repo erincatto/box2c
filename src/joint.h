@@ -140,7 +140,7 @@ typedef struct b2PrismaticJoint
 typedef struct b2RevoluteJoint
 {
 	// Solver shared
-	b2Vec2 impulse;
+	b2Vec2 linearImpulse;
 	float motorImpulse;
 	float lowerImpulse;
 	float upperImpulse;
@@ -161,6 +161,9 @@ typedef struct b2RevoluteJoint
 	b2Vec2 rB;
 	b2Vec2 separation;
 	b2Mat22 pivotMass;
+	float limitBiasCoefficient;
+	float limitMassCoefficient;
+	float limitImpulseCoefficient;
 	float biasCoefficient;
 	float massCoefficient;
 	float impulseCoefficient;
@@ -263,7 +266,7 @@ typedef struct b2Joint
 		b2WheelJoint wheelJoint;
 	};
 
-	float drawScale;
+	float drawSize;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;

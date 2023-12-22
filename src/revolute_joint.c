@@ -82,16 +82,33 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
 	joint->pivotMass = b2GetInverse22(K);
 
-	// hertz = 1/4 * substep Hz
-	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
-	const float zeta = 1.0f;
-	float omega = 2.0f * b2_pi * hertz;
-	float h = context->dt;
+	{
+		// todo these coefficients could be in the context and shared
+		// hertz = 1/4 * substep Hz
+		const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
+		const float zeta = 1.0f;
+		//const float hertz = 60.0f;
+		//const float zeta = 1.0f;
+		float omega = 2.0f * b2_pi * hertz;
+		float h = context->dt;
 
-	joint->biasCoefficient = omega / (2.0f * zeta + h * omega);
-	float c = h * omega * (2.0f * zeta + h * omega);
-	joint->impulseCoefficient = 1.0f / (1.0f + c);
-	joint->massCoefficient = c * joint->impulseCoefficient;
+		joint->biasCoefficient = omega / (2.0f * zeta + h * omega);
+		float c = h * omega * (2.0f * zeta + h * omega);
+		joint->impulseCoefficient = 1.0f / (1.0f + c);
+		joint->massCoefficient = c * joint->impulseCoefficient;
+	}
+
+	{
+		const float hertz = 30.0f;
+		const float zeta = 1.0f;
+		float omega = 2.0f * b2_pi * hertz;
+		float h = context->dt;
+		float c = h * omega * (2.0f * zeta + h * omega);
+
+		joint->limitBiasCoefficient = omega / (2.0f * zeta + h * omega);
+		joint->limitImpulseCoefficient = 1.0f / (1.0f + c);
+		joint->limitMassCoefficient = c * joint->limitImpulseCoefficient;
+	}
 
 	if (joint->enableLimit == false || fixedRotation)
 	{
@@ -108,15 +125,16 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	{
 		float dtRatio = context->dtRatio;
 
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = b2Vec2_zero;
+		// Soft step works best when stiff constraints have no warm starting.
+		//joint->linearImpulse = b2MulSV(dtRatio, joint->linearImpulse);
+		joint->linearImpulse = b2Vec2_zero;
 		joint->motorImpulse *= dtRatio;
 		joint->lowerImpulse *= dtRatio;
 		joint->upperImpulse *= dtRatio;
 	}
 	else
 	{
-		joint->impulse = b2Vec2_zero;
+		joint->linearImpulse = b2Vec2_zero;
 		joint->motorImpulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
 		joint->upperImpulse = 0.0f;
@@ -134,16 +152,21 @@ void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context)
 
 	// Note: must warm start solver bodies
 	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
+	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 
 	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
+	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	// TODO_ERIN is warm starting axial stuff useful?
+	// todo is warm starting axial stuff useful?
 	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-	bodyA->angularVelocity -= iA * axialImpulse;
-	bodyB->angularVelocity += iB * axialImpulse;
+	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, joint->linearImpulse);
+	bodyA->angularVelocity -= iA * (b2Cross(joint->rA, joint->linearImpulse) + axialImpulse);
+
+	bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, joint->linearImpulse);
+	bodyB->angularVelocity += iB * (b2Cross(joint->rB, joint->linearImpulse) + axialImpulse);
 }
 
 void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
@@ -172,20 +195,6 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 	bool fixedRotation = (iA + iB == 0.0f);
 
-	// Solve motor constraint.
-	if (joint->enableMotor && fixedRotation == false)
-	{
-		float Cdot = wB - wA - joint->motorSpeed;
-		float impulse = -joint->axialMass * Cdot;
-		float oldImpulse = joint->motorImpulse;
-		float maxImpulse = context->dt * joint->maxMotorTorque;
-		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
-		impulse = joint->motorImpulse - oldImpulse;
-
-		wA -= iA * impulse;
-		wB += iB * impulse;
-	}
-
 	if (joint->enableLimit && fixedRotation == false)
 	{
 		float jointAngle = aB - aA - joint->referenceAngle;
@@ -203,9 +212,9 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			}
 			else if (useBias)
 			{
-				bias = joint->biasCoefficient * C;
-				massScale = joint->massCoefficient;
-				impulseScale = joint->impulseCoefficient;
+				bias = joint->limitBiasCoefficient * C;
+				massScale = joint->limitMassCoefficient;
+				impulseScale = joint->limitImpulseCoefficient;
 			}
 
 			float Cdot = wB - wA;
@@ -233,9 +242,9 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			}
 			else if (useBias)
 			{
-				bias = joint->biasCoefficient * C;
-				massScale = joint->massCoefficient;
-				impulseScale = joint->impulseCoefficient;
+				bias = joint->limitBiasCoefficient * C;
+				massScale = joint->limitMassCoefficient;
+				impulseScale = joint->limitImpulseCoefficient;
 			}
 
 			float Cdot = wA - wB;
@@ -275,17 +284,31 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 		b2Vec2 b = b2MulMV(joint->pivotMass, b2Add(Cdot, bias));
 		b2Vec2 impulse;
-		impulse.x = -massScale * b.x - impulseScale * joint->impulse.x;
-		impulse.y = -massScale * b.y - impulseScale * joint->impulse.y;
+		impulse.x = -massScale * b.x - impulseScale * joint->linearImpulse.x;
+		impulse.y = -massScale * b.y - impulseScale * joint->linearImpulse.y;
 
-		joint->impulse.x += impulse.x;
-		joint->impulse.y += impulse.y;
+		joint->linearImpulse.x += impulse.x;
+		joint->linearImpulse.y += impulse.y;
 
 		vA = b2MulSub(vA, mA, impulse);
 		wA -= iA * b2Cross(rA, impulse);
 
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(rB, impulse);
+	}
+
+	// Solve motor constraint.
+	if (joint->enableMotor && fixedRotation == false)
+	{
+		float Cdot = wB - wA - joint->motorSpeed;
+		float impulse = -joint->axialMass * Cdot;
+		float oldImpulse = joint->motorImpulse;
+		float maxImpulse = context->dt * joint->maxMotorTorque;
+		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		impulse = joint->motorImpulse - oldImpulse;
+
+		wA -= iA * impulse;
+		wB += iB * impulse;
 	}
 
 	bodyA->linearVelocity = vA;
@@ -363,7 +386,7 @@ b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeSt
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
-	b2Vec2 force = b2MulSV(inverseTimeStep, joint->revoluteJoint.impulse);
+	b2Vec2 force = b2MulSV(inverseTimeStep, joint->revoluteJoint.linearImpulse);
 	return force;
 }
 
@@ -425,7 +448,7 @@ void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 	float aB = bodyB->angle;
 	float angle = aB - aA - joint->referenceAngle;
 
-	const float L = 0.5f * base->drawScale;
+	const float L = base->drawSize;
 
 	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
 	draw->DrawSegment(pB, b2Add(pB, r), c1, draw->context);
