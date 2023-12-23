@@ -7,6 +7,7 @@
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
+#include "box2d/hull.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -49,14 +50,8 @@ class BenchmarkBarrel : public Sample
 			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {groundSize, 2.0f * groundSize}, 0.0f);
 			b2Body_CreatePolygon(groundId, &shapeDef, &box);
 
-			b2Segment segment = {{-400.0f, -60.0f}, {400.0f, -60.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
-
-			segment = {{-800.0f, 100.0f}, {-400.0f, -60.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
-			
-			segment = {{400.0f, -60.0f}, {800.0f, 100.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			box = b2MakeOffsetBox(800.0f, 10.0f, {0.0f, -80.0f}, 0.0f);
+			b2Body_CreatePolygon(groundId, &shapeDef, &box);
 		}
 
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
@@ -64,7 +59,7 @@ class BenchmarkBarrel : public Sample
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_circleShape;
+		m_shapeType = e_compoundShape;
 
 		CreateScene();
 	}
@@ -85,7 +80,14 @@ class BenchmarkBarrel : public Sample
 		m_columnCount = g_sampleDebug ? 10 : e_maxColumns;
 		m_rowCount = g_sampleDebug ? 40 : e_maxRows;
 
-		if (m_shapeType == e_humanShape)
+		if (m_shapeType == e_compoundShape)
+		{
+			if (g_sampleDebug == false)
+			{
+				m_columnCount = 20;
+			}
+		}
+		else if (m_shapeType == e_humanShape)
 		{
 			if (g_sampleDebug)
 			{
@@ -101,7 +103,7 @@ class BenchmarkBarrel : public Sample
 
 		float rad = 0.5f;
 
-		float shift = rad * 2.0f;
+		float shift = 1.0f;
 		float centerx = shift * m_columnCount / 2.0f;
 		float centery = shift / 2.0f;
 
@@ -116,17 +118,41 @@ class BenchmarkBarrel : public Sample
 		b2Capsule capsule = {{0.0f, -0.25f}, {0.0f, 0.25f}, rad};
 		b2Circle circle = {{0.0f, 0.0f}, rad};
 
+		b2Vec2 vertices[3];
+		vertices[0] = {-1.0f, 0.0f};
+		vertices[1] = {0.5f, 1.0f};
+		vertices[2] = {0.0f, 2.0f};
+		b2Hull hull = b2ComputeHull(vertices, 3);
+		b2Polygon left = b2MakePolygon(&hull, 0.0f);
+
+		vertices[0] = {1.0f, 0.0f};
+		vertices[1] = {-0.5f, 1.0f};
+		vertices[2] = {0.0f, 2.0f};
+		hull = b2ComputeHull(vertices, 3);
+		b2Polygon right = b2MakePolygon(&hull, 0.0f);
+
+		//b2Polygon top = b2MakeOffsetBox(0.8f, 0.2f, {0.0f, 0.8f}, 0.0f);
+		//b2Polygon leftLeg = b2MakeOffsetBox(0.2f, 0.5f, {-0.6f, 0.5f}, 0.0f);
+		//b2Polygon rightLeg = b2MakeOffsetBox(0.2f, 0.5f, {0.6f, 0.5f}, 0.0f);
+
 		float side = -0.05f;
 		float extray = 0.0f;
-		if (m_shapeType == e_capsuleShape || m_shapeType == e_compoundShape || m_shapeType == e_humanShape)
+		if (m_shapeType == e_capsuleShape)
 		{
-			extray = rad;
+			extray = 0.5f;
 		}
-
-		if (m_shapeType == e_humanShape)
+		else if (m_shapeType == e_compoundShape)
 		{
+			extray = 0.25f;
+			side = 0.25f;
+			shift = 2.0f;
+			centerx = shift * m_columnCount / 2.0f - 1.0f;
+		}
+		else if (m_shapeType == e_humanShape)
+		{
+			extray = 0.5f;
 			side = 0.55f;
-			shift = 5.0f * rad;
+			shift = 2.5f;
 			centerx = shift * m_columnCount / 2.0f;
 		}
 
@@ -159,8 +185,11 @@ class BenchmarkBarrel : public Sample
 				}
 				else if (m_shapeType == e_compoundShape)
 				{
-					b2Body_CreateCapsule(m_bodies[index], &shapeDef, &capsule);
-					b2Body_CreatePolygon(m_bodies[index], &shapeDef, &box);
+					b2Body_CreatePolygon(m_bodies[index], &shapeDef, &left);
+					b2Body_CreatePolygon(m_bodies[index], &shapeDef, &right);
+					//b2Body_CreatePolygon(m_bodies[index], &shapeDef, &top);
+					//b2Body_CreatePolygon(m_bodies[index], &shapeDef, &leftLeg);
+					//b2Body_CreatePolygon(m_bodies[index], &shapeDef, &rightLeg);
 				}
 				else if (m_shapeType == e_humanShape)
 				{

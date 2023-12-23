@@ -37,6 +37,9 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 	shapeDef.friction = 0.2f;
 	shapeDef.filter.groupIndex = -groupIndex;
 
+	b2ShapeDef footShapeDef = shapeDef;
+	footShapeDef.friction = 0.05f;
+
 	float s = scale;
 	float maxTorque = 0.05f * s;
 	bool enableMotor = true;
@@ -60,7 +63,9 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		bone->parentIndex = Bone::e_hip;
 		
 		bodyDef.position = b2Add({0.0f, 1.2f * s}, position);
+		//bodyDef.type = b2_staticBody;
 		bone->bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		bodyDef.type = b2_dynamicBody;
 
 		b2Capsule capsule = {{0.0f, -0.135f * s}, {0.0f, 0.135f * s}, 0.09f * s};
 		b2Body_CreateCapsule(bone->bodyId, &shapeDef, &capsule);
@@ -102,7 +107,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 		jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 		jointDef.enableLimit = true;
-		jointDef.lowerAngle = -0.25f * b2_pi;
+		jointDef.lowerAngle = -0.3f * b2_pi;
 		jointDef.upperAngle = 0.1f * b2_pi;
 		jointDef.enableMotor = enableMotor;
 		jointDef.maxMotorTorque = 0.25f * maxTorque;
@@ -146,11 +151,14 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		bodyDef.position = b2Add({0.0f, 0.475f * s}, position);
 		bone->bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-		b2Capsule capsule = {{0.0f, -0.135f * s}, {0.0f, 0.125f * s}, 0.05f * s};
+		b2Capsule capsule = {{0.0f, -0.14f * s}, {0.0f, 0.125f * s}, 0.05f * s};
 		b2Body_CreateCapsule(bone->bodyId, &shapeDef, &capsule);
 
-		b2Polygon box = b2MakeOffsetBox(0.1f * s, 0.03f * s, {0.05f * s, -0.175f * s}, 0.0f);
-		b2Body_CreatePolygon(bone->bodyId, &shapeDef, &box);
+		//b2Polygon box = b2MakeOffsetBox(0.1f * s, 0.03f * s, {0.05f * s, -0.175f * s}, 0.0f);
+		//b2Body_CreatePolygon(bone->bodyId, &shapeDef, &box);
+
+		capsule = {{-0.02f * s, -0.175f * s}, {0.13f * s, -0.175f * s}, 0.03f * s};
+		b2Body_CreateCapsule(bone->bodyId, &footShapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 0.625f * s}, position);
 		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
@@ -203,11 +211,14 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		bodyDef.position = b2Add({0.0f, 0.475f * s}, position);
 		bone->bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-		b2Capsule capsule = {{0.0f, -0.135f * s}, {0.0f, 0.125f * s}, 0.05f * s};
+		b2Capsule capsule = {{0.0f, -0.14f * s}, {0.0f, 0.125f * s}, 0.05f * s};
 		b2Body_CreateCapsule(bone->bodyId, &shapeDef, &capsule);
 
-		b2Polygon box = b2MakeOffsetBox(0.1f * s, 0.03f * s, {0.05f * s, -0.175f * s}, 0.0f);
-		b2Body_CreatePolygon(bone->bodyId, &shapeDef, &box);
+		//b2Polygon box = b2MakeOffsetBox(0.1f * s, 0.03f * s, {0.05f * s, -0.175f * s}, 0.0f);
+		//b2Body_CreatePolygon(bone->bodyId, &shapeDef, &box);
+
+		capsule = {{-0.02f * s, -0.175f * s}, {0.13f * s, -0.175f * s}, 0.03f * s};
+		b2Body_CreateCapsule(bone->bodyId, &footShapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 0.625f * s}, position);
 		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();

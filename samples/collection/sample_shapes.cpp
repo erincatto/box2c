@@ -6,6 +6,7 @@
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
+#include "box2d/hull.h"
 #include "box2d/math.h"
 
 #include <GLFW/glfw3.h>
@@ -224,6 +225,8 @@ public:
 
 static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape::Create);
 
+// This sample shows how careful creation of compound shapes leads to better simulation and avoids
+// objects getting stuck.
 class CompoundShapes : public Sample
 {
 public:
@@ -233,110 +236,95 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 1.75f;
+			g_camera.m_zoom = 0.5f;
 		}
 
 		{
-			b2BodyDef bd;
-			bd.position.Set(0.0f, 0.0f);
-			b2Body* body = m_world->CreateBody(&bd);
-
-			b2EdgeShape shape;
-			shape.SetTwoSided(b2Vec2(50.0f, 0.0f), b2Vec2(-50.0f, 0.0f));
-
-			body->CreateFixture(&shape, 0.0f);
+			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{50.0f, 0.0f}, {-50.0f, 0.0f}};
+			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
 		}
 
 		// Table 1
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position.Set(-15.0f, 1.0f);
-			m_table1 = m_world->CreateBody(&bd);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {-15.0f, 1.0f};
+			m_table1Id = b2World_CreateBody(m_worldId, &bodyDef);
 
-			b2PolygonShape top;
-			top.SetAsBox(3.0f, 0.5f, b2Vec2(0.0f, 3.5f), 0.0f);
+			b2Polygon top = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 3.5f}, 0.0f);
+			b2Polygon leftLeg = b2MakeOffsetBox(0.5f, 1.5f, {-2.5f, 1.5f}, 0.0f);
+			b2Polygon rightLeg = b2MakeOffsetBox(0.5f, 1.5f, {2.5f, 1.5f}, 0.0f);
 
-			b2PolygonShape leftLeg;
-			leftLeg.SetAsBox(0.5f, 1.5f, b2Vec2(-2.5f, 1.5f), 0.0f);
-
-			b2PolygonShape rightLeg;
-			rightLeg.SetAsBox(0.5f, 1.5f, b2Vec2(2.5f, 1.5f), 0.0f);
-
-			m_table1->CreateFixture(&top, 2.0f);
-			m_table1->CreateFixture(&leftLeg, 2.0f);
-			m_table1->CreateFixture(&rightLeg, 2.0f);
+			b2Body_CreatePolygon(m_table1Id, &b2_defaultShapeDef, &top);
+			b2Body_CreatePolygon(m_table1Id, &b2_defaultShapeDef, &leftLeg);
+			b2Body_CreatePolygon(m_table1Id, &b2_defaultShapeDef, &rightLeg);
 		}
 
 		// Table 2
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position.Set(-5.0f, 1.0f);
-			m_table2 = m_world->CreateBody(&bd);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {-5.0f, 1.0f};
+			m_table2Id = b2World_CreateBody(m_worldId, &bodyDef);
 
-			b2PolygonShape top;
-			top.SetAsBox(3.0f, 0.5f, b2Vec2(0.0f, 3.5f), 0.0f);
+			b2Polygon top = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 3.5f}, 0.0f);
+			b2Polygon leftLeg = b2MakeOffsetBox(0.5f, 2.0f, {-2.5f, 2.0f}, 0.0f);
+			b2Polygon rightLeg = b2MakeOffsetBox(0.5f, 2.0f, {2.5f, 2.0f}, 0.0f);
 
-			b2PolygonShape leftLeg;
-			leftLeg.SetAsBox(0.5f, 2.0f, b2Vec2(-2.5f, 2.0f), 0.0f);
-
-			b2PolygonShape rightLeg;
-			rightLeg.SetAsBox(0.5f, 2.0f, b2Vec2(2.5f, 2.0f), 0.0f);
-
-			m_table2->CreateFixture(&top, 2.0f);
-			m_table2->CreateFixture(&leftLeg, 2.0f);
-			m_table2->CreateFixture(&rightLeg, 2.0f);
+			b2Body_CreatePolygon(m_table2Id, &b2_defaultShapeDef, &top);
+			b2Body_CreatePolygon(m_table2Id, &b2_defaultShapeDef, &leftLeg);
+			b2Body_CreatePolygon(m_table2Id, &b2_defaultShapeDef, &rightLeg);
 		}
 
 		// Spaceship 1
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position.Set(5.0f, 1.0f);
-			m_ship1 = m_world->CreateBody(&bd);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {5.0f, 1.0f};
+			m_ship1Id = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 vertices[3];
 
-			b2PolygonShape left;
-			vertices[0].Set(-2.0f, 0.0f);
-			vertices[1].Set(0.0f, 4.0f / 3.0f);
-			vertices[2].Set(0.0f, 4.0f);
-			left.Set(vertices, 3);
+			vertices[0] = {-2.0f, 0.0f};
+			vertices[1] = {0.0f, 4.0f / 3.0f};
+			vertices[2] = {0.0f, 4.0f};
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			b2Polygon left = b2MakePolygon(&hull, 0.0f);
 
-			b2PolygonShape right;
-			vertices[0].Set(2.0f, 0.0f);
-			vertices[1].Set(0.0f, 4.0f / 3.0f);
-			vertices[2].Set(0.0f, 4.0f);
-			right.Set(vertices, 3);
+			vertices[0] = {2.0f, 0.0f};
+			vertices[1] = {0.0f, 4.0f / 3.0f};
+			vertices[2] = {0.0f, 4.0f};
+			hull = b2ComputeHull(vertices, 3);
+			b2Polygon right = b2MakePolygon(&hull, 0.0f);
 
-			m_ship1->CreateFixture(&left, 2.0f);
-			m_ship1->CreateFixture(&right, 2.0f);
+			b2Body_CreatePolygon(m_ship1Id, &b2_defaultShapeDef, &left);
+			b2Body_CreatePolygon(m_ship1Id, &b2_defaultShapeDef, &right);
 		}
 
 		// Spaceship 2
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position.Set(15.0f, 1.0f);
-			m_ship2 = m_world->CreateBody(&bd);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {15.0f, 1.0f};
+			m_ship2Id = b2World_CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 vertices[3];
 
-			b2PolygonShape left;
-			vertices[0].Set(-2.0f, 0.0f);
-			vertices[1].Set(1.0f, 2.0f);
-			vertices[2].Set(0.0f, 4.0f);
-			left.Set(vertices, 3);
+			vertices[0] = {-2.0f, 0.0f};
+			vertices[1] = {1.0f, 2.0f};
+			vertices[2] = {0.0f, 4.0f};
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			b2Polygon left = b2MakePolygon(&hull, 0.0f);
 
-			b2PolygonShape right;
-			vertices[0].Set(2.0f, 0.0f);
-			vertices[1].Set(-1.0f, 2.0f);
-			vertices[2].Set(0.0f, 4.0f);
-			right.Set(vertices, 3);
+			vertices[0] = {2.0f, 0.0f};
+			vertices[1] = {-1.0f, 2.0f};
+			vertices[2] = {0.0f, 4.0f};
+			hull = b2ComputeHull(vertices, 3);
+			b2Polygon right = b2MakePolygon(&hull, 0.0f);
 
-			m_ship2->CreateFixture(&left, 2.0f);
-			m_ship2->CreateFixture(&right, 2.0f);
+			b2Body_CreatePolygon(m_ship2Id, &b2_defaultShapeDef, &left);
+			b2Body_CreatePolygon(m_ship2Id, &b2_defaultShapeDef, &right);
 		}
 	}
 
@@ -344,66 +332,52 @@ public:
 	{
 		// Table 1 obstruction
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position = m_table1->GetPosition();
-			bd.angle = m_table1->GetAngle();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = b2Body_GetPosition(m_table1Id);
+			bodyDef.angle = b2Body_GetAngle(m_table1Id);
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-			b2Body* body = m_world->CreateBody(&bd);
-
-			b2PolygonShape box;
-			box.SetAsBox(4.0f, 0.1f, b2Vec2(0.0f, 3.0f), 0.0f);
-
-			body->CreateFixture(&box, 2.0f);
+			b2Polygon box = b2MakeOffsetBox(4.0f, 0.1f, {0.0f, 3.0f}, 0.0f);
+			b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
 		}
 
 		// Table 2 obstruction
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position = m_table2->GetPosition();
-			bd.angle = m_table2->GetAngle();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = b2Body_GetPosition(m_table2Id);
+			bodyDef.angle = b2Body_GetAngle(m_table2Id);
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-			b2Body* body = m_world->CreateBody(&bd);
-
-			b2PolygonShape box;
-			box.SetAsBox(4.0f, 0.1f, b2Vec2(0.0f, 3.0f), 0.0f);
-
-			body->CreateFixture(&box, 2.0f);
+			b2Polygon box = b2MakeOffsetBox(4.0f, 0.1f, {0.0f, 3.0f}, 0.0f);
+			b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
 		}
 
 		// Ship 1 obstruction
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position = m_ship1->GetPosition();
-			bd.angle = m_ship1->GetAngle();
-			bd.gravityScale = 0.0f;
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = b2Body_GetPosition(m_ship1Id);
+			bodyDef.angle = b2Body_GetAngle(m_ship1Id);
+			//bodyDef.gravityScale = 0.0f;
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-			b2Body* body = m_world->CreateBody(&bd);
-
-			b2CircleShape circle;
-			circle.m_radius = 0.5f;
-			circle.m_p.Set(0.0f, 2.0f);
-
-			body->CreateFixture(&circle, 2.0f);
+			b2Circle circle = {{0.0f, 2.0f}, 0.5f};
+			b2Body_CreateCircle(bodyId, &b2_defaultShapeDef, &circle);
 		}
 
 		// Ship 2 obstruction
 		{
-			b2BodyDef bd;
-			bd.type = b2_dynamicBody;
-			bd.position = m_ship2->GetPosition();
-			bd.angle = m_ship2->GetAngle();
-			bd.gravityScale = 0.0f;
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = b2Body_GetPosition(m_ship2Id);
+			bodyDef.angle = b2Body_GetAngle(m_ship2Id);
+			//bodyDef.gravityScale = 0.0f;
+			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
 
-			b2Body* body = m_world->CreateBody(&bd);
-
-			b2CircleShape circle;
-			circle.m_radius = 0.5f;
-			circle.m_p.Set(0.0f, 2.0f);
-
-			body->CreateFixture(&circle, 2.0f);
+			b2Circle circle = {{0.0f, 2.0f}, 0.5f};
+			b2Body_CreateCircle(bodyId, &b2_defaultShapeDef, &circle);
 		}
 	}
 
@@ -411,9 +385,9 @@ public:
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
 		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
-		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Compound Shapes", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		if (ImGui::Button("Spawn"))
+		if (ImGui::Button("Intrude"))
 		{
 			Spawn();
 		}
@@ -426,10 +400,10 @@ public:
 		return new CompoundShapes(settings);
 	}
 
-	b2BodyId m_table1;
-	b2BodyId m_table2;
-	b2BodyId m_ship1;
-	b2BodyId m_ship2;
+	b2BodyId m_table1Id;
+	b2BodyId m_table2Id;
+	b2BodyId m_ship1Id;
+	b2BodyId m_ship2Id;
 };
 
 static int sampleCompoundShape = RegisterSample("Shapes", "Compound Shapes", CompoundShapes::Create);

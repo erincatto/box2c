@@ -99,8 +99,8 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	}
 
 	{
-		const float hertz = 30.0f;
-		const float zeta = 1.0f;
+		const float hertz = 15.0f;
+		const float zeta = 0.7f;
 		float omega = 2.0f * b2_pi * hertz;
 		float h = context->dt;
 		float c = h * omega * (2.0f * zeta + h * omega);
