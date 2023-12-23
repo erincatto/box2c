@@ -153,6 +153,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	joint->colorIndex = B2_NULL_INDEX;
 	joint->colorSubIndex = B2_NULL_INDEX;
 
+	joint->drawSize = 1.0f;
 	joint->isMarked = false;
 
 	if ((bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody) && bodyA->isEnabled == true && bodyB->isEnabled == true)
@@ -244,7 +245,41 @@ b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDe
 	}
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+	return jointId;
+}
 
+b2JointId b2World_CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_motorJoint;
+	joint->localAnchorA = (b2Vec2){0.0f, 0.0f};
+	joint->localAnchorB = (b2Vec2){0.0f, 0.0f};
+	joint->collideConnected = true;
+
+	joint->motorJoint = (b2MotorJoint){0};
+	joint->motorJoint.linearOffset = def->linearOffset;
+	joint->motorJoint.angularOffset = def->angularOffset;
+	joint->motorJoint.maxForce = def->maxForce;
+	joint->motorJoint.maxTorque = def->maxTorque;
+	joint->motorJoint.correctionFactor = B2_CLAMP(def->correctionFactor, 0.0f, 1.0f);
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 	return jointId;
 }
 
@@ -280,7 +315,6 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	joint->mouseJoint.damping = def->damping;
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
-
 	return jointId;
 }
 
@@ -307,12 +341,13 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	joint->localAnchorA = def->localAnchorA;
 	joint->localAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
+	joint->drawSize = def->drawSize;
 
 	b2RevoluteJoint empty = {0};
 	joint->revoluteJoint = empty;
 
 	joint->revoluteJoint.referenceAngle = def->referenceAngle;
-	joint->revoluteJoint.impulse = b2Vec2_zero;
+	joint->revoluteJoint.linearImpulse = b2Vec2_zero;
 	joint->revoluteJoint.axialMass = 0.0f;
 	joint->revoluteJoint.motorImpulse = 0.0f;
 	joint->revoluteJoint.lowerImpulse = 0.0f;
@@ -331,7 +366,6 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	}
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
-
 	return jointId;
 }
 
@@ -383,7 +417,6 @@ b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJoint
 	}
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
-
 	return jointId;
 }
 
@@ -418,8 +451,8 @@ b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	joint->weldJoint.linearDampingRatio = def->linearDampingRatio;
 	joint->weldJoint.angularHertz = def->angularHertz;
 	joint->weldJoint.angularDampingRatio = def->angularDampingRatio;
-	joint->weldJoint.pivotImpulse = b2Vec2_zero;
-	joint->weldJoint.axialImpulse = 0.0f;
+	joint->weldJoint.linearImpulse = b2Vec2_zero;
+	joint->weldJoint.angularImpulse = 0.0f;
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
@@ -428,7 +461,58 @@ b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	}
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
+	return jointId;
+}
 
+b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+
+	B2_ASSERT(world->locked == false);
+
+	if (world->locked)
+	{
+		return b2_nullJointId;
+	}
+
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdA));
+	B2_ASSERT(b2IsBodyIdValid(world, def->bodyIdB));
+
+	b2Body* bodyA = world->bodies + def->bodyIdA.index;
+	b2Body* bodyB = world->bodies + def->bodyIdB.index;
+
+	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
+
+	joint->type = b2_wheelJoint;
+	joint->localAnchorA = def->localAnchorA;
+	joint->localAnchorB = def->localAnchorB;
+	joint->collideConnected = def->collideConnected;
+
+	// todo test this
+	joint->wheelJoint = (b2WheelJoint){0};
+
+	joint->wheelJoint.localAxisA = b2Normalize(def->localAxisA);
+	joint->wheelJoint.perpMass = 0.0f;
+	joint->wheelJoint.axialMass = 0.0f;
+	joint->wheelJoint.motorImpulse = 0.0f;
+	joint->wheelJoint.lowerImpulse = 0.0f;
+	joint->wheelJoint.upperImpulse = 0.0f;
+	joint->wheelJoint.lowerTranslation = def->lowerTranslation;
+	joint->wheelJoint.upperTranslation = def->upperTranslation;
+	joint->wheelJoint.maxMotorTorque = def->maxMotorTorque;
+	joint->wheelJoint.motorSpeed = def->motorSpeed;
+	joint->wheelJoint.stiffness = def->stiffness;
+	joint->wheelJoint.damping = def->damping;
+	joint->wheelJoint.enableLimit = def->enableLimit;
+	joint->wheelJoint.enableMotor = def->enableMotor;
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
+
+	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 	return jointId;
 }
 
@@ -550,34 +634,44 @@ b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 	return bodyId;
 }
 
-extern void b2PrepareDistance(b2Joint* base, b2StepContext* context);
-extern void b2PrepareMouse(b2Joint* base, b2StepContext* context);
-extern void b2PreparePrismatic(b2Joint* base, b2StepContext* context);
-extern void b2PrepareRevolute(b2Joint* base, b2StepContext* context);
-extern void b2PrepareWeld(b2Joint* base, b2StepContext* context);
+extern void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context);
+extern void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context);
+extern void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context);
+extern void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context);
+extern void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context);
+extern void b2PrepareWeldJoint(b2Joint* base, b2StepContext* context);
+extern void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 {
 	switch (joint->type)
 	{
 		case b2_distanceJoint:
-			b2PrepareDistance(joint, context);
+			b2PrepareDistanceJoint(joint, context);
+			break;
+
+		case b2_motorJoint:
+			b2PrepareMotorJoint(joint, context);
 			break;
 
 		case b2_mouseJoint:
-			b2PrepareMouse(joint, context);
+			b2PrepareMouseJoint(joint, context);
 			break;
 
 		case b2_prismaticJoint:
-			b2PreparePrismatic(joint, context);
+			b2PreparePrismaticJoint(joint, context);
 			break;
 
 		case b2_revoluteJoint:
-			b2PrepareRevolute(joint, context);
+			b2PrepareRevoluteJoint(joint, context);
 			break;
 
 		case b2_weldJoint:
-			b2PrepareWeld(joint, context);
+			b2PrepareWeldJoint(joint, context);
+			break;
+
+		case b2_wheelJoint:
+			b2PrepareWheelJoint(joint, context);
 			break;
 
 		default:
@@ -585,34 +679,44 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context)
 	}
 }
 
-extern void b2WarmStartDistance(b2Joint* base, b2StepContext* context);
-extern void b2WarmStartMouse(b2Joint* base, b2StepContext* context);
-extern void b2WarmStartPrismatic(b2Joint* base, b2StepContext* context);
-extern void b2WarmStartRevolute(b2Joint* base, b2StepContext* context);
-extern void b2WarmStartWeld(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartPrismaticJoint(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartWeldJoint(b2Joint* base, b2StepContext* context);
+extern void b2WarmStartWheelJoint(b2Joint* base, b2StepContext* context);
 
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context)
 {
 	switch (joint->type)
 	{
 		case b2_distanceJoint:
-			b2WarmStartDistance(joint, context);
+			b2WarmStartDistanceJoint(joint, context);
+			break;
+
+		case b2_motorJoint:
+			b2WarmStartMotorJoint(joint, context);
 			break;
 
 		case b2_mouseJoint:
-			b2WarmStartMouse(joint, context);
+			b2WarmStartMouseJoint(joint, context);
 			break;
 
 		case b2_prismaticJoint:
-			b2WarmStartPrismatic(joint, context);
+			b2WarmStartPrismaticJoint(joint, context);
 			break;
 
 		case b2_revoluteJoint:
-			b2WarmStartRevolute(joint, context);
+			b2WarmStartRevoluteJoint(joint, context);
 			break;
 
 		case b2_weldJoint:
-			b2WarmStartWeld(joint, context);
+			b2WarmStartWeldJoint(joint, context);
+			break;
+
+		case b2_wheelJoint:
+			b2WarmStartWheelJoint(joint, context);
 			break;
 
 		default:
@@ -620,37 +724,47 @@ void b2WarmStartJoint(b2Joint* joint, b2StepContext* context)
 	}
 }
 
-extern void b2SolveDistanceVelocity(b2Joint* base, b2StepContext* context, bool useBias);
-extern void b2SolveMouseVelocity(b2Joint* base, b2StepContext* context);
-extern void b2SolvePrismaticVelocity(b2Joint* base, b2StepContext* context, bool useBias);
-extern void b2SolveRevoluteVelocity(b2Joint* base, b2StepContext* context, bool useBias);
-extern void b2SolveWeldVelocity(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveMotorJoint(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveMouseJoint(b2Joint* base, b2StepContext* context);
+extern void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveWeldJoint(b2Joint* base, b2StepContext* context, bool useBias);
+extern void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias);
 
-void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias)
+void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias)
 {
 	switch (joint->type)
 	{
 		case b2_distanceJoint:
-			b2SolveDistanceVelocity(joint, context, useBias);
+			b2SolveDistanceJoint(joint, context, useBias);
+			break;
+
+		case b2_motorJoint:
+			b2SolveMotorJoint(joint, context, useBias);
 			break;
 
 		case b2_mouseJoint:
 			if (useBias)
 			{
-				b2SolveMouseVelocity(joint, context);
+				b2SolveMouseJoint(joint, context);
 			}
 			break;
 
 		case b2_prismaticJoint:
-			b2SolvePrismaticVelocity(joint, context, useBias);
+			b2SolvePrismaticJoint(joint, context, useBias);
 			break;
 
 		case b2_revoluteJoint:
-			b2SolveRevoluteVelocity(joint, context, useBias);
+			b2SolveRevoluteJoint(joint, context, useBias);
 			break;
 
 		case b2_weldJoint:
-			b2SolveWeldVelocity(joint, context, useBias);
+			b2SolveWeldJoint(joint, context, useBias);
+			break;
+
+		case b2_wheelJoint:
+			b2SolveWheelJoint(joint, context, useBias);
 			break;
 
 		default:
@@ -708,7 +822,7 @@ void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias)
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2SolveJointVelocity(joint, stepContext, useBias);
+		b2SolveJoint(joint, stepContext, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_joints);
@@ -763,6 +877,7 @@ b2JointId b2Body_GetNextJoint(b2BodyId bodyId, b2JointId jointId)
 extern void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
+extern void b2DrawWheelJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
@@ -816,6 +931,10 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 
 		case b2_revoluteJoint:
 			b2DrawRevolute(draw, joint, bodyA, bodyB);
+			break;
+
+		case b2_wheelJoint:
+			b2DrawWheelJoint(draw, joint, bodyA, bodyB);
 			break;
 
 		default:

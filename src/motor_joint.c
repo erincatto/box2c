@@ -23,9 +23,9 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-void b2PrepareWeldJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 {
-	B2_ASSERT(base->type == b2_weldJoint);
+	B2_ASSERT(base->type == b2_motorJoint);
 
 	int32_t indexA = base->edges[0].bodyIndex;
 	int32_t indexB = base->edges[1].bodyIndex;
@@ -42,82 +42,33 @@ void b2PrepareWeldJoint(b2Joint* base, b2StepContext* context)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	b2WeldJoint* joint = &base->weldJoint;
+	b2MotorJoint* joint = &base->motorJoint;
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 
 	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
 	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
-	joint->linearSeparation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
-	joint->angularSeparation = bodyB->angle - bodyA->angle - joint->referenceAngle;
+	joint->linearSeparation = b2Sub(b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position)), joint->linearOffset);
+	joint->angularSeparation = bodyB->angle - bodyA->angle - joint->angularOffset;
 
 	b2Vec2 rA = joint->rA;
 	b2Vec2 rB = joint->rB;
 
-	// TODO_ERIN linear and angular coupling leads to instabilities and poor behavior
 	b2Mat22 K;
 	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
 	K.cx.y = -rA.y * rA.x * iA - rB.y * rB.x * iB;
 	K.cy.x = K.cx.y;
 	K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
-	joint->pivotMass = b2GetInverse22(K);
+	joint->linearMass = b2GetInverse22(K);
 
-	float Ka = iA + iB;
-	joint->axialMass = Ka > 0.0f ? 1.0f / Ka : 0.0f;
-
-	const float h = context->dt;
-
-	float linearHertz = joint->linearHertz;
-	if (linearHertz == 0.0f)
-	{
-		linearHertz = 0.25f * context->velocityIterations * context->inv_dt;
-
-		// no warm staring
-		joint->linearImpulse = b2Vec2_zero;
-	}
-	else
-	{
-		joint->linearImpulse = b2MulSV(context->dtRatio, joint->linearImpulse);
-	}
-
-	{
-		const float zeta = joint->linearDampingRatio;
-		const float omega = 2.0f * b2_pi * linearHertz;
-		joint->linearBiasCoefficient = omega / (2.0f * zeta + h * omega);
-		float a = h * omega * (2.0f * zeta + h * omega);
-		joint->linearImpulseCoefficient = 1.0f / (1.0f + a);
-		joint->linearMassCoefficient = a * joint->linearImpulseCoefficient;
-	}
-
-	float angularHertz = joint->angularHertz;
-	if (angularHertz == 0.0f)
-	{
-		angularHertz = 0.25f * context->velocityIterations * context->inv_dt;
-
-		// no warm staring
-		joint->angularImpulse = 0.0f;
-	}
-	else
-	{
-		joint->angularImpulse = context->dtRatio * joint->angularImpulse;
-	}
-
-	{
-		const float zeta = joint->angularDampingRatio;
-		const float omega = 2.0f * b2_pi * angularHertz;
-		joint->angularBiasCoefficient = omega / (2.0f * zeta + h * omega);
-		float a = h * omega * (2.0f * zeta + h * omega);
-		joint->angularImpulseCoefficient = 1.0f / (1.0f + a);
-		joint->angularMassCoefficient = a * joint->angularImpulseCoefficient;
-	}
+	float ka = iA + iB;
+	joint->angularMass = ka > 0.0f ? 1.0f / ka : 0.0f;
 
 	if (context->enableWarmStarting)
 	{
 		float dtRatio = context->dtRatio;
-
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->linearImpulse.x = dtRatio;
-		joint->linearImpulse.y = dtRatio;
+		joint->linearImpulse.x *= dtRatio;
+		joint->linearImpulse.y *= dtRatio;
 		joint->angularImpulse *= dtRatio;
 	}
 	else
@@ -127,9 +78,9 @@ void b2PrepareWeldJoint(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartWeldJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 {
-	b2WeldJoint* joint = &base->weldJoint;
+	b2MotorJoint* joint = &base->motorJoint;
 
 	b2SolverBody* bodyA = context->solverBodies + joint->indexA;
 	b2Vec2 vA = bodyA->linearVelocity;
@@ -155,11 +106,16 @@ void b2WarmStartWeldJoint(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity = wB;
 }
 
-void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
+void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 {
-	B2_ASSERT(base->type == b2_weldJoint);
+	if (useBias == false)
+	{
+		return;
+	}
 
-	b2WeldJoint* joint = &base->weldJoint;
+	B2_ASSERT(base->type == b2_motorJoint);
+
+	b2MotorJoint* joint = &base->motorJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
@@ -184,53 +140,47 @@ void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 	b2Vec2 rA = b2Add(joint->rA, drA);
 	b2Vec2 rB = b2Add(joint->rB, drB);
 
-	b2Vec2 linearBias = b2Vec2_zero;
-	float angularBias = 0.0f;
+	b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(drB, drA));
+	b2Vec2 linearSeparation = b2Add(joint->linearSeparation, ds);
+	b2Vec2 linearBias = b2MulSV(context->inv_dt * joint->correctionFactor, linearSeparation);
 
-	float linearMassScale = 1.0f;
-	float linearImpulseScale = 0.0f;
-	float angularMassScale = 1.0f;
-	float angularImpulseScale = 0.0f;
-	if (useBias)
-	{
-		b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(drB, drA));
-		b2Vec2 linearSeparation = b2Add(joint->linearSeparation, ds);
-		linearBias = b2MulSV(joint->linearBiasCoefficient, linearSeparation);
-
-		float angularSeperation = joint->angularSeparation + bodyB->deltaAngle - bodyA->deltaAngle;
-		angularBias = joint->angularBiasCoefficient * angularSeperation;
-
-		linearMassScale = joint->linearMassCoefficient;
-		linearImpulseScale = joint->linearImpulseCoefficient;
-		angularMassScale = joint->angularMassCoefficient;
-		angularImpulseScale = joint->angularImpulseCoefficient;
-	}
+	float angularSeperation = joint->angularSeparation + bodyB->deltaAngle - bodyA->deltaAngle;
+	float angularBias = context->inv_dt * joint->correctionFactor * angularSeperation;
 
 	// Note: don't relax user softness
 
 	// Axial constraint
-	if (useBias || joint->angularHertz == 0.0f)
 	{
 		float Cdot = wB - wA;
-		float b = joint->axialMass * (Cdot + angularBias);
-		float impulse = -angularMassScale * b - angularImpulseScale * joint->angularImpulse;
-		joint->angularImpulse += impulse;
+		float impulse = -joint->angularMass * (Cdot + angularBias);
+
+		float oldImpulse = joint->angularImpulse;
+		float maxImpulse = context->dt * joint->maxTorque;
+		joint->angularImpulse = B2_CLAMP(joint->angularImpulse + impulse, -maxImpulse, maxImpulse);
+		impulse = joint->angularImpulse - oldImpulse;
+
 		wA -= iA * impulse;
 		wB += iB * impulse;
 	}
 
 	// Linear constraint
-	if (useBias || joint->linearHertz == 0.0f)
 	{
 		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
-		b2Vec2 b = b2MulMV(joint->pivotMass, b2Add(Cdot, linearBias));
+		b2Vec2 b = b2MulMV(joint->linearMass, b2Add(Cdot, linearBias));
+		b2Vec2 impulse = {-b.x, -b.y};
 
-		b2Vec2 impulse = {
-			-linearMassScale * b.x - linearImpulseScale * joint->linearImpulse.x,
-			-linearMassScale * b.y - linearImpulseScale * joint->linearImpulse.y,
-		};
-
+		b2Vec2 oldImpulse = joint->linearImpulse;
+		float maxImpulse = context->dt * joint->maxForce; 
 		joint->linearImpulse = b2Add(joint->linearImpulse, impulse);
+
+		if (b2LengthSquared(joint->linearImpulse) > maxImpulse * maxImpulse)
+		{
+			joint->linearImpulse = b2Normalize(joint->linearImpulse);
+			joint->linearImpulse.x *= maxImpulse;
+			joint->linearImpulse.y *= maxImpulse;
+		}
+
+		impulse = b2Sub(joint->linearImpulse, oldImpulse);
 
 		vA = b2MulSub(vA, mA, impulse);
 		wA -= iA * b2Cross(rA, impulse);
@@ -245,13 +195,108 @@ void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 	bodyB->angularVelocity = wB;
 }
 
+void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_motorJoint);
+
+	joint->motorJoint.linearOffset = linearOffset;
+}
+
+void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_motorJoint);
+
+	joint->motorJoint.angularOffset = angularOffset;
+}
+
+void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_motorJoint);
+
+	joint->motorJoint.maxForce = B2_MAX(0.0f, maxForce);
+}
+
+void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_motorJoint);
+
+	joint->motorJoint.maxTorque = B2_MAX(0.0f, maxTorque);
+}
+
+void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_motorJoint);
+
+	joint->motorJoint.correctionFactor = B2_CLAMP(correctionFactor, 0.0f, 1.0f);
+}
+
+b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* base = b2GetJoint(world, jointId);
+	B2_ASSERT(base->type == b2_motorJoint);
+
+	b2MotorJoint* joint = &base->motorJoint;
+	b2Vec2 force = b2MulSV(inverseTimeStep, joint->linearImpulse);
+	return force;
+}
+
+float b2MotorJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_motorJoint);
+
+	return inverseTimeStep * joint->motorJoint.angularImpulse;
+}
+
 #if 0
-void b2DumpWeldJoint()
+void b2DumpMotorJoint()
 {
 	int32 indexA = m_bodyA->m_islandIndex;
 	int32 indexB = m_bodyB->m_islandIndex;
 
-	b2Dump("  b2WeldJointDef jd;\n");
+	b2Dump("  b2MotorJointDef jd;\n");
 	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
 	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", m_collideConnected);

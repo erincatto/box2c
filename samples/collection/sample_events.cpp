@@ -368,7 +368,7 @@ public:
 		}
 
 		m_wait = 0.5f;
-		m_force = 100.0f;
+		m_force = 200.0f;
 	}
 
 	void SpawnDebris()
@@ -393,13 +393,14 @@ public:
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {RandomFloat(-38.0f, 38.0f), RandomFloat(-38.0f, 38.0f)};
 		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
+		bodyDef.linearVelocity = {RandomFloat(-5.0f, 5.0f), RandomFloat(-5.0f, 5.0f)};
+		bodyDef.angularVelocity = RandomFloat(-1.0f, 1.0f);
 		bodyDef.gravityScale = 0.0f;
-		bodyDef.linearDamping = 0.5f;
-		bodyDef.angularDamping = 0.5f;
 		bodyDef.userData = m_bodyUserData + index;
 		m_debrisIds[index] = b2World_CreateBody(m_worldId, &bodyDef);
 
 		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		shapeDef.restitution = 0.8f;
 
 		// No events when debris hits debris
 		shapeDef.enableContactEvents = false;
@@ -437,24 +438,26 @@ public:
 		g_draw.DrawString(5, m_textLine, "move using WASD");
 		m_textLine += m_textIncrement;
 
+		b2Vec2 position = b2Body_GetPosition(m_playerId);
+
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {-m_force, 0.0f}, true);
+			b2Body_ApplyForce(m_playerId, {-m_force, 0.0f}, position, true);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_D) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {m_force, 0.0f}, true);
+			b2Body_ApplyForce(m_playerId, {m_force, 0.0f}, position, true);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_W) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {0.0f, m_force}, true);
+			b2Body_ApplyForce(m_playerId, {0.0f, m_force}, position, true);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)
 		{
-			b2Body_ApplyForceToCenter(m_playerId, {0.0f, -m_force}, true);
+			b2Body_ApplyForce(m_playerId, {0.0f, -m_force}, position, true);
 		}
 
 		Sample::Step(settings);

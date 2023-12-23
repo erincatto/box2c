@@ -28,7 +28,7 @@
 // K = J * invM * JT
 //   = invMass1 + invI1 * cross(r1, u)^2 + invMass2 + invI2 * cross(r2, u)^2
 
-void b2PrepareDistance(b2Joint* base, b2StepContext* context)
+void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -117,7 +117,7 @@ void b2PrepareDistance(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartDistance(b2Joint* base, b2StepContext* context)
+void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -149,7 +149,7 @@ void b2WarmStartDistance(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity += iB * b2Cross(rB, P);
 }
 
-void b2SolveDistanceVelocity(b2Joint* base, b2StepContext* context, bool useBias)
+void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 

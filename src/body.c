@@ -343,7 +343,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	b2DestroyBody(world, body);
 }
 
-int32_t b2Body_GetContactCount(b2BodyId bodyId)
+int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	B2_ASSERT(world->locked == false);
@@ -737,6 +737,8 @@ b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	shapeDef.restitution = def->restitution;
 	shapeDef.friction = def->friction;
 	shapeDef.filter = def->filter;
+	shapeDef.enableContactEvents = false;
+	shapeDef.enableSensorEvents = false;
 
 	int32_t n = def->count;
 	const b2Vec2* points = def->points;

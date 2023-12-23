@@ -18,6 +18,10 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2Segment b2Segment;
 
+///////////////////////////////////////////////////////////////////////////////
+/// World API
+///////////////////////////////////////////////////////////////////////////////
+
 /// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
 BOX2D_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 
@@ -42,9 +46,86 @@ BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// @warning This function is locked during callbacks.
 BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
 
+/// Create a joint
+BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
+BOX2D_API b2JointId b2World_CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def);
+BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
+BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
+BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
+BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
+BOX2D_API b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
+
+/// Destroy a joint
+BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
+
 /// Get sensor events for the current time step. Do not store a reference to this data.
 BOX2D_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
 BOX2D_API b2ContactEvents b2World_GetContactEvents(b2WorldId worldId);
+
+/// Query the world for all shapes that potentially overlap the provided AABB.
+BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context);
+
+/// Query the world for all shapes that overlap the provided circle.
+BOX2D_API void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Circle* circle, b2Transform transform,
+									 b2QueryFilter filter, void* context);
+
+/// Query the world for all shapes that overlap the provided capsule.
+BOX2D_API void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
+									  b2QueryFilter filter, void* context);
+
+/// Query the world for all shapes that overlap the provided polygon.
+BOX2D_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
+									  b2QueryFilter filter, void* context);
+
+/// Ray-cast the world for all shapes in the path of the ray. Your callback
+/// controls whether you get the closest point, any point, or n-points.
+/// The ray-cast ignores shapes that contain the starting point.
+/// @param callback a user implemented callback class.
+/// @param point1 the ray starting point
+/// @param point2 the ray ending point
+BOX2D_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
+							   void* context);
+
+// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
+BOX2D_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter);
+
+BOX2D_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
+								  b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+
+BOX2D_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
+								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+
+BOX2D_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
+								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+
+/// Enable/disable sleep. Advanced feature for testing.
+BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
+
+/// Enable/disable constraint warm starting. Advanced feature for testing.
+BOX2D_API void b2World_EnableWarmStarting(b2WorldId worldId, bool flag);
+
+/// Enable/disable continuous collision. Advanced feature for testing.
+BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
+
+/// Adjust the restitution threshold. Advanced feature for testing.
+BOX2D_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
+
+/// Adjust contact tuning parameters:
+/// - hertz is the contact stiffness (cycles per second)
+/// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)
+/// - push velocity is the maximum contact constraint push out velocity (meters per second)
+///	Advanced feature
+BOX2D_API void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio, float pushVelocity);
+
+/// Get the current profile
+BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
+
+/// Get counters and sizes
+BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
+
+///////////////////////////////////////////////////////////////////////////////
+/// Body API
+///////////////////////////////////////////////////////////////////////////////
 
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
@@ -137,8 +218,10 @@ BOX2D_API void b2Body_Disable(b2BodyId bodyId);
 /// Enable a body by adding it to the simulation
 BOX2D_API void b2Body_Enable(b2BodyId bodyId);
 
-/// Create a shape and attach it to a body. Contacts are not created until the next time step.
+/// Create a shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Contacts are not created until the next time step.
 /// @warning This function is locked during callbacks.
+///	@return the shape id for accessing the shape
 BOX2D_API b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 BOX2D_API b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 BOX2D_API b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
@@ -151,6 +234,16 @@ BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
 /// Iterate over shapes on a body
 BOX2D_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
 BOX2D_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
+
+/// Get the maximum capacity required for retrieving all the touching contacts on a body
+BOX2D_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
+
+/// Get the touching contact data for a body
+BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+
+///////////////////////////////////////////////////////////////////////////////
+/// Shape API
+///////////////////////////////////////////////////////////////////////////////
 
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API void* b2Shape_GetUserData(b2ShapeId shapeId);
@@ -168,30 +261,17 @@ BOX2D_API const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId);
 BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
 BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 
-/// Contacts
-
-/// Get the number of touching contacts on a body
-BOX2D_API int32_t b2Body_GetContactCount(b2BodyId bodyId);
-
-/// Get the touching contact data for a body
-BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
-
-/// Get the number of touching contacts on a shape. For efficiency, this may be larger than the actual number.
-BOX2D_API int32_t b2Shape_GetContactCount(b2ShapeId shapeId);
+/// Get the maximum capacity required for retrieving all the touching contacts on a shape
+BOX2D_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
 BOX2D_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
 
-/// Create a joint
-BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
-BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
-BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
-BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
-BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
+///////////////////////////////////////////////////////////////////////////////
+/// Joint API
+///////////////////////////////////////////////////////////////////////////////
 
-/// Destroy a joint
-BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
-
+/// Generic joint access
 BOX2D_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 BOX2D_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 
@@ -201,8 +281,26 @@ BOX2D_API void b2DistanceJoint_SetLength(b2JointId jointId, float length, float 
 BOX2D_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
 BOX2D_API void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);
 
+/// Motor joint access
+BOX2D_API void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset);
+BOX2D_API void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset);
+BOX2D_API void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce);
+BOX2D_API void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque);
+BOX2D_API void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor);
+BOX2D_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
 /// Mouse joint access
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
+
+// Prismatic joint access
+BOX2D_API void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+BOX2D_API void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+BOX2D_API void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+BOX2D_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
+BOX2D_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
 // Revolute joint access
 BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
@@ -210,66 +308,16 @@ BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
 BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
-BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
+BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
-/// Query the world for all shapes that potentially overlap the provided AABB.
-BOX2D_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context);
-
-/// Query the world for all shapes that overlap the provided circle.
-BOX2D_API void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Circle* circle, b2Transform transform,
-									 b2QueryFilter filter, void* context);
-
-/// Query the world for all shapes that overlap the provided capsule.
-BOX2D_API void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
-									  b2QueryFilter filter, void* context);
-
-/// Query the world for all shapes that overlap the provided polygon.
-BOX2D_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
-									  b2QueryFilter filter, void* context);
-
-/// Ray-cast the world for all shapes in the path of the ray. Your callback
-/// controls whether you get the closest point, any point, or n-points.
-/// The ray-cast ignores shapes that contain the starting point.
-/// @param callback a user implemented callback class.
-/// @param point1 the ray starting point
-/// @param point2 the ray ending point
-BOX2D_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter,
-							   b2RayResultFcn* fcn, void* context);
-
-// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
-BOX2D_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter);
-
-BOX2D_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
-								 b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
-
-BOX2D_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
-								 b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
-
-BOX2D_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
-								 b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
-
-/// Advanced API for testing and special cases
-
-/// Enable/disable sleep.
-BOX2D_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
-
-/// Enable/disable contact warm starting. Improves stacking stability.
-BOX2D_API void b2World_EnableWarmStarting(b2WorldId worldId, bool flag);
-
-/// Enable/disable continuous collision.
-BOX2D_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
-
-/// Adjust the restitution threshold
-BOX2D_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
-
-/// Adjust contact tuning parameters:
-/// - hertz is the contact stiffness (cycles per second)
-/// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)
-/// - push velocity is the maximum contact constraint push out velocity (meters per second)
-BOX2D_API void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio, float pushVelocity);
-
-/// Get the current profile
-BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
-
-/// Get counters and sizes
-BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
+// Wheel joint access
+BOX2D_API void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness);
+BOX2D_API void b2WheelJoint_SetDamping(b2JointId jointId, float damping);
+BOX2D_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+BOX2D_API void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+BOX2D_API void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+BOX2D_API float b2WheelJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+BOX2D_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
+BOX2D_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+BOX2D_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "stack_allocator.h"
+#include "arena_allocator.h"
 
 #include "allocate.h"
 #include "array.h"

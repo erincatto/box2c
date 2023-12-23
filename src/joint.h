@@ -15,12 +15,9 @@ typedef struct b2World b2World;
 typedef enum b2JointType
 {
 	b2_distanceJoint,
-	b2_frictionJoint,
-	b2_gearJoint,
 	b2_motorJoint,
 	b2_mouseJoint,
 	b2_prismaticJoint,
-	b2_pulleyJoint,
 	b2_revoluteJoint,
 	b2_weldJoint,
 	b2_wheelJoint,
@@ -66,6 +63,28 @@ typedef struct b2DistanceJoint
 	float axialMass;
 } b2DistanceJoint;
 
+typedef struct b2MotorJoint
+{
+	// Solver shared
+	b2Vec2 linearOffset;
+	float angularOffset;
+	b2Vec2 linearImpulse;
+	float angularImpulse;
+	float maxForce;
+	float maxTorque;
+	float correctionFactor;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 linearSeparation;
+	float angularSeparation;
+	b2Mat22 linearMass;
+	float angularMass;
+} b2MotorJoint;
+
 typedef struct b2MouseJoint
 {
 	b2Vec2 targetA;
@@ -87,10 +106,41 @@ typedef struct b2MouseJoint
 	b2Vec2 C;
 } b2MouseJoint;
 
+typedef struct b2PrismaticJoint
+{
+	// Solver shared
+	b2Vec2 localAxisA;
+	b2Vec2 impulse;
+	float motorImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	bool enableMotor;
+	float maxMotorForce;
+	float motorSpeed;
+	bool enableLimit;
+	float referenceAngle;
+	float lowerTranslation;
+	float upperTranslation;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 axisA;
+	b2Vec2 pivotSeparation;
+	float angleSeparation;
+	b2Mat22 pivotMass;
+	float axialMass;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
+} b2PrismaticJoint;
+
 typedef struct b2RevoluteJoint
 {
 	// Solver shared
-	b2Vec2 impulse;
+	b2Vec2 linearImpulse;
 	float motorImpulse;
 	float lowerImpulse;
 	float upperImpulse;
@@ -111,42 +161,14 @@ typedef struct b2RevoluteJoint
 	b2Vec2 rB;
 	b2Vec2 separation;
 	b2Mat22 pivotMass;
+	float limitBiasCoefficient;
+	float limitMassCoefficient;
+	float limitImpulseCoefficient;
 	float biasCoefficient;
 	float massCoefficient;
 	float impulseCoefficient;
 	float axialMass;
 } b2RevoluteJoint;
-
-typedef struct b2PrismaticJoint
-{
-	// Solver shared
-	b2Vec2 localAxisA;
-	b2Vec2 impulse;
-	float motorImpulse;
-	float lowerImpulse;
-	float upperImpulse;
-	bool enableMotor;
-	float maxMotorForce;
-	float motorSpeed;
-	bool enableLimit;
-	float referenceAngle;
-	float lowerTranslation;
-	float upperTranslation;
-
-	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
-	b2Vec2 positionA;
-	b2Vec2 positionB;
-	float angleA;
-	float angleB;
-	b2Vec2 localCenterA;
-	b2Vec2 localCenterB;
-	float biasCoefficient;
-	float massCoefficient;
-	float impulseCoefficient;
-	float axialMass;
-} b2PrismaticJoint;
 
 typedef struct b2WeldJoint
 {
@@ -162,8 +184,8 @@ typedef struct b2WeldJoint
 	float angularBiasCoefficient;
 	float angularMassCoefficient;
 	float angularImpulseCoefficient;
-	b2Vec2 pivotImpulse;
-	float axialImpulse;
+	b2Vec2 linearImpulse;
+	float angularImpulse;
 
 	// Solver temp
 	int32_t indexA;
@@ -175,6 +197,42 @@ typedef struct b2WeldJoint
 	b2Mat22 pivotMass;
 	float axialMass;
 } b2WeldJoint;
+
+typedef struct b2WheelJoint
+{
+	// Solver shared
+	b2Vec2 localAxisA;
+	float perpImpulse;
+	float motorImpulse;
+	float springImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	float maxMotorTorque;
+	float motorSpeed;
+	float lowerTranslation;
+	float upperTranslation;
+	float stiffness;
+	float damping;
+	bool enableMotor;
+	bool enableLimit;
+
+	// Solver temp
+	int32_t indexA;
+	int32_t indexB;
+	b2Vec2 rA;
+	b2Vec2 rB;
+	b2Vec2 axisA;
+	b2Vec2 pivotSeparation;
+	float perpMass;
+	float motorMass;
+	float axialMass;
+	float springMass;
+	float bias;
+	float gamma;
+	float biasCoefficient;
+	float massCoefficient;
+	float impulseCoefficient;
+} b2WheelJoint;
 
 /// The base joint class. Joints are used to constraint two bodies together in
 /// various fashions. Some joints also feature limits and motors.
@@ -200,24 +258,29 @@ typedef struct b2Joint
 	union
 	{
 		b2DistanceJoint distanceJoint;
+		b2MotorJoint motorJoint;
 		b2MouseJoint mouseJoint;
 		b2RevoluteJoint revoluteJoint;
 		b2PrismaticJoint prismaticJoint;
 		b2WeldJoint weldJoint;
+		b2WheelJoint wheelJoint;
 	};
 
+	float drawSize;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
 
+b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
+
+// todo remove this
+b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
+
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
-void b2SolveJointVelocity(b2Joint* joint, b2StepContext* context, bool useBias);
+void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias);
 
 void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context);
 void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);
-
-// Get joint from id with validation
-b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);

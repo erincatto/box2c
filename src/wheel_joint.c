@@ -12,53 +12,24 @@
 #include <stdio.h>
 
 // Linear constraint (point-to-line)
-// d = p2 - p1 = x2 + r2 - x1 - r1
-// C = dot(perp, d)
-// Cdot = dot(d, cross(w1, perp)) + dot(perp, v2 + cross(w2, r2) - v1 - cross(w1, r1))
-//      = -dot(perp, v1) - dot(cross(d + r1, perp), w1) + dot(perp, v2) + dot(cross(r2, perp), v2)
-// J = [-perp, -cross(d + r1, perp), perp, cross(r2,perp)]
-//
-// Angular constraint
-// C = a2 - a1 + a_initial
-// Cdot = w2 - w1
+// d = pB - pA = xB + rB - xA - rA
+// C = dot(ay, d)
+// Cdot = dot(d, cross(wA, ay)) + dot(ay, vB + cross(wB, rB) - vA - cross(wA, rA))
+//      = -dot(ay, vA) - dot(cross(d + rA, ay), wA) + dot(ay, vB) + dot(cross(rB, ay), vB)
+// J = [-ay, -cross(d + rA, ay), ay, cross(rB, ay)]
+
+// Spring linear constraint
+// C = dot(ax, d)
+// Cdot = = -dot(ax, vA) - dot(cross(d + rA, ax), wA) + dot(ax, vB) + dot(cross(rB, ax), vB)
+// J = [-ax -cross(d+rA, ax) ax cross(rB, ax)]
+
+// Motor rotational constraint
+// Cdot = wB - wA
 // J = [0 0 -1 0 0 1]
-//
-// K = J * invM * JT
-//
-// J = [-a -s1 a s2]
-//     [0  -1  0  1]
-// a = perp
-// s1 = cross(d + r1, a) = cross(p2 - x1, a)
-// s2 = cross(r2, a) = cross(p2 - x2, a)
 
-// Motor/Limit linear constraint
-// C = dot(ax1, d)
-// Cdot = -dot(ax1, v1) - dot(cross(d + r1, ax1), w1) + dot(ax1, v2) + dot(cross(r2, ax1), v2)
-// J = [-ax1 -cross(d+r1,ax1) ax1 cross(r2,ax1)]
-
-// Predictive limit is applied even when the limit is not active.
-// Prevents a constraint speed that can lead to a constraint error in one time step.
-// Want C2 = C1 + h * Cdot >= 0
-// Or:
-// Cdot + C1/h >= 0
-// I do not apply a negative constraint error because that is handled in position correction.
-// So:
-// Cdot + max(C1, 0)/h >= 0
-
-// Block Solver
-// We develop a block solver that includes the angular and linear constraints. This makes the limit stiffer.
-//
-// The Jacobian has 2 rows:
-// J = [-uT -s1 uT s2] // linear
-//     [0   -1   0  1] // angular
-//
-// u = perp
-// s1 = cross(d + r1, u), s2 = cross(r2, u)
-// a1 = cross(d + r1, v), a2 = cross(r2, v)
-
-void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 {
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	B2_ASSERT(base->type == b2_wheelJoint);
 
 	int32_t indexA = base->edges[0].bodyIndex;
 	int32_t indexB = base->edges[1].bodyIndex;
@@ -68,7 +39,7 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
-	b2PrismaticJoint* joint = &base->prismaticJoint;
+	b2WheelJoint* joint = &base->wheelJoint;
 
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
@@ -78,8 +49,6 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	float angleA = bodyA->angle;
-	float angleB = bodyB->angle;
 	b2Rot qA = bodyA->transform.q;
 	b2Rot qB = bodyB->transform.q;
 
@@ -91,34 +60,47 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	joint->rB = rB;
 	b2Vec2 d = b2Add(b2Sub(bodyB->position, bodyA->position), b2Sub(rB, rA));
 	joint->pivotSeparation = d;
-	joint->angleSeparation = angleB - angleA - joint->referenceAngle;
 
 	b2Vec2 axisA = b2RotateVector(qA, joint->localAxisA);
 	joint->axisA = axisA;
 	b2Vec2 perpA = b2LeftPerp(axisA);
 
+	// Perpendicular constraint (keep wheel on line)
 	float s1 = b2Cross(b2Add(d, rA), perpA);
 	float s2 = b2Cross(rB, perpA);
+	
+	float kp = mA + mB + iA * s1 * s1 + iB * s2 * s2;
+	joint->perpMass = kp > 0.0f ? 1.0f / kp : 0.0f;
 
-	float k11 = mA + mB + iA * s1 * s1 + iB * s2 * s2;
-	float k12 = iA * s1 + iB * s2;
-	float k22 = iA + iB;
-	if (k22 == 0.0f)
-	{
-		// For bodies with fixed rotation.
-		k22 = 1.0f;
-	}
-
-	b2Mat22 K = {{k11, k12}, {k12, k22}};
-	joint->pivotMass = b2GetInverse22(K);
-
+	// Spring constraint
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
 
-	float k = mA + mB + iA * a1 * a1 + iB * a2 * a2;
-	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
+	float ka = mA + mB + iA * a1 * a1 + iB * a2 * a2;
+	joint->axialMass = ka > 0.0f ? 1.0f / ka : 0.0f;
 
-	// hertz = 1/4 * substep Hz
+	joint->springMass = 0.0f;
+	joint->bias = 0.0f;
+	joint->gamma = 0.0f;
+
+	if (joint->stiffness > 0.0f && ka > 0.0f)
+	{
+		float C = b2Dot(d, axisA);
+
+		float dt = context->dt;
+		joint->gamma = dt * (joint->damping + dt * joint->stiffness);
+		joint->gamma = joint->gamma > 0.0f ? 1.0f / joint->gamma : 0.0f;
+
+		joint->bias = dt * C * joint->stiffness * joint->gamma;
+
+		float ks = ka + joint->gamma;
+		joint->springMass = ks > 0.0f ? 1.0f / ks : 0.0f;
+	}
+
+	float km = iA + iB;
+	joint->motorMass = km > 0.0f ? 1.0f / km : 0.0f;
+
+	//// hertz = 1/4 * substep Hz
 	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
 	const float zeta = 1.0f;
 	float omega = 2.0f * b2_pi * hertz;
@@ -145,25 +127,27 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 		float dtRatio = context->dtRatio;
 
 		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = b2Vec2_zero;
+		joint->perpImpulse = 0.0f;
 		joint->motorImpulse *= dtRatio;
+		joint->springImpulse *= dtRatio;
 		joint->lowerImpulse *= dtRatio;
 		joint->upperImpulse *= dtRatio;
 	}
 	else
 	{
-		joint->impulse = b2Vec2_zero;
+		joint->perpImpulse = 0.0f;
+		joint->springImpulse = 0.0f;
 		joint->motorImpulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
 		joint->upperImpulse = 0.0f;
 	}
 }
 
-void b2WarmStartPrismaticJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartWheelJoint(b2Joint* base, b2StepContext* context)
 {
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	B2_ASSERT(base->type == b2_wheelJoint);
 
-	b2PrismaticJoint* joint = &base->prismaticJoint;
+	b2WheelJoint* joint = &base->wheelJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
@@ -185,11 +169,11 @@ void b2WarmStartPrismaticJoint(b2Joint* base, b2StepContext* context)
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
 
-	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
+	float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
 
 	b2Vec2 P = b2MulSV(axialImpulse, axisA);
-	float LA = axialImpulse * a1;
-	float LB = axialImpulse * a2;
+	float LA = axialImpulse * a1 + joint->motorImpulse;
+	float LB = axialImpulse * a2 + joint->motorImpulse;
 
 	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
 	bodyA->angularVelocity -= iA * LA;
@@ -197,11 +181,11 @@ void b2WarmStartPrismaticJoint(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity += iB * LB;
 }
 
-void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
+void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 {
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	B2_ASSERT(base->type == b2_wheelJoint);
 
-	b2PrismaticJoint* joint = &base->prismaticJoint;
+	b2WheelJoint* joint = &base->wheelJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2SolverBody dummyBody = {0};
@@ -218,6 +202,8 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
+	bool fixedRotation = (iA + iB == 0.0f);
+
 	// Small angle approximation
 	b2Vec2 drA = b2CrossSV(bodyA->deltaAngle, joint->rA);
 	b2Vec2 drB = b2CrossSV(bodyB->deltaAngle, joint->rB);
@@ -233,18 +219,28 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	b2Vec2 axisA = {joint->axisA.x - dAngleA * joint->axisA.y, dAngleA * joint->axisA.x + joint->axisA.y};
 	axisA = b2Normalize(axisA);
 
+	// Solve motor constraint
+	if (joint->enableMotor && fixedRotation == false)
+	{
+		float Cdot = wB - wA - joint->motorSpeed;
+		float impulse = -joint->motorMass * Cdot;
+		float oldImpulse = joint->motorImpulse;
+		float maxImpulse = context->dt * joint->maxMotorTorque;
+		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		impulse = joint->motorImpulse - oldImpulse;
+
+		wA -= iA * impulse;
+		wB += iB * impulse;
+	}
+
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
 
-	// Solve motor constraint
-	if (joint->enableMotor)
+	// Solve spring constraint
 	{
 		float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
-		float impulse = joint->axialMass * (joint->motorSpeed - Cdot);
-		float oldImpulse = joint->motorImpulse;
-		float maxImpulse = context->dt * joint->maxMotorForce;
-		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
-		impulse = joint->motorImpulse - oldImpulse;
+		float impulse = -joint->springMass * (Cdot + joint->bias + joint->gamma * joint->springImpulse);
+		joint->springImpulse += impulse;
 
 		b2Vec2 P = b2MulSV(impulse, axisA);
 		float LA = impulse * a1;
@@ -343,35 +339,26 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		float s1 = b2Cross(b2Add(d, rA), perpA);
 		float s2 = b2Cross(rB, perpA);
 
-		b2Vec2 Cdot;
-		Cdot.x = b2Dot(perpA, b2Sub(vB, vA)) + s2 * wB - s1 * wA;
-		Cdot.y = wB - wA;
+		float Cdot = b2Dot(perpA, b2Sub(vB, vA)) + s2 * wB - s1 * wA;
 
-		b2Vec2 bias = b2Vec2_zero;
+		float bias = 0.0f;
 		float massScale = 1.0f;
 		float impulseScale = 0.0f;
 		if (useBias)
 		{
-			b2Vec2 C;
-			C.x = b2Dot(perpA, d);
-			C.y = joint-> angleSeparation + bodyB->deltaAngle - bodyA->deltaAngle;
-
-			bias = b2MulSV(joint->biasCoefficient, C);
+			float C = b2Dot(perpA, d);
+			bias = joint->biasCoefficient * C;
 			massScale = joint->massCoefficient;
 			impulseScale = joint->impulseCoefficient;
 		}
 
-		b2Vec2 b = b2MulMV(joint->pivotMass, b2Add(Cdot, bias));
-		b2Vec2 impulse;
-		impulse.x = -massScale * b.x - impulseScale * joint->impulse.x;
-		impulse.y = -massScale * b.y - impulseScale * joint->impulse.y;
+		float oldImpulse = joint->perpImpulse;
+		float impulse = -joint->perpMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
+		joint->perpImpulse = impulse;
 
-		joint->impulse.x += impulse.x;
-		joint->impulse.y += impulse.y;
-
-		b2Vec2 P = b2MulSV(impulse.x, perpA);
-		float LA = impulse.x * s1 + impulse.y;
-		float LB = impulse.x * s2 + impulse.y;
+		b2Vec2 P = b2MulSV(impulse, perpA);
+		float LA = impulse * s1;
+		float LB = impulse * s2;
 
 		vA = b2MulSub(vA, mA, P);
 		wA -= iA * LA;
@@ -385,7 +372,7 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	bodyB->angularVelocity = wB;
 }
 
-void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);
@@ -395,12 +382,12 @@ void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 	}
 
 	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
+	B2_ASSERT(joint->type == b2_wheelJoint);
 
-	joint->prismaticJoint.enableLimit = enableLimit;
+	joint->wheelJoint.stiffness = stiffness;
 }
 
-void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+void b2WheelJoint_SetDamping(b2JointId jointId, float damping)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);
@@ -410,12 +397,12 @@ void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 	}
 
 	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
+	B2_ASSERT(joint->type == b2_wheelJoint);
 
-	joint->prismaticJoint.enableMotor = enableMotor;
+	joint->wheelJoint.damping = damping;
 }
 
-void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);
@@ -425,21 +412,12 @@ void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 	}
 
 	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
+	B2_ASSERT(joint->type == b2_wheelJoint);
 
-	joint->prismaticJoint.motorSpeed = motorSpeed;
+	joint->wheelJoint.enableLimit = enableLimit;
 }
 
-float b2PrismaticJoint_GetMotorForce(b2JointId jointId, float inverseTimeStep)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
-
-	return inverseTimeStep * joint->prismaticJoint.motorImpulse;
-}
-
-void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force)
+void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);
@@ -449,46 +427,85 @@ void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force)
 	}
 
 	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
+	B2_ASSERT(joint->type == b2_wheelJoint);
 
-	joint->prismaticJoint.maxMotorForce = force;
+	joint->wheelJoint.enableMotor = enableMotor;
 }
 
-b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
+void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_wheelJoint);
+
+	joint->wheelJoint.motorSpeed = motorSpeed;
+}
+
+float b2WheelJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_wheelJoint);
+
+	return inverseTimeStep * joint->wheelJoint.motorImpulse;
+}
+
+void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_wheelJoint);
+
+	joint->wheelJoint.maxMotorTorque = torque;
+}
+
+b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	b2Joint* base = b2GetJoint(world, jointId);
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	B2_ASSERT(base->type == b2_wheelJoint);
 
-	b2PrismaticJoint* joint = &base->prismaticJoint;
+	b2WheelJoint* joint = &base->wheelJoint;
 
 	// This is a frame behind
 	b2Vec2 axisA = joint->axisA;
 	b2Vec2 perpA = b2LeftPerp(axisA);
 
-	float perpForce = inverseTimeStep * joint->impulse.x;
-	float axialForce = inverseTimeStep * (joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse);
+	float perpForce = inverseTimeStep * joint->perpImpulse;
+	float axialForce = inverseTimeStep * (joint->springImpulse + joint->lowerImpulse - joint->upperImpulse);
 
 	b2Vec2 force = b2Add(b2MulSV(perpForce, perpA), b2MulSV(axialForce, axisA));
 	return force;
 }
 
-float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep)
+float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
+	B2_ASSERT(joint->type == b2_wheelJoint);
 
-	return inverseTimeStep * joint->prismaticJoint.impulse.y;
+	return inverseTimeStep * joint->wheelJoint.motorImpulse;
 }
 
 #if 0
-void b2PrismaticJoint::Dump()
+void b2WheelJoint_Dump()
 {
 	int32 indexA = joint->bodyA->joint->islandIndex;
 	int32 indexB = joint->bodyB->joint->islandIndex;
 
-	b2Dump("  b2PrismaticJointDef jd;\n");
+	b2Dump("  b2WheelJointDef jd;\n");
 	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
 	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", joint->collideConnected);
@@ -505,11 +522,11 @@ void b2PrismaticJoint::Dump()
 }
 #endif
 
-void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB)
+void b2DrawWheelJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB)
 {
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	B2_ASSERT(base->type == b2_wheelJoint);
 
-	b2PrismaticJoint* joint = &base->prismaticJoint;
+	b2WheelJoint* joint = &base->wheelJoint;
 
 	b2Transform xfA = bodyA->transform;
 	b2Transform xfB = bodyB->transform;

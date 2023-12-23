@@ -35,7 +35,8 @@ typedef struct b2SensorEvents
 	int endCount;
 } b2SensorEvents;
 
-/// A begin touch event is generated when two shapes begin touching.
+/// A begin touch event is generated when two shapes begin touching. By convention the manifold
+/// normal points from shape A to shape B.
 typedef struct b2ContactBeginTouchEvent
 {
 	b2ShapeId shapeIdA;
@@ -61,7 +62,8 @@ typedef struct b2ContactEvents
 	int endCount;
 } b2ContactEvents;
 
-/// This is the data you can access using a b2ContactId. 
+/// The contact data for two shapes. By convention the manifold normal points
+///	from shape A to shape B.
 typedef struct b2ContactData
 {
 	b2ShapeId shapeIdA;

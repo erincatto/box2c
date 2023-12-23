@@ -2,6 +2,8 @@ set(BOX2D_SOURCE_FILES
 	aabb.c
 	allocate.c
 	allocate.h
+	arena_allocator.c
+	arena_allocator.h
 	array.c
 	array.h
 	bitset.c
@@ -31,6 +33,7 @@ set(BOX2D_SOURCE_FILES
 	joint.h
 	manifold.c
 	math.c
+	motor_joint.c
 	mouse_joint.c
 	polygon_shape.h
 	pool.c
@@ -40,13 +43,12 @@ set(BOX2D_SOURCE_FILES
 	shape.c
 	shape.h
 	solver_data.h
-	stack_allocator.c
-	stack_allocator.h
 	table.c
 	table.h
 	timer.c
 	types.c
 	weld_joint.c
+	wheel_joint.c
 	world.c
 	world.h
 )

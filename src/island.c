@@ -3,6 +3,7 @@
 
 #include "island.h"
 
+#include "arena_allocator.h"
 #include "array.h"
 #include "body.h"
 #include "contact.h"
@@ -11,7 +12,6 @@
 #include "joint.h"
 #include "shape.h"
 #include "solver_data.h"
-#include "stack_allocator.h"
 #include "world.h"
 
 #include "box2d/aabb.h"
@@ -1019,15 +1019,15 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 					B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
 					B2_ASSERT(contact->colorSubIndex != B2_NULL_INDEX);
 
-					//int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
-					//B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
-					//B2_ASSERT(world->awakeContactArray[awakeIndex] == contactIndex);
+					// int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
+					// B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
+					// B2_ASSERT(world->awakeContactArray[awakeIndex] == contactIndex);
 				}
 				else
 				{
 					B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
 					B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
-					//B2_ASSERT(world->contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
+					// B2_ASSERT(world->contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
 				}
 			}
 
