@@ -510,6 +510,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	// }
 }
 
+#if 0 // todo probably delete this in favor of new API
 b2Contact* b2GetContact(b2World* world, b2ContactId contactId)
 {
 	B2_ASSERT(0 <= contactId.index && contactId.index < world->contactPool.capacity);
@@ -576,3 +577,4 @@ b2ContactData b2Contact_GetData(b2ContactId contactId)
 	b2ContactData data = {idA, idB, contact->manifold};
 	return data;
 }
+#endif
