@@ -18,9 +18,14 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2Segment b2Segment;
 
-///////////////////////////////////////////////////////////////////////////////
-/// World API
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * \defgroup WorldAPI Worlds
+ * This is the main Box2D API. With this API you can create a simulation world. You can then add bodies and
+ * joints to the world and run the simulation. You can get contact information to get contact points
+ * and normals as well as events. You can query to world, checking for overlaps and casting rays or shapes.
+ * There is also debugging information such as debug draw, timing information, and counters.
+ * @{
+ */
 
 /// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
 BOX2D_API b2WorldId b2CreateWorld(const b2WorldDef* def);
@@ -123,9 +128,13 @@ BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
 /// Get counters and sizes
 BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
 
-///////////////////////////////////////////////////////////////////////////////
-/// Body API
-///////////////////////////////////////////////////////////////////////////////
+/** @} */
+
+/**
+ * \defgroup BodyAPI Bodies
+ * This is the body API.
+ * @{
+ */
 
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
@@ -241,9 +250,13 @@ BOX2D_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
 /// Get the touching contact data for a body
 BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
 
-///////////////////////////////////////////////////////////////////////////////
-/// Shape API
-///////////////////////////////////////////////////////////////////////////////
+/** @} */
+
+/**
+ * \defgroup ShapeAPI Shapes
+ * This is the shape API.
+ * @{
+ */
 
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 BOX2D_API void* b2Shape_GetUserData(b2ShapeId shapeId);
@@ -267,9 +280,13 @@ BOX2D_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
 BOX2D_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
 
-///////////////////////////////////////////////////////////////////////////////
-/// Joint API
-///////////////////////////////////////////////////////////////////////////////
+/** @} */
+
+/**
+ * \defgroup JointAPI Joints
+ * This is the joint API.
+ * @{
+ */
 
 /// Generic joint access
 BOX2D_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
@@ -321,3 +338,5 @@ BOX2D_API float b2WheelJoint_GetMotorTorque(b2JointId jointId, float inverseTime
 BOX2D_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 BOX2D_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
 BOX2D_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
+/** @} */

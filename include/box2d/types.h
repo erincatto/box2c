@@ -1,6 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+/**
+ * @file types.h
+ * @brief types used by the Box2D API
+ *
+ * Mostly definition structs
+ * @see http://www.box2d.org
+ */
+
 #pragma once
 
 #include "box2d/color.h"
@@ -35,9 +43,13 @@
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 #define B2_NULL_INDEX (-1)
 
-/// 2D vector
+/// @struct b2Vec2
+/// @brief 2D vector
+///
+/// This can be used to represent a point or free vector.
 typedef struct b2Vec2
 {
+	/// coordinates
 	float x, y;
 } b2Vec2;
 
@@ -123,7 +135,8 @@ typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int
 /// Finishes a user task object that wraps a Box2D task.
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 
-typedef struct b2WorldDef
+/// World definition used to create a simulation world. Must be initialized using b2DefaultWorldDef.
+struct b2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
 	b2Vec2 gravity;
@@ -166,8 +179,9 @@ typedef struct b2WorldDef
 	b2EnqueueTaskCallback* enqueueTask;
 	b2FinishTaskCallback* finishTask;
 	void* userTaskContext;
+};
 
-} b2WorldDef;
+typedef struct b2WorldDef b2WorldDef;
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved

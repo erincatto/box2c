@@ -30,4 +30,3 @@ add_library(
 )
 
 target_include_directories(simde INTERFACE ${CMAKE_SOURCE_DIR}/extern/simde)
-
