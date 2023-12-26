@@ -719,9 +719,9 @@ class BenchmarkPyramid : public Sample
 				m_bestCollideRange = m_collideRange;
 			}
 
-			if (profile.solveIslands < m_minIsland)
+			if (profile.solveConstraints < m_minIsland)
 			{
-				m_minIsland = profile.solveIslands;
+				m_minIsland = profile.solveConstraints;
 				m_bestIslandRange = m_islandRange;
 			}
 

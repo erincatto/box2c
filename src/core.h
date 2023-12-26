@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#define B2_NULL_INDEX (-1)
+
 #ifdef NDEBUG
 #define B2_DEBUG 0
 #else

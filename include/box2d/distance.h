@@ -6,11 +6,7 @@
 #include "constants.h"
 #include "types.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
+/// Result of computing the distance between two line segments
 typedef struct b2SegmentDistanceResult
 {
 	b2Vec2 closest1;
@@ -21,10 +17,9 @@ typedef struct b2SegmentDistanceResult
 } b2SegmentDistanceResult;
 
 /// Compute the distance between two line segments, clamping at the end points if needed.
-b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2);
+BOX2D_API b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2);
 
-/// A distance proxy is used by the GJK algorithm.
-/// It encapsulates any shape.
+/// A distance proxy is used by the GJK algorithm. It encapsulates any shape.
 typedef struct b2DistanceProxy
 {
 	b2Vec2 vertices[b2_maxPolygonVertices];
@@ -68,7 +63,7 @@ typedef struct b2DistanceOutput
 /// Compute the closest points between two shapes. Supports any combination of:
 /// b2Circle, b2Polygon, b2EdgeShape. The simplex cache is input/output.
 /// On the first call set b2SimplexCache.count to zero.
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input);
+BOX2D_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input);
 
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastPairInput
@@ -83,9 +78,10 @@ typedef struct b2ShapeCastPairInput
 
 /// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
 /// @returns true if hit, false if there is no hit or an initial overlap
-b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input);
+BOX2D_API b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input);
 
-b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);
+/// Make a proxy for use in GJK and related functions.
+BOX2D_API b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);
 
 /// This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
 /// which may not coincide with the center of mass. However, to support dynamics we must interpolate the center of mass
@@ -102,7 +98,7 @@ typedef struct b2Sweep
 	float a1, a2;
 } b2Sweep;
 
-b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
+BOX2D_API b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
 
 /// Input parameters for b2TimeOfImpact
 typedef struct b2TOIInput
@@ -136,8 +132,4 @@ typedef struct b2TOIOutput
 /// a fraction between [0,tMax]. This uses a swept separating axis and may miss some intermediate,
 /// non-tunneling collisions. If you change the time interval, you should call this function
 /// again.
-b2TOIOutput b2TimeOfImpact(const b2TOIInput* input);
-
-#ifdef __cplusplus
-}
-#endif
+BOX2D_API b2TOIOutput b2TimeOfImpact(const b2TOIInput* input);

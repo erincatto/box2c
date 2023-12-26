@@ -283,7 +283,7 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p.collide);
 		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
 		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
-		m_maxProfile.solveIslands = B2_MAX(m_maxProfile.solveIslands, p.solveIslands);
+		m_maxProfile.solveConstraints = B2_MAX(m_maxProfile.solveConstraints, p.solveConstraints);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
 
@@ -292,7 +292,7 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.collide += p.collide;
 		m_totalProfile.solve += p.solve;
 		m_totalProfile.buildIslands += p.buildIslands;
-		m_totalProfile.solveIslands += p.solveIslands;
+		m_totalProfile.solveConstraints += p.solveConstraints;
 		m_totalProfile.broadphase += p.broadphase;
 		m_totalProfile.continuous += p.continuous;
 	}
@@ -311,7 +311,7 @@ void Sample::Step(Settings& settings)
 			aveProfile.collide = scale * m_totalProfile.collide;
 			aveProfile.solve = scale * m_totalProfile.solve;
 			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
-			aveProfile.solveIslands = scale * m_totalProfile.solveIslands;
+			aveProfile.solveConstraints = scale * m_totalProfile.solveConstraints;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 			aveProfile.continuous = scale * m_totalProfile.continuous;
 		}
@@ -328,8 +328,8 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands, aveProfile.buildIslands,
 						  m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveIslands, aveProfile.solveIslands,
-						  m_maxProfile.solveIslands);
+		g_draw.DrawString(5, m_textLine, "solve constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveConstraints, aveProfile.solveConstraints,
+						  m_maxProfile.solveConstraints);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);

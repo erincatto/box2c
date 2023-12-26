@@ -15,6 +15,7 @@
 
 #define b2_treeStackSize 1024
 
+
 // TODO_ERIN
 // - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
 

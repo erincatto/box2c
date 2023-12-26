@@ -1,3 +1,5 @@
+configure_file(user_constants.h.in user_constants.h)
+
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	allocate.c
@@ -24,6 +26,7 @@ set(BOX2D_SOURCE_FILES
 	distance.c
 	distance_joint.c
 	dynamic_tree.c
+	dynamic_tree_types.h
 	geometry.c
 	graph.c
 	graph.h
@@ -48,6 +51,7 @@ set(BOX2D_SOURCE_FILES
 	table.h
 	timer.c
 	types.c
+	user_constants.h.in
 	weld_joint.c
 	wheel_joint.c
 	world.c
@@ -83,7 +87,7 @@ else()
 endif()
 
 target_include_directories(box2d
-	PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_BINARY_DIR}
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -118,6 +122,8 @@ elseif (LINUX)
 elseif (APPLE)
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+target_compile_definitions(box2d PRIVATE B2_UNIT_OVERRIDE=${BOX2D_UNIT_OVERRIDE})
 
 # todo needed?
 find_library(MATH_LIBRARY m)

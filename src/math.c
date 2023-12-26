@@ -8,8 +8,6 @@
 
 #include <float.h>
 
-b2Version b2_version = { 3, 0, 0 };
-
 bool b2IsValid(float a)
 {
 	if (isnan(a))

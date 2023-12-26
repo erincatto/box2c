@@ -19,27 +19,29 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// These macros handle some differences between C and C++
 #ifdef __cplusplus
 #define B2_LITERAL(T) T
 #define B2_ZERO_INIT                                                                                                             \
 	{                                                                                                                            \
 	}
 #else
+/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
 #define B2_LITERAL(T) (T)
+
+/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
 #define B2_ZERO_INIT                                                                                                             \
 	{                                                                                                                            \
 		0                                                                                                                        \
 	}
 #endif
 
+/// Returns the number of elements of an array
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
-#define B2_MAYBE_UNUSED(x) ((void)(x))
-#define B2_NULL_INDEX (-1)
 
-/// @struct b2Vec2
-/// @brief 2D vector
-///
+/// Used to prevent the compiler from warning about unused variables
+#define B2_MAYBE_UNUSED(x) ((void)(x))
+
+/// A 2D vector
 /// This can be used to represent a point or free vector.
 typedef struct b2Vec2
 {
@@ -88,23 +90,14 @@ typedef struct b2AABB
 	b2Vec2 upperBound;
 } b2AABB;
 
-/// Ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
+/// Low level ray-cast input data
 typedef struct b2RayCastInput
 {
 	b2Vec2 origin, translation;
 	float maxFraction;
 } b2RayCastInput;
 
-/// Ray-cast output data. The ray hits at p1 + fraction * (p2 - p1), where p1 and p2 come from b2RayCastInput.
-typedef struct b2RayCastOutput
-{
-	b2Vec2 normal;
-	b2Vec2 point;
-	float fraction;
-	int32_t iterations;
-	bool hit;
-} b2RayCastOutput;
-
+/// Low level hape cast input in generic form
 typedef struct b2ShapeCastInput
 {
 	b2Vec2 points[b2_maxPolygonVertices];
@@ -113,6 +106,16 @@ typedef struct b2ShapeCastInput
 	b2Vec2 translation;
 	float maxFraction;
 } b2ShapeCastInput;
+
+/// Low level ray-cast or shape-cast output data
+typedef struct b2CastOutput
+{
+	b2Vec2 normal;
+	b2Vec2 point;
+	float fraction;
+	int32_t iterations;
+	bool hit;
+} b2RayCastOutput;
 
 /// Task interface
 /// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.
@@ -130,7 +133,7 @@ typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 
 /// World definition used to create a simulation world. Must be initialized using b2DefaultWorldDef.
-struct b2WorldDef
+typedef struct b2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
 	b2Vec2 gravity;
@@ -173,9 +176,7 @@ struct b2WorldDef
 	b2EnqueueTaskCallback* enqueueTask;
 	b2FinishTaskCallback* finishTask;
 	void* userTaskContext;
-};
-
-typedef struct b2WorldDef b2WorldDef;
+} b2WorldDef;
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved

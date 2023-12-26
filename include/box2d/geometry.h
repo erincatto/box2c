@@ -8,7 +8,7 @@
 #include "box2d/types.h"
 
 typedef struct b2Hull b2Hull;
-typedef struct b2RayCastOutput b2RayCastOutput;
+typedef struct b2CastOutput b2RayCastOutput;
 typedef struct b2RayCastInput b2RayCastInput;
 
 /// This holds the mass data computed for a shape.

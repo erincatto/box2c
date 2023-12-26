@@ -6,7 +6,6 @@
 #include "types.h"
 
 /// Profiling data. Times are in milliseconds.
-/// TODO_ERIN change to ticks due to variable frequency
 typedef struct b2Profile
 {
 	float step;
@@ -14,13 +13,14 @@ typedef struct b2Profile
 	float collide;
 	float solve;
 	float buildIslands;
-	float solveIslands;
+	float solveConstraints;
 	float broadphase;
 	float continuous;
 } b2Profile;
 
 static const b2Profile b2_emptyProfile = B2_ZERO_INIT;
 
+/// Counters that give details of the simulation size
 typedef struct b2Statistics
 {
 	int32_t islandCount;
