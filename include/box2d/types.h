@@ -33,12 +33,6 @@
 	}
 #endif
 
-#ifdef NDEBUG
-#define B2_DEBUG 0
-#else
-#define B2_DEBUG 1
-#endif
-
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 #define B2_NULL_INDEX (-1)

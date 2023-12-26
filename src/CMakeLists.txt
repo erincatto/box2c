@@ -8,6 +8,7 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
+	bitset.inl
 	block_allocator.c
 	block_allocator.h
 	body.c
@@ -87,11 +88,13 @@ target_include_directories(box2d
 )
 
 target_link_libraries(box2d PRIVATE simde)
-#target_compile_definitions(box2d PRIVATE "$<$<CONFIG:DEBUG>:B2_DEBUG>")
 
-message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
-message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
+# box2d uses C17
+set_target_properties(box2d PROPERTIES
+	C_STANDARD 17
+	C_STANDARD_REQUIRED YES
+	C_EXTENSIONS YES
+)
 
 if (MSVC)
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -104,7 +107,7 @@ if (MSVC)
 		message(STATUS "CMake using Clang-CL")
 		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX2)
 	endif()
-elseif(LINUX)
+elseif (LINUX)
 	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 		# raspberry pi
 		target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -112,12 +115,11 @@ elseif(LINUX)
 		# FMA -mfma
 		target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
 	endif()
-elseif(APPLE)
-	# enkiTS had some missing (void) on functions
-	# target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-strict-prototypes)
+elseif (APPLE)
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+# todo needed?
 find_library(MATH_LIBRARY m)
 if (MATH_LIBRARY)
 	target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})

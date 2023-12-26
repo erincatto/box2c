@@ -1,3 +1,5 @@
+# This is a reduced version of https://github.com/simd-everywhere/simde
+
 add_library(
 	simde INTERFACE
 	check.h
@@ -29,4 +31,4 @@ add_library(
 	x86/ssse3.h 
 )
 
-target_include_directories(simde INTERFACE ${CMAKE_SOURCE_DIR}/extern/simde)
+target_include_directories(simde INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -5,7 +5,7 @@
 
 #include "solver_data.h"
 
-//#include <immintrin.h>
+// todo this could be hidden in contact_solver.c, then graph.c just needs to know the sizeof(b2ContactConstraintSIMD)
 #include "x86/avx.h"
 
 typedef struct b2Contact b2Contact;

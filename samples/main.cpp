@@ -54,14 +54,12 @@ static b2Vec2 s_clickPointWS = b2Vec2_zero;
 static float s_windowScale = 1.0f;
 static float s_framebufferScale = 1.0f;
 
-void* AllocFcn(uint32_t size)
+void* AllocFcn(uint32_t size, int32_t alignment)
 {
-	size_t size32 = ((size - 1) | 0x1F) + 1;
-	assert((size32 & 0x1F) == 0);
 #if defined(_WIN64)
-	void* ptr = _aligned_malloc(size32, 32);
+	void* ptr = _aligned_malloc(size, alignment);
 #else
-	void* ptr = aligned_alloc(32, size32);
+	void* ptr = aligned_alloc(alignment, size);
 #endif
 	return ptr;
 }
@@ -526,7 +524,7 @@ int main(int, char**)
 
 	// Install memory hooks
 	b2SetAllocator(AllocFcn, FreeFcn);
-	Box2DAssertCallback = AssertFcn;
+	b2SetAssertFcn(AssertFcn);
 
 	char buffer[128];
 

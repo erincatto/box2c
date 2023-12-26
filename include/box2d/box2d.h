@@ -9,7 +9,6 @@
 #include "box2d/geometry.h"
 #include "box2d/id.h"
 #include "box2d/joint_types.h"
-#include "box2d/timer.h"
 #include "box2d/types.h"
 
 typedef struct b2Capsule b2Capsule;

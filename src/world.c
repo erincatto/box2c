@@ -9,6 +9,7 @@
 #include "arena_allocator.h"
 #include "array.h"
 #include "bitset.h"
+#include "bitset.inl"
 #include "block_allocator.h"
 #include "body.h"
 #include "broad_phase.h"

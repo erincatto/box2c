@@ -6,6 +6,7 @@
 #include "allocate.h"
 #include "arena_allocator.h"
 #include "array.h"
+#include "bitset.inl"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
@@ -14,7 +15,6 @@
 #include "shape.h"
 #include "solver_data.h"
 #include "world.h"
-#include "x86/sse2.h"
 
 #include "box2d/aabb.h"
 
