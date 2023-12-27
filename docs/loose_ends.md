@@ -1,4 +1,4 @@
-# Loose Ends
+# Loose Ends (NOT UPDATED for Box2D version 3.0)
 
 ## User Data
 The `b2Fixture`, `b2Body`, and `b2Joint` classes allow you to attach user data

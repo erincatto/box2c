@@ -1,4 +1,4 @@
-# Dynamics Module
+# Dynamics Module (NOT UPDATED for Box2D version 3.0)
 The Dynamics module is the most complex part of Box2D and is the part
 you likely interact with the most. The Dynamics module sits on top of
 the Common and Collision modules, so you should be somewhat familiar

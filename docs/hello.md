@@ -1,4 +1,4 @@
-# Hello Box2D
+# Hello Box2D (NOT UPDATED for Box2D version 3.0)
 In the distribution of Box2D is a Hello World project. The program
 creates a large ground box and a small dynamic box. This code does not
 contain any graphics. All you will see is text output in the console of
