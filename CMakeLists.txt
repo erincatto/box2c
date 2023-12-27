@@ -67,7 +67,10 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
 	# Tests need static linkage because they test internal Box2D functions
 	if (NOT ${BUILD_SHARED_LIBS})
+		message(STATUS "Adding Box2D unit tests")
 		add_subdirectory(test)
+	else()
+		message(STATUS "Skipping Box2D unit tests")
 	endif()
 
 	if (BOX2D_SAMPLES)
