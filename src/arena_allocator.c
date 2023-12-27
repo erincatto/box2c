@@ -56,6 +56,7 @@ void b2DestroyStackAllocator(b2StackAllocator* allocator)
 
 void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* name)
 {
+	// ensure allocation is 32 byte aligned to support 256-bit SIMD
 	int32_t size32 = ((size - 1) | 0x1F) + 1;
 
 	b2StackEntry entry;

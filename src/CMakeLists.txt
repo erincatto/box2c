@@ -115,8 +115,6 @@ elseif (APPLE)
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_compile_definitions(box2d PRIVATE B2_UNIT_OVERRIDE=${BOX2D_UNIT_OVERRIDE})
-
 # todo needed?
 find_library(MATH_LIBRARY m)
 if (MATH_LIBRARY)
