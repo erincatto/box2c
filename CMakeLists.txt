@@ -18,20 +18,18 @@ message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
 set(BOX2D_LENGTH_UNIT_PER_METER "1.0" CACHE STRING "Length units per meter")
 set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
 
-set(CMAKE_C_STANDARD 17)
-set(CMAKE_C_STANDARD_REQUIRED YES)
-set(CMAKE_C_EXTENSIONS YES)
-set(CMAKE_CXX_STANDARD 17)
+# Needed for samples.exe to find box2d.dll
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+
+# set(CMAKE_C_STANDARD 17)
+# set(CMAKE_C_STANDARD_REQUIRED YES)
+# set(CMAKE_C_EXTENSIONS YES)
+# set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
-
-# Hide internal functions
-# todo need to investigate this more
-# https://gcc.gnu.org/wiki/Visibility
-# set(CMAKE_C_VISIBILITY_PRESET hidden)
-# set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
 # The Box2D library uses simde https://github.com/simd-everywhere/simde
 add_subdirectory(extern/simde)
@@ -67,7 +65,10 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	)
 	FetchContent_MakeAvailable(enkits)
 
-	add_subdirectory(test)
+	# Tests need static linkage because they test internal Box2D functions
+	if (!BUILD_SHARED_LIBS)
+		add_subdirectory(test)
+	endif()
 
 	if (BOX2D_SAMPLES)
 		add_subdirectory(samples)

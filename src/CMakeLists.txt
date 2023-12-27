@@ -79,11 +79,20 @@ set(BOX2D_API_FILES
 	../include/box2d/types.h
 )
 
+# Hide internal functions
+# todo need to investigate this more
+# https://gcc.gnu.org/wiki/Visibility
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
+
 if (MSVC)
 	add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES} box2d.natvis)
 else()
 	add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
 endif()
+
+include(GenerateExportHeader)
+generate_export_header(box2d)
 
 target_include_directories(box2d
 	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_BINARY_DIR}
@@ -91,6 +100,14 @@ target_include_directories(box2d
 )
 
 target_link_libraries(box2d PRIVATE simde)
+
+set_target_properties(box2d PROPERTIES
+	C_STANDARD 17
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS NO
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
 
 if (MSVC)
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")

@@ -15,6 +15,8 @@
 #include "shape.h"
 #include "world.h"
 
+// needed for dll export
+#include "box2d/box2d.h"
 #include "box2d/event_types.h"
 #include "box2d/id.h"
 
@@ -187,7 +189,7 @@ static void b2DisableBody(b2World* world, b2Body* body)
 	}
 }
 
-b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
+BOX2D_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -329,7 +331,7 @@ void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	b2FreeObject(&world->bodyPool, &body->object);
 }
 
-void b2DestroyBody(b2BodyId bodyId)
+BOX2D_API void b2DestroyBody(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	B2_ASSERT(world->locked == false);

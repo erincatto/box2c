@@ -8,6 +8,8 @@
 #include "contact.h"
 #include "world.h"
 
+// needed for dll export
+#include "box2d/box2d.h"
 #include "box2d/event_types.h"
 
 b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf)

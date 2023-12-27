@@ -7,6 +7,9 @@
 #include "solver_data.h"
 #include "world.h"
 
+// needed for dll export
+#include "box2d/box2d.h"
+
 // p = attached point, m = mouse point
 // C = p - m
 // Cdot = v

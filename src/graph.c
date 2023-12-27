@@ -37,8 +37,6 @@
 // This is used for debugging making all constraints be assigned to overflow.
 #define B2_FORCE_OVERFLOW 0
 
-extern bool b2_parallel;
-
 typedef struct b2WorkerContext
 {
 	b2SolverTaskContext* context;
@@ -1418,17 +1416,9 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	void* splitIslandTask = NULL;
 	if (splitIslandIndex != B2_NULL_INDEX)
 	{
-		if (b2_parallel)
-		{
-			splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
-			world->taskCount += 1;
-			world->activeTaskCount += splitIslandTask == NULL ? 0 : 1;
-		}
-		else
-		{
-			b2SplitIslandTask(0, 1, 0, world);
-			world->splitIslandIndex = B2_NULL_INDEX;
-		}
+		splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
+		world->taskCount += 1;
+		world->activeTaskCount += splitIslandTask == NULL ? 0 : 1;
 	}
 
 	// Prepare body work blocks
@@ -1643,27 +1633,13 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2TracyCZoneEnd(prepare_stages);
 
 	// Must use worker index because thread 0 can be assigned multiple tasks by enkiTS
-	if (b2_parallel)
+	for (int32_t i = 0; i < workerCount; ++i)
 	{
-		for (int32_t i = 0; i < workerCount; ++i)
-		{
-			workerContext[i].context = &context;
-			workerContext[i].workerIndex = i;
-			workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
-			world->taskCount += 1;
-			world->activeTaskCount += workerContext[i].userTask == NULL ? 0 : 1;
-		}
-	}
-	else
-	{
-		// This relies on work stealing
-		for (int32_t i = 0; i < workerCount; ++i)
-		{
-			workerContext[i].context = &context;
-			workerContext[i].workerIndex = i;
-			workerContext[i].userTask = NULL;
-			b2SolverTask(0, 1, 0, workerContext + i);
-		}
+		workerContext[i].context = &context;
+		workerContext[i].workerIndex = i;
+		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
+		world->taskCount += 1;
+		world->activeTaskCount += workerContext[i].userTask == NULL ? 0 : 1;
 	}
 
 	// Finish split
@@ -1676,15 +1652,12 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	world->splitIslandIndex = B2_NULL_INDEX;
 
 	// Finish solve
-	if (b2_parallel)
+	for (int32_t i = 0; i < workerCount; ++i)
 	{
-		for (int32_t i = 0; i < workerCount; ++i)
+		if (workerContext[i].userTask != NULL)
 		{
-			if (workerContext[i].userTask != NULL)
-			{
-				world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
-				world->activeTaskCount -= 1;
-			}
+			world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+			world->activeTaskCount -= 1;
 		}
 	}
 
@@ -1700,16 +1673,11 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
-	void* finalizeBodiesTask = NULL;
-	if (b2_parallel)
+	void* finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, &context, world->userTaskContext);
+	world->taskCount += 1;
+	if (finalizeBodiesTask != NULL)
 	{
-		finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, &context, world->userTaskContext);
-		world->taskCount += 1;
 		world->finishTaskFcn(finalizeBodiesTask, world->userTaskContext);
-	}
-	else
-	{
-		b2FinalizeBodiesTask(0, awakeBodyCount, 0, &context);
 	}
 
 	b2FreeStackItem(world->stackAllocator, graphBlocks);
@@ -2132,14 +2100,11 @@ void b2Solve(b2World* world, b2StepContext* context)
 	world->profile.solveConstraints = b2GetMillisecondsAndReset(&timer);
 
 	// Finish the user tree task that was queued early in the time step. This must be done before touching the broadphase.
-	if (b2_parallel)
+	if (world->userTreeTask != NULL)
 	{
-		if (world->userTreeTask != NULL)
-		{
-			world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
-			world->activeTaskCount -= 1;
-			world->userTreeTask = NULL;
-		}
+		world->finishTaskFcn(world->userTreeTask, world->userTaskContext);
+		world->activeTaskCount -= 1;
+		world->userTreeTask = NULL;
 	}
 
 	b2ValidateNoEnlarged(&world->broadPhase);
@@ -2202,17 +2167,12 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
 
 	// Parallel continuous collision
-	if (b2_parallel)
+	int32_t minRange = 8;
+	void* userContinuousTask = world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+	world->taskCount += 1;
+	if (userContinuousTask != NULL)
 	{
-		int32_t minRange = 8;
-		void* userContinuousTask =
-			world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
-		world->taskCount += 1;
 		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
-	}
-	else
-	{
-		b2ContinuousParallelForTask(0, world->fastBodyCount, 0, world);
 	}
 
 	// Serially enlarge broad-phase proxies for fast shapes
