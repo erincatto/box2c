@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/aabb.h"
-#include "box2d/math.h"
+#include "aabb.h"
 #include "test_macros.h"
+
+#include "box2d/math.h"
 
 static int AABBTest(void)
 {
