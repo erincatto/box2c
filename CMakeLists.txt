@@ -19,7 +19,7 @@ set(BOX2D_LENGTH_UNIT_PER_METER "1.0" CACHE STRING "Length units per meter")
 set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
 
 # Needed for samples.exe to find box2d.dll
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 
 # set(CMAKE_C_STANDARD 17)
@@ -66,7 +66,7 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	FetchContent_MakeAvailable(enkits)
 
 	# Tests need static linkage because they test internal Box2D functions
-	if (!BUILD_SHARED_LIBS)
+	if (NOT ${BUILD_SHARED_LIBS})
 		add_subdirectory(test)
 	endif()
 
