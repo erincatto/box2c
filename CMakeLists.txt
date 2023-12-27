@@ -13,7 +13,7 @@ project(box2d
 # message(STATUS "library postfix: ${CMAKE_DEBUG_POSTFIX}")
 # message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
 # message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
-# message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
 
 set(BOX2D_LENGTH_UNIT_PER_METER "1.0" CACHE STRING "Length units per meter")
 set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
