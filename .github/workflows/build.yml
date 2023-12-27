@@ -25,7 +25,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ./test/test
+      run: ./bin/test
       
   build-ubuntu-clang:
     name: ubuntu-clang
@@ -42,7 +42,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ./test/test
+      run: ./bin/test
       
   build-macos:
     name: macos
@@ -59,7 +59,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ./test/test
+      run: ./bin/test
       
   build-windows:
     name: windows
@@ -76,5 +76,5 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ./test/${{env.BUILD_TYPE}}/test
+      run: ./bin/test
       
