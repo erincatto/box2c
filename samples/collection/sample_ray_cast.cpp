@@ -80,8 +80,8 @@ public:
 		ImGui::Separator();
 
 		ImGui::Text("mouse btn 1: ray cast");
-		ImGui::Text("mouse btn 1 + shft: rotate");
-		ImGui::Text("mouse btn 1 + ctrl: translate");
+		ImGui::Text("mouse btn 1 + shft: translate");
+		ImGui::Text("mouse btn 1 + ctrl: rotate");
 
 		ImGui::End();
 	}

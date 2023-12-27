@@ -92,13 +92,6 @@ target_include_directories(box2d
 
 target_link_libraries(box2d PRIVATE simde)
 
-# box2d uses C17
-set_target_properties(box2d PROPERTIES
-	C_STANDARD 17
-	C_STANDARD_REQUIRED YES
-	C_EXTENSIONS YES
-)
-
 if (MSVC)
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# target_compile_options(box2d PRIVATE /W4 /WX)

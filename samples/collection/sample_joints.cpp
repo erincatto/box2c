@@ -247,7 +247,7 @@ public:
 			m_jointId = b2CreateMotorJoint(m_worldId, &jointDef);
 		}
 
-		m_go = false;
+		m_go = true;
 		m_time = 0.0f;
 	}
 
@@ -589,7 +589,7 @@ public:
 		b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 		m_enableLimit = true;
-		m_enableMotor = false;
+		m_enableMotor = true;
 		m_motorSpeed = 2.0f;
 		m_motorTorque = 5.0f;
 
