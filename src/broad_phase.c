@@ -5,6 +5,7 @@
 
 #include "broad_phase.h"
 
+#include "aabb.h"
 #include "allocate.h"
 #include "arena_allocator.h"
 #include "array.h"
@@ -14,7 +15,6 @@
 #include "shape.h"
 #include "world.h"
 
-#include "box2d/aabb.h"
 #include "box2d/timer.h"
 
 #include <stdatomic.h>

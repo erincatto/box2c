@@ -19,13 +19,13 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bd = b2DefaultBodyDef();
+			b2BodyDef bd = b2_defaultBodyDef;
 			bd.position = {0.0f, -1.0f};
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
+			b2BodyId groundId = b2CreateBody(m_worldId, &bd);
 
 			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-			b2ShapeDef sd = b2DefaultShapeDef();
-			b2Body_CreatePolygon(groundId, &sd, &box);
+			b2ShapeDef sd = b2_defaultShapeDef;
+			b2CreatePolygonShape(groundId, &sd, &box);
 		}
 
 		for (int32_t i = 0; i < e_rows * e_columns; ++i)
@@ -35,7 +35,7 @@ public:
 
 		b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
-		b2ShapeDef sd = b2DefaultShapeDef();
+		b2ShapeDef sd = b2_defaultShapeDef;
 		sd.density = 1.0f;
 		sd.friction = 0.3f;
 
@@ -49,17 +49,17 @@ public:
 
 			for (int32_t i = 0; i < e_rows; ++i)
 			{
-				b2BodyDef bd = b2DefaultBodyDef();
+				b2BodyDef bd = b2_defaultBodyDef;
 				bd.type = b2_dynamicBody;
 
 				int32_t n = j * e_rows + i;
 
 				bd.position = {x + offset * i, 0.5f + 1.0f * i};
-				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;
 
-				b2Body_CreatePolygon(bodyId, &sd, &box);
+				b2CreatePolygonShape(bodyId, &sd, &box);
 			}
 		}
 	}

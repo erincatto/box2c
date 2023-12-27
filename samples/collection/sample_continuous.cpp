@@ -32,28 +32,28 @@ public:
 			g_camera.m_center = {0.0f, 0.0f};
 		}
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		{
 			b2Segment segment = {{-10.0f, -10.0f}, {10.0f, -10.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		{
 			b2Segment segment = {{10.0f, -10.0f}, {10.0f, 10.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		{
 			b2Segment segment = {{10.0f, 10.0f}, {-10.0f, 10.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		{
 			b2Segment segment = {{-10.0f, 10.0f}, {-10.0f, -10.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		m_shapeType = e_circleShape;
@@ -66,35 +66,35 @@ public:
 	{
 		if (B2_NON_NULL(m_bodyId))
 		{
-			b2World_DestroyBody(m_bodyId);
+			b2DestroyBody(m_bodyId);
 		}
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.linearVelocity = {10.0f, 20.0f};
 		bodyDef.position = {0.0f, 0.0f};
 		bodyDef.gravityScale = 0.0f;
-		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.restitution = 1.2f;
 
 		if (m_shapeType == e_circleShape)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-			b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+			b2CreateCircleShape(m_bodyId, &shapeDef, &circle);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
 			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
-			b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+			b2CreateCapsuleShape(m_bodyId, &shapeDef, &capsule);
 		}
 		else
 		{
 			float h = 0.5f;
 			b2Polygon box = b2MakeBox(h, h);
-			b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
+			b2CreatePolygonShape(m_bodyId, &shapeDef, &box);
 		}
 	}
 
@@ -133,16 +133,16 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Segment segment = {{-10.0f, 0.0f}, {10.0f, 0.0f}};
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = 0.9f;
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 			b2Polygon box = b2MakeOffsetBox(0.1f, 1.0f, {0.0f, 1.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		m_autoTest = false;
@@ -159,38 +159,38 @@ public:
 	{
 		if (B2_NON_NULL(m_bodyId))
 		{
-			b2World_DestroyBody(m_bodyId);
+			b2DestroyBody(m_bodyId);
 		}
 
 		if (B2_NON_NULL(m_bulletId))
 		{
-			b2World_DestroyBody(m_bulletId);
+			b2DestroyBody(m_bulletId);
 		}
 
 		m_angularVelocity = RandomFloat(-50.0f, 50.0f);
 		// m_angularVelocity = -30.6695766f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {0.0f, 8.0f};
 		bodyDef.angularVelocity = m_angularVelocity;
 		bodyDef.linearVelocity = {0.0f, -100.0f};
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.9f;
 
-		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 		if (m_capsule)
 		{
 			b2Capsule capsule = {{0.0f, -1.0f}, {0.0f, 1.0f}, 0.1f};
-			b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+			b2CreateCapsuleShape(m_bodyId, &shapeDef, &capsule);
 		}
 		else
 		{
 			b2Polygon polygon = b2MakeBox(2.0f, 0.05f);
-			b2Body_CreatePolygon(m_bodyId, &shapeDef, &polygon);
+			b2CreatePolygonShape(m_bodyId, &shapeDef, &polygon);
 		}
 
 		if (m_bullet)
@@ -199,8 +199,8 @@ public:
 			m_x = RandomFloat(-1.0f, 1.0f);
 			bodyDef.position = {m_x, 10.0f};
 			bodyDef.linearVelocity = {0.0f, -50.0f};
-			m_bulletId = b2World_CreateBody(m_worldId, &bodyDef);
-			b2Body_CreatePolygon(m_bulletId, &shapeDef, &polygon);
+			m_bulletId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(m_bulletId, &shapeDef, &polygon);
 		}
 	}
 
@@ -278,13 +278,13 @@ public:
 	{
 		if (B2_NON_NULL(m_groundId))
 		{
-			b2World_DestroyBody(m_groundId);
+			b2DestroyBody(m_groundId);
 		}
 
 		m_shapeId = b2_nullShapeId;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float m = 1.0f / sqrt(2.0f);
 		float mm = 2.0f * (sqrt(2.0f) - 1.0f);
@@ -314,17 +314,17 @@ public:
 			points[18] = b2Add(points[17], {-2.0f * hx, 0.0f});
 			points[19] = b2Add(points[18], {-2.0f * hx, 0.0f});
 
-			b2ChainDef chainDef = b2DefaultChainDef();
+			b2ChainDef chainDef = b2_defaultChainDef;
 			chainDef.points = points;
 			chainDef.count = 20;
 			chainDef.loop = true;
 			chainDef.friction = m_friction;
 
-			b2Body_CreateChain(m_groundId, &chainDef);
+			b2CreateChain(m_groundId, &chainDef);
 		}
 		else
 		{
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = m_friction;
 
 			b2Hull hull = {0};
@@ -353,21 +353,21 @@ public:
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x -= 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x -= 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x -= 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
@@ -379,19 +379,19 @@ public:
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * hx;
 			}
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * hx;
 			}
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * hx;
 			}
 
@@ -402,21 +402,21 @@ public:
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
 			{
 				transform.p = {x, y};
 				b2Polygon polygon = b2MakeOffsetPolygon(&hull, 0.0f, transform);
-				b2Body_CreatePolygon(m_groundId, &shapeDef, &polygon);
+				b2CreatePolygonShape(m_groundId, &shapeDef, &polygon);
 				x += 2.0f * m * hx;
 				y += 2.0f * m * hx;
 			}
@@ -427,35 +427,35 @@ public:
 	{
 		if (B2_NON_NULL(m_bodyId))
 		{
-			b2World_DestroyBody(m_bodyId);
+			b2DestroyBody(m_bodyId);
 			m_shapeId = b2_nullShapeId;
 		}
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {-28.0f, 18.0f};
 		bodyDef.linearVelocity = {0.0f, 0.0f};
-		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.friction = m_friction;
 
 		if (m_shapeType == e_circleShape)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-			m_shapeId = b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+			m_shapeId = b2CreateCircleShape(m_bodyId, &shapeDef, &circle);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
 			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
-			m_shapeId = b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+			m_shapeId = b2CreateCapsuleShape(m_bodyId, &shapeDef, &capsule);
 		}
 		else
 		{
 			float h = 0.5f - m_round;
 			b2Polygon box = b2MakeRoundedBox(h, h, m_round);
-			m_shapeId = b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
+			m_shapeId = b2CreatePolygonShape(m_bodyId, &shapeDef, &box);
 		}
 	}
 

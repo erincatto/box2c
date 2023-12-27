@@ -9,33 +9,29 @@
 
 typedef struct b2Manifold b2Manifold;
 
-/// Implement this class to provide collision filtering. In other words, you can implement
-/// this class if you want finer control over contact creation.
-/// Return true if contact calculations should be performed between these two shapes.
-/// @warning for performance reasons this is only called when the AABBs begin to overlap.
-typedef bool b2ShouldCollideFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context);
-
+/// Prototype for a pre-solve callback.
 /// This is called after a contact is updated. This allows you to inspect a
 /// contact before it goes to the solver. If you are careful, you can modify the
 /// contact manifold (e.g. disable contact).
 /// Notes:
-/// - this is called only for awake bodies.
-/// - this is called even when the number of contact points is zero.
-/// - this is not called for sensors.
-/// - if you set the number of contact points to zero, you will not
-/// get an EndContact callback. However, you may get a BeginContact callback
-/// the next step.
-/// - the supplied manifold has impulse values from the previous frame
+///	- this function must be thread-safe
+///	- this is only called if the shape has enabled presolve events
+/// - this is called only for awake dynamic bodies
+/// - this is not called for sensors
+/// - the supplied manifold has impulse values from the previous step
+///	Return false if you want to disable the contact this step
 typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context);
+
+/// Register the pre-solve callback. This is optional.
 BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
-/// Callback class for AABB queries.
+/// Prototype callback for AABB queries.
 /// See b2World_Query
 /// Called for each shape found in the query AABB.
 /// @return false to terminate the query.
 typedef bool b2QueryResultFcn(b2ShapeId shapeId, void* context);
 
-/// Callback class for ray casts.
+/// Prototype callback for ray casts.
 /// See b2World::RayCast
 /// Called for each shape found in the query. You control how the ray cast
 /// proceeds by returning a float:

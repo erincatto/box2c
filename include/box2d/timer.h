@@ -18,6 +18,7 @@ typedef struct b2Profile
 	float continuous;
 } b2Profile;
 
+/// Use this to initialize your profile
 static const b2Profile b2_emptyProfile = B2_ZERO_INIT;
 
 /// Counters that give details of the simulation size
@@ -37,8 +38,7 @@ typedef struct b2Statistics
 	int32_t colorCounts[b2_graphColorCount + 1];
 } b2Statistics;
 
-/// Timer for profiling. This has platform specific code and may
-/// not work on every platform.
+/// Timer for profiling. This has platform specific code and may not work on every platform.
 typedef struct b2Timer
 {
 #if defined(_WIN32)
@@ -51,21 +51,14 @@ typedef struct b2Timer
 #endif
 } b2Timer;
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+BOX2D_API b2Timer b2CreateTimer(void);
+BOX2D_API int64_t b2GetTicks(b2Timer* timer);
+BOX2D_API float b2GetMilliseconds(const b2Timer* timer);
+BOX2D_API float b2GetMillisecondsAndReset(b2Timer* timer);
+BOX2D_API void b2SleepMilliseconds(float milliseconds);
 
-b2Timer b2CreateTimer(void);
-int64_t b2GetTicks(b2Timer* timer);
-float b2GetMilliseconds(const b2Timer* timer);
-float b2GetMillisecondsAndReset(b2Timer* timer);
-void b2SleepMilliseconds(float milliseconds);
-
-#ifdef __cplusplus
-}
-#endif
-
+/// Tracy profiler instrumentation
+///	https://github.com/wolfpld/tracy
 #ifdef BOX2D_PROFILE
 
 #include <tracy/TracyC.h>

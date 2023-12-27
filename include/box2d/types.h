@@ -49,12 +49,6 @@ typedef struct b2Vec2
 	float x, y;
 } b2Vec2;
 
-/// 3D vector
-typedef struct b2Vec3
-{
-	float x, y, z;
-} b2Vec3;
-
 /// 2D rotation
 typedef struct b2Rot
 {
@@ -75,13 +69,6 @@ typedef struct b2Mat22
 	/// columns
 	b2Vec2 cx, cy;
 } b2Mat22;
-
-/// A 3-by-3 Matrix
-typedef struct b2Mat33
-{
-	/// columns
-	b2Vec3 cx, cy, cz;
-} b2Mat33;
 
 /// Axis-aligned bounding box
 typedef struct b2AABB
@@ -178,6 +165,24 @@ typedef struct b2WorldDef
 	void* userTaskContext;
 } b2WorldDef;
 
+/// Use this to initialize your world definition
+static inline b2WorldDef b2DefaultWorldDef(void)
+{
+	b2WorldDef def = B2_ZERO_INIT;
+	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
+	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0f;
+	def.contactDampingRatio = 1.0f;
+	def.enableSleep = true;
+	def.bodyCapacity = 8;
+	def.shapeCapacity = 8;
+	def.contactCapacity = 8;
+	def.jointCapacity = 8;
+	def.stackAllocatorCapacity = 1024 * 1024;
+	return def;
+}
+
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved
 /// kinematic: zero mass, non-zero velocity set by user, moved by solver
@@ -241,6 +246,7 @@ typedef struct b2BodyDef
 	bool isEnabled;
 } b2BodyDef;
 
+/// Use this to initialize your body definition
 static const b2BodyDef b2_defaultBodyDef = {
 	b2_staticBody, {0.0f, 0.0f}, 0.0f, {0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 1.0f, NULL, true, true, false, true,
 };
@@ -261,6 +267,7 @@ typedef struct b2Filter
 	int32_t groupIndex;
 } b2Filter;
 
+/// Use this to initialize your filter
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
 /// This holds contact filtering data.
@@ -274,8 +281,10 @@ typedef struct b2QueryFilter
 	uint32_t maskBits;
 } b2QueryFilter;
 
+/// Use this to initialize your query filter
 static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
 
+/// Shape type
 typedef enum b2ShapeType
 {
 	b2_capsuleShape,
@@ -319,6 +328,7 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
+/// Use this to initialize your shape definition
 static const b2ShapeDef b2_defaultShapeDef = {
 	NULL, 0.6f, 0.0f, 1.0f, {0x00000001, 0xFFFFFFFF, 0}, false, true, true, false,
 };
@@ -359,70 +369,5 @@ typedef struct b2ChainDef
 	b2Filter filter;
 } b2ChainDef;
 
+/// Use this to initialize your chain definition
 static const b2ChainDef b2_defaultChainDef = {NULL, 0, false, NULL, 0.6f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}};
-
-/// Make a world definition with default values.
-static inline b2WorldDef b2DefaultWorldDef(void)
-{
-	b2WorldDef def = B2_ZERO_INIT;
-	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
-	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
-	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
-	def.contactHertz = 30.0f;
-	def.contactDampingRatio = 1.0f;
-	def.enableSleep = true;
-	def.bodyCapacity = 8;
-	def.shapeCapacity = 8;
-	def.contactCapacity = 8;
-	def.jointCapacity = 8;
-	def.stackAllocatorCapacity = 1024 * 1024;
-	return def;
-}
-
-/// Make a body definition with default values.
-static inline b2BodyDef b2DefaultBodyDef(void)
-{
-	b2BodyDef def = B2_ZERO_INIT;
-	def.type = b2_staticBody;
-	def.position = B2_LITERAL(b2Vec2){0.0f, 0.0f};
-	def.angle = 0.0f;
-	def.linearVelocity = B2_LITERAL(b2Vec2){0.0f, 0.0f};
-	def.angularVelocity = 0.0f;
-	def.linearDamping = 0.0f;
-	def.angularDamping = 0.0f;
-	def.gravityScale = 1.0f;
-	def.userData = NULL;
-	def.enableSleep = true;
-	def.isAwake = true;
-	def.fixedRotation = false;
-	def.isEnabled = true;
-	return def;
-}
-
-static inline struct b2ShapeDef b2DefaultShapeDef(void)
-{
-	b2ShapeDef def = B2_ZERO_INIT;
-	def.friction = 0.6f;
-	def.restitution = 0.0f;
-	def.density = 0.0f;
-	def.filter = b2_defaultFilter;
-	def.isSensor = false;
-	def.enableSensorEvents = true;
-	def.enableContactEvents = true;
-	def.enablePreSolveEvents = false;
-
-	return def;
-}
-
-static inline struct b2ChainDef b2DefaultChainDef(void)
-{
-	b2ChainDef def = B2_ZERO_INIT;
-	def.points = NULL;
-	def.count = 0;
-	def.loop = false;
-	def.userData = NULL;
-	def.friction = 0.6f;
-	def.restitution = 0.0f;
-	def.filter = b2_defaultFilter;
-	return def;
-}

@@ -3,10 +3,10 @@
 
 #include "box2d/geometry.h"
 
+#include "aabb.h"
 #include "core.h"
 #include "shape.h"
 
-#include "box2d/aabb.h"
 #include "box2d/distance.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
@@ -160,24 +160,6 @@ b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle)
 	shape.normals[3] = b2RotateVector(xf.q, (b2Vec2){-1.0f, 0.0f});
 	shape.radius = 0.0f;
 	shape.centroid = center;
-	return shape;
-}
-
-b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
-{
-	b2Polygon shape = {0};
-	shape.vertices[0] = p1;
-	shape.vertices[1] = p2;
-	shape.centroid = b2Lerp(p1, p2, 0.5f);
-
-	b2Vec2 axis = b2NormalizeChecked(b2Sub(p2, p1));
-	b2Vec2 normal = b2RightPerp(axis);
-
-	shape.normals[0] = normal;
-	shape.normals[1] = b2Neg(normal);
-	shape.count = 2;
-	shape.radius = radius;
-
 	return shape;
 }
 
@@ -703,7 +685,7 @@ b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* s
 {
 	if (oneSided)
 	{
-		// Skip back-side collision
+		// Skip left-side collision
 		float offset = b2Cross(b2Sub(input->origin, shape->point1), b2Sub(shape->point2, shape->point1));
 		if (offset < 0.0f)
 		{

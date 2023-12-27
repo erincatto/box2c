@@ -5,6 +5,7 @@
 
 #include "world.h"
 
+#include "aabb.h"
 #include "allocate.h"
 #include "arena_allocator.h"
 #include "array.h"
@@ -22,7 +23,6 @@
 #include "shape.h"
 #include "solver_data.h"
 
-#include "box2d/aabb.h"
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"

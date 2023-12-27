@@ -3,6 +3,7 @@
 
 #include "graph.h"
 
+#include "aabb.h"
 #include "allocate.h"
 #include "arena_allocator.h"
 #include "array.h"
@@ -16,7 +17,8 @@
 #include "solver_data.h"
 #include "world.h"
 
-#include "box2d/aabb.h"
+// for mm_pause
+#include "x86/sse2.h"
 
 #include <limits.h>
 #include <stdatomic.h>

@@ -25,32 +25,32 @@ int HelloWorld(void)
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 
 	// Define the ground body.
-	b2BodyDef groundBodyDef = b2DefaultBodyDef();
+	b2BodyDef groundBodyDef = b2_defaultBodyDef;
 	groundBodyDef.position = (b2Vec2){0.0f, -10.0f};
 
 	// Call the body factory which allocates memory for the ground body
 	// from a pool and creates the ground box shape (also from a pool).
 	// The body is also added to the world.
-	b2BodyId groundBodyId = b2World_CreateBody(worldId, &groundBodyDef);
+	b2BodyId groundBodyId = b2CreateBody(worldId, &groundBodyDef);
 
 	// Define the ground box shape. The extents are the half-widths of the box.
 	b2Polygon groundBox = b2MakeBox(50.0f, 10.0f);
 
 	// Add the box shape to the ground body.
-	b2ShapeDef groundShapeDef = b2DefaultShapeDef();
-	b2Body_CreatePolygon(groundBodyId, &groundShapeDef, &groundBox);
+	b2ShapeDef groundShapeDef = b2_defaultShapeDef;
+	b2CreatePolygonShape(groundBodyId, &groundShapeDef, &groundBox);
 
 	// Define the dynamic body. We set its position and call the body factory.
-	b2BodyDef bodyDef = b2DefaultBodyDef();
+	b2BodyDef bodyDef = b2_defaultBodyDef;
 	bodyDef.type = b2_dynamicBody;
 	bodyDef.position = (b2Vec2){0.0f, 4.0f};
-	b2BodyId bodyId = b2World_CreateBody(worldId, &bodyDef);
+	b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
 
 	// Define another box shape for our dynamic body.
 	b2Polygon dynamicBox = b2MakeBox(1.0f, 1.0f);
 
 	// Define the dynamic body shape
-	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	b2ShapeDef shapeDef = b2_defaultShapeDef;
 
 	// Set the box density to be non-zero, so it will be dynamic.
 	shapeDef.density = 1.0f;
@@ -59,7 +59,7 @@ int HelloWorld(void)
 	shapeDef.friction = 0.3f;
 
 	// Add the shape to the body.
-	b2Body_CreatePolygon(bodyId, &shapeDef, &dynamicBox);
+	b2CreatePolygonShape(bodyId, &shapeDef, &dynamicBox);
 
 	// Prepare for simulation. Typically we use a time step of 1/60 of a
 	// second (60Hz) and 10 iterations. This provides a high quality simulation

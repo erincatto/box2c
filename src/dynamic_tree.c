@@ -7,7 +7,7 @@
 #include "array.h"
 #include "core.h"
 
-#include "box2d/aabb.h"
+#include "aabb.h"
 #include "box2d/constants.h"
 
 #include <float.h>

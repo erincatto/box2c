@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+//#include "aabb.h"
 #include "sample.h"
 
-#include "box2d/aabb.h"
 #include "box2d/dynamic_tree.h"
 #include "box2d/math.h"
 
@@ -36,8 +36,9 @@ static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t u
 // can be used independently as a spatial data structure.
 class DynamicTree : public Sample
 {
-  public:
-	DynamicTree(const Settings& settings) : Sample(settings)
+public:
+	DynamicTree(const Settings& settings)
+		: Sample(settings)
 	{
 		m_fill = 0.25f;
 		m_moveFraction = 0.05f;
@@ -109,13 +110,13 @@ class DynamicTree : public Sample
 					float width = RandomFloat(0.1f, 0.5f);
 					if (RandomFloat() > 0.0f)
 					{
-						p->width.x =  ratio * width;
-						p->width.y =  width;
+						p->width.x = ratio * width;
+						p->width.y = width;
 					}
 					else
 					{
-						p->width.x =  width;
-						p->width.y =  ratio * width;
+						p->width.x = width;
+						p->width.y = ratio * width;
 					}
 
 					p->box.lowerBound = {x, y};
@@ -251,8 +252,8 @@ class DynamicTree : public Sample
 			g_draw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
 		}
 
-		 //m_startPoint = {-1.0f, 0.5f};
-		 //m_endPoint = {7.0f, 0.5f};
+		// m_startPoint = {-1.0f, 0.5f};
+		// m_endPoint = {7.0f, 0.5f};
 
 		if (m_rayDrag)
 		{
@@ -315,70 +316,71 @@ class DynamicTree : public Sample
 
 		switch (m_updateType)
 		{
-		case Update_Incremental:
-		{
-			b2Timer timer = b2CreateTimer();
-			for (int i = 0; i < m_proxyCount; ++i)
+			case Update_Incremental:
 			{
-				Proxy* p = m_proxies + i;
-				if (p->moved)
+				b2Timer timer = b2CreateTimer();
+				for (int i = 0; i < m_proxyCount; ++i)
 				{
-					b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->fatBox);
+					Proxy* p = m_proxies + i;
+					if (p->moved)
+					{
+						b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->fatBox);
+					}
 				}
+				float ms = b2GetMilliseconds(&timer);
+				g_draw.DrawString(5, m_textLine, "incremental : %.3f ms", ms);
+				m_textLine += m_textIncrement;
 			}
-			float ms = b2GetMilliseconds(&timer);
-			g_draw.DrawString(5, m_textLine, "incremental : %.3f ms", ms);
-			m_textLine += m_textIncrement;
-		}
-		break;
-
-		case Update_FullRebuild:
-		{
-			for (int i = 0; i < m_proxyCount; ++i)
-			{
-				Proxy* p = m_proxies + i;
-				if (p->moved)
-				{
-					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
-				}
-			}
-
-			b2Timer timer = b2CreateTimer();
-			int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, true);
-			float ms = b2GetMilliseconds(&timer);
-			g_draw.DrawString(5, m_textLine, "full build %d : %.3f ms", boxCount, ms);
-			m_textLine += m_textIncrement;
-		}
-		break;
-
-		case Update_PartialRebuild:
-		{
-			for (int i = 0; i < m_proxyCount; ++i)
-			{
-				Proxy* p = m_proxies + i;
-				if (p->moved)
-				{
-					b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
-				}
-			}
-
-			b2Timer timer = b2CreateTimer();
-			int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, false);
-			float ms = b2GetMilliseconds(&timer);
-			g_draw.DrawString(5, m_textLine, "partial rebuild %d : %.3f ms", boxCount, ms);
-			m_textLine += m_textIncrement;
-		}
-		break;
-
-		default:
 			break;
+
+			case Update_FullRebuild:
+			{
+				for (int i = 0; i < m_proxyCount; ++i)
+				{
+					Proxy* p = m_proxies + i;
+					if (p->moved)
+					{
+						b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
+					}
+				}
+
+				b2Timer timer = b2CreateTimer();
+				int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, true);
+				float ms = b2GetMilliseconds(&timer);
+				g_draw.DrawString(5, m_textLine, "full build %d : %.3f ms", boxCount, ms);
+				m_textLine += m_textIncrement;
+			}
+			break;
+
+			case Update_PartialRebuild:
+			{
+				for (int i = 0; i < m_proxyCount; ++i)
+				{
+					Proxy* p = m_proxies + i;
+					if (p->moved)
+					{
+						b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
+					}
+				}
+
+				b2Timer timer = b2CreateTimer();
+				int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, false);
+				float ms = b2GetMilliseconds(&timer);
+				g_draw.DrawString(5, m_textLine, "partial rebuild %d : %.3f ms", boxCount, ms);
+				m_textLine += m_textIncrement;
+			}
+			break;
+
+			default:
+				break;
 		}
 
 		int32_t height = b2DynamicTree_GetHeight(&m_tree);
 		float areaRatio = b2DynamicTree_GetAreaRatio(&m_tree);
 
 		int32_t hmin = (int32_t)(ceilf(logf((float)m_proxyCount) / logf(2.0f) - 1.0f));
-		g_draw.DrawString(5, m_textLine, "proxies = %d, height = %d, hmin = %d, area ratio = %.1f", m_proxyCount, height, hmin, areaRatio);
+		g_draw.DrawString(5, m_textLine, "proxies = %d, height = %d, hmin = %d, area ratio = %.1f", m_proxyCount, height, hmin,
+						  areaRatio);
 		m_textLine += m_textIncrement;
 
 		b2DynamicTree_Validate(&m_tree);

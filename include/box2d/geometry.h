@@ -50,6 +50,8 @@ typedef struct b2Capsule
 /// the left of each edge.
 /// Polygons have a maximum number of vertices equal to b2_maxPolygonVertices.
 /// In most cases you should not need many vertices for a convex polygon.
+///	@warning DO NOT fill this out manually, instead use a helper function like
+///	b2MakePolygon or b2MakeBox.
 typedef struct b2Polygon
 {
 	b2Vec2 vertices[b2_maxPolygonVertices];
@@ -80,42 +82,81 @@ typedef struct b2SmoothSegment
 	b2Vec2 ghost2;
 } b2SmoothSegment;
 
+/// Validate ray cast input data (NaN, etc)
 BOX2D_API bool b2IsValidRay(const b2RayCastInput* input);
 
-/// Helper functions to make convex polygons
+/// Make a convex polygon from a convex hull. This will assert if the hull is not valid.
 BOX2D_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);
-BOX2D_API b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform transform);
-BOX2D_API b2Polygon b2MakeSquare(float h);
-BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
-BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);
-BOX2D_API b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
-BOX2D_API b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius);
 
+/// Make an offset convex polygon from a convex hull. This will assert if the hull is not valid.
+BOX2D_API b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform transform);
+
+/// Make a square polygon, bypassing the need for a convex hull.
+BOX2D_API b2Polygon b2MakeSquare(float h);
+
+/// Make a box (rectangle) polygon, bypassing the need for a convex hull.
+BOX2D_API b2Polygon b2MakeBox(float hx, float hy);
+
+/// Make a rounded box, bypassing the need for a convex hull.
+BOX2D_API b2Polygon b2MakeRoundedBox(float hx, float hy, float radius);
+
+/// Make an offset box, bypassing the need for a convex hull.
+BOX2D_API b2Polygon b2MakeOffsetBox(float hx, float hy, b2Vec2 center, float angle);
+
+/// Transform a polygon. This is useful for transfering a shape from one body to another.
 BOX2D_API b2Polygon b2TransformPolygon(b2Transform transform, const b2Polygon* polygon);
 
-/// Compute mass properties
+/// Compute mass properties of a circle
 BOX2D_API b2MassData b2ComputeCircleMass(const b2Circle* shape, float density);
+
+/// Compute mass properties of a capsule
 BOX2D_API b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density);
+
+/// Compute mass properties of a polygon
 BOX2D_API b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density);
 
-/// These compute the bounding box in world space
-BOX2D_API b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform xf);
-BOX2D_API b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform xf);
-BOX2D_API b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform xf);
-BOX2D_API b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform xf);
+/// Compute the bounding box of a transformed circle
+BOX2D_API b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform transform);
 
-/// Test a point in local space
+/// Compute the bounding box of a transformed capsule
+BOX2D_API b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform transform);
+
+/// Compute the bounding box of a transformed polygon
+BOX2D_API b2AABB b2ComputePolygonAABB(const b2Polygon* shape, b2Transform transform);
+
+/// Compute the bounding box of a transformed line segment
+BOX2D_API b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform transform);
+
+/// Test a point for overlap with a circle in local space
 BOX2D_API bool b2PointInCircle(b2Vec2 point, const b2Circle* shape);
+
+/// Test a point for overlap with a capsule in local space
 BOX2D_API bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape);
+
+/// Test a point for overlap with a convex polygon in local space
 BOX2D_API bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape);
 
-// Ray cast versus shape in shape local space. Initial overlap is treated as a miss.
+/// Ray cast versus circle in shape local space. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape);
+
+/// Ray cast versus capsule in shape local space. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shape);
+
+/// Ray cast versus segment in shape local space. Optionally treat the segment as one-sided with hits from
+/// the left side being treated as a miss.
 BOX2D_API b2RayCastOutput b2RayCastSegment(const b2RayCastInput* input, const b2Segment* shape, bool oneSided);
+
+/// Ray cast versus polygon in shape local space. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shape);
 
+/// Shape cast versus a circle. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2ShapeCastCircle(const b2ShapeCastInput* input, const b2Circle* shape);
+
+/// Shape cast versus a capsule. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2ShapeCastCapsule(const b2ShapeCastInput* input, const b2Capsule* shape);
+
+/// Shape cast versus a line segment. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2ShapeCastSegment(const b2ShapeCastInput* input, const b2Segment* shape);
+
+/// Shape cast versus a convex polygon. Initial overlap is treated as a miss.
 BOX2D_API b2RayCastOutput b2ShapeCastPolygon(const b2ShapeCastInput* input, const b2Polygon* shape);

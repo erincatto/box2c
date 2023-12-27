@@ -1,7 +1,12 @@
 ﻿cmake_minimum_required(VERSION 3.23)
 include(FetchContent)
 
-project(box2d VERSION 3.0.0 LANGUAGES C CXX)
+project(box2d
+	VERSION 3.0.0
+	DESCRIPTION "A 2D physics engine for games"
+	HOMEPAGE_URL "box2d.org"
+	LANGUAGES C CXX
+)
 
 # stuff to help debug cmake
 # message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")

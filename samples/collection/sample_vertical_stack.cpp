@@ -29,13 +29,13 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bd = b2DefaultBodyDef();
+			b2BodyDef bd = b2_defaultBodyDef;
 			bd.position = {0.0f, -1.0f};
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bd);
+			b2BodyId groundId = b2CreateBody(m_worldId, &bd);
 
 			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-			b2ShapeDef sd = b2DefaultShapeDef();
-			b2Body_CreatePolygon(groundId, &sd, &box);
+			b2ShapeDef sd = b2_defaultShapeDef;
+			b2CreatePolygonShape(groundId, &sd, &box);
 		}
 
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
@@ -63,7 +63,7 @@ public:
 		{
 			if (B2_NON_NULL(m_bodies[i]))
 			{
-				b2World_DestroyBody(m_bodies[i]);
+				b2DestroyBody(m_bodies[i]);
 				m_bodies[i] = b2_nullBodyId;
 			}
 		}
@@ -74,7 +74,7 @@ public:
 		b2Polygon box = b2MakeBox(0.5f, 0.5f);
 		//b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
-		b2ShapeDef sd = b2DefaultShapeDef();
+		b2ShapeDef sd = b2_defaultShapeDef;
 		sd.density = 1.0f;
 		sd.friction = 0.3f;
 
@@ -98,7 +98,7 @@ public:
 
 			for (int32_t i = 0; i < m_rowCount; ++i)
 			{
-				b2BodyDef bd = b2DefaultBodyDef();
+				b2BodyDef bd = b2_defaultBodyDef;
 				bd.type = b2_dynamicBody;
 
 				int32_t n = j * m_rowCount + i;
@@ -106,17 +106,17 @@ public:
 				float shift = (i % 2 == 0 ? -offset : offset);
 				bd.position = {x + shift, 0.5f + 1.0f * i};
 				//bd.position = {x + shift, 1.0f + 1.51f * i};
-				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bd);
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bd);
 
 				m_bodies[n] = bodyId;
 
 				if (m_shapeType == e_circleShape)
 				{
-					b2Body_CreateCircle(bodyId, &sd, &circle);
+					b2CreateCircleShape(bodyId, &sd, &circle);
 				}
 				else
 				{
-					b2Body_CreatePolygon(bodyId, &sd, &box);
+					b2CreatePolygonShape(bodyId, &sd, &box);
 				}
 			}
 		}
@@ -132,7 +132,7 @@ public:
 				
 				if (B2_NON_NULL(m_bodies[n]))
 				{
-					b2World_DestroyBody(m_bodies[n]);
+					b2DestroyBody(m_bodies[n]);
 					m_bodies[n] = b2_nullBodyId;
 					break;
 				}
@@ -148,7 +148,7 @@ public:
 
 			if (B2_NON_NULL(bullet))
 			{
-				b2World_DestroyBody(bullet);
+				b2DestroyBody(bullet);
 				m_bullets[i] = b2_nullBodyId;
 			}
 		}
@@ -161,19 +161,19 @@ public:
 
 		b2Polygon box = b2MakeBox(0.25f, 0.25f);
 
-		b2ShapeDef sd = b2DefaultShapeDef();
+		b2ShapeDef sd = b2_defaultShapeDef;
 		sd.density = 2.0f;
 		sd.friction = 0.6f;
 
 		for (int32_t i = 0; i < m_bulletCount; ++i)
 		{
-			b2BodyDef bd = b2DefaultBodyDef();
+			b2BodyDef bd = b2_defaultBodyDef;
 			bd.type = b2_dynamicBody;
 			bd.position = {-25.0f - i, 5.0f};
 			bd.linearVelocity = {50.0f, 0.0f};
 
-			b2BodyId bullet = b2World_CreateBody(m_worldId, &bd);
-			b2Body_CreatePolygon(bullet, &sd, &box);
+			b2BodyId bullet = b2CreateBody(m_worldId, &bd);
+			b2CreatePolygonShape(bullet, &sd, &box);
 
 			assert(B2_IS_NULL(m_bullets[i]));
 			m_bullets[i] = bullet;

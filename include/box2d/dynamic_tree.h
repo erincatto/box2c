@@ -10,7 +10,7 @@
 #define b2_defaultCategoryBits (0x00000001)
 #define b2_defaultMaskBits (0xFFFFFFFF)
 
-/// A node in the dynamic tree. The client does not interact with this directly.
+/// A node in the dynamic tree. The user does not interact with this directly.
 /// 16 + 16 + 8 + pad(8)
 typedef struct b2TreeNode
 {
@@ -28,7 +28,7 @@ typedef struct b2TreeNode
 	int32_t child1; // 4
 	int32_t child2; // 4
 
-	// TODO_ERIN could be union with child index
+	// todo could be union with child index
 	int32_t userData; // 4
 
 	// leaf = 0, free node = -1
@@ -158,19 +158,15 @@ BOX2D_API int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
 /// @param newOrigin the new origin with respect to the old origin
 BOX2D_API void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
-/// Get proxy user data.
-/// @return the proxy user data or 0 if the id is invalid.
+/// Get proxy user data
+/// @return the proxy user data or 0 if the id is invalid
 static inline int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 {
 	return tree->nodes[proxyId].userData;
 }
 
+/// Get the AABB of a proxy
 static inline b2AABB b2DynamicTree_GetAABB(const b2DynamicTree* tree, int32_t proxyId)
 {
 	return tree->nodes[proxyId].aabb;
-}
-
-static inline uint32_t b2DynamicTree_GetCategoryBits(const b2DynamicTree* tree, int32_t proxyId)
-{
-	return tree->nodes[proxyId].categoryBits;
 }

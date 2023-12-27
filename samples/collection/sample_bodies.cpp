@@ -18,11 +18,11 @@ class BodyType : public Sample
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2_defaultBodyDef;
-			groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Define attachment
@@ -30,12 +30,12 @@ class BodyType : public Sample
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 3.0f};
-			m_attachmentId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_attachmentId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.5f, 2.0f);
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 1.0f;
-			b2Body_CreatePolygon(m_attachmentId, &shapeDef, &box);
+			b2CreatePolygonShape(m_attachmentId, &shapeDef, &box);
 		}
 
 		// Define platform
@@ -43,14 +43,14 @@ class BodyType : public Sample
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {-4.0f, 5.0f};
-			m_platformId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_platformId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(0.5f, 4.0f, {4.0f, 0.0f}, 0.5f * b2_pi);
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = 0.6f;
 			shapeDef.density = 2.0f;
-			b2Body_CreatePolygon(m_platformId, &shapeDef, &box);
+			b2CreatePolygonShape(m_platformId, &shapeDef, &box);
 
 			b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
 			b2Vec2 pivot = {0.0f, 5.0f};
@@ -60,7 +60,7 @@ class BodyType : public Sample
 			revoluteDef.localAnchorB = b2Body_GetLocalPoint(m_platformId, pivot);
 			revoluteDef.maxMotorTorque = 50.0f;
 			revoluteDef.enableMotor = true;
-			b2World_CreateRevoluteJoint(m_worldId, &revoluteDef);
+			b2CreateRevoluteJoint(m_worldId, &revoluteDef);
 
 			b2PrismaticJointDef prismaticDef = b2DefaultPrismaticJointDef();
 			b2Vec2 anchor = {0.0f, 5.0f};
@@ -76,7 +76,7 @@ class BodyType : public Sample
 			prismaticDef.upperTranslation = 10.0f;
 			prismaticDef.enableLimit = true;
 
-			b2World_CreatePrismaticJoint(m_worldId, &prismaticDef);
+			b2CreatePrismaticJoint(m_worldId, &prismaticDef);
 
 			m_speed = 3.0f;
 		}
@@ -86,7 +86,7 @@ class BodyType : public Sample
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 8.0f};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.75f, 0.75f);
 
@@ -94,7 +94,7 @@ class BodyType : public Sample
 			shapeDef.friction = 0.6f;
 			shapeDef.density = 2.0f;
 
-			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
 	}
 
@@ -181,84 +181,84 @@ public:
 	{
 		// Ground body
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 		}
 
 		// Collinear edges with no adjacency information.
 		// This shows the problematic case where a box shape can hit
 		// an internal vertex.
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 			
 			b2Segment segment1 = {{-8.0f, 1.0f}, {-6.0f, 1.0f}};
-			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment1);
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment1);
 
 			b2Segment segment2 = {{-6.0f, 1.0f}, {-4.0f, 1.0f}};
-			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment2);
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment2);
 
 			b2Segment segment3 = {{-4.0f, 1.0f}, {-2.0f, 1.0f}};
-			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment3);
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment3);
 		}
 
 		// Chain shape
 		{
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.angle = 0.25f * b2_pi;
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[4] = {{8.0f, 7.0f}, {7.0f, 8.0f}, {6.0f, 8.0f}, {5.0f, 7.0f}};
-			b2ChainDef chainDef = b2DefaultChainDef();
+			b2ChainDef chainDef = b2_defaultChainDef;
 			chainDef.points = points;
 			chainDef.count = 4;
 			chainDef.loop = true;
 
-			b2Body_CreateChain(groundId, &chainDef);
+			b2CreateChain(groundId, &chainDef);
 		}
 
 		// Square tiles. This shows that adjacency shapes may have non-smooth collision. Box2D has no solution
 		// to this problem.
 		// TODO_ERIN try this: https://briansemrau.github.io/dealing-with-ghost-collisions/
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {4.0f, 3.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(groundId, &b2_defaultShapeDef, &box);
 
 			box = b2MakeOffsetBox(1.0f, 1.0f, {6.0f, 3.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(groundId, &b2_defaultShapeDef, &box);
 
 			box = b2MakeOffsetBox(1.0f, 1.0f, {8.0f, 3.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(groundId, &b2_defaultShapeDef, &box);
 		}
 
 		// Square made from a chain loop. Collision should be smooth.
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2Vec2 points[4] = {{-1.0f, 3.0}, {1.0f, 3.0f}, {1.0f, 5.0f}, {-1.0f, 5.0}};
-			b2ChainDef chainDef = b2DefaultChainDef();
+			b2ChainDef chainDef = b2_defaultChainDef;
 			chainDef.points = points;
 			chainDef.count = 4;
 			chainDef.loop = true;
-			b2Body_CreateChain(groundId, &chainDef);
+			b2CreateChain(groundId, &chainDef);
 		}
 
 		// Chain loop. Collision should be smooth.
 		{
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.position = {-10.0f, 4.0f};
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[10] = {{0.0f, 0.0f}, {6.0f, 0.0f},  {6.0f, 2.0f},	 {4.0f, 1.0f},	{2.0f, 2.0f},
 								 {0.0f, 2.0f}, {-2.0f, 2.0f}, {-4.0f, 3.0f}, {-6.0f, 2.0f}, {-6.0f, 0.0f}};
-			b2ChainDef chainDef = b2DefaultChainDef();
+			b2ChainDef chainDef = b2_defaultChainDef;
 			chainDef.points = points;
 			chainDef.count = 10;
 			chainDef.loop = true;
-			b2Body_CreateChain(groundId, &chainDef);
+			b2CreateChain(groundId, &chainDef);
 		}
 
 		// Circle character
@@ -269,14 +269,14 @@ public:
 			bodyDef.fixedRotation = true;
 			bodyDef.enableSleep = false;
 
-			m_circleCharacterId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_circleCharacterId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Circle circle = {{0.0f, 0.0f}, 0.25f};
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 			shapeDef.friction = 0.2f;
-			b2Body_CreateCircle(m_circleCharacterId, &shapeDef, &circle);
+			b2CreateCircleShape(m_circleCharacterId, &shapeDef, &circle);
 		}
 
 		// Capsule character
@@ -287,14 +287,14 @@ public:
 			bodyDef.fixedRotation = true;
 			bodyDef.enableSleep = false;
 
-			m_capsuleCharacterId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_capsuleCharacterId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Capsule capsule = {{0.0f, 0.25f}, {0.0f, 0.75f}, 0.25f};
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 			shapeDef.friction = 0.2f;
-			b2Body_CreateCapsule(m_capsuleCharacterId, &shapeDef, &capsule);
+			b2CreateCapsuleShape(m_capsuleCharacterId, &shapeDef, &capsule);
 		}
 
 		// Square character
@@ -305,14 +305,14 @@ public:
 			bodyDef.fixedRotation = true;
 			bodyDef.enableSleep = false;
 
-			m_boxCharacterId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_boxCharacterId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.4f, 0.4f);
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 			shapeDef.friction = 0.2f;
-			b2Body_CreatePolygon(m_boxCharacterId, &shapeDef, &box);
+			b2CreatePolygonShape(m_boxCharacterId, &shapeDef, &box);
 		}
 	}
 
@@ -349,11 +349,11 @@ public:
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2_defaultBodyDef;
-			groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Build weeble
@@ -362,12 +362,12 @@ public:
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 3.0f};
 			bodyDef.angle = 0.25f * b2_pi;
-			m_weebleId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_weebleId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Capsule capsule = {{0.0f, -1.0f}, {0.0f, 1.0f}, 1.0f};
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 1.0f;
-			b2Body_CreateCapsule(m_weebleId, &shapeDef, &capsule);
+			b2CreateCapsuleShape(m_weebleId, &shapeDef, &capsule);
 
 			float mass = b2Body_GetMass(m_weebleId);
 			float I = b2Body_GetInertiaTensor(m_weebleId);

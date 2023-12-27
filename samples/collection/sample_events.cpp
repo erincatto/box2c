@@ -33,9 +33,9 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 			// b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			// b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+			// b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 
 			// b2Vec2 points[] = {
 			//{42.333, 44.979},	{177.271, 44.979},	{177.271, 100.542}, {142.875, 121.708}, {177.271, 121.708},
@@ -86,12 +86,12 @@ public:
 			// }
 			// printf("};\n");
 
-			b2ChainDef chainDef = b2DefaultChainDef();
+			b2ChainDef chainDef = b2_defaultChainDef;
 			chainDef.points = points;
 			chainDef.count = count;
 			chainDef.loop = true;
 			chainDef.friction = 0.2f;
-			b2Body_CreateChain(groundId, &chainDef);
+			b2CreateChain(groundId, &chainDef);
 
 #if 0
 			{
@@ -104,7 +104,7 @@ public:
 				for (int j = 0; j < 5; ++j)
 				{
 					b2Circle circle = {{0.0f, y}, radius};
-					b2Body_CreateCircle(groundId, &shapeDef, &circle);
+					b2CreateCircleShape(groundId, &shapeDef, &circle);
 					y -= 6.0f;
 				}
 			}
@@ -117,7 +117,7 @@ public:
 				bodyDef.position = {0.0f, y};
 				bodyDef.type = b2_dynamicBody;
 
-				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 				b2Polygon box = b2MakeBox(6.0f, 0.5f);
 				b2ShapeDef shapeDef = b2_defaultShapeDef;
@@ -125,7 +125,7 @@ public:
 				shapeDef.restitution = 1.0f;
 				shapeDef.density = 1.0f;
 
-				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
 				b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
 				revoluteDef.bodyIdA = groundId;
@@ -136,7 +136,7 @@ public:
 				revoluteDef.motorSpeed = 10.0f * sign;
 				revoluteDef.enableMotor = true;
 
-				b2World_CreateRevoluteJoint(m_worldId, &revoluteDef);
+				b2CreateRevoluteJoint(m_worldId, &revoluteDef);
 
 				y -= 14.0f;
 				sign = -sign;
@@ -146,7 +146,7 @@ public:
 				b2Polygon box = b2MakeOffsetBox(4.0f, 1.0f, {0.0f, -30.5f}, 0.0f);
 				b2ShapeDef shapeDef = b2_defaultShapeDef;
 				shapeDef.isSensor = true;
-				b2Body_CreatePolygon(groundId, &shapeDef, &box);
+				b2CreatePolygonShape(groundId, &shapeDef, &box);
 			}
 		}
 
@@ -206,8 +206,8 @@ public:
 			bodyDef.position = {radius * cosf(angle) + center.x, radius * sinf(angle) + center.y};
 			bodyDef.angle = angle;
 
-			ring->bodyIds[i] = b2World_CreateBody(m_worldId, &bodyDef);
-			b2Body_CreateCapsule(ring->bodyIds[i], &shapeDef, &capsule);
+			ring->bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCapsuleShape(ring->bodyIds[i], &shapeDef, &capsule);
 
 			angle += deltaAngle;
 		}
@@ -225,7 +225,7 @@ public:
 			weldDef.bodyIdA = prevBodyId;
 			weldDef.bodyIdB = ring->bodyIds[i];
 			weldDef.referenceAngle = b2Body_GetAngle(ring->bodyIds[i]) - b2Body_GetAngle(prevBodyId);
-			ring->jointIds[i] = b2World_CreateWeldJoint(m_worldId, &weldDef);
+			ring->jointIds[i] = b2CreateWeldJoint(m_worldId, &weldDef);
 			prevBodyId = weldDef.bodyIdB;
 		}
 
@@ -240,13 +240,13 @@ public:
 
 		for (int i = 0; i < SIDES; ++i)
 		{
-			b2World_DestroyJoint(ring->jointIds[i]);
+			b2DestroyJoint(ring->jointIds[i]);
 			ring->jointIds[i] = b2_nullJointId;
 		}
 
 		for (int i = 0; i < SIDES; ++i)
 		{
-			b2World_DestroyBody(ring->bodyIds[i]);
+			b2DestroyBody(ring->bodyIds[i]);
 			ring->bodyIds[i] = b2_nullBodyId;
 		}
 
@@ -331,7 +331,7 @@ public:
 		}
 
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2Vec2 points[] = {{40.0f, -40.0f}, {-40.0f, -40.0f}, {-40.0f, 40.0f}, {40.0f, 40.0f}};
 
@@ -340,7 +340,7 @@ public:
 			chainDef.points = points;
 			chainDef.loop = true;
 
-			b2Body_CreateChain(groundId, &chainDef);
+			b2CreateChain(groundId, &chainDef);
 		}
 
 		// Player
@@ -350,7 +350,7 @@ public:
 			bodyDef.gravityScale = 0.0f;
 			bodyDef.linearDamping = 0.5f;
 			bodyDef.angularDamping = 0.5f;
-			m_playerId = b2World_CreateBody(m_worldId, &bodyDef);
+			m_playerId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Circle circle = {{0.0f, 0.0f}, 1.0f};
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
@@ -358,7 +358,7 @@ public:
 			// Enable contact events for the player shape
 			shapeDef.enableContactEvents = true;
 
-			m_coreShapeId = b2Body_CreateCircle(m_playerId, &shapeDef, &circle);
+			m_coreShapeId = b2CreateCircleShape(m_playerId, &shapeDef, &circle);
 		}
 
 		for (int i = 0; i < e_count; ++i)
@@ -397,7 +397,7 @@ public:
 		bodyDef.angularVelocity = RandomFloat(-1.0f, 1.0f);
 		bodyDef.gravityScale = 0.0f;
 		bodyDef.userData = m_bodyUserData + index;
-		m_debrisIds[index] = b2World_CreateBody(m_worldId, &bodyDef);
+		m_debrisIds[index] = b2CreateBody(m_worldId, &bodyDef);
 
 		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.restitution = 0.8f;
@@ -408,17 +408,17 @@ public:
 		if ((index + 1) % 3 == 0)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-			b2Body_CreateCircle(m_debrisIds[index], &shapeDef, &circle);
+			b2CreateCircleShape(m_debrisIds[index], &shapeDef, &circle);
 		}
 		else if ((index + 1) % 2 == 0)
 		{
 			b2Capsule capsule = {{0.0f, -0.25f}, {0.0f, 0.25f}, 0.25f};
-			b2Body_CreateCapsule(m_debrisIds[index], &shapeDef, &capsule);
+			b2CreateCapsuleShape(m_debrisIds[index], &shapeDef, &capsule);
 		}
 		else
 		{
 			b2Polygon box = b2MakeBox(0.4f, 0.6f);
-			b2Body_CreatePolygon(m_debrisIds[index], &shapeDef, &box);
+			b2CreatePolygonShape(m_debrisIds[index], &shapeDef, &box);
 		}
 	}
 
@@ -572,7 +572,7 @@ public:
 					b2Circle circle = *b2Shape_GetCircle(shapeId);
 					circle.point = b2TransformPoint(relativeTransform, circle.point);
 
-					b2Body_CreateCircle(m_playerId, &shapeDef, &circle);
+					b2CreateCircleShape(m_playerId, &shapeDef, &circle);
 				}
 				break;
 
@@ -582,7 +582,7 @@ public:
 					capsule.point1 = b2TransformPoint(relativeTransform, capsule.point1);
 					capsule.point2 = b2TransformPoint(relativeTransform, capsule.point2);
 
-					b2Body_CreateCapsule(m_playerId, &shapeDef, &capsule);
+					b2CreateCapsuleShape(m_playerId, &shapeDef, &capsule);
 				}
 				break;
 
@@ -590,7 +590,7 @@ public:
 				{
 					b2Polygon polygon = b2TransformPolygon(relativeTransform, b2Shape_GetPolygon(shapeId));
 
-					b2Body_CreatePolygon(m_playerId, &shapeDef, &polygon);
+					b2CreatePolygonShape(m_playerId, &shapeDef, &polygon);
 				}
 				break;
 
@@ -598,13 +598,13 @@ public:
 					assert(false);
 			}
 
-			b2World_DestroyBody(debrisId);
+			b2DestroyBody(debrisId);
 			m_debrisIds[index] = b2_nullBodyId;
 		}
 
 		for (int i = 0; i < destroyCount; ++i)
 		{
-			b2Body_DestroyShape(shapesToDestroy[i]);
+			b2DestroyShape(shapesToDestroy[i]);
 		}
 
 		if (settings.hertz > 0.0f && settings.pause == false)

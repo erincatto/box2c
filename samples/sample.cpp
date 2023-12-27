@@ -147,7 +147,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			float dampingRatio = 0.7f;
 			float mass = b2Body_GetMass(queryContext.bodyId);
 			
-			m_groundBodyId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			m_groundBodyId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2MouseJointDef jd = b2DefaultMouseJointDef();
 			jd.bodyIdA = m_groundBodyId;
@@ -156,7 +156,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			jd.maxForce = 1000.0f * mass;
 			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, m_groundBodyId, queryContext.bodyId);
 
-			m_mouseJointId = b2World_CreateMouseJoint(m_worldId, &jd);
+			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
 
 			b2Body_Wake(queryContext.bodyId);
 		}
@@ -167,10 +167,10 @@ void Sample::MouseUp(b2Vec2 p, int button)
 {
 	if (B2_NON_NULL(m_mouseJointId) && button == GLFW_MOUSE_BUTTON_1)
 	{
-		b2World_DestroyJoint(m_mouseJointId);
+		b2DestroyJoint(m_mouseJointId);
 		m_mouseJointId = b2_nullJointId;
 
-		b2World_DestroyBody(m_groundBodyId);
+		b2DestroyBody(m_groundBodyId);
 		m_groundBodyId = b2_nullBodyId;
 	}
 }

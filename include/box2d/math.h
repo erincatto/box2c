@@ -8,28 +8,22 @@
 
 #include <math.h>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
+/// Macro to get the minimum of two values
 #define B2_MIN(A, B) ((A) < (B) ? (A) : (B))
+
+/// Macro to get the maximum of two values
 #define B2_MAX(A, B) ((A) > (B) ? (A) : (B))
+
+/// Macro to get the absolute value
 #define B2_ABS(A) ((A) > 0.0f ? (A) : -(A))
+
+/// Macro to clamp A to be between B and C, inclusive
 #define B2_CLAMP(A, B, C) B2_MIN(B2_MAX(A, B), C)
 
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
-static const b2Vec3 b2Vec3_zero = {0.0f, 0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {0.0f, 1.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
-static const b2Mat33 b2Mat33_zero = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-
-/// Make a vector
-static inline b2Vec2 b2MakeVec2(float x, float y)
-{
-	return B2_LITERAL(b2Vec2){x, y};
-}
 
 /// Vector dot product
 static inline float b2Dot(b2Vec2 a, b2Vec2 b)
@@ -41,18 +35,6 @@ static inline float b2Dot(b2Vec2 a, b2Vec2 b)
 static inline float b2Cross(b2Vec2 a, b2Vec2 b)
 {
 	return a.x * b.y - a.y * b.x;
-}
-
-/// Perform the dot product on two 3-vectors.
-static inline float b2Dot3(b2Vec3 a, b2Vec3 b)
-{
-	return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-/// Perform the cross product on two 3-vectors.
-static inline b2Vec3 b2Cross3(b2Vec3 a, b2Vec3 b)
-{
-	return B2_LITERAL(b2Vec3){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 /// Perform the cross product on a vector and a scalar. In 2D this produces
@@ -265,7 +247,7 @@ static inline b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
 	return B2_LITERAL(b2Vec2){x, y};
 }
 
-// Inverse transform a point (e.g. world space to local space)
+/// Inverse transform a point (e.g. world space to local space)
 static inline b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
 {
 	float vx = p.x - xf.p.x;
@@ -273,8 +255,8 @@ static inline b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
 	return B2_LITERAL(b2Vec2){xf.q.c * vx + xf.q.s * vy, -xf.q.s * vx + xf.q.c * vy};
 }
 
-// v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p
-//    = (A.q * B.q).Rot(v1) + A.q.Rot(B.p) + A.p
+/// v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p
+///    = (A.q * B.q).Rot(v1) + A.q.Rot(B.p) + A.p
 static inline b2Transform b2MulTransforms(b2Transform A, b2Transform B)
 {
 	b2Transform C;
@@ -283,8 +265,8 @@ static inline b2Transform b2MulTransforms(b2Transform A, b2Transform B)
 	return C;
 }
 
-// v2 = A.q' * (B.q * v1 + B.p - A.p)
-//    = A.q' * B.q * v1 + A.q' * (B.p - A.p)
+/// v2 = A.q' * (B.q * v1 + B.p - A.p)
+///    = A.q' * B.q * v1 + A.q' * (B.p - A.p)
 static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
 {
 	b2Transform C;
@@ -293,6 +275,7 @@ static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
 	return C;
 }
 
+/// Multiply a 2-by-2 matrix times a 2D vector
 static inline b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
 {
 	b2Vec2 u = {
@@ -302,16 +285,7 @@ static inline b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
 	return u;
 }
 
-static inline b2Vec3 b2MulMV33(b2Mat33 A, b2Vec3 v)
-{
-	b2Vec3 u = {
-		A.cx.x * v.x + A.cy.x * v.y + A.cz.x * v.z,
-		A.cx.y * v.x + A.cy.y * v.y + A.cz.y * v.z,
-		A.cx.z * v.x + A.cy.z * v.y + A.cz.z * v.z,
-	};
-	return u;
-}
-
+/// Get the inverse of a 2-by-2 matrix
 static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 {
 	float a = A.cx.x, b = A.cy.x, c = A.cx.y, d = A.cy.y;
@@ -328,85 +302,16 @@ static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 	return B;
 }
 
-static inline b2Mat33 b2GetInverse33as22(b2Mat33 A)
+/// Does a fully contain b
+static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
 {
-	float a = A.cx.x, b = A.cy.x, c = A.cx.y, d = A.cy.y;
-	float det = a * d - b * c;
-	if (det != 0.0f)
-	{
-		det = 1.0f / det;
-	}
-
-	b2Mat33 B = {
-		{det * d, -det * c, 0.0f},
-		{-det * b, det * a, 0.0f},
-		{0.0f, 0.0f, 0.0f},
-	};
-	return B;
+	bool s = true;
+	s = s && a.lowerBound.x <= b.lowerBound.x;
+	s = s && a.lowerBound.y <= b.lowerBound.y;
+	s = s && b.upperBound.x <= a.upperBound.x;
+	s = s && b.upperBound.y <= a.upperBound.y;
+	return s;
 }
-
-/// Returns the zero matrix if singular.
-static inline b2Mat33 b2GetSymInverse33(b2Mat33 A)
-{
-	float det = b2Dot3(A.cx, b2Cross3(A.cy, A.cz));
-	if (det != 0.0f)
-	{
-		det = 1.0f / det;
-	}
-
-	float a11 = A.cx.x, a12 = A.cy.x, a13 = A.cz.x;
-	float a22 = A.cy.y, a23 = A.cz.y;
-	float a33 = A.cz.z;
-
-	b2Mat33 B;
-	B.cx.x = det * (a22 * a33 - a23 * a23);
-	B.cx.y = det * (a13 * a23 - a12 * a33);
-	B.cx.z = det * (a12 * a23 - a13 * a22);
-
-	B.cy.x = B.cx.y;
-	B.cy.y = det * (a11 * a33 - a13 * a13);
-	B.cy.z = det * (a13 * a12 - a11 * a23);
-
-	B.cz.x = B.cx.z;
-	B.cz.y = B.cy.z;
-	B.cz.z = det * (a11 * a22 - a12 * a12);
-	return B;
-}
-
-/// Solve A * x = b, where b is a column vector.
-static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
-{
-	float a11 = A.cx.x, a12 = A.cy.x, a21 = A.cx.y, a22 = A.cy.y;
-	float det = a11 * a22 - a12 * a21;
-	if (det != 0.0f)
-	{
-		det = 1.0f / det;
-	}
-	b2Vec2 x = {
-		det * (a22 * b.x - a12 * b.y),
-		det * (a11 * b.y - a21 * b.x),
-	};
-	return x;
-}
-
-/// Solve A * x = b, where b is a column vector.
-static inline b2Vec3 b2Solve33(b2Mat33 A, b2Vec3 b)
-{
-	float det = b2Dot3(A.cx, b2Cross3(A.cy, A.cz));
-	if (det != 0.0f)
-	{
-		det = 1.0f / det;
-	}
-	b2Vec3 x;
-	x.x = det * b2Dot3(b, b2Cross3(A.cy, A.cz));
-	x.y = det * b2Dot3(A.cx, b2Cross3(b, A.cz));
-	x.z = det * b2Dot3(A.cx, b2Cross3(A.cy, b));
-	return x;
-}
-
-#ifdef __cplusplus
-}
-#endif
 
 BOX2D_API bool b2IsValid(float a);
 BOX2D_API bool b2IsValidVec2(b2Vec2 v);

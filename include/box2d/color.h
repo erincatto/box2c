@@ -9,6 +9,7 @@ typedef struct b2Color
 	float r, g, b, a;
 } b2Color;
 
+/// All the colors! Credit to wherever I got this from, I forget.
 typedef enum b2HexColor
 {
 	b2_colorAliceBlue = 0xf0f8ff,
@@ -579,11 +580,7 @@ typedef enum b2HexColor
 	b2_colorYellowGreen = 0x9acd32,
 } b2HexColor;
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
+/// Make a color from a hex code
 static inline b2Color b2MakeColor(enum b2HexColor hexCode, float alpha)
 {
 	b2Color color;
@@ -593,7 +590,3 @@ static inline b2Color b2MakeColor(enum b2HexColor hexCode, float alpha)
 	color.a = alpha;
 	return color;
 }
-
-#ifdef __cplusplus
-}
-#endif

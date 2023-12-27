@@ -3,6 +3,7 @@
 
 #include "island.h"
 
+#include "aabb.h"
 #include "arena_allocator.h"
 #include "array.h"
 #include "body.h"
@@ -13,7 +14,6 @@
 #include "solver_data.h"
 #include "world.h"
 
-#include "box2d/aabb.h"
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 

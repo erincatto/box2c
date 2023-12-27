@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/aabb.h"
+#include "aabb.h"
+
 #include "box2d/constants.h"
 #include "box2d/math.h"
 
@@ -115,7 +116,7 @@ b2RayCastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 			return output;
 		}
 	}
-	
+
 	// Does the ray start inside the box?
 	// Does the ray intersect beyond the max fraction?
 	if (tmin < 0.0f || 1.0f < tmin)

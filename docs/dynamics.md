@@ -25,6 +25,8 @@ Bodies have position and velocity. You can apply forces, torques, and
 impulses to bodies. Bodies can be static, kinematic, or dynamic. Here
 are the body type definitions:
 
+### Body types
+
 #### b2_staticBody
 A static body does not move under simulation and behaves as if it has
 infinite mass. Internally, Box2D stores zero for the mass and the

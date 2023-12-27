@@ -62,7 +62,7 @@ public:
 	{
 		if (B2_NON_NULL(m_groundId))
 		{
-			b2World_DestroyBody(m_groundId);
+			b2DestroyBody(m_groundId);
 		}
 
 		// https://betravis.github.io/shape-tools/path-to-polygon/
@@ -121,31 +121,31 @@ public:
 		// }
 		// printf("};\n");
 
-		b2ChainDef chainDef = b2DefaultChainDef();
+		b2ChainDef chainDef = b2_defaultChainDef;
 		chainDef.points = points;
 		chainDef.count = count;
 		chainDef.loop = true;
 		chainDef.friction = 0.2f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
-		m_chainId = b2Body_CreateChain(m_groundId, &chainDef);
+		m_chainId = b2CreateChain(m_groundId, &chainDef);
 	}
 
 	void Launch()
 	{
 		if (B2_NON_NULL(m_bodyId))
 		{
-			b2World_DestroyBody(m_bodyId);
+			b2DestroyBody(m_bodyId);
 		}
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {-55.0f, 13.5f};
-		m_bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.friction = m_friction;
 		shapeDef.restitution = m_restitution;
@@ -153,18 +153,18 @@ public:
 		if (m_shapeType == e_circleShape)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-			m_shapeId = b2Body_CreateCircle(m_bodyId, &shapeDef, &circle);
+			m_shapeId = b2CreateCircleShape(m_bodyId, &shapeDef, &circle);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
 			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
-			m_shapeId = b2Body_CreateCapsule(m_bodyId, &shapeDef, &capsule);
+			m_shapeId = b2CreateCapsuleShape(m_bodyId, &shapeDef, &capsule);
 		}
 		else
 		{
 			float h = 0.5f;
 			b2Polygon box = b2MakeBox(h, h);
-			m_shapeId = b2Body_CreatePolygon(m_bodyId, &shapeDef, &box);
+			m_shapeId = b2CreatePolygonShape(m_bodyId, &shapeDef, &box);
 		}
 	}
 
@@ -240,9 +240,9 @@ public:
 		}
 
 		{
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 			b2Segment segment = {{50.0f, 0.0f}, {-50.0f, 0.0f}};
-			b2Body_CreateSegment(groundId, &b2_defaultShapeDef, &segment);
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 		}
 
 		// Table 1
@@ -250,15 +250,15 @@ public:
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {-15.0f, 1.0f};
-			m_table1Id = b2World_CreateBody(m_worldId, &bodyDef);
+			m_table1Id = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon top = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 3.5f}, 0.0f);
 			b2Polygon leftLeg = b2MakeOffsetBox(0.5f, 1.5f, {-2.5f, 1.5f}, 0.0f);
 			b2Polygon rightLeg = b2MakeOffsetBox(0.5f, 1.5f, {2.5f, 1.5f}, 0.0f);
 
-			b2Body_CreatePolygon(m_table1Id, &b2_defaultShapeDef, &top);
-			b2Body_CreatePolygon(m_table1Id, &b2_defaultShapeDef, &leftLeg);
-			b2Body_CreatePolygon(m_table1Id, &b2_defaultShapeDef, &rightLeg);
+			b2CreatePolygonShape(m_table1Id, &b2_defaultShapeDef, &top);
+			b2CreatePolygonShape(m_table1Id, &b2_defaultShapeDef, &leftLeg);
+			b2CreatePolygonShape(m_table1Id, &b2_defaultShapeDef, &rightLeg);
 		}
 
 		// Table 2
@@ -266,15 +266,15 @@ public:
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {-5.0f, 1.0f};
-			m_table2Id = b2World_CreateBody(m_worldId, &bodyDef);
+			m_table2Id = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon top = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 3.5f}, 0.0f);
 			b2Polygon leftLeg = b2MakeOffsetBox(0.5f, 2.0f, {-2.5f, 2.0f}, 0.0f);
 			b2Polygon rightLeg = b2MakeOffsetBox(0.5f, 2.0f, {2.5f, 2.0f}, 0.0f);
 
-			b2Body_CreatePolygon(m_table2Id, &b2_defaultShapeDef, &top);
-			b2Body_CreatePolygon(m_table2Id, &b2_defaultShapeDef, &leftLeg);
-			b2Body_CreatePolygon(m_table2Id, &b2_defaultShapeDef, &rightLeg);
+			b2CreatePolygonShape(m_table2Id, &b2_defaultShapeDef, &top);
+			b2CreatePolygonShape(m_table2Id, &b2_defaultShapeDef, &leftLeg);
+			b2CreatePolygonShape(m_table2Id, &b2_defaultShapeDef, &rightLeg);
 		}
 
 		// Spaceship 1
@@ -282,7 +282,7 @@ public:
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {5.0f, 1.0f};
-			m_ship1Id = b2World_CreateBody(m_worldId, &bodyDef);
+			m_ship1Id = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 vertices[3];
 
@@ -298,8 +298,8 @@ public:
 			hull = b2ComputeHull(vertices, 3);
 			b2Polygon right = b2MakePolygon(&hull, 0.0f);
 
-			b2Body_CreatePolygon(m_ship1Id, &b2_defaultShapeDef, &left);
-			b2Body_CreatePolygon(m_ship1Id, &b2_defaultShapeDef, &right);
+			b2CreatePolygonShape(m_ship1Id, &b2_defaultShapeDef, &left);
+			b2CreatePolygonShape(m_ship1Id, &b2_defaultShapeDef, &right);
 		}
 
 		// Spaceship 2
@@ -307,7 +307,7 @@ public:
 			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {15.0f, 1.0f};
-			m_ship2Id = b2World_CreateBody(m_worldId, &bodyDef);
+			m_ship2Id = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 vertices[3];
 
@@ -323,8 +323,8 @@ public:
 			hull = b2ComputeHull(vertices, 3);
 			b2Polygon right = b2MakePolygon(&hull, 0.0f);
 
-			b2Body_CreatePolygon(m_ship2Id, &b2_defaultShapeDef, &left);
-			b2Body_CreatePolygon(m_ship2Id, &b2_defaultShapeDef, &right);
+			b2CreatePolygonShape(m_ship2Id, &b2_defaultShapeDef, &left);
+			b2CreatePolygonShape(m_ship2Id, &b2_defaultShapeDef, &right);
 		}
 	}
 
@@ -336,10 +336,10 @@ public:
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Body_GetPosition(m_table1Id);
 			bodyDef.angle = b2Body_GetAngle(m_table1Id);
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(4.0f, 0.1f, {0.0f, 3.0f}, 0.0f);
-			b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(bodyId, &b2_defaultShapeDef, &box);
 		}
 
 		// Table 2 obstruction
@@ -348,10 +348,10 @@ public:
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Body_GetPosition(m_table2Id);
 			bodyDef.angle = b2Body_GetAngle(m_table2Id);
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(4.0f, 0.1f, {0.0f, 3.0f}, 0.0f);
-			b2Body_CreatePolygon(bodyId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(bodyId, &b2_defaultShapeDef, &box);
 		}
 
 		// Ship 1 obstruction
@@ -361,10 +361,10 @@ public:
 			bodyDef.position = b2Body_GetPosition(m_ship1Id);
 			bodyDef.angle = b2Body_GetAngle(m_ship1Id);
 			//bodyDef.gravityScale = 0.0f;
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Circle circle = {{0.0f, 2.0f}, 0.5f};
-			b2Body_CreateCircle(bodyId, &b2_defaultShapeDef, &circle);
+			b2CreateCircleShape(bodyId, &b2_defaultShapeDef, &circle);
 		}
 
 		// Ship 2 obstruction
@@ -374,10 +374,10 @@ public:
 			bodyDef.position = b2Body_GetPosition(m_ship2Id);
 			bodyDef.angle = b2Body_GetAngle(m_ship2Id);
 			//bodyDef.gravityScale = 0.0f;
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Circle circle = {{0.0f, 2.0f}, 0.5f};
-			b2Body_CreateCircle(bodyId, &b2_defaultShapeDef, &circle);
+			b2CreateCircleShape(bodyId, &b2_defaultShapeDef, &circle);
 		}
 	}
 

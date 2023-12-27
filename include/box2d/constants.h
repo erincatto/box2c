@@ -9,6 +9,10 @@
 /// degrees are indicated.
 /// Some values can be overridden by using a compiler definition.
 /// Other values cannot be modified without causing stability and/or performance problems.
+///	Although most of these are not user configurable, it can be interesting for a user to see
+///	these to understand the tuning values Box2D uses.
+
+// todo move constraint hertz/damping here
 
 #include "user_constants.h"
 

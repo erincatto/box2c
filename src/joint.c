@@ -203,7 +203,7 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 	}
 }
 
-b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def)
+b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -248,7 +248,7 @@ b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDe
 	return jointId;
 }
 
-b2JointId b2World_CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
+b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -283,7 +283,7 @@ b2JointId b2World_CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def
 	return jointId;
 }
 
-b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
+b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -318,7 +318,7 @@ b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def
 	return jointId;
 }
 
-b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def)
+b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -369,7 +369,7 @@ b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDe
 	return jointId;
 }
 
-b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def)
+b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -420,7 +420,7 @@ b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJoint
 	return jointId;
 }
 
-b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
+b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -464,7 +464,7 @@ b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	return jointId;
 }
 
-b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
+b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 
@@ -516,7 +516,7 @@ b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def
 	return jointId;
 }
 
-void b2World_DestroyJoint(b2JointId jointId)
+void b2DestroyJoint(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);

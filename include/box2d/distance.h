@@ -112,6 +112,7 @@ typedef struct b2TOIInput
 	float tMax;
 } b2TOIInput;
 
+/// Describes the TOI output
 typedef enum b2TOIState
 {
 	b2_toiStateUnknown,

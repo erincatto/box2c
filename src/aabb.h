@@ -3,16 +3,9 @@
 
 #pragma once
 
-#include "constants.h"
-#include "math.h"
-#include "types.h"
-
-// TODO_ERIN a lot of this could be internal
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include "box2d/constants.h"
+#include "box2d/math.h"
+#include "box2d/types.h"
 
 /// Verify that the bounds are sorted.
 bool b2AABB_IsValid(b2AABB a);
@@ -96,17 +89,6 @@ static inline bool b2AABB_Enlarge(b2AABB* a, b2AABB b)
 	return changed;
 }
 
-/// Does a fully contain b
-static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
-{
-	bool s = true;
-	s = s && a.lowerBound.x <= b.lowerBound.x;
-	s = s && a.lowerBound.y <= b.lowerBound.y;
-	s = s && b.upperBound.x <= a.upperBound.x;
-	s = s && b.upperBound.y <= a.upperBound.y;
-	return s;
-}
-
 static inline bool b2AABB_ContainsWithMargin(b2AABB a, b2AABB b, float margin)
 {
 	bool s = (a.lowerBound.x <= b.lowerBound.x - margin) & (a.lowerBound.y <= b.lowerBound.y - margin) &
@@ -128,7 +110,3 @@ static inline bool b2AABB_Overlaps(b2AABB a, b2AABB b)
 
 	return true;
 }
-
-#ifdef __cplusplus
-}
-#endif

@@ -2,6 +2,7 @@ configure_file(user_constants.h.in user_constants.h)
 
 set(BOX2D_SOURCE_FILES
 	aabb.c
+	aabb.h
 	allocate.c
 	allocate.h
 	arena_allocator.c
@@ -26,7 +27,6 @@ set(BOX2D_SOURCE_FILES
 	distance.c
 	distance_joint.c
 	dynamic_tree.c
-	dynamic_tree_types.h
 	geometry.c
 	graph.c
 	graph.h
@@ -59,7 +59,6 @@ set(BOX2D_SOURCE_FILES
 )
 
 set(BOX2D_API_FILES
-	../include/box2d/aabb.h
 	../include/box2d/api.h
 	../include/box2d/box2d.h
 	../include/box2d/callbacks.h
