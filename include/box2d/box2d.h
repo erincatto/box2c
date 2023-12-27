@@ -9,7 +9,6 @@
 #include "box2d/geometry.h"
 #include "box2d/id.h"
 #include "box2d/joint_types.h"
-#include "box2d/timer.h"
 #include "box2d/types.h"
 
 typedef struct b2Capsule b2Capsule;
@@ -43,28 +42,10 @@ BOX2D_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityI
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 BOX2D_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 
-/// Create a rigid body given a definition. No reference to the definition is retained.
-/// @warning This function is locked during callbacks.
-BOX2D_API b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def);
-
-/// Destroy a rigid body given an id.
-/// @warning This function is locked during callbacks.
-BOX2D_API void b2World_DestroyBody(b2BodyId bodyId);
-
-/// Create a joint
-BOX2D_API b2JointId b2World_CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
-BOX2D_API b2JointId b2World_CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def);
-BOX2D_API b2JointId b2World_CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
-BOX2D_API b2JointId b2World_CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
-BOX2D_API b2JointId b2World_CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
-BOX2D_API b2JointId b2World_CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
-BOX2D_API b2JointId b2World_CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
-
-/// Destroy a joint
-BOX2D_API void b2World_DestroyJoint(b2JointId jointId);
-
-/// Get sensor events for the current time step. Do not store a reference to this data.
+/// Get sensor events for the current time step. The event data is transient. Do not store a reference to this data.
 BOX2D_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
+
+/// Get contact events for this current time step. The event data is transient. Do not store a reference to this data.
 BOX2D_API b2ContactEvents b2World_GetContactEvents(b2WorldId worldId);
 
 /// Query the world for all shapes that potentially overlap the provided AABB.
@@ -91,15 +72,18 @@ BOX2D_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, 
 BOX2D_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
 							   void* context);
 
-// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
+/// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
 BOX2D_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter);
 
+/// Cast a circle through the world. Similar to a ray-cast except that a circle is cast instead of a point.
 BOX2D_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
 								  b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
 
+/// Cast a capsule through the world. Similar to a ray-cast except that a capsule is cast instead of a point.
 BOX2D_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
 								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
 
+/// Cast a capsule through the world. Similar to a ray-cast except that a polygon is cast instead of a point.
 BOX2D_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
 								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
 
@@ -136,26 +120,57 @@ BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
  * @{
  */
 
+/// Create a rigid body given a definition. No reference to the definition is retained.
+/// @warning This function is locked during callbacks.
+BOX2D_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
+
+/// Destroy a rigid body given an id.
+/// @warning This function is locked during callbacks.
+BOX2D_API void b2DestroyBody(b2BodyId bodyId);
+
+/// Get the type of a body
 BOX2D_API b2BodyType b2Body_GetType(b2BodyId bodyId);
+
+/// Set the type of a body. This has a similar cost to re-creating the body.
 BOX2D_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
 
 /// Get the user data stored in a body
 BOX2D_API void* b2Body_GetUserData(b2BodyId bodyId);
 
+/// Get the world position of a body. This is the location of the body origin.
 BOX2D_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
+
+/// Get the world angle of a body in radians.
 BOX2D_API float b2Body_GetAngle(b2BodyId bodyId);
+
+/// Get the world transform of a body.
 BOX2D_API b2Transform b2Body_GetTransform(b2BodyId bodyId);
+
+/// Set the world transform of a body. This acts as a teleport and is fairly expensive.
 BOX2D_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
 
-BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint);
+/// Get a local point on a body given a world point
+BOX2D_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 worldPoint);
+
+/// Get a world point on a body given a local point
 BOX2D_API b2Vec2 b2Body_GetWorldPoint(b2BodyId bodyId, b2Vec2 localPoint);
 
-BOX2D_API b2Vec2 b2Body_GetLocalVector(b2BodyId bodyId, b2Vec2 globalVector);
+/// Get a local vector on a body given a world vector
+BOX2D_API b2Vec2 b2Body_GetLocalVector(b2BodyId bodyId, b2Vec2 worldVector);
+
+/// Get a world vector on a body given a local vector
 BOX2D_API b2Vec2 b2Body_GetWorldVector(b2BodyId bodyId, b2Vec2 localVector);
 
+/// Get the linear velocity of a body's center of mass
 BOX2D_API b2Vec2 b2Body_GetLinearVelocity(b2BodyId bodyId);
+
+/// Get the angular velocity of a body in radians per second
 BOX2D_API float b2Body_GetAngularVelocity(b2BodyId bodyId);
+
+/// Set the linear velocity of a body
 BOX2D_API void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity);
+
+/// Set the angular velocity of a body in radians per second
 BOX2D_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
 
 /// Apply a force at a world point. If the force is not
@@ -227,19 +242,6 @@ BOX2D_API void b2Body_Disable(b2BodyId bodyId);
 /// Enable a body by adding it to the simulation
 BOX2D_API void b2Body_Enable(b2BodyId bodyId);
 
-/// Create a shape and attach it to a body. The shape defintion and geometry are fully cloned.
-/// Contacts are not created until the next time step.
-/// @warning This function is locked during callbacks.
-///	@return the shape id for accessing the shape
-BOX2D_API b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
-BOX2D_API b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
-BOX2D_API b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
-BOX2D_API b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
-BOX2D_API void b2Body_DestroyShape(b2ShapeId shapeId);
-
-BOX2D_API b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def);
-BOX2D_API void b2Body_DestroyChain(b2ChainId chainId);
-
 /// Iterate over shapes on a body
 BOX2D_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
 BOX2D_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
@@ -258,20 +260,74 @@ BOX2D_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactD
  * @{
  */
 
+/// Create a circle shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Contacts are not created until the next time step.
+///	@return the shape id for accessing the shape
+BOX2D_API b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
+
+/// Create a line segment shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Contacts are not created until the next time step.
+///	@return the shape id for accessing the shape
+BOX2D_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
+
+/// Create a capsule shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Contacts are not created until the next time step.
+///	@return the shape id for accessing the shape
+BOX2D_API b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
+
+/// Create a polygon shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Contacts are not created until the next time step.
+///	@return the shape id for accessing the shape
+BOX2D_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
+
+/// Destroy any shape type
+BOX2D_API void b2DestroyShape(b2ShapeId shapeId);
+
+/// Create a chain shape
+///	@see b2ChainDef for details
+BOX2D_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
+
+/// Destroy a chain shape
+BOX2D_API void b2DestroyChain(b2ChainId chainId);
+
+/// Get the body that a shape is attached to
 BOX2D_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
+
+/// Get the user data for a shape. This is useful when you get a shape id
+///	from an event or query
 BOX2D_API void* b2Shape_GetUserData(b2ShapeId shapeId);
+
+/// Test a point for overlap with a shape
 BOX2D_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
+
+/// Set the friction on a shape. Normally this is specified in b2ShapeDef.
 BOX2D_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
+
+/// Set the restitution (bounciness) on a shape. Normally this is specified in b2ShapeDef.
 BOX2D_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
 
+/// Get the type of a shape.
 BOX2D_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
+
+/// Access the circle geometry of a shape.
 BOX2D_API const b2Circle* b2Shape_GetCircle(b2ShapeId shapeId);
+
+/// Access the line segment geometry of a shape.
 BOX2D_API const b2Segment* b2Shape_GetSegment(b2ShapeId shapeId);
-BOX2D_API const b2Polygon* b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+
+/// Access the smooth line segment geometry of a shape. These come from chain shapes.
+BOX2D_API const b2SmoothSegment* b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+
+/// Access the capsule geometry of a shape.
 BOX2D_API const b2Capsule* b2Shape_GetCapsule(b2ShapeId shapeId);
+
+/// Access the convex polygon geometry of a shape.
 BOX2D_API const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId);
 
+/// Set the friction of a chain. Normally this is set in b2ChainDef.
 BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
+
+/// Set the restitution (bounciness) on a chain. Normally this is specified in b2ChainDef.
 BOX2D_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 
 /// Get the maximum capacity required for retrieving all the touching contacts on a shape
@@ -288,55 +344,148 @@ BOX2D_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* conta
  * @{
  */
 
-/// Generic joint access
+/// Create a distance joint
+///	@see b2DistanceJointDef for details
+BOX2D_API b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
+
+/// Create a motor joint
+///	@see b2MotorJointDef for details
+BOX2D_API b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def);
+
+/// Create a mouse joint
+///	@see b2MouseJointDef for details
+BOX2D_API b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
+
+/// Create a prismatic (slider) joint
+///	@see b2PrismaticJointDef for details
+BOX2D_API b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
+
+/// Create a revolute (hinge) joint
+///	@see b2RevoluteJointDef for details
+BOX2D_API b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
+
+/// Create a weld joint
+///	@see b2WeldJointDef for details
+BOX2D_API b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
+
+/// Create a wheel joint
+///	@see b2WheelJointDef for details
+BOX2D_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
+
+/// Destroy any joint type
+BOX2D_API void b2DestroyJoint(b2JointId jointId);
+
+/// Get body A on a joint
 BOX2D_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
+
+/// Get body B on a joint
 BOX2D_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 
-/// Distance joint access
+/// Get the constraint force on a distance joint
 BOX2D_API float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float timeStep);
+
+/// Set the length parameters of a distance joint
+///	@see b2DistanceJointDef for details
 BOX2D_API void b2DistanceJoint_SetLength(b2JointId jointId, float length, float minLength, float maxLength);
+
+/// Get the current length of a distance joint
 BOX2D_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
+
+/// Adjust the softness of a distance joint
+///	@see b2DistanceJointDef for details
 BOX2D_API void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);
 
-/// Motor joint access
+/// Set the linear offset target for a motor joint
 BOX2D_API void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset);
+
+/// Set the angular offset target for a motor joint in radians
 BOX2D_API void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset);
+
+/// Set the maximum force for a motor joint
 BOX2D_API void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce);
+
+/// Set the maximum torque for a motor joint
 BOX2D_API void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque);
+
+/// Set the correction factor for a motor joint
 BOX2D_API void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor);
+
+/// Get the current constraint force for a motor joint
 BOX2D_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+
+/// Get the current constraint torque for a motor joint
 BOX2D_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
-/// Mouse joint access
+/// Set the target for a mouse joint
 BOX2D_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
 
-// Prismatic joint access
+/// Enable/disable a prismatic joint limit
 BOX2D_API void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+
+/// Enable/disable a prismatic joint motor
 BOX2D_API void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+
+/// Set the motor speed for a prismatic joint
 BOX2D_API void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+/// Get the current motor force for a prismatic joint
 BOX2D_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId, float inverseTimeStep);
+
+/// Set the maximum force for a pristmatic joint motor
 BOX2D_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
+
+/// Get the current constraint force for a prismatic joint
 BOX2D_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+
+/// Get the current constraint torque for a prismatic joint
 BOX2D_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
-// Revolute joint access
+/// Enable/disable a revolute joint limit
 BOX2D_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+
+/// Enable/disable a revolute joint motor
 BOX2D_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+
+/// Set the motor speed for a revolute joint in radians per second
 BOX2D_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+/// Get the current motor torque for a revolute joint
 BOX2D_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+
+/// Set the maximum torque for a revolute joint motor
 BOX2D_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
+
+/// Get the current constraint force for a revolute joint
 BOX2D_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+
+/// Get the current constraint torque for a revolute joint
 BOX2D_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
-// Wheel joint access
+/// Set the wheel joint stiffness
 BOX2D_API void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness);
+
+/// Set the wheel joint damping
 BOX2D_API void b2WheelJoint_SetDamping(b2JointId jointId, float damping);
+
+/// Enable/disable the wheel joint limit
 BOX2D_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+
+/// Enable/disable the wheel joint motor
 BOX2D_API void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+
+/// Set the wheel joint motor speed in radians per second
 BOX2D_API void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+/// Get the wheel joint current motor torque
 BOX2D_API float b2WheelJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+
+/// Set the wheel joint maximum motor torque
 BOX2D_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
+
+/// Get the current wheel joint constraint force
 BOX2D_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+
+/// Get the current wheel joint constraint torque
 BOX2D_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
 /** @} */

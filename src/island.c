@@ -3,18 +3,17 @@
 
 #include "island.h"
 
+#include "aabb.h"
 #include "arena_allocator.h"
 #include "array.h"
 #include "body.h"
 #include "contact.h"
-#include "contact_solver.h"
 #include "core.h"
 #include "joint.h"
 #include "shape.h"
 #include "solver_data.h"
 #include "world.h"
 
-#include "box2d/aabb.h"
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
 
@@ -23,6 +22,8 @@
 #include <stdlib.h>
 
 /*
+todo these are notes from v2.4 and may no longer be relevant
+
 Position Correction Notes
 =========================
 I tried the several algorithms for position correction of the 2D revolute joint.

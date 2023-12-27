@@ -1,5 +1,8 @@
+configure_file(user_constants.h.in user_constants.h)
+
 set(BOX2D_SOURCE_FILES
 	aabb.c
+	aabb.h
 	allocate.c
 	allocate.h
 	arena_allocator.c
@@ -8,6 +11,7 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
+	bitset.inl
 	block_allocator.c
 	block_allocator.h
 	body.c
@@ -47,6 +51,7 @@ set(BOX2D_SOURCE_FILES
 	table.h
 	timer.c
 	types.c
+	user_constants.h.in
 	weld_joint.c
 	wheel_joint.c
 	world.c
@@ -54,7 +59,6 @@ set(BOX2D_SOURCE_FILES
 )
 
 set(BOX2D_API_FILES
-	../include/box2d/aabb.h
 	../include/box2d/api.h
 	../include/box2d/box2d.h
 	../include/box2d/callbacks.h
@@ -82,16 +86,11 @@ else()
 endif()
 
 target_include_directories(box2d
-	PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_BINARY_DIR}
 	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(box2d PRIVATE simde)
-#target_compile_definitions(box2d PRIVATE "$<$<CONFIG:DEBUG>:B2_DEBUG>")
-
-message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
-message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
 
 if (MSVC)
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -104,7 +103,7 @@ if (MSVC)
 		message(STATUS "CMake using Clang-CL")
 		target_compile_options(box2d PRIVATE /W4 /WX /std:c17 /arch:AVX2)
 	endif()
-elseif(LINUX)
+elseif (LINUX)
 	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 		# raspberry pi
 		target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -112,12 +111,11 @@ elseif(LINUX)
 		# FMA -mfma
 		target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -mavx)
 	endif()
-elseif(APPLE)
-	# enkiTS had some missing (void) on functions
-	# target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-strict-prototypes)
+elseif (APPLE)
 	target_compile_options(box2d PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
+# todo needed?
 find_library(MATH_LIBRARY m)
 if (MATH_LIBRARY)
 	target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})

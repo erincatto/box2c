@@ -54,15 +54,24 @@ static b2Vec2 s_clickPointWS = b2Vec2_zero;
 static float s_windowScale = 1.0f;
 static float s_framebufferScale = 1.0f;
 
-void* AllocFcn(uint32_t size)
+inline bool IsPowerOfTwo(int32_t x)
 {
-	size_t size32 = ((size - 1) | 0x1F) + 1;
-	assert((size32 & 0x1F) == 0);
+    return (x != 0) && ((x & (x - 1)) == 0);
+}
+
+void* AllocFcn(uint32_t size, int32_t alignment)
+{
+	// Allocation must be a multiple of alignment or risk a seg fault
+	// https://en.cppreference.com/w/c/memory/aligned_alloc
+	assert(IsPowerOfTwo(alignment));
+	size_t sizeAligned = ((size - 1) | (alignment - 1)) + 1;
+	assert((sizeAligned & (alignment - 1)) == 0);
 #if defined(_WIN64)
-	void* ptr = _aligned_malloc(size32, 32);
+	void* ptr = _aligned_malloc(sizeAligned, alignment);
 #else
-	void* ptr = aligned_alloc(32, size32);
+	void* ptr = aligned_alloc(alignment, sizeAligned);
 #endif
+	assert(ptr != nullptr);
 	return ptr;
 }
 
@@ -526,7 +535,7 @@ int main(int, char**)
 
 	// Install memory hooks
 	b2SetAllocator(AllocFcn, FreeFcn);
-	Box2DAssertCallback = AssertFcn;
+	b2SetAssertFcn(AssertFcn);
 
 	char buffer[128];
 

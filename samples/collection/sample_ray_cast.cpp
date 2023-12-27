@@ -80,8 +80,8 @@ public:
 		ImGui::Separator();
 
 		ImGui::Text("mouse btn 1: ray cast");
-		ImGui::Text("mouse btn 1 + shft: rotate");
-		ImGui::Text("mouse btn 1 + ctrl: translate");
+		ImGui::Text("mouse btn 1 + shft: translate");
+		ImGui::Text("mouse btn 1 + ctrl: rotate");
 
 		ImGui::End();
 	}
@@ -542,12 +542,12 @@ public:
 	{
 		// Ground body
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			b2Segment segment = {{-40.0f, 0.0f}, {40.0f, 0.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		{
@@ -609,20 +609,20 @@ public:
 	{
 		if (B2_NON_NULL(m_bodyIds[m_bodyIndex]))
 		{
-			b2World_DestroyBody(m_bodyIds[m_bodyIndex]);
+			b2DestroyBody(m_bodyIds[m_bodyIndex]);
 			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
 		}
 
 		float x = RandomFloat(-20.0f, 20.0f);
 		float y = RandomFloat(0.0f, 20.0f);
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.position = {x, y};
 		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
 
-		m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
+		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.userData = m_userData + m_bodyIndex;
 		m_userData[m_bodyIndex].ignore = false;
 		if (m_bodyIndex == m_ignoreIndex)
@@ -632,19 +632,19 @@ public:
 
 		if (index < 4)
 		{
-			b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
+			b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
 		}
 		else if (index == 4)
 		{
-			b2Body_CreateCircle(m_bodyIds[m_bodyIndex], &shapeDef, &m_circle);
+			b2CreateCircleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_circle);
 		}
 		else if (index == 5)
 		{
-			b2Body_CreateCapsule(m_bodyIds[m_bodyIndex], &shapeDef, &m_capsule);
+			b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_capsule);
 		}
 		else
 		{
-			b2Body_CreateSegment(m_bodyIds[m_bodyIndex], &shapeDef, &m_segment);
+			b2CreateSegmentShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_segment);
 		}
 
 		m_bodyIndex = (m_bodyIndex + 1) % e_maxCount;
@@ -664,7 +664,7 @@ public:
 		{
 			if (B2_NON_NULL(m_bodyIds[i]))
 			{
-				b2World_DestroyBody(m_bodyIds[i]);
+				b2DestroyBody(m_bodyIds[i]);
 				m_bodyIds[i] = b2_nullBodyId;
 				return;
 			}
@@ -1110,20 +1110,20 @@ public:
 	{
 		if (B2_NON_NULL(m_bodyIds[m_bodyIndex]))
 		{
-			b2World_DestroyBody(m_bodyIds[m_bodyIndex]);
+			b2DestroyBody(m_bodyIds[m_bodyIndex]);
 			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
 		}
 
 		float x = RandomFloat(-20.0f, 20.0f);
 		float y = RandomFloat(0.0f, 20.0f);
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.position = {x, y};
 		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
 
-		m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
+		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.userData = m_userData + m_bodyIndex;
 		m_userData[m_bodyIndex].index = m_bodyIndex;
 		m_userData[m_bodyIndex].ignore = false;
@@ -1134,19 +1134,19 @@ public:
 
 		if (index < 4)
 		{
-			b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
+			b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
 		}
 		else if (index == 4)
 		{
-			b2Body_CreateCircle(m_bodyIds[m_bodyIndex], &shapeDef, &m_circle);
+			b2CreateCircleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_circle);
 		}
 		else if (index == 5)
 		{
-			b2Body_CreateCapsule(m_bodyIds[m_bodyIndex], &shapeDef, &m_capsule);
+			b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_capsule);
 		}
 		else
 		{
-			b2Body_CreateSegment(m_bodyIds[m_bodyIndex], &shapeDef, &m_segment);
+			b2CreateSegmentShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_segment);
 		}
 
 		m_bodyIndex = (m_bodyIndex + 1) % e_maxCount;
@@ -1166,7 +1166,7 @@ public:
 		{
 			if (B2_NON_NULL(m_bodyIds[i]))
 			{
-				b2World_DestroyBody(m_bodyIds[i]);
+				b2DestroyBody(m_bodyIds[i]);
 				m_bodyIds[i] = b2_nullBodyId;
 				return;
 			}
@@ -1335,7 +1335,7 @@ public:
 			assert(0 <= index && index < e_maxCount);
 			assert(B2_NON_NULL(m_bodyIds[index]));
 
-			b2World_DestroyBody(m_bodyIds[index]);
+			b2DestroyBody(m_bodyIds[index]);
 			m_bodyIds[index] = b2_nullBodyId;
 		}
 	}

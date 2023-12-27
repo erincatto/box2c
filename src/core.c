@@ -9,10 +9,18 @@
 _Static_assert(b2_maxPolygonVertices > 2, "must be 3 or more");
 _Static_assert(b2_maxWorlds > 0, "must be 1 or more");
 
-int b2DefaultAssertFcn(const char* condition, const char* fileName, int lineNumber)
+static int b2DefaultAssertFcn(const char* condition, const char* fileName, int lineNumber)
 {
 	printf("BOX2D ASSERTION: %s, %s, line %d\n", condition, fileName, lineNumber);
+
+	// return non-zero to break to debugger
 	return 1;
 }
 
-b2AssertFcn* Box2DAssertCallback = b2DefaultAssertFcn;
+b2AssertFcn* b2AssertHandler = b2DefaultAssertFcn;
+
+void b2SetAssertFcn(b2AssertFcn* assertFcn)
+{
+	B2_ASSERT(assertFcn != NULL);
+	b2AssertHandler = assertFcn;
+}

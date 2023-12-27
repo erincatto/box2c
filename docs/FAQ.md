@@ -1,4 +1,4 @@
-# FAQ
+# FAQ (NOT UPDATED for Box2D version 3.0)
 
 ## What is Box2D?
 

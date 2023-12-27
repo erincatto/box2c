@@ -3,15 +3,11 @@
 
 #pragma once
 
+#include "api.h"
 #include "constants.h"
 #include "types.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-/// Convex hull used for polygon collision
+/// A convex hull. Used to create convex polygons.
 typedef struct b2Hull
 {
 	b2Vec2 points[b2_maxPolygonVertices];
@@ -25,14 +21,10 @@ typedef struct b2Hull
 /// - less than 3 points
 /// - more than b2_maxPolygonVertices points
 /// This welds close points and removes collinear points.
-b2Hull b2ComputeHull(const b2Vec2* points, int32_t count);
+BOX2D_API b2Hull b2ComputeHull(const b2Vec2* points, int32_t count);
 
 /// This determines if a hull is valid. Checks for:
 /// - convexity
 /// - collinear points
 /// This is expensive and should not be called at runtime.
-bool b2ValidateHull(const b2Hull* hull);
-
-#ifdef __cplusplus
-}
-#endif
+BOX2D_API bool b2ValidateHull(const b2Hull* hull);

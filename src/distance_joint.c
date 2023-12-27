@@ -306,18 +306,12 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	bodyB->angularVelocity = wB;
 }
 
-float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float timeStep)
+float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
 {
 	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	if (timeStep > 0.0f)
-	{
-		float F = (joint->impulse + joint->lowerImpulse - joint->upperImpulse) / timeStep;
-		return F;
-	}
-
-	return 0.0f;
+	return (joint->impulse + joint->lowerImpulse - joint->upperImpulse) * inverseTimeStep;
 }
 
 void b2DistanceJoint_SetLength(b2JointId jointId, float length, float minLength, float maxLength)

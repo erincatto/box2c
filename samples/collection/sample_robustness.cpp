@@ -21,15 +21,15 @@ class HighMassRatio1 : public Sample
 	{
 		float extent = 1.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.friction = 0.5f;
 
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
-		b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 		bodyDef.type = b2_dynamicBody;
 
@@ -41,11 +41,11 @@ class HighMassRatio1 : public Sample
 		for (int i = 0; i < count; ++i)
 		{
 			bodyDef.position = {0.0f, (2.0f * i + 1.0f) * 1.0f * extent};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			shapeDef.density = i == count - 1 ? 300.0f : 1.0f;
-			//b2Body_CreateCircle(bodyId, &shapeDef, &circle);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+			//b2CreateCircleShape(bodyId, &shapeDef, &circle);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
 #else
 		for (int j = 0; j < 3; ++j)
@@ -61,10 +61,10 @@ class HighMassRatio1 : public Sample
 
 					float yy = count == 1 ? y + 0.0f : y;
 					bodyDef.position = {2.0f * coeff * extent + offset, yy};
-					b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+					b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 					shapeDef.density = count == 1 ? (j + 1.0f) * 100.0f : 1.0f;
-					b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+					b2CreatePolygonShape(bodyId, &shapeDef, &box);
 				}
 
 				--count;
@@ -91,15 +91,15 @@ class HighMassRatio2 : public Sample
 	{
 		float extent = 1.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
-		b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 		bodyDef.type = b2_dynamicBody;
 
@@ -111,20 +111,20 @@ class HighMassRatio2 : public Sample
 
 		{
 			bodyDef.position = {-9.0f * extent, 0.5f * extent};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &smallBox);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(bodyId, &shapeDef, &smallBox);
 		}
 
 		{
 			bodyDef.position = {9.0f * extent, 0.5f * extent};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &smallBox);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(bodyId, &shapeDef, &smallBox);
 		}
 
 		{
 			bodyDef.position = {0.0f, (10.0f + 16.0f) * extent};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &bigBox);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(bodyId, &shapeDef, &bigBox);
 		}
 	}
 
@@ -144,48 +144,48 @@ class Friction : public Sample
 	{
 
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = 0.2f;
 
 			b2Segment segment = {{-40.0f, 0.0f}, {40.0f, 0.0f}};
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 			b2Polygon box = b2MakeOffsetBox(13.0f, 0.25f, {-4.0f, 22.0f}, -0.25f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(0.25f, 1.0f, {10.5f, 19.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(13.0f, 0.25f, {4.0f, 14.0f}, 0.25f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(0.25f, 1.0f, {-10.5f, 11.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(13.0f, 0.25f, {-4.0f, 6.0f}, -0.25f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		{
 			b2Polygon box = b2MakeBox(0.5f, 0.5f);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 25.0f;
 
 			float friction[5] = {0.75f, 0.5f, 0.35f, 0.1f, 0.0f};
 
 			for (int i = 0; i < 5; ++i)
 			{
-				b2BodyDef bodyDef = b2DefaultBodyDef();
+				b2BodyDef bodyDef = b2_defaultBodyDef;
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {-15.0f + 4.0f * i, 28.0f};
-				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 				shapeDef.friction = friction[i];
-				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 			}
 		}
 	}
@@ -219,15 +219,15 @@ class OverlapRecovery : public Sample
 		m_hertz = 30.0f;
 		m_dampingRatio = 1.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 40.0f;
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 
 		b2Segment segment = {{-groundWidth, 0.0f}, {groundWidth, 0.0f}};
-		b2Body_CreateSegment(groundId, &shapeDef, &segment);
+		b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 		CreateScene();
 	}
@@ -241,16 +241,16 @@ class OverlapRecovery : public Sample
 	{
 		for (int32_t i = 0; i < m_bodyCount; ++i)
 		{
-			b2World_DestroyBody(m_bodyIds[i]);
+			b2DestroyBody(m_bodyIds[i]);
 		}
 
 		b2World_SetContactTuning(m_worldId, m_hertz, m_dampingRatio, m_pushout);
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 
 		b2Polygon box = b2MakeBox(m_extent, m_extent);
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		
 		m_bodyCount = m_baseCount * (m_baseCount + 1) / 2;
@@ -265,9 +265,9 @@ class OverlapRecovery : public Sample
 			for (int32_t j = i; j < m_baseCount; ++j)
 			{
 				bodyDef.position = {x, y};
-				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 			
 				m_bodyIds[bodyIndex++] = bodyId;
 

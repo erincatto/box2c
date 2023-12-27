@@ -43,6 +43,7 @@ typedef struct b2DistanceJointDef
 
 } b2DistanceJointDef;
 
+/// Use this to initialize your joint definition
 static inline b2DistanceJointDef b2DefaultDistanceJointDef(void)
 {
 	b2DistanceJointDef def = B2_ZERO_INIT;
@@ -86,6 +87,7 @@ typedef struct b2MotorJointDef
 	float correctionFactor;
 } b2MotorJointDef;
 
+/// Use this to initialize your joint definition
 static inline b2MotorJointDef b2DefaultMotorJointDef(void)
 {
 	b2MotorJointDef def = B2_ZERO_INIT;
@@ -126,6 +128,7 @@ typedef struct b2MouseJointDef
 	float damping;
 } b2MouseJointDef;
 
+/// Use this to initialize your joint definition
 static inline b2MouseJointDef b2DefaultMouseJointDef(void)
 {
 	b2MouseJointDef def = B2_ZERO_INIT;
@@ -279,6 +282,9 @@ static inline b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 	return def;
 }
 
+/// A weld joint connect to bodies together rigidly. This constraint can be made soft to mimic
+///	soft-body simulation.
+/// @warning the approximate solver in Box2D cannot hold many bodies together rigidly
 typedef struct b2WeldJointDef
 {
 	/// The first attached body.
@@ -294,15 +300,18 @@ typedef struct b2WeldJointDef
 	b2Vec2 localAnchorB;
 
 	/// The bodyB angle minus bodyA angle in the reference state (radians).
-	/// This defines the zero angle for the joint limit.
 	float referenceAngle;
 
-	/// Stiffness expressed as hertz (oscillations per second). Use zero for maximum stiffness.
+	/// Linear stiffness expressed as hertz (oscillations per second). Use zero for maximum stiffness.
 	float linearHertz;
+
+	/// Angular stiffness as hertz (oscillations per second). Use zero for maximum stiffness.
 	float angularHertz;
 
-	/// Damping ratio, non-dimensional. Use 1 for critical damping.
+	/// Linear damping ratio, non-dimensional. Use 1 for critical damping.
 	float linearDampingRatio;
+
+	/// Linear damping ratio, non-dimensional. Use 1 for critical damping.
 	float angularDampingRatio;
 
 	/// Set this flag to true if the attached bodies should collide.

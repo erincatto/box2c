@@ -1,4 +1,4 @@
-# Dynamics Module
+# Dynamics Module (NOT UPDATED for Box2D version 3.0)
 The Dynamics module is the most complex part of Box2D and is the part
 you likely interact with the most. The Dynamics module sits on top of
 the Common and Collision modules, so you should be somewhat familiar
@@ -24,6 +24,8 @@ The dynamics module is covered in the following chapters.
 Bodies have position and velocity. You can apply forces, torques, and
 impulses to bodies. Bodies can be static, kinematic, or dynamic. Here
 are the body type definitions:
+
+### Body types
 
 #### b2_staticBody
 A static body does not move under simulation and behaves as if it has

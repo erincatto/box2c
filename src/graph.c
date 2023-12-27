@@ -3,9 +3,11 @@
 
 #include "graph.h"
 
+#include "aabb.h"
 #include "allocate.h"
 #include "arena_allocator.h"
 #include "array.h"
+#include "bitset.inl"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
@@ -14,9 +16,9 @@
 #include "shape.h"
 #include "solver_data.h"
 #include "world.h"
-#include "x86/sse2.h"
 
-#include "box2d/aabb.h"
+// for mm_pause
+#include "x86/sse2.h"
 
 #include <limits.h>
 #include <stdatomic.h>
@@ -604,7 +606,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->isSpeedCapped = false;
 		float ratioLinear = 1.0f;
 		b2Vec2 translation = b2MulSV(timeStep, v);
-		if (b2Dot(translation, translation) > b2_maxTranslationSquared)
+		if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
 		{
 			body->isSpeedCapped = true;
 			ratioLinear = b2_maxTranslation / b2Length(translation);
@@ -612,7 +614,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 		float ratioAngular = 1.0f;
 		float rotation = timeStep * w;
-		if (rotation * rotation > b2_maxRotationSquared)
+		if (rotation * rotation > b2_maxRotation * b2_maxRotation)
 		{
 			body->isSpeedCapped = true;
 			ratioAngular = b2_maxRotation / B2_ABS(rotation);
@@ -2127,7 +2129,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(graph_solver);
 
-	world->profile.solveIslands = b2GetMillisecondsAndReset(&timer);
+	world->profile.solveConstraints = b2GetMillisecondsAndReset(&timer);
 
 	// Finish the user tree task that was queued early in the time step. This must be done before touching the broadphase.
 	if (b2_parallel)

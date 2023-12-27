@@ -15,6 +15,24 @@
 
 #define B2_MAKE_ID(A, B) ((uint8_t)(A) << 8 | (uint8_t)(B))
 
+static b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
+{
+	b2Polygon shape = {0};
+	shape.vertices[0] = p1;
+	shape.vertices[1] = p2;
+	shape.centroid = b2Lerp(p1, p2, 0.5f);
+
+	b2Vec2 axis = b2NormalizeChecked(b2Sub(p2, p1));
+	b2Vec2 normal = b2RightPerp(axis);
+
+	shape.normals[0] = normal;
+	shape.normals[1] = b2Neg(normal);
+	shape.count = 2;
+	shape.radius = radius;
+
+	return shape;
+}
+
 b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
 	b2Manifold manifold = {0};

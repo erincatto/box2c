@@ -1,4 +1,4 @@
-# Overview
+# Overview (NOT UPDATED for Box2D version 3.0)
 Box2D is a 2D rigid body simulation library for games. Programmers can
 use it in their games to make objects move in realistic ways and make
 the game world more interactive. From the game engine's point of view,

@@ -7,6 +7,14 @@
 
 #include <stdint.h>
 
+#define B2_NULL_INDEX (-1)
+
+#ifdef NDEBUG
+#define B2_DEBUG 0
+#else
+#define B2_DEBUG 1
+#endif
+
 // Define platform
 #if defined(_WIN64)
 #define B2_PLATFORM_WINDOWS
@@ -65,18 +73,15 @@
 #endif
 
 #if !defined(NDEBUG) || defined(B2_ENABLE_ASSERT)
+extern b2AssertFcn* b2AssertHandler;
 #define B2_ASSERT(condition)                                                                                                               \
 	do                                                                                                                                     \
 	{                                                                                                                                      \
-		if (!(condition) && Box2DAssertCallback(#condition, __FILE__, (int)__LINE__))                                                      \
+		if (!(condition) && b2AssertHandler(#condition, __FILE__, (int)__LINE__))                                                      \
 			B2_BREAKPOINT;                                                                                                                 \
 	} while (0)
 #else
 #define B2_ASSERT(...) ((void)0)
 #endif
 
-#if defined(NDEBUG)
-#define B2_VALIDATE 0
-#else
-#define B2_VALIDATE 1
-#endif
+#define B2_VALIDATE B2_DEBUG

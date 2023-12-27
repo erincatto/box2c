@@ -1,4 +1,4 @@
-# Collision Module
+# Collision Module (NOT UPDATED for Box2D version 3.0)
 The Collision module contains shapes and functions that operate on them.
 The module also contains a dynamic tree and broad-phase to acceleration
 collision processing of large systems.

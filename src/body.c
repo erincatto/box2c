@@ -3,6 +3,7 @@
 
 #include "body.h"
 
+#include "aabb.h"
 #include "allocate.h"
 #include "array.h"
 #include "block_allocator.h"
@@ -14,7 +15,6 @@
 #include "shape.h"
 #include "world.h"
 
-#include "box2d/aabb.h"
 #include "box2d/event_types.h"
 #include "box2d/id.h"
 
@@ -187,7 +187,7 @@ static void b2DisableBody(b2World* world, b2Body* body)
 	}
 }
 
-b2BodyId b2World_CreateBody(b2WorldId worldId, const b2BodyDef* def)
+b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -294,7 +294,7 @@ void b2WakeBody(b2World* world, b2Body* body)
 	B2_ASSERT(body->type == b2_staticBody);
 }
 
-void b2DestroyBody(b2World* world, b2Body* body)
+void b2DestroyBodyInternal(b2World* world, b2Body* body)
 {
 	// User must destroy joints before destroying bodies
 	B2_ASSERT(body->jointList == B2_NULL_INDEX && body->jointCount == 0);
@@ -329,7 +329,7 @@ void b2DestroyBody(b2World* world, b2Body* body)
 	b2FreeObject(&world->bodyPool, &body->object);
 }
 
-void b2World_DestroyBody(b2BodyId bodyId)
+void b2DestroyBody(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	B2_ASSERT(world->locked == false);
@@ -340,7 +340,7 @@ void b2World_DestroyBody(b2BodyId bodyId)
 	}
 
 	b2Body* body = b2GetBody(world, bodyId);
-	b2DestroyBody(world, body);
+	b2DestroyBodyInternal(world, body);
 }
 
 int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
@@ -440,7 +440,7 @@ int32_t b2World_DestroyBodyAndGetTouching(b2BodyId bodyId, b2ShapeId* touchingSh
 		contactKey = contact->edges[edgeIndex].nextKey;
 	}
 
-	b2DestroyBody(world, body);
+	b2DestroyBodyInternal(world, body);
 
 	return reportCount;
 }
@@ -599,12 +599,12 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	return id;
 }
 
-b2ShapeId b2Body_CreateCircle(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle)
+b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle)
 {
 	return b2CreateShape(bodyId, def, circle, b2_circleShape);
 }
 
-b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule)
+b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule)
 {
 	float lengthSqr = b2DistanceSquared(capsule->point1, capsule->point2);
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
@@ -616,12 +616,12 @@ b2ShapeId b2Body_CreateCapsule(b2BodyId bodyId, const b2ShapeDef* def, const b2C
 	return b2CreateShape(bodyId, def, capsule, b2_capsuleShape);
 }
 
-b2ShapeId b2Body_CreatePolygon(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon)
+b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon)
 {
 	return b2CreateShape(bodyId, def, polygon, b2_polygonShape);
 }
 
-b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment)
+b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment)
 {
 	float lengthSqr = b2DistanceSquared(segment->point1, segment->point2);
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
@@ -634,7 +634,7 @@ b2ShapeId b2Body_CreateSegment(b2BodyId bodyId, const b2ShapeDef* def, const b2S
 }
 
 // Destroy a shape on a body. This doesn't need to be called when destroying a body.
-static void b2DestroyShape(b2World* world, b2Shape* shape)
+static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 {
 	int32_t shapeIndex = shape->object.index;
 	B2_ASSERT(shapeIndex == shape->object.next);
@@ -696,7 +696,7 @@ static void b2DestroyShape(b2World* world, b2Shape* shape)
 }
 
 // Destroy a shape on a body. This doesn't need to be called when destroying a body.
-void b2Body_DestroyShape(b2ShapeId shapeId)
+void b2DestroyShape(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
 	B2_ASSERT(world->locked == false);
@@ -707,10 +707,10 @@ void b2Body_DestroyShape(b2ShapeId shapeId)
 
 	b2Shape* shape = b2GetShape(world, shapeId);
 
-	b2DestroyShape(world, shape);
+	b2DestroyShapeInternal(world, shape);
 }
 
-b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
+b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 {
 	B2_ASSERT(b2IsValid(def->friction) && def->friction >= 0.0f);
 	B2_ASSERT(b2IsValid(def->restitution) && def->restitution >= 0.0f);
@@ -732,7 +732,7 @@ b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	chainShape->nextIndex = body->chainList;
 	body->chainList = chainShape->object.index;
 
-	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	b2ShapeDef shapeDef = b2_defaultShapeDef;
 	shapeDef.userData = def->userData;
 	shapeDef.restitution = def->restitution;
 	shapeDef.friction = def->friction;
@@ -804,7 +804,7 @@ b2ChainId b2Body_CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	return id;
 }
 
-void b2Body_DestroyChain(b2ChainId chainId)
+void b2DestroyChain(b2ChainId chainId)
 {
 	b2World* world = b2GetWorldFromIndex(chainId.world);
 	B2_ASSERT(world->locked == false);
@@ -846,7 +846,7 @@ void b2Body_DestroyChain(b2ChainId chainId)
 		int32_t shapeIndex = chain->shapeIndices[i];
 		B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.count);
 		b2Shape* shape = world->shapes + shapeIndex;
-		b2DestroyShape(world, shape);
+		b2DestroyShapeInternal(world, shape);
 	}
 
 	b2Free(chain->shapeIndices, count * sizeof(int32_t));
@@ -1254,7 +1254,7 @@ b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
 	b2Shape* shape = b2GetShape(world, shapeId);
-	
+
 	if (shape->nextShapeIndex == B2_NULL_INDEX)
 	{
 		return b2_nullShapeId;

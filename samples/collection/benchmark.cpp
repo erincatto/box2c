@@ -37,21 +37,21 @@ class BenchmarkBarrel : public Sample
 		float groundSize = 25.0f;
 
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(groundSize, 1.2f);
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {-groundSize, 2.0f * groundSize}, 0.0f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {groundSize, 2.0f * groundSize}, 0.0f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(800.0f, 10.0f, {0.0f, -80.0f}, 0.0f);
-			b2Body_CreatePolygon(groundId, &shapeDef, &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
@@ -70,7 +70,7 @@ class BenchmarkBarrel : public Sample
 		{
 			if (B2_NON_NULL(m_bodies[i]))
 			{
-				b2World_DestroyBody(m_bodies[i]);
+				b2DestroyBody(m_bodies[i]);
 				m_bodies[i] = b2_nullBodyId;
 			}
 
@@ -107,10 +107,10 @@ class BenchmarkBarrel : public Sample
 		float centerx = shift * m_columnCount / 2.0f;
 		float centery = shift / 2.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
 
@@ -169,27 +169,27 @@ class BenchmarkBarrel : public Sample
 				bodyDef.position = {x + side, y};
 				side = -side;
 
-				m_bodies[index] = b2World_CreateBody(m_worldId, &bodyDef);
+				m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
 
 				if (m_shapeType == e_circleShape)
 				{
-					b2Body_CreateCircle(m_bodies[index], &shapeDef, &circle);
+					b2CreateCircleShape(m_bodies[index], &shapeDef, &circle);
 				}
 				else if (m_shapeType == e_capsuleShape)
 				{
-					b2Body_CreateCapsule(m_bodies[index], &shapeDef, &capsule);
+					b2CreateCapsuleShape(m_bodies[index], &shapeDef, &capsule);
 				}
 				else if (m_shapeType == e_boxShape)
 				{
-					b2Body_CreatePolygon(m_bodies[index], &shapeDef, &box);
+					b2CreatePolygonShape(m_bodies[index], &shapeDef, &box);
 				}
 				else if (m_shapeType == e_compoundShape)
 				{
-					b2Body_CreatePolygon(m_bodies[index], &shapeDef, &left);
-					b2Body_CreatePolygon(m_bodies[index], &shapeDef, &right);
-					//b2Body_CreatePolygon(m_bodies[index], &shapeDef, &top);
-					//b2Body_CreatePolygon(m_bodies[index], &shapeDef, &leftLeg);
-					//b2Body_CreatePolygon(m_bodies[index], &shapeDef, &rightLeg);
+					b2CreatePolygonShape(m_bodies[index], &shapeDef, &left);
+					b2CreatePolygonShape(m_bodies[index], &shapeDef, &right);
+					//b2CreatePolygonShape(m_bodies[index], &shapeDef, &top);
+					//b2CreatePolygonShape(m_bodies[index], &shapeDef, &leftLeg);
+					//b2CreatePolygonShape(m_bodies[index], &shapeDef, &rightLeg);
 				}
 				else if (m_shapeType == e_humanShape)
 				{
@@ -247,29 +247,29 @@ class BenchmarkTumbler : public Sample
 	{
 		b2BodyId groundId;
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			groundId = b2CreateBody(m_worldId, &bodyDef);
 		}
 
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyDef bodyDef = b2_defaultBodyDef;
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.enableSleep = false;
 			bodyDef.position = {0.0f, 10.0f};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 50.0f;
 
 			b2Polygon polygon;
 			polygon = b2MakeOffsetBox(0.5f, 10.0f, {10.0f, 0.0f}, 0.0);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 			polygon = b2MakeOffsetBox(0.5f, 10.0f, {-10.0f, 0.0f}, 0.0);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 			polygon = b2MakeOffsetBox(10.0f, 0.5f, {0.0f, 10.0f}, 0.0);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 			polygon = b2MakeOffsetBox(10.0f, 0.5f, {0.0f, -10.0f}, 0.0);
-			b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 
 			// m_motorSpeed = 9.0f;
 			m_motorSpeed = 25.0f;
@@ -284,7 +284,7 @@ class BenchmarkTumbler : public Sample
 			jd.maxMotorTorque = 1e8f;
 			jd.enableMotor = true;
 
-			m_jointId = b2World_CreateRevoluteJoint(m_worldId, &jd);
+			m_jointId = b2CreateRevoluteJoint(m_worldId, &jd);
 		}
 
 		m_maxCount = g_sampleDebug ? 300 : 2000;
@@ -312,16 +312,16 @@ class BenchmarkTumbler : public Sample
 			float a = 0.125f;
 			for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
 			{
-				b2BodyDef bodyDef = b2DefaultBodyDef();
+				b2BodyDef bodyDef = b2_defaultBodyDef;
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {5.0f * a + 2.0f * a * i, 10.0f + 2.0f * a * (m_stepCount % 5)};
-				b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-				b2ShapeDef shapeDef = b2DefaultShapeDef();
+				b2ShapeDef shapeDef = b2_defaultShapeDef;
 				shapeDef.density = 1.0f;
 
 				b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
-				b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+				b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 				++m_count;
 			}
 		}
@@ -349,8 +349,8 @@ class BenchmarkManyTumblers : public Sample
 	BenchmarkManyTumblers(const Settings& settings)
 		: Sample(settings)
 	{
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		m_rowCount = g_sampleDebug ? 2 : 19;
 		m_columnCount = g_sampleDebug ? 2 : 19;
@@ -380,24 +380,24 @@ class BenchmarkManyTumblers : public Sample
 
 	void CreateTumbler(b2Vec2 position, int index)
 	{
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {position.x, position.y};
-		b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 		m_tumblerIds[index] = bodyId;
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 50.0f;
 
 		b2Polygon polygon;
 		polygon = b2MakeOffsetBox(0.25f, 2.0f, {2.0f, 0.0f}, 0.0);
-		b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 		polygon = b2MakeOffsetBox(0.25f, 2.0f, {-2.0f, 0.0f}, 0.0);
-		b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 		polygon = b2MakeOffsetBox(2.0f, 0.25f, {0.0f, 2.0f}, 0.0);
-		b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 		polygon = b2MakeOffsetBox(2.0f, 0.25f, {0.0f, -2.0f}, 0.0);
-		b2Body_CreatePolygon(bodyId, &shapeDef, &polygon);
+		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 
 		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 		jd.bodyIdA = m_groundId;
@@ -409,7 +409,7 @@ class BenchmarkManyTumblers : public Sample
 		jd.maxMotorTorque = 1e8f;
 		jd.enableMotor = true;
 
-		m_jointIds[index] = b2World_CreateRevoluteJoint(m_worldId, &jd);
+		m_jointIds[index] = b2CreateRevoluteJoint(m_worldId, &jd);
 	}
 
 	void CreateScene()
@@ -418,14 +418,14 @@ class BenchmarkManyTumblers : public Sample
 		{
 			if (B2_NON_NULL(m_bodyIds[i]))
 			{
-				b2World_DestroyBody(m_bodyIds[i]);
+				b2DestroyBody(m_bodyIds[i]);
 			}
 		}
 
 		for (int32_t i = 0; i < m_tumblerCount; ++i)
 		{
-			b2World_DestroyJoint(m_jointIds[i]);
-			b2World_DestroyBody(m_tumblerIds[i]);
+			b2DestroyJoint(m_jointIds[i]);
+			b2DestroyBody(m_tumblerIds[i]);
 		}
 
 		free(m_jointIds);
@@ -500,7 +500,7 @@ class BenchmarkManyTumblers : public Sample
 
 		if (m_bodyIndex < m_bodyCount && (m_stepCount & 0x7) == 0)
 		{
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 1.0f;
 			// shapeDef.restitution = 0.5f;
 
@@ -513,22 +513,22 @@ class BenchmarkManyTumblers : public Sample
 			{
 				assert(m_bodyIndex < m_bodyCount);
 
-				b2BodyDef bodyDef = b2DefaultBodyDef();
+				b2BodyDef bodyDef = b2_defaultBodyDef;
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = m_positions[i];
-				m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
+				m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 
 				// if (j == 0)
 				//{
-				//	b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, &polygon);
+				//	b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, &polygon);
 				// }
 				// else if (j == 1)
 				{
-					b2Body_CreateCapsule(m_bodyIds[m_bodyIndex], &shapeDef, &capsule);
+					b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &capsule);
 				}
 				// else
 				//{
-				//	b2Body_CreateCircle(m_bodyIds[m_bodyIndex], &shapeDef, &circle);
+				//	b2CreateCircleShape(m_bodyIds[m_bodyIndex], &shapeDef, &circle);
 				// }
 
 				m_bodyIndex += 1;
@@ -598,10 +598,10 @@ class BenchmarkPyramid : public Sample
 
 	void CreateStack(float centerX, float baseY)
 	{
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 
 		float h = m_extent - m_round;
@@ -620,8 +620,8 @@ class BenchmarkPyramid : public Sample
 				bodyDef.position = {x, y};
 
 				assert(m_bodyIndex < m_bodyCount);
-				m_bodyIds[m_bodyIndex] = b2World_CreateBody(m_worldId, &bodyDef);
-				b2Body_CreatePolygon(m_bodyIds[m_bodyIndex], &shapeDef, &box);
+				m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, &box);
 
 				m_bodyIndex += 1;
 			}
@@ -632,12 +632,12 @@ class BenchmarkPyramid : public Sample
 	{
 		if (B2_NON_NULL(m_groundId))
 		{
-			b2World_DestroyBody(m_groundId);
+			b2DestroyBody(m_groundId);
 		}
 
 		for (int32_t i = 0; i < m_bodyCount; ++i)
 		{
-			b2World_DestroyBody(m_bodyIds[i]);
+			b2DestroyBody(m_bodyIds[i]);
 		}
 
 		free(m_bodyIds);
@@ -646,12 +646,12 @@ class BenchmarkPyramid : public Sample
 		m_bodyIds = (b2BodyId*)malloc(m_bodyCount * sizeof(b2BodyId));
 		m_bodyIndex = 0;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		m_groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundDeltaY = 2.0f * m_extent * (m_baseCount + 1.0f);
 		float groundWidth = 2.0f * m_extent * m_columnCount * (m_baseCount + 1.0f);
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 
 		float groundY = 0.0f;
 
@@ -659,7 +659,7 @@ class BenchmarkPyramid : public Sample
 		{
 			// b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
 			b2Segment segment = {{-0.5f * 2.0f * groundWidth, groundY}, {0.5f * 2.0f * groundWidth, groundY}};
-			b2Body_CreateSegment(m_groundId, &shapeDef, &segment);
+			b2CreateSegmentShape(m_groundId, &shapeDef, &segment);
 			groundY += groundDeltaY;
 		}
 
@@ -719,9 +719,9 @@ class BenchmarkPyramid : public Sample
 				m_bestCollideRange = m_collideRange;
 			}
 
-			if (profile.solveIslands < m_minIsland)
+			if (profile.solveConstraints < m_minIsland)
 			{
-				m_minIsland = profile.solveIslands;
+				m_minIsland = profile.solveConstraints;
 				m_bestIslandRange = m_islandRange;
 			}
 
@@ -786,12 +786,12 @@ class BenchmarkCreateDestroy : public Sample
 	{
 		float groundSize = 100.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		b2Polygon box = b2MakeBox(groundSize, 1.0f);
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
-		b2Body_CreatePolygon(groundId, &shapeDef, &box);
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 		for (int32_t i = 0; i < e_maxBodyCount; ++i)
 		{
@@ -809,7 +809,7 @@ class BenchmarkCreateDestroy : public Sample
 		{
 			if (B2_NON_NULL(m_bodies[i]))
 			{
-				b2World_DestroyBody(m_bodies[i]);
+				b2DestroyBody(m_bodies[i]);
 				m_bodies[i] = b2_nullBodyId;
 			}
 		}
@@ -820,10 +820,10 @@ class BenchmarkCreateDestroy : public Sample
 		float centerx = shift * count / 2.0f;
 		float centery = shift / 2.0f + 1.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
 
@@ -842,8 +842,8 @@ class BenchmarkCreateDestroy : public Sample
 				bodyDef.position = {x, y};
 
 				assert(index < e_maxBodyCount);
-				m_bodies[index] = b2World_CreateBody(m_worldId, &bodyDef);
-				b2Body_CreatePolygon(m_bodies[index], &shapeDef, &box);
+				m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(m_bodies[index], &shapeDef, &box);
 
 				index += 1;
 			}
@@ -894,7 +894,7 @@ class BenchmarkJointGrid : public Sample
 		b2BodyId* bodies = static_cast<b2BodyId*>(malloc(numi * numk * sizeof(b2BodyId)));
 		int32_t index = 0;
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.filter.categoryBits = 2;
 		shapeDef.filter.maskBits = ~2u;
@@ -911,7 +911,7 @@ class BenchmarkJointGrid : public Sample
 				float fk = (float)k;
 				float fi = (float)i;
 
-				b2BodyDef bodyDef = b2DefaultBodyDef();
+				b2BodyDef bodyDef = b2_defaultBodyDef;
 				if (k >= numk / 2 - 3 && k <= numk / 2 + 3 && i == 0)
 				{
 					bodyDef.type = b2_staticBody;
@@ -923,9 +923,9 @@ class BenchmarkJointGrid : public Sample
 
 				bodyDef.position = {fk * shift, -fi * shift};
 
-				b2BodyId body = b2World_CreateBody(m_worldId, &bodyDef);
+				b2BodyId body = b2CreateBody(m_worldId, &bodyDef);
 
-				b2Body_CreateCircle(body, &shapeDef, &circle);
+				b2CreateCircleShape(body, &shapeDef, &circle);
 
 				if (i > 0)
 				{
@@ -933,7 +933,7 @@ class BenchmarkJointGrid : public Sample
 					jd.bodyIdB = body;
 					jd.localAnchorA = {0.0f, -0.5f * shift};
 					jd.localAnchorB = {0.0f, 0.5f * shift};
-					b2World_CreateRevoluteJoint(m_worldId, &jd);
+					b2CreateRevoluteJoint(m_worldId, &jd);
 				}
 
 				if (k > 0)
@@ -942,7 +942,7 @@ class BenchmarkJointGrid : public Sample
 					jd.bodyIdB = body;
 					jd.localAnchorA = {0.5f * shift, 0.0f};
 					jd.localAnchorB = {-0.5f * shift, 0.0f};
-					b2World_CreateRevoluteJoint(m_worldId, &jd);
+					b2CreateRevoluteJoint(m_worldId, &jd);
 				}
 
 				bodies[index++] = body;

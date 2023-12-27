@@ -19,45 +19,35 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// These macros handle some differences between C and C++
 #ifdef __cplusplus
 #define B2_LITERAL(T) T
 #define B2_ZERO_INIT                                                                                                             \
 	{                                                                                                                            \
 	}
 #else
+/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
 #define B2_LITERAL(T) (T)
+
+/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
 #define B2_ZERO_INIT                                                                                                             \
 	{                                                                                                                            \
 		0                                                                                                                        \
 	}
 #endif
 
-#ifdef NDEBUG
-#define B2_DEBUG 0
-#else
-#define B2_DEBUG 1
-#endif
-
+/// Returns the number of elements of an array
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
-#define B2_MAYBE_UNUSED(x) ((void)(x))
-#define B2_NULL_INDEX (-1)
 
-/// @struct b2Vec2
-/// @brief 2D vector
-///
+/// Used to prevent the compiler from warning about unused variables
+#define B2_MAYBE_UNUSED(x) ((void)(x))
+
+/// A 2D vector
 /// This can be used to represent a point or free vector.
 typedef struct b2Vec2
 {
 	/// coordinates
 	float x, y;
 } b2Vec2;
-
-/// 3D vector
-typedef struct b2Vec3
-{
-	float x, y, z;
-} b2Vec3;
 
 /// 2D rotation
 typedef struct b2Rot
@@ -80,13 +70,6 @@ typedef struct b2Mat22
 	b2Vec2 cx, cy;
 } b2Mat22;
 
-/// A 3-by-3 Matrix
-typedef struct b2Mat33
-{
-	/// columns
-	b2Vec3 cx, cy, cz;
-} b2Mat33;
-
 /// Axis-aligned bounding box
 typedef struct b2AABB
 {
@@ -94,23 +77,14 @@ typedef struct b2AABB
 	b2Vec2 upperBound;
 } b2AABB;
 
-/// Ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
+/// Low level ray-cast input data
 typedef struct b2RayCastInput
 {
 	b2Vec2 origin, translation;
 	float maxFraction;
 } b2RayCastInput;
 
-/// Ray-cast output data. The ray hits at p1 + fraction * (p2 - p1), where p1 and p2 come from b2RayCastInput.
-typedef struct b2RayCastOutput
-{
-	b2Vec2 normal;
-	b2Vec2 point;
-	float fraction;
-	int32_t iterations;
-	bool hit;
-} b2RayCastOutput;
-
+/// Low level hape cast input in generic form
 typedef struct b2ShapeCastInput
 {
 	b2Vec2 points[b2_maxPolygonVertices];
@@ -119,6 +93,16 @@ typedef struct b2ShapeCastInput
 	b2Vec2 translation;
 	float maxFraction;
 } b2ShapeCastInput;
+
+/// Low level ray-cast or shape-cast output data
+typedef struct b2CastOutput
+{
+	b2Vec2 normal;
+	b2Vec2 point;
+	float fraction;
+	int32_t iterations;
+	bool hit;
+} b2RayCastOutput;
 
 /// Task interface
 /// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.
@@ -136,7 +120,7 @@ typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 
 /// World definition used to create a simulation world. Must be initialized using b2DefaultWorldDef.
-struct b2WorldDef
+typedef struct b2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
 	b2Vec2 gravity;
@@ -179,9 +163,25 @@ struct b2WorldDef
 	b2EnqueueTaskCallback* enqueueTask;
 	b2FinishTaskCallback* finishTask;
 	void* userTaskContext;
-};
+} b2WorldDef;
 
-typedef struct b2WorldDef b2WorldDef;
+/// Use this to initialize your world definition
+static inline b2WorldDef b2DefaultWorldDef(void)
+{
+	b2WorldDef def = B2_ZERO_INIT;
+	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
+	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0f;
+	def.contactDampingRatio = 1.0f;
+	def.enableSleep = true;
+	def.bodyCapacity = 8;
+	def.shapeCapacity = 8;
+	def.contactCapacity = 8;
+	def.jointCapacity = 8;
+	def.stackAllocatorCapacity = 1024 * 1024;
+	return def;
+}
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved
@@ -246,6 +246,7 @@ typedef struct b2BodyDef
 	bool isEnabled;
 } b2BodyDef;
 
+/// Use this to initialize your body definition
 static const b2BodyDef b2_defaultBodyDef = {
 	b2_staticBody, {0.0f, 0.0f}, 0.0f, {0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 1.0f, NULL, true, true, false, true,
 };
@@ -266,6 +267,7 @@ typedef struct b2Filter
 	int32_t groupIndex;
 } b2Filter;
 
+/// Use this to initialize your filter
 static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
 
 /// This holds contact filtering data.
@@ -279,8 +281,10 @@ typedef struct b2QueryFilter
 	uint32_t maskBits;
 } b2QueryFilter;
 
+/// Use this to initialize your query filter
 static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
 
+/// Shape type
 typedef enum b2ShapeType
 {
 	b2_capsuleShape,
@@ -324,6 +328,7 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
+/// Use this to initialize your shape definition
 static const b2ShapeDef b2_defaultShapeDef = {
 	NULL, 0.6f, 0.0f, 1.0f, {0x00000001, 0xFFFFFFFF, 0}, false, true, true, false,
 };
@@ -364,70 +369,5 @@ typedef struct b2ChainDef
 	b2Filter filter;
 } b2ChainDef;
 
+/// Use this to initialize your chain definition
 static const b2ChainDef b2_defaultChainDef = {NULL, 0, false, NULL, 0.6f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}};
-
-/// Make a world definition with default values.
-static inline b2WorldDef b2DefaultWorldDef(void)
-{
-	b2WorldDef def = B2_ZERO_INIT;
-	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
-	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
-	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
-	def.contactHertz = 30.0f;
-	def.contactDampingRatio = 1.0f;
-	def.enableSleep = true;
-	def.bodyCapacity = 8;
-	def.shapeCapacity = 8;
-	def.contactCapacity = 8;
-	def.jointCapacity = 8;
-	def.stackAllocatorCapacity = 1024 * 1024;
-	return def;
-}
-
-/// Make a body definition with default values.
-static inline b2BodyDef b2DefaultBodyDef(void)
-{
-	b2BodyDef def = B2_ZERO_INIT;
-	def.type = b2_staticBody;
-	def.position = B2_LITERAL(b2Vec2){0.0f, 0.0f};
-	def.angle = 0.0f;
-	def.linearVelocity = B2_LITERAL(b2Vec2){0.0f, 0.0f};
-	def.angularVelocity = 0.0f;
-	def.linearDamping = 0.0f;
-	def.angularDamping = 0.0f;
-	def.gravityScale = 1.0f;
-	def.userData = NULL;
-	def.enableSleep = true;
-	def.isAwake = true;
-	def.fixedRotation = false;
-	def.isEnabled = true;
-	return def;
-}
-
-static inline struct b2ShapeDef b2DefaultShapeDef(void)
-{
-	b2ShapeDef def = B2_ZERO_INIT;
-	def.friction = 0.6f;
-	def.restitution = 0.0f;
-	def.density = 0.0f;
-	def.filter = b2_defaultFilter;
-	def.isSensor = false;
-	def.enableSensorEvents = true;
-	def.enableContactEvents = true;
-	def.enablePreSolveEvents = false;
-
-	return def;
-}
-
-static inline struct b2ChainDef b2DefaultChainDef(void)
-{
-	b2ChainDef def = B2_ZERO_INIT;
-	def.points = NULL;
-	def.count = 0;
-	def.loop = false;
-	def.userData = NULL;
-	def.friction = 0.6f;
-	def.restitution = 0.0f;
-	def.filter = b2_defaultFilter;
-	return def;
-}

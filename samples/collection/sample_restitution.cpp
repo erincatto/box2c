@@ -28,13 +28,13 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			float h = 1.0f * e_count;
 			b2Segment segment = {{-h, 0.0f}, {h, 0.0f}};
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Body_CreateSegment(groundId, &shapeDef, &segment);
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		for (int32_t i = 0; i < e_count; ++i)
@@ -53,7 +53,7 @@ public:
 		{
 			if (B2_NON_NULL(m_bodyIds[i]))
 			{
-				b2World_DestroyBody(m_bodyIds[i]);
+				b2DestroyBody(m_bodyIds[i]);
 				m_bodyIds[i] = b2_nullBodyId;
 			}
 		}
@@ -63,11 +63,11 @@ public:
 
 		b2Polygon box = b2MakeBox(0.5f, 0.5f);
 
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
 		shapeDef.density = 1.0f;
 		shapeDef.restitution = 0.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyDef bodyDef = b2_defaultBodyDef;
 		bodyDef.type = b2_dynamicBody;
 
 		float dr = 1.0f / (e_count > 1 ? e_count - 1 : 1);
@@ -77,17 +77,17 @@ public:
 		for (int32_t i = 0; i < e_count; ++i)
 		{
 			bodyDef.position = {x, 40.0f};
-			b2BodyId bodyId = b2World_CreateBody(m_worldId, &bodyDef);
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			m_bodyIds[i] = bodyId;
 
 			if (m_shapeType == e_circleShape)
 			{
-				b2Body_CreateCircle(bodyId, &shapeDef, &circle);
+				b2CreateCircleShape(bodyId, &shapeDef, &circle);
 			}
 			else
 			{
-				b2Body_CreatePolygon(bodyId, &shapeDef, &box);
+				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 			}
 
 			shapeDef.restitution += dr;

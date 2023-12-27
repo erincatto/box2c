@@ -54,7 +54,7 @@ int TableTest(void)
 
 		ENSURE(set.count == (itemCount - removeCount));
 
-#if B2_DEBUG
+#if !NDEBUG
 		extern int32_t g_probeCount;
 		g_probeCount = 0;
 #endif
@@ -80,7 +80,7 @@ int TableTest(void)
 		float ms = b2GetMilliseconds(&timer);
 		printf("set: count = %d, b2ContainsKey = %.5f ms, ave = %.5f us\n", itemCount, ms, 1000.0f * ms / itemCount);
 
-#if B2_DEBUG
+#if !NDEBUG
 		float aveProbeCount = (float)g_probeCount / (float)itemCount;
 		printf("item count = %d, probe count = %d, ave probe count %.2f\n", itemCount, g_probeCount, aveProbeCount);
 #endif

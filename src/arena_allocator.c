@@ -17,11 +17,11 @@ typedef struct b2StackEntry
 	bool usedMalloc;
 } b2StackEntry;
 
-// This is a stack allocator used for fast per step allocations.
+// This is a stack-like arena allocator used for fast per step allocations.
 // You must nest allocate/free pairs. The code will B2_ASSERT
 // if you try to interleave multiple allocate/free pairs.
-// Unlike a scratch allocator, this lets me use the heap if the allocator
-// space is insufficient.
+// This allocator uses the heap if space is insufficient.
+// I could remove the need to free entries individually.
 typedef struct b2StackAllocator
 {
 	char* data;
@@ -56,6 +56,7 @@ void b2DestroyStackAllocator(b2StackAllocator* allocator)
 
 void* b2AllocateStackItem(b2StackAllocator* alloc, int32_t size, const char* name)
 {
+	// ensure allocation is 32 byte aligned to support 256-bit SIMD
 	int32_t size32 = ((size - 1) | 0x1F) + 1;
 
 	b2StackEntry entry;
