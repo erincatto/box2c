@@ -136,12 +136,6 @@ elseif (APPLE)
 	# target_compile_options(box2d PRIVATE)
 endif()
 
-# todo needed?
-# find_library(MATH_LIBRARY m)
-# if (MATH_LIBRARY)
-# 	target_link_libraries(box2d PUBLIC ${MATH_LIBRARY})
-# endif()
-
 if (BOX2D_PROFILE)
 	target_compile_definitions(box2d PRIVATE BOX2D_PROFILE)
 
