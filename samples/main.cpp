@@ -429,7 +429,7 @@ static void UpdateUI()
 				ImGui::Checkbox("Friction Impulses", &s_settings.drawFrictionImpulses);
 				ImGui::Checkbox("Center of Masses", &s_settings.drawMass);
 				ImGui::Checkbox("Graph Colors", &s_settings.drawGraphColors);
-				ImGui::Checkbox("Statistics", &s_settings.drawStats);
+				ImGui::Checkbox("Counters", &s_settings.drawCounters);
 				ImGui::Checkbox("Profile", &s_settings.drawProfile);
 
 				ImVec2 button_sz = ImVec2(-1, 0);

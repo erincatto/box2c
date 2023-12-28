@@ -154,7 +154,7 @@ typedef struct b2WorldDef
 	int32_t jointCapacity;
 
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
-	/// Larger worlds require more space. b2Statistics can be used to determine a good capacity for your
+	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
 	/// application.
 	int32_t stackAllocatorCapacity;
 
@@ -371,3 +371,39 @@ typedef struct b2ChainDef
 
 /// Use this to initialize your chain definition
 static const b2ChainDef b2_defaultChainDef = {NULL, 0, false, NULL, 0.6f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}};
+
+/// Profiling data. Times are in milliseconds.
+typedef struct b2Profile
+{
+	float step;
+	float pairs;
+	float collide;
+	float solve;
+	float buildIslands;
+	float solveConstraints;
+	float broadphase;
+	float continuous;
+} b2Profile;
+
+/// Use this to initialize your profile
+static const b2Profile b2_emptyProfile = B2_ZERO_INIT;
+
+/// Counters that give details of the simulation size
+typedef struct b2Counters
+{
+	int32_t islandCount;
+	int32_t bodyCount;
+	int32_t contactCount;
+	int32_t jointCount;
+	int32_t proxyCount;
+	int32_t pairCount;
+	int32_t treeHeight;
+	int32_t stackCapacity;
+	int32_t stackUsed;
+	int32_t byteCount;
+	int32_t taskCount;
+	int32_t colorCounts[b2_graphColorCount + 1];
+} b2Counters;
+
+/// Use this to initialize your counters
+static const b2Counters b2_emptyCounters = B2_ZERO_INIT;

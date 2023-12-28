@@ -52,7 +52,7 @@ void Settings::Save()
 	fprintf(file, "  \"drawContactImpulses\": %s,\n", drawContactImpulses ? "true" : "false");
 	fprintf(file, "  \"drawFrictionImpulse\": %s,\n", drawFrictionImpulses ? "true" : "false");
 	fprintf(file, "  \"drawMass\": %s,\n", drawMass ? "true" : "false");
-	fprintf(file, "  \"drawStats\": %s,\n", drawStats ? "true" : "false");
+	fprintf(file, "  \"drawCounters\": %s,\n", drawCounters ? "true" : "false");
 	fprintf(file, "  \"drawProfile\": %s,\n", drawProfile ? "true" : "false");
 	fprintf(file, "  \"enableWarmStarting\": %s,\n", enableWarmStarting ? "true" : "false");
 	fprintf(file, "  \"enableContinuous\": %s,\n", enableContinuous ? "true" : "false");

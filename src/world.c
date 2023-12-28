@@ -1097,10 +1097,10 @@ b2Profile b2World_GetProfile(b2WorldId worldId)
 	return world->profile;
 }
 
-b2Statistics b2World_GetStatistics(b2WorldId worldId)
+b2Counters b2World_GetCounters(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	b2Statistics s = {0};
+	b2Counters s = {0};
 	s.islandCount = world->islandPool.count;
 	s.bodyCount = world->bodyPool.count;
 	s.contactCount = world->contactPool.count;

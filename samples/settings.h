@@ -25,7 +25,7 @@ struct Settings
 	bool drawFrictionImpulses = false;
 	bool drawMass = false;
 	bool drawGraphColors = false;
-	bool drawStats = false;
+	bool drawCounters = false;
 	bool drawProfile = false;
 	bool enableWarmStarting = true;
 	bool enableContinuous = true;

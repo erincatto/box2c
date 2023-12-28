@@ -238,9 +238,9 @@ void Sample::Step(Settings& settings)
 		++m_stepCount;
 	}
 
-	if (settings.drawStats)
+	if (settings.drawCounters)
 	{
-		b2Statistics s = b2World_GetStatistics(m_worldId);
+		b2Counters s = b2World_GetCounters(m_worldId);
 
 		g_draw.DrawString(5, m_textLine, "islands/bodies/contacts/joints = %d/%d/%d/%d", s.islandCount, s.bodyCount, s.contactCount,
 						  s.jointCount);
