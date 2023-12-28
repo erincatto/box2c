@@ -1,6 +1,6 @@
 # Box2D unit test app
 
-set(BOX2D_TESTS
+add_executable(test 
     main.c
     test_bitset.c
     test_collision.c
@@ -12,8 +12,6 @@ set(BOX2D_TESTS
     test_table.c
     test_world.c
 )
-
-add_executable(test ${BOX2D_TESTS})
 
 set_target_properties(test PROPERTIES
 	C_STANDARD 17

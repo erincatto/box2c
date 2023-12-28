@@ -55,7 +55,7 @@ set(JSMN_DIR ${CMAKE_SOURCE_DIR}/extern/jsmn)
 add_library(jsmn INTERFACE ${JSMN_DIR}/jsmn.h)
 target_include_directories(jsmn INTERFACE ${JSMN_DIR})
 
-set(BOX2D_SAMPLES
+add_executable(samples
 	draw.cpp
 	draw.h
 	main.cpp
@@ -63,7 +63,6 @@ set(BOX2D_SAMPLES
 	sample.h
 	settings.h
 	settings.cpp
-
 	collection/benchmark.cpp
 	collection/human.cpp
 	collection/human.h
@@ -85,8 +84,6 @@ set(BOX2D_SAMPLES
 	collection/sample_vertical_stack.cpp
 )
 
-add_executable(samples ${BOX2D_SAMPLES})
-
 set_target_properties(samples PROPERTIES
 	CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
@@ -107,4 +104,4 @@ add_custom_command(
 			${CMAKE_CURRENT_SOURCE_DIR}/data/
 			${CMAKE_CURRENT_BINARY_DIR}/data/)
 
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${BOX2D_SAMPLES})
+# source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${BOX2D_SAMPLES})
