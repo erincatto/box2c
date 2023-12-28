@@ -8,7 +8,6 @@ add_library(
 	simde-aes.h 
 	simde-align.h 
 	simde-arch.h 
-	simde-bf16.h 
 	simde-common.h 
 	simde-complex.h 
 	simde-constify.h 

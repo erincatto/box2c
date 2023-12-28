@@ -85,12 +85,7 @@ set(BOX2D_API_FILES
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
-if (MSVC)
-	# Visual Studio won't load the natvis unless it is in the project
-	add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES} box2d.natvis)
-else()
-	add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
-endif()
+add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
 
 # Generate box2d_export.h to handles shared library builds
 include(GenerateExportHeader)
@@ -118,6 +113,9 @@ set_target_properties(box2d PROPERTIES
 )
 
 if (MSVC)
+	# Visual Studio won't load the natvis unless it is in the project
+	target_sources(box2d PRIVATE box2d.natvis)
+
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# Atomics are still considered experimental in Visual Studio 17.8
 		target_compile_options(box2d PRIVATE /experimental:c11atomics /arch:AVX2)
