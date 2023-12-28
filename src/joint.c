@@ -10,9 +10,12 @@
 #include "solver_data.h"
 #include "world.h"
 
+// needed for dll export
+#include "box2d/box2d.h"
 #include "box2d/color.h"
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
+#include "box2d/joint_util.h"
 
 // Get joint from id with validation
 b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type)

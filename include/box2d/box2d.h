@@ -107,10 +107,10 @@ BOX2D_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 BOX2D_API void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio, float pushVelocity);
 
 /// Get the current profile
-BOX2D_API struct b2Profile b2World_GetProfile(b2WorldId worldId);
+BOX2D_API b2Profile b2World_GetProfile(b2WorldId worldId);
 
 /// Get counters and sizes
-BOX2D_API struct b2Statistics b2World_GetStatistics(b2WorldId worldId);
+BOX2D_API b2Counters b2World_GetCounters(b2WorldId worldId);
 
 /** @} */
 

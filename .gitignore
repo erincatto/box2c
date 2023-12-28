@@ -6,3 +6,4 @@ settings.ini
 .cap
 .DS_Store
 CMakeUserPresets.json
+.cache/

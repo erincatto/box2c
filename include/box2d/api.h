@@ -3,25 +3,14 @@
 
 #pragma once
 
+#include "box2d_export.h"
+
 #include <stdint.h>
 
 #ifdef __cplusplus
-#define BOX2D_CPP extern "C"
+#define BOX2D_API extern "C" BOX2D_EXPORT
 #else
-#define BOX2D_CPP
-#endif
-
-#if defined(_WIN32) && defined(BOX2D_BUILD_DLL)
-// Building Box2D as a DLL
-#define BOX2D_API BOX2D_CPP __declspec(dllexport)
-#elif defined(_WIN32) && defined(BOX2D_DLL)
-// Using Box2D as a DLL
-#define BOX2D_API BOX2D_CPP __declspec(dllimport)
-#elif defined(__GNUC__) && defined(BOX2D_BUILD_DLL)
-// Building Box2D as a shared library
-#define BOX2D_API BOX2D_CPP __attribute__((visibility("default")))
-#else
-#define BOX2D_API BOX2D_CPP
+#define BOX2D_API BOX2D_EXPORT
 #endif
 
 /// Prototype for user allocation function.

@@ -23,6 +23,7 @@
 #include "shape.h"
 #include "solver_data.h"
 
+// needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"
@@ -35,7 +36,6 @@
 #include <string.h>
 
 b2World b2_worlds[b2_maxWorlds];
-bool b2_parallel = true;
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -327,17 +327,9 @@ static void b2Collide(b2World* world)
 
 	// Tasks that can be done in parallel with the narrow-phase
 	// - rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good
-	if (b2_parallel)
-	{
-		world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
-		world->taskCount += 1;
-		world->activeTaskCount += world->userTreeTask == NULL ? 0 : 1;
-	}
-	else
-	{
-		b2UpdateTreesTask(0, 1, 0, world);
-		world->userTreeTask = NULL;
-	}
+	world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
+	world->taskCount += 1;
+	world->activeTaskCount += world->userTreeTask == NULL ? 0 : 1;
 
 	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
 
@@ -352,17 +344,13 @@ static void b2Collide(b2World* world)
 		b2SetBitCountAndClear(&world->taskContextArray[i].contactStateBitSet, awakeContactCount);
 	}
 
-	if (b2_parallel)
+	// Task should take at least 40us on a 4GHz CPU (10K cycles)
+	int32_t minRange = 64;
+	void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
+	world->taskCount += 1;
+	if (userCollideTask != NULL)
 	{
-		// Task should take at least 40us on a 4GHz CPU (10K cycles)
-		int32_t minRange = 64;
-		void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
-		world->taskCount += 1;
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
-	}
-	else
-	{
-		b2CollideTask(0, awakeContactCount, 0, world);
 	}
 
 	// Serially update contact state
@@ -1109,10 +1097,10 @@ b2Profile b2World_GetProfile(b2WorldId worldId)
 	return world->profile;
 }
 
-b2Statistics b2World_GetStatistics(b2WorldId worldId)
+b2Counters b2World_GetCounters(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
-	b2Statistics s = {0};
+	b2Counters s = {0};
 	s.islandCount = world->islandPool.count;
 	s.bodyCount = world->bodyPool.count;
 	s.contactCount = world->contactPool.count;

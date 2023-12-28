@@ -7,6 +7,8 @@
 #include "solver_data.h"
 #include "world.h"
 
+// needed for dll export
+#include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
 
 // Point-to-point constraint
