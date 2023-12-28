@@ -15,6 +15,12 @@ set(BOX2D_TESTS
 
 add_executable(test ${BOX2D_TESTS})
 
+set_target_properties(test PROPERTIES
+	C_STANDARD 17
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS NO
+)
+
 # Special access to Box2D internals for testing
 target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
