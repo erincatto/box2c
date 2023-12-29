@@ -19,21 +19,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// clang-format off
 #ifdef __cplusplus
-#define B2_LITERAL(T) T
-#define B2_ZERO_INIT                                                                                                             \
-	{                                                                                                                            \
-	}
+	#define B2_LITERAL(T) T
+	#define B2_ZERO_INIT {}
 #else
-/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
-#define B2_LITERAL(T) (T)
+	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
+	#define B2_LITERAL(T) (T)
 
-/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
-#define B2_ZERO_INIT                                                                                                             \
-	{                                                                                                                            \
-		0                                                                                                                        \
-	}
+	/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
+	#define B2_ZERO_INIT {0}
 #endif
+// clang-format on
 
 /// Returns the number of elements of an array
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))

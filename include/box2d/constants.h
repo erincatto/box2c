@@ -12,14 +12,14 @@
 ///	Although most of these are not user configurable, it can be interesting for a user to see
 ///	these to understand the tuning values Box2D uses.
 
-// todo move constraint hertz/damping here
-
-#include "user_constants.h"
+#ifdef BOX2D_USER_CONSTANTS
+	#include "user_constants.h"
+#endif
 
 /// box2d bases all length units on meters, but you may need different units for your game.
 /// You can override this value to use different units.
 #ifndef b2_lengthUnitsPerMeter
-#define b2_lengthUnitsPerMeter 1.0f
+	#define b2_lengthUnitsPerMeter 1.0f
 #endif
 
 /// https://en.wikipedia.org/wiki/Pi
@@ -44,7 +44,7 @@
 /// The maximum number of vertices on a convex polygon. Changing this affects performance even if you
 ///	don't use more vertices.
 #ifndef b2_maxPolygonVertices
-#define b2_maxPolygonVertices 8
+	#define b2_maxPolygonVertices 8
 #endif
 
 /// Maximum number of simultaneous worlds that can be allocated

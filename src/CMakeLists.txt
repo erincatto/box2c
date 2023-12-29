@@ -1,5 +1,3 @@
-configure_file(user_constants.h.in user_constants.h)
-
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	aabb.h
@@ -86,6 +84,12 @@ set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
+
+if (BOX2D_USER_CONSTANTS)
+	# this file allows users to override constants
+	configure_file(user_constants.h.in user_constants.h)
+	target_compile_definitions(box2d PUBLIC BOX2D_USER_CONSTANTS)
+endif()
 
 # Generate box2d_export.h to handles shared library builds
 # turned this off to make Box2D easier to use without cmake
