@@ -18,11 +18,11 @@ typedef struct b2Timer
 #endif
 } b2Timer;
 
-BOX2D_API b2Timer b2CreateTimer(void);
-BOX2D_API int64_t b2GetTicks(b2Timer* timer);
-BOX2D_API float b2GetMilliseconds(const b2Timer* timer);
-BOX2D_API float b2GetMillisecondsAndReset(b2Timer* timer);
-BOX2D_API void b2SleepMilliseconds(float milliseconds);
+B2_API b2Timer b2CreateTimer(void);
+B2_API int64_t b2GetTicks(b2Timer* timer);
+B2_API float b2GetMilliseconds(const b2Timer* timer);
+B2_API float b2GetMillisecondsAndReset(b2Timer* timer);
+B2_API void b2SleepMilliseconds(float milliseconds);
 
 /// Tracy profiler instrumentation
 ///	https://github.com/wolfpld/tracy

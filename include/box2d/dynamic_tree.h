@@ -64,25 +64,25 @@ typedef struct b2DynamicTree
 } b2DynamicTree;
 
 /// Constructing the tree initializes the node pool.
-BOX2D_API b2DynamicTree b2DynamicTree_Create(void);
+B2_API b2DynamicTree b2DynamicTree_Create(void);
 
 /// Destroy the tree, freeing the node pool.
-BOX2D_API void b2DynamicTree_Destroy(b2DynamicTree* tree);
+B2_API void b2DynamicTree_Destroy(b2DynamicTree* tree);
 
 /// Create a proxy. Provide a tight fitting AABB and a userData value.
-BOX2D_API int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData);
+B2_API int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint32_t categoryBits, int32_t userData);
 
 /// Destroy a proxy. This asserts if the id is invalid.
-BOX2D_API void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
+B2_API void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
 
 // Clone one tree to another, reusing storage in the outTree if possible
-BOX2D_API void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
+B2_API void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
 
 /// Move a proxy to a new AABB by removing and reinserting into the tree.
-BOX2D_API void b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
+B2_API void b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 /// Enlarge a proxy and enlarge ancestors as necessary.
-BOX2D_API void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
+B2_API void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
 
 /// This function receives proxies found in the AABB query.
 /// @return true if the query should continue
@@ -90,12 +90,12 @@ typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, int32_t userData, void* con
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
-BOX2D_API void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
+B2_API void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
 										   b2TreeQueryCallbackFcn* callback, void* context);
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
-BOX2D_API void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context);
+B2_API void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context);
 
 /// This function receives clipped raycast input for a proxy. The function
 /// returns the new ray fraction.
@@ -111,7 +111,7 @@ typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t prox
 /// number of proxies in the tree.
 /// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
 /// @param callback a callback class that is called for each proxy that is hit by the ray.
-BOX2D_API void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
+B2_API void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
 									 b2TreeRayCastCallbackFcn* callback, void* context);
 
 /// This function receives clipped raycast input for a proxy. The function
@@ -128,35 +128,35 @@ typedef float b2TreeShapeCastCallbackFcn(const b2ShapeCastInput* input, int32_t 
 /// number of proxies in the tree.
 /// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
 /// @param callback a callback class that is called for each proxy that is hit by the ray.
-BOX2D_API void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* input, uint32_t maskBits,
+B2_API void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* input, uint32_t maskBits,
 									   b2TreeShapeCastCallbackFcn* callback, void* context);
 
 /// Validate this tree. For testing.
-BOX2D_API void b2DynamicTree_Validate(const b2DynamicTree* tree);
+B2_API void b2DynamicTree_Validate(const b2DynamicTree* tree);
 
 /// Compute the height of the binary tree in O(N) time. Should not be
 /// called often.
-BOX2D_API int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree);
+B2_API int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree);
 
 /// Get the maximum balance of the tree. The balance is the difference in height of the two children of a node.
-BOX2D_API int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree);
+B2_API int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree);
 
 /// Get the ratio of the sum of the node areas to the root area.
-BOX2D_API float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree);
+B2_API float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree);
 
 /// Build an optimal tree. Very expensive. For testing.
-BOX2D_API void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
+B2_API void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree);
 
 /// Get the number of proxies created
-BOX2D_API int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
+B2_API int32_t b2DynamicTree_GetProxyCount(const b2DynamicTree* tree);
 
 /// Rebuild the tree while retaining subtrees that haven't changed. Returns the number of boxes sorted.
-BOX2D_API int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
+B2_API int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
 
 /// Shift the world origin. Useful for large worlds.
 /// The shift formula is: position -= newOrigin
 /// @param newOrigin the new origin with respect to the old origin
-BOX2D_API void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
+B2_API void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
 /// Get proxy user data
 /// @return the proxy user data or 0 if the id is invalid

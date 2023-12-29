@@ -565,7 +565,7 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	snprintf(buffer, 128, "Box2D Version %d.%d.%d Smooth", b2_version.major, b2_version.minor, b2_version.revision);
+	snprintf(buffer, 128, "Box2D Version %d.%d.%d (alpha)", b2_version.major, b2_version.minor, b2_version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{
