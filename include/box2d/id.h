@@ -50,8 +50,12 @@ typedef struct b2ChainId
 	uint16_t revision;
 } b2ChainId;
 
+/// Macros is needed for constant definitions
+#define B2_NULL_BODY_ID {-1, -1, 0}
+
+/// Use these to make your identifiers null
 static const b2WorldId b2_nullWorldId = {-1, 0};
-static const b2BodyId b2_nullBodyId = {-1, -1, 0};
+static const b2BodyId b2_nullBodyId = B2_NULL_BODY_ID;
 static const b2ShapeId b2_nullShapeId = {-1, -1, 0};
 static const b2JointId b2_nullJointId = {-1, -1, 0};
 static const b2ChainId b2_nullChainId = {-1, -1, 0};

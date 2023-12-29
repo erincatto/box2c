@@ -66,11 +66,58 @@ b2MassData b2ComputeShapeMass(const b2Shape* shape)
 			return b2ComputePolygonMass(&shape->polygon, shape->density);
 		default:
 		{
-			B2_ASSERT(false);
-			b2MassData data = {0};
-			return data;
+			return (b2MassData){0};
 		}
 	}
+}
+
+b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
+{
+	b2ShapeExtent extent = {0};
+
+	switch (shape->type)
+	{
+		case b2_capsuleShape:
+		{
+			float radius = shape->capsule.radius;
+			extent.minExtent = radius;
+			extent.maxExtent = B2_MAX(b2Length(shape->capsule.point1), b2Length(shape->capsule.point2)) + radius;
+		}
+		break;
+
+		case b2_circleShape:
+		{
+			float radius = shape->circle.radius;
+			extent.minExtent = radius;
+			extent.maxExtent = b2Length(shape->circle.point) + radius;
+		}
+		break;
+
+		case b2_polygonShape:
+		{
+			const b2Polygon* poly = &shape->polygon;
+			float minExtent = b2_huge;
+			float maxExtent = 0.0f;
+			int32_t count = poly->count;
+			for (int32_t i = 0; i < count; ++i)
+			{
+				float planeOffset = b2Dot(poly->normals[i], b2Sub(poly->vertices[i], poly->centroid));
+				minExtent = B2_MIN(minExtent, planeOffset);
+
+				float distanceSqr = b2LengthSquared(poly->vertices[i]);
+				maxExtent = B2_MAX(maxExtent, distanceSqr);
+			}
+
+			extent.minExtent = minExtent + poly->radius;
+			extent.maxExtent = maxExtent + poly->radius;
+		}
+		break;
+
+		default:
+			break;
+	}
+
+	return extent;
 }
 
 b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)

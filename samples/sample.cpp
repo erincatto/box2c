@@ -149,7 +149,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			
 			m_groundBodyId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
-			b2MouseJointDef jd = b2DefaultMouseJointDef();
+			b2MouseJointDef jd = b2_defaultMouseJointDef;
 			jd.bodyIdA = m_groundBodyId;
 			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;

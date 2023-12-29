@@ -189,9 +189,6 @@ b2MassData b2ComputeCircleMass(const b2Circle* shape, float density)
 	// inertia about the local origin
 	massData.I = massData.mass * (0.5f * rr + b2Dot(shape->point, shape->point));
 
-	massData.minExtent = shape->radius;
-	massData.maxExtent = b2Length(shape->point) + shape->radius;
-
 	return massData;
 }
 
@@ -230,9 +227,6 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 	float circleInertia = circleMass * (0.5f * rr + h * h + 2.0f * h * lc);
 	float boxInertia = boxMass * (4.0f * rr + ll) / 12.0f;
 	massData.I = circleInertia + boxInertia;
-
-	massData.minExtent = radius;
-	massData.maxExtent = B2_MAX(b2Length(shape->point1), b2Length(shape->point2)) + shape->radius;
 
 	return massData;
 }
@@ -367,20 +361,6 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 
 	// Shift to center of mass then to original body origin.
 	massData.I += massData.mass * (b2Dot(massData.center, massData.center) - b2Dot(center, center));
-
-	float minExtent = b2_huge;
-	float maxExtent = 0.0f;
-	for (int32_t i = 0; i < count; ++i)
-	{
-		float planeOffset = b2Dot(shape->normals[i], b2Sub(shape->vertices[i], massData.center));
-		minExtent = B2_MIN(minExtent, planeOffset);
-
-		float distanceSqr = b2LengthSquared(shape->vertices[i]);
-		maxExtent = B2_MAX(maxExtent, distanceSqr);
-	}
-
-	massData.minExtent = minExtent + shape->radius;
-	massData.maxExtent = maxExtent + shape->radius;
 
 	return massData;
 }

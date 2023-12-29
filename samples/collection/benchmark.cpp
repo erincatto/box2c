@@ -274,7 +274,7 @@ class BenchmarkTumbler : public Sample
 			// m_motorSpeed = 9.0f;
 			m_motorSpeed = 25.0f;
 
-			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jd = b2_defaultRevoluteJointDef;
 			jd.bodyIdA = groundId;
 			jd.bodyIdB = bodyId;
 			jd.localAnchorA = {0.0f, 10.0f};
@@ -399,7 +399,7 @@ class BenchmarkManyTumblers : public Sample
 		polygon = b2MakeOffsetBox(2.0f, 0.25f, {0.0f, -2.0f}, 0.0);
 		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 
-		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jd = b2_defaultRevoluteJointDef;
 		jd.bodyIdA = m_groundId;
 		jd.bodyIdB = bodyId;
 		jd.localAnchorA = position;
@@ -902,7 +902,7 @@ class BenchmarkJointGrid : public Sample
 		b2Circle circle = {0};
 		circle.radius = rad;
 
-		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jd = b2_defaultRevoluteJointDef;
 
 		for (int32_t k = 0; k < numk; ++k)
 		{

@@ -48,7 +48,7 @@
 #endif
 
 /// Maximum number of simultaneous worlds that can be allocated
-#define b2_maxWorlds 32
+#define b2_maxWorlds 128
 
 /// The maximum linear translation of a body per step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this. Meters.

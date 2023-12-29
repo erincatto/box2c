@@ -481,13 +481,13 @@ static void b2ComputeMass(b2World* world, b2Body* body)
 		}
 
 		b2MassData massData = b2ComputeShapeMass(s);
-
 		body->mass += massData.mass;
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
 		body->I += massData.I;
 
-		body->minExtent = B2_MIN(body->minExtent, massData.minExtent);
-		body->maxExtent = B2_MAX(body->maxExtent, massData.maxExtent);
+		b2ShapeExtent extent = b2ComputeShapeExtent(s);
+		body->minExtent = B2_MIN(body->minExtent, extent.minExtent);
+		body->maxExtent = B2_MAX(body->maxExtent, extent.maxExtent);
 	}
 
 	// Compute center of mass.

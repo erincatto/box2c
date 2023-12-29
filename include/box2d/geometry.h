@@ -22,14 +22,6 @@ typedef struct b2MassData
 
 	/// The rotational inertia of the shape about the local origin.
 	float I;
-
-	/// TODO_ERIN remove geometry info from this
-
-	/// Distance from shape centroid to closest point on perimeter.
-	float minExtent;
-
-	/// Distance from shape origin to furthest point on perimeter.
-	float maxExtent;
 } b2MassData;
 
 /// A solid circle
