@@ -324,6 +324,10 @@ BOX2D_API const b2Capsule* b2Shape_GetCapsule(b2ShapeId shapeId);
 /// Access the convex polygon geometry of a shape.
 BOX2D_API const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId);
 
+/// If the type is b2_smoothSegmentShape then you can get the parent chain id.
+/// If the shape is not a smooth segment then this will return b2_nullChainId.
+BOX2D_API b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId);
+
 /// Set the friction of a chain. Normally this is set in b2ChainDef.
 BOX2D_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
 

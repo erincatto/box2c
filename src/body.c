@@ -730,6 +730,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	b2ChainShape* chainShape = (b2ChainShape*)b2AllocObject(&world->chainPool);
 	world->chains = (b2ChainShape*)world->chainPool.memory;
 
+	int32_t chainIndex = chainShape->object.index;
 	chainShape->bodyIndex = bodyId.index;
 	chainShape->nextIndex = body->chainList;
 	body->chainList = chainShape->object.index;
@@ -759,6 +760,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[i];
 			smoothSegment.segment.point2 = points[i + 1];
 			smoothSegment.ghost2 = points[i + 2];
+			smoothSegment.chainIndex = chainIndex;
 			prevIndex = i;
 
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
@@ -770,6 +772,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[n - 2];
 			smoothSegment.segment.point2 = points[n - 1];
 			smoothSegment.ghost2 = points[0];
+			smoothSegment.chainIndex = chainIndex;
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
 			chainShape->shapeIndices[n - 2] = shapeId.index;
 		}
@@ -779,6 +782,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[n - 1];
 			smoothSegment.segment.point2 = points[0];
 			smoothSegment.ghost2 = points[1];
+			smoothSegment.chainIndex = chainIndex;
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
 			chainShape->shapeIndices[n - 1] = shapeId.index;
 		}
@@ -796,6 +800,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[i + 1];
 			smoothSegment.segment.point2 = points[i + 2];
 			smoothSegment.ghost2 = points[i + 3];
+			smoothSegment.chainIndex = chainIndex;
 
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
 			chainShape->shapeIndices[i] = shapeId.index;

@@ -312,6 +312,26 @@ const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId)
 	return &shape->polygon;
 }
 
+b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	if (shape->type == b2_smoothSegmentShape)
+	{
+		int32_t chainIndex = shape->smoothSegment.chainIndex;
+		if (chainIndex != B2_NULL_INDEX)
+		{
+			B2_ASSERT(0 <= chainIndex && chainIndex < world->chainPool.capacity);
+			b2ChainShape* chain = world->chains + chainIndex;
+			B2_ASSERT(b2ObjectValid(&chain->object));
+			b2ChainId chainId = {chainIndex, shapeId.world, chain->object.revision};
+			return chainId;
+		}
+	}
+
+	return b2_nullChainId;
+}
+
 void b2Chain_SetFriction(b2ChainId chainId, float friction)
 {
 	b2World* world = b2GetWorldFromIndex(chainId.world);
