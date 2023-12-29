@@ -20,7 +20,7 @@ typedef struct b2Manifold b2Manifold;
 /// - this is not called for sensors
 /// - the supplied manifold has impulse values from the previous step
 ///	Return false if you want to disable the contact this step
-typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color, void* context);
+typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
 
 /// Register the pre-solve callback. This is optional.
 BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
