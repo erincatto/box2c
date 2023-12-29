@@ -312,6 +312,49 @@ void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution)
 	shape->restitution = restitution;
 }
 
+b2Filter b2Shape_GetFilter(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->filter;
+}
+
+void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->filter = filter;
+
+	b2Body* body = world->bodies + shape->bodyIndex;
+	B2_ASSERT(b2ObjectValid(&body->object));
+
+	// Destroy any contacts associated with the shape
+	int32_t contactKey = body->contactList;
+	while (contactKey != B2_NULL_INDEX)
+	{
+		int32_t contactIndex = contactKey >> 1;
+		int32_t edgeIndex = contactKey & 1;
+
+		b2Contact* contact = world->contacts + contactIndex;
+		contactKey = contact->edges[edgeIndex].nextKey;
+
+		if (contact->shapeIndexA == shapeId.index || contact->shapeIndexB == shapeId.index)
+		{
+			b2DestroyContact(world, contact);
+		}
+	}
+
+	if (body->isEnabled)
+	{
+		b2DestroyShapeProxy(shape, &world->broadPhase);
+		b2CreateShapeProxy(shape, &world->broadPhase, body->type, body->transform);
+	}
+	else
+	{
+		B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
+	}
+}
+
 b2ShapeType b2Shape_GetType(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);

@@ -407,3 +407,215 @@ public:
 };
 
 static int sampleCompoundShape = RegisterSample("Shapes", "Compound Shapes", CompoundShapes::Create);
+
+class ShapeFilter : public Sample
+{
+public:
+
+	enum CollisionBits
+	{
+		GROUND = 0x00000001,
+		TEAM1 = 0x00000002,
+		TEAM2 = 0x00000004,
+		TEAM3 = 0x00000008,
+
+		ALL_BITS = (~0u)
+	};
+
+	ShapeFilter(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.5f;
+			g_camera.m_center = {0.0f, 5.0f};
+		}
+
+		b2BodyId groundId;
+		{
+			groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.filter.categoryBits = GROUND;
+			shapeDef.filter.maskBits = ALL_BITS;
+
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		// Define motorized body
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			
+			bodyDef.position = {0.0f, 4.0f};
+			m_player1Id = b2CreateBody(m_worldId, &bodyDef);
+
+			bodyDef.position = {0.0f, 8.0f};
+			m_player2Id = b2CreateBody(m_worldId, &bodyDef);
+
+			bodyDef.position = {0.0f, 12.0f};
+			m_player3Id = b2CreateBody(m_worldId, &bodyDef);
+			
+			b2Polygon box = b2MakeBox(2.0f, 1.0f);
+
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+
+			shapeDef.filter.categoryBits = TEAM1;
+			shapeDef.filter.maskBits = GROUND | TEAM2 | TEAM3;
+			m_shape1Id = b2CreatePolygonShape(m_player1Id, &shapeDef, &box);
+
+			shapeDef.filter.categoryBits = TEAM2;
+			shapeDef.filter.maskBits = GROUND | TEAM1 | TEAM3;
+			m_shape2Id = b2CreatePolygonShape(m_player2Id, &shapeDef, &box);
+
+			shapeDef.filter.categoryBits = TEAM3;
+			shapeDef.filter.maskBits = GROUND | TEAM1 | TEAM2;
+			m_shape3Id = b2CreatePolygonShape(m_player3Id, &shapeDef, &box);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(250.0f, 240.0f));
+		ImGui::Begin("Shape Filter", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::Text("Player 1 Collides With");
+		{
+			b2Filter filter1 = b2Shape_GetFilter(m_shape1Id);
+			bool team2 = (filter1.maskBits & TEAM2) == TEAM2;
+			if (ImGui::Checkbox("Team 2##1", &team2))
+			{
+				if (team2)
+				{
+					filter1.maskBits |= TEAM2;
+				}
+				else
+				{
+					filter1.maskBits &= ~TEAM2;
+				}
+
+				b2Shape_SetFilter(m_shape1Id, filter1);
+			}
+
+			bool team3 = (filter1.maskBits & TEAM3) == TEAM3;
+			if (ImGui::Checkbox("Team 3##1", &team3))
+			{
+				if (team3)
+				{
+					filter1.maskBits |= TEAM3;
+				}
+				else
+				{
+					filter1.maskBits &= ~TEAM3;
+				}
+
+				b2Shape_SetFilter(m_shape1Id, filter1);
+			}
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("Player 2 Collides With");
+		{
+			b2Filter filter2 = b2Shape_GetFilter(m_shape2Id);
+			bool team1 = (filter2.maskBits & TEAM1) == TEAM1;
+			if (ImGui::Checkbox("Team 1##2", &team1))
+			{
+				if (team1)
+				{
+					filter2.maskBits |= TEAM1;
+				}
+				else
+				{
+					filter2.maskBits &= ~TEAM1;
+				}
+
+				b2Shape_SetFilter(m_shape2Id, filter2);
+			}
+
+			bool team3 = (filter2.maskBits & TEAM3) == TEAM3;
+			if (ImGui::Checkbox("Team 3##2", &team3))
+			{
+				if (team3)
+				{
+					filter2.maskBits |= TEAM3;
+				}
+				else
+				{
+					filter2.maskBits &= ~TEAM3;
+				}
+
+				b2Shape_SetFilter(m_shape2Id, filter2);
+			}
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("Player 3 Collides With");
+		{
+			b2Filter filter3 = b2Shape_GetFilter(m_shape3Id);
+			bool team1 = (filter3.maskBits & TEAM1) == TEAM1;
+			if (ImGui::Checkbox("Team 1##3", &team1))
+			{
+				if (team1)
+				{
+					filter3.maskBits |= TEAM1;
+				}
+				else
+				{
+					filter3.maskBits &= ~TEAM1;
+				}
+
+				b2Shape_SetFilter(m_shape3Id, filter3);
+			}
+
+			bool team2 = (filter3.maskBits & TEAM2) == TEAM2;
+			if (ImGui::Checkbox("Team 2##3", &team2))
+			{
+				if (team2)
+				{
+					filter3.maskBits |= TEAM2;
+				}
+				else
+				{
+					filter3.maskBits &= ~TEAM2;
+				}
+
+				b2Shape_SetFilter(m_shape3Id, filter3);
+			}
+		}
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		b2Vec2 p1 = b2Body_GetPosition(m_player1Id);
+		g_draw.DrawString({p1.x - 0.5f, p1.y}, "player 1");
+
+		b2Vec2 p2 = b2Body_GetPosition(m_player2Id);
+		g_draw.DrawString({p2.x - 0.5f, p2.y}, "player 2");
+
+		b2Vec2 p3 = b2Body_GetPosition(m_player3Id);
+		g_draw.DrawString({p3.x - 0.5f, p3.y}, "player 3");
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new ShapeFilter(settings);
+	}
+
+	b2BodyId m_player1Id;
+	b2BodyId m_player2Id;
+	b2BodyId m_player3Id;
+
+	b2ShapeId m_shape1Id;
+	b2ShapeId m_shape2Id;
+	b2ShapeId m_shape3Id;
+};
+
+static int sampleShapeFilter = RegisterSample("Shapes", "Filter", ShapeFilter::Create);

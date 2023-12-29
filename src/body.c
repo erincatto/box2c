@@ -1194,6 +1194,27 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	body->invI = body->I > 0.0f ? 1.0f / body->I : 0.0f;
 }
 
+void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->linearDamping = linearDamping;
+}
+
+void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->angularDamping = angularDamping;
+}
+
+void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->gravityScale = gravityScale;
+}
+
 bool b2Body_IsAwake(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);

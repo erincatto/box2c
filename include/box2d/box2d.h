@@ -227,6 +227,15 @@ B2_API b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId);
 ///	body type changes.
 B2_API void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData);
 
+/// Adjust the linear damping. Normally this is set in b2BodyDef before creation.
+B2_API void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping);
+
+/// Adjust the angular damping. Normally this is set in b2BodyDef before creation.
+B2_API void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping);
+
+/// Adjust the gravity scale. Normally this is set in b2BodyDef before creation.
+B2_API void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale);
+
 /// Is this body awake?
 B2_API bool b2Body_IsAwake(b2BodyId bodyId);
 
@@ -305,6 +314,12 @@ B2_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
 
 /// Set the restitution (bounciness) on a shape. Normally this is specified in b2ShapeDef.
 B2_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
+
+/// Get the current filter
+B2_API b2Filter b2Shape_GetFilter(b2ShapeId shapeId);
+
+/// Set the current filter. This is almost as expensive as recreating the shape.
+B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 
 /// Get the type of a shape.
 B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
