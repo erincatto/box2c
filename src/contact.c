@@ -480,8 +480,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		if (touching && world->preSolveFcn && (contact->flags & b2_contactEnablePreSolveEvents) != 0)
 		{
 			// todo this call assumes thread safety
-			int32_t colorIndex = contact->colorIndex;
-			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, colorIndex, world->preSolveContext);
+			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
 			if (collide == false)
 			{
 				// disable contact

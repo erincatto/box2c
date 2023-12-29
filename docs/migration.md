@@ -14,6 +14,10 @@ However, the scope of what Box2D does has not changed much. It is still a 2D rig
 
 I'm going to describe migration by comparing code snippets between 2.4 and 3.0. These should give you and idea of the sort of transformations you need to make to your code to migrate to v3.0.
 
+I'm not going to cover all the details of v3.0 in this guide. That is the job of the manual, the doxygen reference, and the samples.
+
+The surface area of the Box2D is smaller in v3.0 because C++ is not good at hiding details. So hopefully you find the new API easier to work with.
+
 ### Creating a world
 Version 2.4:
 ```cpp
@@ -106,6 +110,8 @@ So basically v2.4 shapes are no longer shapes, they are _geometry_ with no inher
 
 Again notice the structure initialization with `b2_defaultShapeDef`. Unfortunately we cannot have meaningful definitions with zero initialization. You must initialize your structures.
 
+Another important change for shapes is that the default density in the shape definition is now 1 instead of 0. Static and kinematic bodies will ignore the density. You can now make an entire game without touching the density.
+
 Destroying shapes is straight forward.
 
 Version 2.4:
@@ -161,12 +167,109 @@ Since chains are their own concept now, they get their own identifier, `b2ChainI
 > DO NOT destroy or modify a `b2SmoothSegment` that belongs to a chain shape directly
 
 ### Creating a joint
+Joints are very similar in v3.0. The lack of C member functions changes initialization.
+
+Version 2.4:
+```cpp
+b2RevoluteJointDef jointDef;
+jointDef.Initialize(ground, body, b2Vec2(-10.0f, 20.5f));
+jointDef.motorSpeed = 1.0f;
+jointDef.maxMotorTorque = 100.0f;
+jointDef.enableMotor = true;
+jointDef.lowerAngle = -0.25f * b2_pi;
+jointDef.upperAngle = 0.5f * b2_pi;
+jointDef.enableLimit = true;:
+b2RevolutionJoint* joint = (b2RevoluteJoint*)world->CreateJoint(&jointDef);
+```
+Version 3.0:
+```c
+b2Vec2 pivot = {-10.0f, 20.5f};
+b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+jointDef.bodyIdA = groundId;
+jointDef.bodyIdB = bodyId;
+jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+jointDef.motorSpeed = 1.0f;
+jointDef.maxMotorTorque = 100.0f;
+jointDef.enableMotor = true;
+jointDef.lowerAngle = -0.25f * b2_pi;
+jointDef.upperAngle = 0.5f * b2_pi;
+jointDef.enableLimit = true;
+b2JointId jointId = b2CreateRevoluteJoint(worldId, &jointDef);
+```
+
+Some of the joints have more options now. Check the code comments and samples for details.
+
+The friction joint has been removed since it is a subset of the motor joint.
+
+The pulley and gear joints have been removed. I'm not quite happy with how they work and plan to implement improved versions in the future.
 
 ### Contact data
+In v2.4 `b2ContactListener` provided `BeginContact`, `EndContact`, `PreSolve`, and `PostSolve`. You could also iterate over the contacts associated with a body using `b2Body::GetContactList`. The latter was rarely used due to how continuous collision worked in v2.4 meant that you could miss some contacts using `GetContactList`.
+
+In v3.0 there is a strong emphasis on multithreading. Callbacks in multithreading are problematic for a few reasons:
+  * chance of race conditions in user code
+  * user code becomes non-deterministic
+  * uncertain performance impact
+
+Therefore all callbacks except `PreSolve` have been removed. Instead you can now access all events and contact data after the time step. Version 3.0 no longer uses collision sub-stepping for continuous collision. This means all contacts data are valid at the end of the time step. Just keep in mind that Box2D computes contact points at the beginning of the time step, so the contact points apply to the previous position of the body.
+
+Here is how you access contact data in v3.0:
+```c
+b2ContactEvents contactEvents = b2World_GetContactEvents(worldId);
+```
+The contact events structure has begin and end events:
+```c 
+typedef struct b2ContactEvents
+{
+	b2ContactBeginTouchEvent* beginEvents;
+	b2ContactEndTouchEvent* endEvents;
+	int beginCount;
+	int endCount;
+} b2ContactEvents;
+```
+You can loop through these events after the time step. These events are in deterministic order, even with multithreading. See the `sample_events.cpp` file for examples.
+
+You may not want Box2D to save all contact events, so you can disable them for a given shape using `enableContactEvents` on `b2ShapeDef`.
+
+If you want to access persistent contacts, you can get the data from bodies or shapes.
+```c
+b2ContactData contactData[10];
+int count = b2Body_GetContactData(bodyId, contactData, 10);
+```
+```c
+b2ContactData contactData[10];
+int count = b2Shape_GetContactData(shapeId, contactData, 10);
+```
+This includes contact data for contacts reported in begin events. This data is also in deterministic order.
+
+Presolve contact modification is available using a callback.
+```c
+typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
+void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
+```
+You can define a presolve callback and register that with the world. You can also provide a context variable that will be passed back to your callback. This is **not** enough to get a presolve callback. You also need to enable it on your shape using `enablePreSolveEvents` in `b2ShapeDef`. This is false by default.
+> Pre-solve callbacks are dangerous. You must avoid race conditions and you must understand that behavior may not be deterministic. This is especially true if you have multiple pre-solve callbacks that are sensitive to order.
 
 ### Sensors
+In v2.4 sensor events were mixed in with contact events. I have split them up to make user code simpler.
+```c
+b2SensorEvents sensorEvents = b2World_GetSensorEvents(b2WorldId worldId);
+```
+Note that contact data on bodies and shapes have no information about sensors. That data only has touching contacts.
+
+Sensor events are available to all shapes on dynamic bodies except chains. You can disable them using `enableSensorEvents` on `b2ShapeDef`.
 
 ### Queries
+Version 2.4 has `b2World::QueryAABB` and `b2World::RayCast`. This functionality is largely the same in v3.0, but more features have been added such as precise overlap tests and shape casts.
 
+Another new feature is `b2QueryFilter` which allows you to filter raycast results before they reach your callback.
+This query filter is tested against `b2Filter` on shapes that the query encounters.
 
 ### Library configuration
+Version 3.0 offers more library configuration. You can override the allocator and you can intercept assertions by registering global callbacks. These are for expert users and they must be thread safe.
+```c
+void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
+void b2SetAssertFcn(b2AssertFcn* assertFcn);
+```
+
