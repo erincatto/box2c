@@ -236,12 +236,12 @@ typedef struct b2RevoluteJointDef
 	/// A flag to enable the joint motor.
 	bool enableMotor;
 
-	/// The desired motor speed. Usually in radians per second.
-	float motorSpeed;
-
 	/// The maximum motor torque used to achieve the desired motor speed.
 	/// Usually in N-m.
 	float maxMotorTorque;
+
+	/// The desired motor speed. Usually in radians per second.
+	float motorSpeed;
 
 	/// Scale the debug draw
 	float drawSize;
@@ -257,12 +257,12 @@ static const b2RevoluteJointDef b2_defaultRevoluteJointDef = {
 	{0.0f, 0.0f},	 // localAnchorA
 	{0.0f, 0.0f},	 // localAnchorB
 	0.0f,			 // referenceAngle
+	false,			 // enableLimit
 	0.0f,			 // lowerAngle
 	0.0f,			 // upperAngle
+	false,			 // enableMotor
 	0.0f,			 // maxMotorTorque
 	0.0f,			 // motorSpeed
-	false,			 // enableLimit
-	false,			 // enableMotor
 	0.25f,			 // drawSize
 	false,			 // collideConnected
 };
