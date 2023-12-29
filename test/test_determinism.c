@@ -101,7 +101,7 @@ void TiltedStacks(int testIndex, int workerCount)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// Construct a world object, which will hold and simulate the rigid bodies.
-	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldDef worldDef = b2_defaultWorldDef;
 	worldDef.gravity = gravity;
 	worldDef.enqueueTask = EnqueueTask;
 	worldDef.finishTask = FinishTask;

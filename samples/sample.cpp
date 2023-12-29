@@ -56,7 +56,7 @@ Sample::Sample(const Settings& settings)
 	m_scheduler.Initialize(settings.workerCount);
 	m_taskCount = 0;
 
-	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldDef worldDef = b2_defaultWorldDef;
 	worldDef.workerCount = settings.workerCount;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
@@ -66,7 +66,7 @@ Sample::Sample(const Settings& settings)
 	// These are not ideal, but useful for testing Box2D
 	worldDef.bodyCapacity = 2;
 	worldDef.contactCapacity = 2;
-	worldDef.stackAllocatorCapacity = 0;
+	worldDef.arenaAllocatorCapacity = 0;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
