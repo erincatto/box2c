@@ -537,7 +537,7 @@ public:
 
 		// smooth-segment vs circle
 		{
-			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
+			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 
 			b2Transform xf1 = {offset, b2Rot_identity};
@@ -564,12 +564,12 @@ public:
 
 		// smooth-segment vs rounded polygon
 		{
-			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
-			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
-			//b2SmoothSegment segment1 = {{2.0f, 0.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
-			//b2SmoothSegment segment2 = {{3.0f, 0.0f}, {{2.0f, 0.0f}, {1.0f, 0.0f}}, {-1.0f, 0.0f}};
-			//b2SmoothSegment segment1 = {{0.5f, 1.0f}, {{0.0f, 2.0f}, {-0.5f, 1.0f}}, {-1.0f, 0.0f}};
-			//b2SmoothSegment segment2 = {{1.0f, 0.0f}, {{0.5f, 1.0f}, {0.0f, 2.0f}}, {-0.5f, 1.0f}};
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}, -1};
+			//b2SmoothSegment segment1 = {{2.0f, 0.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			//b2SmoothSegment segment2 = {{3.0f, 0.0f}, {{2.0f, 0.0f}, {1.0f, 0.0f}}, {-1.0f, 0.0f}, -1};
+			//b2SmoothSegment segment1 = {{0.5f, 1.0f}, {{0.0f, 2.0f}, {-0.5f, 1.0f}}, {-1.0f, 0.0f}, -1};
+			//b2SmoothSegment segment2 = {{1.0f, 0.0f}, {{0.5f, 1.0f}, {0.0f, 2.0f}}, {-0.5f, 1.0f}, -1};
 			float h = 0.5f - m_round;
 			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
 
@@ -629,8 +629,8 @@ public:
 
 		// smooth-segment vs capsule
 		{
-			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}};
-			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}};
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}, -1};
 			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
 
 			b2Transform xf1 = {offset, b2Rot_identity};
@@ -794,7 +794,7 @@ public:
 			b2Vec2 p2 = points[i2];
 			b2Vec2 g2 = points[i3];
 
-			m_segments[i] = {g1, {p1, p2}, g2};
+			m_segments[i] = {g1, {p1, p2}, g2, -1};
 		}
 	}
 

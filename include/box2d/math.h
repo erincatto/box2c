@@ -313,13 +313,13 @@ static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
 	return s;
 }
 
-BOX2D_API bool b2IsValid(float a);
-BOX2D_API bool b2IsValidVec2(b2Vec2 v);
+B2_API bool b2IsValid(float a);
+B2_API bool b2IsValidVec2(b2Vec2 v);
 
 /// Convert this vector into a unit vector
-BOX2D_API b2Vec2 b2Normalize(b2Vec2 v);
+B2_API b2Vec2 b2Normalize(b2Vec2 v);
 
 /// This asserts of the vector is too short
-BOX2D_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
+B2_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
 
-BOX2D_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
+B2_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);

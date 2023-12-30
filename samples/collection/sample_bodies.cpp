@@ -52,7 +52,7 @@ class BodyType : public Sample
 			shapeDef.density = 2.0f;
 			b2CreatePolygonShape(m_platformId, &shapeDef, &box);
 
-			b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef revoluteDef = b2_defaultRevoluteJointDef;
 			b2Vec2 pivot = {0.0f, 5.0f};
 			revoluteDef.bodyIdA = m_attachmentId;
 			revoluteDef.bodyIdB = m_platformId;
@@ -62,7 +62,7 @@ class BodyType : public Sample
 			revoluteDef.enableMotor = true;
 			b2CreateRevoluteJoint(m_worldId, &revoluteDef);
 
-			b2PrismaticJointDef prismaticDef = b2DefaultPrismaticJointDef();
+			b2PrismaticJointDef prismaticDef = b2_defaultPrismaticJointDef;
 			b2Vec2 anchor = {0.0f, 5.0f};
 			prismaticDef.bodyIdA = groundId;
 			prismaticDef.bodyIdB = m_platformId;
@@ -377,7 +377,7 @@ public:
 			// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
 			I += mass * offset * offset;
 
-			b2MassData massData = {mass, {0.0f, -offset}, I, 2.0f, 4.0f};
+			b2MassData massData = {mass, {0.0f, -offset}, I};
 			b2Body_SetMassData(m_weebleId, massData);
 		}
 	}

@@ -66,11 +66,58 @@ b2MassData b2ComputeShapeMass(const b2Shape* shape)
 			return b2ComputePolygonMass(&shape->polygon, shape->density);
 		default:
 		{
-			B2_ASSERT(false);
-			b2MassData data = {0};
-			return data;
+			return (b2MassData){0};
 		}
 	}
+}
+
+b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
+{
+	b2ShapeExtent extent = {0};
+
+	switch (shape->type)
+	{
+		case b2_capsuleShape:
+		{
+			float radius = shape->capsule.radius;
+			extent.minExtent = radius;
+			extent.maxExtent = B2_MAX(b2Length(shape->capsule.point1), b2Length(shape->capsule.point2)) + radius;
+		}
+		break;
+
+		case b2_circleShape:
+		{
+			float radius = shape->circle.radius;
+			extent.minExtent = radius;
+			extent.maxExtent = b2Length(shape->circle.point) + radius;
+		}
+		break;
+
+		case b2_polygonShape:
+		{
+			const b2Polygon* poly = &shape->polygon;
+			float minExtent = b2_huge;
+			float maxExtent = 0.0f;
+			int32_t count = poly->count;
+			for (int32_t i = 0; i < count; ++i)
+			{
+				float planeOffset = b2Dot(poly->normals[i], b2Sub(poly->vertices[i], poly->centroid));
+				minExtent = B2_MIN(minExtent, planeOffset);
+
+				float distanceSqr = b2LengthSquared(poly->vertices[i]);
+				maxExtent = B2_MAX(maxExtent, distanceSqr);
+			}
+
+			extent.minExtent = minExtent + poly->radius;
+			extent.maxExtent = maxExtent + poly->radius;
+		}
+		break;
+
+		default:
+			break;
+	}
+
+	return extent;
 }
 
 b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)
@@ -265,6 +312,49 @@ void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution)
 	shape->restitution = restitution;
 }
 
+b2Filter b2Shape_GetFilter(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->filter;
+}
+
+void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->filter = filter;
+
+	b2Body* body = world->bodies + shape->bodyIndex;
+	B2_ASSERT(b2ObjectValid(&body->object));
+
+	// Destroy any contacts associated with the shape
+	int32_t contactKey = body->contactList;
+	while (contactKey != B2_NULL_INDEX)
+	{
+		int32_t contactIndex = contactKey >> 1;
+		int32_t edgeIndex = contactKey & 1;
+
+		b2Contact* contact = world->contacts + contactIndex;
+		contactKey = contact->edges[edgeIndex].nextKey;
+
+		if (contact->shapeIndexA == shapeId.index || contact->shapeIndexB == shapeId.index)
+		{
+			b2DestroyContact(world, contact);
+		}
+	}
+
+	if (body->isEnabled)
+	{
+		b2DestroyShapeProxy(shape, &world->broadPhase);
+		b2CreateShapeProxy(shape, &world->broadPhase, body->type, body->transform);
+	}
+	else
+	{
+		B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
+	}
+}
+
 b2ShapeType b2Shape_GetType(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
@@ -310,6 +400,26 @@ const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId)
 	b2Shape* shape = b2GetShape(world, shapeId);
 	B2_ASSERT(shape->type == b2_polygonShape);
 	return &shape->polygon;
+}
+
+b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	if (shape->type == b2_smoothSegmentShape)
+	{
+		int32_t chainIndex = shape->smoothSegment.chainIndex;
+		if (chainIndex != B2_NULL_INDEX)
+		{
+			B2_ASSERT(0 <= chainIndex && chainIndex < world->chainPool.capacity);
+			b2ChainShape* chain = world->chains + chainIndex;
+			B2_ASSERT(b2ObjectValid(&chain->object));
+			b2ChainId chainId = {chainIndex, shapeId.world, chain->object.revision};
+			return chainId;
+		}
+	}
+
+	return b2_nullChainId;
 }
 
 void b2Chain_SetFriction(b2ChainId chainId, float friction)

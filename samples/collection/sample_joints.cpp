@@ -78,7 +78,7 @@ public:
 
 		float yOffset = 20.0f;
 
-		b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+		b2DistanceJointDef jointDef = b2_defaultDistanceJointDef;
 
 		b2BodyId prevBodyId = m_groundId;
 		for (int32_t i = 0; i < m_count; ++i)
@@ -237,7 +237,7 @@ public:
 			m_maxTorque = 500.0f;
 			m_correctionFactor = 0.3f;
 
-			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
+			b2MotorJointDef jointDef = b2_defaultMotorJointDef;
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.maxForce = m_maxForce;
@@ -358,7 +358,7 @@ public:
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
 			b2Vec2 pivot = {-10.0f, 20.5f};
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -400,7 +400,7 @@ public:
 			b2CreatePolygonShape(body, &shapeDef, &box);
 
 			b2Vec2 pivot = {19.0f, 10.0f};
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = body;
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -505,7 +505,7 @@ public:
 
 			b2Vec2 pivot = {0.0f, 9.0f};
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
-			b2PrismaticJointDef jointDef = b2DefaultPrismaticJointDef();
+			b2PrismaticJointDef jointDef = b2_defaultPrismaticJointDef;
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, axis);
@@ -609,7 +609,7 @@ public:
 
 			b2Vec2 pivot = {0.0f, 10.0f};
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
-			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
+			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, axis);
@@ -721,7 +721,7 @@ public:
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 			int32_t jointIndex = 0;
 			m_frictionTorque = 200.0f;
 
@@ -857,7 +857,7 @@ public:
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 
 			int32_t jointIndex = 0;
 
@@ -964,7 +964,7 @@ public:
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 
-			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
+			b2WeldJointDef jointDef = b2_defaultWeldJointDef;
 
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
@@ -1072,7 +1072,7 @@ public:
 			float length = 2.0f;
 			b2Vec2 pivot1 = {position.x, position.y + 1.0f + length};
 			b2Vec2 pivot2 = {position.x, position.y + 1.0f};
-			b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+			b2DistanceJointDef jointDef = b2_defaultDistanceJointDef;
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot1);
@@ -1094,7 +1094,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
+			b2MotorJointDef jointDef = b2_defaultMotorJointDef;
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.linearOffset = position;
@@ -1115,7 +1115,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2PrismaticJointDef jointDef = b2DefaultPrismaticJointDef();
+			b2PrismaticJointDef jointDef = b2_defaultPrismaticJointDef;
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1136,7 +1136,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1156,7 +1156,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
+			b2WeldJointDef jointDef = b2_defaultWeldJointDef;
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1180,7 +1180,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
+			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1413,7 +1413,7 @@ public:
 			b2CreatePolygonShape(bodyId, &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = bodyDef.position;
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1429,7 +1429,7 @@ public:
 			int N = 20;
 			b2Capsule capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 0.125f};
 
-			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 
 			b2BodyId prevBodyId = groundId;
 			for (int i = 0; i < N; ++i)
@@ -1534,7 +1534,7 @@ public:
 
 			b2Vec2 pivot = b2Body_GetPosition(m_wheelId1);
 
-			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
+			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
 
 			jointDef.bodyIdA = m_carId;
 			jointDef.bodyIdB = m_wheelId1;

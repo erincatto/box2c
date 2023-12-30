@@ -19,21 +19,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// clang-format off
 #ifdef __cplusplus
-#define B2_LITERAL(T) T
-#define B2_ZERO_INIT                                                                                                             \
-	{                                                                                                                            \
-	}
+	#define B2_LITERAL(T) T
+	#define B2_ZERO_INIT {}
 #else
-/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
-#define B2_LITERAL(T) (T)
+	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
+	#define B2_LITERAL(T) (T)
 
-/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
-#define B2_ZERO_INIT                                                                                                             \
-	{                                                                                                                            \
-		0                                                                                                                        \
-	}
+	/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
+	#define B2_ZERO_INIT {0}
 #endif
+// clang-format on
 
 /// Returns the number of elements of an array
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
@@ -156,32 +153,39 @@ typedef struct b2WorldDef
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
 	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
 	/// application.
-	int32_t stackAllocatorCapacity;
+	int32_t arenaAllocatorCapacity;
 
 	/// task system hookup
 	uint32_t workerCount;
+
+	/// function to spawn task
 	b2EnqueueTaskCallback* enqueueTask;
+
+	/// function to finish a task
 	b2FinishTaskCallback* finishTask;
+
+	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;
 } b2WorldDef;
 
 /// Use this to initialize your world definition
-static inline b2WorldDef b2DefaultWorldDef(void)
-{
-	b2WorldDef def = B2_ZERO_INIT;
-	def.gravity = B2_LITERAL(b2Vec2){0.0f, -10.0f};
-	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
-	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
-	def.contactHertz = 30.0f;
-	def.contactDampingRatio = 1.0f;
-	def.enableSleep = true;
-	def.bodyCapacity = 8;
-	def.shapeCapacity = 8;
-	def.contactCapacity = 8;
-	def.jointCapacity = 8;
-	def.stackAllocatorCapacity = 1024 * 1024;
-	return def;
-}
+static const b2WorldDef b2_defaultWorldDef = {
+	{0.0f, -10.0f},				   // gravity
+	1.0f * b2_lengthUnitsPerMeter, // restitutionThreshold
+	3.0f * b2_lengthUnitsPerMeter, // contactPushoutVelocity
+	30.0,						   // contactHertz
+	1.0f,						   // contactDampingRatio
+	true,						   // enableSleep
+	0,							   // bodyCapacity
+	0,							   // shapeCapacity
+	0,							   // contactCapacity
+	0,							   // jointCapacity
+	1024 * 1024,				   // arenaAllocatorCapacity
+	0,							   // workerCount
+	NULL,						   // enqueueTask
+	NULL,						   // finishTask
+	NULL,						   // userTaskContext
+};
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved
@@ -248,7 +252,19 @@ typedef struct b2BodyDef
 
 /// Use this to initialize your body definition
 static const b2BodyDef b2_defaultBodyDef = {
-	b2_staticBody, {0.0f, 0.0f}, 0.0f, {0.0f, 0.0f}, 0.0f, 0.0f, 0.0f, 1.0f, NULL, true, true, false, true,
+	b2_staticBody, // bodyType
+	{0.0f, 0.0f},  // position
+	0.0f,		   // angle
+	{0.0f, 0.0f},  // linearVelocity
+	0.0f,		   // angularVelocity
+	0.0f,		   // linearDamping
+	0.0f,		   // angularDamping
+	1.0f,		   // gravityScale
+	NULL,		   // userData
+	true,		   // enableSleep
+	true,		   // isAwake
+	false,		   // fixedRotation
+	true,		   // isEnabled
 };
 
 /// This holds contact filtering data.
@@ -330,7 +346,15 @@ typedef struct b2ShapeDef
 
 /// Use this to initialize your shape definition
 static const b2ShapeDef b2_defaultShapeDef = {
-	NULL, 0.6f, 0.0f, 1.0f, {0x00000001, 0xFFFFFFFF, 0}, false, true, true, false,
+	NULL,						 // userData
+	0.6f,						 // friction
+	0.0f,						 // restitution
+	1.0f,						 // density
+	{0x00000001, 0xFFFFFFFF, 0}, // filter
+	false,						 // isSensor
+	true,						 // enableSensorEvents
+	true,						 // enableContactEvents
+	false,						 // enablePreSolveEvents
 };
 
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
@@ -370,7 +394,15 @@ typedef struct b2ChainDef
 } b2ChainDef;
 
 /// Use this to initialize your chain definition
-static const b2ChainDef b2_defaultChainDef = {NULL, 0, false, NULL, 0.6f, 0.0f, {0x00000001, 0xFFFFFFFF, 0}};
+static const b2ChainDef b2_defaultChainDef = {
+	NULL,						// points
+	0,							// count
+	false,						// loop
+	NULL,						// userData
+	0.6f,						// friction
+	0.0f,						// restitution
+	{0x00000001, 0xFFFFFFFF, 0} // filter
+};
 
 /// Profiling data. Times are in milliseconds.
 typedef struct b2Profile

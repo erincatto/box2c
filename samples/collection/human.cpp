@@ -71,7 +71,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 1.0f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -101,7 +101,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 1.4f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -128,7 +128,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 0.9f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -161,7 +161,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &footShapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 0.625f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -188,7 +188,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 0.9f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -221,7 +221,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &footShapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 0.625f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -248,7 +248,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 1.35f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -275,7 +275,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 1.1f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -302,7 +302,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 1.35f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -329,7 +329,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		b2CreateCapsuleShape(bone->bodyId, &shapeDef, &capsule);
 
 		b2Vec2 pivot = b2Add({0.0f, 1.1f * s}, position);
-		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+		b2RevoluteJointDef jointDef = b2_defaultRevoluteJointDef;
 		jointDef.bodyIdA = m_bones[bone->parentIndex].bodyId;
 		jointDef.bodyIdB = bone->bodyId;
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);

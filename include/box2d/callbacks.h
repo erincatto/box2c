@@ -23,7 +23,7 @@ typedef struct b2Manifold b2Manifold;
 typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
 
 /// Register the pre-solve callback. This is optional.
-BOX2D_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
+B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
 /// Prototype callback for AABB queries.
 /// See b2World_Query

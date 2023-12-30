@@ -1,10 +1,10 @@
-﻿cmake_minimum_required(VERSION 3.23)
+﻿cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
 project(box2d
 	VERSION 3.0.0
 	DESCRIPTION "A 2D physics engine for games"
-	HOMEPAGE_URL "box2d.org"
+	HOMEPAGE_URL "https://box2d.org"
 	LANGUAGES C CXX
 )
 
@@ -15,8 +15,12 @@ project(box2d
 # message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
 
-set(BOX2D_LENGTH_UNIT_PER_METER "1.0" CACHE STRING "Length units per meter")
-set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
+option(BOX2D_USER_CONSTANTS "Generate user_constants.h" OFF)
+
+if (BOX2D_USER_CONSTANTS)
+	set(BOX2D_LENGTH_UNIT_PER_METER "1.0" CACHE STRING "Length units per meter")
+	set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
+endif()
 
 # Needed for samples.exe to find box2d.dll
 # set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")

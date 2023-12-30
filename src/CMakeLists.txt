@@ -1,5 +1,3 @@
-configure_file(user_constants.h.in user_constants.h)
-
 set(BOX2D_SOURCE_FILES
 	aabb.c
 	aabb.h
@@ -87,9 +85,16 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
 
+if (BOX2D_USER_CONSTANTS)
+	# this file allows users to override constants
+	configure_file(user_constants.h.in user_constants.h)
+	target_compile_definitions(box2d PUBLIC BOX2D_USER_CONSTANTS)
+endif()
+
 # Generate box2d_export.h to handles shared library builds
-include(GenerateExportHeader)
-generate_export_header(box2d)
+# turned this off to make Box2D easier to use without cmake
+# include(GenerateExportHeader)
+# generate_export_header(box2d)
 
 target_include_directories(box2d
   PUBLIC
@@ -112,7 +117,27 @@ set_target_properties(box2d PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
+if (BOX2D_PROFILE)
+	target_compile_definitions(box2d PRIVATE BOX2D_PROFILE)
+
+	FetchContent_Declare(
+		tracy
+		GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+		GIT_TAG master
+		GIT_SHALLOW TRUE
+		GIT_PROGRESS TRUE
+	)
+	FetchContent_MakeAvailable(tracy)
+
+	target_link_libraries(box2d PUBLIC TracyClient)
+endif()
+
 if (MSVC)
+	if (BUILD_SHARED_LIBS)
+		# this is needed by DLL users to import Box2D symbols
+		target_compile_definitions(box2d INTERFACE BOX2D_DLL)
+	endif()
+
 	# Visual Studio won't load the natvis unless it is in the project
 	target_sources(box2d PRIVATE box2d.natvis)
 
@@ -134,21 +159,6 @@ elseif (LINUX)
 	endif()
 elseif (APPLE)
 	# target_compile_options(box2d PRIVATE)
-endif()
-
-if (BOX2D_PROFILE)
-	target_compile_definitions(box2d PRIVATE BOX2D_PROFILE)
-
-	FetchContent_Declare(
-		tracy
-		GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-		GIT_TAG master
-		GIT_SHALLOW TRUE
-		GIT_PROGRESS TRUE
-	)
-	FetchContent_MakeAvailable(tracy)
-
-	target_link_libraries(box2d PUBLIC TracyClient)
 endif()
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})

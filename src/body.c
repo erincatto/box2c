@@ -189,7 +189,7 @@ static void b2DisableBody(b2World* world, b2Body* body)
 	}
 }
 
-BOX2D_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
+B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -331,7 +331,7 @@ void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	b2FreeObject(&world->bodyPool, &body->object);
 }
 
-BOX2D_API void b2DestroyBody(b2BodyId bodyId)
+B2_API void b2DestroyBody(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	B2_ASSERT(world->locked == false);
@@ -481,13 +481,13 @@ static void b2ComputeMass(b2World* world, b2Body* body)
 		}
 
 		b2MassData massData = b2ComputeShapeMass(s);
-
 		body->mass += massData.mass;
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
 		body->I += massData.I;
 
-		body->minExtent = B2_MIN(body->minExtent, massData.minExtent);
-		body->maxExtent = B2_MAX(body->maxExtent, massData.maxExtent);
+		b2ShapeExtent extent = b2ComputeShapeExtent(s);
+		body->minExtent = B2_MIN(body->minExtent, extent.minExtent);
+		body->maxExtent = B2_MAX(body->maxExtent, extent.maxExtent);
 	}
 
 	// Compute center of mass.
@@ -730,6 +730,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	b2ChainShape* chainShape = (b2ChainShape*)b2AllocObject(&world->chainPool);
 	world->chains = (b2ChainShape*)world->chainPool.memory;
 
+	int32_t chainIndex = chainShape->object.index;
 	chainShape->bodyIndex = bodyId.index;
 	chainShape->nextIndex = body->chainList;
 	body->chainList = chainShape->object.index;
@@ -759,6 +760,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[i];
 			smoothSegment.segment.point2 = points[i + 1];
 			smoothSegment.ghost2 = points[i + 2];
+			smoothSegment.chainIndex = chainIndex;
 			prevIndex = i;
 
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
@@ -770,6 +772,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[n - 2];
 			smoothSegment.segment.point2 = points[n - 1];
 			smoothSegment.ghost2 = points[0];
+			smoothSegment.chainIndex = chainIndex;
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
 			chainShape->shapeIndices[n - 2] = shapeId.index;
 		}
@@ -779,6 +782,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[n - 1];
 			smoothSegment.segment.point2 = points[0];
 			smoothSegment.ghost2 = points[1];
+			smoothSegment.chainIndex = chainIndex;
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
 			chainShape->shapeIndices[n - 1] = shapeId.index;
 		}
@@ -796,6 +800,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 			smoothSegment.segment.point1 = points[i + 1];
 			smoothSegment.segment.point2 = points[i + 2];
 			smoothSegment.ghost2 = points[i + 3];
+			smoothSegment.chainIndex = chainIndex;
 
 			b2ShapeId shapeId = b2CreateShape(bodyId, &shapeDef, &smoothSegment, b2_smoothSegmentShape);
 			chainShape->shapeIndices[i] = shapeId.index;
@@ -1187,6 +1192,27 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 
 	body->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
 	body->invI = body->I > 0.0f ? 1.0f / body->I : 0.0f;
+}
+
+void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->linearDamping = linearDamping;
+}
+
+void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->angularDamping = angularDamping;
+}
+
+void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->gravityScale = gravityScale;
 }
 
 bool b2Body_IsAwake(b2BodyId bodyId)

@@ -127,7 +127,7 @@ public:
 
 				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
-				b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
+				b2RevoluteJointDef revoluteDef = b2_defaultRevoluteJointDef;
 				revoluteDef.bodyIdA = groundId;
 				revoluteDef.bodyIdB = bodyId;
 				revoluteDef.localAnchorA = bodyDef.position;

@@ -19,7 +19,7 @@ int HelloWorld(void)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// Construct a world object, which will hold and simulate the rigid bodies.
-	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldDef worldDef = b2_defaultWorldDef;
 	worldDef.gravity = gravity;
 
 	b2WorldId worldId = b2CreateWorld(&worldDef);
@@ -98,7 +98,7 @@ int HelloWorld(void)
 
 int EmptyWorld(void)
 {
-	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldDef worldDef = b2_defaultWorldDef;
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 	ENSURE(b2World_IsValid(worldId) == true);
 
