@@ -11,9 +11,10 @@ project(box2d
 # stuff to help debug cmake
 # message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
 # message(STATUS "library postfix: ${CMAKE_DEBUG_POSTFIX}")
-# message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
-# message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
+message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CMake host system processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
 option(BOX2D_USER_CONSTANTS "Generate user_constants.h" OFF)
 
