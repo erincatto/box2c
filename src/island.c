@@ -837,7 +837,7 @@ void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadInde
 				}
 
 				// Is this contact enabled and touching?
-				if ((contact->flags & b2_contactEnabledFlag) == 0 || (contact->flags & b2_contactTouchingFlag) == 0)
+				if ((contact->flags & b2_contactTouchingFlag) == 0)
 				{
 					continue;
 				}

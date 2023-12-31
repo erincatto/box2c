@@ -76,7 +76,6 @@ add_executable(samples
 	collection/sample_hull.cpp
 	collection/sample_manifold.cpp
 	collection/sample_ray_cast.cpp
-	collection/sample_restitution.cpp
 	collection/sample_shapes.cpp
 	collection/sample_shape_cast.cpp
 	collection/sample_tilted_stacks.cpp

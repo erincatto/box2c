@@ -152,6 +152,7 @@ if (MSVC)
 elseif (LINUX)
 	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 		# raspberry pi
+		# -mfpu=neon
 		# target_compile_options(box2d PRIVATE)
 	else()
 		# FMA -mfma -mavx -march=native

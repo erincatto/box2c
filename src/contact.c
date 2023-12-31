@@ -479,12 +479,12 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 		if (touching && world->preSolveFcn && (contact->flags & b2_contactEnablePreSolveEvents) != 0)
 		{
-			// todo this call assumes thread safety
+			// this call assumes thread safety
 			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
 			if (collide == false)
 			{
 				// disable contact
-				contact->flags &= ~b2_contactEnabledFlag;
+				touching = false;
 			}
 		}
 	}
@@ -497,16 +497,6 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	{
 		contact->flags &= ~b2_contactTouchingFlag;
 	}
-
-	// if (wasTouching == false && touching == true && world->callbacks.beginContactFcn)
-	//{
-	//	world->callbacks.beginContactFcn(shapeIdA, shapeIdB);
-	// }
-
-	// if (wasTouching == true && touching == false && world->callbacks.endContactFcn)
-	//{
-	//	world->callbacks.endContactFcn(shapeIdA, shapeIdB);
-	// }
 }
 
 #if 0 // todo probably delete this in favor of new API

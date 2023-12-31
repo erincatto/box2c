@@ -10,7 +10,6 @@
 #include "graph.h"
 #include "world.h"
 
-// #include <immintrin.h>
 #include "x86/avx2.h"
 #include "x86/fma.h"
 

@@ -632,3 +632,225 @@ public:
 };
 
 static int sampleWeeble = RegisterSample("Events", "Contact", ContactEvent::Create);
+
+// Shows how to make a rigid body character mover and use the pre-solve callback.
+class Platformer : public Sample
+{
+public:
+	Platformer(const Settings& settings)
+		: Sample(settings)
+	{
+		b2World_SetPreSolveCallback(m_worldId, PreSolveStatic, this);
+
+		// Ground
+		{
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		// Platform
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_kinematicBody;
+			bodyDef.position = {0.0f, 6.0f};
+			bodyDef.linearVelocity = {2.0f, 0.0f};
+			m_platformId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(3.0f, 0.5f);
+			m_platformShapeId = b2CreatePolygonShape(m_platformId, &b2_defaultShapeDef, &box);
+		}
+
+		// Actor
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.fixedRotation = true;
+			bodyDef.linearDamping = 0.5f;
+			bodyDef.position = {0.0f, 1.0f};
+			m_characterId = b2CreateBody(m_worldId, &bodyDef);
+
+			m_radius = 0.5f;
+			b2Capsule capsule = {{0.0f, 0.0f}, {0.0f, 1.0f}, m_radius};
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.friction = 0.1f;
+			
+			// Need to turn this on to get the callback
+			shapeDef.enablePreSolveEvents = true;
+
+			b2CreateCapsuleShape(m_characterId, &shapeDef, &capsule);
+		}
+
+		m_force = 25.0f;
+		m_impulse = 25.0f;
+		m_jumpDelay = 0.25f;
+		m_jumping = false;
+	}
+
+	static bool PreSolveStatic(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
+	{
+		Platformer* platformer = static_cast<Platformer*>(context);
+		return platformer->PreSolve(shapeIdA, shapeIdB, manifold);
+	}
+
+	// This callback must be thread-safe. It may be called multiple times simultaneously.
+	// Notice how this method is constant and therefor doesn't change any data. It also
+	// does not try to access an values in the world that may be changing, such as contact data.
+	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold) const
+	{
+		b2ShapeId actorShapeId = b2_nullShapeId;
+		float sign = 0.0f;
+		if (B2_ID_EQUALS(shapeIdA, m_platformShapeId))
+		{
+			sign = 1.0f;
+			actorShapeId = shapeIdB;
+		}
+		else if (B2_ID_EQUALS(shapeIdB, m_platformShapeId))
+		{
+			sign = -1.0f;
+			actorShapeId = shapeIdA;
+		}
+		else
+		{
+			// not the platform, enable contact
+			return true;
+		}
+
+		b2BodyId bodyId = b2Shape_GetBody(actorShapeId);
+		if (B2_ID_EQUALS(bodyId, m_characterId) == false)
+		{
+			// not the character, enable contact
+			return true;
+		}
+
+		b2Vec2 normal = manifold->normal;
+		if (sign * normal.y > 0.95f)
+		{
+			return true;
+		}
+
+		float separation = 0.0f;
+		for (int i = 0; i < manifold->pointCount; ++i)
+		{
+			float s = manifold->points[i].separation;
+			separation = separation < s ? separation : s;
+		}
+
+		if (separation > 0.1f * m_radius)
+		{
+			// shallow overlap
+			return true;
+		}
+
+		// normal points down, disable contact
+		return false;
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 120.0f));
+		ImGui::Begin("Sample Platformer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::SliderFloat("force", &m_force, 0.0f, 50.0f, "%.1f");
+		ImGui::SliderFloat("impulse", &m_impulse, 0.0f, 50.0f, "%.1f");
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		bool canJump = false;
+		if (m_jumpDelay == 0.0f && m_jumping == false)
+		{
+			b2ContactData contactData[4];
+			int count = b2Body_GetContactData(m_characterId, contactData, 4);
+			for (int i = 0; i < count; ++i)
+			{
+				b2BodyId bodyIdA = b2Shape_GetBody(contactData[i].shapeIdA);
+				float sign = 0.0f;
+				if (B2_ID_EQUALS(bodyIdA, m_characterId))
+				{
+					// normal points from A to B
+					sign = -1.0f;
+				}
+				else
+				{
+					sign = 1.0f;
+				}
+
+				if (sign * contactData[i].manifold.normal.y > 0.9f)
+				{
+					canJump = true;
+					break;
+				}
+			}
+		}
+
+		// A kinematic body is moved by setting its velocity. This
+		// ensure friction works correctly.
+		b2Vec2 platformPosition = b2Body_GetPosition(m_platformId);
+		if (platformPosition.x < -15.0f)
+		{
+			b2Body_SetLinearVelocity(m_platformId, {2.0f, 0.0f});
+		}
+		else if (platformPosition.x > 15.0f)
+		{
+			b2Body_SetLinearVelocity(m_platformId, {-2.0f, 0.0f});
+		}
+
+		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
+		{
+			b2Body_ApplyForceToCenter(m_characterId, {-m_force, 0.0f}, true);
+		}
+
+		if (glfwGetKey(g_mainWindow, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			b2Body_ApplyForceToCenter(m_characterId, {m_force, 0.0f}, true);
+		}
+
+		int keyState = glfwGetKey(g_mainWindow, GLFW_KEY_SPACE);
+		if (keyState == GLFW_PRESS)
+		{
+			if (canJump)
+			{
+				b2Body_ApplyLinearImpulseToCenter(m_characterId, {0.0f, m_impulse}, true);
+				m_jumpDelay = 0.5f;
+				m_jumping = true;
+			}
+		}
+		else
+		{
+			m_jumping = false;
+		}
+
+		Sample::Step(settings);
+
+		g_draw.DrawString(5, m_textLine, "Movement: A/D/Space");
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "Can jump = %s", canJump ? "true" : "false");
+		m_textLine += m_textIncrement;
+
+		if (settings.hertz > 0.0f)
+		{
+			m_jumpDelay = B2_MAX(0.0f, m_jumpDelay - 1.0f / settings.hertz);
+		}
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Platformer(settings);
+	}
+
+	bool m_jumping;
+	float m_radius;
+	float m_force;
+	float m_impulse;
+	float m_jumpDelay;
+	b2BodyId m_characterId;
+	b2BodyId m_platformId;
+	b2ShapeId m_platformShapeId;
+};
+
+static int samplePlatformer = RegisterSample("Events", "Platformer", Platformer::Create);
