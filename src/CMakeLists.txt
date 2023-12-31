@@ -143,20 +143,27 @@ if (MSVC)
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# Atomics are still considered experimental in Visual Studio 17.8
-		target_compile_options(box2d PRIVATE /experimental:c11atomics /arch:AVX2)
+		target_compile_options(box2d PRIVATE /experimental:c11atomics)
 		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 		message(STATUS "CMake using Clang-CL")
+	endif()
+
+	if (BOX2D_AVX2)
 		target_compile_options(box2d PRIVATE /arch:AVX2)
 	endif()
+
 elseif (LINUX)
 	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 		# raspberry pi
 		# -mfpu=neon
 		# target_compile_options(box2d PRIVATE)
 	else()
-		# FMA -mfma -mavx -march=native
-		target_compile_options(box2d PRIVATE -mavx2)
+		# x64
+		if (BOX2D_AVX2)
+			# FMA -mfma -mavx -march=native
+			target_compile_options(box2d PRIVATE -mavx2)
+		endif()
 	endif()
 elseif (APPLE)
 	# target_compile_options(box2d PRIVATE)

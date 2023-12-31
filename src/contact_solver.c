@@ -773,6 +773,8 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
 			b2FloatW specBias = mul(s, invDtMul);
 			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+
+			// todo slow on SSE2
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
 
 			// Relative velocity at contact
@@ -813,6 +815,8 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
 			b2FloatW specBias = mul(s, invDtMul);
 			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+
+			// todo slow on SSE2
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
 
 			// Relative velocity at contact
@@ -934,6 +938,8 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, SIMDE_CMP_GT_OQ);
 			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse1, zero, SIMDE_CMP_EQ_OQ);
 			b2FloatW test = simde_mm256_or_ps(test1, test2);
+
+			// todo slow on SSE2
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass1, zero, test);
 
 			// Relative velocity at contact
@@ -968,6 +974,8 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, SIMDE_CMP_GT_OQ);
 			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse2, zero, SIMDE_CMP_EQ_OQ);
 			b2FloatW test = simde_mm256_or_ps(test1, test2);
+
+			// todo slow on SSE2
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass2, zero, test);
 
 			// Relative velocity at contact

@@ -1108,7 +1108,8 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 	}
 }
 
-static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
+// Returns false if there is nothing awake
+static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 {
 	b2TracyCZoneNC(prepare_stages, "Prepare Stages", b2_colorDarkOrange, true);
 
@@ -1126,7 +1127,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 
 	// Prepare world to receive fast bodies from body finalization
-	// TODO_ERIN scope problem
+	// todo scope problem
 	world->fastBodyCount = 0;
 	world->fastBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
 
@@ -1138,7 +1139,7 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		}
 		graph->occupancy[b2_overflowIndex] = b2Array(graph->overflow.contactArray).count;
 
-		return;
+		return false;
 	}
 
 	// Reserve space for awake bodies
@@ -1853,6 +1854,8 @@ static void b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 
 	b2TracyCZoneEnd(awake_contacts);
+
+	return true;
 }
 
 struct b2ContinuousContext
@@ -2093,7 +2096,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	// Solve constraints using graph coloring
-	b2SolveGraph(world, context);
+	bool anyAwake = b2SolveGraph(world, context);
 
 	b2TracyCZoneEnd(graph_solver);
 
@@ -2114,6 +2117,8 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
 
 	// Enlarge broad-phase proxies and build move array
+	// todo this is a hack to deal with stale shapeBitSet when no bodies are awake because they were all destroyed
+	if (anyAwake)
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
 

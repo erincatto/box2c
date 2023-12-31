@@ -634,6 +634,7 @@ public:
 static int sampleWeeble = RegisterSample("Events", "Contact", ContactEvent::Create);
 
 // Shows how to make a rigid body character mover and use the pre-solve callback.
+// todo need to filter continuous
 class Platformer : public Sample
 {
 public:

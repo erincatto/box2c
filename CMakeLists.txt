@@ -22,6 +22,8 @@ if (BOX2D_USER_CONSTANTS)
 	set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
 endif()
 
+option (BOX2D_AVX2 "Enable AVX2 (faster)" ON)
+
 # Needed for samples.exe to find box2d.dll
 # set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")

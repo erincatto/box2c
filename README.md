@@ -6,6 +6,8 @@
 # Box2D v3.0 Notes
 This repository is alpha and ready for testing. It should build on recent versions of clang and gcc. However, you will need the latest Visual Studio version for C11 atomics to compile (17.8.3+). TODO: mingw
 
+AVX2 CPU support is assumed. You can turn this off in the CMake options and use SSE2 instead.
+
 # Box2D 
 Box2D is a 2D physics engine for games.
 
