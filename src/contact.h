@@ -31,13 +31,6 @@ enum b2ContactFlags
 	// Set when the shapes are touching.
 	b2_contactTouchingFlag = 0x00000002,
 
-	// This contact can be disabled (by user)
-	b2_contactEnabledFlag = 0x00000004,
-
-	// This contact needs filtering because a shape filter was changed.
-	// TODO_ERIN don't defer this anymore
-	b2_contactFilterFlag = 0x00000008,
-
 	// One of the shapes is a sensor
 	b2_contactSensorFlag = 0x00000010,
 

@@ -203,7 +203,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	int32_t contactIndex = contact->object.index;
 
-	contact->flags = b2_contactEnabledFlag;
+	contact->flags = 0;
 
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
@@ -423,13 +423,8 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	b2ShapeId shapeIdA = {shapeA->object.index, world->index, shapeA->object.revision};
 	b2ShapeId shapeIdB = {shapeB->object.index, world->index, shapeB->object.revision};
 
-	// Re-enable this contact.
-	contact->flags |= b2_contactEnabledFlag;
-
 	bool touching = false;
 	contact->manifold.pointCount = 0;
-
-	// bool wasTouching = (contact->flags & b2_contactTouchingFlag) == b2_contactTouchingFlag;
 
 	bool sensorA = shapeA->isSensor;
 	bool sensorB = shapeB->isSensor;

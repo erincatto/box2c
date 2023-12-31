@@ -152,7 +152,10 @@ if (MSVC)
 	if (BOX2D_AVX2)
 		target_compile_options(box2d PRIVATE /arch:AVX2)
 	endif()
-
+elseif (MINGW)
+	if (BOX2D_AVX2)
+		target_compile_options(box2d PRIVATE -mavx2)
+	endif()
 elseif (LINUX)
 	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 		# raspberry pi
