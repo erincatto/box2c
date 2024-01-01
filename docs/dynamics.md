@@ -467,6 +467,8 @@ the body destruction take care of destroying the attached fixtures.
 myBody->DestroyFixture(myFixture);
 ```
 
+Material properties such as density, friction, and restitution are associted with shapes instead of bodies. Since you can attach multiple shapes to a body, this allows for more possible setups. For example, you can make a car that is heavier in the back.
+
 ### Density
 The fixture density is used to compute the mass properties of the parent
 body. The density can be zero or positive. You should generally use

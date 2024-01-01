@@ -143,22 +143,46 @@ if (MSVC)
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# Atomics are still considered experimental in Visual Studio 17.8
-		target_compile_options(box2d PRIVATE /experimental:c11atomics /arch:AVX2)
+		target_compile_options(box2d PRIVATE /experimental:c11atomics)
 		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 		message(STATUS "CMake using Clang-CL")
+	endif()
+
+	if (BOX2D_AVX2)
+		message(STATUS "Box2D using AVX2")	
 		target_compile_options(box2d PRIVATE /arch:AVX2)
 	endif()
-elseif (LINUX)
-	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
-		# raspberry pi
-		# target_compile_options(box2d PRIVATE)
-	else()
-		# FMA -mfma -mavx -march=native
+elseif (MINGW)
+	message(STATUS "Box2D using MinGW")
+	if (BOX2D_AVX2)
+		message(STATUS "Box2D using AVX2")	
 		target_compile_options(box2d PRIVATE -mavx2)
+	else()
+		# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
+		message(STATUS "Box2D disabling ABI warning")
+		target_compile_options(box2d PRIVATE -Wno-psabi)
 	endif()
 elseif (APPLE)
 	# target_compile_options(box2d PRIVATE)
+elseif (UNIX)
+	message(STATUS "Box2D using Unix")
+	if ("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+		# raspberry pi
+		# -mfpu=neon
+		# target_compile_options(box2d PRIVATE)
+	else()
+		# x64
+		if (BOX2D_AVX2)
+			message(STATUS "Box2D using AVX2")
+			# FMA -mfma -mavx -march=native
+			target_compile_options(box2d PRIVATE -mavx2)
+		else()
+			# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
+			message(STATUS "Box2D disabling ABI warning")
+			target_compile_options(box2d PRIVATE -Wno-psabi)
+		endif()
+	endif()
 endif()
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "src" FILES ${BOX2D_SOURCE_FILES})

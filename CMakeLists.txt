@@ -11,9 +11,10 @@ project(box2d
 # stuff to help debug cmake
 # message(STATUS "cmake source dir: ${CMAKE_SOURCE_DIR}")
 # message(STATUS "library postfix: ${CMAKE_DEBUG_POSTFIX}")
-# message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
-# message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "CMake C compiler: ${CMAKE_C_COMPILER_ID}")
+message(STATUS "CMake C++ compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "CMake system name: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CMake host system processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
 option(BOX2D_USER_CONSTANTS "Generate user_constants.h" OFF)
 
@@ -21,6 +22,8 @@ if (BOX2D_USER_CONSTANTS)
 	set(BOX2D_LENGTH_UNIT_PER_METER "1.0" CACHE STRING "Length units per meter")
 	set(BOX2D_MAX_POLYGON_VERTICES "8" CACHE STRING "Maximum number of polygon vertices (affects performance)")
 endif()
+
+option (BOX2D_AVX2 "Enable AVX2 (faster)" ON)
 
 # Needed for samples.exe to find box2d.dll
 # set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
@@ -90,3 +93,7 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	endif()
 
 endif()
+
+## Building on clang in windows
+# cmake -S .. -B . -G "Visual Studio 17 2022" -A x64 -T ClangCL
+# https://clang.llvm.org/docs/UsersManual.html#clang-cl

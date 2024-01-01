@@ -29,15 +29,17 @@ static b2Vec2 b2ComputePolygonCentroid(const b2Vec2* vertices, int32_t count)
 	// Use the first vertex to reduce round-off errors.
 	b2Vec2 origin = vertices[0];
 
+	const float inv3 = 1.0f / 3.0f;
+
 	for (int32_t i = 1; i < count - 1; ++i)
 	{
 		// Triangle edges
 		b2Vec2 e1 = b2Sub(vertices[i], origin);
 		b2Vec2 e2 = b2Sub(vertices[i + 1], origin);
-		float a = b2Cross(e1, e2);
+		float a = 0.5f * b2Cross(e1, e2);
 
-		// Area weighted centroid, r at origin
-		center = b2MulAdd(center, a, b2Add(e1, e2));
+		// Area weighted centroid
+		center = b2MulAdd(center, a * inv3, b2Add(e1, e2));
 		area += a;
 	}
 
@@ -46,7 +48,7 @@ static b2Vec2 b2ComputePolygonCentroid(const b2Vec2* vertices, int32_t count)
 	center.x *= invArea;
 	center.y *= invArea;
 
-	// Remove offset
+	// Restore offset
 	center = b2Add(origin, center);
 
 	return center;
