@@ -23,8 +23,7 @@ extern int MathTest(void);
 extern int CollisionTest(void);
 extern int DeterminismTest(void);
 extern int DistanceTest(void);
-extern int HelloWorld(void);
-extern int EmptyWorld(void);
+extern int WorldTest(void);
 extern int ShapeTest(void);
 extern int TableTest(void);
 
@@ -46,8 +45,7 @@ int main(void)
 	RUN_TEST(CollisionTest);
 	RUN_TEST(DeterminismTest);
 	RUN_TEST(DistanceTest);
-	RUN_TEST(HelloWorld);
-	RUN_TEST(EmptyWorld);
+	RUN_TEST(WorldTest);
 	RUN_TEST(ShapeTest);
 	RUN_TEST(TableTest);
 	RUN_TEST(BitSetTest);

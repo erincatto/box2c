@@ -159,6 +159,7 @@ elseif (MINGW)
 		message(STATUS "Box2D using AVX2")	
 		target_compile_options(box2d PRIVATE -mavx2)
 	else()
+		# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
 		message(STATUS "Box2D disabling ABI warning")
 		target_compile_options(box2d PRIVATE -Wno-psabi)
 	endif()
@@ -175,6 +176,7 @@ elseif (UNIX)
 			# FMA -mfma -mavx -march=native
 			target_compile_options(box2d PRIVATE -mavx2)
 		else()
+			# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
 			message(STATUS "Box2D disabling ABI warning")
 			target_compile_options(box2d PRIVATE -Wno-psabi)
 		endif()

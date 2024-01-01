@@ -98,8 +98,7 @@ int HelloWorld(void)
 
 int EmptyWorld(void)
 {
-	b2WorldDef worldDef = b2_defaultWorldDef;
-	b2WorldId worldId = b2CreateWorld(&worldDef);
+	b2WorldId worldId = b2CreateWorld(&b2_defaultWorldDef);
 	ENSURE(b2World_IsValid(worldId) == true);
 
 	float timeStep = 1.0f / 60.0f;
@@ -114,6 +113,64 @@ int EmptyWorld(void)
 	b2DestroyWorld(worldId);
 
 	ENSURE(b2World_IsValid(worldId) == false);
+
+	return 0;
+}
+
+#define BODY_COUNT 10
+int DestroyAllBodiesWorld(void)
+{
+	b2WorldId worldId = b2CreateWorld(&b2_defaultWorldDef);
+	ENSURE(b2World_IsValid(worldId) == true);
+
+	int count = 0;
+	bool creating = true;
+
+	b2BodyId bodyIds[BODY_COUNT];
+	b2BodyDef bodyDef = b2_defaultBodyDef;
+	bodyDef.type = b2_dynamicBody;
+	b2Polygon square = b2MakeSquare(0.5f);
+
+	for (int32_t i = 0; i < 2 * BODY_COUNT + 10; ++i)
+	{
+		if (creating)
+		{
+			if (count < BODY_COUNT)
+			{
+				bodyIds[count] = b2CreateBody(worldId, &bodyDef);
+				b2CreatePolygonShape(bodyIds[count], &b2_defaultShapeDef, &square);
+				count += 1;
+			}
+			else
+			{
+				creating = false;
+			}
+		}
+		else if (count > 0)
+		{
+			b2DestroyBody(bodyIds[count - 1]);
+			bodyIds[count - 1] = b2_nullBodyId;
+			count -= 1;
+		}
+
+		b2World_Step(worldId, 1.0f / 60.0f, 6, 2);
+	}
+
+	b2Counters counters = b2World_GetCounters(worldId);
+	ENSURE(counters.bodyCount == 0);
+
+	b2DestroyWorld(worldId);
+
+	ENSURE(b2World_IsValid(worldId) == false);
+
+	return 0;
+}
+
+int WorldTest(void)
+{
+	RUN_SUBTEST(HelloWorld);
+	RUN_SUBTEST(EmptyWorld);
+	RUN_SUBTEST(DestroyAllBodiesWorld);
 
 	return 0;
 }
