@@ -313,8 +313,34 @@ static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
 	return s;
 }
 
+/// Get the center of the AABB.
+static inline b2Vec2 b2AABB_Center(b2AABB a)
+{
+	b2Vec2 b = {0.5f * (a.lowerBound.x + a.upperBound.x), 0.5f * (a.lowerBound.y + a.upperBound.y)};
+	return b;
+}
+
+/// Get the extents of the AABB (half-widths).
+static inline b2Vec2 b2AABB_Extents(b2AABB a)
+{
+	b2Vec2 b = {0.5f * (a.upperBound.x - a.lowerBound.x), 0.5f * (a.upperBound.y - a.lowerBound.y)};
+	return b;
+}
+
+/// Union of two AABBs
+static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
+{
+	b2AABB c;
+	c.lowerBound.x = B2_MIN(a.lowerBound.x, b.lowerBound.x);
+	c.lowerBound.y = B2_MIN(a.lowerBound.y, b.lowerBound.y);
+	c.upperBound.x = B2_MAX(a.upperBound.x, b.upperBound.x);
+	c.upperBound.y = B2_MAX(a.upperBound.y, b.upperBound.y);
+	return c;
+}
+
 B2_API bool b2IsValid(float a);
-B2_API bool b2IsValidVec2(b2Vec2 v);
+B2_API bool b2Vec2_IsValid(b2Vec2 v);
+B2_API bool b2AABB_IsValid(b2AABB aabb);
 
 /// Convert this vector into a unit vector
 B2_API b2Vec2 b2Normalize(b2Vec2 v);

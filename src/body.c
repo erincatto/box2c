@@ -203,9 +203,9 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	world->bodies = (b2Body*)world->bodyPool.memory;
 
 	B2_ASSERT(0 <= def->type && def->type < b2_bodyTypeCount);
-	B2_ASSERT(b2IsValidVec2(def->position));
+	B2_ASSERT(b2Vec2_IsValid(def->position));
 	B2_ASSERT(b2IsValid(def->angle));
-	B2_ASSERT(b2IsValidVec2(def->linearVelocity));
+	B2_ASSERT(b2Vec2_IsValid(def->linearVelocity));
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
@@ -333,10 +333,8 @@ void b2DestroyBodyInternal(b2World* world, b2Body* body)
 
 B2_API void b2DestroyBody(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(world->locked == false);
-
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
 	{
 		return;
 	}
@@ -347,9 +345,8 @@ B2_API void b2DestroyBody(b2BodyId bodyId)
 
 int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
 	{
 		return 0;
 	}
@@ -362,9 +359,8 @@ int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
 
 int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
 	{
 		return 0;
 	}
@@ -400,54 +396,32 @@ int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32
 	return index;
 }
 
-int32_t b2World_DestroyBodyAndGetTouching(b2BodyId bodyId, b2ShapeId* touchingShapes, int32_t maxShapes)
+b2AABB b2Body_ComputeAABB(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
 	{
-		return 0;
+		return (b2AABB){0};
 	}
 
 	b2Body* body = b2GetBody(world, bodyId);
-
-	// Find other shapes that are currently touching this body
-	int32_t contactKey = body->contactList;
-	int32_t reportCount = 0;
-	while (contactKey != B2_NULL_INDEX && reportCount < maxShapes)
+	if (body->shapeList == B2_NULL_INDEX)
 	{
-		int32_t contactIndex = contactKey >> 1;
-		int32_t edgeIndex = contactKey & 1;
-
-		b2Contact* contact = world->contacts + contactIndex;
-		if (contact->flags & b2_contactTouchingFlag)
-		{
-			b2Shape* otherShape;
-			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-			if (shapeA->bodyIndex == body->object.index)
-			{
-				otherShape = world->shapes + contact->shapeIndexB;
-			}
-			else
-			{
-				B2_ASSERT(world->shapes[contact->shapeIndexB].bodyIndex == body->object.index);
-				otherShape = world->shapes + contact->shapeIndexA;
-			}
-
-			b2ShapeId otherShapeId = {otherShape->object.index, bodyId.world, otherShape->object.revision};
-			touchingShapes[reportCount] = otherShapeId;
-			reportCount += 1;
-		}
-
-		contactKey = contact->edges[edgeIndex].nextKey;
+		return (b2AABB){body->transform.p, body->transform.p};
 	}
 
-	b2DestroyBodyInternal(world, body);
+	b2Shape* shape = world->shapes + body->shapeList;
+	b2AABB aabb = shape->aabb;
+	while (shape->nextShapeIndex != B2_NULL_INDEX)
+	{
+		shape = world->shapes + shape->nextShapeIndex;
+		aabb = b2AABB_Union(aabb, shape->aabb);
+	}
 
-	return reportCount;
+	return aabb;
 }
 
-static void b2ComputeMass(b2World* world, b2Body* body)
+void b2UpdateBodyMassData(b2World* world, b2Body* body)
 {
 	// Compute mass data from shapes. Each shape has its own density.
 	body->mass = 0.0f;
@@ -594,7 +568,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 
 	if (shape->density > 0.0f)
 	{
-		b2ComputeMass(world, body);
+		b2UpdateBodyMassData(world, body);
 	}
 
 	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
@@ -693,7 +667,7 @@ static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 	// Reset the mass data
 	if (density > 0.0f)
 	{
-		b2ComputeMass(world, body);
+		b2UpdateBodyMassData(world, body);
 	}
 }
 
@@ -1140,7 +1114,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	}
 
 	// Body type affects the mass
-	b2ComputeMass(world, body);
+	b2UpdateBodyMassData(world, body);
 }
 
 void* b2Body_GetUserData(b2BodyId bodyId)
@@ -1180,7 +1154,16 @@ b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId)
 
 void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	B2_ASSERT(b2IsValid(massData.mass) && massData.mass >= 0.0f);
+	B2_ASSERT(b2IsValid(massData.I) && massData.I >= 0.0f);
+	B2_ASSERT(b2Vec2_IsValid(massData.center));
+
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
 	b2Body* body = b2GetBody(world, bodyId);
 	body->mass = massData.mass;
 	body->I = massData.I;
@@ -1194,25 +1177,75 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	body->invI = body->I > 0.0f ? 1.0f / body->I : 0.0f;
 }
 
-void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)
+b2MassData b2Body_GetMassData(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	b2MassData massData = {body->mass, body->localCenter, body->I};
+	return massData;
+}
+
+void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)
+{
+	B2_ASSERT(b2IsValid(linearDamping) && linearDamping >= 0.0f);
+
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
 	b2Body* body = b2GetBody(world, bodyId);
 	body->linearDamping = linearDamping;
 }
 
-void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping)
+float b2Body_GetLinearDamping(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->linearDamping;
+}
+
+void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping)
+{
+	B2_ASSERT(b2IsValid(angularDamping) && angularDamping >= 0.0f);
+
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
 	b2Body* body = b2GetBody(world, bodyId);
 	body->angularDamping = angularDamping;
 }
 
-void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale)
+float b2Body_GetAngularDamping(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
+	return body->angularDamping;
+}
+
+void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale)
+{
+	B2_ASSERT(b2IsValid(gravityScale) && gravityScale >= 0.0f);
+
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
 	body->gravityScale = gravityScale;
+}
+
+float b2Body_GetGravityScale(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->gravityScale;
 }
 
 bool b2Body_IsAwake(b2BodyId bodyId)
@@ -1224,7 +1257,12 @@ bool b2Body_IsAwake(b2BodyId bodyId)
 
 void b2Body_Wake(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
 	b2Body* body = b2GetBody(world, bodyId);
 	if (body->type == b2_staticBody)
 	{
@@ -1243,7 +1281,12 @@ bool b2Body_IsEnabled(b2BodyId bodyId)
 
 void b2Body_Disable(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
 	b2Body* body = b2GetBody(world, bodyId);
 	if (body->isEnabled == true)
 	{

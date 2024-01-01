@@ -3,7 +3,7 @@
 
 #include "pool.h"
 
-#include "box2d/types.h"
+#include "box2d/joint_types.h"
 
 #include <stdint.h>
 
@@ -11,17 +11,6 @@ typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2SolverTaskContext b2SolverTaskContext;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
-
-typedef enum b2JointType
-{
-	b2_distanceJoint,
-	b2_motorJoint,
-	b2_mouseJoint,
-	b2_prismaticJoint,
-	b2_revoluteJoint,
-	b2_weldJoint,
-	b2_wheelJoint,
-} b2JointType;
 
 /// A joint edge is used to connect bodies and joints together
 /// in a joint graph where each body is a node and each joint

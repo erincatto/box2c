@@ -176,7 +176,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		b2Vec2 cB = b2MulSub(c, radiusB, normal);
 		manifold.normal = b2RotateVector(xfA.q, normal);
 		manifold.points[0].point = b2TransformPoint(xfA, b2Lerp(cA, cB, 0.5f));
-		manifold.points[0].separation = separation;
+		manifold.points[0].separation = b2Dot(b2Sub(cB, cA), normal);
 		manifold.points[0].id = 0;
 		manifold.pointCount = 1;
 	}

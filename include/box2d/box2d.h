@@ -227,14 +227,26 @@ B2_API b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId);
 ///	body type changes.
 B2_API void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData);
 
+/// Get the mass data for a body.
+B2_API b2MassData b2Body_GetMassData(b2BodyId bodyId);
+
 /// Adjust the linear damping. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping);
+
+/// Get the current linear damping.
+B2_API float b2Body_GetLinearDamping(b2BodyId bodyId);
 
 /// Adjust the angular damping. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping);
 
+/// Get the current angular damping.
+B2_API float b2Body_GetAngularDamping(b2BodyId bodyId);
+
 /// Adjust the gravity scale. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale);
+
+/// Get the current gravity scale.
+B2_API float b2Body_GetGravityScale(b2BodyId bodyId);
 
 /// Is this body awake?
 B2_API bool b2Body_IsAwake(b2BodyId bodyId);
@@ -260,6 +272,10 @@ B2_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
 
 /// Get the touching contact data for a body
 B2_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+
+/// Get the current world AABB that contains all the attached shapes. Note that this may not emcompass the body origin.
+///	If there are no shapes attached then the returned AABB is empty and centered on the body origin.
+B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 
 /** @} */
 
@@ -299,21 +315,37 @@ B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 /// Destroy a chain shape
 B2_API void b2DestroyChain(b2ChainId chainId);
 
+/// Get the type of a shape.
+B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
+
 /// Get the body that a shape is attached to
 B2_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
+
+/// Get the type of a shape.
+B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
 
 /// Get the user data for a shape. This is useful when you get a shape id
 ///	from an event or query
 B2_API void* b2Shape_GetUserData(b2ShapeId shapeId);
 
-/// Test a point for overlap with a shape
-B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
+/// Set the density on a shape. Normally this is specified in b2ShapeDef.
+///	This will recompute the mass properties on the parent body.
+B2_API void b2Shape_SetDensity(b2ShapeId shapeId, float density);
+
+/// Get the density on a shape.
+B2_API float b2Shape_GetDensity(b2ShapeId shapeId);
 
 /// Set the friction on a shape. Normally this is specified in b2ShapeDef.
 B2_API void b2Shape_SetFriction(b2ShapeId shapeId, float friction);
 
+/// Get the friction on a shape.
+B2_API float b2Shape_GetFriction(b2ShapeId shapeId);
+
 /// Set the restitution (bounciness) on a shape. Normally this is specified in b2ShapeDef.
 B2_API void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution);
+
+/// Get the restitution on a shape.
+B2_API float b2Shape_GetRestitution(b2ShapeId shapeId);
 
 /// Get the current filter
 B2_API b2Filter b2Shape_GetFilter(b2ShapeId shapeId);
@@ -321,8 +353,8 @@ B2_API b2Filter b2Shape_GetFilter(b2ShapeId shapeId);
 /// Set the current filter. This is almost as expensive as recreating the shape.
 B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 
-/// Get the type of a shape.
-B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
+/// Test a point for overlap with a shape
+B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
 /// Access the circle geometry of a shape.
 B2_API const b2Circle* b2Shape_GetCircle(b2ShapeId shapeId);
@@ -354,6 +386,9 @@ B2_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
 B2_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
+
+/// Get the current world AABB
+B2_API b2AABB b2Shape_GetAABB(b2ShapeId shapeId);
 
 /** @} */
 
@@ -394,7 +429,10 @@ B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* de
 /// Destroy any joint type
 B2_API void b2DestroyJoint(b2JointId jointId);
 
-/// Get body A on a joint
+/// Get the joint type
+B2_API b2JointType b2Joint_GetType(b2JointId jointId);
+
+	/// Get body A on a joint
 B2_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 
 /// Get body B on a joint

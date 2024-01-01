@@ -5,6 +5,17 @@
 
 #include "box2d/types.h"
 
+typedef enum b2JointType
+{
+	b2_distanceJoint,
+	b2_motorJoint,
+	b2_mouseJoint,
+	b2_prismaticJoint,
+	b2_revoluteJoint,
+	b2_weldJoint,
+	b2_wheelJoint,
+} b2JointType;
+
 /// Distance joint definition. This requires defining an anchor point on both
 /// bodies and the non-zero distance of the distance joint. The definition uses
 /// local anchor points so that the initial configuration can violate the

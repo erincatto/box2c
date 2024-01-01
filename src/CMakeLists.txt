@@ -73,6 +73,7 @@ set(BOX2D_API_FILES
 	../include/box2d/joint_util.h
 	../include/box2d/manifold.h
 	../include/box2d/math.h
+	../include/box2d/math_cpp.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 )

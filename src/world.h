@@ -126,5 +126,6 @@ typedef struct b2World
 
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(int16_t index);
+b2World* b2GetWorldFromIndexLocked(int16_t index);
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id);

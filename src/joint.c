@@ -595,21 +595,19 @@ void b2DestroyJoint(b2JointId jointId)
 	b2FreeObject(&world->jointPool, &joint->object);
 }
 
+b2JointType b2Joint_GetType(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	return joint->type;
+}
+
 b2BodyId b2Joint_GetBodyA(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	B2_ASSERT(world->locked == false);
+	b2Joint* joint = b2GetJoint(world, jointId);
 
-	if (world->locked)
-	{
-		return b2_nullBodyId;
-	}
-
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
 	int32_t bodyIndex = joint->edges[0].bodyIndex;
-
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 	b2Body* body = world->bodies + bodyIndex;
 	b2BodyId bodyId = {bodyIndex, jointId.world, body->object.revision};
@@ -619,18 +617,9 @@ b2BodyId b2Joint_GetBodyA(b2JointId jointId)
 b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
-	B2_ASSERT(world->locked == false);
+	b2Joint* joint = b2GetJoint(world, jointId);
 
-	if (world->locked)
-	{
-		return b2_nullBodyId;
-	}
-
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* joint = world->joints + jointId.index;
 	int32_t bodyIndex = joint->edges[1].bodyIndex;
-
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 	b2Body* body = world->bodies + bodyIndex;
 	b2BodyId bodyId = {bodyIndex, jointId.world, body->object.revision};

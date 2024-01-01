@@ -53,6 +53,20 @@ b2World* b2GetWorldFromIndex(int16_t index)
 	return world;
 }
 
+b2World* b2GetWorldFromIndexLocked(int16_t index)
+{
+	B2_ASSERT(0 <= index && index < b2_maxWorlds);
+	b2World* world = b2_worlds + index;
+	B2_ASSERT(world->blockAllocator != NULL);
+	if (world->locked)
+	{
+		B2_ASSERT(false);
+		return NULL;
+	}
+
+	return world;
+}
+
 static void* b2DefaultAddTaskFcn(b2TaskCallback* task, int32_t count, int32_t minRange, void* taskContext, void* userContext)
 {
 	B2_MAYBE_UNUSED(minRange);
@@ -374,7 +388,7 @@ static void b2Collide(b2World* world)
 
 	// Process contact state changes. Iterate over set bits
 	uint64_t word;
-	for (uint32_t k = 0; k < bitSet->wordCount; ++k)
+	for (uint32_t k = 0; k < bitSet->blockCount; ++k)
 	{
 		word = bitSet->bits[k];
 		while (word != 0)

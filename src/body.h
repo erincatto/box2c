@@ -104,6 +104,7 @@ typedef struct b2SolverBody
 b2Body* b2GetBody(b2World* world, b2BodyId id);
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 bool b2IsBodyAwake(b2World* world, b2Body* body);
+void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
 static inline b2Sweep b2MakeSweep(const b2Body* body)
 {
