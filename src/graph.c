@@ -918,6 +918,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 
 		b2ExecuteStage(stage, context, previousSyncIndex, syncIndex, 0);
 
+		// todo consider using the cycle counter as well
 		while (atomic_load(&stage->completionCount) != blockCount)
 		{
 			simde_mm_pause();
@@ -1080,6 +1081,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 	while (true)
 	{
 		// Spin until main thread bumps changes the sync bits
+		// todo consider using the cycle counter as well
 		uint32_t syncBits = atomic_load(&context->syncBits);
 		while (syncBits == lastSyncBits)
 		{

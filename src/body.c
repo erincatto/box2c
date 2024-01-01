@@ -447,7 +447,7 @@ int32_t b2World_DestroyBodyAndGetTouching(b2BodyId bodyId, b2ShapeId* touchingSh
 	return reportCount;
 }
 
-static void b2ComputeMass(b2World* world, b2Body* body)
+void b2UpdateBodyMassData(b2World* world, b2Body* body)
 {
 	// Compute mass data from shapes. Each shape has its own density.
 	body->mass = 0.0f;
@@ -594,7 +594,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 
 	if (shape->density > 0.0f)
 	{
-		b2ComputeMass(world, body);
+		b2UpdateBodyMassData(world, body);
 	}
 
 	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
@@ -693,7 +693,7 @@ static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 	// Reset the mass data
 	if (density > 0.0f)
 	{
-		b2ComputeMass(world, body);
+		b2UpdateBodyMassData(world, body);
 	}
 }
 
@@ -1140,7 +1140,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	}
 
 	// Body type affects the mass
-	b2ComputeMass(world, body);
+	b2UpdateBodyMassData(world, body);
 }
 
 void* b2Body_GetUserData(b2BodyId bodyId)
@@ -1192,6 +1192,14 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 
 	body->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
 	body->invI = body->I > 0.0f ? 1.0f / body->I : 0.0f;
+}
+
+b2MassData b2Body_GetMassData(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	b2MassData massData = {body->mass, body->localCenter, body->I};
+	return massData;
 }
 
 void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)

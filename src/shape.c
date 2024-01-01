@@ -269,6 +269,13 @@ void* b2Shape_GetUserData(b2ShapeId shapeId)
 	return shape->userData;
 }
 
+bool b2Shape_IsSensor(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->isSensor;
+}
+
 bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
@@ -298,18 +305,81 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 	}
 }
 
-void b2Shape_SetFriction(b2ShapeId shapeId, float friction)
+void b2Shape_SetDensity(b2ShapeId shapeId, float density)
+{
+	B2_ASSERT(b2IsValid(density) && density >= 0.0f);
+
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+	
+	b2Shape* shape = b2GetShape(world, shapeId);
+	if (density == shape->density)
+	{
+		// early return to avoid expensive function
+		return;
+	}
+
+	shape->density = density;
+
+	b2Body* body = world->bodies + shape->bodyIndex;
+	B2_ASSERT(b2ObjectValid(&body->object));
+
+	b2UpdateBodyMassData(world, body);
+}
+
+float b2Shape_GetDensity(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->density;
+}
+
+void b2Shape_SetFriction(b2ShapeId shapeId, float friction)
+{
+	B2_ASSERT(b2IsValid(friction) && friction >= 0.0f);
+
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
 	b2Shape* shape = b2GetShape(world, shapeId);
 	shape->friction = friction;
 }
 
-void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution)
+float b2Shape_GetFriction(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
 	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->friction;
+}
+
+void b2Shape_SetRestitution(b2ShapeId shapeId, float restitution)
+{
+	B2_ASSERT(b2IsValid(restitution) && restitution >= 0.0f);
+
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
 	shape->restitution = restitution;
+}
+
+float b2Shape_GetRestitution(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->restitution;
 }
 
 b2Filter b2Shape_GetFilter(b2ShapeId shapeId)
