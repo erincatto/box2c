@@ -1779,7 +1779,7 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 		// Use bitSet to build awake island array. No need to add edges.
 		uint64_t word;
-		uint32_t wordCount = awakeIslandBitSet->wordCount;
+		uint32_t wordCount = awakeIslandBitSet->blockCount;
 		uint64_t* bits = awakeIslandBitSet->bits;
 		int32_t awakeIndex = 0;
 		for (uint32_t k = 0; k < wordCount; ++k)
@@ -1831,7 +1831,7 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
 		// that body A or body B or both bodies wake the contact.
 		uint64_t word;
-		uint32_t wordCount = awakeContactBitSet->wordCount;
+		uint32_t wordCount = awakeContactBitSet->blockCount;
 		uint64_t* bits = awakeContactBitSet->bits;
 		for (uint32_t k = 0; k < wordCount; ++k)
 		{
@@ -2025,7 +2025,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 
 			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 			{
-				shape->fatAABB = b2AABB_Extend(shape->aabb);
+				shape->fatAABB = b2ExtendAABB(shape->aabb);
 				shape->enlargedAABB = true;
 				fastBody->enlargeAABB = true;
 			}
@@ -2051,7 +2051,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 
 			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 			{
-				shape->fatAABB = b2AABB_Extend(shape->aabb);
+				shape->fatAABB = b2ExtendAABB(shape->aabb);
 				shape->enlargedAABB = true;
 				fastBody->enlargeAABB = true;
 			}
@@ -2135,7 +2135,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 		// ordered to ensure determinism.
 		b2Shape* shapes = world->shapes;
 		uint64_t word;
-		uint32_t wordCount = bitSet->wordCount;
+		uint32_t wordCount = bitSet->blockCount;
 		uint64_t* bits = bitSet->bits;
 		for (uint32_t k = 0; k < wordCount; ++k)
 		{

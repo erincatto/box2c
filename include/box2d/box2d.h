@@ -233,11 +233,20 @@ B2_API b2MassData b2Body_GetMassData(b2BodyId bodyId);
 /// Adjust the linear damping. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping);
 
+/// Get the current linear damping.
+B2_API float b2Body_GetLinearDamping(b2BodyId bodyId);
+
 /// Adjust the angular damping. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetAngularDamping(b2BodyId bodyId, float angularDamping);
 
+/// Get the current angular damping.
+B2_API float b2Body_GetAngularDamping(b2BodyId bodyId);
+
 /// Adjust the gravity scale. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale);
+
+/// Get the current gravity scale.
+B2_API float b2Body_GetGravityScale(b2BodyId bodyId);
 
 /// Is this body awake?
 B2_API bool b2Body_IsAwake(b2BodyId bodyId);
@@ -263,6 +272,10 @@ B2_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
 
 /// Get the touching contact data for a body
 B2_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+
+/// Get the current world AABB that contains all the attached shapes. Note that this may not emcompass the body origin.
+///	If there are no shapes attached then the returned AABB is empty and centered on the body origin.
+B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 
 /** @} */
 
@@ -373,6 +386,9 @@ B2_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
 B2_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
+
+/// Get the current world AABB
+B2_API b2AABB b2Shape_GetAABB(b2ShapeId shapeId);
 
 /** @} */
 

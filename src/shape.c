@@ -599,3 +599,15 @@ int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, in
 
 	return index;
 }
+
+b2AABB b2Shape_GetAABB(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
+	{
+		return (b2AABB){0};
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->aabb;
+}

@@ -15,7 +15,7 @@
 
 bool b2IsValidRay(const b2RayCastInput* input)
 {
-	bool isValid = b2IsValidVec2(input->origin) && b2IsValidVec2(input->translation) && b2IsValid(input->maxFraction) &&
+	bool isValid = b2Vec2_IsValid(input->origin) && b2Vec2_IsValid(input->translation) && b2IsValid(input->maxFraction) &&
 				   0.0f <= input->maxFraction && input->maxFraction < b2_huge;
 	return isValid;
 }

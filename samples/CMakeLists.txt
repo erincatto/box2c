@@ -78,9 +78,8 @@ add_executable(samples
 	collection/sample_ray_cast.cpp
 	collection/sample_shapes.cpp
 	collection/sample_shape_cast.cpp
-	collection/sample_tilted_stacks.cpp
+	collection/sample_stacking.cpp
 	collection/sample_time_of_impact.cpp
-	collection/sample_vertical_stack.cpp
 )
 
 set_target_properties(samples PROPERTIES

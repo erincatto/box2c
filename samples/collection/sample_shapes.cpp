@@ -227,6 +227,7 @@ static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape
 
 // This sample shows how careful creation of compound shapes leads to better simulation and avoids
 // objects getting stuck.
+// This also shows how to get the combined AABB for the body.
 class CompoundShapes : public Sample
 {
 public:
@@ -326,6 +327,8 @@ public:
 			b2CreatePolygonShape(m_ship2Id, &b2_defaultShapeDef, &left);
 			b2CreatePolygonShape(m_ship2Id, &b2_defaultShapeDef, &right);
 		}
+
+		m_drawBodyAABBs = false;
 	}
 
 	void Spawn()
@@ -392,8 +395,36 @@ public:
 			Spawn();
 		}
 
+		ImGui::Checkbox("Body AABBs", &m_drawBodyAABBs);
+
 		ImGui::End();
 	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		if (m_drawBodyAABBs)
+		{
+			b2AABB aabb;
+
+			b2Color yellow = b2MakeColor(b2_colorYellow3, 0.5f);
+
+			aabb = b2Body_ComputeAABB(m_table1Id);
+			g_draw.DrawAABB(aabb, yellow);
+			
+			aabb = b2Body_ComputeAABB(m_table2Id);
+			g_draw.DrawAABB(aabb, yellow);
+			
+			aabb = b2Body_ComputeAABB(m_ship1Id);
+			g_draw.DrawAABB(aabb, yellow);
+			
+			aabb = b2Body_ComputeAABB(m_ship2Id);
+			g_draw.DrawAABB(aabb, yellow);
+		}
+	}
+
+
 
 	static Sample* Create(const Settings& settings)
 	{
@@ -404,6 +435,7 @@ public:
 	b2BodyId m_table2Id;
 	b2BodyId m_ship1Id;
 	b2BodyId m_ship2Id;
+	bool m_drawBodyAABBs;
 };
 
 static int sampleCompoundShape = RegisterSample("Shapes", "Compound Shapes", CompoundShapes::Create);

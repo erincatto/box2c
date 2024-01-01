@@ -7,47 +7,19 @@
 #include "box2d/math.h"
 #include "box2d/types.h"
 
-/// Verify that the bounds are sorted.
-bool b2AABB_IsValid(b2AABB a);
-
-/// Ray cast an AABB
+// Ray cast an AABB
 b2RayCastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2);
 
-/// Get the center of the AABB.
-static inline b2Vec2 b2AABB_Center(b2AABB a)
-{
-	b2Vec2 b = {0.5f * (a.lowerBound.x + a.upperBound.x), 0.5f * (a.lowerBound.y + a.upperBound.y)};
-	return b;
-}
-
-/// Get the extents of the AABB (half-widths).
-static inline b2Vec2 b2AABB_Extents(b2AABB a)
-{
-	b2Vec2 b = {0.5f * (a.upperBound.x - a.lowerBound.x), 0.5f * (a.upperBound.y - a.lowerBound.y)};
-	return b;
-}
-
-/// Get the perimeter length
-static inline float b2AABB_Perimeter(b2AABB a)
+// Get the perimeter length
+static inline float b2Perimeter(b2AABB a)
 {
 	float wx = a.upperBound.x - a.lowerBound.x;
 	float wy = a.upperBound.y - a.lowerBound.y;
 	return 2.0f * (wx + wy);
 }
 
-/// Union of two AABBs
-static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
-{
-	b2AABB c;
-	c.lowerBound.x = B2_MIN(a.lowerBound.x, b.lowerBound.x);
-	c.lowerBound.y = B2_MIN(a.lowerBound.y, b.lowerBound.y);
-	c.upperBound.x = B2_MAX(a.upperBound.x, b.upperBound.x);
-	c.upperBound.y = B2_MAX(a.upperBound.y, b.upperBound.y);
-	return c;
-}
-
-/// Fatten an AABB
-static inline b2AABB b2AABB_Extend(b2AABB a)
+// Fatten an AABB
+static inline b2AABB b2ExtendAABB(b2AABB a)
 {
 	b2AABB c;
 	c.lowerBound.x = a.lowerBound.x - b2_aabbMargin;
@@ -59,7 +31,7 @@ static inline b2AABB b2AABB_Extend(b2AABB a)
 
 /// Enlarge a to contain b
 /// @return true if the AABB grew
-static inline bool b2AABB_Enlarge(b2AABB* a, b2AABB b)
+static inline bool b2EnlargeAABB(b2AABB* a, b2AABB b)
 {
 	bool changed = false;
 	if (b.lowerBound.x < a->lowerBound.x)
