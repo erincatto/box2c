@@ -202,7 +202,6 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 			float impulseScale = 0.0f;
 			if (s > 0.0f)
 			{
-				// TODO_ERIN what time to use?
 				// Speculative (inverse of full time step)
 				bias = s * inv_dt;
 			}

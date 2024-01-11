@@ -340,68 +340,15 @@ public:
 			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
 		}
 
-		b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, 0.25f};
-		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-		b2Polygon square = b2MakeSquare(0.5f);
-		
-		b2BodyDef bodyDef = b2_defaultBodyDef;
-		bodyDef.type = b2_dynamicBody;
-		bodyDef.linearVelocity = {0.5f, 0.0f};
 
-		b2BodyId bodyId = b2_nullBodyId;
+		m_flip = false;
+
+		for (int32_t i = 0; i < 9; ++i)
 		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			shapeDef.friction = 0.01f;
-			bodyDef.linearVelocity = {2.0f, 0.0f};
-
-			bodyDef.position = {-9.0f, 4.25f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
-
-			bodyDef.position = {2.0f, 4.75f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
-
-			bodyDef.position = {13.0f, 4.75f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+			m_bodyIds[i] = b2_nullBodyId;
 		}
 
-		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			shapeDef.friction = 0.01f;
-			bodyDef.linearVelocity = {2.5f, 0.0f};
-
-			bodyDef.position = {-11.0f, 4.5f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bodyId, &shapeDef, &square);
-
-			bodyDef.position = {0.0f, 5.0f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bodyId, &shapeDef, &square);
-
-			bodyDef.position = {11.0f, 5.0f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bodyId, &shapeDef, &square);
-		}
-
-		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			shapeDef.friction = 0.2f;
-			bodyDef.linearVelocity = {1.5f, 0.0f};
-
-			bodyDef.position = {-13.0f, 4.5f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCircleShape(bodyId, &shapeDef, &circle);
-
-			bodyDef.position = {-2.0f, 5.0f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCircleShape(bodyId, &shapeDef, &circle);
-			
-			bodyDef.position = {9.0f, 5.0f};
-			bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCircleShape(bodyId, &shapeDef, &circle);
-		}
+		CreateBodies();
 
 		// Unrelated testing of math_cpp.h
 		b2Vec2 a = {1.0f, 2.0f};
@@ -414,12 +361,111 @@ public:
 		a *= 2.0f;
 		a += a + b - c;
 		b = 3.0f * a - c * 2.0f;
+
+		b.x += 0.0f;
+	}
+
+	void CreateBodies()
+	{
+		for (int32_t i = 0; i < 9; ++i)
+		{
+			if (B2_NON_NULL(m_bodyIds[i]))
+			{
+				b2DestroyBody(m_bodyIds[i]);
+				m_bodyIds[i] = b2_nullBodyId;
+			}
+		}
+
+		float sign = m_flip ? -1.0f : 1.0f;
+
+		b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, 0.25f};
+		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+		b2Polygon square = b2MakeSquare(0.5f);
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.type = b2_dynamicBody;
+
+		{
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.friction = 0.01f;
+			bodyDef.linearVelocity = {2.0f * sign, 0.0f};
+
+			float offset = m_flip ? -4.0f : 0.0f;
+
+			bodyDef.position = {-9.0f + offset, 4.25f};
+			m_bodyIds[0] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCapsuleShape(m_bodyIds[0], &shapeDef, &capsule);
+
+			bodyDef.position = {2.0f + offset, 4.75f};
+			m_bodyIds[1] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCapsuleShape(m_bodyIds[1], &shapeDef, &capsule);
+
+			bodyDef.position = {13.0f + offset, 4.75f};
+			m_bodyIds[2] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCapsuleShape(m_bodyIds[2], &shapeDef, &capsule);
+		}
+
+		{
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.friction = 0.01f;
+			bodyDef.linearVelocity = {2.5f * sign, 0.0f};
+
+			bodyDef.position = {-11.0f, 4.5f};
+			m_bodyIds[3] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(m_bodyIds[3], &shapeDef, &square);
+
+			bodyDef.position = {0.0f, 5.0f};
+			m_bodyIds[4] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(m_bodyIds[4], &shapeDef, &square);
+
+			bodyDef.position = {11.0f, 5.0f};
+			m_bodyIds[5] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(m_bodyIds[5], &shapeDef, &square);
+		}
+
+		{
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			shapeDef.friction = 0.2f;
+			bodyDef.linearVelocity = {1.5f * sign, 0.0f};
+
+			float offset = m_flip ? 4.0f : 0.0f;
+
+			bodyDef.position = {-13.0f + offset, 4.5f};
+			m_bodyIds[6] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCircleShape(m_bodyIds[6], &shapeDef, &circle);
+
+			bodyDef.position = {-2.0f + offset, 5.0f};
+			m_bodyIds[7] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCircleShape(m_bodyIds[7], &shapeDef, &circle);
+
+			bodyDef.position = {9.0f + offset, 5.0f};
+			m_bodyIds[8] = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCircleShape(m_bodyIds[8], &shapeDef, &circle);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::Begin("Cliff Options", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Flip"))
+		{
+			m_flip = !m_flip;
+			CreateBodies();
+		}
+
+		ImGui::End();
 	}
 
 	static Sample* Create(const Settings& settings)
 	{
 		return new Cliff(settings);
 	}
+
+	b2BodyId m_bodyIds[9];
+	bool m_flip;
 };
 
 static int sampleShapesOnShapes = RegisterSample("Stacking", "Cliff", Cliff::Create);

@@ -1632,7 +1632,7 @@ public:
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 		}
 
-		m_human.Spawn(m_worldId, {0.0f, 10.0f}, 2.0f, 1);
+		m_human.Spawn(m_worldId, {0.0f, 10.0f}, 1.0f, 1, nullptr);
 	}
 
 	static Sample* Create(const Settings& settings)

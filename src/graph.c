@@ -556,6 +556,26 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Sol
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		b2SolverBody* body = bodies + i;
+
+		// b2Vec2 translation = b2MulSV(h, body->linearVelocity);
+		// float ratioLinear = 1.0f;
+		// if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
+		// {
+		// 	ratioLinear = b2_maxTranslation / b2Length(translation);
+		// }
+
+		// float rotation = h * body->angularVelocity;
+		// float ratioAngular = 1.0f;
+		// if (rotation * rotation > b2_maxRotation * b2_maxRotation)
+		// {
+		// 	ratioAngular = b2_maxRotation / B2_ABS(rotation);
+		// }
+
+		// float ratio = B2_MIN(ratioLinear, ratioAngular);
+
+		// body->linearVelocity = b2MulSV(ratio, body->linearVelocity);
+		// body->angularVelocity *= ratio;
+
 		body->deltaAngle += h * body->angularVelocity;
 		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
 	}
@@ -601,6 +621,9 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		b2Vec2 v = solverBody->linearVelocity;
 		float w = solverBody->angularVelocity;
 
+		B2_ASSERT(b2Vec2_IsValid(v));
+		B2_ASSERT(b2IsValid(w));
+
 		body->isSpeedCapped = false;
 		float ratioLinear = 1.0f;
 		b2Vec2 translation = b2MulSV(timeStep, v);
@@ -625,6 +648,8 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->linearVelocity = v;
 		body->angularVelocity = w;
 
+		// body->position = b2MulAdd(body->position, ratio, solverBody->deltaPosition);
+		// body->angle += ratio * solverBody->deltaAngle;
 		body->position = b2Add(body->position, solverBody->deltaPosition);
 		body->angle += solverBody->deltaAngle;
 
@@ -1915,8 +1940,8 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	// Prevent pausing on smooth segment junctions
 	if (shape->type == b2_smoothSegmentShape)
 	{
-		b2Vec2 p1 = shape->smoothSegment.segment.point1;
-		b2Vec2 p2 = shape->smoothSegment.segment.point2;
+		b2Vec2 p1 = b2TransformPoint(body->transform, shape->smoothSegment.segment.point1);
+		b2Vec2 p2 = b2TransformPoint(body->transform, shape->smoothSegment.segment.point2);
 		b2Vec2 e = b2Sub(p2, p1);
 		b2Vec2 c1 = continuousContext->centroid1;
 		b2Vec2 c2 = continuousContext->centroid2;

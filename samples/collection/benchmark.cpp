@@ -193,7 +193,7 @@ class BenchmarkBarrel : public Sample
 				}
 				else if (m_shapeType == e_humanShape)
 				{
-					m_humans[index].Spawn(m_worldId, bodyDef.position, 3.5f, index + 1);
+					m_humans[index].Spawn(m_worldId, bodyDef.position, 3.5f, index + 1, nullptr);
 				}
 
 				index += 1;

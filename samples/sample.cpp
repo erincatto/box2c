@@ -338,11 +338,6 @@ void Sample::Step(Settings& settings)
 						  m_maxProfile.continuous);
 		m_textLine += m_textIncrement;
 	}
-
-	if (settings.drawContactPoints)
-	{
-
-	}
 }
 
 void Sample::ShiftOrigin(b2Vec2 newOrigin)

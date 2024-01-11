@@ -221,8 +221,6 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->localCenter = b2Vec2_zero;
 	body->linearVelocity = def->linearVelocity;
 	body->angularVelocity = def->angularVelocity;
-	body->deltaPosition = b2Vec2_zero;
-	body->deltaAngle = 0.0f;
 	body->force = b2Vec2_zero;
 	body->torque = 0.0f;
 	body->shapeList = B2_NULL_INDEX;

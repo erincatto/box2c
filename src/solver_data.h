@@ -25,6 +25,7 @@ typedef struct b2StepContext
 	int32_t relaxIterations;
 
 	float restitutionThreshold;
+	float maxBiasVelocity;
 
 	// TODO_ERIN for joints
 	struct b2Body* bodies;

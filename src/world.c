@@ -155,10 +155,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contactHertz = def->contactHertz;
 	world->contactDampingRatio = def->contactDampingRatio;
 	world->inv_dt0 = 0.0f;
-	world->enableSleep = true;
+	world->enableSleep = def->enableSleep;
 	world->locked = false;
 	world->enableWarmStarting = true;
-	world->enableContinuous = true;
+	world->enableContinuous = def->enableContinous;
 	world->profile = b2_emptyProfile;
 	world->userTreeTask = NULL;
 	world->splitIslandIndex = B2_NULL_INDEX;
@@ -239,7 +239,10 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyBlockAllocator(world->blockAllocator);
 	b2DestroyStackAllocator(world->stackAllocator);
 
+	// Wipe world but preserve revision
+	uint16_t revivision = world->revision;
 	*world = (b2World){0};
+	world->revision = revision;
 }
 
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
@@ -377,12 +380,6 @@ static void b2Collide(b2World* world)
 		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactStateBitSet);
 	}
 
-	// Prepare to capture events
-	b2Array_Clear(world->sensorBeginEventArray);
-	b2Array_Clear(world->sensorEndEventArray);
-	b2Array_Clear(world->contactBeginArray);
-	b2Array_Clear(world->contactEndArray);
-
 	const b2Shape* shapes = world->shapes;
 	int16_t worldIndex = world->index;
 
@@ -494,14 +491,6 @@ static void b2Collide(b2World* world)
 
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t relaxIterations)
 {
-	if (timeStep == 0.0f)
-	{
-		// TODO_ERIN would be useful to still process collision while paused
-		return;
-	}
-
-	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
-
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
@@ -509,6 +498,22 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		return;
 	}
 
+	// Prepare to capture events
+	// Ensure user does not access stale data if there is an early return
+	b2Array_Clear(world->sensorBeginEventArray);
+	b2Array_Clear(world->sensorEndEventArray);
+	b2Array_Clear(world->contactBeginArray);
+	b2Array_Clear(world->contactEndArray);
+
+	if (timeStep == 0.0f)
+	{
+		// todo would be useful to still process collision while paused
+		return;
+	}
+
+	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
+
+	world->locked = true;
 	world->profile = b2_emptyProfile;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
@@ -521,9 +526,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		b2UpdateBroadPhasePairs(world);
 		world->profile.pairs = b2GetMilliseconds(&timer);
 	}
-
-	// TODO_ERIN atomic
-	world->locked = true;
 
 	b2StepContext context = {0};
 	context.dt = timeStep;
@@ -540,6 +542,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	context.dtRatio = world->inv_dt0 * timeStep;
 	context.restitutionThreshold = world->restitutionThreshold;
+	context.maxBiasVelocity = b2_maxTranslation * context.inv_dt;
 	context.enableWarmStarting = world->enableWarmStarting;
 	context.bodies = world->bodies;
 	context.bodyCapacity = world->bodyPool.capacity;

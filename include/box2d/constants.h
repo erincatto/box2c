@@ -50,15 +50,15 @@
 /// Maximum number of simultaneous worlds that can be allocated
 #define b2_maxWorlds 128
 
-/// The maximum linear translation of a body per step. This limit is very large and is used
+/// The maximum translation of a body per time step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this. Meters.
 /// @warning modifying this can have a significant impact on stability
 #define b2_maxTranslation (4.0f * b2_lengthUnitsPerMeter)
 
-/// The maximum angular velocity of a body. This limit is very large and is used
+/// The maximum rotation of a body per time step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this.
 /// @warning modifying this can have a significant impact on stability
-#define b2_maxRotation (0.5f * b2_pi)
+#define b2_maxRotation (0.25f * b2_pi)
 
 /// @warning modifying this can have a significant impact on performance and stability
 #define b2_speculativeDistance (4.0f * b2_linearSlop)

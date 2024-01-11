@@ -321,7 +321,7 @@ B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
 /// Get the body that a shape is attached to
 B2_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 
-/// Get the type of a shape.
+/// Is this shape a sensor? See b2ShapeDef.
 B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
 
 /// Get the user data for a shape. This is useful when you get a shape id

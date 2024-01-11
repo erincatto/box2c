@@ -51,6 +51,13 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	joint->angleA = bodyA->angle;
 	joint->angleB = bodyB->angle;
 
+	// todo
+	joint->localCenterA = bodyA->localCenter;
+	joint->localCenterB = bodyB->localCenter;
+	joint->positionA = bodyA->position;
+	joint->positionB = bodyB->position;
+
+
 	joint->axialMass = iA + iB;
 	bool fixedRotation;
 	if (joint->axialMass > 0.0f)
@@ -87,10 +94,10 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	{
 		// todo these coefficients could be in the context and shared
 		// hertz = 1/4 * substep Hz
-		const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
-		const float zeta = 1.0f;
-		//const float hertz = 60.0f;
+		//const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
 		//const float zeta = 1.0f;
+		const float hertz = 30.0f;
+		const float zeta = 1.0f;
 		float omega = 2.0f * b2_pi * hertz;
 		float h = context->dt;
 
@@ -192,10 +199,13 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
+	const b2Vec2 cA = b2Add(joint->positionA, bodyA->deltaPosition);
 	const float aA = joint->angleA + bodyA->deltaAngle;
+	const b2Vec2 cB = b2Add(joint->positionB, bodyB->deltaPosition);
 	const float aB = joint->angleB + bodyB->deltaAngle;
 
 	bool fixedRotation = (iA + iB == 0.0f);
+	const float maxBias = context->maxBiasVelocity;
 
 	if (joint->enableLimit && fixedRotation == false)
 	{
@@ -261,6 +271,7 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	}
 
 	// Solve point-to-point constraint
+	#if 0
 	{
 		// Approximate change in anchors
 		// small angle approximation of sin(delta_angle) == delta_angle, cos(delta_angle) == 1
@@ -280,6 +291,11 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			b2Vec2 separation = b2Add(joint->separation, ds);
 
 			bias = b2MulSV(joint->biasCoefficient, separation);
+			// if (b2Dot(bias, bias) > maxBias * maxBias)
+			// {
+			// 	bias = b2MulSV(maxBias / b2Length(bias), bias);
+			// }
+
 			massScale = joint->massCoefficient;
 			impulseScale = joint->impulseCoefficient;
 		}
@@ -297,7 +313,57 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(rB, impulse);
+
+		wB += 0.0f;
 	}
+	#else
+	{
+		// J = [-I -r1_skew I r2_skew]
+		// r_skew = [-ry; rx]
+
+		// Matlab
+		// K = [ mA+r1y^2*iA+mB+r2y^2*iB,  -r1y*iA*r1x-r2y*iB*r2x]
+		//     [  -r1y*iA*r1x-r2y*iB*r2x, mA+r1x^2*iA+mB+r2x^2*iB]
+
+		// TODO_ERIN approximate the separation similar to contacts. Test if updating K makes a difference.
+		b2Rot qA = b2MakeRot(aA);
+		b2Rot qB = b2MakeRot(aB);
+		b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, joint->localCenterA));
+		b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
+
+		b2Mat22 K;
+		K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
+		K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+		K.cx.y = K.cy.x;
+		K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
+
+		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
+
+		b2Vec2 bias = b2Vec2_zero;
+		float massScale = 1.0f;
+		float impulseScale = 0.0f;
+		if (useBias)
+		{
+			b2Vec2 separation = b2Add(b2Sub(rB, rA), b2Sub(cB, cA));
+			bias = b2MulSV(joint->biasCoefficient, separation);
+			massScale = joint->massCoefficient;
+			impulseScale = joint->impulseCoefficient;
+		}
+
+		b2Vec2 b = b2MulMV(joint->pivotMass, b2Add(Cdot, bias));
+
+		//b2Vec2 b = b2Solve22(K, b2Add(Cdot, bias));
+		b2Vec2 impulse;
+		impulse.x = -massScale * b.x - impulseScale * joint->linearImpulse.x;
+		impulse.y = -massScale * b.y - impulseScale * joint->linearImpulse.y;
+		joint->linearImpulse.x += impulse.x;
+		joint->linearImpulse.y += impulse.y;
+		vA = b2MulSub(vA, mA, impulse);
+		wA -= iA * b2Cross(rA, impulse);
+		vB = b2MulAdd(vB, mB, impulse);
+		wB += iB * b2Cross(rB, impulse);
+	}
+	#endif
 
 	// Solve motor constraint.
 	if (joint->enableMotor && fixedRotation == false)

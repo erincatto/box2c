@@ -157,6 +157,12 @@ typedef struct b2RevoluteJoint
 	float massCoefficient;
 	float impulseCoefficient;
 	float axialMass;
+
+	// todo
+	b2Vec2 positionA;
+	b2Vec2 positionB;
+	b2Vec2 localCenterA;
+	b2Vec2 localCenterB;
 } b2RevoluteJoint;
 
 typedef struct b2WeldJoint

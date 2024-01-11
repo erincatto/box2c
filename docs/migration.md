@@ -204,6 +204,10 @@ The friction joint has been removed since it is a subset of the motor joint.
 
 The pulley and gear joints have been removed. I'm not quite happy with how they work and plan to implement improved versions in the future.
 
+There is one major change related to joints and related to reducing the number of callbacks. It is now required that you destroy joints before destroying the attached bodies. There is no implicit desctruction of joints and therefore no implicit joint destruction callback.
+
+> You must destroy joints before destroying the attached bodies. This means you need to keep track of your joint ids.
+
 ### Contact data
 In v2.4 `b2ContactListener` provided `BeginContact`, `EndContact`, `PreSolve`, and `PostSolve`. You could also iterate over the contacts associated with a body using `b2Body::GetContactList`. The latter was rarely used due to how continuous collision worked in v2.4 meant that you could miss some contacts using `GetContactList`.
 

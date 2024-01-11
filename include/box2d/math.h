@@ -302,6 +302,20 @@ static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 	return B;
 }
 
+/// Solve A * x = b, where b is a column vector. This is more efficient
+/// than computing the inverse in one-shot cases.
+static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
+{
+	float a11 = A.cx.x, a12 = A.cy.x, a21 = A.cx.y, a22 = A.cy.y;
+	float det = a11 * a22 - a12 * a21;
+	if (det != 0.0f)
+	{
+		det = 1.0f / det;
+	}
+	b2Vec2 x = {det * (a22 * b.x - a12 * b.y), det * (a11 * b.y - a21 * b.x)};
+	return x;
+}
+
 /// Does a fully contain b
 static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
 {
