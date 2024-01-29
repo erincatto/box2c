@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "box2d/api.h"
-#include "box2d/constants.h"
-#include "box2d/types.h"
+#include "api.h"
+#include "constants.h"
+#include "types.h"
 
 #define b2_defaultCategoryBits (0x00000001)
 #define b2_defaultMaskBits (0xFFFFFFFF)

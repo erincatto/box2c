@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "box2d/id.h"
-#include "box2d/manifold.h"
+#include "id.h"
+#include "manifold.h"
 
 #include <stdbool.h>
 #include <stddef.h>

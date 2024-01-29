@@ -220,6 +220,7 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			if (C > 0.0f)
 			{
 				// speculation
+				// todo use sub step
 				bias = C * context->inv_dt;
 			}
 			else if (useBias)
@@ -250,6 +251,8 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			float impulseScale = 0.0f;
 			if (C > 0.0f)
 			{
+				// speculation
+				// todo use sub step
 				bias = C * context->inv_dt;
 			}
 			else if (useBias)

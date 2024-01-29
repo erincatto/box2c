@@ -234,6 +234,7 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->I = 0.0f;
 	body->invI = 0.0f;
 	body->minExtent = b2_huge;
+	body->maxExtent = 0.0f;
 	body->linearDamping = def->linearDamping;
 	body->angularDamping = def->angularDamping;
 	body->gravityScale = def->gravityScale;
@@ -941,6 +942,11 @@ void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity)
 	}
 
 	body->linearVelocity = linearVelocity;
+
+	if (b2LengthSquared(linearVelocity) > 0.0f)
+	{
+		b2WakeBody(world, body);
+	}
 }
 
 void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity)

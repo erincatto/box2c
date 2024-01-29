@@ -846,11 +846,11 @@ public:
 					break;
 
 				case e_multiple:
-					g_draw.DrawString(5, m_textLine, "Cast mode: multiple - gather multiple shapes - unsorted");
+					g_draw.DrawString(5, m_textLine, "Cast mode: multiple - gather up to 3 shapes - unsorted");
 					break;
 
 				case e_sorted:
-					g_draw.DrawString(5, m_textLine, "Cast mode: sorted - gather multiple shapes sorted by closeness");
+					g_draw.DrawString(5, m_textLine, "Cast mode: sorted - gather up to 3 shapes sorted by closeness");
 					break;
 			}
 

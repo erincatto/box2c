@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "box2d/types.h"
+#include "types.h"
 
 typedef enum b2JointType
 {

@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include "box2d/color.h"
-#include "box2d/constants.h"
-#include "box2d/id.h"
+#include "color.h"
+#include "constants.h"
+#include "id.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "box2d/api.h"
-#include "box2d/id.h"
-#include "box2d/types.h"
+#include "api.h"
+#include "id.h"
+#include "types.h"
 
 typedef struct b2Manifold b2Manifold;
 

@@ -74,7 +74,10 @@ class BenchmarkBarrel : public Sample
 				m_bodies[i] = b2_nullBodyId;
 			}
 
-			m_humans[i].Despawn();
+			if (m_humans[i].m_isSpawned)
+			{
+				m_humans[i].Despawn();
+			}
 		}
 
 		m_columnCount = g_sampleDebug ? 10 : e_maxColumns;

@@ -145,10 +145,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stepId = 0;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
-
-	// Globals start at 0. It should be fine for this to roll over.
-	world->revision += 1;
-
 	world->gravity = def->gravity;
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->contactPushoutVelocity = def->contactPushoutVelocity;
@@ -240,9 +236,9 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyStackAllocator(world->stackAllocator);
 
 	// Wipe world but preserve revision
-	uint16_t revivision = world->revision;
+	uint16_t revision = world->revision;
 	*world = (b2World){0};
-	world->revision = revision;
+	world->revision = revision + 1;
 }
 
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)

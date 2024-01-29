@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "box2d/types.h"
+#include "api.h"
+#include "types.h"
 
 typedef struct b2Circle b2Circle;
 typedef struct b2Capsule b2Capsule;

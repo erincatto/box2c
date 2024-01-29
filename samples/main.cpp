@@ -117,6 +117,7 @@ static void SortTests()
 static void RestartSample()
 {
 	delete s_sample;
+	s_sample = nullptr;
 	s_settings.restart = true;
 	s_sample = g_sampleEntries[s_settings.sampleIndex].createFcn(s_settings);
 	s_settings.restart = false;
@@ -296,11 +297,6 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 				}
 		}
 	}
-	else if (action == GLFW_RELEASE)
-	{
-		s_sample->KeyboardUp(key);
-	}
-	// else GLFW_REPEAT
 }
 
 static void CharCallback(GLFWwindow* window, unsigned int c)
@@ -721,6 +717,7 @@ int main(int, char**)
 			g_camera.ResetView();
 			s_settings.sampleIndex = s_selection;
 			delete s_sample;
+			s_sample = nullptr;
 			s_sample = g_sampleEntries[s_settings.sampleIndex].createFcn(s_settings);
 		}
 

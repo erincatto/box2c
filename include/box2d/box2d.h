@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include "box2d/api.h"
-#include "box2d/callbacks.h"
-#include "box2d/event_types.h"
-#include "box2d/geometry.h"
-#include "box2d/id.h"
-#include "box2d/joint_types.h"
-#include "box2d/types.h"
+#include "api.h"
+#include "callbacks.h"
+#include "event_types.h"
+#include "geometry.h"
+#include "id.h"
+#include "joint_types.h"
+#include "types.h"
 
 typedef struct b2Capsule b2Capsule;
 typedef struct b2Circle b2Circle;
@@ -31,6 +31,9 @@ B2_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 
 /// Destroy a world.
 B2_API void b2DestroyWorld(b2WorldId worldId);
+
+/// World identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2World_IsValid(b2WorldId id);
 
 /// Take a time step. This performs collision detection, integration,
 /// and constraint solution.
@@ -127,6 +130,14 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// Destroy a rigid body given an id.
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBody(b2BodyId bodyId);
+
+/// Body identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Body_IsValid(b2BodyId id);
+
+/// Destroy a rigid body given an id. Destroys all joints attached to the body. Be careful
+///	because this may invalidate some b2JointId that you have stored.
+/// @warning This function is locked during callbacks.
+B2_API void b2DestroyBodyAndJoints(b2BodyId bodyId);
 
 /// Get the type of a body
 B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
@@ -308,12 +319,18 @@ B2_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, co
 /// Destroy any shape type
 B2_API void b2DestroyShape(b2ShapeId shapeId);
 
+/// Shape identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Shape_IsValid(b2ShapeId id);
+
 /// Create a chain shape
 ///	@see b2ChainDef for details
 B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 
 /// Destroy a chain shape
 B2_API void b2DestroyChain(b2ChainId chainId);
+
+/// Chain identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Chain_IsValid(b2ChainId id);
 
 /// Get the type of a shape.
 B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
@@ -428,6 +445,9 @@ B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* de
 
 /// Destroy any joint type
 B2_API void b2DestroyJoint(b2JointId jointId);
+
+/// Joint identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Joint_IsValid(b2JointId id);
 
 /// Get the joint type
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);

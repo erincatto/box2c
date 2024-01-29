@@ -89,9 +89,6 @@ class Sample
 	virtual void Keyboard(int)
 	{
 	}
-	virtual void KeyboardUp(int)
-	{
-	}
 	virtual void MouseDown(b2Vec2 p, int button, int mod);
 	virtual void MouseUp(b2Vec2 p, int button);
 	virtual void MouseMove(b2Vec2 p);

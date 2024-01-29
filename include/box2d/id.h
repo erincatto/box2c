@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include "api.h"
-
-#include <stdbool.h>
 #include <stdint.h>
 
 /// These ids serve as handles to internal Box2D objects. These should be considered opaque data and passed by value.
@@ -68,18 +65,3 @@ static const b2ChainId b2_nullChainId = {-1, -1, 0};
 
 // Compare two ids for equality. Doesn't work for b2WorldId.
 #define B2_ID_EQUALS(id1, id2) (id1.index == id2.index && id1.world == id2.world && id1.revision == id2.revision)
-
-/// World identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2World_IsValid(b2WorldId id);
-
-/// Body identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2Body_IsValid(b2BodyId id);
-
-/// Shape identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2Shape_IsValid(b2ShapeId id);
-
-/// Chain identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2Chain_IsValid(b2ChainId id);
-
-/// Joint identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2Joint_IsValid(b2JointId id);

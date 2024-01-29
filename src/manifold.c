@@ -535,7 +535,10 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		float distance = output.distance;
 		manifold.normal = b2Normalize(b2Sub(pB, pA));
 		b2ManifoldPoint* cp = manifold.points + 0;
+
+		// todo should be pA?
 		cp->point = b2MulAdd(pB, 0.5f * (polyA->radius - polyB->radius - distance), manifold.normal);
+
 		cp->separation = distance - radius;
 		cp->id = B2_MAKE_ID(cache->indexA[0], cache->indexB[0]);
 		manifold.pointCount = 1;
