@@ -82,9 +82,10 @@ static inline b2Vec2 b2Neg(b2Vec2 a)
 }
 
 /// Vector linear interpolation
+/// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
 static inline b2Vec2 b2Lerp(b2Vec2 a, b2Vec2 b, float t)
 {
-	return B2_LITERAL(b2Vec2){a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)};
+	return B2_LITERAL(b2Vec2){(1.0f - t) * a.x + t * b.x, (1.0f - t) * a.y + t * b.y};
 }
 
 /// Component-wise multiplication
@@ -176,6 +177,7 @@ static inline float b2DistanceSquared(b2Vec2 a, b2Vec2 b)
 /// Set using an angle in radians.
 static inline b2Rot b2MakeRot(float angle)
 {
+	// todo determinism
 	b2Rot q = {sinf(angle), cosf(angle)};
 	return q;
 }
@@ -183,6 +185,7 @@ static inline b2Rot b2MakeRot(float angle)
 /// Get the angle in radians
 static inline float b2Rot_GetAngle(b2Rot q)
 {
+	// todo determinism
 	return atan2f(q.s, q.c);
 }
 
@@ -224,6 +227,65 @@ static inline b2Rot b2InvMulRot(b2Rot q, b2Rot r)
 	qr.s = q.c * r.s - q.s * r.c;
 	qr.c = q.c * r.c + q.s * r.s;
 	return qr;
+}
+
+/// Normalize rotation
+static inline b2Rot b2NormalizeRot(b2Rot q)
+{
+	float mag = sqrtf(q.s * q.s + q.c * q.c);
+	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
+	b2Rot qn = {q.s * invMag, q.c * invMag};
+	return qn;
+}
+
+/// Normalized linear interpolation
+/// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
+static inline b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
+{
+	float omt = 1.0f - t;	
+	b2Rot q = {
+		omt * q1.s + t * q2.s,
+		omt * q1.c + t * q2.c,
+	};
+	
+	return b2NormalizeRot(q);
+}
+
+/// Integration rotation from angular velocity
+///	@param q1 initial rotation
+///	@param deltaAngle the angular displacement in radians
+static inline b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
+{
+	// ds/dt = omega * cos(t)
+	// dc/dt = -omega * sin(t)
+	// s2 = s1 + omega * h * c1
+	// c2 = c1 - omega * h * s1
+	b2Rot q2 = {q1.s + deltaAngle * q1.c, q1.c - deltaAngle * q1.s};
+	float mag = sqrtf(q2.s * q2.s + q2.c * q2.c);
+	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
+	b2Rot qn = {q2.s * invMag, q2.c * invMag};
+	return qn;
+}
+
+/// Compute the angular velocity necessary to rotate between two
+///	rotations over a give time
+///	@param q1 initial rotation
+///	@param q2 final rotation
+///	@param inv_h inverse time step
+static inline float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
+{
+	// ds/dt = omega * cos(t)
+	// dc/dt = -omega * sin(t)
+	// s2 = s1 + omega * h * c1
+	// c2 = c1 - omega * h * s1
+
+	// omega * h * s1 = c1 - c2
+	// omega * h * c1 = s2 - s1
+	// omega * h = (c1 - c2) * s1 + (s2 - s1) * c1;
+	// omega * h = s1 * c1 - c2 * s1 + s2 * c1 - s1 * c1
+	// omega * h = s2 * c1 - c2 * s1 = sin(a2 - a1) ~= a2 - a1 for small delta
+	float omega = inv_h * (q2.s * q1.c - q2.c * q1.s);
+	return omega;
 }
 
 /// Rotate a vector

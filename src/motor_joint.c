@@ -48,8 +48,8 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 
-	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
-	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
+	joint->rA = b2RotateVector(bodyA->rotation, b2Sub(base->localAnchorA, bodyA->localCenter));
+	joint->rB = b2RotateVector(bodyB->rotation, b2Sub(base->localAnchorB, bodyB->localCenter));
 	joint->linearSeparation = b2Sub(b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position)), joint->linearOffset);
 	joint->angularSeparation = bodyB->angle - bodyA->angle - joint->angularOffset;
 

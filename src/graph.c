@@ -464,9 +464,10 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2So
 		b2SolverBody* solverBody = solverBodies + i;
 		solverBody->linearVelocity = v;
 		solverBody->angularVelocity = w;
+		solverBody->pad = 0.0f;
 
-		solverBody->deltaAngle = 0.0f;
 		solverBody->deltaPosition = b2Vec2_zero;
+		solverBody->rotation = body->rotation;
 
 		solverBody->invMass = invMass;
 		solverBody->invI = invI;
@@ -576,7 +577,7 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Sol
 		// body->linearVelocity = b2MulSV(ratio, body->linearVelocity);
 		// body->angularVelocity *= ratio;
 
-		body->deltaAngle += h * body->angularVelocity;
+		body->rotation = b2IntegrateRotation(body->rotation, h * body->angularVelocity);
 		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
 	}
 
@@ -648,14 +649,9 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->linearVelocity = v;
 		body->angularVelocity = w;
 
-		// body->position = b2MulAdd(body->position, ratio, solverBody->deltaPosition);
-		// body->angle += ratio * solverBody->deltaAngle;
 		body->position = b2Add(body->position, solverBody->deltaPosition);
-		body->angle += solverBody->deltaAngle;
-
-		// TODO_ERIN separate loop to compute rotations in SIMD
-		body->transform.q = b2MakeRot(body->angle);
-		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
+		body->rotation = solverBody->rotation;
+		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
@@ -677,14 +673,14 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			{
 				// Body is safe to advance
 				body->position0 = body->position;
-				body->angle0 = body->angle;
+				body->rotation0 = body->rotation;
 			}
 		}
 		else
 		{
 			// Body is safe to advance
 			body->position0 = body->position;
-			body->angle0 = body->angle;
+			body->rotation0 = body->rotation;
 			body->sleepTime += timeStep;
 		}
 
@@ -696,6 +692,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		}
 
 		// Update shapes AABBs
+		b2Transform transform = b2MakeTransform(body);
 		bool isFast = body->isFast;
 		int32_t shapeIndex = body->shapeList;
 		while (shapeIndex != B2_NULL_INDEX)
@@ -715,7 +712,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			}
 			else
 			{
-				shape->aabb = b2ComputeShapeAABB(shape, body->transform);
+				shape->aabb = b2ComputeShapeAABB(shape, transform);
 
 				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 				{
@@ -1940,8 +1937,9 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	// Prevent pausing on smooth segment junctions
 	if (shape->type == b2_smoothSegmentShape)
 	{
-		b2Vec2 p1 = b2TransformPoint(body->transform, shape->smoothSegment.segment.point1);
-		b2Vec2 p2 = b2TransformPoint(body->transform, shape->smoothSegment.segment.point2);
+		b2Transform transform = b2MakeTransform(body);
+		b2Vec2 p1 = b2TransformPoint(transform, shape->smoothSegment.segment.point1);
+		b2Vec2 p2 = b2TransformPoint(transform, shape->smoothSegment.segment.point2);
 		b2Vec2 e = b2Sub(p2, p1);
 		b2Vec2 c1 = continuousContext->centroid1;
 		b2Vec2 c2 = continuousContext->centroid2;
@@ -1983,10 +1981,12 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	b2Sweep sweep = b2MakeSweep(fastBody);
 
 	b2Transform xf1;
-	xf1.q = b2MakeRot(sweep.a1);
-	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
+	xf1.q = sweep.q1;
+	xf1.p = b2Sub(sweep.c1, b2RotateVector(sweep.q1, sweep.localCenter));
 
-	b2Transform xf2 = fastBody->transform;
+	b2Transform xf2;
+	xf2.q = sweep.q2;
+	xf2.p = b2Sub(sweep.c2, b2RotateVector(sweep.q2, sweep.localCenter));
 
 	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
 
@@ -2024,20 +2024,18 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	if (context.fraction < 1.0f)
 	{
 		// Handle time of impact event
-
+		b2Rot q = b2NLerp(sweep.q1, sweep.q2, context.fraction);
 		b2Vec2 c = b2Lerp(sweep.c1, sweep.c2, context.fraction);
-		float a = sweep.a1 + context.fraction * (sweep.a2 - sweep.a1);
+		b2Vec2 origin = b2Sub(c, b2RotateVector(q, sweep.localCenter));
 
 		// Advance body
-		fastBody->angle0 = a;
-		fastBody->angle = a;
+		fastBody->rotation0 = q;
+		fastBody->rotation = q;
 		fastBody->position0 = c;
 		fastBody->position = c;
 
-		b2Transform xf;
-		xf.q = b2MakeRot(a);
-		xf.p = b2Sub(c, b2RotateVector(fastBody->transform.q, sweep.localCenter));
-		fastBody->transform = xf;
+		b2Transform xf = {origin, q};
+		fastBody->origin = origin;
 
 		// Prepare AABBs for broad-phase
 		shapeIndex = fastBody->shapeList;
@@ -2063,7 +2061,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		// No time of impact event
 
 		// Advance body
-		fastBody->angle0 = fastBody->angle;
+		fastBody->rotation0 = fastBody->rotation;
 		fastBody->position0 = fastBody->position;
 
 		// Prepare AABBs for broad-phase

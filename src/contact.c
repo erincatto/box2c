@@ -430,10 +430,13 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	bool sensorB = shapeB->isSensor;
 	bool sensor = sensorA || sensorB;
 
+	b2Transform transformA = b2MakeTransform(bodyA);
+	b2Transform transformB = b2MakeTransform(bodyB);
+
 	// Is this contact a sensor?
 	if (sensor)
 	{
-		touching = b2TestShapeOverlap(shapeA, bodyA->transform, shapeB, bodyB->transform);
+		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB);
 
 		// Sensors don't generate manifolds.
 	}
@@ -442,7 +445,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
+		contact->manifold = fcn(shapeA, transformA, shapeB, transformB, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;
 

@@ -70,8 +70,8 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 		fixedRotation = true;
 	}
 
-	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
-	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
+	joint->rA = b2RotateVector(bodyA->rotation, b2Sub(base->localAnchorA, bodyA->localCenter));
+	joint->rB = b2RotateVector(bodyB->rotation, b2Sub(base->localAnchorB, bodyB->localCenter));
 	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
 
 	b2Vec2 rA = joint->rA;

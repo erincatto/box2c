@@ -51,7 +51,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	joint->localCenterB = bodyB->localCenter;
 
 	b2Vec2 cB = bodyB->position;
-	b2Rot qB = bodyB->transform.q;
+	b2Rot qB = bodyB->rotation;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 

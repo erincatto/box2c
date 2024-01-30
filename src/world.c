@@ -790,7 +790,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
-			b2Transform transform = {body->position, body->transform.q};
+			b2Transform transform = {body->position, body->rotation};
 			draw->DrawTransform(transform, draw->context);
 
 			b2Vec2 p = b2TransformPoint(transform, offset);

@@ -51,8 +51,8 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	b2Rot qA = bodyA->transform.q;
-	b2Rot qB = bodyB->transform.q;
+	b2Rot qA = bodyA->rotation;
+	b2Rot qB = bodyB->rotation;
 
 	// Compute the effective masses.
 	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, bodyA->localCenter));

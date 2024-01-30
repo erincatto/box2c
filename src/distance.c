@@ -19,8 +19,13 @@ b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
 	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
 	b2Transform xf;
 	xf.p = b2Add(b2MulSV(1.0f - time, sweep->c1), b2MulSV(time, sweep->c2));
-	float angle = (1.0f - time) * sweep->a1 + time * sweep->a2;
-	xf.q = b2MakeRot(angle);
+
+	b2Rot q = {
+		(1.0f - time) * sweep->q1.s + time * sweep->q2.s,
+		(1.0f - time) * sweep->q1.c + time * sweep->q2.c,
+	};
+
+	xf.q = b2NormalizeRot(q);
 
 	// Shift to origin
 	xf.p = b2Sub(xf.p, b2RotateVector(xf.q, sweep->localCenter));
@@ -1032,19 +1037,6 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 
 	b2Sweep sweepA = input->sweepA;
 	b2Sweep sweepB = input->sweepB;
-
-	// Large rotations can make the root finder fail, so normalize the sweep angles.
-	float twoPi = 2.0f * b2_pi;
-	{
-		float d = twoPi * floorf(sweepA.a1 / twoPi);
-		sweepA.a1 -= d;
-		sweepA.a2 -= d;
-	}
-	{
-		float d = twoPi * floorf(sweepB.a1 / twoPi);
-		sweepB.a1 -= d;
-		sweepB.a2 -= d;
-	}
 
 	float tMax = input->tMax;
 

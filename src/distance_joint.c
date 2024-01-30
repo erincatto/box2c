@@ -53,8 +53,8 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	float iB = bodyB->invI;
 
 	// Compute the effective masses.
-	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
-	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
+	joint->rA = b2RotateVector(bodyA->rotation, b2Sub(base->localAnchorA, bodyA->localCenter));
+	joint->rB = b2RotateVector(bodyB->rotation, b2Sub(base->localAnchorB, bodyB->localCenter));
 	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
 
 	b2Vec2 rA = joint->rA;
@@ -352,8 +352,8 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
-	b2Vec2 pA = b2TransformPoint(bodyA->transform, base->localAnchorA);
-	b2Vec2 pB = b2TransformPoint(bodyB->transform, base->localAnchorB);
+	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localAnchorA);
+	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localAnchorB);
 	b2Vec2 d = b2Sub(pB, pA);
 	float length = b2Length(d);
 	return length;
@@ -394,8 +394,8 @@ void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Transform xfA = bodyA->transform;
-	b2Transform xfB = bodyB->transform;
+	b2Transform xfA = b2MakeTransform(bodyA);
+	b2Transform xfB = b2MakeTransform(bodyB);
 	b2Vec2 pA = b2TransformPoint(xfA, base->localAnchorA);
 	b2Vec2 pB = b2TransformPoint(xfB, base->localAnchorB);
 

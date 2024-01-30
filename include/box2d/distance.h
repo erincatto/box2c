@@ -95,8 +95,8 @@ typedef struct b2Sweep
 	/// center world positions
 	b2Vec2 c1, c2;
 
-	/// world angles
-	float a1, a2;
+	/// world rotations
+	b2Rot q1, q2;
 } b2Sweep;
 
 B2_API b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);

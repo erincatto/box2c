@@ -49,7 +49,7 @@ typedef struct b2Vec2
 /// 2D rotation
 typedef struct b2Rot
 {
-	/// Sine and cosine
+	/// sine and cosine
 	float s, c;
 } b2Rot;
 
