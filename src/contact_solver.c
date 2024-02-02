@@ -162,7 +162,7 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		b2Vec2 vA = bodyA->linearVelocity;
 		float wA = bodyA->angularVelocity;
 		b2Vec2 dpA = bodyA->deltaPosition;
-		float daA = bodyA->deltaAngle;
+		float qA = bodyA->rotation;
 		float mA = bodyA->invMass;
 		float iA = bodyA->invI;
 
@@ -170,7 +170,7 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		b2Vec2 vB = bodyB->linearVelocity;
 		float wB = bodyB->angularVelocity;
 		b2Vec2 dpB = bodyB->deltaPosition;
-		float daB = bodyB->deltaAngle;
+		float qB = bodyB->rotation;
 		float mB = bodyB->invMass;
 		float iB = bodyB->invI;
 
@@ -187,9 +187,9 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			// Approximate change in anchor points
-			b2Vec2 drA = b2CrossSV(daA, cp->rA);
-			b2Vec2 drB = b2CrossSV(daB, cp->rB);
+			// Current anchor points
+			b2Vec2 rA = b2RotateVector(qA, cp->rA);
+			b2Vec2 rB = b2RotateVector(qB, cp->rB);
 
 			// Compute change in separation (small angle approximation of sin(angle) == angle)
 			b2Vec2 prA = b2Add(dpA, drA);
