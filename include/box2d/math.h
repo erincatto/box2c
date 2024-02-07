@@ -182,6 +182,65 @@ static inline b2Rot b2MakeRot(float angle)
 	return q;
 }
 
+/// Normalize rotation
+static inline b2Rot b2NormalizeRot(b2Rot q)
+{
+	float mag = sqrtf(q.s * q.s + q.c * q.c);
+	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
+	b2Rot qn = {q.s * invMag, q.c * invMag};
+	return qn;
+}
+
+/// Normalized linear interpolation
+/// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
+static inline b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
+{
+	float omt = 1.0f - t;
+	b2Rot q = {
+		omt * q1.s + t * q2.s,
+		omt * q1.c + t * q2.c,
+	};
+
+	return b2NormalizeRot(q);
+}
+
+/// Integration rotation from angular velocity
+///	@param q1 initial rotation
+///	@param deltaAngle the angular displacement in radians
+static inline b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
+{
+	// ds/dt = omega * cos(t)
+	// dc/dt = -omega * sin(t)
+	// s2 = s1 + omega * h * c1
+	// c2 = c1 - omega * h * s1
+	b2Rot q2 = {q1.s + deltaAngle * q1.c, q1.c - deltaAngle * q1.s};
+	float mag = sqrtf(q2.s * q2.s + q2.c * q2.c);
+	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
+	b2Rot qn = {q2.s * invMag, q2.c * invMag};
+	return qn;
+}
+
+/// Compute the angular velocity necessary to rotate between two
+///	rotations over a give time
+///	@param q1 initial rotation
+///	@param q2 final rotation
+///	@param inv_h inverse time step
+static inline float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
+{
+	// ds/dt = omega * cos(t)
+	// dc/dt = -omega * sin(t)
+	// s2 = s1 + omega * h * c1
+	// c2 = c1 - omega * h * s1
+
+	// omega * h * s1 = c1 - c2
+	// omega * h * c1 = s2 - s1
+	// omega * h = (c1 - c2) * s1 + (s2 - s1) * c1;
+	// omega * h = s1 * c1 - c2 * s1 + s2 * c1 - s1 * c1
+	// omega * h = s2 * c1 - c2 * s1 = sin(a2 - a1) ~= a2 - a1 for small delta
+	float omega = inv_h * (q2.s * q1.c - q2.c * q1.s);
+	return omega;
+}
+
 /// Get the angle in radians
 static inline float b2Rot_GetAngle(b2Rot q)
 {
@@ -229,63 +288,14 @@ static inline b2Rot b2InvMulRot(b2Rot q, b2Rot r)
 	return qr;
 }
 
-/// Normalize rotation
-static inline b2Rot b2NormalizeRot(b2Rot q)
+// relative angle between b and a (rot_b * inv(rot_a))
+static inline float b2RelativeAngle(b2Rot b, b2Rot a)
 {
-	float mag = sqrtf(q.s * q.s + q.c * q.c);
-	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
-	b2Rot qn = {q.s * invMag, q.c * invMag};
-	return qn;
-}
-
-/// Normalized linear interpolation
-/// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
-static inline b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
-{
-	float omt = 1.0f - t;	
-	b2Rot q = {
-		omt * q1.s + t * q2.s,
-		omt * q1.c + t * q2.c,
-	};
-	
-	return b2NormalizeRot(q);
-}
-
-/// Integration rotation from angular velocity
-///	@param q1 initial rotation
-///	@param deltaAngle the angular displacement in radians
-static inline b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
-{
-	// ds/dt = omega * cos(t)
-	// dc/dt = -omega * sin(t)
-	// s2 = s1 + omega * h * c1
-	// c2 = c1 - omega * h * s1
-	b2Rot q2 = {q1.s + deltaAngle * q1.c, q1.c - deltaAngle * q1.s};
-	float mag = sqrtf(q2.s * q2.s + q2.c * q2.c);
-	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
-	b2Rot qn = {q2.s * invMag, q2.c * invMag};
-	return qn;
-}
-
-/// Compute the angular velocity necessary to rotate between two
-///	rotations over a give time
-///	@param q1 initial rotation
-///	@param q2 final rotation
-///	@param inv_h inverse time step
-static inline float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
-{
-	// ds/dt = omega * cos(t)
-	// dc/dt = -omega * sin(t)
-	// s2 = s1 + omega * h * c1
-	// c2 = c1 - omega * h * s1
-
-	// omega * h * s1 = c1 - c2
-	// omega * h * c1 = s2 - s1
-	// omega * h = (c1 - c2) * s1 + (s2 - s1) * c1;
-	// omega * h = s1 * c1 - c2 * s1 + s2 * c1 - s1 * c1
-	// omega * h = s2 * c1 - c2 * s1 = sin(a2 - a1) ~= a2 - a1 for small delta
-	float omega = inv_h * (q2.s * q1.c - q2.c * q1.s);
-	return omega;
+	// sin(b - a) = bs * ac - bc * as
+	// cos(b - a) = bc * ac + bs * as
+	float s = b.s * a.c - b.c * a.s;
+	float c = b.c * a.c + b.s * a.s;
+	return atan2f(s, c);
 }
 
 /// Rotate a vector

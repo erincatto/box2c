@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
+#pragma once
 
 #include "pool.h"
+#include "solver_data.h"
 
 #include "box2d/joint_types.h"
 
@@ -32,29 +34,21 @@ typedef struct b2DistanceJoint
 	float minLength;
 	float maxLength;
 
-	// Solver shared
 	float impulse;
 	float lowerImpulse;
 	float upperImpulse;
 
-	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 rA;
-	b2Vec2 rB;
-	b2Vec2 separation;
-	float springBiasCoefficient;
-	float springMassCoefficient;
-	float springImpulseCoefficient;
-	float limitBiasCoefficient;
-	float limitMassCoefficient;
-	float limitImpulseCoefficient;
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
+	b2Vec2 centerDiff;
+	b2Softness distanceSoftness;
 	float axialMass;
 } b2DistanceJoint;
 
 typedef struct b2MotorJoint
 {
-	// Solver shared
 	b2Vec2 linearOffset;
 	float angularOffset;
 	b2Vec2 linearImpulse;
@@ -63,11 +57,10 @@ typedef struct b2MotorJoint
 	float maxTorque;
 	float correctionFactor;
 
-	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 rA;
-	b2Vec2 rB;
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
 	b2Vec2 linearSeparation;
 	float angularSeparation;
 	b2Mat22 linearMass;
@@ -81,12 +74,10 @@ typedef struct b2MouseJoint
 	float damping;
 	float beta;
 
-	// Solver shared
 	b2Vec2 impulse;
 	float maxForce;
 	float gamma;
 
-	// Solver temp
 	int32_t indexB;
 	b2Vec2 positionB;
 	b2Vec2 rB;
@@ -97,7 +88,6 @@ typedef struct b2MouseJoint
 
 typedef struct b2PrismaticJoint
 {
-	// Solver shared
 	b2Vec2 localAxisA;
 	b2Vec2 impulse;
 	float motorImpulse;
@@ -111,24 +101,19 @@ typedef struct b2PrismaticJoint
 	float lowerTranslation;
 	float upperTranslation;
 
-	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 rA;
-	b2Vec2 rB;
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
 	b2Vec2 axisA;
 	b2Vec2 pivotSeparation;
 	float angleSeparation;
 	b2Mat22 pivotMass;
 	float axialMass;
-	float biasCoefficient;
-	float massCoefficient;
-	float impulseCoefficient;
 } b2PrismaticJoint;
 
 typedef struct b2RevoluteJoint
 {
-	// Solver shared
 	b2Vec2 linearImpulse;
 	float motorImpulse;
 	float lowerImpulse;
@@ -141,21 +126,14 @@ typedef struct b2RevoluteJoint
 	float lowerAngle;
 	float upperAngle;
 
-	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
 	float angleA;
 	float angleB;
-	b2Vec2 rA;
-	b2Vec2 rB;
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
 	b2Vec2 separation;
 	b2Mat22 pivotMass;
-	float limitBiasCoefficient;
-	float limitMassCoefficient;
-	float limitImpulseCoefficient;
-	float biasCoefficient;
-	float massCoefficient;
-	float impulseCoefficient;
 	float axialMass;
 
 	// todo
@@ -167,26 +145,21 @@ typedef struct b2RevoluteJoint
 
 typedef struct b2WeldJoint
 {
-	// Solver shared
 	float referenceAngle;
 	float linearHertz;
 	float linearDampingRatio;
 	float angularHertz;
 	float angularDampingRatio;
-	float linearBiasCoefficient;
-	float linearMassCoefficient;
-	float linearImpulseCoefficient;
-	float angularBiasCoefficient;
-	float angularMassCoefficient;
-	float angularImpulseCoefficient;
+
+	b2Softness linearSoftness;
+	b2Softness angularSoftness;
 	b2Vec2 linearImpulse;
 	float angularImpulse;
 
-	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 rA;
-	b2Vec2 rB;
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
 	b2Vec2 linearSeparation;
 	float angularSeparation;
 	b2Mat22 pivotMass;
@@ -214,8 +187,8 @@ typedef struct b2WheelJoint
 	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 rA;
-	b2Vec2 rB;
+	b2Vec2 localAnchorA;
+	b2Vec2 localAnchorB;
 	b2Vec2 axisA;
 	b2Vec2 pivotSeparation;
 	float perpMass;
@@ -247,8 +220,9 @@ typedef struct b2Joint
 	// Index of joint within color
 	int32_t colorSubIndex;
 
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
+	// Anchors relative to body origin
+	b2Vec2 localOriginAnchorA;
+	b2Vec2 localOriginAnchorB;
 
 	union
 	{

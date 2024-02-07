@@ -3,7 +3,14 @@
 
 #pragma once
 
-#include "box2d/types.h"
+#include <stdint.h>
+
+typedef struct b2Softness
+{
+	float biasCoeff;
+	float massCoeff;
+	float impulseCoeff;
+} b2Softness;
 
 // Context for a time step. Recreated each time step.
 typedef struct b2StepContext
@@ -14,15 +21,19 @@ typedef struct b2StepContext
 	// inverse time step (0 if dt == 0).
 	float inv_dt;
 
+	// sub-step
+	float h;
+	float inv_h;
+
 	// TODO_ERIN eliminate support for variable time step
 	// ratio between current and previous time step (dt * inv_dt0)
 	float dtRatio;
 
-	// Velocity iterations for constraint solver. Controls the accuracy of internal forces.
-	int32_t velocityIterations;
+	int32_t subStepCount;
 
-	// Relax iterations for constraint solver. Reduces constraint bounce.
-	int32_t relaxIterations;
+	b2Softness jointSoftness;
+	b2Softness contactSoftness;
+	b2Softness staticContactSoftness;
 
 	float restitutionThreshold;
 	float maxBiasVelocity;
@@ -120,3 +131,17 @@ typedef struct b2SolverTaskContext
 	// sync index (16-bits) | stage type (16-bits)
 	_Atomic unsigned int syncBits;
 } b2SolverTaskContext;
+
+static inline b2Softness b2MakeSoft(float hertz, float zeta, float h)
+{
+	if (hertz == 0.0f)
+	{
+		return (b2Softness){0.0f, 1.0f, 0.0f};
+	}
+
+	float omega = 2.0f * b2_pi * hertz;
+	float a1 = 2.0f * zeta + h * omega;
+	float a2 = h * omega * a1;
+	float a3 = 1.0f / (1.0f + a2);
+	return (b2Softness){omega / a1, a2 * a3, a3};
+}

@@ -9,7 +9,6 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/debug_draw.h"
 
 // Point-to-point constraint
 // C = p2 - p1
@@ -51,7 +50,7 @@ void b2PrepareWeldJoint(b2Joint* base, b2StepContext* context)
 	joint->rA = b2RotateVector(bodyA->rotation, b2Sub(base->localAnchorA, bodyA->localCenter));
 	joint->rB = b2RotateVector(bodyB->rotation, b2Sub(base->localAnchorB, bodyB->localCenter));
 	joint->linearSeparation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
-	joint->angularSeparation = bodyB->angle - bodyA->angle - joint->referenceAngle;
+	joint->angularSeparation = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->referenceAngle;
 
 	b2Vec2 rA = joint->rA;
 	b2Vec2 rB = joint->rB;

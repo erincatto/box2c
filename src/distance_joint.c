@@ -53,32 +53,27 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	float iB = bodyB->invI;
 
 	// Compute the effective masses.
-	joint->rA = b2RotateVector(bodyA->rotation, b2Sub(base->localAnchorA, bodyA->localCenter));
-	joint->rB = b2RotateVector(bodyB->rotation, b2Sub(base->localAnchorB, bodyB->localCenter));
-	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
+	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
+	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
+	joint->centerDiff = b2Sub(bodyB->position, bodyA->position);
 
-	b2Vec2 rA = joint->rA;
-	b2Vec2 rB = joint->rB;
-
-	b2Vec2 axis = b2Normalize(joint->separation);
+	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
+	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->centerDiff);
+	b2Vec2 axis = b2Normalize(separation);
 
 	float crA = b2Cross(rA, axis);
 	float crB = b2Cross(rB, axis);
 	float k = mA + mB + iA * crA * crA + iB * crB * crB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
-	float dt = context->dt;
+	// todo use sub-step?
+	float h = context->dt;
 
 	// Spring parameters
 	if (joint->hertz > 0.0f)
 	{
-		float omega = 2.0f * b2_pi * joint->hertz;
-		float a1 = 2.0f * joint->dampingRatio + dt * omega;
-		float a2 = dt * omega * a1;
-		float a3 = 1.0f / (1.0f + a2);
-		joint->springBiasCoefficient = omega / a1;
-		joint->springImpulseCoefficient = a3;
-		joint->springMassCoefficient = a2 * a3;
+		joint->distanceSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, h);
 	}
 	else
 	{
@@ -87,27 +82,10 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 		joint->springMassCoefficient = 0.0f;
 	}
 
-	// Limit parameters
-	{
-		// as rigid as possible: hertz = 1/4 * substep Hz
-		float hertz = 0.25f * context->velocityIterations * context->inv_dt;
-		float zeta = 1.0f;
-
-		float omega = 2.0f * b2_pi * hertz;
-		float a1 = 2.0f * zeta + dt * omega;
-		float a2 = dt * omega * a1;
-		float a3 = 1.0f / (1.0f + a2);
-		joint->limitBiasCoefficient = omega / a1;
-		joint->limitImpulseCoefficient = a3;
-		joint->limitMassCoefficient = a2 * a3;
-	}
-
 	if (context->enableWarmStarting)
 	{
 		float dtRatio = context->dtRatio;
-
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = 0.0f;
+		joint->impulse *= dtRatio;
 		joint->lowerImpulse *= dtRatio;
 		joint->upperImpulse *= dtRatio;
 	}
@@ -137,10 +115,10 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	b2Vec2 rA = joint->rA;
-	b2Vec2 rB = joint->rB;
-
-	b2Vec2 axis = b2Normalize(joint->separation);
+	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
+	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->centerDiff);
+	b2Vec2 axis = b2Normalize(separation);
 
 	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
 	b2Vec2 P = b2MulSV(axialImpulse, axis);
