@@ -7,9 +7,9 @@
 
 typedef struct b2Softness
 {
-	float biasCoeff;
-	float massCoeff;
-	float impulseCoeff;
+	float biasRate;
+	float massScale;
+	float impulseScale;
 } b2Softness;
 
 // Context for a time step. Recreated each time step.
@@ -31,9 +31,9 @@ typedef struct b2StepContext
 
 	int32_t subStepCount;
 
-	b2Softness jointSoftness;
-	b2Softness contactSoftness;
-	b2Softness staticContactSoftness;
+	b2Softness jointSoft;
+	b2Softness contactSoft;
+	b2Softness staticSoft;
 
 	float restitutionThreshold;
 	float maxBiasVelocity;
