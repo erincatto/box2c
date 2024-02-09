@@ -72,7 +72,7 @@ B2_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, con
 /// @param callback a user implemented callback class.
 /// @param point1 the ray starting point
 /// @param point2 the ray ending point
-B2_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
+B2_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 							   void* context);
 
 /// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
@@ -80,15 +80,15 @@ B2_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Ve
 
 /// Cast a circle through the world. Similar to a ray-cast except that a circle is cast instead of a point.
 B2_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
-								  b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+								  b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
 /// Cast a capsule through the world. Similar to a ray-cast except that a capsule is cast instead of a point.
 B2_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
-								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+								   b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
 /// Cast a capsule through the world. Similar to a ray-cast except that a polygon is cast instead of a point.
 B2_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
-								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+								   b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
 /// Enable/disable sleep. Advanced feature for testing.
 B2_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);

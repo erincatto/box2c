@@ -856,8 +856,8 @@ public:
 
 			m_textLine += m_textIncrement;
 
-			b2RayResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback, RayCastSortedCallback};
-			b2RayResultFcn* modeFcn = fcns[m_mode];
+			b2CastResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback, RayCastSortedCallback};
+			b2CastResultFcn* modeFcn = fcns[m_mode];
 
 			RayCastContext context = {0};
 
@@ -1293,7 +1293,7 @@ public:
 		{
 			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2_defaultQueryFilter,
 								  this);
-			g_draw.DrawCircle(origin, m_queryCircle.radius, color);
+			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{

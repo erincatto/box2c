@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "box2d/constants.h"
+
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct b2Softness

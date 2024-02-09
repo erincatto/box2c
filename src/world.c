@@ -1300,7 +1300,7 @@ void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Po
 typedef struct WorldRayCastContext
 {
 	b2World* world;
-	b2RayResultFcn* fcn;
+	b2CastResultFcn* fcn;
 	b2QueryFilter filter;
 	float fraction;
 	void* userContext;
@@ -1343,7 +1343,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	return input->maxFraction;
 }
 
-void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
+void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 					 void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -1450,7 +1450,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 }
 
 void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
-						b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+						b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1482,7 +1482,7 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 }
 
 void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
-						 b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1515,7 +1515,7 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 }
 
 void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
-						 b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);

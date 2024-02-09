@@ -96,8 +96,8 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 			cp->normalImpulse = mp->normalImpulse;
 			cp->tangentImpulse = mp->tangentImpulse;
 
-			cp->rA = mp->anchorA;
-			cp->rB = mp->anchorB;
+			cp->localAnchorA = mp->localAnchorA;
+			cp->localAnchorB = mp->localAnchorB;
 
 			float rnA = b2Cross(cp->rA, normal);
 			float rnB = b2Cross(cp->rB, normal);
@@ -162,7 +162,7 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		b2Vec2 vA = bodyA->linearVelocity;
 		float wA = bodyA->angularVelocity;
 		b2Vec2 dpA = bodyA->deltaPosition;
-		float qA = bodyA->rotation;
+		b2Rot qA = bodyA->rotation;
 		float mA = bodyA->invMass;
 		float iA = bodyA->invI;
 
@@ -170,7 +170,7 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		b2Vec2 vB = bodyB->linearVelocity;
 		float wB = bodyB->angularVelocity;
 		b2Vec2 dpB = bodyB->deltaPosition;
-		float qB = bodyB->rotation;
+		b2Rot qB = bodyB->rotation;
 		float mB = bodyB->invMass;
 		float iB = bodyB->invI;
 

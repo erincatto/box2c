@@ -8,12 +8,14 @@
 // todo this could be hidden in contact_solver.c, then graph.c just needs to know the sizeof(b2ContactConstraintSIMD)
 #include "x86/avx.h"
 
+#include "box2d/math.h"
+
 typedef struct b2Contact b2Contact;
 
 typedef struct b2ContactConstraintPoint
 {
-	b2Vec2 rA, rB;
-	float separation;
+	b2Vec2 localAnchorA, localAnchorB;
+	float baseSeparation;
 	float relativeVelocity;
 	float normalImpulse;
 	float tangentImpulse;
@@ -53,9 +55,9 @@ typedef struct b2ContactConstraintSIMD
 	b2Vec2W normal;
 	b2FloatW friction;
 	b2FloatW restitution;
-	b2Vec2W rA1, rB1;
-	b2Vec2W rA2, rB2;
-	b2FloatW separation1, separation2;
+	b2Vec2W localAnchorA1, localAnchorB1;
+	b2Vec2W localAnchorA2, localAnchorB2;
+	b2FloatW baseSeparation1, baseSeparation2;
 	b2FloatW relativeVelocity1, relativeVelocity2;
 	b2FloatW normalImpulse1, normalImpulse2;
 	b2FloatW tangentImpulse1, tangentImpulse2;
