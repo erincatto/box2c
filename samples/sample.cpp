@@ -345,7 +345,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	// m_world->ShiftOrigin(newOrigin);
 }
 
-SampleEntry g_sampleEntries[MAX_SAMPLES] = {{nullptr}};
+SampleEntry g_sampleEntries[MAX_SAMPLES] = {};
 int g_sampleCount = 0;
 
 int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn)
