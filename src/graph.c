@@ -23,7 +23,6 @@
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-#include <string.h>
 
 // Solver using graph coloring. Islands are only used for sleep.
 // High-Performance Physical Simulations on Next-Generation Architecture with Many Cores
@@ -420,57 +419,47 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 	joint->colorSubIndex = B2_NULL_INDEX;
 }
 
+// Integrate velocities and apply damping.
 static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
 {
 	b2TracyCZoneNC(integrate_velocity, "IntVel", b2_colorDeepPink, true);
 
-	b2Vec2 gravity = context->world->gravity;
-	b2Body** bodies = context->awakeBodies;
-	b2SolverBody* solverBodies = context->solverBodies;
-	int32_t* bodyToSolverMap = context->bodyToSolverMap;
+	b2BodyState* states = context->bodyStates;
+	const b2BodyParam* params = context->bodyParams;
 
-	float h = context->timeStep;
-
-	// Integrate velocities and apply damping. Initialize the body state.
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
-		b2Body* body = bodies[i];
-		//_m_prefetch(bodies[i + 1]);
+		const b2BodyParam* param = params + i;
+		b2BodyState* state = states + i;
 
-		// create body map used to prepare constraints
-		B2_ASSERT(body->object.index < context->world->bodyPool.capacity);
-		bodyToSolverMap[body->object.index] = i;
+		b2Vec2 v = state->linearVelocity;
+		float w = state->angularVelocity;
 
-		float invMass = body->invMass;
-		float invI = body->invI;
+		// Apply forces, torque, gravity, and damping
+		v = b2MulAdd(param->linearVelocityDelta, param->linearDamping, v);
+		w = param->angularVelocityDelta + param->angularDamping * w;
 
-		b2Vec2 v = body->linearVelocity;
-		float w = body->angularVelocity;
+		// b2Vec2 translation = b2MulSV(h, body->linearVelocity);
+		// float ratioLinear = 1.0f;
+		// if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
+		// {
+		// 	ratioLinear = b2_maxTranslation / b2Length(translation);
+		// }
 
-		// Integrate velocities
-		v = b2Add(v, b2MulSV(h * invMass, b2MulAdd(body->force, body->gravityScale * body->mass, gravity)));
-		w = w + h * invI * body->torque;
+		// float rotation = h * body->angularVelocity;
+		// float ratioAngular = 1.0f;
+		// if (rotation * rotation > b2_maxRotation * b2_maxRotation)
+		// {
+		// 	ratioAngular = b2_maxRotation / B2_ABS(rotation);
+		// }
 
-		// Apply damping.
-		// ODE: dv/dt + c * v = 0
-		// Solution: v(t) = v0 * exp(-c * t)
-		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
-		// v2 = exp(-c * dt) * v1
-		// Pade approximation:
-		// v2 = v1 * 1 / (1 + c * dt)
-		v = b2MulSV(1.0f / (1.0f + h * body->linearDamping), v);
-		w *= 1.0f / (1.0f + h * body->angularDamping);
+		// float ratio = B2_MIN(ratioLinear, ratioAngular);
 
-		b2SolverBody* solverBody = solverBodies + i;
-		solverBody->linearVelocity = v;
-		solverBody->angularVelocity = w;
-		solverBody->pad = 0.0f;
+		// body->linearVelocity = b2MulSV(ratio, body->linearVelocity);
+		// body->angularVelocity *= ratio;
 
-		solverBody->deltaPosition = b2Vec2_zero;
-		solverBody->rotation = body->rotation;
-
-		solverBody->invMass = invMass;
-		solverBody->invI = invI;
+		state->linearVelocity = v;
+		state->angularVelocity = w;
 	}
 
 	b2TracyCZoneEnd(integrate_velocity);
@@ -481,6 +470,7 @@ static void b2PrepareJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
 	b2World* world = context->world;
+
 	b2Joint* joints = world->joints;
 	b2StepContext* stepContext = context->stepContext;
 	const int32_t* jointIndices = context->jointIndices;
@@ -549,36 +539,17 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Sol
 {
 	b2TracyCZoneNC(integrate_positions, "IntPos", b2_colorDarkSeaGreen, true);
 
-	b2SolverBody* bodies = context->solverBodies;
+	b2BodyState* states = context->bodyStates;
 	float h = context->subStep;
 
 	B2_ASSERT(startIndex <= endIndex);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2SolverBody* body = bodies + i;
+		b2BodyState* state = states + i;
 
-		// b2Vec2 translation = b2MulSV(h, body->linearVelocity);
-		// float ratioLinear = 1.0f;
-		// if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
-		// {
-		// 	ratioLinear = b2_maxTranslation / b2Length(translation);
-		// }
-
-		// float rotation = h * body->angularVelocity;
-		// float ratioAngular = 1.0f;
-		// if (rotation * rotation > b2_maxRotation * b2_maxRotation)
-		// {
-		// 	ratioAngular = b2_maxRotation / B2_ABS(rotation);
-		// }
-
-		// float ratio = B2_MIN(ratioLinear, ratioAngular);
-
-		// body->linearVelocity = b2MulSV(ratio, body->linearVelocity);
-		// body->angularVelocity *= ratio;
-
-		body->rotation = b2IntegrateRotation(body->rotation, h * body->angularVelocity);
-		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
+		state->rotation = b2IntegrateRotation(state->rotation, h * state->angularVelocity);
+		state->deltaPosition = b2MulAdd(state->deltaPosition, h, state->linearVelocity);
 	}
 
 	b2TracyCZoneEnd(integrate_positions);
@@ -592,7 +563,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	b2World* world = context->world;
 	bool enableSleep = world->enableSleep;
 	b2Body* bodies = world->bodies;
-	const b2SolverBody* solverBodies = context->solverBodies;
+	const b2BodyState* states = context->bodyStates;
 	b2Contact* contacts = world->contacts;
 	const int32_t* solverToBodyMap = context->solverToBodyMap;
 	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
@@ -613,48 +584,30 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		const b2SolverBody* solverBody = solverBodies + i;
+		const b2BodyState* state = states + i;
 
 		int32_t bodyIndex = solverToBodyMap[i];
 		b2Body* body = bodies + bodyIndex;
 		B2_ASSERT(b2ObjectValid(&body->object));
 
-		b2Vec2 v = solverBody->linearVelocity;
-		float w = solverBody->angularVelocity;
+		b2Vec2 v = state->linearVelocity;
+		float w = state->angularVelocity;
 
 		B2_ASSERT(b2Vec2_IsValid(v));
 		B2_ASSERT(b2IsValid(w));
 
-		body->isSpeedCapped = false;
-		float ratioLinear = 1.0f;
-		b2Vec2 translation = b2MulSV(timeStep, v);
-		if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
-		{
-			body->isSpeedCapped = true;
-			ratioLinear = b2_maxTranslation / b2Length(translation);
-		}
-
-		float ratioAngular = 1.0f;
-		float rotation = timeStep * w;
-		if (rotation * rotation > b2_maxRotation * b2_maxRotation)
-		{
-			body->isSpeedCapped = true;
-			ratioAngular = b2_maxRotation / B2_ABS(rotation);
-		}
-
-		float ratio = B2_MIN(ratioLinear, ratioAngular);
-		v = b2MulSV(ratio, v);
-		w = ratio * w;
-
 		body->linearVelocity = v;
 		body->angularVelocity = w;
+		body->isSpeedCapped = state->speedCapped != 0;
 
-		body->position = b2Add(body->position, solverBody->deltaPosition);
-		body->rotation = solverBody->rotation;
+		body->position = b2Add(body->position, state->deltaPosition);
+		body->rotation = state->rotation;
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
+		// reset applied force and torque
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
+
 		body->isFast = false;
 
 		if (enableSleep == false || body->enableSleep == false || w * w > angTolSqr || b2Dot(v, v) > linTolSqr)
@@ -987,14 +940,9 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 		int32_t bodySyncIndex = 1;
 		int32_t stageIndex = 0;
-		uint32_t syncBits = (bodySyncIndex << 16) | stageIndex;
-		B2_ASSERT(stages[stageIndex].type == b2_stageIntegrateVelocities);
-		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
-		stageIndex += 1;
-		bodySyncIndex += 1;
 
 		uint32_t jointSyncIndex = 1;
-		syncBits = (jointSyncIndex << 16) | stageIndex;
+		uint32_t syncBits = (jointSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareJoints);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 		stageIndex += 1;
@@ -1020,12 +968,20 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		b2PrepareAndWarmStartOverflowJoints(context);
 		b2PrepareAndWarmStartOverflowContacts(context);
 
-		int32_t velocityIterations = context->velocityIterations;
-		for (int32_t i = 0; i < velocityIterations; ++i)
+		int32_t subStepCount = context->subStepCount;
+		for (int32_t i = 0; i < subStepCount; ++i)
 		{
 			// stage index restarted each iteration
 			int32_t iterStageIndex = stageIndex;
 
+			// integrate velocities
+			syncBits = (bodySyncIndex << 16) | stageIndex;
+			B2_ASSERT(stages[stageIndex].type == b2_stageIntegrateVelocities);
+			b2ExecuteMainStage(stages + stageIndex, context, syncBits);
+			stageIndex += 1;
+			bodySyncIndex += 1;
+
+			// warm start and solve constraints
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
@@ -1035,23 +991,17 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			}
 			graphSyncIndex += 1;
 
-			b2SolveOverflowJoints(context, true);
-			b2SolveOverflowContacts(context, true);
+			bool useBias = true;
+			b2SolveOverflowJoints(context, useBias);
+			b2SolveOverflowContacts(context, useBias);
 
+			// integrate positions
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegratePositions);
 			syncBits = (bodySyncIndex << 16) | iterStageIndex;
 			b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 			bodySyncIndex += 1;
-		}
 
-		stageIndex += activeColorCount + 1;
-
-		int32_t relaxIterations = context->relaxIterations;
-		for (int32_t i = 0; i < relaxIterations; ++i)
-		{
-			// stage index restarted each iteration
-			int32_t iterStageIndex = stageIndex;
-
+			// relax constraints
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
 				syncBits = (graphSyncIndex << 16) | iterStageIndex;
@@ -1061,11 +1011,12 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			}
 			graphSyncIndex += 1;
 
-			b2SolveOverflowJoints(context, false);
-			b2SolveOverflowContacts(context, false);
+			useBias = false;
+			b2SolveOverflowJoints(context, useBias);
+			b2SolveOverflowContacts(context, useBias);
 		}
 
-		stageIndex += activeColorCount;
+		stageIndex += activeColorCount + 1;
 
 		// Restitution
 		{
@@ -1169,20 +1120,24 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	// Reserve space for awake bodies
 	b2Body* bodies = world->bodies;
 	b2Body** awakeBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2Body*), "awake bodies");
-	b2SolverBody* solverBodies =
-		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2SolverBody), "solver bodies");
+	b2BodyState* bodyStates =
+		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyState), "body states");
+	b2BodyParam* bodyParams =
+		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyParam), "body params");
 
 	// Map from solver body to body
-	// TODO_ERIN have body directly reference solver body for user access?
+	// todo have body directly reference solver body for user access?
 	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
 
 	// Map from world body to solver body
-	// TODO_ERIN eliminate this?
+	// todo eliminate this?
 	int32_t bodyCapacity = world->bodyPool.capacity;
 	int32_t* bodyToSolverMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
 	memset(bodyToSolverMap, 0xFF, bodyCapacity * sizeof(int32_t));
 
 	// Build array of awake bodies and also search for an awake island to split
+	b2Vec2 gravity = world->gravity;
+	float h = stepContext->h;
 	int32_t splitIslandIndex = B2_NULL_INDEX;
 	int32_t maxRemovedContacts = 0;
 	int32_t splitIslandBodyCount = 0;
@@ -1212,8 +1167,33 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 			bodyToSolverMap[bodyIndex] = index;
 			solverToBodyMap[index] = bodyIndex;
 
-			// cache miss
+			// todo cache misses
+
 			bodyIndex = body->islandNext;
+
+			b2BodyState* state = bodyStates + index;
+			state->linearVelocity = body->linearVelocity;
+			state->angularVelocity = body->angularVelocity;
+			state->speedCapped = 0;
+			state->deltaPosition = (b2Vec2){0.0f, 0.0f};
+			state->rotation = body->rotation;
+
+			b2BodyParam* param = bodyParams + index;
+			param->invMass = body->invMass;
+			param->invI = body->invI;
+
+			// Apply damping.
+			// ODE: dv/dt + c * v = 0
+			// Solution: v(t) = v0 * exp(-c * t)
+			// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+			// v2 = exp(-c * dt) * v1
+			// Pade approximation:
+			// v2 = v1 * 1 / (1 + c * dt)
+			param->angularDamping = 1.0f / (1.0f + h * body->angularDamping);
+			param->linearDamping = 1.0f / (1.0f + h * body->linearDamping);
+
+			param->linearVelocityDelta = b2MulSV(body->invMass * h, b2MulAdd(body->force, body->mass * body->gravityScale, gravity));
+			param->angularVelocityDelta = h * body->invI * body->torque;
 
 			index += 1;
 		}
@@ -1626,9 +1606,10 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	B2_ASSERT(workerCount <= b2_maxWorkers);
 	b2WorkerContext workerContext[b2_maxWorkers];
 
-	int32_t velIters = B2_MAX(1, stepContext->velocityIterations);
+	int32_t subStepCount = B2_MAX(1, stepContext->subStepCount);
 
-	stepContext->solverBodies = solverBodies;
+	stepContext->bodyStates = bodyStates;
+	stepContext->bodyParams = bodyParams;
 	stepContext->solverToBodyMap = solverToBodyMap;
 	stepContext->bodyToSolverMap = bodyToSolverMap;
 
@@ -1636,7 +1617,8 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	context.world = world;
 	context.graph = graph;
 	context.awakeBodies = awakeBodies;
-	context.solverBodies = solverBodies;
+	context.bodyStates = bodyStates;
+	context.bodyParams = bodyParams;
 	context.bodyToSolverMap = bodyToSolverMap;
 	context.solverToBodyMap = solverToBodyMap;
 	context.stepContext = stepContext;
@@ -1644,15 +1626,14 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	context.jointIndices = jointIndices;
 	context.contactIndices = contactIndices;
 	context.activeColorCount = activeColorCount;
-	context.velocityIterations = velIters;
-	context.relaxIterations = stepContext->relaxIterations;
+	context.subStepCount = subStepCount;
 	context.workerCount = workerCount;
 	context.stageCount = stageCount;
 	context.stages = stages;
 	context.timeStep = stepContext->dt;
 	context.invTimeStep = stepContext->inv_dt;
-	context.subStep = context.timeStep / velIters;
-	context.invSubStep = velIters * stepContext->inv_dt;
+	context.subStep = context.timeStep / subStepCount;
+	context.invSubStep = subStepCount * stepContext->inv_dt;
 	context.syncBits = 0;
 
 	b2TracyCZoneEnd(prepare_stages);
@@ -1716,7 +1697,8 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, contactConstraints);
 	b2FreeStackItem(world->stackAllocator, bodyToSolverMap);
 	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
-	b2FreeStackItem(world->stackAllocator, solverBodies);
+	b2FreeStackItem(world->stackAllocator, bodyParams);
+	b2FreeStackItem(world->stackAllocator, bodyStates);
 	b2FreeStackItem(world->stackAllocator, awakeBodies);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);

@@ -12,6 +12,41 @@
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
 
+// The body state is designed for fast conversion to and from SIMD via scatter-gather
+// todo every non-static body gets a solver body.
+// No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
+// Keep two solver body arrays: awake and sleeping
+// However, this makes it slower to access transform for collision/broad-phase?
+//
+// 32 bytes
+typedef struct b2BodyState
+{
+	b2Vec2 linearVelocity; // 8
+	float angularVelocity; // 4
+	int flags;			   // 4
+
+	// Using delta position reduces round-off error far from the origin
+	b2Vec2 deltaPosition; // 8
+
+	// Full rotation
+	b2Rot rotation; // 8
+} b2BodyState;
+
+static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
+
+// Holds extra data needed by the constraint solver, but not in the SIMD contact solver
+typedef struct b2BodyParam
+{
+	float invMass;
+	float invI;
+	float linearDamping;
+	float angularDamping;
+	// force, torque, and gravity to be applied each sub-step
+	b2Vec2 linearVelocityDelta;
+	float angularVelocityDelta;
+	int bodyIndex;
+} b2BodyParam;
+
 // A rigid body
 typedef struct b2Body
 {
@@ -82,29 +117,6 @@ typedef struct b2Body
 	bool isSpeedCapped;
 	bool enlargeAABB;
 } b2Body;
-
-// todo every non-static body gets a solver body.
-// No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
-// Keep two solver body arrays: awake and sleeping
-// However, this makes it slower to access transform for collision/broad-phase?
-//
-// 16 + 16 + 8 = 40 bytes
-typedef struct b2SolverBody
-{
-	b2Vec2 linearVelocity; // 8
-	float angularVelocity; // 4
-	float pad;			   // 4
-
-	// Using delta position reduces round-off error far from the origin
-	b2Vec2 deltaPosition; // 8
-
-	// Full rotation
-	b2Rot rotation; // 8
-
-	// todo move these to constraints
-	float invMass; // 4
-	float invI;	   // 4
-} b2SolverBody;
 
 b2Body* b2GetBody(b2World* world, b2BodyId id);
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);

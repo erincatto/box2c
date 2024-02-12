@@ -95,14 +95,14 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2BodyState dummyBody = {0};
 
 	// Note: must warm start solver bodies
-	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
+	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 
-	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
+	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
@@ -127,15 +127,15 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2BodyState dummyBody = {0};
 
-	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
+	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
 	b2Vec2 vA = bodyA->linearVelocity;
 	float wA = bodyA->angularVelocity;
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 
-	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
+	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;
 	float mB = bodyB->invMass;

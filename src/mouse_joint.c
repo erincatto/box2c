@@ -99,7 +99,7 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 
 	b2MouseJoint* joint = &base->mouseJoint;
 
-	b2SolverBody* bodyB = context->solverBodies + joint->indexB;
+	b2BodyState* bodyB = context->solverBodies + joint->indexB;
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;
 
@@ -120,7 +120,7 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 void b2SolveMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	b2MouseJoint* joint = &base->mouseJoint;
-	b2SolverBody* bodyB = context->solverBodies + joint->indexB;
+	b2BodyState* bodyB = context->solverBodies + joint->indexB;
 
 	b2Vec2 vB = bodyB->linearVelocity;
 	float wB = bodyB->angularVelocity;

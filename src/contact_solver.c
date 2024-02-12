@@ -13,35 +13,34 @@
 #include "x86/avx2.h"
 #include "x86/fma.h"
 
-// Soft constraints with constraint error substepping. Includes a bias removal stage to help remove excess energy.
+// Soft constraints with constraint error sub-stepping. Includes a relax stage to help remove excess energy.
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 
-void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
+void b2PrepareOverflowContacts(b2StepContext* context)
 {
-	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
+	b2TracyCZoneNC(prepare_overflow_contact, "Prepare Overflow Contact", b2_colorYellow, true);
 
 	b2World* world = context->world;
 	b2Graph* graph = context->graph;
 	b2Contact* contacts = world->contacts;
 	const int32_t* bodyMap = context->bodyToSolverMap;
-	b2SolverBody* solverBodies = context->solverBodies;
+	const b2BodyParam* params = context->bodyParams;
+	b2BodyState* states = context->bodyStates;
 
 	b2ContactConstraint* constraints = graph->overflow.contactConstraints;
 	int32_t* contactIndices = graph->overflow.contactArray;
 	int32_t contactCount = b2Array(graph->overflow.contactArray).count;
 
 	// This is a dummy body to represent a static body because static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2BodyState dummyState = b2_identityBodyState;
+	b2BodyParam dummyParam = {0};
 
-	// 30 is a bit soft, 60 oscillates too much
-	// const float contactHertz = 45.0f;
-	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
-	const float contactHertz = world->contactHertz;
-	const float contactDampingRatio = world->contactDampingRatio;
+	b2Softness contactSoftness = context->contactSoftness;
+	b2Softness staticSoftness = context->staticSoftness;
 
-	float h = context->timeStep;
-	bool enableWarmStarting = world->enableWarmStarting;
+	float h = context->h;
+	float warmStartScale = world->enableWarmStarting ? 1.0f : 0.0f;
 
 	for (int32_t i = 0; i < contactCount; ++i)
 	{
@@ -52,6 +51,7 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 
 		B2_ASSERT(0 < pointCount && pointCount <= 2);
 
+		// resolve solver body indices
 		int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
 		int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
 
@@ -64,26 +64,38 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 		constraint->restitution = contact->restitution;
 		constraint->pointCount = pointCount;
 
-		b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
-		b2SolverBody* solverBodyB = indexB == B2_NULL_INDEX ? &dummyBody : solverBodies + indexB;
+		b2BodyState* stateA = indexA == B2_NULL_INDEX ? &dummyState : states + indexA;
+		const b2BodyParam* paramA = indexA == B2_NULL_INDEX ? &dummyParam : params + indexA;
 
-		float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
-		b2Vec2 vA = solverBodyA->linearVelocity;
-		float wA = solverBodyA->angularVelocity;
-		float mA = solverBodyA->invMass;
-		float iA = solverBodyA->invI;
+		b2BodyState* stateB = indexB == B2_NULL_INDEX ? &dummyState : states + indexB;
+		const b2BodyParam* paramB = indexB == B2_NULL_INDEX ? &dummyParam : params + indexB;
 
-		b2Vec2 vB = solverBodyB->linearVelocity;
-		float wB = solverBodyB->angularVelocity;
-		float mB = solverBodyB->invMass;
-		float iB = solverBodyB->invI;
+		b2Vec2 vA = stateA->linearVelocity;
+		float wA = stateA->angularVelocity;
+		b2Rot qA = stateA->rotation;
+		float mA = paramA->invMass;
+		float iA = paramA->invI;
+
+		b2Vec2 vB = stateB->linearVelocity;
+		float wB = stateB->angularVelocity;
+		b2Rot qB = stateB->rotation;
+		float mB = paramB->invMass;
+		float iB = paramB->invI;
 
 		// Stiffer for static contacts to avoid bodies getting pushed through the ground
-		float omega = 2.0f * b2_pi * hertz;
-		float c = h * omega * (2.0f * contactDampingRatio + h * omega);
-		constraint->impulseCoefficient = 1.0f / (1.0f + c);
-		constraint->massCoefficient = c * constraint->impulseCoefficient;
-		constraint->biasCoefficient = omega / (2.0f * contactDampingRatio + h * omega);
+		if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
+		{
+			constraint->softness = staticSoftness;
+		}
+		else
+		{
+			constraint->softness = contactSoftness;
+		}
+
+		constraint->invMassA = mA;
+		constraint->invIA = iA;
+		constraint->invMassB = mB;
+		constraint->invIB = iB;
 
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(constraint->normal);
@@ -93,93 +105,136 @@ void b2PrepareAndWarmStartOverflowContacts(b2SolverTaskContext* context)
 			const b2ManifoldPoint* mp = manifold->points + j;
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			cp->normalImpulse = mp->normalImpulse;
-			cp->tangentImpulse = mp->tangentImpulse;
+			cp->normalImpulse = warmStartScale * mp->normalImpulse;
+			cp->tangentImpulse = warmStartScale * mp->tangentImpulse;
 
 			cp->localAnchorA = mp->localAnchorA;
 			cp->localAnchorB = mp->localAnchorB;
 
-			float rnA = b2Cross(cp->rA, normal);
-			float rnB = b2Cross(cp->rB, normal);
+			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
+			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+			cp->baseSeparation = mp->separation - b2Dot(b2Sub(rB, rA), normal);
+
+			float rnA = b2Cross(rA, normal);
+			float rnB = b2Cross(rB, normal);
 			float kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
-
-			float rtA = b2Cross(cp->rA, tangent);
-			float rtB = b2Cross(cp->rB, tangent);
-			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
-
-			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
-			cp->separation = mp->separation;
 			cp->normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
 
+			float rtA = b2Cross(rA, tangent);
+			float rtB = b2Cross(rB, tangent);
+			float kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
+			cp->tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+
 			// Save relative velocity for restitution
-			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
-			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
 			cp->relativeVelocity = b2Dot(normal, b2Sub(vrB, vrA));
-
-			// Warm start
-			if (enableWarmStarting)
-			{
-				b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
-				wA -= iA * b2Cross(cp->rA, P);
-				vA = b2MulAdd(vA, -mA, P);
-				wB += iB * b2Cross(cp->rB, P);
-				vB = b2MulAdd(vB, mB, P);
-			}
-			else
-			{
-				cp->normalImpulse = 0.0f;
-				cp->tangentImpulse = 0.0f;
-			}
 		}
-
-		solverBodyA->linearVelocity = vA;
-		solverBodyA->angularVelocity = wA;
-		solverBodyB->linearVelocity = vB;
-		solverBodyB->angularVelocity = wB;
 	}
 
-	b2TracyCZoneEnd(prepare_contact);
+	b2TracyCZoneEnd(prepare_overflow_contact);
 }
 
-void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
+void b2WarmStartOverflowContacts(b2StepContext* context)
+{
+	b2TracyCZoneNC(warmstart_overflow_contact, "WarmStart Overflow Contact", b2_colorDarkOrange2, true);
+
+	b2Graph* graph = context->graph;
+	b2BodyState* states = context->bodyStates;
+
+	const b2ContactConstraint* constraints = graph->overflow.contactConstraints;
+	int32_t contactCount = b2Array(graph->overflow.contactArray).count;
+
+	// This is a dummy body to represent a static body because static bodies don't have a solver body.
+	b2BodyState dummyBody = b2_identityBodyState;
+
+	for (int32_t i = 0; i < contactCount; ++i)
+	{
+		const b2ContactConstraint* constraint = constraints + i;
+
+		int indexA = constraint->indexA;
+		int indexB = constraint->indexB;
+
+		b2BodyState* stateA = indexA == B2_NULL_INDEX ? &dummyBody : states + indexA;
+		b2BodyState* stateB = indexB == B2_NULL_INDEX ? &dummyBody : states + indexB;
+
+		b2Vec2 vA = stateA->linearVelocity;
+		float wA = stateA->angularVelocity;
+		b2Rot qA = stateA->rotation;
+		b2Vec2 vB = stateB->linearVelocity;
+		float wB = stateB->angularVelocity;
+		b2Rot qB = stateB->rotation;
+
+		float mA = constraint->invMassA;
+		float iA = constraint->invIA;
+		float mB = constraint->invMassB;
+		float iB = constraint->invIB;
+
+		// Stiffer for static contacts to avoid bodies getting pushed through the ground
+		b2Vec2 normal = constraint->normal;
+		b2Vec2 tangent = b2RightPerp(constraint->normal);
+		int pointCount = constraint->pointCount;
+
+		for (int32_t j = 0; j < pointCount; ++j)
+		{
+			const b2ContactConstraintPoint* cp = constraint->points + j;
+
+			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
+			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+
+			b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
+			wA -= iA * b2Cross(rA, P);
+			vA = b2MulAdd(vA, -mA, P);
+			wB += iB * b2Cross(rB, P);
+			vB = b2MulAdd(vB, mB, P);
+		}
+
+		stateA->linearVelocity = vA;
+		stateA->angularVelocity = wA;
+		stateB->linearVelocity = vB;
+		stateB->angularVelocity = wB;
+	}
+
+	b2TracyCZoneEnd(warmstart_overflow_contact);
+}
+
+void b2SolveOverflowContacts(b2StepContext* context, bool relax)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
-	b2SolverBody* bodies = context->solverBodies;
+	b2BodyState* states = context->bodyStates;
 	b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
 	int32_t count = b2Array(context->graph->overflow.contactArray).count;
-	float inv_dt = context->invTimeStep;
+	float inv_h = context->inv_h;
 	const float pushout = context->world->contactPushoutVelocity;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2BodyState dummyBody = b2_identityBodyState;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
 		b2ContactConstraint* constraint = constraints + i;
+		float mA = constraint->invMassA;
+		float iA = constraint->invIA;
+		float mB = constraint->invMassB;
+		float iB = constraint->invIB;
 
-		b2SolverBody* bodyA = constraint->indexA == B2_NULL_INDEX ? &dummyBody : bodies + constraint->indexA;
-		b2Vec2 vA = bodyA->linearVelocity;
-		float wA = bodyA->angularVelocity;
-		b2Vec2 dpA = bodyA->deltaPosition;
-		b2Rot qA = bodyA->rotation;
-		float mA = bodyA->invMass;
-		float iA = bodyA->invI;
+		b2BodyState* stateA = constraint->indexA == B2_NULL_INDEX ? &dummyBody : states + constraint->indexA;
+		b2Vec2 vA = stateA->linearVelocity;
+		float wA = stateA->angularVelocity;
+		b2Rot qA = stateA->rotation;
 
-		b2SolverBody* bodyB = constraint->indexB == B2_NULL_INDEX ? &dummyBody : bodies + constraint->indexB;
-		b2Vec2 vB = bodyB->linearVelocity;
-		float wB = bodyB->angularVelocity;
-		b2Vec2 dpB = bodyB->deltaPosition;
-		b2Rot qB = bodyB->rotation;
-		float mB = bodyB->invMass;
-		float iB = bodyB->invI;
+		b2BodyState* stateB = constraint->indexB == B2_NULL_INDEX ? &dummyBody : states + constraint->indexB;
+		b2Vec2 vB = stateB->linearVelocity;
+		float wB = stateB->angularVelocity;
+		b2Rot qB = stateB->rotation;
+		
+		b2Vec2 dp = b2Sub(stateB->deltaPosition, stateA->deltaPosition);
 
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(normal);
 		float friction = constraint->friction;
-		float biasCoefficient = constraint->biasCoefficient;
-		float massCoefficient = constraint->massCoefficient;
-		float impulseCoefficient = constraint->impulseCoefficient;
+		b2Softness softness = constraint->softness;
 
 		int32_t pointCount = constraint->pointCount;
 
@@ -187,111 +242,101 @@ void b2SolveOverflowContacts(b2SolverTaskContext* context, bool useBias)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			// Current anchor points
-			b2Vec2 rA = b2RotateVector(qA, cp->rA);
-			b2Vec2 rB = b2RotateVector(qB, cp->rB);
+			// current anchor points
+			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
+			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
 
-			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			b2Vec2 prA = b2Add(dpA, drA);
-			b2Vec2 prB = b2Add(dpB, drB);
-			float ds = b2Dot(b2Sub(prB, prA), normal);
-			float s = cp->separation + ds;
+			// compute current separation
+			b2Vec2 ds = b2Add(dp, b2Sub(rB, rA));
+			float s = b2Dot(ds, normal) + cp->baseSeparation;
 
-			float bias = 0.0f;
+			float velocityBias = 0.0f;
 			float massScale = 1.0f;
 			float impulseScale = 0.0f;
 			if (s > 0.0f)
 			{
-				// Speculative (inverse of full time step)
-				bias = s * inv_dt;
+				// speculative bias
+				velocityBias = s * inv_h;
 			}
-			else if (useBias)
+			else if (relax == false)
 			{
-				bias = B2_MAX(biasCoefficient * s, -pushout);
-				// bias = cp->biasCoefficient * s;
-				massScale = massCoefficient;
-				impulseScale = impulseCoefficient;
+				velocityBias = B2_MAX(softness.biasRate * s, -pushout);
+				massScale = softness.massScale;
+				impulseScale = softness.impulseScale;
 			}
-
-			b2Vec2 rA = b2Add(cp->rA, drA);
-			b2Vec2 rB = b2Add(cp->rB, drB);
-
-			// Relative velocity at contact
+\
+			// relative normal velocity at contact
 			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
 			float vn = b2Dot(b2Sub(vrB, vrA), normal);
 
-			// Compute normal impulse
-			float impulse = -cp->normalMass * massScale * (vn + bias) - impulseScale * cp->normalImpulse;
-			// float impulse = -cp->normalMass * (vn + bias + cp->gamma * cp->normalImpulse);
+			// incremental normal impulse
+			float impulse = -cp->normalMass * massScale * (vn + velocityBias) - impulseScale * cp->normalImpulse;
 
-			// Clamp the accumulated impulse
+			// clamp the accumulated impulse
 			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
 			impulse = newImpulse - cp->normalImpulse;
 			cp->normalImpulse = newImpulse;
 
-			// Apply contact impulse
+			// apply normal impulse
 			b2Vec2 P = b2MulSV(impulse, normal);
 			vA = b2MulSub(vA, mA, P);
-			wA -= iA * b2Cross(cp->rA, P);
+			wA -= iA * b2Cross(rA, P);
 
 			vB = b2MulAdd(vB, mB, P);
-			wB += iB * b2Cross(cp->rB, P);
+			wB += iB * b2Cross(rB, P);
 		}
 
 		for (int32_t j = 0; j < pointCount; ++j)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			// Approximate anchor points
-			b2Vec2 rA = b2Add(cp->rA, b2CrossSV(daA, cp->rA));
-			b2Vec2 rB = b2Add(cp->rB, b2CrossSV(daB, cp->rB));
+			// current anchor points
+			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
+			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
 
-			// Relative velocity at contact
+			// relative tangent velocity at contact
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
 			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
-			b2Vec2 dv = b2Sub(vrB, vrA);
+			float vt = b2Dot(b2Sub(vrB, vrA), tangent);
 
-			// Compute tangent force
-			float vt = b2Dot(dv, tangent);
-			float lambda = cp->tangentMass * (-vt);
+			// incremental tangent impulse
+			float impulse = cp->tangentMass * (-vt);
 
-			// Clamp the accumulated force
+			// clamp the accumulated force
 			float maxFriction = friction * cp->normalImpulse;
-			float newImpulse = B2_CLAMP(cp->tangentImpulse + lambda, -maxFriction, maxFriction);
-			lambda = newImpulse - cp->tangentImpulse;
+			float newImpulse = B2_CLAMP(cp->tangentImpulse + impulse, -maxFriction, maxFriction);
+			impulse = newImpulse - cp->tangentImpulse;
 			cp->tangentImpulse = newImpulse;
 
-			// Apply contact impulse
-			b2Vec2 P = b2MulSV(lambda, tangent);
-
+			// apply tangent impulse
+			b2Vec2 P = b2MulSV(impulse, tangent);
 			vA = b2MulSub(vA, mA, P);
-			wA -= iA * b2Cross(cp->rA, P);
-
+			wA -= iA * b2Cross(rA, P);
 			vB = b2MulAdd(vB, mB, P);
-			wB += iB * b2Cross(cp->rB, P);
+			wB += iB * b2Cross(rB, P);
 		}
 
-		bodyA->linearVelocity = vA;
-		bodyA->angularVelocity = wA;
-		bodyB->linearVelocity = vB;
-		bodyB->angularVelocity = wB;
+		stateA->linearVelocity = vA;
+		stateA->angularVelocity = wA;
+		stateB->linearVelocity = vB;
+		stateB->angularVelocity = wB;
 	}
 
 	b2TracyCZoneEnd(solve_contact);
 }
 
-void b2ApplyOverflowRestitution(b2SolverTaskContext* context)
+void b2ApplyOverflowRestitution(b2StepContext* context)
 {
 	b2TracyCZoneNC(overflow_resitution, "Overflow Restitution", b2_colorViolet, true);
 
-	b2SolverBody* bodies = context->solverBodies;
+	b2BodyState* bodies = context->bodyStates;
 	b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
 	int32_t count = b2Array(context->graph->overflow.contactArray).count;
 	float threshold = context->world->restitutionThreshold;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	// dummy state to represent a static body
+	b2BodyState dummyState = b2_identityBodyState;
 
 	for (int32_t i = 0; i < count; ++i)
 	{
@@ -303,17 +348,20 @@ void b2ApplyOverflowRestitution(b2SolverTaskContext* context)
 			continue;
 		}
 
-		b2SolverBody* bodyA = constraint->indexA == B2_NULL_INDEX ? &dummyBody : bodies + constraint->indexA;
-		b2Vec2 vA = bodyA->linearVelocity;
-		float wA = bodyA->angularVelocity;
-		float mA = bodyA->invMass;
-		float iA = bodyA->invI;
+		float mA = constraint->invMassA;
+		float iA = constraint->invIA;
+		float mB = constraint->invMassB;
+		float iB = constraint->invIB;
 
-		b2SolverBody* bodyB = constraint->indexB == B2_NULL_INDEX ? &dummyBody : bodies + constraint->indexB;
-		b2Vec2 vB = bodyB->linearVelocity;
-		float wB = bodyB->angularVelocity;
-		float mB = bodyB->invMass;
-		float iB = bodyB->invI;
+		b2BodyState* stateA = constraint->indexA == B2_NULL_INDEX ? &dummyState : bodies + constraint->indexA;
+		b2Vec2 vA = stateA->linearVelocity;
+		float wA = stateA->angularVelocity;
+		b2Rot qA = stateA->rotation;
+
+		b2BodyState* stateB = constraint->indexB == B2_NULL_INDEX ? &dummyState : bodies + constraint->indexB;
+		b2Vec2 vB = stateB->linearVelocity;
+		float wB = stateB->angularVelocity;
+		b2Rot qB = stateB->rotation;
 
 		b2Vec2 normal = constraint->normal;
 		int32_t pointCount = constraint->pointCount;
@@ -323,58 +371,62 @@ void b2ApplyOverflowRestitution(b2SolverTaskContext* context)
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
 			// if the normal impulse is zero then there was no collision
+			// this skips speculative contact points that didn't generate an impulse
 			if (cp->relativeVelocity > -threshold || cp->normalImpulse == 0.0f)
 			{
 				continue;
 			}
 
-			// Relative velocity at contact
-			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, cp->rB));
-			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, cp->rA));
-			b2Vec2 dv = b2Sub(vrB, vrA);
+			// current anchor points
+			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
+			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
 
-			// Compute normal impulse
-			float vn = b2Dot(dv, normal);
+			// relative normal velocity at contact
+			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
+			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
+			float vn = b2Dot(b2Sub(vrB, vrA), normal);
+
+			// compute normal impulse
 			float impulse = -cp->normalMass * (vn + restitution * cp->relativeVelocity);
 
-			// Clamp the accumulated impulse
+			// clamp the accumulated impulse
+			// #todo should this be stored?
 			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
 			impulse = newImpulse - cp->normalImpulse;
 			cp->normalImpulse = newImpulse;
 
-			// Apply contact impulse
+			// apply contact impulse
 			b2Vec2 P = b2MulSV(impulse, normal);
 			vA = b2MulSub(vA, mA, P);
-			wA -= iA * b2Cross(cp->rA, P);
-
+			wA -= iA * b2Cross(rA, P);
 			vB = b2MulAdd(vB, mB, P);
-			wB += iB * b2Cross(cp->rB, P);
+			wB += iB * b2Cross(rB, P);
 		}
 
-		bodyA->linearVelocity = vA;
-		bodyA->angularVelocity = wA;
-		bodyB->linearVelocity = vB;
-		bodyB->angularVelocity = wB;
+		stateA->linearVelocity = vA;
+		stateA->angularVelocity = wA;
+		stateB->linearVelocity = vB;
+		stateB->angularVelocity = wB;
 	}
 
 	b2TracyCZoneEnd(overflow_resitution);
 }
 
-void b2StoreOverflowImpulses(b2SolverTaskContext* context)
+void b2StoreOverflowImpulses(b2StepContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
-	b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
-	int32_t count = b2Array(context->graph->overflow.contactArray).count;
+	const b2ContactConstraint* constraints = context->graph->overflow.contactConstraints;
+	int count = b2Array(context->graph->overflow.contactArray).count;
 
-	for (int32_t i = 0; i < count; ++i)
+	for (int i = 0; i < count; ++i)
 	{
-		b2ContactConstraint* constraint = constraints + i;
+		const b2ContactConstraint* constraint = constraints + i;
 		b2Contact* contact = constraint->contact;
 		b2Manifold* manifold = &contact->manifold;
-		int32_t pointCount = manifold->pointCount;
+		int pointCount = manifold->pointCount;
 
-		for (int32_t j = 0; j < pointCount; ++j)
+		for (int j = 0; j < pointCount; ++j)
 		{
 			manifold->points[j].normalImpulse = constraint->points[j].normalImpulse;
 			manifold->points[j].tangentImpulse = constraint->points[j].tangentImpulse;
@@ -401,19 +453,20 @@ static inline b2FloatW b2CrossW(b2Vec2W a, b2Vec2W b)
 	return sub(mul(a.X, b.Y), mul(a.Y, b.X));
 }
 
+// wide version of b2BodyState
 typedef struct b2SimdBody
 {
 	b2Vec2W v;
 	b2FloatW w;
+	b2FloatW flags;
 	b2Vec2W dp;
-	b2FloatW da;
-	b2FloatW invM, invI;
+	b2RotW q;
 } b2SimdBody;
 
 // This is a load and 8x8 transpose
-static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* restrict indices)
+static b2SimdBody b2GatherBodies(const b2BodyState* restrict bodies, int32_t* restrict indices)
 {
-	_Static_assert(sizeof(b2SolverBody) == 32, "b2SolverBody not 32 bytes");
+	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
 	b2FloatW zero = simde_mm256_setzero_ps();
 	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[0]));
@@ -446,28 +499,27 @@ static b2SimdBody b2GatherBodies(const b2SolverBody* restrict bodies, int32_t* r
 	simdBody.v.X = simde_mm256_permute2f128_ps(tt0, tt4, 0x20);
 	simdBody.v.Y = simde_mm256_permute2f128_ps(tt1, tt5, 0x20);
 	simdBody.w = simde_mm256_permute2f128_ps(tt2, tt6, 0x20);
-	simdBody.dp.X = simde_mm256_permute2f128_ps(tt3, tt7, 0x20);
-	simdBody.dp.Y = simde_mm256_permute2f128_ps(tt0, tt4, 0x31);
-	simdBody.da = simde_mm256_permute2f128_ps(tt1, tt5, 0x31);
-	simdBody.invM = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
-	simdBody.invI = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
-
+	simdBody.flags = simde_mm256_permute2f128_ps(tt3, tt7, 0x20);
+	simdBody.dp.X = simde_mm256_permute2f128_ps(tt0, tt4, 0x31);
+	simdBody.dp.Y = simde_mm256_permute2f128_ps(tt1, tt5, 0x31);
+	simdBody.q.S = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
+	simdBody.q.C = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
 	return simdBody;
 }
 
 // This writes everything back to the solver bodies but only the velocities change
-static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
+static void b2ScatterBodies(b2BodyState* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
 {
-	_Static_assert(sizeof(b2SolverBody) == 32, "b2SolverBody not 32 bytes");
+	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
 	b2FloatW t0 = simde_mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
 	b2FloatW t1 = simde_mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
-	b2FloatW t2 = simde_mm256_unpacklo_ps(simdBody->w, simdBody->dp.X);
-	b2FloatW t3 = simde_mm256_unpackhi_ps(simdBody->w, simdBody->dp.X);
-	b2FloatW t4 = simde_mm256_unpacklo_ps(simdBody->dp.Y, simdBody->da);
-	b2FloatW t5 = simde_mm256_unpackhi_ps(simdBody->dp.Y, simdBody->da);
-	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->invM, simdBody->invI);
-	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->invM, simdBody->invI);
+	b2FloatW t2 = simde_mm256_unpacklo_ps(simdBody->w, simdBody->flags);
+	b2FloatW t3 = simde_mm256_unpackhi_ps(simdBody->w, simdBody->flags);
+	b2FloatW t4 = simde_mm256_unpacklo_ps(simdBody->dp.X, simdBody->dp.Y);
+	b2FloatW t5 = simde_mm256_unpackhi_ps(simdBody->dp.X, simdBody->dp.Y);
+	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->q.S, simdBody->q.C);
+	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->q.S, simdBody->q.C);
 	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
 	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
 	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
@@ -477,7 +529,7 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 	b2FloatW tt6 = simde_mm256_shuffle_ps(t5, t7, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
 	b2FloatW tt7 = simde_mm256_shuffle_ps(t5, t7, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
 
-	// I don't use any dummy body in the body array because this will lead to multithreaded sharing and the
+	// I don't use any dummy body in the body array because this will lead to multi-threaded sharing and the
 	// associated cache flushing.
 	if (indices[0] != B2_NULL_INDEX)
 		simde_mm256_store_ps((float*)(bodies + indices[0]), simde_mm256_permute2f128_ps(tt0, tt4, 0x20));
@@ -497,28 +549,27 @@ static void b2ScatterBodies(b2SolverBody* restrict bodies, int32_t* restrict ind
 		simde_mm256_store_ps((float*)(bodies + indices[7]), simde_mm256_permute2f128_ps(tt3, tt7, 0x31));
 }
 
-void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
 	b2World* world = context->world;
 	b2Contact* contacts = world->contacts;
 	const int32_t* bodyMap = context->bodyToSolverMap;
-	b2SolverBody* solverBodies = context->solverBodies;
+	b2BodyState* states = context->bodyStates;
+	const b2BodyParam* params = context->bodyParams;
 	b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* contactIndices = context->contactIndices;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	// dummy body to represent a static body
+	b2BodyState dummyState = b2_identityBodyState;
+	b2BodyParam dummyParam = {0};
 
-	// 30 is a bit soft, 60 oscillates too much
-	// const float contactHertz = 45.0f;
-	// const float contactHertz = B2_MAX(15.0f, stepContext->inv_dt * stepContext->velocityIterations / 8.0f);
-	const float contactHertz = world->contactHertz;
-	const float contactDampingRatio = world->contactDampingRatio;
+	b2Softness contactSoftness = context->contactSoftness;
+	b2Softness staticSoftness = context->staticSoftness;
 
+	float h = context->h;
 	float warmStartScale = world->enableWarmStarting ? 1.0f : 0.0f;
-	float h = context->timeStep;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
@@ -539,26 +590,26 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 				constraint->indexA[j] = indexA;
 				constraint->indexB[j] = indexB;
 
-				b2SolverBody* solverBodyA = indexA == B2_NULL_INDEX ? &dummyBody : solverBodies + indexA;
-				b2SolverBody* solverBodyB = indexB == B2_NULL_INDEX ? &dummyBody : solverBodies + indexB;
-				float mA = solverBodyA->invMass;
-				float iA = solverBodyA->invI;
-				float mB = solverBodyB->invMass;
-				float iB = solverBodyB->invI;
+				b2BodyState* stateA = indexA == B2_NULL_INDEX ? &dummyState : states + indexA;
+				const b2BodyParam* paramA = indexA == B2_NULL_INDEX ? &dummyParam : params + indexA;
 
-				float hertz = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? 2.0f * contactHertz : contactHertz;
+				b2BodyState* stateB = indexB == B2_NULL_INDEX ? &dummyState : states + indexB;
+				const b2BodyParam* paramB = indexB == B2_NULL_INDEX ? &dummyParam : params + indexB;
+
+				float mA = paramA->invMass;
+				float iA = paramA->invI;
+				float mB = paramB->invMass;
+				float iB = paramB->invI;
+
+				b2Softness soft = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? staticSoftness : contactSoftness;
 
 				// Stiffer for static contacts to avoid bodies getting pushed through the ground
-				float omega = 2.0f * b2_pi * hertz;
-				float d = (2.0f * contactDampingRatio + h * omega);
-				float c = h * omega * d;
-				float impulseCoefficient = 1.0f / (1.0f + c);
 
 				((float*)&constraint->friction)[j] = contact->friction;
 				((float*)&constraint->restitution)[j] = contact->restitution;
-				((float*)&constraint->impulseCoefficient)[j] = impulseCoefficient;
-				((float*)&constraint->massCoefficient)[j] = c * impulseCoefficient;
-				((float*)&constraint->biasCoefficient)[j] = omega / d;
+				((float*)&constraint->impulseCoefficient)[j] = soft.impulseScale;
+				((float*)&constraint->massCoefficient)[j] = soft.massScale;
+				((float*)&constraint->biasCoefficient)[j] = soft.biasRate;
 
 				b2Vec2 normal = manifold->normal;
 				((float*)&constraint->normal.X)[j] = normal.x;
@@ -680,11 +731,11 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCon
 	b2TracyCZoneEnd(prepare_contact);
 }
 
-void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen1, true);
 
-	b2SolverBody* bodies = context->solverBodies;
+	b2BodyState* bodies = context->solverBodies;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
@@ -727,11 +778,11 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskC
 	b2TracyCZoneEnd(warm_start_contact);
 }
 
-void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
-	b2SolverBody* bodies = context->solverBodies;
+	b2BodyState* bodies = context->solverBodies;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 	float inv_dt = context->invTimeStep;
 	const float pushout = context->world->contactPushoutVelocity;
@@ -915,11 +966,11 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskConte
 	b2TracyCZoneEnd(solve_contact);
 }
 
-void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
 
-	b2SolverBody* bodies = context->solverBodies;
+	b2BodyState* bodies = context->solverBodies;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 	b2FloatW threshold = simde_mm256_set1_ps(context->world->restitutionThreshold);
 	b2FloatW zero = simde_mm256_setzero_ps();
@@ -1010,7 +1061,7 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 	b2TracyCZoneEnd(restitution);
 }
 
-void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
