@@ -58,22 +58,22 @@ typedef struct b2ContactConstraintSIMD
 	int32_t indexA[8];
 	int32_t indexB[8];
 
+	b2FloatW invMassA, invMassB;
+	b2FloatW invIA, invIB;
 	b2Vec2W normal;
 	b2FloatW friction;
 	b2FloatW restitution;
-	b2FloatW invMassA, invMassB;
-	b2FloatW invIA, invIB;
+	b2FloatW biasRate;
+	b2FloatW massScale;
+	b2FloatW impulseScale;
 	b2Vec2W localAnchorA1, localAnchorB1;
 	b2Vec2W localAnchorA2, localAnchorB2;
 	b2FloatW baseSeparation1, baseSeparation2;
-	b2FloatW relativeVelocity1, relativeVelocity2;
 	b2FloatW normalImpulse1, normalImpulse2;
 	b2FloatW tangentImpulse1, tangentImpulse2;
 	b2FloatW normalMass1, tangentMass1;
 	b2FloatW normalMass2, tangentMass2;
-	b2FloatW biasRate;
-	b2FloatW massScale;
-	b2FloatW impulseScale;
+	b2FloatW relativeVelocity1, relativeVelocity2;
 } b2ContactConstraintSIMD;
 
 // Scalar
