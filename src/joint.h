@@ -10,7 +10,6 @@
 #include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2SolverTaskContext b2SolverTaskContext;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
@@ -224,6 +223,9 @@ typedef struct b2Joint
 	b2Vec2 localOriginAnchorA;
 	b2Vec2 localOriginAnchorB;
 
+	float invMassA, invMassB;
+	float invIA, invIB;
+
 	union
 	{
 		b2DistanceJoint distanceJoint;
@@ -249,7 +251,7 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
 void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias);
 
-void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context);
-void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias);
+void b2PrepareAndWarmStartOverflowJoints(b2StepContext* context);
+void b2SolveOverflowJoints(b2StepContext* context, bool useBias);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

@@ -104,19 +104,12 @@ typedef struct b2StepContext
 	struct b2World* world;
 	struct b2Graph* graph;
 	struct b2Body** awakeBodies;
-	b2BodyState* bodyStates;
-	b2BodyParam* bodyParams;
-
-	int32_t* bodyToSolverMap;
-	int32_t* solverToBodyMap;
 
 	int32_t* jointIndices;
 	int32_t* contactIndices;
 
-	b2StepContext* stepContext;
 	struct b2ContactConstraintSIMD* contactConstraints;
 	int32_t activeColorCount;
-	int32_t subStepCount;
 	int32_t workerCount;
 
 	b2SolverStage* stages;

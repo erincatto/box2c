@@ -447,6 +447,11 @@ void b2StoreOverflowImpulses(b2StepContext* context)
 #define muladd(a, b, c) simde_mm256_add_ps((a), simde_mm256_mul_ps((b), (c)))
 #define mulsub(a, b, c) simde_mm256_sub_ps((a), simde_mm256_mul_ps((b), (c)))
 
+static inline b2FloatW b2DotW(b2Vec2W a, b2Vec2W b)
+{
+	return add(mul(a.X, b.X), mul(a.Y, b.Y));
+}
+
 static inline b2FloatW b2CrossW(b2Vec2W a, b2Vec2W b)
 {
 	return sub(mul(a.X, b.Y), mul(a.Y, b.X));
@@ -812,58 +817,57 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
-	b2BodyState* bodies = context->solverBodies;
+	b2BodyState* states = context->bodyStates;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
-	float inv_dt = context->invTimeStep;
-	const float pushout = context->world->contactPushoutVelocity;
+	b2FloatW inv_h = simde_mm256_set1_ps(context->inv_h);
+	b2FloatW minBiasVel = simde_mm256_set1_ps(-context->world->contactPushoutVelocity);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		b2ContactConstraintSIMD* c = constraints + i;
 
-		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
-		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
+		b2SimdBody bA = b2GatherBodies(states, c->indexA);
+		b2SimdBody bB = b2GatherBodies(states, c->indexB);
 
-		b2FloatW biasCoeff, massCoeff, impulseCoeff;
+		b2FloatW biasRate, massScale, impulseScale;
 		if (useBias)
 		{
-			biasCoeff = c->biasCoefficient;
-			massCoeff = c->massCoefficient;
-			impulseCoeff = c->impulseCoefficient;
+			biasRate = c->biasRate;
+			massScale = c->massScale;
+			impulseScale = c->impulseScale;
 		}
 		else
 		{
-			biasCoeff = simde_mm256_setzero_ps();
-			massCoeff = simde_mm256_set1_ps(1.0f);
-			impulseCoeff = simde_mm256_setzero_ps();
+			biasRate = simde_mm256_setzero_ps();
+			massScale = simde_mm256_set1_ps(1.0f);
+			impulseScale = simde_mm256_setzero_ps();
 		}
 
-		b2FloatW invDtMul = simde_mm256_set1_ps(inv_dt);
-		b2FloatW minBiasVel = simde_mm256_set1_ps(-pushout);
+		b2Vec2W dp = {sub(bB.dp.X, bA.dp.X), sub(bB.dp.Y, bA.dp.Y)};
 
-		// first point non-penetration constraint
+		// point1 non-penetration constraint
 		{
-			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			b2FloatW prx = sub(sub(bB.dp.X, mul(bB.da, c->rB1.Y)), sub(bA.dp.X, mul(bA.da, c->rA1.Y)));
-			b2FloatW pry = sub(add(bB.dp.Y, mul(bB.da, c->rB1.X)), add(bA.dp.Y, mul(bA.da, c->rA1.X)));
-			b2FloatW ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
+			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
+			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
 
-			b2FloatW s = add(c->separation1, ds);
+			// compute current separation
+			b2Vec2W ds = {add(dp.X, sub(rB.X, rA.X)), add(dp.Y, sub(rB.Y, rA.Y))};
+			b2FloatW s = add(b2DotW(c->normal, ds), c->baseSeparation1);
 
 			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
-			b2FloatW specBias = mul(s, invDtMul);
-			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+			b2FloatW specBias = mul(s, inv_h);
+			b2FloatW softBias = simde_mm256_max_ps(mul(biasRate, s), minBiasVel);
 
-			// todo slow on SSE2
+			// #todo slow on SSE2
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
 
 			// Relative velocity at contact
-			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
-			b2FloatW negImpulse = add(mul(c->normalMass1, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse1));
+			b2FloatW negImpulse = add(mul(c->normalMass1, mul(massScale, add(vn, bias))), mul(impulseScale, c->normalImpulse1));
 
 			// Clamp the accumulated impulse
 			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse1, negImpulse), simde_mm256_setzero_ps());
@@ -874,38 +878,38 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 			b2FloatW Px = mul(impulse, c->normal.X);
 			b2FloatW Py = mul(impulse, c->normal.Y);
 
-			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
-			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
-			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px)));
+			bA.v.X = mulsub(bA.v.X, c->invMassA, Px);
+			bA.v.Y = mulsub(bA.v.Y, c->invMassA, Py);
+			bA.w = mulsub(bA.w, c->invIA, sub(mul(rA.X, Py), mul(rA.Y, Px)));
 
-			bB.v.X = muladd(bB.v.X, bB.invM, Px);
-			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
-			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px)));
+			bB.v.X = muladd(bB.v.X, c->invMassB, Px);
+			bB.v.Y = muladd(bB.v.Y, c->invMassB, Py);
+			bB.w = muladd(bB.w, c->invIB, sub(mul(rB.X, Py), mul(rB.Y, Px)));
 		}
 
 		// second point non-penetration constraint
 		{
-			// Compute change in separation (small angle approximation of sin(angle) == angle)
-			b2FloatW prx = sub(sub(bB.dp.X, mul(bB.da, c->rB2.Y)), sub(bA.dp.X, mul(bA.da, c->rA2.Y)));
-			b2FloatW pry = sub(add(bB.dp.Y, mul(bB.da, c->rB2.X)), add(bA.dp.Y, mul(bA.da, c->rA2.X)));
-			b2FloatW ds = add(mul(prx, c->normal.X), mul(pry, c->normal.Y));
+			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
+			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
 
-			b2FloatW s = add(c->separation2, ds);
+			// compute current separation
+			b2Vec2W ds = {add(dp.X, sub(rB.X, rA.X)), add(dp.Y, sub(rB.Y, rA.Y))};
+			b2FloatW s = add(b2DotW(c->normal, ds), c->baseSeparation2);
 
 			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
-			b2FloatW specBias = mul(s, invDtMul);
-			b2FloatW softBias = simde_mm256_max_ps(mul(biasCoeff, s), minBiasVel);
+			b2FloatW specBias = mul(s, inv_h);
+			b2FloatW softBias = simde_mm256_max_ps(mul(biasRate, s), minBiasVel);
 
-			// todo slow on SSE2
+			// #todo slow on SSE2
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
 
 			// Relative velocity at contact
-			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
-			b2FloatW negImpulse = add(mul(c->normalMass2, mul(massCoeff, add(vn, bias))), mul(impulseCoeff, c->normalImpulse2));
+			b2FloatW negImpulse = add(mul(c->normalMass2, mul(massScale, add(vn, bias))), mul(impulseScale, c->normalImpulse2));
 
 			// Clamp the accumulated impulse
 			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse2, negImpulse), simde_mm256_setzero_ps());
@@ -916,24 +920,26 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 			b2FloatW Px = mul(impulse, c->normal.X);
 			b2FloatW Py = mul(impulse, c->normal.Y);
 
-			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
-			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
-			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px)));
+			bA.v.X = mulsub(bA.v.X, c->invMassA, Px);
+			bA.v.Y = mulsub(bA.v.Y, c->invMassA, Py);
+			bA.w = mulsub(bA.w, c->invIA, sub(mul(rA.X, Py), mul(rA.Y, Px)));
 
-			bB.v.X = muladd(bB.v.X, bB.invM, Px);
-			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
-			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px)));
+			bB.v.X = muladd(bB.v.X, c->invMassB, Px);
+			bB.v.Y = muladd(bB.v.Y, c->invMassB, Py);
+			bB.w = muladd(bB.w, c->invIB, sub(mul(rB.X, Py), mul(rB.Y, Px)));
 		}
 
 		b2FloatW tangentX = c->normal.Y;
 		b2FloatW tangentY = sub(simde_mm256_setzero_ps(), c->normal.X);
-		// float friction = constraint->friction;
 
-		// first point friction constraint
+		// point 1 friction constraint
 		{
+			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
+			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
+
 			// Relative velocity at contact
-			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
 
 			// Compute tangent force
@@ -951,20 +957,23 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 			b2FloatW Px = mul(impulse, tangentX);
 			b2FloatW Py = mul(impulse, tangentY);
 
-			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
-			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
-			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px)));
+			bA.v.X = mulsub(bA.v.X, c->invMassA, Px);
+			bA.v.Y = mulsub(bA.v.Y, c->invMassA, Py);
+			bA.w = mulsub(bA.w, c->invIA, sub(mul(rA.X, Py), mul(rA.Y, Px)));
 
-			bB.v.X = muladd(bB.v.X, bB.invM, Px);
-			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
-			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px)));
+			bB.v.X = muladd(bB.v.X, c->invMassB, Px);
+			bB.v.Y = muladd(bB.v.Y, c->invMassB, Py);
+			bB.w = muladd(bB.w, c->invIB, sub(mul(rB.X, Py), mul(rB.Y, Px)));
 		}
 
 		// second point friction constraint
 		{
+			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
+			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
+
 			// Relative velocity at contact
-			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vt = add(mul(dvx, tangentX), mul(dvy, tangentY));
 
 			// Compute tangent force
@@ -982,17 +991,17 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 			b2FloatW Px = mul(impulse, tangentX);
 			b2FloatW Py = mul(impulse, tangentY);
 
-			bA.v.X = mulsub(bA.v.X, bA.invM, Px);
-			bA.v.Y = mulsub(bA.v.Y, bA.invM, Py);
-			bA.w = mulsub(bA.w, bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px)));
+			bA.v.X = mulsub(bA.v.X, c->invMassA, Px);
+			bA.v.Y = mulsub(bA.v.Y, c->invMassA, Py);
+			bA.w = mulsub(bA.w, c->invIA, sub(mul(rA.X, Py), mul(rA.Y, Px)));
 
-			bB.v.X = muladd(bB.v.X, bB.invM, Px);
-			bB.v.Y = muladd(bB.v.Y, bB.invM, Py);
-			bB.w = muladd(bB.w, bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px)));
+			bB.v.X = muladd(bB.v.X, c->invMassB, Px);
+			bB.v.Y = muladd(bB.v.Y, c->invMassB, Py);
+			bB.w = muladd(bB.w, c->invIB, sub(mul(rB.X, Py), mul(rB.Y, Px)));
 		}
 
-		b2ScatterBodies(bodies, c->indexA, &bA);
-		b2ScatterBodies(bodies, c->indexB, &bB);
+		b2ScatterBodies(states, c->indexA, &bA);
+		b2ScatterBodies(states, c->indexB, &bB);
 	}
 
 	b2TracyCZoneEnd(solve_contact);
@@ -1002,7 +1011,7 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 {
 	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
 
-	b2BodyState* bodies = context->solverBodies;
+	b2BodyState* states = context->bodyStates;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].contactConstraints;
 	b2FloatW threshold = simde_mm256_set1_ps(context->world->restitutionThreshold);
 	b2FloatW zero = simde_mm256_setzero_ps();
@@ -1011,8 +1020,8 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 	{
 		b2ContactConstraintSIMD* c = constraints + i;
 
-		b2SimdBody bA = b2GatherBodies(bodies, c->indexA);
-		b2SimdBody bB = b2GatherBodies(bodies, c->indexB);
+		b2SimdBody bA = b2GatherBodies(states, c->indexA);
+		b2SimdBody bB = b2GatherBodies(states, c->indexB);
 
 		// first point non-penetration constraint
 		{
@@ -1025,8 +1034,10 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass1, zero, test);
 
 			// Relative velocity at contact
-			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB1.Y)), sub(bA.v.X, mul(bA.w, c->rA1.Y)));
-			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB1.X)), add(bA.v.Y, mul(bA.w, c->rA1.X)));
+			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
+			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
@@ -1041,13 +1052,13 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 			b2FloatW Px = mul(impulse, c->normal.X);
 			b2FloatW Py = mul(impulse, c->normal.Y);
 
-			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA1.X, Py), mul(c->rA1.Y, Px))));
+			bA.v.X = mulsub(bA.v.X, c->invMassA, Px);
+			bA.v.Y = mulsub(bA.v.Y, c->invMassA, Py);
+			bA.w = mulsub(bA.w, c->invIA, sub(mul(rA.X, Py), mul(rA.Y, Px)));
 
-			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB1.X, Py), mul(c->rB1.Y, Px))));
+			bB.v.X = muladd(bB.v.X, c->invMassB, Px);
+			bB.v.Y = muladd(bB.v.Y, c->invMassB, Py);
+			bB.w = muladd(bB.w, c->invIB, sub(mul(rB.X, Py), mul(rB.Y, Px)));
 		}
 
 		// second point non-penetration constraint
@@ -1061,8 +1072,10 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass2, zero, test);
 
 			// Relative velocity at contact
-			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, c->rB2.Y)), sub(bA.v.X, mul(bA.w, c->rA2.Y)));
-			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, c->rB2.X)), add(bA.v.Y, mul(bA.w, c->rA2.X)));
+			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
+			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
+			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
+			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
 
 			// Compute normal impulse
@@ -1077,17 +1090,17 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 			b2FloatW Px = mul(impulse, c->normal.X);
 			b2FloatW Py = mul(impulse, c->normal.Y);
 
-			bA.v.X = sub(bA.v.X, mul(bA.invM, Px));
-			bA.v.Y = sub(bA.v.Y, mul(bA.invM, Py));
-			bA.w = sub(bA.w, mul(bA.invI, sub(mul(c->rA2.X, Py), mul(c->rA2.Y, Px))));
+			bA.v.X = mulsub(bA.v.X, c->invMassA, Px);
+			bA.v.Y = mulsub(bA.v.Y, c->invMassA, Py);
+			bA.w = mulsub(bA.w, c->invIA, sub(mul(rA.X, Py), mul(rA.Y, Px)));
 
-			bB.v.X = add(bB.v.X, mul(bB.invM, Px));
-			bB.v.Y = add(bB.v.Y, mul(bB.invM, Py));
-			bB.w = add(bB.w, mul(bB.invI, sub(mul(c->rB2.X, Py), mul(c->rB2.Y, Px))));
+			bB.v.X = muladd(bB.v.X, c->invMassB, Px);
+			bB.v.Y = muladd(bB.v.Y, c->invMassB, Py);
+			bB.w = muladd(bB.w, c->invIB, sub(mul(rB.X, Py), mul(rB.Y, Px)));
 		}
 
-		b2ScatterBodies(bodies, c->indexA, &bA);
-		b2ScatterBodies(bodies, c->indexB, &bB);
+		b2ScatterBodies(states, c->indexA, &bA);
+		b2ScatterBodies(states, c->indexB, &bB);
 	}
 
 	b2TracyCZoneEnd(restitution);
