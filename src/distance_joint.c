@@ -42,11 +42,6 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
-	b2DistanceJoint* joint = &base->distanceJoint;
-
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
-
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 	float mB = bodyB->invMass;
@@ -57,13 +52,18 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	base->invIA = iA;
 	base->invIB = iB;
 
+	b2DistanceJoint* joint = &base->distanceJoint;
+
+	joint->indexA = context->bodyToSolverMap[indexA];
+	joint->indexB = context->bodyToSolverMap[indexB];
+
 	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
 	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
-	joint->centerDiff = b2Sub(bodyB->position, bodyA->position);
+	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
 
 	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
 	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
-	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->centerDiff);
+	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
 	b2Vec2 axis = b2Normalize(separation);
 
 	// compute effective mass
@@ -86,32 +86,30 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
-	b2DistanceJoint* joint = &base->distanceJoint;
-
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2BodyState dummyBody = b2_identityBodyState;
-	b2BodyParam dummyParam = {0};
+	// dummy state for static bodies
+	b2BodyState dummyState = b2_identityBodyState;
 
 	float mA = base->invMassA;
 	float mB = base->invMassB;
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->bodyStates + joint->indexA;
-	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->bodyStates + joint->indexB;
+	b2DistanceJoint* joint = &base->distanceJoint;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
-	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->centerDiff);
+	b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
+	b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
 	b2Vec2 axis = b2Normalize(separation);
 
 	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
 	b2Vec2 P = b2MulSV(axialImpulse, axis);
 
-	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
-	bodyA->angularVelocity -= iA * b2Cross(rA, P);
-	bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
-	bodyB->angularVelocity += iB * b2Cross(rB, P);
+	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, P);
+	stateA->angularVelocity -= iA * b2Cross(rA, P);
+	stateB->linearVelocity = b2MulAdd(stateB->linearVelocity, mB, P);
+	stateB->angularVelocity += iB * b2Cross(rB, P);
 }
 
 void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
@@ -126,23 +124,23 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2BodyState dummyBody = b2_identityBodyState;
+	b2BodyState dummyState = b2_identityBodyState;
 
-	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->bodyStates + joint->indexA;
-	b2Vec2 vA = bodyA->linearVelocity;
-	float wA = bodyA->angularVelocity;
-
-	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->bodyStates + joint->indexB;
-	b2Vec2 vB = bodyB->linearVelocity;
-	float wB = bodyB->angularVelocity;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	
+	b2Vec2 vA = stateA->linearVelocity;
+	float wA = stateA->angularVelocity;
+	b2Vec2 vB = stateB->linearVelocity;
+	float wB = stateB->angularVelocity;
 
 	// current anchors
-	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+	b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
+	b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
 
 	// current separation
-	b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(rB, rA));
-	b2Vec2 separation = b2Add(joint->centerDiff, ds);
+	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));
+	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
 
 	float length = b2Length(separation);
 	b2Vec2 axis = b2Normalize(separation);
@@ -238,7 +236,7 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	}
 	else
 	{
-		// Equal limits
+		// equal limits
 		b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 		float Cdot = b2Dot(axis, vr);
 
@@ -264,10 +262,10 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		wB += iB * b2Cross(rB, P);
 	}
 
-	bodyA->linearVelocity = vA;
-	bodyA->angularVelocity = wA;
-	bodyB->linearVelocity = vB;
-	bodyB->angularVelocity = wB;
+	stateA->linearVelocity = vA;
+	stateA->angularVelocity = wA;
+	stateB->linearVelocity = vB;
+	stateB->angularVelocity = wB;
 }
 
 float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)

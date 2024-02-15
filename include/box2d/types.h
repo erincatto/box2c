@@ -171,7 +171,7 @@ typedef struct b2WorldDef
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
 	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
 	/// application.
-	int32_t arenaAllocatorCapacity;
+	int32_t stackAllocatorCapacity;
 
 	/// task system hookup
 	uint32_t workerCount;
@@ -187,24 +187,28 @@ typedef struct b2WorldDef
 } b2WorldDef;
 
 /// Use this to initialize your world definition
-static const b2WorldDef b2_defaultWorldDef = {
-	{0.0f, -10.0f},				   // gravity
-	1.0f * b2_lengthUnitsPerMeter, // restitutionThreshold
-	3.0f * b2_lengthUnitsPerMeter, // contactPushoutVelocity
-	30.0,						   // contactHertz
-	1.0f,						   // contactDampingRatio
-	true,						   // enableSleep
-	true,						   // enableContinuous
-	0,							   // bodyCapacity
-	0,							   // shapeCapacity
-	0,							   // contactCapacity
-	0,							   // jointCapacity
-	1024 * 1024,				   // arenaAllocatorCapacity
-	0,							   // workerCount
-	NULL,						   // enqueueTask
-	NULL,						   // finishTask
-	NULL,						   // userTaskContext
-};
+static inline b2WorldDef b2DefaultWorldDef()
+{
+	b2WorldDef def = B2_ZERO_INIT;
+	def.gravity.x = 0.0f;
+	def.gravity.y = -10.0f;
+	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0;
+	def.contactDampingRatio = 1.0f;
+	def.enableSleep = true;
+	def.enableContinous = true;
+	def.bodyCapacity = 0;
+	def.shapeCapacity = 0;
+	def.contactCapacity = 0;
+	def.jointCapacity = 0;
+	def.stackAllocatorCapacity = 1024 * 1024;
+	def.workerCount = 0;
+	def.enqueueTask = NULL;
+	def.finishTask = NULL;
+	def.userTaskContext = NULL;
+	return def;
+}
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved

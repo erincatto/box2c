@@ -107,7 +107,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->index = id.index;
 
 	world->blockAllocator = b2CreateBlockAllocator();
-	world->stackAllocator = b2CreateStackAllocator(def->arenaAllocatorCapacity);
+	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2CreateBroadPhase(&world->broadPhase);
 	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);

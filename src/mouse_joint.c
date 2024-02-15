@@ -10,14 +10,6 @@
 // needed for dll export
 #include "box2d/box2d.h"
 
-// p = attached point, m = mouse point
-// C = p - m
-// Cdot = v
-//      = v + cross(w, r)
-// J = [I r_skew]
-// Identity used:
-// w k % (rx i + ry mouse) = w * (-ry i + rx mouse)
-
 void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
@@ -46,50 +38,40 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	b2Body* bodyB = context->bodies + indexB;
 	B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
+	base->invMassB = bodyB->invMass;
+	base->invIB = bodyB->invI;
+
 	b2MouseJoint* joint = &base->mouseJoint;
 	joint->indexB = context->bodyToSolverMap[indexB];
-	joint->localCenterB = bodyB->localCenter;
+	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
 
-	b2Vec2 cB = bodyB->position;
+	joint->linearSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
+
+	float angularHertz = 0.5f;
+	float angularDampingRatio = 0.1f;
+	joint->angularSoftness = b2MakeSoft(angularHertz, angularDampingRatio, context->h);
+
 	b2Rot qB = bodyB->rotation;
+	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	float d = joint->damping;
-	float k = joint->stiffness;
-
-	// TODO_ERIN convert to bias/mass/impulse scales
-	// magic formulas
-	// gamma has units of inverse mass.
-	// beta has units of inverse time.
-	float h = context->dt;
-	joint->gamma = h * (d + h * k);
-	if (joint->gamma != 0.0f)
-	{
-		joint->gamma = 1.0f / joint->gamma;
-	}
-	joint->beta = h * k * joint->gamma;
-
-	// Compute the effective mass matrix.
-	joint->rB = b2RotateVector(qB, b2Sub(base->localAnchorB, joint->localCenterB));
-
-	// K    = [(1/m1 + 1/m2) * eye(2) - skew(r1) * invI1 * skew(r1) - skew(r2) * invI2 * skew(r2)]
-	//      = [1/m1+1/m2     0    ] + invI1 * [r1.y*r1.y -r1.x*r1.y] + invI2 * [r1.y*r1.y -r1.x*r1.y]
-	//        [    0     1/m1+1/m2]           [-r1.x*r1.y r1.x*r1.x]           [-r1.x*r1.y r1.x*r1.x]
+	// K = [(1/m1 + 1/m2) * eye(2) - skew(r1) * invI1 * skew(r1) - skew(r2) * invI2 * skew(r2)]
+	//   = [1/m1+1/m2     0    ] + invI1 * [r1.y*r1.y -r1.x*r1.y] + invI2 * [r1.y*r1.y -r1.x*r1.y]
+	//     [    0     1/m1+1/m2]           [-r1.x*r1.y r1.x*r1.x]           [-r1.x*r1.y r1.x*r1.x]
 	b2Mat22 K;
-	K.cx.x = mB + iB * joint->rB.y * joint->rB.y + joint->gamma;
-	K.cx.y = -iB * joint->rB.x * joint->rB.y;
+	K.cx.x = mB + iB * rB.y * rB.y;
+	K.cx.y = -iB * rB.x * rB.y;
 	K.cy.x = K.cx.y;
-	K.cy.y = mB + iB * joint->rB.x * joint->rB.x + joint->gamma;
+	K.cy.y = mB + iB * rB.x * rB.x;
 
-	joint->mass = b2GetInverse22(K);
-
-	joint->C = b2Add(cB, b2Sub(joint->rB, joint->targetA));
-	joint->C = b2MulSV(joint->beta, joint->C);
+	joint->linearMass = b2GetInverse22(K);
+	joint->centerDelta = b2Sub(bodyB->position, joint->targetA);
 
 	if (context->enableWarmStarting == false)
 	{
-		joint->impulse = b2Vec2_zero;
+		joint->linearImpulse = b2Vec2_zero;
+		joint->angularImpulse = 0.0f;
 	}
 }
 
@@ -97,51 +79,71 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
+	float mB = base->invMassB;
+	float iB = base->invIB;
+
 	b2MouseJoint* joint = &base->mouseJoint;
 
-	b2BodyState* bodyB = context->solverBodies + joint->indexB;
-	b2Vec2 vB = bodyB->linearVelocity;
-	float wB = bodyB->angularVelocity;
+	b2BodyState* stateB = context->bodyStates + joint->indexB;
+	b2Vec2 vB = stateB->linearVelocity;
+	float wB = stateB->angularVelocity;
 
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2Rot qB = stateB->rotation;
+	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
 
-	// TODO_ERIN damp angular velocity?
-	// wB *= 1.0f / (1.0f + 0.02f * context->dt);
+	vB = b2MulAdd(vB, mB, joint->linearImpulse);
+	wB += iB * (b2Cross(rB, joint->linearImpulse) + joint->angularImpulse);
 
-	joint->impulse = b2MulSV(context->dtRatio, joint->impulse);
-	vB = b2MulAdd(vB, mB, joint->impulse);
-	wB += iB * b2Cross(joint->rB, joint->impulse);
-
-	bodyB->linearVelocity = vB;
-	bodyB->angularVelocity = wB;
+	stateB->linearVelocity = vB;
+	stateB->angularVelocity = wB;
 }
 
 void b2SolveMouseJoint(b2Joint* base, b2StepContext* context)
 {
+	float mB = base->invMassB;
+	float iB = base->invIB;
+
 	b2MouseJoint* joint = &base->mouseJoint;
-	b2BodyState* bodyB = context->solverBodies + joint->indexB;
+	b2BodyState* stateB = context->bodyStates + joint->indexB;
 
-	b2Vec2 vB = bodyB->linearVelocity;
-	float wB = bodyB->angularVelocity;
+	b2Vec2 vB = stateB->linearVelocity;
+	float wB = stateB->angularVelocity;
 
-	// dv = v + cross(w, r)
-	b2Vec2 dv = b2Add(vB, b2CrossSV(wB, joint->rB));
-	b2Vec2 Cdot = b2Add(dv, b2MulAdd(joint->C, joint->gamma, joint->impulse));
-	b2Vec2 impulse = b2Neg(b2MulMV(joint->mass, Cdot));
-
-	b2Vec2 oldImpulse = joint->impulse;
-	joint->impulse = b2Add(joint->impulse, impulse);
-	float maxImpulse = context->dt * joint->maxForce;
-	if (b2LengthSquared(joint->impulse) > maxImpulse * maxImpulse)
+	// Softness with no bias to reduce rotation speed
 	{
-		joint->impulse = b2MulSV(maxImpulse / b2Length(joint->impulse), joint->impulse);
+		float massScale = joint->angularSoftness.massScale;
+		float impulseScale = joint->angularSoftness.impulseScale;
+
+		float impulse = iB > 0.0f ? -wB / iB : 0.0f;
+		impulse = massScale * impulse - impulseScale * joint->angularImpulse;
+		joint->angularImpulse += impulse;
+
+		wB += iB * impulse;
 	}
-	impulse = b2Sub(joint->impulse, oldImpulse);
 
-	vB = b2MulAdd(vB, bodyB->invMass, impulse);
-	wB += bodyB->invI * b2Cross(joint->rB, impulse);
+	{
+		b2Rot qB = stateB->rotation;
+		b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
+		b2Vec2 Cdot = b2Add(vB, b2CrossSV(wB, rB));
 
-	bodyB->linearVelocity = vB;
-	bodyB->angularVelocity = wB;
+		b2Vec2 separation = b2Add(b2Add(stateB->deltaPosition, rB), joint->centerDelta);
+		b2Vec2 bias = b2MulSV(joint->linearSoftness.biasRate, separation);
+
+		float massScale = joint->linearSoftness.massScale;
+		float impulseScale = joint->linearSoftness.impulseScale;
+
+		b2Vec2 b = b2MulMV(joint->linearMass, b2Add(Cdot, bias));
+
+		b2Vec2 impulse;
+		impulse.x = -massScale * b.x - impulseScale * joint->linearImpulse.x;
+		impulse.y = -massScale * b.y - impulseScale * joint->linearImpulse.y;
+		joint->linearImpulse.x += impulse.x;
+		joint->linearImpulse.y += impulse.y;
+
+		vB = b2MulAdd(vB, mB, impulse);
+		wB += iB * b2Cross(rB, impulse);
+	}
+
+	stateB->linearVelocity = vB;
+	stateB->angularVelocity = wB;
 }

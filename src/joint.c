@@ -313,9 +313,8 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
 	joint->mouseJoint.targetA = def->target;
-	joint->mouseJoint.maxForce = def->maxForce;
-	joint->mouseJoint.stiffness = def->stiffness;
-	joint->mouseJoint.damping = def->damping;
+	joint->mouseJoint.hertz = def->hertz;
+	joint->mouseJoint.dampingRatio = def->dampingRatio;
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 	return jointId;

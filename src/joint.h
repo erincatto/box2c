@@ -41,7 +41,7 @@ typedef struct b2DistanceJoint
 	int32_t indexB;
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
-	b2Vec2 centerDiff;
+	b2Vec2 deltaCenter;
 	b2Softness distanceSoftness;
 	float axialMass;
 } b2DistanceJoint;
@@ -60,8 +60,7 @@ typedef struct b2MotorJoint
 	int32_t indexB;
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
-	b2Vec2 linearSeparation;
-	float angularSeparation;
+	b2Vec2 centerDelta;
 	b2Mat22 linearMass;
 	float angularMass;
 } b2MotorJoint;
@@ -69,20 +68,18 @@ typedef struct b2MotorJoint
 typedef struct b2MouseJoint
 {
 	b2Vec2 targetA;
-	float stiffness;
-	float damping;
-	float beta;
+	float hertz;
+	float dampingRatio;
 
-	b2Vec2 impulse;
-	float maxForce;
-	float gamma;
+	b2Vec2 linearImpulse;
+	float angularImpulse;
 
+	b2Softness linearSoftness;
+	b2Softness angularSoftness;
 	int32_t indexB;
-	b2Vec2 positionB;
-	b2Vec2 rB;
-	b2Vec2 localCenterB;
-	b2Mat22 mass;
-	b2Vec2 C;
+	b2Vec2 localAnchorB;
+	b2Vec2 centerDelta;
+	b2Mat22 linearMass;
 } b2MouseJoint;
 
 typedef struct b2PrismaticJoint
@@ -104,10 +101,7 @@ typedef struct b2PrismaticJoint
 	int32_t indexB;
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
-	b2Vec2 axisA;
-	b2Vec2 pivotSeparation;
-	float angleSeparation;
-	b2Mat22 pivotMass;
+	b2Vec2 deltaCenter;
 	float axialMass;
 } b2PrismaticJoint;
 
@@ -127,19 +121,10 @@ typedef struct b2RevoluteJoint
 
 	int32_t indexA;
 	int32_t indexB;
-	float angleA;
-	float angleB;
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
-	b2Vec2 separation;
-	b2Mat22 pivotMass;
+	b2Vec2 deltaCenter;
 	float axialMass;
-
-	// todo
-	b2Vec2 positionA;
-	b2Vec2 positionB;
-	b2Vec2 localCenterA;
-	b2Vec2 localCenterB;
 } b2RevoluteJoint;
 
 typedef struct b2WeldJoint

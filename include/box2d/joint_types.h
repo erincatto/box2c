@@ -107,9 +107,8 @@ static const b2MotorJointDef b2_defaultMotorJointDef = {
 };
 
 /// A mouse joint is used to make a point on a body track a
-/// specified world point. This a soft constraint with a maximum
-/// force. This allows the constraint to stretch without
-/// applying huge forces.
+/// specified world point. This a soft constraint and allows the constraint to stretch without
+/// applying huge forces. This also applies rotation constraint heuristic to improve control.
 typedef struct b2MouseJointDef
 {
 	/// The first attached body.
@@ -121,16 +120,11 @@ typedef struct b2MouseJointDef
 	/// The initial target point in world space
 	b2Vec2 target;
 
-	/// The maximum constraint force that can be exerted
-	/// to move the candidate body. Usually you will express
-	/// as some multiple of the weight (multiplier * mass * gravity).
-	float maxForce;
+	/// Stiffness in hertz
+	float hertz;
 
-	/// The linear stiffness in N/m
-	float stiffness;
-
-	/// The linear damping in N*s/m
-	float damping;
+	/// Damping ratio, non-dimensional
+	float dampingRatio;
 } b2MouseJointDef;
 
 /// Use this to initialize your joint definition
@@ -138,9 +132,8 @@ static const b2MouseJointDef b2_defaultMouseJointDef = {
 	B2_NULL_BODY_ID, // bodyIdA
 	B2_NULL_BODY_ID, // bodyIdB
 	{0.0f, 0.0f},	 // target
-	0.0f,			 // maxForce
-	0.0f,			 // stiffness
-	0.0f,			 // damping
+	4.0f,			 // hertz
+	1.0f,			 // damping ratio
 };
 
 /// Prismatic joint definition. This requires defining a line of
