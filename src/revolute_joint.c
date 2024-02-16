@@ -107,10 +107,10 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	b2RevoluteJoint* joint = &base->revoluteJoint;
-
 	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
+
+	b2RevoluteJoint* joint = &base->revoluteJoint;
 
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;

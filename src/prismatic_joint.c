@@ -91,9 +91,9 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	b2Rot qA = bodyA->rotation;
 	b2Rot qB = bodyB->rotation;
 
-	// Compute the effective masses.
-	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+	// compute the effective masses.
+	b2Vec2 rA = b2RotateVector(qA, joint->localAnchorA);
+	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
 
 	b2Vec2 d = b2Add(joint->deltaCenter, b2Sub(rB, rA));
 

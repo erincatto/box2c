@@ -144,9 +144,7 @@ typedef struct b2WeldJoint
 	int32_t indexB;
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
-	b2Vec2 linearSeparation;
-	float angularSeparation;
-	b2Mat22 pivotMass;
+	b2Vec2 deltaCenter;
 	float axialMass;
 } b2WeldJoint;
 
@@ -173,17 +171,11 @@ typedef struct b2WheelJoint
 	int32_t indexB;
 	b2Vec2 localAnchorA;
 	b2Vec2 localAnchorB;
-	b2Vec2 axisA;
-	b2Vec2 pivotSeparation;
+	b2Vec2 deltaCenter;
 	float perpMass;
 	float motorMass;
 	float axialMass;
-	float springMass;
-	float bias;
-	float gamma;
-	float biasCoefficient;
-	float massCoefficient;
-	float impulseCoefficient;
+	b2Softness springSoftness;
 } b2WheelJoint;
 
 /// The base joint class. Joints are used to constraint two bodies together in

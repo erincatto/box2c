@@ -37,54 +37,52 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 	int32_t indexB = base->edges[1].bodyIndex;
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
-
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
-
-	b2WheelJoint* joint = &base->wheelJoint;
-
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
+	base->invMassA = mA;
+	base->invMassB = mB;
+	base->invIA = iA;
+	base->invIB = iB;
+
+	b2WheelJoint* joint = &base->wheelJoint;
+
+	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
+	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
+	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+
 	b2Rot qA = bodyA->rotation;
 	b2Rot qB = bodyB->rotation;
 
-	// Compute the effective masses.
-	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, bodyA->localCenter));
-	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, bodyB->localCenter));
+	// compute the effective masses.
+	b2Vec2 rA = b2RotateVector(qA, joint->localAnchorA);
+	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
 
-	joint->rA = rA;
-	joint->rB = rB;
-	b2Vec2 d = b2Add(b2Sub(bodyB->position, bodyA->position), b2Sub(rB, rA));
-	joint->pivotSeparation = d;
+	b2Vec2 d = b2Add(joint->deltaCenter, b2Sub(rB, rA));
 
 	b2Vec2 axisA = b2RotateVector(qA, joint->localAxisA);
-	joint->axisA = axisA;
 	b2Vec2 perpA = b2LeftPerp(axisA);
 
-	// Perpendicular constraint (keep wheel on line)
+	// perpendicular constraint (keep wheel on line)
 	float s1 = b2Cross(b2Add(d, rA), perpA);
 	float s2 = b2Cross(rB, perpA);
 	
 	float kp = mA + mB + iA * s1 * s1 + iB * s2 * s2;
 	joint->perpMass = kp > 0.0f ? 1.0f / kp : 0.0f;
 
-	// Spring constraint
+	// spring constraint
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
 
 	float ka = mA + mB + iA * a1 * a1 + iB * a2 * a2;
 	joint->axialMass = ka > 0.0f ? 1.0f / ka : 0.0f;
 
-	joint->springMass = 0.0f;
-	joint->bias = 0.0f;
-	joint->gamma = 0.0f;
-
+	joint->springSoftness = b2MakeSoft(joint->)
 	if (joint->stiffness > 0.0f && ka > 0.0f)
 	{
 		float C = b2Dot(d, axisA);

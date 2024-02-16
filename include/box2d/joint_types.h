@@ -362,11 +362,11 @@ typedef struct b2WheelJointDef
 	/// The desired motor speed in radians per second.
 	float motorSpeed;
 
-	/// The linear stiffness in N/m
-	float stiffness;
+	/// Spring stiffness in Hertz
+	float hertz;
 
-	/// The linear damping in N*s/m
-	float damping;
+	/// Spring damping ratio, non-dimensional
+	float dampingRatio;
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
@@ -385,7 +385,7 @@ static const b2WheelJointDef b2_defaultWheelJointDef = {
 	false,			 // enableMotor
 	0.0f,			 // maxMotorTorque
 	0.0f,			 // motorSpeed
-	0.0f,			 // stiffness
-	0.0f,			 // damping
+	1.0f,			 // hertz
+	0.7f,			 // dampingRatio
 	false,			 // collideConnected
 };
