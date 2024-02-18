@@ -18,9 +18,8 @@ typedef struct b2SmoothSegment b2SmoothSegment;
 /// of the contact points.
 typedef struct b2ManifoldPoint
 {
-	/// local anchors relative to body origin
-	///	assumed to be coincident when first computed
-	b2Vec2 localAnchorA, localAnchorB;
+	/// location of contact point relative to body origin in world space
+	b2Vec2 anchorA, anchorB;
 
 	/// the separation of the contact point, negative if penetrating
 	float separation;

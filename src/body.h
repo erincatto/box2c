@@ -28,8 +28,9 @@ typedef struct b2BodyState
 	// Using delta position reduces round-off error far from the origin
 	b2Vec2 deltaPosition; // 8
 
-	// Full rotation
-	b2Rot rotation; // 8
+	// Using delta rotation because I cannot access the full rotation on static bodies in
+	// the solver and must use zero delta rotation for static bodies (s,c) = (0,1)
+	b2Rot deltaRotation; // 8
 } b2BodyState;
 
 static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};

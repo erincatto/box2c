@@ -53,15 +53,12 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 
-	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
-	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
-	joint->centerDelta = b2Sub(bodyB->position, bodyA->position);
+	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
+	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
 
-	b2Rot qA = bodyA->rotation;
-	b2Rot qB = bodyB->rotation;
-
-	b2Vec2 rA = b2RotateVector(qA, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
+	b2Vec2 rA = joint->anchorA;
+	b2Vec2 rB = joint->anchorB;
 
 	b2Mat22 K;
 	K.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
@@ -89,14 +86,14 @@ void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 
 	b2MotorJoint* joint = &base->motorJoint;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
 	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+	b2Vec2 rA = b2RotateVector(bodyA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(bodyB->deltaRotation, joint->anchorB);
 
 	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, joint->linearImpulse);
 	bodyA->angularVelocity -= iA * (b2Cross(rA, joint->linearImpulse) + joint->angularImpulse);
@@ -118,7 +115,7 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2MotorJoint* joint = &base->motorJoint;
@@ -132,7 +129,7 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 
 	// angular constraint
 	{
-		float angularSeperation = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->angularOffset;
+		float angularSeperation = b2RelativeAngle(bodyB->deltaRotation, bodyA->deltaRotation) - joint->angularOffset;
 		float angularBias = context->inv_h * joint->correctionFactor * angularSeperation;
 
 		float Cdot = wB - wA;
@@ -149,11 +146,11 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 
 	// linear constraint
 	{
-		b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
-		b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+		b2Vec2 rA = b2RotateVector(bodyA->deltaRotation, joint->anchorA);
+		b2Vec2 rB = b2RotateVector(bodyB->deltaRotation, joint->anchorB);
 
 		b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(rB, rA));
-		b2Vec2 linearSeparation = b2Add(b2Sub(joint->centerDelta, joint->linearOffset), ds);
+		b2Vec2 linearSeparation = b2Add(b2Sub(joint->deltaCenter, joint->linearOffset), ds);
 		b2Vec2 linearBias = b2MulSV(context->inv_h * joint->correctionFactor, linearSeparation);
 
 		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));

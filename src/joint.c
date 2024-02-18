@@ -503,8 +503,8 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	joint->wheelJoint.upperTranslation = def->upperTranslation;
 	joint->wheelJoint.maxMotorTorque = def->maxMotorTorque;
 	joint->wheelJoint.motorSpeed = def->motorSpeed;
-	joint->wheelJoint.stiffness = def->stiffness;
-	joint->wheelJoint.damping = def->damping;
+	joint->wheelJoint.hertz = def->hertz;
+	joint->wheelJoint.dampingRatio = def->dampingRatio;
 	joint->wheelJoint.enableLimit = def->enableLimit;
 	joint->wheelJoint.enableMotor = def->enableMotor;
 

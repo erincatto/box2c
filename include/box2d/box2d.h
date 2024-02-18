@@ -539,10 +539,10 @@ B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float invers
 B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
 /// Set the wheel joint stiffness
-B2_API void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness);
+B2_API void b2WheelJoint_SetSpringHertz(b2JointId jointId, float stiffness);
 
 /// Set the wheel joint damping
-B2_API void b2WheelJoint_SetDamping(b2JointId jointId, float damping);
+B2_API void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float damping);
 
 /// Enable/disable the wheel joint limit
 B2_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);

@@ -33,6 +33,10 @@ static b2Polygon b2MakeCapsule(b2Vec2 p1, b2Vec2 p2, float radius)
 	return shape;
 }
 
+// point = qA * localAnchorA + pA
+// localAnchorB = qBc * (point - pB)
+// anchorB = point - pB = qA * localAnchorA + pA - pB
+//         = anchorA + (pA - pB)
 b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
 	b2Manifold manifold = {0};
@@ -59,8 +63,8 @@ b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Ci
 	b2Vec2 contactPointA = b2Lerp(cA, cB, 0.5f);
 
 	manifold.normal = b2RotateVector(xfA.q, normal);
-	manifold.points[0].localAnchorA = contactPointA;
-	manifold.points[0].localAnchorB = b2InvTransformPoint(xf, contactPointA);
+	manifold.points[0].anchorA =  b2RotateVector(xfA.q, contactPointA);
+	manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, b2Sub(xfA.p, xfB.p));
 	manifold.points[0].separation = separation;
 	manifold.points[0].id = 0;
 	manifold.pointCount = 1;
@@ -122,8 +126,8 @@ b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA,
 	b2Vec2 contactPointA = b2Lerp(cA, cB, 0.5f);
 
 	manifold.normal = b2RotateVector(xfA.q, normal);
-	manifold.points[0].localAnchorA = contactPointA;
-	manifold.points[0].localAnchorB = b2InvTransformPoint(xf, contactPointA);
+	manifold.points[0].anchorA = b2RotateVector(xfA.q, contactPointA);
+	manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, b2Sub(xfA.p, xfB.p));
 	manifold.points[0].separation = separation;
 	manifold.points[0].id = 0;
 	manifold.pointCount = 1;
@@ -189,8 +193,8 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		b2Vec2 contactPointA = b2Lerp(cA, cB, 0.5f);
 
 		manifold.normal = b2RotateVector(xfA.q, normal);
-		manifold.points[0].localAnchorA = contactPointA;
-		manifold.points[0].localAnchorB = b2InvTransformPoint(xf, contactPointA);
+		manifold.points[0].anchorA = b2RotateVector(xfA.q, contactPointA);
+		manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, b2Sub(xfA.p, xfB.p));
 		manifold.points[0].separation = b2Dot(b2Sub(cB, cA), normal);
 		manifold.points[0].id = 0;
 		manifold.pointCount = 1;
@@ -210,8 +214,8 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		b2Vec2 contactPointA = b2Lerp(cA, cB, 0.5f);
 
 		manifold.normal = b2RotateVector(xfA.q, normal);
-		manifold.points[0].localAnchorA = contactPointA;
-		manifold.points[0].localAnchorB = b2InvTransformPoint(xf, contactPointA);
+		manifold.points[0].anchorA = b2RotateVector(xfA.q, contactPointA);
+		manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, b2Sub(xfA.p, xfB.p));
 		manifold.points[0].separation = b2Dot(b2Sub(cB, cA), normal);
 		manifold.points[0].id = 0;
 		manifold.pointCount = 1;
@@ -231,8 +235,8 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		b2Vec2 contactPointA = b2Lerp(cA, cB, 0.5f);
 
 		// The contact point is the midpoint in world space
-		manifold.points[0].localAnchorA = contactPointA;
-		manifold.points[0].localAnchorB = b2InvTransformPoint(xf, contactPointA);
+		manifold.points[0].anchorA = b2RotateVector(xfA.q, contactPointA);
+		manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, b2Sub(xfA.p, xfB.p));
 		manifold.points[0].separation = separation - radius;
 		manifold.points[0].id = 0;
 		manifold.pointCount = 1;
@@ -316,7 +320,7 @@ static b2Manifold b2ClipPolygons(const b2Polygon* polyA, const b2Polygon* polyB,
 	float lower2 = b2Dot(b2Sub(v22, v11), tangent);
 
 	// This check can fail slightly due to mismatch with GJK code.
-	// Perhaps fallback to a single point here? Otherwise we get two coincident points.
+	// Perhaps fall back to a single point here? Otherwise we get two coincident points.
 	// if (upper2 < lower1 || upper1 < lower2)
 	//{
 	//	// numeric failure
@@ -364,7 +368,7 @@ static b2Manifold b2ClipPolygons(const b2Polygon* polyA, const b2Polygon* polyB,
 		b2ManifoldPoint* cp = manifold.points + 0;
 
 		{
-			cp->localAnchorA = vLower;
+			cp->anchorA = vLower;
 			cp->separation = separationLower - radius;
 			cp->id = B2_MAKE_ID(i11, i22);
 			manifold.pointCount += 1;
@@ -372,7 +376,7 @@ static b2Manifold b2ClipPolygons(const b2Polygon* polyA, const b2Polygon* polyB,
 		}
 
 		{
-			cp->localAnchorA = vUpper;
+			cp->anchorA = vUpper;
 			cp->separation = separationUpper - radius;
 			cp->id = B2_MAKE_ID(i12, i21);
 			manifold.pointCount += 1;
@@ -384,7 +388,7 @@ static b2Manifold b2ClipPolygons(const b2Polygon* polyA, const b2Polygon* polyB,
 		b2ManifoldPoint* cp = manifold.points + 0;
 
 		{
-			cp->localAnchorA = vUpper;
+			cp->anchorA = vUpper;
 			cp->separation = separationUpper - radius;
 			cp->id = B2_MAKE_ID(i21, i12);
 			manifold.pointCount += 1;
@@ -392,7 +396,7 @@ static b2Manifold b2ClipPolygons(const b2Polygon* polyA, const b2Polygon* polyB,
 		}
 
 		{
-			cp->localAnchorA = vLower;
+			cp->anchorA = vLower;
 			cp->separation = separationLower - radius;
 			cp->id = B2_MAKE_ID(i22, i11);
 			manifold.pointCount += 1;
@@ -553,7 +557,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 			manifold.normal = b2RotateVector(xfA.q, manifold.normal);
 			for (int i = 0; i < manifold.pointCount; ++i)
 			{
-				manifold.points[i].localAnchorB = b2InvTransformPoint(xf, manifold.points[i].localAnchorA);
+				manifold.points[i].anchorA = b2RotateVector(xfA.q, manifold.points[i].anchorA);
+				manifold.points[i].anchorB = b2Add(manifold.points[i].anchorA, b2Sub(xfA.p, xfB.p));
 			}
 		}
 
@@ -572,8 +577,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 
 		manifold.normal = b2RotateVector(xfA.q, normal);
 		b2ManifoldPoint* cp = manifold.points + 0;
-		cp->localAnchorA = contactPointA;
-		cp->localAnchorB = b2InvTransformPoint(xf, contactPointA);
+		cp->anchorA = b2RotateVector(xfA.q, contactPointA);
+		cp->anchorB = b2Add(cp->anchorA, b2Sub(xfA.p, xfB.p));
 		cp->separation = distance - radius;
 		cp->id = B2_MAKE_ID(cache->indexA[0], cache->indexB[0]);
 		manifold.pointCount = 1;
@@ -647,7 +652,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		manifold.normal = b2RotateVector(xfA.q, manifold.normal);
 		for (int i = 0; i < manifold.pointCount; ++i)
 		{
-			manifold.points[i].localAnchorB = b2InvTransformPoint(xf, manifold.points[i].localAnchorA);
+			manifold.points[i].anchorA = b2RotateVector(xfA.q, manifold.points[i].anchorA);
+			manifold.points[i].anchorB = b2Add(manifold.points[i].anchorA, b2Sub(xfA.p, xfB.p));
 		}
 	}
 
@@ -698,7 +704,7 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA
 	if (v <= 0.0f)
 	{
 		// Behind point1?
-		// Is pB in the voronoi region of the previous edge?
+		// Is pB in the Voronoi region of the previous edge?
 		b2Vec2 prevEdge = b2Sub(p1, smoothSegmentA->ghost1);
 		float uPrev = b2Dot(prevEdge, b2Sub(pB, p1));
 		if (uPrev <= 0.0f)
@@ -714,7 +720,7 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA
 		b2Vec2 nextEdge = b2Sub(smoothSegmentA->ghost2, p2);
 		float vNext = b2Dot(nextEdge, b2Sub(pB, p2));
 
-		// Is pB in the voronoi region of the next edge?
+		// Is pB in the Voronoi region of the next edge?
 		if (vNext > 0.0f)
 		{
 			return manifold;
@@ -744,8 +750,8 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA
 	b2Vec2 contactPointA = b2Lerp(cA, cB, 0.5f);
 
 	manifold.normal = b2RotateVector(xfA.q, normal);
-	manifold.points[0].localAnchorA = contactPointA;
-	manifold.points[0].localAnchorB = b2InvTransformPoint(xf, contactPointA);
+	manifold.points[0].anchorA = b2RotateVector(xfA.q, contactPointA);
+	manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, b2Sub(xfA.p, xfB.p));
 	manifold.points[0].separation = separation;
 	manifold.points[0].id = 0;
 	manifold.pointCount = 1;
@@ -814,14 +820,14 @@ static b2Manifold b2ClipSegments(b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2V
 	manifold.normal = normal;
 	{
 		b2ManifoldPoint* cp = manifold.points + 0;
-		cp->localAnchorA = vLower;
+		cp->anchorA = vLower;
 		cp->separation = separationLower - radius;
 		cp->id = id1;
 	}
 
 	{
 		b2ManifoldPoint* cp = manifold.points + 1;
-		cp->localAnchorA = vUpper;
+		cp->anchorA = vUpper;
 		cp->separation = separationUpper - radius;
 		cp->id = id2;
 	}
@@ -852,7 +858,7 @@ struct b2SmoothSegmentParams
 	bool convex2;
 };
 
-// Evaluate Guass map
+// Evaluate Gauss map
 // See https://box2d.org/posts/2020/06/ghost-collisions/
 static enum b2NormalType b2ClassifyNormal(struct b2SmoothSegmentParams params, b2Vec2 normal)
 {
@@ -998,8 +1004,8 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 			{
 				manifold.normal = b2RotateVector(xfA.q, normal);
 				b2ManifoldPoint* cp = manifold.points + 0;
-				cp->localAnchorA = pA;
-				cp->localAnchorB = b2InvTransformPoint(xf, pA);
+				cp->anchorA = b2RotateVector(xfA.q, pA);
+				cp->anchorB = b2Add(cp->anchorA, b2Sub(xfA.p, xfB.p));
 				cp->separation = output.distance - radiusB;
 				cp->id = B2_MAKE_ID(cache->indexA[0], cache->indexB[0]);
 				manifold.pointCount = 1;
@@ -1071,8 +1077,11 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 
 					manifold = b2ClipSegments(b1, b2, p1, p2, normalB, radiusB, 0.0f, B2_MAKE_ID(ib1, 1), B2_MAKE_ID(ib2, 0));
 					manifold.normal = b2RotateVector(xfA.q, b2Neg(normalB));
-					manifold.points[0].localAnchorB = b2InvTransformPoint(xf, manifold.points[0].localAnchorA);
-					manifold.points[1].localAnchorB = b2InvTransformPoint(xf, manifold.points[1].localAnchorA);
+					manifold.points[0].anchorA = b2RotateVector(xfA.q, manifold.points[0].anchorA);
+					manifold.points[1].anchorA = b2RotateVector(xfA.q, manifold.points[1].anchorA);
+					b2Vec2 pAB = b2Sub(xfA.p, xfB.p);
+					manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, pAB);
+					manifold.points[1].anchorB = b2Add(manifold.points[1].anchorA, pAB);
 					return manifold;
 				}
 
@@ -1204,8 +1213,11 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 
 			manifold = b2ClipSegments(a1, a2, p1, p2, normals[ia1], radiusB, 0.0f, B2_MAKE_ID(ia1, 1), B2_MAKE_ID(ia2, 0));
 			manifold.normal = b2RotateVector(xfA.q, b2Neg(normals[ia1]));
-			manifold.points[0].localAnchorB = b2InvTransformPoint(xf, manifold.points[0].localAnchorA);
-			manifold.points[1].localAnchorB = b2InvTransformPoint(xf, manifold.points[1].localAnchorA);
+			manifold.points[0].anchorA = b2RotateVector(xfA.q, manifold.points[0].anchorA);
+			manifold.points[1].anchorA = b2RotateVector(xfA.q, manifold.points[1].anchorA);
+			b2Vec2 pAB = b2Sub(xfA.p, xfB.p);
+			manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, pAB);
+			manifold.points[1].anchorB = b2Add(manifold.points[1].anchorA, pAB);
 			return manifold;
 		}
 
@@ -1255,8 +1267,11 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 
 	manifold = b2ClipSegments(p1, p2, b1, b2, normal1, 0.0f, radiusB, B2_MAKE_ID(0, ib2), B2_MAKE_ID(1, ib1));
 	manifold.normal = b2RotateVector(xfA.q, manifold.normal);
-	manifold.points[0].localAnchorB = b2InvTransformPoint(xf, manifold.points[0].localAnchorA);
-	manifold.points[1].localAnchorB = b2InvTransformPoint(xf, manifold.points[1].localAnchorA);
+	manifold.points[0].anchorA = b2RotateVector(xfA.q, manifold.points[0].anchorA);
+	manifold.points[1].anchorA = b2RotateVector(xfA.q, manifold.points[1].anchorA);
+	b2Vec2 pAB = b2Sub(xfA.p, xfB.p);
+	manifold.points[0].anchorB = b2Add(manifold.points[0].anchorA, pAB);
+	manifold.points[1].anchorB = b2Add(manifold.points[1].anchorA, pAB);
 
 	return manifold;
 }

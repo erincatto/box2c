@@ -656,12 +656,12 @@ public:
 
 		if (ImGui::SliderFloat("Stiffness", &m_stiffness, 0.0f, 100.0f, "%.0f"))
 		{
-			b2WheelJoint_SetStiffness(m_jointId, m_stiffness);
+			b2WheelJoint_SetSpringHertz(m_jointId, m_stiffness);
 		}
 
 		if (ImGui::SliderFloat("Damping", &m_damping, 0.0f, 50.0f, "%.0f"))
 		{
-			b2WheelJoint_SetDamping(m_jointId, m_damping);
+			b2WheelJoint_SetSpringDampingRatio(m_jointId, m_damping);
 		}
 
 		ImGui::End();

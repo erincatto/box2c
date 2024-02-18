@@ -454,9 +454,13 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
+
 			// make anchors relative to center of mass
-			mp2->localAnchorA = b2Sub(mp2->localAnchorA, bodyA->localCenter);
-			mp2->localAnchorB = b2Sub(mp2->localAnchorB, bodyB->localCenter);
+			b2Vec2 centerOffsetA = b2RotateVector(transformA.q, bodyA->localCenter);
+			b2Vec2 centerOffsetB = b2RotateVector(transformB.q, bodyB->localCenter);
+			mp2->anchorA = b2Sub(mp2->anchorA, centerOffsetA);
+			mp2->anchorB = b2Sub(mp2->anchorB, centerOffsetB);
+			
 			mp2->normalImpulse = 0.0f;
 			mp2->tangentImpulse = 0.0f;
 			mp2->persisted = false;

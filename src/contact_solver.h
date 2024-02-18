@@ -14,7 +14,7 @@ typedef struct b2Contact b2Contact;
 
 typedef struct b2ContactConstraintPoint
 {
-	b2Vec2 localAnchorA, localAnchorB;
+	b2Vec2 anchorA, anchorB;
 	float baseSeparation;
 	float relativeVelocity;
 	float normalImpulse;
@@ -66,8 +66,8 @@ typedef struct b2ContactConstraintSIMD
 	b2FloatW biasRate;
 	b2FloatW massScale;
 	b2FloatW impulseScale;
-	b2Vec2W localAnchorA1, localAnchorB1;
-	b2Vec2W localAnchorA2, localAnchorB2;
+	b2Vec2W anchorA1, anchorB1;
+	b2Vec2W anchorA2, anchorB2;
 	b2FloatW baseSeparation1, baseSeparation2;
 	b2FloatW normalImpulse1, normalImpulse2;
 	b2FloatW tangentImpulse1, tangentImpulse2;

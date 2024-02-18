@@ -16,6 +16,8 @@
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 
+// Uses fixed anchors for Jacobians for better behavior on rolling shapes (circles & capsules)
+
 void b2PrepareOverflowContacts(b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_overflow_contact, "Prepare Overflow Contact", b2_colorYellow, true);
@@ -71,13 +73,11 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 		b2Vec2 vA = stateA->linearVelocity;
 		float wA = stateA->angularVelocity;
-		b2Rot qA = stateA->rotation;
 		float mA = paramA->invMass;
 		float iA = paramA->invI;
 
 		b2Vec2 vB = stateB->linearVelocity;
 		float wB = stateB->angularVelocity;
-		b2Rot qB = stateB->rotation;
 		float mB = paramB->invMass;
 		float iB = paramB->invI;
 
@@ -107,11 +107,11 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 			cp->normalImpulse = warmStartScale * mp->normalImpulse;
 			cp->tangentImpulse = warmStartScale * mp->tangentImpulse;
 
-			cp->localAnchorA = mp->localAnchorA;
-			cp->localAnchorB = mp->localAnchorB;
+			cp->anchorA = mp->anchorA;
+			cp->anchorB = mp->anchorB;
 
-			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
-			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+			b2Vec2 rA = cp->anchorA;
+			b2Vec2 rB = cp->anchorB;
 			cp->baseSeparation = mp->separation - b2Dot(b2Sub(rB, rA), normal);
 
 			float rnA = b2Cross(rA, normal);
@@ -159,10 +159,10 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 
 		b2Vec2 vA = stateA->linearVelocity;
 		float wA = stateA->angularVelocity;
-		b2Rot qA = stateA->rotation;
+		b2Rot dqA = stateA->deltaRotation;
 		b2Vec2 vB = stateB->linearVelocity;
 		float wB = stateB->angularVelocity;
-		b2Rot qB = stateB->rotation;
+		b2Rot dqB = stateB->deltaRotation;
 
 		float mA = constraint->invMassA;
 		float iA = constraint->invIA;
@@ -178,8 +178,9 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 		{
 			const b2ContactConstraintPoint* cp = constraint->points + j;
 
-			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
-			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+			// fixed anchors
+			b2Vec2 rA = cp->anchorA;
+			b2Vec2 rB = cp->anchorB;
 
 			b2Vec2 P = b2Add(b2MulSV(cp->normalImpulse, normal), b2MulSV(cp->tangentImpulse, tangent));
 			wA -= iA * b2Cross(rA, P);
@@ -221,12 +222,12 @@ void b2SolveOverflowContacts(b2StepContext* context, bool relax)
 		b2BodyState* stateA = constraint->indexA == B2_NULL_INDEX ? &dummyBody : states + constraint->indexA;
 		b2Vec2 vA = stateA->linearVelocity;
 		float wA = stateA->angularVelocity;
-		b2Rot qA = stateA->rotation;
+		b2Rot dqA = stateA->deltaRotation;
 
 		b2BodyState* stateB = constraint->indexB == B2_NULL_INDEX ? &dummyBody : states + constraint->indexB;
 		b2Vec2 vB = stateB->linearVelocity;
 		float wB = stateB->angularVelocity;
-		b2Rot qB = stateB->rotation;
+		b2Rot dqB = stateB->deltaRotation;
 
 		b2Vec2 dp = b2Sub(stateB->deltaPosition, stateA->deltaPosition);
 
@@ -241,12 +242,8 @@ void b2SolveOverflowContacts(b2StepContext* context, bool relax)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			// current anchor points
-			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
-			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
-
 			// compute current separation
-			b2Vec2 ds = b2Add(dp, b2Sub(rB, rA));
+			b2Vec2 ds = b2Add(dp, b2Sub(b2RotateVector(dqB, cp->anchorB), b2RotateVector(dqA, cp->anchorA)));
 			float s = b2Dot(ds, normal) + cp->baseSeparation;
 
 			float velocityBias = 0.0f;
@@ -263,6 +260,10 @@ void b2SolveOverflowContacts(b2StepContext* context, bool relax)
 				massScale = softness.massScale;
 				impulseScale = softness.impulseScale;
 			}
+
+			// fixed anchor points
+			b2Vec2 rA = cp->anchorA;
+			b2Vec2 rB = cp->anchorB;
 
 			// relative normal velocity at contact
 			b2Vec2 vrA = b2Add(vA, b2CrossSV(wA, rA));
@@ -290,9 +291,9 @@ void b2SolveOverflowContacts(b2StepContext* context, bool relax)
 		{
 			b2ContactConstraintPoint* cp = constraint->points + j;
 
-			// current anchor points
-			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
-			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+			// fixed anchor points
+			b2Vec2 rA = cp->anchorA;
+			b2Vec2 rB = cp->anchorB;
 
 			// relative tangent velocity at contact
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
@@ -355,12 +356,12 @@ void b2ApplyOverflowRestitution(b2StepContext* context)
 		b2BodyState* stateA = constraint->indexA == B2_NULL_INDEX ? &dummyState : bodies + constraint->indexA;
 		b2Vec2 vA = stateA->linearVelocity;
 		float wA = stateA->angularVelocity;
-		b2Rot qA = stateA->rotation;
+		b2Rot dqA = stateA->deltaRotation;
 
 		b2BodyState* stateB = constraint->indexB == B2_NULL_INDEX ? &dummyState : bodies + constraint->indexB;
 		b2Vec2 vB = stateB->linearVelocity;
 		float wB = stateB->angularVelocity;
-		b2Rot qB = stateB->rotation;
+		b2Rot dqB = stateB->deltaRotation;
 
 		b2Vec2 normal = constraint->normal;
 		int32_t pointCount = constraint->pointCount;
@@ -376,9 +377,9 @@ void b2ApplyOverflowRestitution(b2StepContext* context)
 				continue;
 			}
 
-			// current anchor points
-			b2Vec2 rA = b2RotateVector(qA, cp->localAnchorA);
-			b2Vec2 rB = b2RotateVector(qB, cp->localAnchorB);
+			// fixed anchor points
+			b2Vec2 rA = cp->anchorA;
+			b2Vec2 rB = cp->anchorB;
 
 			// relative normal velocity at contact
 			b2Vec2 vrB = b2Add(vB, b2CrossSV(wB, rB));
@@ -469,23 +470,25 @@ typedef struct b2SimdBody
 	b2FloatW w;
 	b2FloatW flags;
 	b2Vec2W dp;
-	b2RotW q;
+	b2RotW dq;
 } b2SimdBody;
+
 
 // This is a load and 8x8 transpose
 static b2SimdBody b2GatherBodies(const b2BodyState* restrict bodies, int32_t* restrict indices)
 {
 	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
-	b2FloatW zero = simde_mm256_setzero_ps();
-	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[0]));
-	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[1]));
-	b2FloatW b2 = indices[2] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[2]));
-	b2FloatW b3 = indices[3] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[3]));
-	b2FloatW b4 = indices[4] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[4]));
-	b2FloatW b5 = indices[5] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[5]));
-	b2FloatW b6 = indices[6] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[6]));
-	b2FloatW b7 = indices[7] == B2_NULL_INDEX ? zero : simde_mm256_load_ps((float*)(bodies + indices[7]));
+	//static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
+	b2FloatW identity = simde_mm256_setr_ps(0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, 1.0f);
+	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[0]));
+	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[1]));
+	b2FloatW b2 = indices[2] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[2]));
+	b2FloatW b3 = indices[3] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[3]));
+	b2FloatW b4 = indices[4] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[4]));
+	b2FloatW b5 = indices[5] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[5]));
+	b2FloatW b6 = indices[6] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[6]));
+	b2FloatW b7 = indices[7] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[7]));
 
 	b2FloatW t0 = simde_mm256_unpacklo_ps(b0, b1);
 	b2FloatW t1 = simde_mm256_unpackhi_ps(b0, b1);
@@ -511,8 +514,8 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict bodies, int32_t* re
 	simdBody.flags = simde_mm256_permute2f128_ps(tt3, tt7, 0x20);
 	simdBody.dp.X = simde_mm256_permute2f128_ps(tt0, tt4, 0x31);
 	simdBody.dp.Y = simde_mm256_permute2f128_ps(tt1, tt5, 0x31);
-	simdBody.q.S = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
-	simdBody.q.C = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
+	simdBody.dq.S = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
+	simdBody.dq.C = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
 	return simdBody;
 }
 
@@ -527,8 +530,8 @@ static void b2ScatterBodies(b2BodyState* restrict bodies, int32_t* restrict indi
 	b2FloatW t3 = simde_mm256_unpackhi_ps(simdBody->w, simdBody->flags);
 	b2FloatW t4 = simde_mm256_unpacklo_ps(simdBody->dp.X, simdBody->dp.Y);
 	b2FloatW t5 = simde_mm256_unpackhi_ps(simdBody->dp.X, simdBody->dp.Y);
-	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->q.S, simdBody->q.C);
-	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->q.S, simdBody->q.C);
+	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->dq.S, simdBody->dq.C);
+	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->dq.S, simdBody->dq.C);
 	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
 	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
 	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
@@ -607,11 +610,9 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 
 				b2Vec2 vA = stateA->linearVelocity;
 				float wA = stateA->angularVelocity;
-				b2Rot qA = stateA->rotation;
 
 				b2Vec2 vB = stateB->linearVelocity;
 				float wB = stateB->angularVelocity;
-				b2Rot qB = stateB->rotation;
 
 				float mA = paramA->invMass;
 				float iA = paramA->invI;
@@ -642,13 +643,13 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				{
 					const b2ManifoldPoint* mp = manifold->points + 0;
 
-					((float*)&constraint->localAnchorA1.X)[j] = mp->localAnchorA.x;
-					((float*)&constraint->localAnchorA1.Y)[j] = mp->localAnchorA.y;
-					((float*)&constraint->localAnchorB1.X)[j] = mp->localAnchorB.x;
-					((float*)&constraint->localAnchorB1.Y)[j] = mp->localAnchorB.y;
+					((float*)&constraint->anchorA1.X)[j] = mp->anchorA.x;
+					((float*)&constraint->anchorA1.Y)[j] = mp->anchorA.y;
+					((float*)&constraint->anchorB1.X)[j] = mp->anchorB.x;
+					((float*)&constraint->anchorB1.Y)[j] = mp->anchorB.y;
 
-					b2Vec2 rA = b2RotateVector(qA, mp->localAnchorA);
-					b2Vec2 rB = b2RotateVector(qB, mp->localAnchorB);
+					b2Vec2 rA = mp->anchorA;
+					b2Vec2 rB = mp->anchorB;
 					((float*)&constraint->baseSeparation1)[j] = mp->separation - b2Dot(b2Sub(rB, rA), normal);
 
 					((float*)&constraint->normalImpulse1)[j] = warmStartScale * mp->normalImpulse;
@@ -677,13 +678,13 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				{
 					const b2ManifoldPoint* mp = manifold->points + 1;
 
-					((float*)&constraint->localAnchorA2.X)[j] = mp->localAnchorA.x;
-					((float*)&constraint->localAnchorA2.Y)[j] = mp->localAnchorA.y;
-					((float*)&constraint->localAnchorB2.X)[j] = mp->localAnchorB.x;
-					((float*)&constraint->localAnchorB2.Y)[j] = mp->localAnchorB.y;
+					((float*)&constraint->anchorA2.X)[j] = mp->anchorA.x;
+					((float*)&constraint->anchorA2.Y)[j] = mp->anchorA.y;
+					((float*)&constraint->anchorB2.X)[j] = mp->anchorB.x;
+					((float*)&constraint->anchorB2.Y)[j] = mp->anchorB.y;
 
-					b2Vec2 rA = b2RotateVector(qA, mp->localAnchorA);
-					b2Vec2 rB = b2RotateVector(qB, mp->localAnchorB);
+					b2Vec2 rA = mp->anchorA;
+					b2Vec2 rB = mp->anchorB;
 					((float*)&constraint->baseSeparation2)[j] = mp->separation - b2Dot(b2Sub(rB, rA), normal);
 
 					((float*)&constraint->normalImpulse2)[j] = warmStartScale * mp->normalImpulse;
@@ -710,10 +711,10 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 					((float*)&constraint->baseSeparation2)[j] = 0.0f;
 					((float*)&constraint->normalImpulse2)[j] = 0.0f;
 					((float*)&constraint->tangentImpulse2)[j] = 0.0f;
-					((float*)&constraint->localAnchorA2.X)[j] = 0.0f;
-					((float*)&constraint->localAnchorA2.Y)[j] = 0.0f;
-					((float*)&constraint->localAnchorB2.X)[j] = 0.0f;
-					((float*)&constraint->localAnchorB2.Y)[j] = 0.0f;
+					((float*)&constraint->anchorA2.X)[j] = 0.0f;
+					((float*)&constraint->anchorA2.Y)[j] = 0.0f;
+					((float*)&constraint->anchorB2.X)[j] = 0.0f;
+					((float*)&constraint->anchorB2.Y)[j] = 0.0f;
 					((float*)&constraint->normalMass2)[j] = 0.0f;
 					((float*)&constraint->tangentMass2)[j] = 0.0f;
 					((float*)&constraint->relativeVelocity2)[j] = 0.0f;
@@ -735,10 +736,10 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				((float*)&constraint->baseSeparation1)[j] = 0.0f;
 				((float*)&constraint->normalImpulse1)[j] = 0.0f;
 				((float*)&constraint->tangentImpulse1)[j] = 0.0f;
-				((float*)&constraint->localAnchorA1.X)[j] = 0.0f;
-				((float*)&constraint->localAnchorA1.Y)[j] = 0.0f;
-				((float*)&constraint->localAnchorB1.X)[j] = 0.0f;
-				((float*)&constraint->localAnchorB1.Y)[j] = 0.0f;
+				((float*)&constraint->anchorA1.X)[j] = 0.0f;
+				((float*)&constraint->anchorA1.Y)[j] = 0.0f;
+				((float*)&constraint->anchorB1.X)[j] = 0.0f;
+				((float*)&constraint->anchorB1.Y)[j] = 0.0f;
 				((float*)&constraint->normalMass1)[j] = 0.0f;
 				((float*)&constraint->tangentMass1)[j] = 0.0f;
 				((float*)&constraint->relativeVelocity1)[j] = 0.0f;
@@ -746,10 +747,10 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				((float*)&constraint->baseSeparation2)[j] = 0.0f;
 				((float*)&constraint->normalImpulse2)[j] = 0.0f;
 				((float*)&constraint->tangentImpulse2)[j] = 0.0f;
-				((float*)&constraint->localAnchorA2.X)[j] = 0.0f;
-				((float*)&constraint->localAnchorA2.Y)[j] = 0.0f;
-				((float*)&constraint->localAnchorB2.X)[j] = 0.0f;
-				((float*)&constraint->localAnchorB2.Y)[j] = 0.0f;
+				((float*)&constraint->anchorA2.X)[j] = 0.0f;
+				((float*)&constraint->anchorA2.Y)[j] = 0.0f;
+				((float*)&constraint->anchorB2.X)[j] = 0.0f;
+				((float*)&constraint->anchorB2.Y)[j] = 0.0f;
 				((float*)&constraint->normalMass2)[j] = 0.0f;
 				((float*)&constraint->tangentMass2)[j] = 0.0f;
 				((float*)&constraint->relativeVelocity2)[j] = 0.0f;
@@ -777,8 +778,9 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext
 		b2FloatW tangentY = sub(simde_mm256_setzero_ps(), c->normal.X);
 
 		{
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
+			// fixed anchors
+			b2Vec2W rA = c->anchorA1;
+			b2Vec2W rB = c->anchorB1;
 
 			b2Vec2W P;
 			P.X = add(mul(c->normalImpulse1, c->normal.X), mul(c->tangentImpulse1, tangentX));
@@ -792,8 +794,9 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext
 		}
 
 		{
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
+			// fixed anchors
+			b2Vec2W rA = c->anchorA2;
+			b2Vec2W rB = c->anchorB2;
 
 			b2Vec2W P;
 			P.X = add(mul(c->normalImpulse2, c->normal.X), mul(c->tangentImpulse2, tangentX));
@@ -847,11 +850,12 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 
 		// point1 non-penetration constraint
 		{
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
+			// moving anchors for current separation
+			b2Vec2W rsA = b2RotateVectorW(bA.dq, c->anchorA1);
+			b2Vec2W rsB = b2RotateVectorW(bB.dq, c->anchorB1);
 
 			// compute current separation
-			b2Vec2W ds = {add(dp.X, sub(rB.X, rA.X)), add(dp.Y, sub(rB.Y, rA.Y))};
+			b2Vec2W ds = {add(dp.X, sub(rsB.X, rsA.X)), add(dp.Y, sub(rsB.Y, rsA.Y))};
 			b2FloatW s = add(b2DotW(c->normal, ds), c->baseSeparation1);
 
 			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
@@ -860,6 +864,10 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 
 			// #todo slow on SSE2
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
+
+			// fixed anchors for Jacobians
+			b2Vec2W rA = c->anchorA1;
+			b2Vec2W rB = c->anchorB1;
 
 			// Relative velocity at contact
 			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
@@ -889,11 +897,12 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 
 		// second point non-penetration constraint
 		{
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
+			// moving anchors for current separation
+			b2Vec2W rsA = b2RotateVectorW(bA.dq, c->anchorA2);
+			b2Vec2W rsB = b2RotateVectorW(bB.dq, c->anchorB2);
 
 			// compute current separation
-			b2Vec2W ds = {add(dp.X, sub(rB.X, rA.X)), add(dp.Y, sub(rB.Y, rA.Y))};
+			b2Vec2W ds = {add(dp.X, sub(rsB.X, rsA.X)), add(dp.Y, sub(rsB.Y, rsA.Y))};
 			b2FloatW s = add(b2DotW(c->normal, ds), c->baseSeparation2);
 
 			b2FloatW test = simde_mm256_cmp_ps(s, simde_mm256_setzero_ps(), SIMDE_CMP_GT_OQ);
@@ -902,6 +911,10 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 
 			// #todo slow on SSE2
 			b2FloatW bias = simde_mm256_blendv_ps(softBias, specBias, test);
+
+			// fixed anchors for Jacobians
+			b2Vec2W rA = c->anchorA2;
+			b2Vec2W rB = c->anchorB2;
 
 			// Relative velocity at contact
 			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
@@ -934,8 +947,9 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 
 		// point 1 friction constraint
 		{
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
+			// fixed anchors for Jacobians
+			b2Vec2W rA = c->anchorA1;
+			b2Vec2W rB = c->anchorB1;
 
 			// Relative velocity at contact
 			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
@@ -968,8 +982,9 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 
 		// second point friction constraint
 		{
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
+			// fixed anchors for Jacobians
+			b2Vec2W rA = c->anchorA2;
+			b2Vec2W rB = c->anchorB2;
 
 			// Relative velocity at contact
 			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
@@ -1033,9 +1048,11 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 			// todo slow on SSE2
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass1, zero, test);
 
+			// fixed anchors for Jacobians
+			b2Vec2W rA = c->anchorA1;
+			b2Vec2W rB = c->anchorB1;
+
 			// Relative velocity at contact
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA1);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB1);
 			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
 			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));
@@ -1071,9 +1088,11 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 			// todo slow on SSE2
 			b2FloatW mass = simde_mm256_blendv_ps(c->normalMass2, zero, test);
 
+			// fixed anchors for Jacobians
+			b2Vec2W rA = c->anchorA2;
+			b2Vec2W rB = c->anchorB2;
+
 			// Relative velocity at contact
-			b2Vec2W rA = b2RotateVectorW(bA.q, c->localAnchorA2);
-			b2Vec2W rB = b2RotateVectorW(bB.q, c->localAnchorB2);
 			b2FloatW dvx = sub(sub(bB.v.X, mul(bB.w, rB.Y)), sub(bA.v.X, mul(bA.w, rA.Y)));
 			b2FloatW dvy = sub(add(bB.v.Y, mul(bB.w, rB.X)), add(bA.v.Y, mul(bA.w, rA.X)));
 			b2FloatW vn = add(mul(dvx, c->normal.X), mul(dvy, c->normal.Y));

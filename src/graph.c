@@ -545,7 +545,7 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Ste
 	{
 		b2BodyState* state = states + i;
 
-		state->rotation = b2IntegrateRotation(state->rotation, h * state->angularVelocity);
+		state->deltaRotation = b2IntegrateRotation(state->deltaRotation, h * state->angularVelocity);
 		state->deltaPosition = b2MulAdd(state->deltaPosition, h, state->linearVelocity);
 	}
 
@@ -598,7 +598,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->isSpeedCapped = state->flags != 0;
 
 		body->position = b2Add(body->position, state->deltaPosition);
-		body->rotation = state->rotation;
+		body->rotation = b2MulRot(state->deltaRotation, body->rotation);
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		// reset applied force and torque
@@ -1173,7 +1173,7 @@ static bool b2SolveGraph(b2World* world, b2StepContext* context)
 			state->angularVelocity = body->angularVelocity;
 			state->flags = 0;
 			state->deltaPosition = (b2Vec2){0.0f, 0.0f};
-			state->rotation = body->rotation;
+			state->deltaRotation = body->rotation;
 
 			b2BodyParam* param = bodyParams + index;
 			param->invMass = body->invMass;

@@ -49,9 +49,10 @@ void b2PrepareWeldJoint(b2Joint* base, b2StepContext* context)
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 
-	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
-	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
+	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->referenceAngle;
 
 	float ka = iA + iB;
 	joint->axialMass = ka > 0.0f ? 1.0f / ka : 0.0f;
@@ -98,8 +99,8 @@ void b2WarmStartWeldJoint(b2Joint* base, b2StepContext* context)
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
 	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, joint->linearImpulse);
 	stateA->angularVelocity -= iA * (b2Cross(rA, joint->linearImpulse) + joint->angularImpulse);
@@ -137,7 +138,7 @@ void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 		float impulseScale = 0.0f;
 		if (useBias || joint->angularHertz > 0.0f)
 		{
-			float C = b2RelativeAngle(stateB->rotation, stateA->rotation) - joint->referenceAngle;
+			float C = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) - joint->referenceAngle;
 			bias = joint->angularSoftness.biasRate * C;
 			massScale = joint->angularSoftness.massScale;
 			impulseScale = joint->angularSoftness.impulseScale;
@@ -152,8 +153,8 @@ void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 
 	// linear constraint
 	{
-		b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
-		b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+		b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+		b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
 		b2Vec2 bias = b2Vec2_zero;
 		float massScale = 1.0f;

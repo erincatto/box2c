@@ -57,12 +57,13 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 
-	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
-	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
+	// initial anchors in world space
+	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
 
-	b2Vec2 rA = b2RotateVector(bodyA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(bodyB->rotation, joint->localAnchorB);
+	b2Vec2 rA = joint->anchorA;
+	b2Vec2 rB = joint->anchorB;
 	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
 	b2Vec2 axis = b2Normalize(separation);
 
@@ -98,8 +99,8 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
 	b2Vec2 axis = b2Normalize(separation);
 
@@ -123,7 +124,7 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
@@ -135,8 +136,8 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float wB = stateB->angularVelocity;
 
 	// current anchors
-	b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
 	// current separation
 	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));

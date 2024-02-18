@@ -39,8 +39,8 @@ typedef struct b2DistanceJoint
 
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
 	b2Softness distanceSoftness;
 	float axialMass;
@@ -58,9 +58,9 @@ typedef struct b2MotorJoint
 
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
-	b2Vec2 centerDelta;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
+	b2Vec2 deltaCenter;
 	b2Mat22 linearMass;
 	float angularMass;
 } b2MotorJoint;
@@ -77,8 +77,8 @@ typedef struct b2MouseJoint
 	b2Softness linearSoftness;
 	b2Softness angularSoftness;
 	int32_t indexB;
-	b2Vec2 localAnchorB;
-	b2Vec2 centerDelta;
+	b2Vec2 anchorB;
+	b2Vec2 deltaCenter;
 	b2Mat22 linearMass;
 } b2MouseJoint;
 
@@ -99,8 +99,9 @@ typedef struct b2PrismaticJoint
 
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
+	b2Vec2 axisA;
 	b2Vec2 deltaCenter;
 	float axialMass;
 } b2PrismaticJoint;
@@ -121,9 +122,10 @@ typedef struct b2RevoluteJoint
 
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
+	float deltaAngle;
 	float axialMass;
 } b2RevoluteJoint;
 
@@ -142,9 +144,10 @@ typedef struct b2WeldJoint
 
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
+	float deltaAngle;
 	float axialMass;
 } b2WeldJoint;
 
@@ -161,16 +164,17 @@ typedef struct b2WheelJoint
 	float motorSpeed;
 	float lowerTranslation;
 	float upperTranslation;
-	float stiffness;
-	float damping;
+	float hertz;
+	float dampingRatio;
 	bool enableMotor;
 	bool enableLimit;
 
 	// Solver temp
 	int32_t indexA;
 	int32_t indexB;
-	b2Vec2 localAnchorA;
-	b2Vec2 localAnchorB;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
+	b2Vec2 axisA;
 	b2Vec2 deltaCenter;
 	float perpMass;
 	float motorMass;

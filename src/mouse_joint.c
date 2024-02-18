@@ -43,7 +43,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 
 	b2MouseJoint* joint = &base->mouseJoint;
 	joint->indexB = context->bodyToSolverMap[indexB];
-	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 
 	joint->linearSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
 
@@ -52,7 +52,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	joint->angularSoftness = b2MakeSoft(angularHertz, angularDampingRatio, context->h);
 
 	b2Rot qB = bodyB->rotation;
-	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
+	b2Vec2 rB = joint->anchorB;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
@@ -66,7 +66,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	K.cy.y = mB + iB * rB.x * rB.x;
 
 	joint->linearMass = b2GetInverse22(K);
-	joint->centerDelta = b2Sub(bodyB->position, joint->targetA);
+	joint->deltaCenter = b2Sub(bodyB->position, joint->targetA);
 
 	if (context->enableWarmStarting == false)
 	{
@@ -88,8 +88,8 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
-	b2Rot qB = stateB->rotation;
-	b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
+	b2Rot dqB = stateB->deltaRotation;
+	b2Vec2 rB = b2RotateVector(dqB, joint->anchorB);
 
 	vB = b2MulAdd(vB, mB, joint->linearImpulse);
 	wB += iB * (b2Cross(rB, joint->linearImpulse) + joint->angularImpulse);
@@ -122,11 +122,11 @@ void b2SolveMouseJoint(b2Joint* base, b2StepContext* context)
 	}
 
 	{
-		b2Rot qB = stateB->rotation;
-		b2Vec2 rB = b2RotateVector(qB, joint->localAnchorB);
+		b2Rot dqB = stateB->deltaRotation;
+		b2Vec2 rB = b2RotateVector(dqB, joint->anchorB);
 		b2Vec2 Cdot = b2Add(vB, b2CrossSV(wB, rB));
 
-		b2Vec2 separation = b2Add(b2Add(stateB->deltaPosition, rB), joint->centerDelta);
+		b2Vec2 separation = b2Add(b2Add(stateB->deltaPosition, rB), joint->deltaCenter);
 		b2Vec2 bias = b2MulSV(joint->linearSoftness.biasRate, separation);
 
 		float massScale = joint->linearSoftness.massScale;

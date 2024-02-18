@@ -150,7 +150,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contactPushoutVelocity = def->contactPushoutVelocity;
 	world->contactHertz = def->contactHertz;
 	world->contactDampingRatio = def->contactDampingRatio;
-	world->inv_dt0 = 0.0f;
 	world->enableSleep = def->enableSleep;
 	world->locked = false;
 	world->enableWarmStarting = true;
@@ -485,7 +484,7 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneEnd(collide);
 }
 
-void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t relaxIterations)
+void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -525,18 +524,20 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 
 	b2StepContext context = {0};
 	context.dt = timeStep;
-	context.velocityIterations = velocityIterations;
-	context.relaxIterations = relaxIterations;
+	context.subStepCount = B2_MAX(1, subStepCount);
 	if (timeStep > 0.0f)
 	{
 		context.inv_dt = 1.0f / timeStep;
+		context.h = timeStep / subStepCount;
+		context.inv_h = subStepCount * context.inv_dt;
 	}
 	else
 	{
 		context.inv_dt = 0.0f;
+		context.h = 0.0f;
+		context.inv_h = 0.0f;
 	}
 
-	context.dtRatio = world->inv_dt0 * timeStep;
 	context.restitutionThreshold = world->restitutionThreshold;
 	context.maxBiasVelocity = b2_maxTranslation * context.inv_dt;
 	context.enableWarmStarting = world->enableWarmStarting;
@@ -556,11 +557,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		b2Timer timer = b2CreateTimer();
 		b2Solve(world, &context);
 		world->profile.solve = b2GetMilliseconds(&timer);
-	}
-
-	if (context.dt > 0.0f)
-	{
-		world->inv_dt0 = context.inv_dt;
 	}
 
 	world->locked = false;
@@ -676,7 +672,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				isAwake = world->islands[b->islandIndex].awakeIndex != B2_NULL_INDEX;
 			}
 
-			b2Transform xf = b->transform;
+			b2Transform xf = b2MakeTransform(b);
 			int32_t shapeIndex = b->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{

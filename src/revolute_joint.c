@@ -28,6 +28,22 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
+// Body State
+// The solver operates on the body state. The body state array does not hold static bodies. Static bodies are shared
+// across worker threads. It would be okay to read their states, but writing to them would cause cache thrashing across
+// workers, even if the values don't change.
+// This causes some trouble when computing anchors. I rotate the anchors using the body rotation every sub-step. For static
+// bodies the anchor doesn't rotate. Body A or B could be static and this can lead to lots of branching. This branching
+// should be minimized.
+// 
+// Solution 1:
+// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static bodies will be identity.
+// Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if bodies move fast.
+//
+// Solution 2:
+// Use full rotation. The anchors for static bodies will be in world space while the anchors for dynamic bodies will be in local space.
+// Potentially confusing and bug prone.
+
 void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
@@ -54,9 +70,11 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	joint->indexA = context->bodyToSolverMap[indexA];
 	joint->indexB = context->bodyToSolverMap[indexB];
 
-	joint->localAnchorA = b2Sub(base->localOriginAnchorA, bodyA->localCenter);
-	joint->localAnchorB = b2Sub(base->localOriginAnchorB, bodyB->localCenter);
+	// initial anchors in world space
+	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->referenceAngle;
 
 	float k = iA + iB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
@@ -86,8 +104,8 @@ void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context)
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
-	b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
 	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
@@ -139,7 +157,7 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 	if (joint->enableLimit && fixedRotation == false)
 	{
-		float jointAngle = b2RelativeAngle(stateB->rotation, stateA->rotation) - joint->referenceAngle;
+		float jointAngle = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
 
 		// Lower limit
 		{
@@ -160,7 +178,7 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			}
 
 			float Cdot = wB - wA;
-			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * joint->lowerImpulse;
+			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->lowerImpulse;
 			joint->lowerImpulse = B2_MAX(joint->lowerImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
@@ -189,12 +207,14 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 				impulseScale = context->jointSoftness.impulseScale;
 			}
 
+			// sign flipped on Cdot
 			float Cdot = wA - wB;
-			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * joint->lowerImpulse;
+			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->upperImpulse;
 			joint->upperImpulse = B2_MAX(joint->upperImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
 
+			// sign flipped on applied impulse
 			wA += iA * impulse;
 			wB -= iB * impulse;
 		}
@@ -208,8 +228,8 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		//     [  -r1y*iA*r1x-r2y*iB*r2x, mA+r1x^2*iA+mB+r2x^2*iB]
 
 		// current anchors
-		b2Vec2 rA = b2RotateVector(stateA->rotation, joint->localAnchorA);
-		b2Vec2 rB = b2RotateVector(stateB->rotation, joint->localAnchorB);
+		b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+		b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
 		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
 
