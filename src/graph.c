@@ -962,8 +962,8 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 		}
 		graphSyncIndex += 1;
 
-		b2PrepareAndWarmStartOverflowJoints(context);
-		b2PrepareAndWarmStartOverflowContacts(context);
+		b2PrepareOverflowJoints(context);
+		b2PrepareOverflowContacts(context);
 
 		int32_t subStepCount = context->subStepCount;
 		for (int32_t i = 0; i < subStepCount; ++i)

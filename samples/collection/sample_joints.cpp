@@ -603,10 +603,6 @@ public:
 
 			b2CreateCapsuleShape(bodyId, &b2_defaultShapeDef, &capsule);
 
-			float hertz = 1.0f;
-			float dampingRatio = 0.7f;
-			b2LinearStiffness(&m_stiffness, &m_damping, hertz, dampingRatio, groundId, bodyId);
-
 			b2Vec2 pivot = {0.0f, 10.0f};
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
 			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
@@ -621,8 +617,8 @@ public:
 			jointDef.lowerTranslation = -3.0f;
 			jointDef.upperTranslation = 3.0f;
 			jointDef.enableLimit = m_enableLimit;
-			jointDef.stiffness = m_stiffness;
-			jointDef.damping = m_damping;
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
 
 			m_jointId = b2CreateWheelJoint(m_worldId, &jointDef);
 		}
@@ -654,14 +650,14 @@ public:
 			b2WheelJoint_SetMotorSpeed(m_jointId, m_motorSpeed);
 		}
 
-		if (ImGui::SliderFloat("Stiffness", &m_stiffness, 0.0f, 100.0f, "%.0f"))
+		if (ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 30.0f, "%.1f"))
 		{
-			b2WheelJoint_SetSpringHertz(m_jointId, m_stiffness);
+			b2WheelJoint_SetSpringHertz(m_jointId, m_hertz);
 		}
 
-		if (ImGui::SliderFloat("Damping", &m_damping, 0.0f, 50.0f, "%.0f"))
+		if (ImGui::SliderFloat("Damping", &m_dampingRatio, 0.0f, 2.0f, "%.1f"))
 		{
-			b2WheelJoint_SetSpringDampingRatio(m_jointId, m_damping);
+			b2WheelJoint_SetSpringDampingRatio(m_jointId, m_dampingRatio);
 		}
 
 		ImGui::End();
@@ -682,8 +678,8 @@ public:
 	}
 
 	b2JointId m_jointId;
-	float m_stiffness;
-	float m_damping;
+	float m_hertz;
+	float m_dampingRatio;
 	float m_motorSpeed;
 	float m_motorTorque;
 	bool m_enableMotor;
@@ -1186,8 +1182,8 @@ public:
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, {1.0f, 0.0f});
-			jointDef.stiffness = 30.0f;
-			jointDef.damping = 10.0f;
+			jointDef.hertz = 1.0f;
+			jointDef.dampingRatio = 0.7f;
 			jointDef.lowerTranslation = -1.0f;
 			jointDef.upperTranslation = 1.0f;
 			jointDef.enableLimit = true;
@@ -1524,14 +1520,6 @@ public:
 			b2CreateCircleShape(m_wheelId2, &shapeDef, &circle);
 
 			b2Vec2 axis = {0.0f, 1.0f};
-
-			float mass1 = b2Body_GetMass(m_wheelId1);
-			float mass2 = b2Body_GetMass(m_wheelId2);
-
-			float hertz = 4.0f;
-			float dampingRatio = 0.7f;
-			float omega = 2.0f * b2_pi * hertz;
-
 			b2Vec2 pivot = b2Body_GetPosition(m_wheelId1);
 
 			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
@@ -1544,8 +1532,8 @@ public:
 			jointDef.motorSpeed = 0.0f;
 			jointDef.maxMotorTorque = 20.0f;
 			jointDef.enableMotor = true;
-			jointDef.stiffness = mass1 * omega * omega;
-			jointDef.damping = 2.0f * mass1 * dampingRatio * omega;
+			jointDef.hertz = 4.0f;
+			jointDef.dampingRatio = 0.7f;
 			jointDef.lowerTranslation = -0.25f;
 			jointDef.upperTranslation = 0.25f;
 			jointDef.enableLimit = true;
@@ -1560,8 +1548,8 @@ public:
 			jointDef.motorSpeed = 0.0f;
 			jointDef.maxMotorTorque = 10.0f;
 			jointDef.enableMotor = false;
-			jointDef.stiffness = mass2 * omega * omega;
-			jointDef.damping = 2.0f * mass2 * dampingRatio * omega;
+			jointDef.hertz = 4.0f;
+			jointDef.dampingRatio = 0.7f;
 			jointDef.lowerTranslation = -0.25f;
 			jointDef.upperTranslation = 0.25f;
 			jointDef.enableLimit = true;

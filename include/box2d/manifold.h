@@ -18,7 +18,11 @@ typedef struct b2SmoothSegment b2SmoothSegment;
 /// of the contact points.
 typedef struct b2ManifoldPoint
 {
-	/// location of contact point relative to body origin in world space
+	/// location of the contact in world space
+	/// subject to precision loss at large coordinates
+	b2Vec2 point;
+
+	/// location of contact point relative to body center of mass in world space
 	b2Vec2 anchorA, anchorB;
 
 	/// the separation of the contact point, negative if penetrating

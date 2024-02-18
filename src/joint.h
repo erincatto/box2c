@@ -232,7 +232,8 @@ void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
 void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias);
 
-void b2PrepareAndWarmStartOverflowJoints(b2StepContext* context);
+void b2PrepareOverflowJoints(b2StepContext* context);
+void b2WarmStartOverflowJoints(b2StepContext* context);
 void b2SolveOverflowJoints(b2StepContext* context, bool useBias);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

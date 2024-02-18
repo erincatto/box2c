@@ -19,7 +19,7 @@ int HelloWorld(void)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// Construct a world object, which will hold and simulate the rigid bodies.
-	b2WorldDef worldDef = b2_defaultWorldDef;
+	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.gravity = gravity;
 
 	b2WorldId worldId = b2CreateWorld(&worldDef);
@@ -65,8 +65,7 @@ int HelloWorld(void)
 	// second (60Hz) and 10 iterations. This provides a high quality simulation
 	// in most game scenarios.
 	float timeStep = 1.0f / 60.0f;
-	int32_t velocityIterations = 6;
-	int32_t relaxIterations = 2;
+	int32_t subStepCount = 3;
 
 	b2Vec2 position = b2Body_GetPosition(bodyId);
 	float angle = b2Body_GetAngle(bodyId);
@@ -76,7 +75,7 @@ int HelloWorld(void)
 	{
 		// Instruct the world to perform a single step of simulation.
 		// It is generally best to keep the time step and iterations fixed.
-		b2World_Step(worldId, timeStep, velocityIterations, relaxIterations);
+		b2World_Step(worldId, timeStep, subStepCount);
 
 		// Now print the position and angle of the body.
 		position = b2Body_GetPosition(bodyId);
@@ -98,16 +97,16 @@ int HelloWorld(void)
 
 int EmptyWorld(void)
 {
-	b2WorldId worldId = b2CreateWorld(&b2_defaultWorldDef);
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld(&worldDef);
 	ENSURE(b2World_IsValid(worldId) == true);
 
 	float timeStep = 1.0f / 60.0f;
-	int32_t velocityIterations = 6;
-	int32_t relaxIterations = 2;
+	int32_t subStepCount = 1;
 
 	for (int32_t i = 0; i < 60; ++i)
 	{
-		b2World_Step(worldId, timeStep, velocityIterations, relaxIterations);
+		b2World_Step(worldId, timeStep, subStepCount);
 	}
 
 	b2DestroyWorld(worldId);
@@ -120,7 +119,8 @@ int EmptyWorld(void)
 #define BODY_COUNT 10
 int DestroyAllBodiesWorld(void)
 {
-	b2WorldId worldId = b2CreateWorld(&b2_defaultWorldDef);
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld(&worldDef);
 	ENSURE(b2World_IsValid(worldId) == true);
 
 	int count = 0;
@@ -153,7 +153,7 @@ int DestroyAllBodiesWorld(void)
 			count -= 1;
 		}
 
-		b2World_Step(worldId, 1.0f / 60.0f, 6, 2);
+		b2World_Step(worldId, 1.0f / 60.0f, 3);
 	}
 
 	b2Counters counters = b2World_GetCounters(worldId);

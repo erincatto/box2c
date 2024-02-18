@@ -1214,7 +1214,7 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	input.proxyA = worldContext->proxy;
 	input.proxyB = b2MakeShapeDistanceProxy(shape);
 	input.transformA = worldContext->transform;
-	input.transformB = world->bodies[shape->bodyIndex].transform;
+	input.transformB = b2MakeTransform(world->bodies + shape->bodyIndex);
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
@@ -1326,7 +1326,8 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	b2Body* body = world->bodies + bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
-	b2RayCastOutput output = b2RayCastShape(input, shape, body->transform);
+	b2Transform transform = b2MakeTransform(body);
+	b2RayCastOutput output = b2RayCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
@@ -1432,7 +1433,8 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 	b2Body* body = world->bodies + bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
-	b2RayCastOutput output = b2ShapeCastShape(input, shape, body->transform);
+	b2Transform transform = b2MakeTransform(body);
+	b2RayCastOutput output = b2ShapeCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
