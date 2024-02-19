@@ -19,6 +19,7 @@ typedef struct b2ContactConstraintPoint
 	float relativeVelocity;
 	float normalImpulse;
 	float tangentImpulse;
+	float maxNormalImpulse;
 	float normalMass;
 	float tangentMass;
 } b2ContactConstraintPoint;
@@ -71,6 +72,7 @@ typedef struct b2ContactConstraintSIMD
 	b2FloatW baseSeparation1, baseSeparation2;
 	b2FloatW normalImpulse1, normalImpulse2;
 	b2FloatW tangentImpulse1, tangentImpulse2;
+	b2FloatW maxNormalImpulse1, maxNormalImpulse2;
 	b2FloatW normalMass1, tangentMass1;
 	b2FloatW normalMass2, tangentMass2;
 	b2FloatW relativeVelocity1, relativeVelocity2;

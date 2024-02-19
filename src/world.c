@@ -724,7 +724,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				}
 				else
 				{
-					color = b2MakeColor(b2_colorGray5, 1.0f);
+					color = b2MakeColor(b2_colorGray, 1.0f);
 				}
 
 				b2DrawShape(draw, shape, xf, color);

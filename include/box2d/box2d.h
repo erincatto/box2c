@@ -151,6 +151,9 @@ B2_API void* b2Body_GetUserData(b2BodyId bodyId);
 /// Get the world position of a body. This is the location of the body origin.
 B2_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 
+/// Get the world rotation of a body as a sine/cosine pair.
+B2_API b2Rot b2Body_GetRotation(b2BodyId bodyId);
+
 /// Get the world angle of a body in radians.
 B2_API float b2Body_GetAngle(b2BodyId bodyId);
 

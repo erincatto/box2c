@@ -839,6 +839,13 @@ b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
 	return body->origin;
 }
 
+b2Rot b2Body_GetRotation(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->rotation;
+}
+
 float b2Body_GetAngle(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);

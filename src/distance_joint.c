@@ -87,13 +87,13 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
-	// dummy state for static bodies
-	b2BodyState dummyState = b2_identityBodyState;
-
 	float mA = base->invMassA;
 	float mB = base->invMassB;
 	float iA = base->invIA;
 	float iB = base->invIB;
+
+	// dummy state for static bodies
+	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
@@ -101,7 +101,9 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 
 	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
 	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
-	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
+
+	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));
+	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
 	b2Vec2 axis = b2Normalize(separation);
 
 	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
@@ -122,11 +124,10 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	b2DistanceJoint* joint = &base->distanceJoint;
-
 	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
+	b2DistanceJoint* joint = &base->distanceJoint;
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 	

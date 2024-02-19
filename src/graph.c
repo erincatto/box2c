@@ -427,6 +427,11 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2St
 	b2BodyState* states = context->bodyStates;
 	const b2BodyParam* params = context->bodyParams;
 
+	float maxLinearSpeed = b2_maxTranslation * context->inv_dt;
+	float maxAngularSpeed = b2_maxRotation * context->inv_dt;
+	float maxLinearSpeedSquared = maxLinearSpeed * maxLinearSpeed;
+	float maxAngularSpeedSquared = maxAngularSpeed * maxAngularSpeed;
+
 	for (int i = startIndex; i < endIndex; ++i)
 	{
 		const b2BodyParam* param = params + i;
@@ -439,24 +444,21 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2St
 		v = b2MulAdd(param->linearVelocityDelta, param->linearDamping, v);
 		w = param->angularVelocityDelta + param->angularDamping * w;
 
-		// b2Vec2 translation = b2MulSV(h, body->linearVelocity);
-		// float ratioLinear = 1.0f;
-		// if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
-		// {
-		// 	ratioLinear = b2_maxTranslation / b2Length(translation);
-		// }
+		// Clamp to max linear speed
+		if (b2Dot(v, v) > maxLinearSpeedSquared)
+		{
+			float ratio = maxLinearSpeed / b2Length(v);
+			v = b2MulSV(ratio, v);
+			state->flags = 1;
+		}
 
-		// float rotation = h * body->angularVelocity;
-		// float ratioAngular = 1.0f;
-		// if (rotation * rotation > b2_maxRotation * b2_maxRotation)
-		// {
-		// 	ratioAngular = b2_maxRotation / B2_ABS(rotation);
-		// }
-
-		// float ratio = B2_MIN(ratioLinear, ratioAngular);
-
-		// body->linearVelocity = b2MulSV(ratio, body->linearVelocity);
-		// body->angularVelocity *= ratio;
+		// Clamp to max angular speed
+		if (w * w > maxAngularSpeedSquared)
+		{
+			float ratio = maxAngularSpeed / B2_ABS(w);
+			w *= ratio;
+			state->flags = 1;
+		}
 
 		state->linearVelocity = v;
 		state->angularVelocity = w;
@@ -697,9 +699,9 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 /*
  typedef enum b2SolverStageType
 {
-	b2_stageIntegrateVelocities,
 	b2_stagePrepareJoints,
 	b2_stagePrepareContacts,
+	b2_stageIntegrateVelocities,
 	b2_stageWarmStart,
 	b2_stageSolve,
 	b2_stageIntegratePositions,
@@ -924,9 +926,9 @@ static void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIn
 		// setup makes this easy to do.
 
 		/*
-		b2_stageIntegrateVelocities = 0,
 		b2_stagePrepareJoints,
 		b2_stagePrepareContacts,
+		b2_stageIntegrateVelocities,
 		b2_stageWarmStart,
 		b2_stageSolve,
 		b2_stageIntegratePositions,

@@ -34,6 +34,9 @@ typedef struct b2ManifoldPoint
 	/// the friction impulse
 	float tangentImpulse;
 
+	/// the maximum normal impulse applied during sub-stepping
+	float maxNormalImpulse;
+
 	/// uniquely identifies a contact point between two shapes
 	uint16_t id;
 

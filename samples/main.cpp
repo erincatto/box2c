@@ -398,6 +398,7 @@ static void UpdateUI()
 		{
 			if (ImGui::BeginTabItem("Controls"))
 			{
+				ImGui::PushItemWidth(100.0f);
 				ImGui::SliderInt("Sub-steps", &s_settings.subStepCount, 0, 50);
 				ImGui::SliderFloat("Hertz", &s_settings.hertz, 5.0f, 120.0f, "%.0f hz");
 				
@@ -406,6 +407,7 @@ static void UpdateUI()
 					s_settings.workerCount = B2_CLAMP(s_settings.workerCount, 1, maxWorkers);
 					RestartSample();
 				}
+				ImGui::PopItemWidth();
 
 				ImGui::Separator();
 
@@ -694,7 +696,8 @@ int main(int, char**)
 
 		// if (g_draw.m_showUI)
 		{
-			snprintf(buffer, 128, "%.1f ms", 1000.0f * frameTime);
+			snprintf(buffer, 128, "%.1f ms - step %d - camera (%g, %g)", 1000.0f * frameTime, s_sample->m_stepCount, g_camera.m_center.x,
+					 g_camera.m_center.y);
 
 			ImGui::Begin("Overlay", nullptr,
 						ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |

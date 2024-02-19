@@ -147,6 +147,7 @@ void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 		float Cdot = wB - wA;
 		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->angularImpulse;
 		joint->angularImpulse += impulse;
+
 		wA -= iA * impulse;
 		wB += iB * impulse;
 	}

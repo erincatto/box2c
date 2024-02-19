@@ -3,6 +3,7 @@
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
+#include "box2d/hull.h"
 #include "box2d/math_cpp.h"
 #include "sample.h"
 #include "settings.h"
@@ -508,3 +509,303 @@ public:
 };
 
 static int sampleShapesOnShapes = RegisterSample("Stacking", "Cliff", Cliff::Create);
+
+class Arch : public Sample
+{
+public:
+	Arch(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 8.0f};
+			g_camera.m_zoom = 0.35f;
+		}
+
+		b2Vec2 ps1[9] = {{16.0f, 0.0f},
+						 {14.93803712795643f, 5.133601056842984f},
+						 {13.79871746027416f, 10.24928069555078f},
+						 {12.56252963284711f, 15.34107019122473f},
+						 {11.20040987372525f, 20.39856541571217f},
+						 {9.66521217819836f, 25.40369899225096f},
+						 {7.87179930638133f, 30.3179337000085f},
+						 {5.635199558196225f, 35.03820717801641f},
+						 {2.405937953536585f, 39.09554102558315f}};
+
+		b2Vec2 ps2[9] = {{24.0f, 0.0f},
+						 {22.33619528222415f, 6.02299846205841f},
+						 {20.54936888969905f, 12.00964361211476f},
+						 {18.60854610798073f, 17.9470321677465f},
+						 {16.46769273811807f, 23.81367936585418f},
+						 {14.05325025774858f, 29.57079353071012f},
+						 {11.23551045834022f, 35.13775818285372f},
+						 {7.752568160730571f, 40.30450679009583f},
+						 {3.016931552701656f, 44.28891593799322f}};
+
+		float scale = 0.25f;
+		for (int i = 0; i < 9; ++i)
+		{
+			ps1[i] = b2MulSV(scale, ps1[i]);
+			ps2[i] = b2MulSV(scale, ps2[i]);
+		}
+
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		shapeDef.friction = 0.6f;
+
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2Segment segment = {{-100.0f, 0.0f}, {100.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
+		}
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.type = b2_dynamicBody;
+
+		for (int i = 0; i < 8; ++i)
+		{
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2Vec2 ps[4] = {ps1[i], ps2[i], ps2[i + 1], ps1[i + 1]};
+			b2Hull hull = b2ComputeHull(ps, 4);
+			b2Polygon polygon = b2MakePolygon(&hull, 0.0f);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
+		}
+
+		for (int i = 0; i < 8; ++i)
+		{
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2Vec2 ps[4] = {
+				{-ps2[i].x, ps2[i].y}, {-ps1[i].x, ps1[i].y}, {-ps1[i + 1].x, ps1[i + 1].y}, {-ps2[i + 1].x, ps2[i + 1].y}};
+			b2Hull hull = b2ComputeHull(ps, 4);
+			b2Polygon polygon = b2MakePolygon(&hull, 0.0f);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
+		}
+
+		{
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2Vec2 ps[4] = {ps1[8], ps2[8], {-ps2[8].x, ps2[8].y}, {-ps1[8].x, ps1[8].y}};
+			b2Hull hull = b2ComputeHull(ps, 4);
+			b2Polygon polygon = b2MakePolygon(&hull, 0.0f);
+			b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
+		}
+
+		for (int i = 0; i < 4; ++i)
+		{
+			b2Polygon box = b2MakeBox(2.0f, 0.5f);
+			bodyDef.position = {0.0f, 0.5f + ps2[8].y + 1.0f * i};
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Arch(settings);
+	}
+};
+
+static int sampleArch = RegisterSample("Stacking", "Arch", Arch::Create);
+
+class DoubleDomino : public Sample
+{
+public:
+	DoubleDomino(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 4.0f};
+			g_camera.m_zoom = 0.25f;
+		}
+
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			bodyDef.position = {0.0f, -1.0f};
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(100.0f, 1.0f);
+			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		b2Polygon box = b2MakeBox(0.125f, 0.5f);
+
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		shapeDef.friction = 0.6f;
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.type = b2_dynamicBody;
+
+		int count = 15;
+		float x = -0.5f * count;
+		for (int i = 0; i < count; ++i)
+		{
+			bodyDef.position = {x, 0.5f};
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+			if (i == 0)
+			{
+				b2Body_ApplyLinearImpulse(bodyId, b2Vec2{0.2f, 0.0f}, b2Vec2{x, 1.0f}, true);
+			}
+
+			x += 1.0f;
+		}
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new DoubleDomino(settings);
+	}
+};
+
+static int sampleDoubleDomino = RegisterSample("Stacking", "Double Domino", DoubleDomino::Create);
+
+class Confined : public Sample
+{
+public:
+	enum
+	{
+		e_gridCount = 25,
+		e_maxCount = e_gridCount * e_gridCount
+	};
+
+	Confined(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 10.0f};
+			g_camera.m_zoom = 0.5f;
+		}
+
+		{
+			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule;
+			capsule = {{-10.5f, 0.0f}, {10.5f, 0.0f}, 0.5f};
+			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			capsule = {{-10.5f, 0.0f}, {-10.5f, 20.5f}, 0.5f};
+			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			capsule = {{10.5f, 0.0f}, {10.5f, 20.5f}, 0.5f};
+			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			capsule = {{-10.5f, 20.5f}, {10.5f, 20.5f}, 0.5f};
+			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+		}
+
+		m_row = 0;
+		m_column = 0;
+		m_count = 0;
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.gravityScale = 0.0f;
+
+		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+		while (m_count < e_maxCount)
+		{
+			m_row = 0;
+			for (int i = 0; i < e_gridCount; ++i)
+			{
+				float x = -8.75f + m_column * 18.0f / e_gridCount;
+				float y = 1.5f + m_row * 18.0f / e_gridCount;
+
+				bodyDef.position = {x, y};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreateCircleShape(bodyId, &b2_defaultShapeDef, &circle);
+
+				m_count += 1;
+				m_row += 1;
+			}
+			m_column += 1;
+		}
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new Confined(settings);
+	}
+
+	int m_row;
+	int m_column;
+	int m_count;
+};
+
+static int sampleConfined = RegisterSample("Stacking", "Confined", Confined::Create);
+
+// From PEEL
+class CardHouse : public Sample
+{
+public:
+	CardHouse(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.75f, 0.9f};
+			g_camera.m_zoom = 0.05f;
+		}
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.position = {0.0f, -2.0f};
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		shapeDef.friction = 0.7f;
+
+		b2Polygon groundBox = b2MakeBox(40.0f, 2.0f);
+		b2CreatePolygonShape(groundId, &shapeDef, &groundBox);
+
+		float cardHeight = 0.2f;
+		float cardThickness = 0.001f;
+
+		float angle0 = 25.0f * b2_pi / 180.0f;
+		float angle1 = -25.0f * b2_pi / 180.0f;
+		float angle2 = 0.5f * b2_pi;
+
+		b2Polygon cardBox = b2MakeBox(cardThickness, cardHeight);
+		bodyDef.type = b2_dynamicBody;
+
+		int Nb = 5;
+		float z0 = 0.0f;
+		float y = cardHeight - 0.02f;
+		while (Nb)
+		{
+			float z = z0;
+			for (int i = 0; i < Nb; i++)
+			{
+				if (i != Nb - 1)
+				{
+					bodyDef.position = {z + 0.25f, y + cardHeight - 0.015f};
+					bodyDef.angle = angle2;
+					b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+					b2CreatePolygonShape(bodyId, &shapeDef, &cardBox);
+				}
+
+				bodyDef.position = {z, y};
+				bodyDef.angle = angle1;
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(bodyId, &shapeDef, &cardBox);
+
+				z += 0.175f;
+
+				bodyDef.position = {z, y};
+				bodyDef.angle = angle0;
+				bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(bodyId, &shapeDef, &cardBox);
+
+				z += 0.175f;
+			}
+			y += cardHeight * 2.0f - 0.03f;
+			z0 += 0.175f;
+			Nb--;
+		}
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new CardHouse(settings);
+	}
+};
+
+static int sampleCardHouse = RegisterSample("Stacking", "Card House", CardHouse::Create);

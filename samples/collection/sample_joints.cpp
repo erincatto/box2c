@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "donut.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"
@@ -40,9 +41,9 @@ public:
 		m_hertz = 2.0f;
 		m_dampingRatio = 0.5f;
 		m_length = 1.0f;
-		m_minLength = 0.5f;
-		m_maxLength = 2.0f;
-		m_fixedLength = false;
+		m_minLength = m_length;
+		m_maxLength = m_length;
+		m_fixedLength = true;
 
 		for (int i = 0; i < e_maxCount; ++i)
 		{
@@ -1407,42 +1408,51 @@ public:
 		{
 			groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
-			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			b2Vec2 points[25];
+			int count = 24;
+
+			// fill in reverse to match line list convention
+			points[count--] = {-20.0f, -20.0f};
+			points[count--] = {-20.0f, 0.0f};
+			points[count--] = {20.0f, 0.0f};
 
 			float hs[10] = {0.25f, 1.0f, 4.0f, 0.0f, 0.0f, -1.0f, -2.0f, -2.0f, -1.25f, 0.0f};
-
 			float x = 20.0f, y1 = 0.0f, dx = 5.0f;
 
-			for (int i = 0; i < 10; ++i)
+			for (int j = 0; j < 2; ++j)
 			{
-				float y2 = hs[i];
-				segment = {{x, y1}, {x + dx, y2}};
-				b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
-				y1 = y2;
-				x += dx;
+				for (int i = 0; i < 10; ++i)
+				{
+					float y2 = hs[i];
+					points[count--] = {x + dx, y2};
+					y1 = y2;
+					x += dx;
+				}
 			}
 
-			for (int i = 0; i < 10; ++i)
-			{
-				float y2 = hs[i];
-				segment = {{x, y1}, {x + dx, y2}};
-				b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
-				y1 = y2;
-				x += dx;
-			}
+			// flat before bridge
+			points[count--] = {x + 40.0f, 0.0f};
+			points[count--] = {x + 40.0f, -20.0f};
 
-			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			assert(count == -1);
 
+			b2ChainDef chainDef = b2_defaultChainDef;
+			chainDef.points = points;
+			chainDef.count = 25;
+			chainDef.loop = true;
+			b2CreateChain(groundId, &chainDef);
+
+			// flat after bridge
 			x += 80.0f;
-			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
+			b2Segment segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 
+			// jump ramp
 			x += 40.0f;
 			segment = {{x, 0.0f}, {x + 10.0f, 5.0f}};
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 
+			// final corner
 			x += 20.0f;
 			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
@@ -1563,7 +1573,7 @@ public:
 			b2CreatePolygonShape(m_carId, &b2_defaultShapeDef, &chassis);
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			shapeDef.density = 1.0f;
+			shapeDef.density = 2.0f;
 			shapeDef.friction = 0.8f;
 
 			bodyDef.position = {-1.0f, 0.35f};
@@ -1577,6 +1587,12 @@ public:
 			b2Vec2 axis = {0.0f, 1.0f};
 			b2Vec2 pivot = b2Body_GetPosition(m_wheelId1);
 
+			m_throttle = 0.0f;
+			m_speed = 30.0f;
+			m_torque = 1.5f;
+			m_hertz = 5.0f;
+			m_dampingRatio = 0.7f;
+
 			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
 
 			jointDef.bodyIdA = m_carId;
@@ -1585,10 +1601,10 @@ public:
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.motorSpeed = 0.0f;
-			jointDef.maxMotorTorque = 2.0f;
+			jointDef.maxMotorTorque = m_torque;
 			jointDef.enableMotor = true;
-			jointDef.hertz = 5.0f;
-			jointDef.dampingRatio = 0.7f;
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
 			jointDef.lowerTranslation = -0.25f;
 			jointDef.upperTranslation = 0.25f;
 			jointDef.enableLimit = true;
@@ -1601,35 +1617,71 @@ public:
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.motorSpeed = 0.0f;
-			jointDef.maxMotorTorque = 2.0f;
+			jointDef.maxMotorTorque = m_torque;
 			jointDef.enableMotor = true;
-			jointDef.hertz = 5.0f;
-			jointDef.dampingRatio = 0.7f;
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
 			jointDef.lowerTranslation = -0.25f;
 			jointDef.upperTranslation = 0.25f;
 			jointDef.enableLimit = true;
 			m_jointId2 = b2CreateWheelJoint(m_worldId, &jointDef);
 		}
+	}
 
-		m_speed = 50.0f;
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(220.0f, 140.0f));
+		ImGui::Begin("Car", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::PushItemWidth(100.0f);
+		if (ImGui::SliderFloat("spring Hertz", &m_hertz, 0.0f, 20.0f, "%.0f"))
+		{
+			b2WheelJoint_SetSpringHertz(m_jointId1, m_hertz);
+			b2WheelJoint_SetSpringHertz(m_jointId2, m_hertz);
+		}
+
+		if (ImGui::SliderFloat("damping ratio", &m_dampingRatio, 0.0f, 10.0f, "%.1f"))
+		{
+			b2WheelJoint_SetSpringDampingRatio(m_jointId1, m_dampingRatio);
+			b2WheelJoint_SetSpringDampingRatio(m_jointId2, m_dampingRatio);
+		}
+
+		if (ImGui::SliderFloat("speed", &m_speed, 0.0f, 50.0f, "%.0f"))
+		{
+			b2WheelJoint_SetMotorSpeed(m_jointId1, m_throttle * m_speed);
+			b2WheelJoint_SetMotorSpeed(m_jointId2, m_throttle * m_speed);
+		}
+
+		if (ImGui::SliderFloat("torque", &m_torque, 0.0f, 5.0f, "%.1f"))
+		{
+			b2WheelJoint_SetMaxMotorTorque(m_jointId1, m_torque);
+			b2WheelJoint_SetMaxMotorTorque(m_jointId2, m_torque);
+		}
+		ImGui::PopItemWidth();
+
+		ImGui::End();
 	}
 
 	void Step(Settings& settings) override
 	{
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
 		{
+			m_throttle = 1.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, m_speed);
 			b2WheelJoint_SetMotorSpeed(m_jointId2, m_speed);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)
 		{
+			m_throttle = 0.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, 0.0f);
 			b2WheelJoint_SetMotorSpeed(m_jointId2, 0.0f);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_D) == GLFW_PRESS)
 		{
+			m_throttle = -1.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, -m_speed);
 			b2WheelJoint_SetMotorSpeed(m_jointId2, -m_speed);
 		}
@@ -1652,7 +1704,12 @@ public:
 	b2BodyId m_wheelId1;
 	b2BodyId m_wheelId2;
 
+	float m_throttle;
+	float m_hertz;
+	float m_dampingRatio;
+	float m_torque;
 	float m_speed;
+
 	b2JointId m_jointId1;
 	b2JointId m_jointId2;
 };
@@ -1690,3 +1747,35 @@ public:
 };
 
 static int sampleRagdoll = RegisterSample("Joints", "Ragdoll", Ragdoll::Create);
+
+class SoftBody : public Sample
+{
+public:
+	SoftBody(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+			g_camera.m_center = {0.0f, 5.0f};
+		}
+
+		b2BodyId groundId;
+		{
+			groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		m_donut.Spawn(m_worldId, {0.0f, 10.0f}, 0, nullptr);
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new SoftBody(settings);
+	}
+
+	Donut m_donut;
+};
+
+static int sampleDonut = RegisterSample("Joints", "Soft Body", SoftBody::Create);

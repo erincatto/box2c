@@ -106,6 +106,7 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 			cp->normalImpulse = warmStartScale * mp->normalImpulse;
 			cp->tangentImpulse = warmStartScale * mp->tangentImpulse;
+			cp->maxNormalImpulse = 0.0f;
 
 			cp->anchorA = mp->anchorA;
 			cp->anchorB = mp->anchorB;
@@ -278,6 +279,8 @@ void b2SolveOverflowContacts(b2StepContext* context, bool useBias)
 			impulse = newImpulse - cp->normalImpulse;
 			cp->normalImpulse = newImpulse;
 
+			cp->maxNormalImpulse = B2_MAX(cp->maxNormalImpulse, impulse);
+
 			// apply normal impulse
 			b2Vec2 P = b2MulSV(impulse, normal);
 			vA = b2MulSub(vA, mA, P);
@@ -372,7 +375,7 @@ void b2ApplyOverflowRestitution(b2StepContext* context)
 
 			// if the normal impulse is zero then there was no collision
 			// this skips speculative contact points that didn't generate an impulse
-			if (cp->relativeVelocity > -threshold || cp->normalImpulse == 0.0f)
+			if (cp->relativeVelocity > -threshold || cp->maxNormalImpulse == 0.0f)
 			{
 				continue;
 			}
@@ -430,6 +433,7 @@ void b2StoreOverflowImpulses(b2StepContext* context)
 		{
 			manifold->points[j].normalImpulse = constraint->points[j].normalImpulse;
 			manifold->points[j].tangentImpulse = constraint->points[j].tangentImpulse;
+			manifold->points[j].maxNormalImpulse = constraint->points[j].maxNormalImpulse;
 		}
 	}
 
@@ -654,6 +658,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 
 					((float*)&constraint->normalImpulse1)[j] = warmStartScale * mp->normalImpulse;
 					((float*)&constraint->tangentImpulse1)[j] = warmStartScale * mp->tangentImpulse;
+					((float*)&constraint->maxNormalImpulse1)[j] = 0.0f;
 
 					float rnA = b2Cross(rA, normal);
 					float rnB = b2Cross(rB, normal);
@@ -689,6 +694,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 
 					((float*)&constraint->normalImpulse2)[j] = warmStartScale * mp->normalImpulse;
 					((float*)&constraint->tangentImpulse2)[j] = warmStartScale * mp->tangentImpulse;
+					((float*)&constraint->maxNormalImpulse2)[j] = 0.0f;
 
 					float rnA = b2Cross(rA, normal);
 					float rnB = b2Cross(rB, normal);
@@ -711,6 +717,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 					((float*)&constraint->baseSeparation2)[j] = 0.0f;
 					((float*)&constraint->normalImpulse2)[j] = 0.0f;
 					((float*)&constraint->tangentImpulse2)[j] = 0.0f;
+					((float*)&constraint->maxNormalImpulse2)[j] = 0.0f;
 					((float*)&constraint->anchorA2.X)[j] = 0.0f;
 					((float*)&constraint->anchorA2.Y)[j] = 0.0f;
 					((float*)&constraint->anchorB2.X)[j] = 0.0f;
@@ -736,6 +743,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				((float*)&constraint->baseSeparation1)[j] = 0.0f;
 				((float*)&constraint->normalImpulse1)[j] = 0.0f;
 				((float*)&constraint->tangentImpulse1)[j] = 0.0f;
+				((float*)&constraint->maxNormalImpulse1)[j] = 0.0f;
 				((float*)&constraint->anchorA1.X)[j] = 0.0f;
 				((float*)&constraint->anchorA1.Y)[j] = 0.0f;
 				((float*)&constraint->anchorB1.X)[j] = 0.0f;
@@ -747,6 +755,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				((float*)&constraint->baseSeparation2)[j] = 0.0f;
 				((float*)&constraint->normalImpulse2)[j] = 0.0f;
 				((float*)&constraint->tangentImpulse2)[j] = 0.0f;
+				((float*)&constraint->maxNormalImpulse2)[j] = 0.0f;
 				((float*)&constraint->anchorA2.X)[j] = 0.0f;
 				((float*)&constraint->anchorA2.Y)[j] = 0.0f;
 				((float*)&constraint->anchorB2.X)[j] = 0.0f;
@@ -882,6 +891,8 @@ void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* co
 			b2FloatW impulse = sub(newImpulse, c->normalImpulse1);
 			c->normalImpulse1 = newImpulse;
 
+			c->maxNormalImpulse1 = simde_mm256_max_ps(c->maxNormalImpulse1, impulse);
+
 			// Apply contact impulse
 			b2FloatW Px = mul(impulse, c->normal.X);
 			b2FloatW Py = mul(impulse, c->normal.Y);
@@ -928,6 +939,8 @@ void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* co
 			b2FloatW newImpulse = simde_mm256_max_ps(sub(c->normalImpulse2, negImpulse), simde_mm256_setzero_ps());
 			b2FloatW impulse = sub(newImpulse, c->normalImpulse2);
 			c->normalImpulse2 = newImpulse;
+
+			c->maxNormalImpulse2 = simde_mm256_max_ps(c->maxNormalImpulse2, impulse);
 
 			// Apply contact impulse
 			b2FloatW Px = mul(impulse, c->normal.X);
@@ -1042,7 +1055,7 @@ void b2ApplyRestitutionTask(int32_t startIndex, int32_t endIndex, b2StepContext*
 		{
 			// Set effective mass to zero if restitution should not be applied
 			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity1, threshold), zero, SIMDE_CMP_GT_OQ);
-			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse1, zero, SIMDE_CMP_EQ_OQ);
+			b2FloatW test2 = simde_mm256_cmp_ps(c->maxNormalImpulse1, zero, SIMDE_CMP_EQ_OQ);
 			b2FloatW test = simde_mm256_or_ps(test1, test2);
 
 			// todo slow on SSE2
@@ -1082,7 +1095,7 @@ void b2ApplyRestitutionTask(int32_t startIndex, int32_t endIndex, b2StepContext*
 		{
 			// Set effective mass to zero if restitution should not be applied
 			b2FloatW test1 = simde_mm256_cmp_ps(add(c->relativeVelocity2, threshold), zero, SIMDE_CMP_GT_OQ);
-			b2FloatW test2 = simde_mm256_cmp_ps(c->normalImpulse2, zero, SIMDE_CMP_EQ_OQ);
+			b2FloatW test2 = simde_mm256_cmp_ps(c->maxNormalImpulse2, zero, SIMDE_CMP_EQ_OQ);
 			b2FloatW test = simde_mm256_or_ps(test1, test2);
 
 			// todo slow on SSE2

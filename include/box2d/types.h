@@ -203,7 +203,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.contactHertz = 30.0;
 	def.contactDampingRatio = 10.0f;
 	def.jointHertz = 60.0;
-	def.jointDampingRatio = 1.0f;
+	def.jointDampingRatio = 2.0f;
 	def.enableSleep = true;
 	def.enableContinous = true;
 	def.bodyCapacity = 0;

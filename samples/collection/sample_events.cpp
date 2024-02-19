@@ -169,12 +169,13 @@ public:
 		if (m_type == e_donut)
 		{
 			Donut* donut = m_donuts + index;
-			donut->Spawn(m_worldId, center, index + 1, donut);
+			//donut->Spawn(m_worldId, center, index + 1, donut);
+			donut->Spawn(m_worldId, center, 0, donut);
 		}
 		else
 		{
 			Human* human = m_humans + index;
-			human->Spawn(m_worldId, center, 1.5f, index + 1, human);
+			human->Spawn(m_worldId, center, 1.0f, index + 1, human);
 		}
 
 		m_isSpawned[index] = true;

@@ -35,7 +35,6 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* user
 
 	b2Capsule capsule = {{0.0f, -0.5f * length}, {0.0f, 0.5f * length}, 0.25f};
 
-	//b2Vec2 center = {m_side, 29.5f};
 	b2Vec2 center = position;
 
 	b2BodyDef bodyDef = b2_defaultBodyDef;
@@ -71,7 +70,9 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* user
 	{
 		weldDef.bodyIdA = prevBodyId;
 		weldDef.bodyIdB = m_bodyIds[i];
-		weldDef.referenceAngle = b2Body_GetAngle(m_bodyIds[i]) - b2Body_GetAngle(prevBodyId);
+		b2Rot rotA = b2Body_GetRotation(prevBodyId);
+		b2Rot rotB = b2Body_GetRotation(m_bodyIds[i]);
+		weldDef.referenceAngle = b2RelativeAngle(rotB, rotA);
 		m_jointIds[i] = b2CreateWeldJoint(worldId, &weldDef);
 		prevBodyId = weldDef.bodyIdB;
 	}

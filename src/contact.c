@@ -463,7 +463,9 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 			
 			mp2->normalImpulse = 0.0f;
 			mp2->tangentImpulse = 0.0f;
+			mp2->maxNormalImpulse = 0.0f;
 			mp2->persisted = false;
+
 			uint16_t id2 = mp2->id;
 
 			for (int32_t j = 0; j < oldManifold.pointCount; ++j)
