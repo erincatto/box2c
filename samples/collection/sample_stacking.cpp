@@ -10,6 +10,45 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+class SingleBox : public Sample
+{
+public:
+	SingleBox(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 3.0f};
+			g_camera.m_zoom = 0.2f;
+		}
+
+		float extent = 1.0f;
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+		float groundWidth = 66.0f * extent;
+		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		shapeDef.friction = 0.5f;
+
+		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
+		b2CreateSegmentShape(groundId, &shapeDef, &segment);
+		bodyDef.type = b2_dynamicBody;
+
+		b2Polygon box = b2MakeBox(extent, extent);
+		bodyDef.position = {0.0f, 4.0f};
+		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+		b2CreatePolygonShape(bodyId, &shapeDef, &box);
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new SingleBox(settings);
+	}
+};
+
+static int sampleSingleBox = RegisterSample("Stacking", "Single Box", SingleBox::Create);
+
 class TiltedStack : public Sample
 {
 public:

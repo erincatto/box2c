@@ -21,9 +21,9 @@ typedef struct b2Softness
 
 typedef enum b2SolverStageType
 {
-	b2_stageIntegrateVelocities,
 	b2_stagePrepareJoints,
 	b2_stagePrepareContacts,
+	b2_stageIntegrateVelocities,
 	b2_stageWarmStart,
 	b2_stageSolve,
 	b2_stageIntegratePositions,
@@ -102,7 +102,7 @@ typedef struct b2StepContext
 	int32_t solverBodyCount;
 
 	struct b2World* world;
-	struct b2Graph* graph;
+	struct b2ConstraintGraph* graph;
 	struct b2Body** awakeBodies;
 
 	int32_t* jointIndices;

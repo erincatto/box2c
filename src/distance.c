@@ -1037,6 +1037,8 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 
 	b2Sweep sweepA = input->sweepA;
 	b2Sweep sweepB = input->sweepB;
+	B2_ASSERT(b2IsNormalized(sweepA.q1) && b2IsNormalized(sweepA.q2));
+	B2_ASSERT(b2IsNormalized(sweepB.q1) && b2IsNormalized(sweepB.q2));
 
 	float tMax = input->tMax;
 

@@ -44,7 +44,7 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
-	b2Graph graph;
+	b2ConstraintGraph graph;
 
 	b2Pool bodyPool;
 	b2Pool contactPool;

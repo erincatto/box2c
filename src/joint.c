@@ -765,7 +765,7 @@ void b2PrepareOverflowJoints(b2StepContext* context)
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
 	b2World* world = context->world;
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2Joint* joints = world->joints;
 	int32_t* jointIndices = graph->overflow.jointArray;
 	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
@@ -790,7 +790,7 @@ void b2WarmStartOverflowJoints(b2StepContext* context)
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
 	b2World* world = context->world;
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2Joint* joints = world->joints;
 	int32_t* jointIndices = graph->overflow.jointArray;
 	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
@@ -814,7 +814,7 @@ void b2SolveOverflowJoints(b2StepContext* context, bool useBias)
 	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
 
 	b2World* world = context->world;
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2Joint* joints = world->joints;
 	int32_t* jointIndices = graph->overflow.jointArray;
 	int32_t jointCount = b2Array(graph->overflow.jointArray).count;

@@ -23,7 +23,7 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 	b2TracyCZoneNC(prepare_overflow_contact, "Prepare Overflow Contact", b2_colorYellow, true);
 
 	b2World* world = context->world;
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2Contact* contacts = world->contacts;
 	const int32_t* bodyMap = context->bodyToSolverMap;
 	const b2BodyParam* params = context->bodyParams;
@@ -138,7 +138,7 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 {
 	b2TracyCZoneNC(warmstart_overflow_contact, "WarmStart Overflow Contact", b2_colorDarkOrange2, true);
 
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2BodyState* states = context->bodyStates;
 
 	const b2ContactConstraint* constraints = graph->overflow.contactConstraints;
@@ -198,7 +198,7 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 	b2TracyCZoneEnd(warmstart_overflow_contact);
 }
 
-void b2SolveOverflowContacts(b2StepContext* context, bool relax)
+void b2SolveOverflowContacts(b2StepContext* context, bool useBias)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
@@ -254,7 +254,7 @@ void b2SolveOverflowContacts(b2StepContext* context, bool relax)
 				// speculative bias
 				velocityBias = s * inv_h;
 			}
-			else if (relax == false)
+			else if (useBias)
 			{
 				velocityBias = B2_MAX(softness.biasRate * s, -pushout);
 				massScale = softness.massScale;
@@ -561,7 +561,7 @@ static void b2ScatterBodies(b2BodyState* restrict bodies, int32_t* restrict indi
 		simde_mm256_store_ps((float*)(bodies + indices[7]), simde_mm256_permute2f128_ps(tt3, tt7, 0x31));
 }
 
-void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context)
+void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 
@@ -761,7 +761,7 @@ void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* 
 	b2TracyCZoneEnd(prepare_contact);
 }
 
-void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
+void b2WarmStartContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen1, true);
 
@@ -816,7 +816,7 @@ void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext
 	b2TracyCZoneEnd(warm_start_contact);
 }
 
-void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias)
+void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_contact, "Solve Contact", b2_colorAliceBlue, true);
 
@@ -1022,7 +1022,7 @@ void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* co
 	b2TracyCZoneEnd(solve_contact);
 }
 
-void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
+void b2ApplyRestitutionTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(restitution, "Restitution", b2_colorDodgerBlue, true);
 
@@ -1125,7 +1125,7 @@ void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext*
 	b2TracyCZoneEnd(restitution);
 }
 
-void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context)
+void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 

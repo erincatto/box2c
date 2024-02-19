@@ -76,16 +76,16 @@ typedef struct b2ContactConstraintSIMD
 	b2FloatW relativeVelocity1, relativeVelocity2;
 } b2ContactConstraintSIMD;
 
-// Scalar
+// Overflow contacts don't fit into the constraint graph coloring
 void b2PrepareOverflowContacts(b2StepContext* context);
 void b2WarmStartOverflowContacts(b2StepContext* context);
 void b2SolveOverflowContacts(b2StepContext* context, bool useBias);
 void b2ApplyOverflowRestitution(b2StepContext* context);
 void b2StoreOverflowImpulses(b2StepContext* context);
 
-// SIMD versions
-void b2PrepareContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context);
-void b2WarmStartContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex);
-void b2SolveContactsSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias);
-void b2ApplyRestitutionSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex);
-void b2StoreImpulsesSIMD(int32_t startIndex, int32_t endIndex, b2StepContext* context);
+// Contacts that live within the constraint graph coloring
+void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context);
+void b2WarmStartContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex);
+void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias);
+void b2ApplyRestitutionTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex);
+void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2StepContext* context);

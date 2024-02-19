@@ -538,6 +538,14 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 		context.inv_h = 0.0f;
 	}
 
+	// Hertz values get reduced for large time steps
+	float contactHertz = B2_MIN(b2_contactHertz, 0.25f * context.inv_h);
+	float jointHertz = B2_MIN(b2_jointHertz, 0.125f * context.inv_h);
+
+	context.contactSoftness = b2MakeSoft(contactHertz, b2_contactDampingRatio, context.h);
+	context.staticSoftness = b2MakeSoft(2.0f * contactHertz, b2_contactDampingRatio, context.h);
+	context.jointSoftness = b2MakeSoft(jointHertz, b2_jointDampingRatio, context.h);
+
 	context.restitutionThreshold = world->restitutionThreshold;
 	context.maxBiasVelocity = b2_maxTranslation * context.inv_dt;
 	context.enableWarmStarting = world->enableWarmStarting;

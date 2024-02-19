@@ -6,6 +6,7 @@
 #include "api.h"
 #include "types.h"
 
+#include <float.h>
 #include <math.h>
 
 /// Macro to get the minimum of two values
@@ -189,6 +190,13 @@ static inline b2Rot b2NormalizeRot(b2Rot q)
 	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
 	b2Rot qn = {q.s * invMag, q.c * invMag};
 	return qn;
+}
+
+/// Is this rotation normalized?
+static inline bool b2IsNormalized(b2Rot q)
+{
+	float qq = q.s * q.s + q.c * q.c;
+	return 1.0f - 0.0004f < qq && qq < 1.0f + 0.0004f;
 }
 
 /// Normalized linear interpolation
