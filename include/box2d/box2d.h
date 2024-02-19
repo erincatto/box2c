@@ -538,11 +538,11 @@ B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float invers
 /// Get the current constraint torque for a revolute joint
 B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
-/// Set the wheel joint stiffness
-B2_API void b2WheelJoint_SetSpringHertz(b2JointId jointId, float stiffness);
+/// Set the wheel joint stiffness in Hertz
+B2_API void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz);
 
-/// Set the wheel joint damping
-B2_API void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float damping);
+/// Set the wheel joint damping ratio (non-dimensional)
+B2_API void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio);
 
 /// Enable/disable the wheel joint limit
 B2_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
@@ -564,5 +564,17 @@ B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTi
 
 /// Get the current wheel joint constraint torque
 B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
+/// Set weld joint linear stiffness in Hertz. 0 is rigid.
+B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);
+
+/// Set weld joint linear damping ratio (non-dimensional)
+B2_API void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio);
+
+/// Set weld joint angular stiffness in Hertz. 0 is rigid.
+B2_API void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz);
+
+/// Set weld joint angular damping ratio (non-dimensional)
+B2_API void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio);
 
 /** @} */

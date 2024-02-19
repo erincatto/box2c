@@ -25,18 +25,6 @@
 /// https://en.wikipedia.org/wiki/Pi
 #define b2_pi 3.14159265359f
 
-/// Maximum contact stiffness. Reduced for large time steps.
-#define b2_contactHertz 30.0f
-
-/// Contact damping ratio. Large to reduce the speed of overlap recovery.
-#define b2_contactDampingRatio 10.0f
-
-/// Maximum joint stiffness. Reduced for large time steps.
-#define b2_jointHertz 60.0f
-
-/// Joint damping ratio. Critical damping.
-#define b2_jointDampingRatio 1.0f
-
 /// This is used to fatten AABBs in the dynamic tree. This allows proxies
 /// to move by a small amount without triggering a tree adjustment.
 /// This is in meters.

@@ -95,6 +95,8 @@ typedef struct b2World
 	float contactPushoutVelocity;
 	float contactHertz;
 	float contactDampingRatio;
+	float jointHertz;
+	float jointDampingRatio;
 
 	uint16_t revision;
 

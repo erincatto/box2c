@@ -138,7 +138,7 @@ void b2SolveWeldJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 		float impulseScale = 0.0f;
 		if (useBias || joint->angularHertz > 0.0f)
 		{
-			float C = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) - joint->referenceAngle;
+			float C = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
 			bias = joint->angularSoftness.biasRate * C;
 			massScale = joint->angularSoftness.massScale;
 			impulseScale = joint->angularSoftness.impulseScale;
@@ -216,3 +216,43 @@ void b2DumpWeldJoint()
 	b2Dump("  joints[%d] = m_world->CreateJoint(&jd);\n", m_index);
 }
 #endif
+
+void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_weldJoint);
+	B2_ASSERT(b2IsValid(hertz) && hertz >= 0.0f);
+
+	joint->weldJoint.linearHertz = hertz;
+}
+
+void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_weldJoint);
+	B2_ASSERT(b2IsValid(dampingRatio) && dampingRatio >= 0.0f);
+
+	joint->weldJoint.linearDampingRatio = dampingRatio;
+}
+
+void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_weldJoint);
+	B2_ASSERT(b2IsValid(hertz) && hertz >= 0.0f);
+
+	joint->weldJoint.angularHertz = hertz;
+}
+
+void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_weldJoint);
+	B2_ASSERT(b2IsValid(dampingRatio) && dampingRatio >= 0.0f);
+
+	joint->weldJoint.angularDampingRatio = dampingRatio;
+}

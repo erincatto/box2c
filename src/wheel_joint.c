@@ -191,17 +191,11 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 	// spring constraint
 	{
-		float bias = 0.0f;
-		float massScale = 1.0f;
-		float impulseScale = 0.0f;
-
-		if (useBias)
-		{
-			float C = translation;
-			bias = joint->springSoftness.biasRate * C;
-			massScale = joint->springSoftness.massScale;
-			impulseScale = joint->springSoftness.impulseScale;
-		}
+		// This is a real spring and should be applied even during relax
+		float C = translation;
+		float bias = joint->springSoftness.biasRate * C;
+		float massScale = joint->springSoftness.massScale;
+		float impulseScale = joint->springSoftness.impulseScale;
 
 		float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
 		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->springImpulse;

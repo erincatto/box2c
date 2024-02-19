@@ -28,8 +28,8 @@ public:
 	{
 		Sample::Step(settings);
 
-		b2Sweep sweepA = {b2Vec2_zero, {0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, 0.0f};
-		b2Sweep sweepB = {b2Vec2_zero, {2.0f, 4.0f}, {2.0f, 4.0f}, 0.0f, -0.25f * b2_pi};
+		b2Sweep sweepA = {b2Vec2_zero, {0.0f, 0.0f}, {0.0f, 0.0f}, b2Rot_identity, b2Rot_identity};
+		b2Sweep sweepB = {b2Vec2_zero, {2.0f, 4.0f}, {2.0f, 4.0f}, b2Rot_identity, b2MakeRot(-0.25f * b2_pi)};
 
 		b2TOIInput input;
 		input.proxyA = b2MakeProxy(m_verticesA, m_countA, 0.0f);

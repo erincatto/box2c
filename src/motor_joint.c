@@ -55,7 +55,8 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
-	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+	joint->deltaCenter = b2Sub(b2Sub(bodyB->position, bodyA->position), joint->linearOffset);
+	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->angularOffset;
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
@@ -103,11 +104,6 @@ void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 
 void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias)
 {
-	if (useBias == false)
-	{
-		return;
-	}
-
 	B2_ASSERT(base->type == b2_motorJoint);
 
 	float mA = base->invMassA;
@@ -129,14 +125,14 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 
 	// angular constraint
 	{
-		float angularSeperation = b2RelativeAngle(bodyB->deltaRotation, bodyA->deltaRotation) - joint->angularOffset;
+		float angularSeperation = b2RelativeAngle(bodyB->deltaRotation, bodyA->deltaRotation) + joint->deltaAngle;
 		float angularBias = context->inv_h * joint->correctionFactor * angularSeperation;
 
 		float Cdot = wB - wA;
 		float impulse = -joint->angularMass * (Cdot + angularBias);
 
 		float oldImpulse = joint->angularImpulse;
-		float maxImpulse = context->dt * joint->maxTorque;
+		float maxImpulse = context->h * joint->maxTorque;
 		joint->angularImpulse = B2_CLAMP(joint->angularImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->angularImpulse - oldImpulse;
 
@@ -150,7 +146,7 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 		b2Vec2 rB = b2RotateVector(bodyB->deltaRotation, joint->anchorB);
 
 		b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(rB, rA));
-		b2Vec2 linearSeparation = b2Add(b2Sub(joint->deltaCenter, joint->linearOffset), ds);
+		b2Vec2 linearSeparation = b2Add(joint->deltaCenter, ds);
 		b2Vec2 linearBias = b2MulSV(context->inv_h * joint->correctionFactor, linearSeparation);
 
 		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
@@ -158,7 +154,7 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 		b2Vec2 impulse = {-b.x, -b.y};
 
 		b2Vec2 oldImpulse = joint->linearImpulse;
-		float maxImpulse = context->dt * joint->maxForce; 
+		float maxImpulse = context->h * joint->maxForce; 
 		joint->linearImpulse = b2Add(joint->linearImpulse, impulse);
 
 		if (b2LengthSquared(joint->linearImpulse) > maxImpulse * maxImpulse)

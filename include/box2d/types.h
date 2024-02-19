@@ -150,6 +150,12 @@ typedef struct b2WorldDef
 	/// Contact bounciness. Non-dimensional.
 	float contactDampingRatio;
 
+	/// Joint stiffness. Cycles per second.
+	float jointHertz;
+
+	/// Joint bounciness. Non-dimensional.
+	float jointDampingRatio;
+
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
 
@@ -195,7 +201,9 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
 	def.contactHertz = 30.0;
-	def.contactDampingRatio = 1.0f;
+	def.contactDampingRatio = 10.0f;
+	def.jointHertz = 60.0;
+	def.jointDampingRatio = 1.0f;
 	def.enableSleep = true;
 	def.enableContinous = true;
 	def.bodyCapacity = 0;

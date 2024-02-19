@@ -61,6 +61,7 @@ typedef struct b2MotorJoint
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
+	float deltaAngle;
 	b2Mat22 linearMass;
 	float angularMass;
 } b2MotorJoint;
