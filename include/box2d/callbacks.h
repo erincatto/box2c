@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "box2d/api.h"
-#include "box2d/id.h"
-#include "box2d/types.h"
+#include "api.h"
+#include "id.h"
+#include "types.h"
 
 typedef struct b2Manifold b2Manifold;
 
@@ -45,7 +45,7 @@ typedef bool b2QueryResultFcn(b2ShapeId shapeId, void* context);
 /// @param fraction the fraction along the ray at the point of intersection
 /// @return -1 to filter, 0 to terminate, fraction to clip the ray for
 /// closest hit, 1 to continue
-typedef float b2RayResultFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
+typedef float b2CastResultFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
 
 /// Use an instance of this structure and the callback below to get the closest hit.
 typedef struct b2RayResult

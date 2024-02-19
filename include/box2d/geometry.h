@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "box2d/api.h"
-#include "box2d/constants.h"
-#include "box2d/types.h"
+#include "api.h"
+#include "constants.h"
+#include "types.h"
 
 typedef struct b2Hull b2Hull;
 typedef struct b2CastOutput b2RayCastOutput;

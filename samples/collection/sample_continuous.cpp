@@ -126,6 +126,78 @@ public:
 
 static int sampleBounceHouse = RegisterSample("Continuous", "Bounce House", BounceHouse::Create);
 
+class FastChain : public Sample
+{
+public:
+	FastChain(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 0.0f};
+			g_camera.m_zoom = 0.5f;
+		}
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.position = {0.0f, -6.0f};
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+		b2Vec2 points[4] = {{-10.0f, -2.0f}, {10.0f, -2.0f}, {10.0f, 1.0f}, {-10.0f, 1.0f}};
+
+		b2ChainDef chainDef = b2_defaultChainDef;
+		chainDef.points = points;
+		chainDef.count = 4;
+		chainDef.loop = true;
+
+		b2CreateChain(groundId, &chainDef);
+
+		m_bodyId = b2_nullBodyId;
+
+		Launch();
+	}
+
+	void Launch()
+	{
+		if (B2_NON_NULL(m_bodyId))
+		{
+			b2DestroyBody(m_bodyId);
+		}
+
+		b2BodyDef bodyDef = b2_defaultBodyDef;
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.linearVelocity = {0.0f, -200.0f};
+		bodyDef.position = {0.0f, 10.0f};
+		bodyDef.gravityScale = 1.0f;
+		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+		b2CreateCircleShape(m_bodyId, &b2_defaultShapeDef, &circle);
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 70.0f));
+		ImGui::Begin("Fast Chain", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Launch"))
+		{
+			Launch();
+		}
+
+		ImGui::End();
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new FastChain(settings);
+	}
+
+	b2BodyId m_bodyId;
+};
+
+static int sampleFastChainHouse = RegisterSample("Continuous", "Fast Chain", FastChain::Create);
+
 class SkinnyBox : public Sample
 {
 public:

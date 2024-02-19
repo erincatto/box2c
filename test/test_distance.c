@@ -88,21 +88,21 @@ static int ShapeCastTest(void)
 static int TimeOfImpactTest(void)
 {
 	b2Vec2 vas[] = {
-		(b2Vec2){-1.0f, -1.0f},
-		(b2Vec2){1.0f, -1.0f},
-		(b2Vec2){1.0f, 1.0f},
-		(b2Vec2){-1.0f, 1.0f}};
+		{-1.0f, -1.0f},
+		{1.0f, -1.0f},
+		{1.0f, 1.0f},
+		{-1.0f, 1.0f}};
 
 	b2Vec2 vbs[] = {
-		(b2Vec2){2.0f, -1.0f},
-		(b2Vec2){2.0f, 1.0f},
+		{2.0f, -1.0f},
+		{2.0f, 1.0f},
 	};
 
 	b2TOIInput input;
 	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
 	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
-	input.sweepA = (b2Sweep){b2Vec2_zero, b2Vec2_zero, b2Vec2_zero, 0.0f, 0.0f};
-	input.sweepB = (b2Sweep){b2Vec2_zero, b2Vec2_zero, (b2Vec2){-2.0f, 0.0f}, 0.0f, 0.0f};
+	input.sweepA = (b2Sweep){b2Vec2_zero, b2Vec2_zero, b2Vec2_zero, b2Rot_identity, b2Rot_identity};
+	input.sweepB = (b2Sweep){b2Vec2_zero, b2Vec2_zero, (b2Vec2){-2.0f, 0.0f}, b2Rot_identity, b2Rot_identity};
 	input.tMax = 1.0f;
 
 	b2TOIOutput output = b2TimeOfImpact(&input);

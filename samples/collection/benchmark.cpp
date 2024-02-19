@@ -74,7 +74,10 @@ class BenchmarkBarrel : public Sample
 				m_bodies[i] = b2_nullBodyId;
 			}
 
-			m_humans[i].Despawn();
+			if (m_humans[i].m_isSpawned)
+			{
+				m_humans[i].Despawn();
+			}
 		}
 
 		m_columnCount = g_sampleDebug ? 10 : e_maxColumns;
@@ -193,7 +196,7 @@ class BenchmarkBarrel : public Sample
 				}
 				else if (m_shapeType == e_humanShape)
 				{
-					m_humans[index].Spawn(m_worldId, bodyDef.position, 3.5f, index + 1);
+					m_humans[index].Spawn(m_worldId, bodyDef.position, 3.5f, index + 1, nullptr);
 				}
 
 				index += 1;
@@ -859,7 +862,7 @@ class BenchmarkCreateDestroy : public Sample
 		for (int32_t i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
-			b2World_Step(m_worldId, timeStep, settings.velocityIterations, settings.relaxIterations);
+			b2World_Step(m_worldId, timeStep, settings.subStepCount);
 		}
 
 		Sample::Step(settings);

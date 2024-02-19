@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include "api.h"
 #include "types.h"
+
+#include <stdint.h>
 
 /// Timer for profiling. This has platform specific code and may not work on every platform.
 typedef struct b2Timer

@@ -287,7 +287,7 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 	b2Body* body = world->bodies + shape->bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
-	b2Vec2 localPoint = b2InvTransformPoint(body->transform, point);
+	b2Vec2 localPoint = b2InvTransformPoint(b2MakeTransform(body), point);
 
 	switch (shape->type)
 	{
@@ -417,7 +417,7 @@ void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
 	if (body->isEnabled)
 	{
 		b2DestroyShapeProxy(shape, &world->broadPhase);
-		b2CreateShapeProxy(shape, &world->broadPhase, body->type, body->transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, body->type, b2MakeTransform(body));
 	}
 	else
 	{

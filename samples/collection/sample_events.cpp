@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "donut.h"
+#include "human.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -12,26 +14,25 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-#define SIDES 7
-
-struct Ring
-{
-	b2BodyId bodyIds[SIDES];
-	b2JointId jointIds[SIDES];
-	bool valid;
-};
-
 class SensorEvent : public Sample
 {
 public:
 	enum
 	{
-		e_count = 16
+		e_donut = 1,
+		e_human = 2,
+		e_count = 32
 	};
 
 	SensorEvent(const Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 0.0f};
+			g_camera.m_zoom = 1.333f;
+		}
+		
 		{
 			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 			// b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
@@ -93,22 +94,6 @@ public:
 			chainDef.friction = 0.2f;
 			b2CreateChain(groundId, &chainDef);
 
-#if 0
-			{
-				b2ShapeDef shapeDef = b2_defaultShapeDef;
-				shapeDef.friction = 0.2f;
-				shapeDef.restitution = 2.0f;
-
-				float radius = 0.75f;
-				float y = 15.0f;
-				for (int j = 0; j < 5; ++j)
-				{
-					b2Circle circle = {{0.0f, y}, radius};
-					b2CreateCircleShape(groundId, &shapeDef, &circle);
-					y -= 6.0f;
-				}
-			}
-#endif
 			float sign = 1.0f;
 			float y = 14.0f;
 			for (int i = 0; i < 3; ++i)
@@ -132,8 +117,8 @@ public:
 				revoluteDef.bodyIdB = bodyId;
 				revoluteDef.localAnchorA = bodyDef.position;
 				revoluteDef.localAnchorB = b2Vec2_zero;
-				revoluteDef.maxMotorTorque = 50.0f;
-				revoluteDef.motorSpeed = 10.0f * sign;
+				revoluteDef.maxMotorTorque = 200.0f;
+				revoluteDef.motorSpeed = 5.0f * sign;
 				revoluteDef.enableMotor = true;
 
 				b2CreateRevoluteJoint(m_worldId, &revoluteDef);
@@ -150,27 +135,24 @@ public:
 			}
 		}
 
-		for (int i = 0; i < e_count; ++i)
-		{
-			for (int j = 0; j < SIDES; ++j)
-			{
-				m_rings[i].bodyIds[j] = b2_nullBodyId;
-				m_rings[i].jointIds[j] = b2_nullJointId;
-			}
-			m_rings[i].valid = false;
-		}
-
 		m_wait = 0.5f;
 		m_side = -15.0f;
-		CreateRing();
+		m_type = e_human;
+
+		for (int i = 0; i < e_count; ++i)
+		{
+			m_isSpawned[i] = false;
+		}
+
+		CreateElement();
 	}
 
-	void CreateRing()
+	void CreateElement()
 	{
 		int index = -1;
 		for (int i = 0; i < e_count; ++i)
 		{
-			if (m_rings[i].valid == false)
+			if (m_isSpawned[i] == false)
 			{
 				index = i;
 				break;
@@ -182,106 +164,134 @@ public:
 			return;
 		}
 
-		Ring* ring = m_rings + index;
-
-		float radius = 1.0f;
-		float deltaAngle = 2.0f * b2_pi / SIDES;
-		float length = 2.0f * b2_pi * radius / SIDES;
-
-		b2Capsule capsule = {{0.0f, -0.5f * length}, {0.0f, 0.5f * length}, 0.25f};
-
 		b2Vec2 center = {m_side, 29.5f};
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
-		bodyDef.type = b2_dynamicBody;
-		bodyDef.userData = ring;
-
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
-		shapeDef.density = 1.0f;
-
-		// Create bodies
-		float angle = 0.0f;
-		for (int i = 0; i < SIDES; ++i)
+		if (m_type == e_donut)
 		{
-			bodyDef.position = {radius * cosf(angle) + center.x, radius * sinf(angle) + center.y};
-			bodyDef.angle = angle;
-
-			ring->bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreateCapsuleShape(ring->bodyIds[i], &shapeDef, &capsule);
-
-			angle += deltaAngle;
+			Donut* donut = m_donuts + index;
+			//donut->Spawn(m_worldId, center, index + 1, donut);
+			donut->Spawn(m_worldId, center, 0, donut);
+		}
+		else
+		{
+			Human* human = m_humans + index;
+			human->Spawn(m_worldId, center, 1.0f, index + 1, human);
 		}
 
-		// Create joints
-		b2WeldJointDef weldDef = b2_defaultWeldJointDef;
-		weldDef.angularHertz = 5.0f;
-		weldDef.angularDampingRatio = 0.0f;
-		weldDef.localAnchorA = {0.0f, 0.5f * length};
-		weldDef.localAnchorB = {0.0f, -0.5f * length};
-
-		b2BodyId prevBodyId = ring->bodyIds[SIDES - 1];
-		for (int i = 0; i < SIDES; ++i)
-		{
-			weldDef.bodyIdA = prevBodyId;
-			weldDef.bodyIdB = ring->bodyIds[i];
-			weldDef.referenceAngle = b2Body_GetAngle(ring->bodyIds[i]) - b2Body_GetAngle(prevBodyId);
-			ring->jointIds[i] = b2CreateWeldJoint(m_worldId, &weldDef);
-			prevBodyId = weldDef.bodyIdB;
-		}
-
-		ring->valid = true;
+		m_isSpawned[index] = true;
 		m_side = -m_side;
 	}
 
-	void DestroyRing(int index)
+	void DestroyElement(int index)
 	{
-		Ring* ring = m_rings + index;
-		assert(ring->valid == true);
-
-		for (int i = 0; i < SIDES; ++i)
+		if (m_type == e_donut)
 		{
-			b2DestroyJoint(ring->jointIds[i]);
-			ring->jointIds[i] = b2_nullJointId;
+			Donut* donut = m_donuts + index;
+			donut->Despawn();
+		}
+		else
+		{
+			Human* human = m_humans + index;
+			human->Despawn();
 		}
 
-		for (int i = 0; i < SIDES; ++i)
+		m_isSpawned[index] = false;
+	}
+
+	void Clear()
+	{
+		for (int i = 0; i < e_count; ++i)
 		{
-			b2DestroyBody(ring->bodyIds[i]);
-			ring->bodyIds[i] = b2_nullBodyId;
+			if (m_isSpawned[i] == true)
+			{
+				if (m_type == e_donut)
+				{
+					m_donuts[i].Despawn();
+				}
+				else
+				{
+					m_humans[i].Despawn();
+				}
+
+				m_isSpawned[i] = false;
+			}
 		}
 
-		ring->valid = false;
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 120.0f));
+		ImGui::Begin("Sensor Event", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::RadioButton("donut", m_type == e_donut))
+		{
+			Clear();
+			m_type = e_donut;
+		}
+
+		if (ImGui::RadioButton("human", m_type == e_human))
+		{
+			Clear();
+			m_type = e_human;
+		}
+
+		ImGui::End();
 	}
 
 	void Step(Settings& settings) override
 	{
+		if (m_stepCount == 832)
+		{
+			m_stepCount += 0;
+		}
+
 		Sample::Step(settings);
 
 		// Discover rings that touch the bottom sensor
-		bool deferredDestructions[e_count] = {0};
+		bool deferredDestructions[e_count] = {};
 		b2SensorEvents sensorEvents = b2World_GetSensorEvents(m_worldId);
 		for (int i = 0; i < sensorEvents.beginCount; ++i)
 		{
 			b2SensorBeginTouchEvent event = sensorEvents.beginEvents[i];
 			b2ShapeId visitorId = event.visitorShapeId;
-			b2BodyId ringBodyId = b2Shape_GetBody(visitorId);
-			Ring* ring = (Ring*)b2Body_GetUserData(ringBodyId);
-			if (ring != nullptr && ring->valid)
-			{
-				int index = (int)(ring - m_rings);
-				assert(0 <= index && index < e_count);
+			b2BodyId bodyId = b2Shape_GetBody(visitorId);
 
-				// Defer destruction to avoid double destruction and event invalidation (orphaned shape ids)
-				deferredDestructions[index] = true;
+			if (m_type == e_donut)
+			{
+				Donut* donut = (Donut*)b2Body_GetUserData(bodyId);
+				if (donut != nullptr)
+				{
+					int index = (int)(donut - m_donuts);
+					assert(0 <= index && index < e_count);
+
+					// Defer destruction to avoid double destruction and event invalidation (orphaned shape ids)
+					deferredDestructions[index] = true;
+				}
+			}
+			else
+			{
+				Human* human = (Human*)b2Body_GetUserData(bodyId);
+				if (human != nullptr)
+				{
+					int index = (int)(human - m_humans);
+					assert(0 <= index && index < e_count);
+
+					// Defer destruction to avoid double destruction and event invalidation (orphaned shape ids)
+					deferredDestructions[index] = true;
+				}
 			}
 		}
+
+		// todo destroy mouse joint if necessary
 
 		// Safely destroy rings that hit the bottom sensor
 		for (int i = 0; i < e_count; ++i)
 		{
 			if (deferredDestructions[i])
 			{
-				DestroyRing(i);
+				DestroyElement(i);
 			}
 		}
 
@@ -290,7 +300,7 @@ public:
 			m_wait -= 1.0f / settings.hertz;
 			if (m_wait < 0.0f)
 			{
-				CreateRing();
+				CreateElement();
 				m_wait += 0.5f;
 			}
 		}
@@ -301,7 +311,10 @@ public:
 		return new SensorEvent(settings);
 	}
 
-	Ring m_rings[e_count];
+	Human m_humans[e_count];
+	Donut m_donuts[e_count];
+	bool m_isSpawned[e_count];
+	int m_type;
 	float m_wait;
 	float m_side;
 };
@@ -493,7 +506,7 @@ public:
 								break;
 							}
 						}
-						
+
 						// avoid double deletion
 						if (found == false)
 						{
@@ -564,7 +577,7 @@ public:
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.enableContactEvents = true;
-			
+
 			switch (type)
 			{
 				case b2_circleShape:
@@ -674,7 +687,7 @@ public:
 			b2Capsule capsule = {{0.0f, 0.0f}, {0.0f, 1.0f}, m_radius};
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.friction = 0.1f;
-			
+
 			// Need to turn this on to get the callback
 			shapeDef.enablePreSolveEvents = true;
 

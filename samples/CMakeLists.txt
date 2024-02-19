@@ -64,6 +64,8 @@ add_executable(samples
 	settings.h
 	settings.cpp
 	collection/benchmark.cpp
+	collection/donut.cpp
+	collection/donut.h
 	collection/human.cpp
 	collection/human.h
 	collection/sample_joints.cpp

@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include "box2d/api.h"
-#include "box2d/callbacks.h"
-#include "box2d/event_types.h"
-#include "box2d/geometry.h"
-#include "box2d/id.h"
-#include "box2d/joint_types.h"
-#include "box2d/types.h"
+#include "api.h"
+#include "callbacks.h"
+#include "event_types.h"
+#include "geometry.h"
+#include "id.h"
+#include "joint_types.h"
+#include "types.h"
 
 typedef struct b2Capsule b2Capsule;
 typedef struct b2Circle b2Circle;
@@ -32,12 +32,15 @@ B2_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 /// Destroy a world.
 B2_API void b2DestroyWorld(b2WorldId worldId);
 
+/// World identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2World_IsValid(b2WorldId id);
+
 /// Take a time step. This performs collision detection, integration,
 /// and constraint solution.
 /// @param timeStep the amount of time to simulate, this should not vary.
 /// @param velocityIterations for the velocity constraint solver.
 /// @param relaxIterations for reducing constraint bounce solver.
-B2_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t relaxIterations);
+B2_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount);
 
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 B2_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
@@ -69,7 +72,7 @@ B2_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, con
 /// @param callback a user implemented callback class.
 /// @param point1 the ray starting point
 /// @param point2 the ray ending point
-B2_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
+B2_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 							   void* context);
 
 /// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
@@ -77,15 +80,15 @@ B2_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Ve
 
 /// Cast a circle through the world. Similar to a ray-cast except that a circle is cast instead of a point.
 B2_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
-								  b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+								  b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
 /// Cast a capsule through the world. Similar to a ray-cast except that a capsule is cast instead of a point.
 B2_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
-								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+								   b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
 /// Cast a capsule through the world. Similar to a ray-cast except that a polygon is cast instead of a point.
 B2_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
-								   b2QueryFilter filter, b2RayResultFcn* fcn, void* context);
+								   b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
 /// Enable/disable sleep. Advanced feature for testing.
 B2_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
@@ -128,6 +131,14 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBody(b2BodyId bodyId);
 
+/// Body identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Body_IsValid(b2BodyId id);
+
+/// Destroy a rigid body given an id. Destroys all joints attached to the body. Be careful
+///	because this may invalidate some b2JointId that you have stored.
+/// @warning This function is locked during callbacks.
+B2_API void b2DestroyBodyAndJoints(b2BodyId bodyId);
+
 /// Get the type of a body
 B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 
@@ -139,6 +150,9 @@ B2_API void* b2Body_GetUserData(b2BodyId bodyId);
 
 /// Get the world position of a body. This is the location of the body origin.
 B2_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
+
+/// Get the world rotation of a body as a sine/cosine pair.
+B2_API b2Rot b2Body_GetRotation(b2BodyId bodyId);
 
 /// Get the world angle of a body in radians.
 B2_API float b2Body_GetAngle(b2BodyId bodyId);
@@ -308,6 +322,9 @@ B2_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, co
 /// Destroy any shape type
 B2_API void b2DestroyShape(b2ShapeId shapeId);
 
+/// Shape identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Shape_IsValid(b2ShapeId id);
+
 /// Create a chain shape
 ///	@see b2ChainDef for details
 B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
@@ -315,13 +332,16 @@ B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 /// Destroy a chain shape
 B2_API void b2DestroyChain(b2ChainId chainId);
 
+/// Chain identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Chain_IsValid(b2ChainId id);
+
 /// Get the type of a shape.
 B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
 
 /// Get the body that a shape is attached to
 B2_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 
-/// Get the type of a shape.
+/// Is this shape a sensor? See b2ShapeDef.
 B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
 
 /// Get the user data for a shape. This is useful when you get a shape id
@@ -429,6 +449,9 @@ B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* de
 /// Destroy any joint type
 B2_API void b2DestroyJoint(b2JointId jointId);
 
+/// Joint identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Joint_IsValid(b2JointId id);
+
 /// Get the joint type
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
 
@@ -518,11 +541,11 @@ B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float invers
 /// Get the current constraint torque for a revolute joint
 B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
 
-/// Set the wheel joint stiffness
-B2_API void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness);
+/// Set the wheel joint stiffness in Hertz
+B2_API void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz);
 
-/// Set the wheel joint damping
-B2_API void b2WheelJoint_SetDamping(b2JointId jointId, float damping);
+/// Set the wheel joint damping ratio (non-dimensional)
+B2_API void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio);
 
 /// Enable/disable the wheel joint limit
 B2_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
@@ -544,5 +567,17 @@ B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTi
 
 /// Get the current wheel joint constraint torque
 B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+
+/// Set weld joint linear stiffness in Hertz. 0 is rigid.
+B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);
+
+/// Set weld joint linear damping ratio (non-dimensional)
+B2_API void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio);
+
+/// Set weld joint angular stiffness in Hertz. 0 is rigid.
+B2_API void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz);
+
+/// Set weld joint angular damping ratio (non-dimensional)
+B2_API void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio);
 
 /** @} */

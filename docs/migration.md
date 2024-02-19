@@ -9,6 +9,7 @@ Here are the highlights that affect the API:
 - multithreading support
 - fewer callbacks
 - more features (such as capsules and shape casts)
+- new sub-stepping solver
 
 However, the scope of what Box2D does has not changed much. It is still a 2D rigid body engine. It is just faster and more robust (hopefully). And hopefully it is easier to work with and port/wrap for other languages/platforms.
 
@@ -54,12 +55,12 @@ b2Body* body = world.CreateBody(&bodyDef);
 ```
 Version 3.0:
 ```c
-b2BodyDef bodyDef = b2_defaultBodyDef;
+b2BodyDef bodyDef = b2DefaultBodyDef();
 bodyDef.type = b2_dynamicBody;
 bodyDef.position = {0.0f, 4.0f};
 b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
 ```
-Body creation is very similar in v3.0. In this case there is a constant definition initializer `b2_defaultBodyDef`. This can help save a bit of typing in some cases. In v3.0 I recommend getting comfortable with curly brace initialization for initializing vectors. There are no member functions in C. Notice that the body is created using a loose function and providing the `b2WorldId` as an argument. Basically what you would expect going from C++ to C.
+Body creation is very similar in v3.0. In this case there is a definition initialization function `b2DefaultBodyDef()`. This can help save a bit of typing in some cases. In v3.0 I recommend getting comfortable with curly brace initialization for initializing vectors. There are no member functions in C. Notice that the body is created using a loose function and providing the `b2WorldId` as an argument. Basically what you would expect going from C++ to C.
 
 Destroying a body is also similar.
 Version 2.4:
@@ -99,7 +100,7 @@ Version 3.0:
 ```c
 b2Polygon box = b2MakeBox(1.0f, 1.0f);
 
-b2ShapeDef shapeDef = b2_defaultShapeDef;
+b2ShapeDef shapeDef = b2DefaultShapeDef();
 shapeDef.density = 1.0f;
 shapeDef.friction = 0.3f;
 
@@ -155,7 +156,7 @@ b2Vec2 points[5] = {
     {0.0f, -2.0f}
 };
 
-b2ChainDef chainDef = b2_defaultChainDef;
+b2ChainDef chainDef = b2DefaultChainDef();
 chainDef.points = points;
 chainDef.count = 5;
 chainDef.loop = true;
@@ -203,6 +204,25 @@ Some of the joints have more options now. Check the code comments and samples fo
 The friction joint has been removed since it is a subset of the motor joint.
 
 The pulley and gear joints have been removed. I'm not quite happy with how they work and plan to implement improved versions in the future.
+
+There is one major change related to joints and related to reducing the number of callbacks. It is now required that you destroy joints before destroying the attached bodies. There is no implicit desctruction of joints and therefore no implicit joint destruction callback.
+
+> You must destroy joints before destroying the attached bodies. This means you need to keep track of your joint ids.
+
+### New solver
+There is a new solver that uses sub-stepping. Intead of specifying velocity iterations or position iterations, you now specify the number of sub-steps.
+```c
+void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount);
+```
+It is recommend to start with 4 sub-steps and adjust as needed. The sub-stepping only computes contact points once per full time step, so contact events are for the full time step.
+
+With a sub-stepping solver you need to think differently about how you interact with bodies. Externally applied impulses or velocity adjustments no longer exist after the first sub-step. So if you try to control the movement of a body by setting the velocity every time step then you may get unexpected results. You will get more predicatable results by applying a force and/or torque. Forces and torques are spread across all time steps.
+
+If you want full control over the movement of a body, considering setting the body type to `b2_kinematicBody`. Prefably this is done in the `b2BodyDef`:
+```c
+b2BodyDef bodyDef = b2DefaultBodyDef();
+bodyDef.type = b2_kinematicBody;
+```
 
 ### Contact data
 In v2.4 `b2ContactListener` provided `BeginContact`, `EndContact`, `PreSolve`, and `PostSolve`. You could also iterate over the contacts associated with a body using `b2Body::GetContactList`. The latter was rarely used due to how continuous collision worked in v2.4 meant that you could miss some contacts using `GetContactList`.

@@ -132,7 +132,7 @@ static void b2EnableBody(b2World* world, b2Body* body)
 		b2Shape* shape = world->shapes + shapeIndex;
 		shapeIndex = shape->nextShapeIndex;
 
-		b2CreateShapeProxy(shape, &world->broadPhase, body->type, body->transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, body->type, b2MakeTransform(body));
 	}
 
 	b2CreateIslandForBody(world, body, true);
@@ -212,17 +212,14 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->gravityScale) && def->gravityScale >= 0.0f);
 
 	body->type = def->type;
-	body->transform.p = def->position;
-	body->transform.q = b2MakeRot(def->angle);
-	body->position0 = def->position;
+	body->origin = def->position;
+	body->rotation = b2MakeRot(def->angle);
 	body->position = def->position;
-	body->angle0 = def->angle;
-	body->angle = def->angle;
+	body->rotation0 = body->rotation;
+	body->position0 = body->position;
 	body->localCenter = b2Vec2_zero;
 	body->linearVelocity = def->linearVelocity;
 	body->angularVelocity = def->angularVelocity;
-	body->deltaPosition = b2Vec2_zero;
-	body->deltaAngle = 0.0f;
 	body->force = b2Vec2_zero;
 	body->torque = 0.0f;
 	body->shapeList = B2_NULL_INDEX;
@@ -236,6 +233,7 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->I = 0.0f;
 	body->invI = 0.0f;
 	body->minExtent = b2_huge;
+	body->maxExtent = 0.0f;
 	body->linearDamping = def->linearDamping;
 	body->angularDamping = def->angularDamping;
 	body->gravityScale = def->gravityScale;
@@ -407,7 +405,7 @@ b2AABB b2Body_ComputeAABB(b2BodyId bodyId)
 	b2Body* body = b2GetBody(world, bodyId);
 	if (body->shapeList == B2_NULL_INDEX)
 	{
-		return (b2AABB){body->transform.p, body->transform.p};
+		return (b2AABB){body->origin, body->origin};
 	}
 
 	b2Shape* shape = world->shapes + body->shapeList;
@@ -435,7 +433,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	// Static and kinematic bodies have zero mass.
 	if (body->type == b2_staticBody || body->type == b2_kinematicBody)
 	{
-		body->position = body->transform.p;
+		body->position = body->origin;
 		return;
 	}
 
@@ -487,7 +485,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	// Move center of mass.
 	b2Vec2 oldCenter = body->position;
 	body->localCenter = localCenter;
-	body->position = b2TransformPoint(body->transform, body->localCenter);
+	body->position = b2Add(b2RotateVector(body->rotation, body->localCenter), body->origin);
 
 	// Update center of mass velocity.
 	b2Vec2 deltaLinear = b2CrossSV(body->angularVelocity, b2Sub(body->position, oldCenter));
@@ -559,7 +557,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 
 	if (body->isEnabled)
 	{
-		b2CreateShapeProxy(shape, &world->broadPhase, body->type, body->transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, body->type, b2MakeTransform(body));
 	}
 
 	// Add to shape linked list
@@ -838,49 +836,56 @@ b2Vec2 b2Body_GetPosition(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return body->transform.p;
+	return body->origin;
+}
+
+b2Rot b2Body_GetRotation(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->rotation;
 }
 
 float b2Body_GetAngle(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return body->angle;
+	return b2Rot_GetAngle(body->rotation);
 }
 
 b2Transform b2Body_GetTransform(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return body->transform;
+	return b2MakeTransform(body);
 }
 
 b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 globalPoint)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return b2InvTransformPoint(body->transform, globalPoint);
+	return b2InvTransformPoint(b2MakeTransform(body), globalPoint);
 }
 
 b2Vec2 b2Body_GetWorldPoint(b2BodyId bodyId, b2Vec2 localPoint)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return b2TransformPoint(body->transform, localPoint);
+	return b2TransformPoint(b2MakeTransform(body), localPoint);
 }
 
 b2Vec2 b2Body_GetLocalVector(b2BodyId bodyId, b2Vec2 globalVector)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return b2InvRotateVector(body->transform.q, globalVector);
+	return b2InvRotateVector(body->rotation, globalVector);
 }
 
 b2Vec2 b2Body_GetWorldVector(b2BodyId bodyId, b2Vec2 localVector)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
-	return b2RotateVector(body->transform.q, localVector);
+	return b2RotateVector(body->rotation, localVector);
 }
 
 void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
@@ -890,14 +895,13 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 
 	b2Body* body = b2GetBody(world, bodyId);
 
-	body->transform.p = position;
-	body->transform.q = b2MakeRot(angle);
+	body->origin = position;
 
-	body->position = b2TransformPoint(body->transform, body->localCenter);
-	body->angle = angle;
+	body->rotation = b2MakeRot(angle);
+	body->position = b2Add(b2RotateVector(body->rotation, body->localCenter), body->origin);
 
+	body->rotation0 = body->rotation;
 	body->position0 = body->position;
-	body->angle0 = body->angle;
 
 	b2BroadPhase* broadPhase = &world->broadPhase;
 
@@ -906,7 +910,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
-		shape->aabb = b2ComputeShapeAABB(shape, body->transform);
+		shape->aabb = b2ComputeShapeAABB(shape, b2MakeTransform(body));
 
 		if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 		{
@@ -943,6 +947,11 @@ void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity)
 	}
 
 	body->linearVelocity = linearVelocity;
+
+	if (b2LengthSquared(linearVelocity) > 0.0f)
+	{
+		b2WakeBody(world, body);
+	}
 }
 
 void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity)
@@ -1169,7 +1178,7 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	body->I = massData.I;
 	body->localCenter = massData.center;
 
-	b2Vec2 p = b2TransformPoint(body->transform, massData.center);
+	b2Vec2 p = b2Add(b2RotateVector(body->rotation, massData.center), body->origin);
 	body->position = p;
 	body->position0 = p;
 

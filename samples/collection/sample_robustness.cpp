@@ -229,8 +229,8 @@ class OverlapRecovery : public Sample
 		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 10);
 		changed = changed || ImGui::SliderFloat("Overlap", &m_overlap, 0.0f, 1.0f, "%.1f");
 		changed = changed || ImGui::SliderFloat("Pushout", &m_pushout, 0.0f, 10.0f, "%.1f");
-		changed = changed || ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 120.0f, "%.1f");
-		changed = changed || ImGui::SliderFloat("Damping Ratio", &m_dampingRatio, 0.0f, 4.0f, "%.1f");
+		changed = changed || ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 120.0f, "%.f");
+		changed = changed || ImGui::SliderFloat("Damping Ratio", &m_dampingRatio, 0.0f, 20.0f, "%.1f");
 		changed = changed || ImGui::Button("Reset Scene");
 
 		if (changed)

@@ -430,10 +430,13 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	bool sensorB = shapeB->isSensor;
 	bool sensor = sensorA || sensorB;
 
+	b2Transform transformA = b2MakeTransform(bodyA);
+	b2Transform transformB = b2MakeTransform(bodyB);
+
 	// Is this contact a sensor?
 	if (sensor)
 	{
-		touching = b2TestShapeOverlap(shapeA, bodyA->transform, shapeB, bodyB->transform);
+		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB);
 
 		// Sensors don't generate manifolds.
 	}
@@ -442,7 +445,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
-		contact->manifold = fcn(shapeA, bodyA->transform, shapeB, bodyB->transform, &contact->cache);
+		contact->manifold = fcn(shapeA, transformA, shapeB, transformB, &contact->cache);
 
 		touching = contact->manifold.pointCount > 0;
 
@@ -451,11 +454,18 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
-			mp2->anchorA = b2Sub(mp2->point, bodyA->position);
-			mp2->anchorB = b2Sub(mp2->point, bodyB->position);
+
+			// make anchors relative to center of mass
+			b2Vec2 centerOffsetA = b2RotateVector(transformA.q, bodyA->localCenter);
+			b2Vec2 centerOffsetB = b2RotateVector(transformB.q, bodyB->localCenter);
+			mp2->anchorA = b2Sub(mp2->anchorA, centerOffsetA);
+			mp2->anchorB = b2Sub(mp2->anchorB, centerOffsetB);
+			
 			mp2->normalImpulse = 0.0f;
 			mp2->tangentImpulse = 0.0f;
+			mp2->maxNormalImpulse = 0.0f;
 			mp2->persisted = false;
+
 			uint16_t id2 = mp2->id;
 
 			for (int32_t j = 0; j < oldManifold.pointCount; ++j)

@@ -226,8 +226,8 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_distanceJoint;
-	joint->localAnchorA = def->localAnchorA;
-	joint->localAnchorB = def->localAnchorB;
+	joint->localOriginAnchorA = def->localAnchorA;
+	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
 
 	b2DistanceJoint empty = {0};
@@ -271,8 +271,8 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_motorJoint;
-	joint->localAnchorA = (b2Vec2){0.0f, 0.0f};
-	joint->localAnchorB = (b2Vec2){0.0f, 0.0f};
+	joint->localOriginAnchorA = (b2Vec2){0.0f, 0.0f};
+	joint->localOriginAnchorB = (b2Vec2){0.0f, 0.0f};
 	joint->collideConnected = true;
 
 	joint->motorJoint = (b2MotorJoint){0};
@@ -306,16 +306,15 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_mouseJoint;
-	joint->localAnchorA = b2InvTransformPoint(bodyA->transform, def->target);
-	joint->localAnchorB = b2InvTransformPoint(bodyB->transform, def->target);
+	joint->localOriginAnchorA = b2InvTransformPoint(b2MakeTransform(bodyA), def->target);
+	joint->localOriginAnchorB = b2InvTransformPoint(b2MakeTransform(bodyB), def->target);
 	joint->collideConnected = true;
 
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
 	joint->mouseJoint.targetA = def->target;
-	joint->mouseJoint.maxForce = def->maxForce;
-	joint->mouseJoint.stiffness = def->stiffness;
-	joint->mouseJoint.damping = def->damping;
+	joint->mouseJoint.hertz = def->hertz;
+	joint->mouseJoint.dampingRatio = def->dampingRatio;
 
 	b2JointId jointId = {joint->object.index, world->index, joint->object.revision};
 	return jointId;
@@ -341,8 +340,8 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_revoluteJoint;
-	joint->localAnchorA = def->localAnchorA;
-	joint->localAnchorB = def->localAnchorB;
+	joint->localOriginAnchorA = def->localAnchorA;
+	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
 	joint->drawSize = def->drawSize;
 
@@ -392,8 +391,8 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_prismaticJoint;
-	joint->localAnchorA = def->localAnchorA;
-	joint->localAnchorB = def->localAnchorB;
+	joint->localOriginAnchorA = def->localAnchorA;
+	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
 
 	b2PrismaticJoint empty = {0};
@@ -443,8 +442,8 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_weldJoint;
-	joint->localAnchorA = def->localAnchorA;
-	joint->localAnchorB = def->localAnchorB;
+	joint->localOriginAnchorA = def->localAnchorA;
+	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
 
 	b2WeldJoint empty = {0};
@@ -487,8 +486,8 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_wheelJoint;
-	joint->localAnchorA = def->localAnchorA;
-	joint->localAnchorB = def->localAnchorB;
+	joint->localOriginAnchorA = def->localAnchorA;
+	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
 
 	// todo test this
@@ -504,8 +503,8 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	joint->wheelJoint.upperTranslation = def->upperTranslation;
 	joint->wheelJoint.maxMotorTorque = def->maxMotorTorque;
 	joint->wheelJoint.motorSpeed = def->motorSpeed;
-	joint->wheelJoint.stiffness = def->stiffness;
-	joint->wheelJoint.damping = def->damping;
+	joint->wheelJoint.hertz = def->hertz;
+	joint->wheelJoint.dampingRatio = def->dampingRatio;
 	joint->wheelJoint.enableLimit = def->enableLimit;
 	joint->wheelJoint.enableMotor = def->enableMotor;
 
@@ -737,10 +736,7 @@ void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias)
 			break;
 
 		case b2_mouseJoint:
-			if (useBias)
-			{
-				b2SolveMouseJoint(joint, context);
-			}
+			b2SolveMouseJoint(joint, context);
 			break;
 
 		case b2_prismaticJoint:
@@ -764,14 +760,13 @@ void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias)
 	}
 }
 
-void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context)
+void b2PrepareOverflowJoints(b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
 	b2World* world = context->world;
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2Joint* joints = world->joints;
-	b2StepContext* stepContext = context->stepContext;
 	int32_t* jointIndices = graph->overflow.jointArray;
 	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
 	bool enableWarmStarting = world->enableWarmStarting;
@@ -784,25 +779,19 @@ void b2PrepareAndWarmStartOverflowJoints(b2SolverTaskContext* context)
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2PrepareJoint(joint, stepContext);
-
-		if (enableWarmStarting)
-		{
-			b2WarmStartJoint(joint, stepContext);
-		}
+		b2PrepareJoint(joint, context);
 	}
 
 	b2TracyCZoneEnd(prepare_joints);
 }
 
-void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias)
+void b2WarmStartOverflowJoints(b2StepContext* context)
 {
-	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
+	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
 	b2World* world = context->world;
-	b2Graph* graph = context->graph;
+	b2ConstraintGraph* graph = context->graph;
 	b2Joint* joints = world->joints;
-	b2StepContext* stepContext = context->stepContext;
 	int32_t* jointIndices = graph->overflow.jointArray;
 	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
 
@@ -814,7 +803,31 @@ void b2SolveOverflowJoints(b2SolverTaskContext* context, bool useBias)
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2SolveJoint(joint, stepContext, useBias);
+		b2WarmStartJoint(joint, context);
+	}
+
+	b2TracyCZoneEnd(prepare_joints);
+}
+
+void b2SolveOverflowJoints(b2StepContext* context, bool useBias)
+{
+	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
+
+	b2World* world = context->world;
+	b2ConstraintGraph* graph = context->graph;
+	b2Joint* joints = world->joints;
+	int32_t* jointIndices = graph->overflow.jointArray;
+	int32_t jointCount = b2Array(graph->overflow.jointArray).count;
+
+	for (int32_t i = 0; i < jointCount; ++i)
+	{
+		int32_t index = jointIndices[i];
+		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
+
+		b2Joint* joint = joints + index;
+		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+
+		b2SolveJoint(joint, context, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_joints);
@@ -880,10 +893,10 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		return;
 	}
 
-	b2Transform xfA = bodyA->transform;
-	b2Transform xfB = bodyB->transform;
-	b2Vec2 pA = b2TransformPoint(bodyA->transform, joint->localAnchorA);
-	b2Vec2 pB = b2TransformPoint(bodyB->transform, joint->localAnchorB);
+	b2Transform transformA = b2MakeTransform(bodyA);;
+	b2Transform transformB = b2MakeTransform(bodyB);
+	b2Vec2 pA = b2TransformPoint(transformA, joint->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(transformB, joint->localOriginAnchorB);
 
 	b2Color color = {0.5f, 0.8f, 0.8f, 1.0f};
 
@@ -930,9 +943,9 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			break;
 
 		default:
-			draw->DrawSegment(xfA.p, pA, color, draw->context);
+			draw->DrawSegment(transformA.p, pA, color, draw->context);
 			draw->DrawSegment(pA, pB, color, draw->context);
-			draw->DrawSegment(xfB.p, pB, color, draw->context);
+			draw->DrawSegment(transformB.p, pB, color, draw->context);
 	}
 
 	if (draw->drawGraphColors)

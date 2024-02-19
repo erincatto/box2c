@@ -3,14 +3,50 @@
 
 #pragma once
 
+#include "pool.h"
+
 #include "box2d/distance.h"
 #include "box2d/id.h"
 #include "box2d/math.h"
 
-#include "pool.h"
-
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
+
+// The body state is designed for fast conversion to and from SIMD via scatter-gather
+// todo every non-static body gets a solver body.
+// No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
+// Keep two solver body arrays: awake and sleeping
+// However, this makes it slower to access transform for collision/broad-phase?
+//
+// 32 bytes
+typedef struct b2BodyState
+{
+	b2Vec2 linearVelocity; // 8
+	float angularVelocity; // 4
+	int flags;			   // 4
+
+	// Using delta position reduces round-off error far from the origin
+	b2Vec2 deltaPosition; // 8
+
+	// Using delta rotation because I cannot access the full rotation on static bodies in
+	// the solver and must use zero delta rotation for static bodies (s,c) = (0,1)
+	b2Rot deltaRotation; // 8
+} b2BodyState;
+
+static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
+
+// Holds extra data needed by the constraint solver, but not in the SIMD contact solver
+typedef struct b2BodyParam
+{
+	float invMass;
+	float invI;
+	float linearDamping;
+	float angularDamping;
+	// force, torque, and gravity to be applied each sub-step
+	b2Vec2 linearVelocityDelta;
+	float angularVelocityDelta;
+	int bodyIndex;
+} b2BodyParam;
 
 // A rigid body
 typedef struct b2Body
@@ -19,26 +55,24 @@ typedef struct b2Body
 
 	enum b2BodyType type;
 
-	// the body origin transform (not center of mass)
-	b2Transform transform;
-	
+	// the body origin (not center of mass)
+	b2Vec2 origin;
+
+	// rotation
+	b2Rot rotation;
+
 	// center of mass position in world
-	b2Vec2 position0;
 	b2Vec2 position;
 
-	// rotation in radians
-	float angle0;
-	float angle;
+	// previous rotation and position for TOI
+	b2Rot rotation0;
+	b2Vec2 position0;
 
 	// location of center of mass relative to the body origin
 	b2Vec2 localCenter;
 
 	b2Vec2 linearVelocity;
 	float angularVelocity;
-
-	// These are the change in position/angle that accumulate across constraint substeps
-	b2Vec2 deltaPosition;
-	float deltaAngle;
 
 	b2Vec2 force;
 	float torque;
@@ -85,26 +119,15 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
-// TODO_ERIN every non-static body gets a solver body. No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
-// Keep two solver body arrays: awake and sleeping
-// 12 + 12 + 8 = 32 bytes
-typedef struct b2SolverBody
-{
-	b2Vec2 linearVelocity; // 8
-	float angularVelocity; // 4
-
-	// These are the change in position/angle that accumulate across constraint substeps
-	b2Vec2 deltaPosition; // 8
-	float deltaAngle;     // 4
-
-	float invMass; // 4
-	float invI;    // 4
-} b2SolverBody;
-
 b2Body* b2GetBody(b2World* world, b2BodyId id);
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
+
+static inline b2Transform b2MakeTransform(const b2Body* body)
+{
+	return (b2Transform){body->origin, body->rotation};
+}
 
 static inline b2Sweep b2MakeSweep(const b2Body* body)
 {
@@ -113,15 +136,15 @@ static inline b2Sweep b2MakeSweep(const b2Body* body)
 	{
 		s.c1 = body->position;
 		s.c2 = body->position;
-		s.a1 = body->angle;
-		s.a2 = body->angle;
+		s.q1 = body->rotation;
+		s.q2 = body->rotation;
 	}
 	else
 	{
 		s.c1 = body->position0;
 		s.c2 = body->position;
-		s.a1 = body->angle0;
-		s.a2 = body->angle;
+		s.q1 = body->rotation0;
+		s.q2 = body->rotation;
 	}
 
 	s.localCenter = body->localCenter;

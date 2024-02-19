@@ -56,7 +56,7 @@ Sample::Sample(const Settings& settings)
 	m_scheduler.Initialize(settings.workerCount);
 	m_taskCount = 0;
 
-	b2WorldDef worldDef = b2_defaultWorldDef;
+	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = settings.workerCount;
 	worldDef.enqueueTask = &EnqueueTask;
 	worldDef.finishTask = &FinishTask;
@@ -66,7 +66,7 @@ Sample::Sample(const Settings& settings)
 	// These are not ideal, but useful for testing Box2D
 	worldDef.bodyCapacity = 2;
 	worldDef.contactCapacity = 2;
-	worldDef.arenaAllocatorCapacity = 0;
+	worldDef.stackAllocatorCapacity = 0;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
@@ -143,19 +143,14 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 		if (B2_NON_NULL(queryContext.bodyId))
 		{
-			float frequencyHz = 5.0f;
-			float dampingRatio = 0.7f;
-			float mass = b2Body_GetMass(queryContext.bodyId);
-			
 			m_groundBodyId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
 			b2MouseJointDef jd = b2_defaultMouseJointDef;
 			jd.bodyIdA = m_groundBodyId;
 			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;
-			jd.maxForce = 1000.0f * mass;
-			b2LinearStiffness(&jd.stiffness, &jd.damping, frequencyHz, dampingRatio, m_groundBodyId, queryContext.bodyId);
-
+			jd.hertz = 5.0f;
+			jd.dampingRatio = 0.7f;
 			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
 
 			b2Body_Wake(queryContext.bodyId);
@@ -227,7 +222,7 @@ void Sample::Step(Settings& settings)
 
 	for (int32_t i = 0; i < 1; ++i)
 	{
-		b2World_Step(m_worldId, timeStep, settings.velocityIterations, settings.relaxIterations);
+		b2World_Step(m_worldId, timeStep, settings.subStepCount);
 		m_taskCount = 0;
 	}
 
@@ -338,11 +333,6 @@ void Sample::Step(Settings& settings)
 						  m_maxProfile.continuous);
 		m_textLine += m_textIncrement;
 	}
-
-	if (settings.drawContactPoints)
-	{
-
-	}
 }
 
 void Sample::ShiftOrigin(b2Vec2 newOrigin)
@@ -350,7 +340,7 @@ void Sample::ShiftOrigin(b2Vec2 newOrigin)
 	// m_world->ShiftOrigin(newOrigin);
 }
 
-SampleEntry g_sampleEntries[MAX_SAMPLES] = {{nullptr}};
+SampleEntry g_sampleEntries[MAX_SAMPLES] = {};
 int g_sampleCount = 0;
 
 int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn)

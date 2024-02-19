@@ -44,7 +44,7 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
-	b2Graph graph;
+	b2ConstraintGraph graph;
 
 	b2Pool bodyPool;
 	b2Pool contactPool;
@@ -95,9 +95,8 @@ typedef struct b2World
 	float contactPushoutVelocity;
 	float contactHertz;
 	float contactDampingRatio;
-
-	// This is used to compute the time step ratio to support a variable time step.
-	float inv_dt0;
+	float jointHertz;
+	float jointDampingRatio;
 
 	uint16_t revision;
 

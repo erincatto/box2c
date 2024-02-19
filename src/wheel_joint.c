@@ -37,105 +37,56 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 	int32_t indexB = base->edges[1].bodyIndex;
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
-
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
-
-	b2WheelJoint* joint = &base->wheelJoint;
-
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	b2Rot qA = bodyA->transform.q;
-	b2Rot qB = bodyB->transform.q;
+	base->invMassA = mA;
+	base->invMassB = mB;
+	base->invIA = iA;
+	base->invIB = iB;
 
-	// Compute the effective masses.
-	b2Vec2 rA = b2RotateVector(qA, b2Sub(base->localAnchorA, bodyA->localCenter));
-	b2Vec2 rB = b2RotateVector(qB, b2Sub(base->localAnchorB, bodyB->localCenter));
+	b2WheelJoint* joint = &base->wheelJoint;
 
-	joint->rA = rA;
-	joint->rB = rB;
-	b2Vec2 d = b2Add(b2Sub(bodyB->position, bodyA->position), b2Sub(rB, rA));
-	joint->pivotSeparation = d;
+	joint->indexA = context->bodyToSolverMap[indexA];
+	joint->indexB = context->bodyToSolverMap[indexB];
 
-	b2Vec2 axisA = b2RotateVector(qA, joint->localAxisA);
-	joint->axisA = axisA;
+	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
+	joint->axisA = b2RotateVector(bodyA->rotation, joint->localAxisA);
+	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+
+	b2Vec2 rA = joint->anchorA;
+	b2Vec2 rB = joint->anchorB;
+
+	b2Vec2 d = b2Add(joint->deltaCenter, b2Sub(rB, rA));
+	b2Vec2 axisA = joint->axisA;
 	b2Vec2 perpA = b2LeftPerp(axisA);
 
-	// Perpendicular constraint (keep wheel on line)
+	// perpendicular constraint (keep wheel on line)
 	float s1 = b2Cross(b2Add(d, rA), perpA);
 	float s2 = b2Cross(rB, perpA);
 	
 	float kp = mA + mB + iA * s1 * s1 + iB * s2 * s2;
 	joint->perpMass = kp > 0.0f ? 1.0f / kp : 0.0f;
 
-	// Spring constraint
+	// spring constraint
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
 
 	float ka = mA + mB + iA * a1 * a1 + iB * a2 * a2;
 	joint->axialMass = ka > 0.0f ? 1.0f / ka : 0.0f;
 
-	joint->springMass = 0.0f;
-	joint->bias = 0.0f;
-	joint->gamma = 0.0f;
-
-	if (joint->stiffness > 0.0f && ka > 0.0f)
-	{
-		float C = b2Dot(d, axisA);
-
-		float dt = context->dt;
-		joint->gamma = dt * (joint->damping + dt * joint->stiffness);
-		joint->gamma = joint->gamma > 0.0f ? 1.0f / joint->gamma : 0.0f;
-
-		joint->bias = dt * C * joint->stiffness * joint->gamma;
-
-		float ks = ka + joint->gamma;
-		joint->springMass = ks > 0.0f ? 1.0f / ks : 0.0f;
-	}
+	joint->springSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
 
 	float km = iA + iB;
 	joint->motorMass = km > 0.0f ? 1.0f / km : 0.0f;
 
-	//// hertz = 1/4 * substep Hz
-	const float hertz = 0.25f * context->velocityIterations * context->inv_dt;
-	const float zeta = 1.0f;
-	float omega = 2.0f * b2_pi * hertz;
-	float h = context->dt;
-
-	joint->biasCoefficient = omega / (2.0f * zeta + h * omega);
-	float c = h * omega * (2.0f * zeta + h * omega);
-	joint->impulseCoefficient = 1.0f / (1.0f + c);
-	joint->massCoefficient = c * joint->impulseCoefficient;
-
-	if (joint->enableLimit == false)
-	{
-		joint->lowerImpulse = 0.0f;
-		joint->upperImpulse = 0.0f;
-	}
-
-	if (joint->enableMotor == false)
-	{
-		joint->motorImpulse = 0.0f;
-	}
-
-	if (context->enableWarmStarting)
-	{
-		float dtRatio = context->dtRatio;
-
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->perpImpulse = 0.0f;
-		joint->motorImpulse *= dtRatio;
-		joint->springImpulse *= dtRatio;
-		joint->lowerImpulse *= dtRatio;
-		joint->upperImpulse *= dtRatio;
-	}
-	else
+	if (context->enableWarmStarting == false)
 	{
 		joint->perpImpulse = 0.0f;
 		joint->springImpulse = 0.0f;
@@ -149,79 +100,82 @@ void b2WarmStartWheelJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_wheelJoint);
 
+	float mA = base->invMassA;
+	float mB = base->invMassB;
+	float iA = base->invIA;
+	float iB = base->invIB;
+
+	// dummy state for static bodies
+	b2BodyState dummyState = b2_identityBodyState;
+
 	b2WheelJoint* joint = &base->wheelJoint;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	// Note: must warm start solver bodies
-	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
-	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2Vec2 d = b2Add(b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), joint->deltaCenter), b2Sub(rB, rA));
+	b2Vec2 axisA = b2RotateVector(stateA->deltaRotation, joint->axisA);
+	b2Vec2 perpA = b2LeftPerp(axisA);
 
-	b2Vec2 rA = joint->rA;
-	b2Vec2 rB = joint->rB;
-	b2Vec2 d = joint->pivotSeparation;
-
-	b2Vec2 axisA = joint->axisA;
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
+	float s1 = b2Cross(b2Add(d, rA), perpA);
+	float s2 = b2Cross(rB, perpA);
 
 	float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
+	
+	b2Vec2 P = b2Add(b2MulSV(axialImpulse, axisA), b2MulSV(joint->perpImpulse, perpA));
+	float LA = axialImpulse * a1 + joint->perpImpulse * s1 + joint->motorImpulse;
+	float LB = axialImpulse * a2 + joint->perpImpulse * s2 + joint->motorImpulse;
 
-	b2Vec2 P = b2MulSV(axialImpulse, axisA);
-	float LA = axialImpulse * a1 + joint->motorImpulse;
-	float LB = axialImpulse * a2 + joint->motorImpulse;
-
-	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
-	bodyA->angularVelocity -= iA * LA;
-	bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
-	bodyB->angularVelocity += iB * LB;
+	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, P);
+	stateA->angularVelocity -= iA * LA;
+	stateB->linearVelocity = b2MulAdd(stateB->linearVelocity, mB, P);
+	stateB->angularVelocity += iB * LB;
 }
 
 void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_wheelJoint);
 
+	float mA = base->invMassA;
+	float mB = base->invMassB;
+	float iA = base->invIA;
+	float iB = base->invIB;
+
+	// dummy state for static bodies
+	b2BodyState dummyState = b2_identityBodyState;
+
 	b2WheelJoint* joint = &base->wheelJoint;
 
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2BodyState dummyBody = {0};
 
-	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
-	b2Vec2 vA = bodyA->linearVelocity;
-	float wA = bodyA->angularVelocity;
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
-	b2Vec2 vB = bodyB->linearVelocity;
-	float wB = bodyB->angularVelocity;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2Vec2 vA = stateA->linearVelocity;
+	float wA = stateA->angularVelocity;
+	b2Vec2 vB = stateB->linearVelocity;
+	float wB = stateB->angularVelocity;
 
 	bool fixedRotation = (iA + iB == 0.0f);
 
-	// Small angle approximation
-	b2Vec2 drA = b2CrossSV(bodyA->deltaAngle, joint->rA);
-	b2Vec2 drB = b2CrossSV(bodyB->deltaAngle, joint->rB);
+	// current anchors
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
-	b2Vec2 rA = b2Add(joint->rA, drA);
-	b2Vec2 rB = b2Add(joint->rB, drB);
+	b2Vec2 d = b2Add(b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), joint->deltaCenter), b2Sub(rB, rA));
+	b2Vec2 axisA = b2RotateVector(stateA->deltaRotation, joint->axisA);
+	float translation = b2Dot(axisA, d);
 
-	b2Vec2 d = b2Add(joint->pivotSeparation, b2Sub(drB, drA));
+	float a1 = b2Cross(b2Add(d, rA), axisA);
+	float a2 = b2Cross(rB, axisA);
 
-	float dAngleA = bodyA->deltaAngle;
-	
-	// Small angle approximation
-	b2Vec2 axisA = {joint->axisA.x - dAngleA * joint->axisA.y, dAngleA * joint->axisA.x + joint->axisA.y};
-	axisA = b2Normalize(axisA);
-
-	// Solve motor constraint
+	// motor constraint
 	if (joint->enableMotor && fixedRotation == false)
 	{
 		float Cdot = wB - wA - joint->motorSpeed;
@@ -235,13 +189,16 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		wB += iB * impulse;
 	}
 
-	float a1 = b2Cross(b2Add(d, rA), axisA);
-	float a2 = b2Cross(rB, axisA);
-
-	// Solve spring constraint
+	// spring constraint
 	{
+		// This is a real spring and should be applied even during relax
+		float C = translation;
+		float bias = joint->springSoftness.biasRate * C;
+		float massScale = joint->springSoftness.massScale;
+		float impulseScale = joint->springSoftness.impulseScale;
+
 		float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
-		float impulse = -joint->springMass * (Cdot + joint->bias + joint->gamma * joint->springImpulse);
+		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->springImpulse;
 		joint->springImpulse += impulse;
 
 		b2Vec2 P = b2MulSV(impulse, axisA);
@@ -268,18 +225,18 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			if (C > 0.0f)
 			{
 				// speculation
-				bias = C * context->inv_dt;
+				bias = C * context->inv_h;
 			}
 			else if (useBias)
 			{
-				bias = joint->biasCoefficient * C;
-				massScale = joint->massCoefficient;
-				impulseScale = joint->impulseCoefficient;
+				bias = context->jointSoftness.biasRate * C;
+				massScale = context->jointSoftness.massScale;
+				impulseScale = context->jointSoftness.impulseScale;
 			}
 
-			float oldImpulse = joint->lowerImpulse;
 			float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
-			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
+			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
+			float oldImpulse = joint->lowerImpulse;
 			joint->lowerImpulse = B2_MAX(oldImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
 
@@ -306,19 +263,19 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			if (C > 0.0f)
 			{
 				// speculation
-				bias = C * context->inv_dt;
+				bias = C * context->inv_h;
 			}
 			else if (useBias)
 			{
-				bias = joint->biasCoefficient * C;
-				massScale = joint->massCoefficient;
-				impulseScale = joint->impulseCoefficient;
+				bias = context->jointSoftness.biasRate * C;
+				massScale = context->jointSoftness.massScale;
+				impulseScale = context->jointSoftness.impulseScale;
 			}
 
-			float oldImpulse = joint->upperImpulse;
-			// sign flipped
+			// sign flipped on Cdot
 			float Cdot = b2Dot(axisA, b2Sub(vA, vB)) + a1 * wA - a2 * wB;
-			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
+			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->upperImpulse;
+			float oldImpulse = joint->upperImpulse;
 			joint->upperImpulse = B2_MAX(oldImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
 
@@ -326,7 +283,7 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			float LA = impulse * a1;
 			float LB = impulse * a2;
 
-			// sign flipped
+			// sign flipped on applied impulse
 			vA = b2MulAdd(vA, mA, P);
 			wA += iA * LA;
 			vB = b2MulSub(vB, mB, P);
@@ -334,14 +291,9 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		}
 	}
 
-	// Solve the prismatic constraint in block form
+	// point to line constraint
 	{
 		b2Vec2 perpA = b2LeftPerp(axisA);
-
-		float s1 = b2Cross(b2Add(d, rA), perpA);
-		float s2 = b2Cross(rB, perpA);
-
-		float Cdot = b2Dot(perpA, b2Sub(vB, vA)) + s2 * wB - s1 * wA;
 
 		float bias = 0.0f;
 		float massScale = 1.0f;
@@ -349,14 +301,17 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		if (useBias)
 		{
 			float C = b2Dot(perpA, d);
-			bias = joint->biasCoefficient * C;
-			massScale = joint->massCoefficient;
-			impulseScale = joint->impulseCoefficient;
+			bias = context->jointSoftness.biasRate * C;
+			massScale = context->jointSoftness.massScale;
+			impulseScale = context->jointSoftness.impulseScale;
 		}
 
-		float oldImpulse = joint->perpImpulse;
-		float impulse = -joint->perpMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
-		joint->perpImpulse = impulse;
+		float s1 = b2Cross(b2Add(d, rA), perpA);
+		float s2 = b2Cross(rB, perpA);
+		float Cdot = b2Dot(perpA, b2Sub(vB, vA)) + s2 * wB - s1 * wA;
+
+		float impulse = -massScale * joint->perpMass * (Cdot + bias) - impulseScale * joint->perpImpulse;
+		joint->perpImpulse += impulse;
 
 		b2Vec2 P = b2MulSV(impulse, perpA);
 		float LA = impulse * s1;
@@ -368,13 +323,13 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		wB += iB * LB;
 	}
 
-	bodyA->linearVelocity = vA;
-	bodyA->angularVelocity = wA;
-	bodyB->linearVelocity = vB;
-	bodyB->angularVelocity = wB;
+	stateA->linearVelocity = vA;
+	stateA->angularVelocity = wA;
+	stateB->linearVelocity = vB;
+	stateB->angularVelocity = wB;
 }
 
-void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness)
+void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);
@@ -385,11 +340,10 @@ void b2WheelJoint_SetStiffness(b2JointId jointId, float stiffness)
 
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_wheelJoint);
-
-	joint->wheelJoint.stiffness = stiffness;
+	joint->wheelJoint.hertz = hertz;
 }
 
-void b2WheelJoint_SetDamping(b2JointId jointId, float damping)
+void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	B2_ASSERT(world->locked == false);
@@ -400,8 +354,7 @@ void b2WheelJoint_SetDamping(b2JointId jointId, float damping)
 
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_wheelJoint);
-
-	joint->wheelJoint.damping = damping;
+	joint->wheelJoint.dampingRatio = dampingRatio;
 }
 
 void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit)
@@ -416,7 +369,14 @@ void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_wheelJoint);
 
+	if (joint->wheelJoint.enableLimit != enableLimit)
+	{
+		joint->wheelJoint.lowerImpulse = 0.0f;
+		joint->wheelJoint.upperImpulse = 0.0f;
+	}
+
 	joint->wheelJoint.enableLimit = enableLimit;
+
 }
 
 void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor)
@@ -430,6 +390,11 @@ void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_wheelJoint);
+
+	if (joint->wheelJoint.enableMotor != enableMotor)
+	{
+		joint->wheelJoint.motorImpulse = 0.0f;
+	}
 
 	joint->wheelJoint.enableMotor = enableMotor;
 }
@@ -530,10 +495,10 @@ void b2DrawWheelJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* b
 
 	b2WheelJoint* joint = &base->wheelJoint;
 
-	b2Transform xfA = bodyA->transform;
-	b2Transform xfB = bodyB->transform;
-	b2Vec2 pA = b2TransformPoint(xfA, base->localAnchorA);
-	b2Vec2 pB = b2TransformPoint(xfB, base->localAnchorB);
+	b2Transform xfA = b2MakeTransform(bodyA);
+	b2Transform xfB = b2MakeTransform(bodyB);
+	b2Vec2 pA = b2TransformPoint(xfA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(xfB, base->localOriginAnchorB);
 
 	b2Vec2 axis = b2RotateVector(xfA.q, joint->localAxisA);
 

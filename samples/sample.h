@@ -78,7 +78,7 @@ constexpr int32_t maxTasks = 64;
 class Sample
 {
   public:
-	Sample(const Settings& settings);
+	explicit Sample(const Settings& settings);
 	virtual ~Sample();
 
 	void DrawTitle(const char* string);
@@ -89,17 +89,12 @@ class Sample
 	virtual void Keyboard(int)
 	{
 	}
-	virtual void KeyboardUp(int)
-	{
-	}
 	virtual void MouseDown(b2Vec2 p, int button, int mod);
 	virtual void MouseUp(b2Vec2 p, int button);
 	virtual void MouseMove(b2Vec2 p);
 
 	void ResetProfile();
 	void ShiftOrigin(b2Vec2 newOrigin);
-
-	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, int32_t color);
 
 	friend class DestructionListener;
 	friend class BoundaryListener;

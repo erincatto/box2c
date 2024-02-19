@@ -101,7 +101,7 @@ void TiltedStacks(int testIndex, int workerCount)
 	b2Vec2 gravity = {0.0f, -10.0f};
 
 	// Construct a world object, which will hold and simulate the rigid bodies.
-	b2WorldDef worldDef = b2_defaultWorldDef;
+	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.gravity = gravity;
 	worldDef.enqueueTask = EnqueueTask;
 	worldDef.finishTask = FinishTask;
@@ -153,12 +153,11 @@ void TiltedStacks(int testIndex, int workerCount)
 	}
 
 	float timeStep = 1.0f / 60.0f;
-	int velocityIterations = 6;
-	int relaxIterations = 2;
+	int subStepCount = 3;
 
 	for (int i = 0; i < 100; ++i)
 	{
-		b2World_Step(worldId, timeStep, velocityIterations, relaxIterations);
+		b2World_Step(worldId, timeStep, subStepCount);
 		TracyCFrameMark;
 	}
 

@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include "box2d/color.h"
-#include "box2d/constants.h"
-#include "box2d/id.h"
+#include "color.h"
+#include "constants.h"
+#include "id.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -49,7 +49,7 @@ typedef struct b2Vec2
 /// 2D rotation
 typedef struct b2Rot
 {
-	/// Sine and cosine
+	/// sine and cosine
 	float s, c;
 } b2Rot;
 
@@ -104,12 +104,27 @@ typedef struct b2CastOutput
 /// Task interface
 /// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.
 /// The task spans a range of the parallel-for: [startIndex, endIndex)
-/// The thread index must correctly identify each thread in the user thread pool, expected in [0, workerCount)
+/// The worker index must correctly identify each worker in the user thread pool, expected in [0, workerCount).
+///	A worker must only exist on only one thread at a time and is analogous to the thread index.
 /// The task context is the context pointer sent from Box2D when it is enqueued.
-typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext);
+///	The startIndex and endIndex are expected in the range [0, itemCount) where itemCount is the argument to b2EnqueueTaskCallback below.
+///	Box2D expects startIndex < endIndex and will execute a loop like this:
+///	for (int i = startIndex; i < endIndex; ++i)
+///	{
+///		DoWork();
+///	}
+typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t workerIndex, void* taskContext);
 
 /// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
-/// Returns a pointer to the user's task object. May be nullptr.
+/// Returns a pointer to the user's task object. May be nullptr. A nullptr indicates to Box2D that the work was executed
+///	serially within the callback and there is no need to call b2FinishTaskCallback.
+///	The itemCount is the number of Box2D work items that are to be partitioned among workers by the user's task system.
+///	This is essentially a parallel-for. The minRange parameter is a suggestion of the minimum number of items to assign
+///	per worker to reduce overhead. For example, suppose the task is small and that itemCount is 16. A minRange of 8 suggests
+///	that your task system should split the work items amoung just two workers, even if you have more available.
+///	In general the range [startIndex, endIndex) send to b2TaskCallback should obey:
+///	endIndex - startIndex >= minRange
+///	The exception of course is when itemCount < minRange.
 typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext,
 									void* userContext);
 
@@ -135,8 +150,17 @@ typedef struct b2WorldDef
 	/// Contact bounciness. Non-dimensional.
 	float contactDampingRatio;
 
+	/// Joint stiffness. Cycles per second.
+	float jointHertz;
+
+	/// Joint bounciness. Non-dimensional.
+	float jointDampingRatio;
+
 	/// Can bodies go to sleep to improve performance
 	bool enableSleep;
+
+	/// Enable continuous collision
+	bool enableContinous;
 
 	/// Capacity for bodies. This may not be exceeded.
 	int32_t bodyCapacity;
@@ -153,7 +177,7 @@ typedef struct b2WorldDef
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
 	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
 	/// application.
-	int32_t arenaAllocatorCapacity;
+	int32_t stackAllocatorCapacity;
 
 	/// task system hookup
 	uint32_t workerCount;
@@ -169,23 +193,30 @@ typedef struct b2WorldDef
 } b2WorldDef;
 
 /// Use this to initialize your world definition
-static const b2WorldDef b2_defaultWorldDef = {
-	{0.0f, -10.0f},				   // gravity
-	1.0f * b2_lengthUnitsPerMeter, // restitutionThreshold
-	3.0f * b2_lengthUnitsPerMeter, // contactPushoutVelocity
-	30.0,						   // contactHertz
-	1.0f,						   // contactDampingRatio
-	true,						   // enableSleep
-	0,							   // bodyCapacity
-	0,							   // shapeCapacity
-	0,							   // contactCapacity
-	0,							   // jointCapacity
-	1024 * 1024,				   // arenaAllocatorCapacity
-	0,							   // workerCount
-	NULL,						   // enqueueTask
-	NULL,						   // finishTask
-	NULL,						   // userTaskContext
-};
+static inline b2WorldDef b2DefaultWorldDef()
+{
+	b2WorldDef def = B2_ZERO_INIT;
+	def.gravity.x = 0.0f;
+	def.gravity.y = -10.0f;
+	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0;
+	def.contactDampingRatio = 10.0f;
+	def.jointHertz = 60.0;
+	def.jointDampingRatio = 2.0f;
+	def.enableSleep = true;
+	def.enableContinous = true;
+	def.bodyCapacity = 0;
+	def.shapeCapacity = 0;
+	def.contactCapacity = 0;
+	def.jointCapacity = 0;
+	def.stackAllocatorCapacity = 1024 * 1024;
+	def.workerCount = 0;
+	def.enqueueTask = NULL;
+	def.finishTask = NULL;
+	def.userTaskContext = NULL;
+	return def;
+}
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved

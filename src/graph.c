@@ -34,19 +34,19 @@
 // scatter would write to the same kinematic body from multiple threads. Even if these writes don't modify the body, they will
 // cause horrible cache stalls. To make this feasible I would need a way to block these writes.
 
-// This is used for debugging making all constraints be assigned to overflow.
+// This is used for debugging by making all constraints be assigned to overflow.
 #define B2_FORCE_OVERFLOW 0
 
 typedef struct b2WorkerContext
 {
-	b2SolverTaskContext* context;
+	b2StepContext* context;
 	int32_t workerIndex;
 	void* userTask;
 } b2WorkerContext;
 
-void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
+void b2CreateGraph(b2ConstraintGraph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
 {
-	*graph = (b2Graph){0};
+	*graph = (b2ConstraintGraph){0};
 
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
 	contactCapacity = B2_MAX(contactCapacity, 8);
@@ -68,7 +68,7 @@ void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity
 	graph->overflow.contactConstraints = NULL;
 }
 
-void b2DestroyGraph(b2Graph* graph)
+void b2DestroyGraph(b2ConstraintGraph* graph)
 {
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
@@ -87,7 +87,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
 	B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
 
-	b2Graph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->graph;
 
 #if B2_FORCE_OVERFLOW == 0
 	int32_t bodyIndexA = contact->edges[0].bodyIndex;
@@ -170,7 +170,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
 	B2_ASSERT(contact->colorSubIndex != B2_NULL_INDEX);
 
-	b2Graph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->graph;
 
 	// Overflow
 	if (contact->colorIndex == b2_overflowIndex)
@@ -258,7 +258,7 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 	B2_ASSERT(joint->colorIndex == B2_NULL_INDEX);
 	B2_ASSERT(joint->colorSubIndex == B2_NULL_INDEX);
 
-	b2Graph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->graph;
 
 #if B2_FORCE_OVERFLOW == 0
 	int32_t bodyIndexA = joint->edges[0].bodyIndex;
@@ -338,7 +338,7 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 	B2_ASSERT(joint->colorIndex != B2_NULL_INDEX);
 	B2_ASSERT(joint->colorSubIndex != B2_NULL_INDEX);
 
-	b2Graph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->graph;
 
 	// Overflow
 	if (joint->colorIndex == b2_overflowIndex)
@@ -420,68 +420,61 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 	joint->colorSubIndex = B2_NULL_INDEX;
 }
 
-static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+// Integrate velocities and apply damping.
+static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(integrate_velocity, "IntVel", b2_colorDeepPink, true);
 
-	b2Vec2 gravity = context->world->gravity;
-	b2Body** bodies = context->awakeBodies;
-	b2SolverBody* solverBodies = context->solverBodies;
-	int32_t* bodyToSolverMap = context->bodyToSolverMap;
+	b2BodyState* states = context->bodyStates;
+	const b2BodyParam* params = context->bodyParams;
 
-	float h = context->timeStep;
+	float maxLinearSpeed = b2_maxTranslation * context->inv_dt;
+	float maxAngularSpeed = b2_maxRotation * context->inv_dt;
+	float maxLinearSpeedSquared = maxLinearSpeed * maxLinearSpeed;
+	float maxAngularSpeedSquared = maxAngularSpeed * maxAngularSpeed;
 
-	// Integrate velocities and apply damping. Initialize the body state.
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
-		b2Body* body = bodies[i];
-		//_m_prefetch(bodies[i + 1]);
+		const b2BodyParam* param = params + i;
+		b2BodyState* state = states + i;
 
-		// create body map used to prepare constraints
-		B2_ASSERT(body->object.index < context->world->bodyPool.capacity);
-		bodyToSolverMap[body->object.index] = i;
+		b2Vec2 v = state->linearVelocity;
+		float w = state->angularVelocity;
 
-		float invMass = body->invMass;
-		float invI = body->invI;
+		// Apply forces, torque, gravity, and damping
+		v = b2MulAdd(param->linearVelocityDelta, param->linearDamping, v);
+		w = param->angularVelocityDelta + param->angularDamping * w;
 
-		b2Vec2 v = body->linearVelocity;
-		float w = body->angularVelocity;
+		// Clamp to max linear speed
+		if (b2Dot(v, v) > maxLinearSpeedSquared)
+		{
+			float ratio = maxLinearSpeed / b2Length(v);
+			v = b2MulSV(ratio, v);
+			state->flags = 1;
+		}
 
-		// Integrate velocities
-		v = b2Add(v, b2MulSV(h * invMass, b2MulAdd(body->force, body->gravityScale * body->mass, gravity)));
-		w = w + h * invI * body->torque;
+		// Clamp to max angular speed
+		if (w * w > maxAngularSpeedSquared)
+		{
+			float ratio = maxAngularSpeed / B2_ABS(w);
+			w *= ratio;
+			state->flags = 1;
+		}
 
-		// Apply damping.
-		// ODE: dv/dt + c * v = 0
-		// Solution: v(t) = v0 * exp(-c * t)
-		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
-		// v2 = exp(-c * dt) * v1
-		// Pade approximation:
-		// v2 = v1 * 1 / (1 + c * dt)
-		v = b2MulSV(1.0f / (1.0f + h * body->linearDamping), v);
-		w *= 1.0f / (1.0f + h * body->angularDamping);
-
-		b2SolverBody* solverBody = solverBodies + i;
-		solverBody->linearVelocity = v;
-		solverBody->angularVelocity = w;
-
-		solverBody->deltaAngle = 0.0f;
-		solverBody->deltaPosition = b2Vec2_zero;
-
-		solverBody->invMass = invMass;
-		solverBody->invI = invI;
+		state->linearVelocity = v;
+		state->angularVelocity = w;
 	}
 
 	b2TracyCZoneEnd(integrate_velocity);
 }
 
-static void b2PrepareJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+static void b2PrepareJointsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
 	b2World* world = context->world;
+
 	b2Joint* joints = world->joints;
-	b2StepContext* stepContext = context->stepContext;
 	const int32_t* jointIndices = context->jointIndices;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
@@ -492,19 +485,18 @@ static void b2PrepareJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCo
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2PrepareJoint(joint, stepContext);
+		b2PrepareJoint(joint, context);
 	}
 
 	b2TracyCZoneEnd(prepare_joints);
 }
 
-static void b2WarmStartJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex)
+static void b2WarmStartJointsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
 {
 	b2TracyCZoneNC(warm_joints, "WarmJoints", b2_colorGold, true);
 
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
-	b2StepContext* stepContext = context->stepContext;
 	int32_t* jointIndices = context->graph->colors[colorIndex].jointArray;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
@@ -515,19 +507,18 @@ static void b2WarmStartJoints(int32_t startIndex, int32_t endIndex, b2SolverTask
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2WarmStartJoint(joint, stepContext);
+		b2WarmStartJoint(joint, context);
 	}
 
 	b2TracyCZoneEnd(warm_joints);
 }
 
-static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context, int32_t colorIndex, bool useBias)
+static void b2SolveJointsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
 
 	b2World* world = context->world;
 	b2Joint* joints = world->joints;
-	b2StepContext* stepContext = context->stepContext;
 	int32_t* jointIndices = context->graph->colors[colorIndex].jointArray;
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
@@ -538,26 +529,27 @@ static void b2SolveJoints(int32_t startIndex, int32_t endIndex, b2SolverTaskCont
 		b2Joint* joint = joints + index;
 		B2_ASSERT(b2ObjectValid(&joint->object) == true);
 
-		b2SolveJoint(joint, stepContext, useBias);
+		b2SolveJoint(joint, context, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_joints);
 }
 
-static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2SolverTaskContext* context)
+static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(integrate_positions, "IntPos", b2_colorDarkSeaGreen, true);
 
-	b2SolverBody* bodies = context->solverBodies;
-	float h = context->subStep;
+	b2BodyState* states = context->bodyStates;
+	float h = context->h;
 
 	B2_ASSERT(startIndex <= endIndex);
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		b2SolverBody* body = bodies + i;
-		body->deltaAngle += h * body->angularVelocity;
-		body->deltaPosition = b2MulAdd(body->deltaPosition, h, body->linearVelocity);
+		b2BodyState* state = states + i;
+
+		state->deltaRotation = b2IntegrateRotation(state->deltaRotation, h * state->angularVelocity);
+		state->deltaPosition = b2MulAdd(state->deltaPosition, h, state->linearVelocity);
 	}
 
 	b2TracyCZoneEnd(integrate_positions);
@@ -567,15 +559,15 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 {
 	b2TracyCZoneNC(finalize_bodies, "FinalizeBodies", b2_colorViolet, true);
 
-	b2SolverTaskContext* context = taskContext;
+	b2StepContext* context = taskContext;
 	b2World* world = context->world;
 	bool enableSleep = world->enableSleep;
 	b2Body* bodies = world->bodies;
-	const b2SolverBody* solverBodies = context->solverBodies;
+	const b2BodyState* states = context->bodyStates;
 	b2Contact* contacts = world->contacts;
 	const int32_t* solverToBodyMap = context->solverToBodyMap;
 	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
-	float timeStep = context->timeStep;
+	float timeStep = context->dt;
 
 	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
@@ -592,48 +584,30 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		const b2SolverBody* solverBody = solverBodies + i;
+		const b2BodyState* state = states + i;
 
 		int32_t bodyIndex = solverToBodyMap[i];
 		b2Body* body = bodies + bodyIndex;
 		B2_ASSERT(b2ObjectValid(&body->object));
 
-		b2Vec2 v = solverBody->linearVelocity;
-		float w = solverBody->angularVelocity;
+		b2Vec2 v = state->linearVelocity;
+		float w = state->angularVelocity;
 
-		body->isSpeedCapped = false;
-		float ratioLinear = 1.0f;
-		b2Vec2 translation = b2MulSV(timeStep, v);
-		if (b2Dot(translation, translation) > b2_maxTranslation * b2_maxTranslation)
-		{
-			body->isSpeedCapped = true;
-			ratioLinear = b2_maxTranslation / b2Length(translation);
-		}
-
-		float ratioAngular = 1.0f;
-		float rotation = timeStep * w;
-		if (rotation * rotation > b2_maxRotation * b2_maxRotation)
-		{
-			body->isSpeedCapped = true;
-			ratioAngular = b2_maxRotation / B2_ABS(rotation);
-		}
-
-		float ratio = B2_MIN(ratioLinear, ratioAngular);
-		v = b2MulSV(ratio, v);
-		w = ratio * w;
+		B2_ASSERT(b2Vec2_IsValid(v));
+		B2_ASSERT(b2IsValid(w));
 
 		body->linearVelocity = v;
 		body->angularVelocity = w;
+		body->isSpeedCapped = state->flags != 0;
 
-		body->position = b2Add(body->position, solverBody->deltaPosition);
-		body->angle += solverBody->deltaAngle;
+		body->position = b2Add(body->position, state->deltaPosition);
+		body->rotation = b2MulRot(state->deltaRotation, body->rotation);
+		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
-		// TODO_ERIN separate loop to compute rotations in SIMD
-		body->transform.q = b2MakeRot(body->angle);
-		body->transform.p = b2Sub(body->position, b2RotateVector(body->transform.q, body->localCenter));
-
+		// reset applied force and torque
 		body->force = b2Vec2_zero;
 		body->torque = 0.0f;
+
 		body->isFast = false;
 
 		if (enableSleep == false || body->enableSleep == false || w * w > angTolSqr || b2Dot(v, v) > linTolSqr)
@@ -652,14 +626,14 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			{
 				// Body is safe to advance
 				body->position0 = body->position;
-				body->angle0 = body->angle;
+				body->rotation0 = body->rotation;
 			}
 		}
 		else
 		{
 			// Body is safe to advance
 			body->position0 = body->position;
-			body->angle0 = body->angle;
+			body->rotation0 = body->rotation;
 			body->sleepTime += timeStep;
 		}
 
@@ -671,6 +645,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		}
 
 		// Update shapes AABBs
+		b2Transform transform = b2MakeTransform(body);
 		bool isFast = body->isFast;
 		int32_t shapeIndex = body->shapeList;
 		while (shapeIndex != B2_NULL_INDEX)
@@ -690,7 +665,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			}
 			else
 			{
-				shape->aabb = b2ComputeShapeAABB(shape, body->transform);
+				shape->aabb = b2ComputeShapeAABB(shape, transform);
 
 				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 				{
@@ -725,9 +700,9 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 /*
  typedef enum b2SolverStageType
 {
-	b2_stageIntegrateVelocities,
 	b2_stagePrepareJoints,
 	b2_stagePrepareContacts,
+	b2_stageIntegrateVelocities,
 	b2_stageWarmStart,
 	b2_stageSolve,
 	b2_stageIntegratePositions,
@@ -746,7 +721,7 @@ typedef enum b2SolverBlockType
 } b2SolverBlockType;
 */
 
-static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b2SolverBlock* block)
+static void b2ExecuteBlock(b2SolverStage* stage, b2StepContext* context, b2SolverBlock* block)
 {
 	b2SolverStageType stageType = stage->type;
 	b2SolverBlockType blockType = block->blockType;
@@ -755,16 +730,16 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b
 
 	switch (stageType)
 	{
-		case b2_stageIntegrateVelocities:
-			b2IntegrateVelocitiesTask(startIndex, endIndex, context);
-			break;
-
 		case b2_stagePrepareJoints:
-			b2PrepareJoints(startIndex, endIndex, context);
+			b2PrepareJointsTask(startIndex, endIndex, context);
 			break;
 
 		case b2_stagePrepareContacts:
-			b2PrepareContactsSIMD(startIndex, endIndex, context);
+			b2PrepareContactsTask(startIndex, endIndex, context);
+			break;
+
+		case b2_stageIntegrateVelocities:
+			b2IntegrateVelocitiesTask(startIndex, endIndex, context);
 			break;
 
 		case b2_stageWarmStart:
@@ -772,11 +747,11 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b
 			{
 				if (blockType == b2_graphContactBlock)
 				{
-					b2WarmStartContactsSIMD(startIndex, endIndex, context, stage->colorIndex);
+					b2WarmStartContactsTask(startIndex, endIndex, context, stage->colorIndex);
 				}
 				else if (blockType == b2_graphJointBlock)
 				{
-					b2WarmStartJoints(startIndex, endIndex, context, stage->colorIndex);
+					b2WarmStartJointsTask(startIndex, endIndex, context, stage->colorIndex);
 				}
 			}
 			break;
@@ -784,11 +759,11 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b
 		case b2_stageSolve:
 			if (blockType == b2_graphContactBlock)
 			{
-				b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, true);
+				b2SolveContactsTask(startIndex, endIndex, context, stage->colorIndex, true);
 			}
 			else if (blockType == b2_graphJointBlock)
 			{
-				b2SolveJoints(startIndex, endIndex, context, stage->colorIndex, true);
+				b2SolveJointsTask(startIndex, endIndex, context, stage->colorIndex, true);
 			}
 			break;
 
@@ -799,23 +774,23 @@ static void b2ExecuteBlock(b2SolverStage* stage, b2SolverTaskContext* context, b
 		case b2_stageRelax:
 			if (blockType == b2_graphContactBlock)
 			{
-				b2SolveContactsSIMD(startIndex, endIndex, context, stage->colorIndex, false);
+				b2SolveContactsTask(startIndex, endIndex, context, stage->colorIndex, false);
 			}
 			else if (blockType == b2_graphJointBlock)
 			{
-				b2SolveJoints(startIndex, endIndex, context, stage->colorIndex, false);
+				b2SolveJointsTask(startIndex, endIndex, context, stage->colorIndex, false);
 			}
 			break;
 
 		case b2_stageRestitution:
 			if (blockType == b2_graphContactBlock)
 			{
-				b2ApplyRestitutionSIMD(startIndex, endIndex, context, stage->colorIndex);
+				b2ApplyRestitutionTask(startIndex, endIndex, context, stage->colorIndex);
 			}
 			break;
 
 		case b2_stageStoreImpulses:
-			b2StoreImpulsesSIMD(startIndex, endIndex, context);
+			b2StoreImpulsesTask(startIndex, endIndex, context);
 			break;
 	}
 }
@@ -832,7 +807,7 @@ static inline int32_t GetWorkerStartIndex(int32_t workerIndex, int32_t blockCoun
 	return blocksPerWorker * workerIndex + B2_MIN(remainder, workerIndex);
 }
 
-static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, int previousSyncIndex, int syncIndex,
+static void b2ExecuteStage(b2SolverStage* stage, b2StepContext* context, int previousSyncIndex, int syncIndex,
 						   int32_t workerIndex)
 {
 	int32_t completedCount = 0;
@@ -896,7 +871,7 @@ static void b2ExecuteStage(b2SolverStage* stage, b2SolverTaskContext* context, i
 	(void)atomic_fetch_add(&stage->completionCount, completedCount);
 }
 
-static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* context, uint32_t syncBits)
+static void b2ExecuteMainStage(b2SolverStage* stage, b2StepContext* context, uint32_t syncBits)
 {
 	int32_t blockCount = stage->blockCount;
 	if (blockCount == 0)
@@ -929,7 +904,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2SolverTaskContext* contex
 }
 
 // This should not use the thread index because thread 0 can be called twice by enkiTS.
-void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDontUse, void* taskContext)
+static void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDontUse, void* taskContext)
 {
 	B2_MAYBE_UNUSED(startIndex);
 	B2_MAYBE_UNUSED(endIndex);
@@ -937,7 +912,7 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 	b2WorkerContext* workerContext = taskContext;
 	int32_t workerIndex = workerContext->workerIndex;
-	b2SolverTaskContext* context = workerContext->context;
+	b2StepContext* context = workerContext->context;
 	int32_t activeColorCount = context->activeColorCount;
 	b2SolverStage* stages = context->stages;
 
@@ -945,16 +920,16 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 	{
 		// Main thread synchronizes the workers and does work itself.
 		//
-		// Stages are re-used for loops so that I don't need more stages for large iteration counts.
+		// Stages are re-used by loops so that I don't need more stages for large iteration counts.
 		// The sync indices grow monotonically for the body/graph/constraint groupings because they share solver blocks.
 		// The stage index and sync indices are combined in to sync bits for atomic synchronization.
 		// The workers need to compute the previous sync index for a given stage so that CAS works correctly. This
 		// setup makes this easy to do.
 
 		/*
-		b2_stageIntegrateVelocities = 0,
 		b2_stagePrepareJoints,
 		b2_stagePrepareContacts,
+		b2_stageIntegrateVelocities,
 		b2_stageWarmStart,
 		b2_stageSolve,
 		b2_stageIntegratePositions,
@@ -965,44 +940,60 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 
 		int32_t bodySyncIndex = 1;
 		int32_t stageIndex = 0;
-		uint32_t syncBits = (bodySyncIndex << 16) | stageIndex;
-		B2_ASSERT(stages[stageIndex].type == b2_stageIntegrateVelocities);
-		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
-		stageIndex += 1;
-		bodySyncIndex += 1;
 
+		// This stage loops over all awake joints
 		uint32_t jointSyncIndex = 1;
-		syncBits = (jointSyncIndex << 16) | stageIndex;
+		uint32_t syncBits = (jointSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareJoints);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 		stageIndex += 1;
-		// jointSyncIndex += 1;
+		jointSyncIndex += 1;
 
-		uint32_t constraintSyncIndex = 1;
-		syncBits = (constraintSyncIndex << 16) | stageIndex;
+		// This stage loops over all contact constraints
+		uint32_t contactSyncIndex = 1;
+		syncBits = (contactSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stagePrepareContacts);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 		stageIndex += 1;
-		constraintSyncIndex += 1;
+		contactSyncIndex += 1;
 
 		int32_t graphSyncIndex = 1;
-		for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
-		{
-			syncBits = (graphSyncIndex << 16) | stageIndex;
-			B2_ASSERT(stages[stageIndex].type == b2_stageWarmStart);
-			b2ExecuteMainStage(stages + stageIndex, context, syncBits);
-			stageIndex += 1;
-		}
-		graphSyncIndex += 1;
 
-		b2PrepareAndWarmStartOverflowJoints(context);
-		b2PrepareAndWarmStartOverflowContacts(context);
+		// Single-threaded overflow work. These constraints don't fit in the graph coloring.
+		b2PrepareOverflowJoints(context);
+		b2PrepareOverflowContacts(context);
 
-		int32_t velocityIterations = context->velocityIterations;
-		for (int32_t i = 0; i < velocityIterations; ++i)
+		int32_t subStepCount = context->subStepCount;
+		for (int32_t i = 0; i < subStepCount; ++i)
 		{
 			// stage index restarted each iteration
+			// syncBits still increases monotonically because the upper bits increase each iteration
 			int32_t iterStageIndex = stageIndex;
+
+			// integrate velocities
+			syncBits = (bodySyncIndex << 16) | iterStageIndex;
+			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegrateVelocities);
+			b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
+			iterStageIndex += 1;
+			bodySyncIndex += 1;
+
+			// warm start constraints
+			b2WarmStartOverflowJoints(context);
+			b2WarmStartOverflowContacts(context);
+
+			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
+			{
+				syncBits = (graphSyncIndex << 16) | iterStageIndex;
+				B2_ASSERT(stages[iterStageIndex].type == b2_stageWarmStart);
+				b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
+				iterStageIndex += 1;
+			}
+			graphSyncIndex += 1;
+
+			// solve constraints
+			bool useBias = true;
+			b2SolveOverflowJoints(context, useBias);
+			b2SolveOverflowContacts(context, useBias);
 
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
@@ -1013,22 +1004,17 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 			}
 			graphSyncIndex += 1;
 
-			b2SolveOverflowJoints(context, true);
-			b2SolveOverflowContacts(context, true);
-
+			// integrate positions
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegratePositions);
 			syncBits = (bodySyncIndex << 16) | iterStageIndex;
 			b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
+			iterStageIndex += 1;
 			bodySyncIndex += 1;
-		}
 
-		stageIndex += activeColorCount + 1;
-
-		int32_t relaxIterations = context->relaxIterations;
-		for (int32_t i = 0; i < relaxIterations; ++i)
-		{
-			// stage index restarted each iteration
-			int32_t iterStageIndex = stageIndex;
+			// relax constraints
+			useBias = false;
+			b2SolveOverflowJoints(context, useBias);
+			b2SolveOverflowContacts(context, useBias);
 
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
@@ -1038,15 +1024,16 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
-
-			b2SolveOverflowJoints(context, false);
-			b2SolveOverflowContacts(context, false);
 		}
 
-		stageIndex += activeColorCount;
+		// advance the stage according to the sub-stepping tasks just completed
+		// integrate velocities / warm start / solve / integrate positions / relax
+		stageIndex += 1 + activeColorCount + activeColorCount + 1 + activeColorCount;
 
 		// Restitution
 		{
+			b2ApplyOverflowRestitution(context);
+
 			int32_t iterStageIndex = stageIndex;
 			for (int32_t colorIndex = 0; colorIndex < activeColorCount; ++colorIndex)
 			{
@@ -1056,15 +1043,12 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 				iterStageIndex += 1;
 			}
 			// graphSyncIndex += 1;
-
-			b2ApplyOverflowRestitution(context);
+			stageIndex += activeColorCount;
 		}
-
-		stageIndex += activeColorCount;
 
 		b2StoreOverflowImpulses(context);
 
-		syncBits = (constraintSyncIndex << 16) | stageIndex;
+		syncBits = (contactSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 
@@ -1111,11 +1095,11 @@ void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDont
 }
 
 // Returns false if there is nothing awake
-static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
+static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_stages, "Prepare Stages", b2_colorDarkOrange, true);
 
-	b2Graph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
 
 	// Count awake bodies
@@ -1147,20 +1131,24 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	// Reserve space for awake bodies
 	b2Body* bodies = world->bodies;
 	b2Body** awakeBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2Body*), "awake bodies");
-	b2SolverBody* solverBodies =
-		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2SolverBody), "solver bodies");
+	b2BodyState* bodyStates =
+		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyState), "body states");
+	b2BodyParam* bodyParams =
+		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyParam), "body params");
 
 	// Map from solver body to body
-	// TODO_ERIN have body directly reference solver body for user access?
+	// todo have body directly reference solver body for user access?
 	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
 
 	// Map from world body to solver body
-	// TODO_ERIN eliminate this?
+	// todo eliminate this?
 	int32_t bodyCapacity = world->bodyPool.capacity;
 	int32_t* bodyToSolverMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
 	memset(bodyToSolverMap, 0xFF, bodyCapacity * sizeof(int32_t));
 
 	// Build array of awake bodies and also search for an awake island to split
+	b2Vec2 gravity = world->gravity;
+	float h = context->h;
 	int32_t splitIslandIndex = B2_NULL_INDEX;
 	int32_t maxRemovedContacts = 0;
 	int32_t splitIslandBodyCount = 0;
@@ -1190,9 +1178,33 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 			bodyToSolverMap[bodyIndex] = index;
 			solverToBodyMap[index] = bodyIndex;
 
-			// cache miss
-			bodyIndex = body->islandNext;
+			// todo cache misses
 
+			b2BodyState* state = bodyStates + index;
+			state->linearVelocity = body->linearVelocity;
+			state->angularVelocity = body->angularVelocity;
+			state->flags = 0;
+			state->deltaPosition = b2Vec2_zero;
+			state->deltaRotation = b2Rot_identity;
+
+			b2BodyParam* param = bodyParams + index;
+			param->invMass = body->invMass;
+			param->invI = body->invI;
+
+			// Apply damping.
+			// ODE: dv/dt + c * v = 0
+			// Solution: v(t) = v0 * exp(-c * t)
+			// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+			// v2 = exp(-c * dt) * v1
+			// Pade approximation:
+			// v2 = v1 * 1 / (1 + c * dt)
+			param->angularDamping = 1.0f / (1.0f + h * body->angularDamping);
+			param->linearDamping = 1.0f / (1.0f + h * body->linearDamping);
+
+			param->linearVelocityDelta = b2MulSV(body->invMass * h, b2MulAdd(body->force, body->mass * body->gravityScale, gravity));
+			param->angularVelocityDelta = h * body->invI * body->torque;
+
+			bodyIndex = body->islandNext;
 			index += 1;
 		}
 	}
@@ -1369,9 +1381,9 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 
 	/*
-	b2_stageIntegrateVelocities = 0,
 	b2_stagePrepareJoints,
 	b2_stagePrepareContacts,
+	b2_stageIntegrateVelocities,
 	b2_stageWarmStart,
 	b2_stageSolve,
 	b2_stageIntegratePositions,
@@ -1382,16 +1394,18 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	int32_t stageCount = 0;
 
-	// b2_stageIntegrateVelocities
-	stageCount += 1;
 	// b2_stagePrepareJoints
 	stageCount += 1;
 	// b2_stagePrepareContacts
 	stageCount += 1;
+	// b2_stageIntegrateVelocities
+	stageCount += 1;
 	// b2_stageWarmStart
 	stageCount += activeColorCount;
-	// b2_stageSolve, b2_stageIntegratePositions
-	stageCount += activeColorCount + 1;
+	// b2_stageSolve
+	stageCount += activeColorCount;
+	// b2_stageIntegratePositions
+	stageCount += 1;
 	// b2_stageRelax
 	stageCount += activeColorCount;
 	// b2_stageRestitution
@@ -1514,14 +1528,6 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 
 	b2SolverStage* stage = stages;
 
-	// Integrate velocities
-	stage->type = b2_stageIntegrateVelocities;
-	stage->blocks = bodyBlocks;
-	stage->blockCount = bodyBlockCount;
-	stage->colorIndex = -1;
-	stage->completionCount = 0;
-	stage += 1;
-
 	// Prepare joints
 	stage->type = b2_stagePrepareJoints;
 	stage->blocks = jointBlocks;
@@ -1534,6 +1540,14 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	stage->type = b2_stagePrepareContacts;
 	stage->blocks = contactBlocks;
 	stage->blockCount = contactBlockCount;
+	stage->colorIndex = -1;
+	stage->completionCount = 0;
+	stage += 1;
+
+	// Integrate velocities
+	stage->type = b2_stageIntegrateVelocities;
+	stage->blocks = bodyBlocks;
+	stage->blockCount = bodyBlockCount;
 	stage->colorIndex = -1;
 	stage->completionCount = 0;
 	stage += 1;
@@ -1604,41 +1618,28 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	B2_ASSERT(workerCount <= b2_maxWorkers);
 	b2WorkerContext workerContext[b2_maxWorkers];
 
-	int32_t velIters = B2_MAX(1, stepContext->velocityIterations);
-
-	stepContext->solverBodies = solverBodies;
-	stepContext->solverToBodyMap = solverToBodyMap;
-	stepContext->bodyToSolverMap = bodyToSolverMap;
-
-	b2SolverTaskContext context;
-	context.world = world;
-	context.graph = graph;
-	context.awakeBodies = awakeBodies;
-	context.solverBodies = solverBodies;
-	context.bodyToSolverMap = bodyToSolverMap;
-	context.solverToBodyMap = solverToBodyMap;
-	context.stepContext = stepContext;
-	context.contactConstraints = contactConstraints;
-	context.jointIndices = jointIndices;
-	context.contactIndices = contactIndices;
-	context.activeColorCount = activeColorCount;
-	context.velocityIterations = velIters;
-	context.relaxIterations = stepContext->relaxIterations;
-	context.workerCount = workerCount;
-	context.stageCount = stageCount;
-	context.stages = stages;
-	context.timeStep = stepContext->dt;
-	context.invTimeStep = stepContext->inv_dt;
-	context.subStep = context.timeStep / velIters;
-	context.invSubStep = velIters * stepContext->inv_dt;
-	context.syncBits = 0;
+	context->world = world;
+	context->graph = graph;
+	context->solverToBodyMap = solverToBodyMap;
+	context->bodyToSolverMap = bodyToSolverMap;
+	context->awakeBodies = awakeBodies;
+	context->bodyStates = bodyStates;
+	context->bodyParams = bodyParams;
+	context->contactConstraints = contactConstraints;
+	context->jointIndices = jointIndices;
+	context->contactIndices = contactIndices;
+	context->activeColorCount = activeColorCount;
+	context->workerCount = workerCount;
+	context->stageCount = stageCount;
+	context->stages = stages;
+	context->syncBits = 0;
 
 	b2TracyCZoneEnd(prepare_stages);
 
 	// Must use worker index because thread 0 can be assigned multiple tasks by enkiTS
 	for (int32_t i = 0; i < workerCount; ++i)
 	{
-		workerContext[i].context = &context;
+		workerContext[i].context = context;
 		workerContext[i].workerIndex = i;
 		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 		world->taskCount += 1;
@@ -1676,7 +1677,7 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	}
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
-	void* finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, &context, world->userTaskContext);
+	void* finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, context, world->userTaskContext);
 	world->taskCount += 1;
 	if (finalizeBodiesTask != NULL)
 	{
@@ -1694,7 +1695,8 @@ static bool b2SolveGraph(b2World* world, b2StepContext* stepContext)
 	b2FreeStackItem(world->stackAllocator, contactConstraints);
 	b2FreeStackItem(world->stackAllocator, bodyToSolverMap);
 	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
-	b2FreeStackItem(world->stackAllocator, solverBodies);
+	b2FreeStackItem(world->stackAllocator, bodyParams);
+	b2FreeStackItem(world->stackAllocator, bodyStates);
 	b2FreeStackItem(world->stackAllocator, awakeBodies);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
@@ -1915,8 +1917,9 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	// Prevent pausing on smooth segment junctions
 	if (shape->type == b2_smoothSegmentShape)
 	{
-		b2Vec2 p1 = shape->smoothSegment.segment.point1;
-		b2Vec2 p2 = shape->smoothSegment.segment.point2;
+		b2Transform transform = b2MakeTransform(body);
+		b2Vec2 p1 = b2TransformPoint(transform, shape->smoothSegment.segment.point1);
+		b2Vec2 p2 = b2TransformPoint(transform, shape->smoothSegment.segment.point2);
 		b2Vec2 e = b2Sub(p2, p1);
 		b2Vec2 c1 = continuousContext->centroid1;
 		b2Vec2 c2 = continuousContext->centroid2;
@@ -1958,10 +1961,12 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	b2Sweep sweep = b2MakeSweep(fastBody);
 
 	b2Transform xf1;
-	xf1.q = b2MakeRot(sweep.a1);
-	xf1.p = b2Sub(sweep.c1, b2RotateVector(xf1.q, sweep.localCenter));
+	xf1.q = sweep.q1;
+	xf1.p = b2Sub(sweep.c1, b2RotateVector(sweep.q1, sweep.localCenter));
 
-	b2Transform xf2 = fastBody->transform;
+	b2Transform xf2;
+	xf2.q = sweep.q2;
+	xf2.p = b2Sub(sweep.c2, b2RotateVector(sweep.q2, sweep.localCenter));
 
 	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
 
@@ -1999,20 +2004,18 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	if (context.fraction < 1.0f)
 	{
 		// Handle time of impact event
-
+		b2Rot q = b2NLerp(sweep.q1, sweep.q2, context.fraction);
 		b2Vec2 c = b2Lerp(sweep.c1, sweep.c2, context.fraction);
-		float a = sweep.a1 + context.fraction * (sweep.a2 - sweep.a1);
+		b2Vec2 origin = b2Sub(c, b2RotateVector(q, sweep.localCenter));
 
 		// Advance body
-		fastBody->angle0 = a;
-		fastBody->angle = a;
+		fastBody->rotation0 = q;
+		fastBody->rotation = q;
 		fastBody->position0 = c;
 		fastBody->position = c;
 
-		b2Transform xf;
-		xf.q = b2MakeRot(a);
-		xf.p = b2Sub(c, b2RotateVector(fastBody->transform.q, sweep.localCenter));
-		fastBody->transform = xf;
+		b2Transform xf = {origin, q};
+		fastBody->origin = origin;
 
 		// Prepare AABBs for broad-phase
 		shapeIndex = fastBody->shapeList;
@@ -2038,7 +2041,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		// No time of impact event
 
 		// Advance body
-		fastBody->angle0 = fastBody->angle;
+		fastBody->rotation0 = fastBody->rotation;
 		fastBody->position0 = fastBody->position;
 
 		// Prepare AABBs for broad-phase
@@ -2098,7 +2101,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	// Solve constraints using graph coloring
-	bool anyAwake = b2SolveGraph(world, context);
+	bool anyAwake = b2SolveConstraintGraph(world, context);
 
 	b2TracyCZoneEnd(graph_solver);
 

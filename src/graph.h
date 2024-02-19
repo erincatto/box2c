@@ -28,7 +28,7 @@ typedef struct b2GraphColor
 
 // This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
 // is touching many other bodies.
-typedef struct
+typedef struct b2GraphOverflow
 {
 	int32_t* contactArray;
 	int32_t* jointArray;
@@ -37,7 +37,7 @@ typedef struct
 	b2ContactConstraint* contactConstraints;
 } b2GraphOverflow;
 
-typedef struct b2Graph
+typedef struct b2ConstraintGraph
 {
 	b2GraphColor colors[b2_graphColorCount];
 	int32_t colorCount;
@@ -46,10 +46,10 @@ typedef struct b2Graph
 	int32_t occupancy[b2_graphColorCount + 1];
 
 	b2GraphOverflow overflow;
-} b2Graph;
+} b2ConstraintGraph;
 
-void b2CreateGraph(b2Graph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity);
-void b2DestroyGraph(b2Graph* graph);
+void b2CreateGraph(b2ConstraintGraph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity);
+void b2DestroyGraph(b2ConstraintGraph* graph);
 
 void b2AddContactToGraph(b2World* world, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);

@@ -846,18 +846,18 @@ public:
 					break;
 
 				case e_multiple:
-					g_draw.DrawString(5, m_textLine, "Cast mode: multiple - gather multiple shapes - unsorted");
+					g_draw.DrawString(5, m_textLine, "Cast mode: multiple - gather up to 3 shapes - unsorted");
 					break;
 
 				case e_sorted:
-					g_draw.DrawString(5, m_textLine, "Cast mode: sorted - gather multiple shapes sorted by closeness");
+					g_draw.DrawString(5, m_textLine, "Cast mode: sorted - gather up to 3 shapes sorted by closeness");
 					break;
 			}
 
 			m_textLine += m_textIncrement;
 
-			b2RayResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback, RayCastSortedCallback};
-			b2RayResultFcn* modeFcn = fcns[m_mode];
+			b2CastResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback, RayCastSortedCallback};
+			b2CastResultFcn* modeFcn = fcns[m_mode];
 
 			RayCastContext context = {0};
 

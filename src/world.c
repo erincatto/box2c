@@ -107,7 +107,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->index = id.index;
 
 	world->blockAllocator = b2CreateBlockAllocator();
-	world->stackAllocator = b2CreateStackAllocator(def->arenaAllocatorCapacity);
+	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2CreateBroadPhase(&world->broadPhase);
 	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);
@@ -145,20 +145,17 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stepId = 0;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
-
-	// Globals start at 0. It should be fine for this to roll over.
-	world->revision += 1;
-
 	world->gravity = def->gravity;
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->contactPushoutVelocity = def->contactPushoutVelocity;
 	world->contactHertz = def->contactHertz;
 	world->contactDampingRatio = def->contactDampingRatio;
-	world->inv_dt0 = 0.0f;
-	world->enableSleep = true;
+	world->jointHertz = def->jointHertz;
+	world->jointDampingRatio = def->jointDampingRatio;
+	world->enableSleep = def->enableSleep;
 	world->locked = false;
 	world->enableWarmStarting = true;
-	world->enableContinuous = true;
+	world->enableContinuous = def->enableContinous;
 	world->profile = b2_emptyProfile;
 	world->userTreeTask = NULL;
 	world->splitIslandIndex = B2_NULL_INDEX;
@@ -239,7 +236,10 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyBlockAllocator(world->blockAllocator);
 	b2DestroyStackAllocator(world->stackAllocator);
 
+	// Wipe world but preserve revision
+	uint16_t revision = world->revision;
 	*world = (b2World){0};
+	world->revision = revision + 1;
 }
 
 static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
@@ -377,12 +377,6 @@ static void b2Collide(b2World* world)
 		b2InPlaceUnion(bitSet, &world->taskContextArray[i].contactStateBitSet);
 	}
 
-	// Prepare to capture events
-	b2Array_Clear(world->sensorBeginEventArray);
-	b2Array_Clear(world->sensorEndEventArray);
-	b2Array_Clear(world->contactBeginArray);
-	b2Array_Clear(world->contactEndArray);
-
 	const b2Shape* shapes = world->shapes;
 	int16_t worldIndex = world->index;
 
@@ -492,16 +486,8 @@ static void b2Collide(b2World* world)
 	b2TracyCZoneEnd(collide);
 }
 
-void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations, int32_t relaxIterations)
+void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 {
-	if (timeStep == 0.0f)
-	{
-		// TODO_ERIN would be useful to still process collision while paused
-		return;
-	}
-
-	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
-
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
@@ -509,6 +495,22 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		return;
 	}
 
+	// Prepare to capture events
+	// Ensure user does not access stale data if there is an early return
+	b2Array_Clear(world->sensorBeginEventArray);
+	b2Array_Clear(world->sensorEndEventArray);
+	b2Array_Clear(world->contactBeginArray);
+	b2Array_Clear(world->contactEndArray);
+
+	if (timeStep == 0.0f)
+	{
+		// todo would be useful to still process collision while paused
+		return;
+	}
+
+	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
+
+	world->locked = true;
 	world->profile = b2_emptyProfile;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
@@ -522,24 +524,32 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		world->profile.pairs = b2GetMilliseconds(&timer);
 	}
 
-	// TODO_ERIN atomic
-	world->locked = true;
-
 	b2StepContext context = {0};
 	context.dt = timeStep;
-	context.velocityIterations = velocityIterations;
-	context.relaxIterations = relaxIterations;
+	context.subStepCount = B2_MAX(1, subStepCount);
 	if (timeStep > 0.0f)
 	{
 		context.inv_dt = 1.0f / timeStep;
+		context.h = timeStep / subStepCount;
+		context.inv_h = subStepCount * context.inv_dt;
 	}
 	else
 	{
 		context.inv_dt = 0.0f;
+		context.h = 0.0f;
+		context.inv_h = 0.0f;
 	}
 
-	context.dtRatio = world->inv_dt0 * timeStep;
+	// Hertz values get reduced for large time steps
+	float contactHertz = B2_MIN(world->contactHertz, 0.25f * context.inv_h);
+	float jointHertz = B2_MIN(world->jointHertz, 0.125f * context.inv_h);
+
+	context.contactSoftness = b2MakeSoft(contactHertz, world->contactDampingRatio, context.h);
+	context.staticSoftness = b2MakeSoft(2.0f * contactHertz, world->contactDampingRatio, context.h);
+	context.jointSoftness = b2MakeSoft(jointHertz, world->jointDampingRatio, context.h);
+
 	context.restitutionThreshold = world->restitutionThreshold;
+	context.maxBiasVelocity = b2_maxTranslation * context.inv_dt;
 	context.enableWarmStarting = world->enableWarmStarting;
 	context.bodies = world->bodies;
 	context.bodyCapacity = world->bodyPool.capacity;
@@ -557,11 +567,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t velocityIterations,
 		b2Timer timer = b2CreateTimer();
 		b2Solve(world, &context);
 		world->profile.solve = b2GetMilliseconds(&timer);
-	}
-
-	if (context.dt > 0.0f)
-	{
-		world->inv_dt0 = context.inv_dt;
 	}
 
 	world->locked = false;
@@ -677,7 +682,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				isAwake = world->islands[b->islandIndex].awakeIndex != B2_NULL_INDEX;
 			}
 
-			b2Transform xf = b->transform;
+			b2Transform xf = b2MakeTransform(b);
 			int32_t shapeIndex = b->shapeList;
 			while (shapeIndex != B2_NULL_INDEX)
 			{
@@ -719,7 +724,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				}
 				else
 				{
-					color = b2MakeColor(b2_colorGray5, 1.0f);
+					color = b2MakeColor(b2_colorGray, 1.0f);
 				}
 
 				b2DrawShape(draw, shape, xf, color);
@@ -791,7 +796,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
-			b2Transform transform = {body->position, body->transform.q};
+			b2Transform transform = {body->position, body->rotation};
 			draw->DrawTransform(transform, draw->context);
 
 			b2Vec2 p = b2TransformPoint(transform, offset);
@@ -1219,7 +1224,7 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	input.proxyA = worldContext->proxy;
 	input.proxyB = b2MakeShapeDistanceProxy(shape);
 	input.transformA = worldContext->transform;
-	input.transformB = world->bodies[shape->bodyIndex].transform;
+	input.transformB = b2MakeTransform(world->bodies + shape->bodyIndex);
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
@@ -1301,7 +1306,7 @@ void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Po
 typedef struct WorldRayCastContext
 {
 	b2World* world;
-	b2RayResultFcn* fcn;
+	b2CastResultFcn* fcn;
 	b2QueryFilter filter;
 	float fraction;
 	void* userContext;
@@ -1331,7 +1336,8 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	b2Body* body = world->bodies + bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
-	b2RayCastOutput output = b2RayCastShape(input, shape, body->transform);
+	b2Transform transform = b2MakeTransform(body);
+	b2RayCastOutput output = b2RayCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
@@ -1344,7 +1350,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	return input->maxFraction;
 }
 
-void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2RayResultFcn* fcn,
+void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 					 void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -1437,7 +1443,8 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 	b2Body* body = world->bodies + bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
-	b2RayCastOutput output = b2ShapeCastShape(input, shape, body->transform);
+	b2Transform transform = b2MakeTransform(body);
+	b2RayCastOutput output = b2ShapeCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
@@ -1451,7 +1458,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 }
 
 void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
-						b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+						b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1483,7 +1490,7 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 }
 
 void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
-						 b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1516,7 +1523,7 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 }
 
 void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
-						 b2QueryFilter filter, b2RayResultFcn* fcn, void* context)
+						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);

@@ -42,76 +42,40 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
-	b2DistanceJoint* joint = &base->distanceJoint;
-
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
-
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
 	float mB = bodyB->invMass;
 	float iB = bodyB->invI;
 
-	// Compute the effective masses.
-	joint->rA = b2RotateVector(bodyA->transform.q, b2Sub(base->localAnchorA, bodyA->localCenter));
-	joint->rB = b2RotateVector(bodyB->transform.q, b2Sub(base->localAnchorB, bodyB->localCenter));
-	joint->separation = b2Add(b2Sub(joint->rB, joint->rA), b2Sub(bodyB->position, bodyA->position));
+	base->invMassA = mA;
+	base->invMassB = mB;
+	base->invIA = iA;
+	base->invIB = iB;
 
-	b2Vec2 rA = joint->rA;
-	b2Vec2 rB = joint->rB;
+	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Vec2 axis = b2Normalize(joint->separation);
+	joint->indexA = context->bodyToSolverMap[indexA];
+	joint->indexB = context->bodyToSolverMap[indexB];
 
+	// initial anchors in world space
+	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
+	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
+	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+
+	b2Vec2 rA = joint->anchorA;
+	b2Vec2 rB = joint->anchorB;
+	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
+	b2Vec2 axis = b2Normalize(separation);
+
+	// compute effective mass
 	float crA = b2Cross(rA, axis);
 	float crB = b2Cross(rB, axis);
 	float k = mA + mB + iA * crA * crA + iB * crB * crB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
-	float dt = context->dt;
+	joint->distanceSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
 
-	// Spring parameters
-	if (joint->hertz > 0.0f)
-	{
-		float omega = 2.0f * b2_pi * joint->hertz;
-		float a1 = 2.0f * joint->dampingRatio + dt * omega;
-		float a2 = dt * omega * a1;
-		float a3 = 1.0f / (1.0f + a2);
-		joint->springBiasCoefficient = omega / a1;
-		joint->springImpulseCoefficient = a3;
-		joint->springMassCoefficient = a2 * a3;
-	}
-	else
-	{
-		joint->springBiasCoefficient = 0.0f;
-		joint->springImpulseCoefficient = 0.0f;
-		joint->springMassCoefficient = 0.0f;
-	}
-
-	// Limit parameters
-	{
-		// as rigid as possible: hertz = 1/4 * substep Hz
-		float hertz = 0.25f * context->velocityIterations * context->inv_dt;
-		float zeta = 1.0f;
-
-		float omega = 2.0f * b2_pi * hertz;
-		float a1 = 2.0f * zeta + dt * omega;
-		float a2 = dt * omega * a1;
-		float a3 = 1.0f / (1.0f + a2);
-		joint->limitBiasCoefficient = omega / a1;
-		joint->limitImpulseCoefficient = a3;
-		joint->limitMassCoefficient = a2 * a3;
-	}
-
-	if (context->enableWarmStarting)
-	{
-		float dtRatio = context->dtRatio;
-
-		// Soft step works best when bilateral constraints have no warm starting.
-		joint->impulse = 0.0f;
-		joint->lowerImpulse *= dtRatio;
-		joint->upperImpulse *= dtRatio;
-	}
-	else
+	if (context->enableWarmStarting == false)
 	{
 		joint->impulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
@@ -123,66 +87,64 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
+	float mA = base->invMassA;
+	float mB = base->invMassB;
+	float iA = base->invIA;
+	float iB = base->invIB;
+
+	// dummy state for static bodies
+	b2BodyState dummyState = b2_identityBodyState;
+
 	b2DistanceJoint* joint = &base->distanceJoint;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
-	// Note: must warm start solver bodies
-	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-
-	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
-
-	b2Vec2 rA = joint->rA;
-	b2Vec2 rB = joint->rB;
-
-	b2Vec2 axis = b2Normalize(joint->separation);
+	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));
+	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
+	b2Vec2 axis = b2Normalize(separation);
 
 	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
 	b2Vec2 P = b2MulSV(axialImpulse, axis);
 
-	bodyA->linearVelocity = b2MulSub(bodyA->linearVelocity, mA, P);
-	bodyA->angularVelocity -= iA * b2Cross(rA, P);
-	bodyB->linearVelocity = b2MulAdd(bodyB->linearVelocity, mB, P);
-	bodyB->angularVelocity += iB * b2Cross(rB, P);
+	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, P);
+	stateA->angularVelocity -= iA * b2Cross(rA, P);
+	stateB->linearVelocity = b2MulAdd(stateB->linearVelocity, mB, P);
+	stateB->angularVelocity += iB * b2Cross(rB, P);
 }
 
 void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
+	float mA = base->invMassA;
+	float mB = base->invMassB;
+	float iA = base->invIA;
+	float iB = base->invIB;
+
+	// dummy state for static bodies
+	b2BodyState dummyState = b2_identityBodyState;
+
 	b2DistanceJoint* joint = &base->distanceJoint;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	
+	b2Vec2 vA = stateA->linearVelocity;
+	float wA = stateA->angularVelocity;
+	b2Vec2 vB = stateB->linearVelocity;
+	float wB = stateB->angularVelocity;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
-	b2SolverBody dummyBody = {0};
+	// current anchors
+	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
+	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
-	b2SolverBody* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexA;
-	b2Vec2 vA = bodyA->linearVelocity;
-	float wA = bodyA->angularVelocity;
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
+	// current separation
+	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));
+	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
 
-	b2SolverBody* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyBody : context->solverBodies + joint->indexB;
-	b2Vec2 vB = bodyB->linearVelocity;
-	float wB = bodyB->angularVelocity;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
-
-	// Approximate change in anchors
-	// small angle approximation of sin(delta_angle) == delta_angle, cos(delta_angle) == 1
-	b2Vec2 drA = b2CrossSV(bodyA->deltaAngle, joint->rA);
-	b2Vec2 drB = b2CrossSV(bodyB->deltaAngle, joint->rB);
-
-	b2Vec2 rA = b2Add(joint->rA, drA);
-	b2Vec2 rB = b2Add(joint->rB, drB);
-	b2Vec2 ds = b2Add(b2Sub(bodyB->deltaPosition, bodyA->deltaPosition), b2Sub(drB, drA));
-	b2Vec2 separation = b2Add(joint->separation, ds);
-
-	float L = b2Length(separation);
+	float length = b2Length(separation);
 	b2Vec2 axis = b2Normalize(separation);
 
 	if (joint->minLength < joint->maxLength)
@@ -192,11 +154,11 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			// Cdot = dot(u, v + cross(w, r))
 			b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 			float Cdot = b2Dot(axis, vr);
-			float C = L - joint->length;
-			float bias = joint->springBiasCoefficient * C;
+			float C = length - joint->length;
+			float bias = joint->distanceSoftness.biasRate * C;
 
-			float m = joint->springMassCoefficient * joint->axialMass;
-			float impulse = -m * (Cdot + bias) - joint->springImpulseCoefficient * joint->impulse;
+			float m = joint->distanceSoftness.massScale * joint->axialMass;
+			float impulse = -m * (Cdot + bias) - joint->distanceSoftness.impulseScale * joint->impulse;
 			joint->impulse += impulse;
 
 			b2Vec2 P = b2MulSV(impulse, axis);
@@ -211,24 +173,24 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 			float Cdot = b2Dot(axis, vr);
 
-			float C = L - joint->minLength;
+			float C = length - joint->minLength;
 
 			float bias = 0.0f;
-			float massScale = 1.0f;
-			float impulseScale = 0.0f;
+			float massCoeff = 1.0f;
+			float impulseCoeff = 0.0f;
 			if (C > 0.0f)
 			{
 				// speculative
-				bias = C * context->inv_dt;
+				bias = C * context->inv_h;
 			}
 			else if (useBias)
 			{
-				bias = joint->limitBiasCoefficient * C;
-				massScale = joint->limitMassCoefficient;
-				impulseScale = joint->limitImpulseCoefficient;
+				bias = context->jointSoftness.biasRate * C;
+				massCoeff = context->jointSoftness.massScale;
+				impulseCoeff = context->jointSoftness.impulseScale;
 			}
 
-			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
+			float impulse = -massCoeff * joint->axialMass * (Cdot + bias) - impulseCoeff * joint->lowerImpulse;
 			float newImpulse = B2_MAX(0.0f, joint->lowerImpulse + impulse);
 			impulse = newImpulse - joint->lowerImpulse;
 			joint->lowerImpulse = newImpulse;
@@ -245,7 +207,7 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			b2Vec2 vr = b2Add(b2Sub(vA, vB), b2Sub(b2CrossSV(wA, rA), b2CrossSV(wB, rB)));
 			float Cdot = b2Dot(axis, vr);
 
-			float C = joint->maxLength - L;
+			float C = joint->maxLength - length;
 
 			float bias = 0.0f;
 			float massScale = 1.0f;
@@ -253,13 +215,13 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 			if (C > 0.0f)
 			{
 				// speculative
-				bias = C * context->inv_dt;
+				bias = C * context->inv_h;
 			}
 			else if (useBias)
 			{
-				bias = joint->limitBiasCoefficient * C;
-				massScale = joint->limitMassCoefficient;
-				impulseScale = joint->limitImpulseCoefficient;
+				bias = context->jointSoftness.biasRate * C;
+				massScale = context->jointSoftness.massScale;
+				impulseScale = context->jointSoftness.impulseScale;
 			}
 
 			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->upperImpulse;
@@ -276,20 +238,20 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	}
 	else
 	{
-		// Equal limits
+		// equal limits
 		b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 		float Cdot = b2Dot(axis, vr);
 
-		float C = L - joint->minLength;
+		float C = length - joint->minLength;
 
 		float bias = 0.0f;
 		float massScale = 1.0f;
 		float impulseScale = 0.0f;
 		if (useBias)
 		{
-			bias = joint->limitBiasCoefficient * C;
-			massScale = joint->limitMassCoefficient;
-			impulseScale = joint->limitImpulseCoefficient;
+			bias = context->jointSoftness.biasRate * C;
+			massScale = context->jointSoftness.massScale;
+			impulseScale = context->jointSoftness.impulseScale;
 		}
 
 		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->impulse;
@@ -302,10 +264,10 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		wB += iB * b2Cross(rB, P);
 	}
 
-	bodyA->linearVelocity = vA;
-	bodyA->angularVelocity = wA;
-	bodyB->linearVelocity = vB;
-	bodyB->angularVelocity = wB;
+	stateA->linearVelocity = vA;
+	stateA->angularVelocity = wA;
+	stateB->linearVelocity = vB;
+	stateB->angularVelocity = wB;
 }
 
 float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
@@ -352,8 +314,8 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 	B2_ASSERT(b2ObjectValid(&bodyA->object));
 	B2_ASSERT(b2ObjectValid(&bodyB->object));
 
-	b2Vec2 pA = b2TransformPoint(bodyA->transform, base->localAnchorA);
-	b2Vec2 pB = b2TransformPoint(bodyB->transform, base->localAnchorB);
+	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localOriginAnchorB);
 	b2Vec2 d = b2Sub(pB, pA);
 	float length = b2Length(d);
 	return length;
@@ -394,10 +356,10 @@ void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Transform xfA = bodyA->transform;
-	b2Transform xfB = bodyB->transform;
-	b2Vec2 pA = b2TransformPoint(xfA, base->localAnchorA);
-	b2Vec2 pB = b2TransformPoint(xfB, base->localAnchorB);
+	b2Transform xfA = b2MakeTransform(bodyA);
+	b2Transform xfB = b2MakeTransform(bodyB);
+	b2Vec2 pA = b2TransformPoint(xfA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(xfB, base->localOriginAnchorB);
 
 	b2Vec2 axis = b2Normalize(b2Sub(pB, pA));
 

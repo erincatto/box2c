@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "donut.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"
@@ -40,9 +41,9 @@ public:
 		m_hertz = 2.0f;
 		m_dampingRatio = 0.5f;
 		m_length = 1.0f;
-		m_minLength = 0.5f;
-		m_maxLength = 2.0f;
-		m_fixedLength = false;
+		m_minLength = m_length;
+		m_maxLength = m_length;
+		m_fixedLength = true;
 
 		for (int i = 0; i < e_maxCount; ++i)
 		{
@@ -303,7 +304,7 @@ public:
 		b2Vec2 force = b2MotorJoint_GetConstraintForce(m_jointId, settings.hertz);
 		float torque = b2MotorJoint_GetConstraintTorque(m_jointId, settings.hertz);
 
-		g_draw.DrawString(5, m_textLine, "force = {%g, %g}, torque = %g", force.x, force.y, torque);
+		g_draw.DrawString(5, m_textLine, "force = {%3.f, %3.f}, torque = %3.f", force.x, force.y, torque);
 		m_textLine += 15;
 	}
 
@@ -504,6 +505,7 @@ public:
 			b2CreatePolygonShape(bodyId, &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {0.0f, 9.0f};
+			// b2Vec2 axis = b2Normalize({1.0f, 0.0f});
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
 			b2PrismaticJointDef jointDef = b2_defaultPrismaticJointDef;
 			jointDef.bodyIdA = groundId;
@@ -543,7 +545,7 @@ public:
 			b2PrismaticJoint_SetMaxMotorForce(m_jointId, m_motorForce);
 		}
 
-		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -20.0f, 20.0f, "%.0f"))
+		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -40.0f, 40.0f, "%.0f"))
 		{
 			b2PrismaticJoint_SetMotorSpeed(m_jointId, m_motorSpeed);
 		}
@@ -592,6 +594,8 @@ public:
 		m_enableMotor = true;
 		m_motorSpeed = 2.0f;
 		m_motorTorque = 5.0f;
+		m_hertz = 1.0f;
+		m_dampingRatio = 0.7f;
 
 		{
 			b2Capsule capsule = {{0.0f, -0.5f}, {0.0f, 0.5f}, 0.5f};
@@ -602,10 +606,6 @@ public:
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2CreateCapsuleShape(bodyId, &b2_defaultShapeDef, &capsule);
-
-			float hertz = 1.0f;
-			float dampingRatio = 0.7f;
-			b2LinearStiffness(&m_stiffness, &m_damping, hertz, dampingRatio, groundId, bodyId);
 
 			b2Vec2 pivot = {0.0f, 10.0f};
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
@@ -621,8 +621,8 @@ public:
 			jointDef.lowerTranslation = -3.0f;
 			jointDef.upperTranslation = 3.0f;
 			jointDef.enableLimit = m_enableLimit;
-			jointDef.stiffness = m_stiffness;
-			jointDef.damping = m_damping;
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
 
 			m_jointId = b2CreateWheelJoint(m_worldId, &jointDef);
 		}
@@ -654,14 +654,14 @@ public:
 			b2WheelJoint_SetMotorSpeed(m_jointId, m_motorSpeed);
 		}
 
-		if (ImGui::SliderFloat("Stiffness", &m_stiffness, 0.0f, 100.0f, "%.0f"))
+		if (ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 30.0f, "%.1f"))
 		{
-			b2WheelJoint_SetStiffness(m_jointId, m_stiffness);
+			b2WheelJoint_SetSpringHertz(m_jointId, m_hertz);
 		}
 
-		if (ImGui::SliderFloat("Damping", &m_damping, 0.0f, 50.0f, "%.0f"))
+		if (ImGui::SliderFloat("Damping", &m_dampingRatio, 0.0f, 2.0f, "%.1f"))
 		{
-			b2WheelJoint_SetDamping(m_jointId, m_damping);
+			b2WheelJoint_SetSpringDampingRatio(m_jointId, m_dampingRatio);
 		}
 
 		ImGui::End();
@@ -682,8 +682,8 @@ public:
 	}
 
 	b2JointId m_jointId;
-	float m_stiffness;
-	float m_damping;
+	float m_hertz;
+	float m_dampingRatio;
 	float m_motorSpeed;
 	float m_motorTorque;
 	bool m_enableMotor;
@@ -958,9 +958,13 @@ public:
 		}
 
 		{
-			float hx = 0.5f;
-			b2Polygon box = b2MakeBox(hx, 0.125f);
+			m_linearHertz = 15.0f;
+			m_linearDampingRatio = 0.5f;
+			m_angularHertz = 5.0f;
+			m_angularDampingRatio = 0.5f;
 
+			float hx = 0.5f;
+			b2Capsule capsule = {{-hx, 0.0f}, {hx, 0.0f}, 0.125f};
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
 			shapeDef.density = 20.0f;
 
@@ -973,22 +977,65 @@ public:
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {(1.0f + 2.0f * i) * hx, 0.0f};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreatePolygonShape(bodyId, &shapeDef, &box);
+				b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
 
 				b2Vec2 pivot = {(2.0f * i) * hx, 0.0f};
 				jointDef.bodyIdA = prevBodyId;
 				jointDef.bodyIdB = bodyId;
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
-				// jointDef.angularHertz = i == 0 ? 0.0f : 1.0f;
-				// jointDef.linearHertz = 5.0f;
-				b2CreateWeldJoint(m_worldId, &jointDef);
+				jointDef.linearHertz = m_linearHertz;
+				jointDef.linearDampingRatio = m_linearDampingRatio;
+				jointDef.angularHertz = m_angularHertz;
+				jointDef.angularDampingRatio = m_angularDampingRatio;
+				m_jointIds[i] = b2CreateWeldJoint(m_worldId, &jointDef);
 
 				prevBodyId = bodyId;
 			}
 
 			m_tipId = prevBodyId;
 		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(250.0f, 180.0f));
+		ImGui::Begin("Cantilever", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("linear Hertz", &m_linearHertz, 0.0f, 20.0f, "%.0f"))
+		{
+			for (int i = 0; i < e_count; ++i)
+			{
+				b2WeldJoint_SetLinearHertz(m_jointIds[i], m_linearHertz);
+			}
+		}
+
+		if (ImGui::SliderFloat("linear damping ratio", &m_linearDampingRatio, 0.0f, 10.0f, "%.1f"))
+		{
+			for (int i = 0; i < e_count; ++i)
+			{
+				b2WeldJoint_SetLinearDampingRatio(m_jointIds[i], m_linearDampingRatio);
+			}
+		}
+
+		if (ImGui::SliderFloat("angular Hertz", &m_angularHertz, 0.0f, 20.0f, "%.0f"))
+		{
+			for (int i = 0; i < e_count; ++i)
+			{
+				b2WeldJoint_SetAngularHertz(m_jointIds[i], m_angularHertz);
+			}
+		}
+
+		if (ImGui::SliderFloat("angular damping ratio", &m_angularDampingRatio, 0.0f, 10.0f, "%.1f"))
+		{
+			for (int i = 0; i < e_count; ++i)
+			{
+				b2WeldJoint_SetAngularDampingRatio(m_jointIds[i], m_angularDampingRatio);
+			}
+		}
+
+		ImGui::End();
 	}
 
 	void Step(Settings& settings) override
@@ -1005,7 +1052,12 @@ public:
 		return new Cantilever(settings);
 	}
 
+	float m_linearHertz;
+	float m_linearDampingRatio;
+	float m_angularHertz;
+	float m_angularDampingRatio;
 	b2BodyId m_tipId;
+	b2JointId m_jointIds[e_count];
 };
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);
@@ -1186,8 +1238,8 @@ public:
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, {1.0f, 0.0f});
-			jointDef.stiffness = 30.0f;
-			jointDef.damping = 10.0f;
+			jointDef.hertz = 1.0f;
+			jointDef.dampingRatio = 0.7f;
 			jointDef.lowerTranslation = -1.0f;
 			jointDef.upperTranslation = 1.0f;
 			jointDef.enableLimit = true;
@@ -1356,42 +1408,51 @@ public:
 		{
 			groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
 
-			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			b2Vec2 points[25];
+			int count = 24;
+
+			// fill in reverse to match line list convention
+			points[count--] = {-20.0f, -20.0f};
+			points[count--] = {-20.0f, 0.0f};
+			points[count--] = {20.0f, 0.0f};
 
 			float hs[10] = {0.25f, 1.0f, 4.0f, 0.0f, 0.0f, -1.0f, -2.0f, -2.0f, -1.25f, 0.0f};
-
 			float x = 20.0f, y1 = 0.0f, dx = 5.0f;
 
-			for (int i = 0; i < 10; ++i)
+			for (int j = 0; j < 2; ++j)
 			{
-				float y2 = hs[i];
-				segment = {{x, y1}, {x + dx, y2}};
-				b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
-				y1 = y2;
-				x += dx;
+				for (int i = 0; i < 10; ++i)
+				{
+					float y2 = hs[i];
+					points[count--] = {x + dx, y2};
+					y1 = y2;
+					x += dx;
+				}
 			}
 
-			for (int i = 0; i < 10; ++i)
-			{
-				float y2 = hs[i];
-				segment = {{x, y1}, {x + dx, y2}};
-				b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
-				y1 = y2;
-				x += dx;
-			}
+			// flat before bridge
+			points[count--] = {x + 40.0f, 0.0f};
+			points[count--] = {x + 40.0f, -20.0f};
 
-			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			assert(count == -1);
 
+			b2ChainDef chainDef = b2_defaultChainDef;
+			chainDef.points = points;
+			chainDef.count = 25;
+			chainDef.loop = true;
+			b2CreateChain(groundId, &chainDef);
+
+			// flat after bridge
 			x += 80.0f;
-			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
+			b2Segment segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 
+			// jump ramp
 			x += 40.0f;
 			segment = {{x, 0.0f}, {x + 10.0f, 5.0f}};
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 
+			// final corner
 			x += 20.0f;
 			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
@@ -1512,8 +1573,8 @@ public:
 			b2CreatePolygonShape(m_carId, &b2_defaultShapeDef, &chassis);
 
 			b2ShapeDef shapeDef = b2_defaultShapeDef;
-			shapeDef.density = 1.0f;
-			shapeDef.friction = 0.6f;
+			shapeDef.density = 2.0f;
+			shapeDef.friction = 0.8f;
 
 			bodyDef.position = {-1.0f, 0.35f};
 			m_wheelId1 = b2CreateBody(m_worldId, &bodyDef);
@@ -1524,15 +1585,13 @@ public:
 			b2CreateCircleShape(m_wheelId2, &shapeDef, &circle);
 
 			b2Vec2 axis = {0.0f, 1.0f};
-
-			float mass1 = b2Body_GetMass(m_wheelId1);
-			float mass2 = b2Body_GetMass(m_wheelId2);
-
-			float hertz = 4.0f;
-			float dampingRatio = 0.7f;
-			float omega = 2.0f * b2_pi * hertz;
-
 			b2Vec2 pivot = b2Body_GetPosition(m_wheelId1);
+
+			m_throttle = 0.0f;
+			m_speed = 30.0f;
+			m_torque = 1.5f;
+			m_hertz = 5.0f;
+			m_dampingRatio = 0.7f;
 
 			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
 
@@ -1542,10 +1601,10 @@ public:
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.motorSpeed = 0.0f;
-			jointDef.maxMotorTorque = 20.0f;
+			jointDef.maxMotorTorque = m_torque;
 			jointDef.enableMotor = true;
-			jointDef.stiffness = mass1 * omega * omega;
-			jointDef.damping = 2.0f * mass1 * dampingRatio * omega;
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
 			jointDef.lowerTranslation = -0.25f;
 			jointDef.upperTranslation = 0.25f;
 			jointDef.enableLimit = true;
@@ -1558,34 +1617,73 @@ public:
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 			jointDef.motorSpeed = 0.0f;
-			jointDef.maxMotorTorque = 10.0f;
-			jointDef.enableMotor = false;
-			jointDef.stiffness = mass2 * omega * omega;
-			jointDef.damping = 2.0f * mass2 * dampingRatio * omega;
+			jointDef.maxMotorTorque = m_torque;
+			jointDef.enableMotor = true;
+			jointDef.hertz = m_hertz;
+			jointDef.dampingRatio = m_dampingRatio;
 			jointDef.lowerTranslation = -0.25f;
 			jointDef.upperTranslation = 0.25f;
 			jointDef.enableLimit = true;
 			m_jointId2 = b2CreateWheelJoint(m_worldId, &jointDef);
 		}
+	}
 
-		m_speed = 50.0f;
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(220.0f, 140.0f));
+		ImGui::Begin("Car", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::PushItemWidth(100.0f);
+		if (ImGui::SliderFloat("spring Hertz", &m_hertz, 0.0f, 20.0f, "%.0f"))
+		{
+			b2WheelJoint_SetSpringHertz(m_jointId1, m_hertz);
+			b2WheelJoint_SetSpringHertz(m_jointId2, m_hertz);
+		}
+
+		if (ImGui::SliderFloat("damping ratio", &m_dampingRatio, 0.0f, 10.0f, "%.1f"))
+		{
+			b2WheelJoint_SetSpringDampingRatio(m_jointId1, m_dampingRatio);
+			b2WheelJoint_SetSpringDampingRatio(m_jointId2, m_dampingRatio);
+		}
+
+		if (ImGui::SliderFloat("speed", &m_speed, 0.0f, 50.0f, "%.0f"))
+		{
+			b2WheelJoint_SetMotorSpeed(m_jointId1, m_throttle * m_speed);
+			b2WheelJoint_SetMotorSpeed(m_jointId2, m_throttle * m_speed);
+		}
+
+		if (ImGui::SliderFloat("torque", &m_torque, 0.0f, 5.0f, "%.1f"))
+		{
+			b2WheelJoint_SetMaxMotorTorque(m_jointId1, m_torque);
+			b2WheelJoint_SetMaxMotorTorque(m_jointId2, m_torque);
+		}
+		ImGui::PopItemWidth();
+
+		ImGui::End();
 	}
 
 	void Step(Settings& settings) override
 	{
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
 		{
+			m_throttle = 1.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, m_speed);
+			b2WheelJoint_SetMotorSpeed(m_jointId2, m_speed);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)
 		{
+			m_throttle = 0.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, 0.0f);
+			b2WheelJoint_SetMotorSpeed(m_jointId2, 0.0f);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_D) == GLFW_PRESS)
 		{
+			m_throttle = -1.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, -m_speed);
+			b2WheelJoint_SetMotorSpeed(m_jointId2, -m_speed);
 		}
 
 		g_draw.DrawString(5, m_textLine, "Keys: left = a, brake = s, right = d");
@@ -1606,7 +1704,12 @@ public:
 	b2BodyId m_wheelId1;
 	b2BodyId m_wheelId2;
 
+	float m_throttle;
+	float m_hertz;
+	float m_dampingRatio;
+	float m_torque;
 	float m_speed;
+
 	b2JointId m_jointId1;
 	b2JointId m_jointId2;
 };
@@ -1632,7 +1735,7 @@ public:
 			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
 		}
 
-		m_human.Spawn(m_worldId, {0.0f, 10.0f}, 2.0f, 1);
+		m_human.Spawn(m_worldId, {0.0f, 10.0f}, 1.0f, 1, nullptr);
 	}
 
 	static Sample* Create(const Settings& settings)
@@ -1644,3 +1747,35 @@ public:
 };
 
 static int sampleRagdoll = RegisterSample("Joints", "Ragdoll", Ragdoll::Create);
+
+class SoftBody : public Sample
+{
+public:
+	SoftBody(const Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.25f;
+			g_camera.m_center = {0.0f, 5.0f};
+		}
+
+		b2BodyId groundId;
+		{
+			groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+		}
+
+		m_donut.Spawn(m_worldId, {0.0f, 10.0f}, 0, nullptr);
+	}
+
+	static Sample* Create(const Settings& settings)
+	{
+		return new SoftBody(settings);
+	}
+
+	Donut m_donut;
+};
+
+static int sampleDonut = RegisterSample("Joints", "Soft Body", SoftBody::Create);

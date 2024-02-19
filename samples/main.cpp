@@ -117,6 +117,7 @@ static void SortTests()
 static void RestartSample()
 {
 	delete s_sample;
+	s_sample = nullptr;
 	s_settings.restart = true;
 	s_sample = g_sampleEntries[s_settings.sampleIndex].createFcn(s_settings);
 	s_settings.restart = false;
@@ -296,11 +297,6 @@ static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 				}
 		}
 	}
-	else if (action == GLFW_RELEASE)
-	{
-		s_sample->KeyboardUp(key);
-	}
-	// else GLFW_REPEAT
 }
 
 static void CharCallback(GLFWwindow* window, unsigned int c)
@@ -402,8 +398,8 @@ static void UpdateUI()
 		{
 			if (ImGui::BeginTabItem("Controls"))
 			{
-				ImGui::SliderInt("Vel Iters", &s_settings.velocityIterations, 0, 50);
-				ImGui::SliderInt("Relax Iters", &s_settings.relaxIterations, 0, 50);
+				ImGui::PushItemWidth(100.0f);
+				ImGui::SliderInt("Sub-steps", &s_settings.subStepCount, 0, 50);
 				ImGui::SliderFloat("Hertz", &s_settings.hertz, 5.0f, 120.0f, "%.0f hz");
 				
 				if (ImGui::SliderInt("Workers", &s_settings.workerCount, 1, maxWorkers))
@@ -411,6 +407,7 @@ static void UpdateUI()
 					s_settings.workerCount = B2_CLAMP(s_settings.workerCount, 1, maxWorkers);
 					RestartSample();
 				}
+				ImGui::PopItemWidth();
 
 				ImGui::Separator();
 
@@ -537,7 +534,7 @@ int main(int, char**)
 	char buffer[128];
 
 	s_settings.Load();
-	s_settings.workerCount = 	B2_MIN(8, (int)enki::GetNumHardwareThreads() / 2);
+	s_settings.workerCount = B2_MIN(8, (int)enki::GetNumHardwareThreads() / 2);
 	SortTests();
 
 	glfwSetErrorCallback(glfwErrorCallback);
@@ -699,7 +696,8 @@ int main(int, char**)
 
 		// if (g_draw.m_showUI)
 		{
-			snprintf(buffer, 128, "%.1f ms", 1000.0f * frameTime);
+			snprintf(buffer, 128, "%.1f ms - step %d - camera (%g, %g)", 1000.0f * frameTime, s_sample->m_stepCount, g_camera.m_center.x,
+					 g_camera.m_center.y);
 
 			ImGui::Begin("Overlay", nullptr,
 						ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
@@ -721,6 +719,7 @@ int main(int, char**)
 			g_camera.ResetView();
 			s_settings.sampleIndex = s_selection;
 			delete s_sample;
+			s_sample = nullptr;
 			s_sample = g_sampleEntries[s_settings.sampleIndex].createFcn(s_settings);
 		}
 

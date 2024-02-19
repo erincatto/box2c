@@ -13,8 +13,7 @@ struct Settings
 	int windowWidth = 1920;
 	int windowHeight = 1080;
 	float hertz = 60.0f;
-	int velocityIterations = 8;
-	int relaxIterations = 3;
+	int subStepCount = 4;
 	int workerCount = 1;
 	bool drawShapes = true;
 	bool drawJoints = true;
