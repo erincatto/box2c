@@ -103,6 +103,7 @@ typedef struct b2PrismaticJoint
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
 	b2Vec2 deltaCenter;
+	float deltaAngle;
 	float axialMass;
 } b2PrismaticJoint;
 

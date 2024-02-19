@@ -504,6 +504,7 @@ public:
 			b2CreatePolygonShape(bodyId, &b2_defaultShapeDef, &box);
 
 			b2Vec2 pivot = {0.0f, 9.0f};
+			//b2Vec2 axis = b2Normalize({1.0f, 0.0f});
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
 			b2PrismaticJointDef jointDef = b2_defaultPrismaticJointDef;
 			jointDef.bodyIdA = groundId;
@@ -543,7 +544,7 @@ public:
 			b2PrismaticJoint_SetMaxMotorForce(m_jointId, m_motorForce);
 		}
 
-		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -20.0f, 20.0f, "%.0f"))
+		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -40.0f, 40.0f, "%.0f"))
 		{
 			b2PrismaticJoint_SetMotorSpeed(m_jointId, m_motorSpeed);
 		}
@@ -592,6 +593,9 @@ public:
 		m_enableMotor = true;
 		m_motorSpeed = 2.0f;
 		m_motorTorque = 5.0f;
+
+		m_hertz = 1.0f;
+		m_dampingRatio = 0.7f;
 
 		{
 			b2Capsule capsule = {{0.0f, -0.5f}, {0.0f, 0.5f}, 0.5f};

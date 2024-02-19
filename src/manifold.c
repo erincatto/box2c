@@ -617,15 +617,15 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 
 		// Find reference edge that most aligns with vector between closest points.
 		// This works for capsules and polygons
-		b2Vec2 axis = b2InvRotateVector(xfB.q, b2Sub(output.pointA, output.pointB));
-		float dot1 = b2Dot(axis, polyB->normals[b1]);
-		float dot2 = b2Dot(axis, polyB->normals[b2]);
+		b2Vec2 axis = b2Sub(output.pointA, output.pointB);
+		float dot1 = b2Dot(axis, localPolyB.normals[b1]);
+		float dot2 = b2Dot(axis, localPolyB.normals[b2]);
 		edgeB = dot1 > dot2 ? b1 : b2;
 
 		flip = true;
 
 		// Get the normal of the reference edge in polyA's frame.
-		axis = b2InvRotateVector(xfA.q, b2RotateVector(xfB.q, polyB->normals[edgeB]));
+		axis = localPolyB.normals[edgeB];
 
 		// Find the incident edge on polyA
 		// Limit search to edges adjacent to closest vertex on A
@@ -639,7 +639,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	{
 		// Find reference edge that most aligns with vector between closest points.
 		// This works for capsules and polygons
-		b2Vec2 axis = b2InvRotateVector(xfA.q, b2Sub(output.pointB, output.pointA));
+		b2Vec2 axis = b2Sub(output.pointB, output.pointA);
 		float dot1 = b2Dot(axis, polyA->normals[a1]);
 		float dot2 = b2Dot(axis, polyA->normals[a2]);
 		edgeA = dot1 > dot2 ? a1 : a2;
@@ -647,18 +647,18 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		flip = false;
 
 		// Get the normal of the reference edge in polyB's frame.
-		axis = b2InvRotateVector(xfB.q, b2RotateVector(xfA.q, polyA->normals[edgeA]));
+		axis = polyA->normals[edgeA];
 
 		// Find the incident edge on polyB
 		// Limit search to edges adjacent to closest vertex
 		int32_t edgeB1 = b1;
 		int32_t edgeB2 = edgeB1 == 0 ? countB - 1 : edgeB1 - 1;
-		dot1 = b2Dot(axis, polyB->normals[edgeB1]);
-		dot2 = b2Dot(axis, polyB->normals[edgeB2]);
+		dot1 = b2Dot(axis, localPolyB.normals[edgeB1]);
+		dot2 = b2Dot(axis, localPolyB.normals[edgeB2]);
 		edgeB = dot1 < dot2 ? edgeB1 : edgeB2;
 	}
 
-	manifold = b2ClipPolygons(polyA, polyB, edgeA, edgeB, flip);
+	manifold = b2ClipPolygons(polyA, &localPolyB, edgeA, edgeB, flip);
 
 	if (manifold.pointCount > 0)
 	{
@@ -933,7 +933,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 
 	b2Vec2 edge1 = b2Normalize(b2Sub(p2, p1));
 
-	struct b2SmoothSegmentParams smoothParams;
+	struct b2SmoothSegmentParams smoothParams = {0};
 	smoothParams.edge1 = edge1;
 
 	const float convexTol = 0.01f;

@@ -52,7 +52,9 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 
 	b2WheelJoint* joint = &base->wheelJoint;
 
-	// initial anchors in world space
+	joint->indexA = context->bodyToSolverMap[indexA];
+	joint->indexB = context->bodyToSolverMap[indexB];
+
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 	joint->axisA = b2RotateVector(bodyA->rotation, joint->localAxisA);
@@ -315,8 +317,7 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		float Cdot = b2Dot(perpA, b2Sub(vB, vA)) + s2 * wB - s1 * wA;
 
 		float impulse = -massScale * joint->perpMass * (Cdot + bias) - impulseScale * joint->perpImpulse;
-		float oldImpulse = joint->perpImpulse;
-		joint->perpImpulse = impulse;
+		joint->perpImpulse += impulse;
 
 		b2Vec2 P = b2MulSV(impulse, perpA);
 		float LA = impulse * s1;

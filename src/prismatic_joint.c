@@ -88,6 +88,7 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 	joint->axisA = b2RotateVector(bodyA->rotation, joint->localAxisA);
 	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->referenceAngle;
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
@@ -135,12 +136,18 @@ void b2WarmStartPrismaticJoint(b2Joint* base, b2StepContext* context)
 	// impulse is applied at anchor point on body B
 	float a1 = b2Cross(b2Add(d, rA), axisA);
 	float a2 = b2Cross(rB, axisA);
-
 	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-	b2Vec2 P = b2MulSV(axialImpulse, axisA);
-	float LA = axialImpulse * a1;
-	float LB = axialImpulse * a2;
+	// perpendicular constraint
+	b2Vec2 perpA = b2LeftPerp(axisA);
+	float s1 = b2Cross(b2Add(d, rA), perpA);
+	float s2 = b2Cross(rB, perpA);
+	float perpImpulse = joint->impulse.x;
+	float angleImpulse = joint->impulse.y;
+
+	b2Vec2 P = b2Add(b2MulSV(axialImpulse, axisA), b2MulSV(perpImpulse, perpA));
+	float LA = axialImpulse * a1 + perpImpulse * s1 + angleImpulse;
+	float LB = axialImpulse * a2 + perpImpulse * s2 + angleImpulse;
 
 	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, P);
 	stateA->angularVelocity -= iA * LA;
@@ -300,7 +307,7 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		{
 			b2Vec2 C;
 			C.x = b2Dot(perpA, d);
-			C.y = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) - joint->referenceAngle;
+			C.y = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
 
 			bias = b2MulSV(context->jointSoftness.biasRate, C);
 			massScale = context->jointSoftness.massScale;
