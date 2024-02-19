@@ -34,7 +34,7 @@
 // cause horrible cache stalls. To make this feasible I would need a way to block these writes.
 
 // This is used for debugging by making all constraints be assigned to overflow.
-#define B2_FORCE_OVERFLOW 1
+#define B2_FORCE_OVERFLOW 0
 
 typedef struct b2WorkerContext
 {
