@@ -77,8 +77,8 @@ Sample::Sample(const Settings& settings)
 
 	m_groundBodyId = b2_nullBodyId;
 
-	m_maxProfile = b2_emptyProfile;
-	m_totalProfile = b2_emptyProfile;
+	m_maxProfile = {};
+	m_totalProfile = {};
 }
 
 Sample::~Sample()
@@ -139,13 +139,13 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 		// Query the world for overlapping shapes.
 		QueryContext queryContext = {p, b2_nullBodyId};
-		b2World_QueryAABB(m_worldId, QueryCallback, box,b2DefaultQueryFilter(), &queryContext);
+		b2World_QueryAABB(m_worldId, QueryCallback, box, b2DefaultQueryFilter(), &queryContext);
 
 		if (B2_IS_NON_NULL(queryContext.bodyId))
 		{
 			m_groundBodyId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 
-			b2MouseJointDef jd = b2_defaultMouseJointDef;
+			b2MouseJointDef jd = b2DefaultMouseJointDef();
 			jd.bodyIdA = m_groundBodyId;
 			jd.bodyIdB = queryContext.bodyId;
 			jd.target = p;
@@ -182,8 +182,8 @@ void Sample::MouseMove(b2Vec2 p)
 
 void Sample::ResetProfile()
 {
-	m_totalProfile = b2_emptyProfile;
-	m_maxProfile = b2_emptyProfile;
+	m_totalProfile = {};
+	m_maxProfile = {};
 	m_stepCount = 0;
 }
 

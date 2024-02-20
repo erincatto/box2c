@@ -121,10 +121,10 @@ public:
 		// }
 		// printf("};\n");
 
-		b2ChainDef chainDef = b2_defaultChainDef;
+		b2ChainDef chainDef = b2DefaultChainDef();
 		chainDef.points = points;
 		chainDef.count = count;
-		chainDef.loop = true;
+		chainDef.isLoop = true;
 		chainDef.friction = 0.2f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -475,7 +475,6 @@ public:
 			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
 		}
 
-		// Define motorized body
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;

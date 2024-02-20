@@ -79,7 +79,7 @@ public:
 
 		float yOffset = 20.0f;
 
-		b2DistanceJointDef jointDef = b2_defaultDistanceJointDef;
+		b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
 
 		b2BodyId prevBodyId = m_groundId;
 		for (int32_t i = 0; i < m_count; ++i)
@@ -238,7 +238,7 @@ public:
 			m_maxTorque = 500.0f;
 			m_correctionFactor = 0.3f;
 
-			b2MotorJointDef jointDef = b2_defaultMotorJointDef;
+			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.maxForce = m_maxForce;
@@ -301,8 +301,8 @@ public:
 
 		Sample::Step(settings);
 
-		b2Vec2 force = b2MotorJoint_GetConstraintForce(m_jointId, settings.hertz);
-		float torque = b2MotorJoint_GetConstraintTorque(m_jointId, settings.hertz);
+		b2Vec2 force = b2MotorJoint_GetConstraintForce(m_jointId);
+		float torque = b2MotorJoint_GetConstraintTorque(m_jointId);
 
 		g_draw.DrawString(5, m_textLine, "force = {%3.f, %3.f}, torque = %3.f", force.x, force.y, torque);
 		m_textLine += 15;
@@ -450,11 +450,11 @@ public:
 	{
 		Sample::Step(settings);
 
-		float torque1 = b2RevoluteJoint_GetMotorTorque(m_jointId1, settings.hertz);
+		float torque1 = b2RevoluteJoint_GetMotorTorque(m_jointId1);
 		g_draw.DrawString(5, m_textLine, "Motor Torque 1 = %4.1f", torque1);
 		m_textLine += m_textIncrement;
 
-		float torque2 = b2RevoluteJoint_GetMotorTorque(m_jointId2, settings.hertz);
+		float torque2 = b2RevoluteJoint_GetMotorTorque(m_jointId2);
 		g_draw.DrawString(5, m_textLine, "Motor Torque 2 = %4.1f", torque2);
 		m_textLine += m_textIncrement;
 	}
@@ -507,7 +507,7 @@ public:
 			b2Vec2 pivot = {0.0f, 9.0f};
 			// b2Vec2 axis = b2Normalize({1.0f, 0.0f});
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
-			b2PrismaticJointDef jointDef = b2_defaultPrismaticJointDef;
+			b2PrismaticJointDef jointDef = b2DefaultPrismaticJointDef();
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, axis);
@@ -557,7 +557,7 @@ public:
 	{
 		Sample::Step(settings);
 
-		float force = b2PrismaticJoint_GetMotorForce(m_jointId, settings.hertz);
+		float force = b2PrismaticJoint_GetMotorForce(m_jointId);
 		g_draw.DrawString(5, m_textLine, "Motor Force = %4.1f", force);
 		m_textLine += m_textIncrement;
 	}
@@ -609,7 +609,7 @@ public:
 
 			b2Vec2 pivot = {0.0f, 10.0f};
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
-			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
+			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
 			jointDef.bodyIdA = groundId;
 			jointDef.bodyIdB = bodyId;
 			jointDef.localAxisA = b2Body_GetLocalVector(jointDef.bodyIdA, axis);
@@ -671,7 +671,7 @@ public:
 	{
 		Sample::Step(settings);
 
-		float torque = b2WheelJoint_GetMotorTorque(m_jointId, settings.hertz);
+		float torque = b2WheelJoint_GetMotorTorque(m_jointId);
 		g_draw.DrawString(5, m_textLine, "Motor Torque = %4.1f", torque);
 		m_textLine += m_textIncrement;
 	}
@@ -968,7 +968,7 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.density = 20.0f;
 
-			b2WeldJointDef jointDef = b2_defaultWeldJointDef;
+			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
 
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
@@ -1124,7 +1124,7 @@ public:
 			float length = 2.0f;
 			b2Vec2 pivot1 = {position.x, position.y + 1.0f + length};
 			b2Vec2 pivot2 = {position.x, position.y + 1.0f};
-			b2DistanceJointDef jointDef = b2_defaultDistanceJointDef;
+			b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot1);
@@ -1146,7 +1146,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2MotorJointDef jointDef = b2_defaultMotorJointDef;
+			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.linearOffset = position;
@@ -1167,7 +1167,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2PrismaticJointDef jointDef = b2_defaultPrismaticJointDef;
+			b2PrismaticJointDef jointDef = b2DefaultPrismaticJointDef();
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1208,7 +1208,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2WeldJointDef jointDef = b2_defaultWeldJointDef;
+			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1232,7 +1232,7 @@ public:
 			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
-			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
+			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
@@ -1436,10 +1436,10 @@ public:
 
 			assert(count == -1);
 
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.points = points;
 			chainDef.count = 25;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 			b2CreateChain(groundId, &chainDef);
 
 			// flat after bridge
@@ -1593,7 +1593,7 @@ public:
 			m_hertz = 5.0f;
 			m_dampingRatio = 0.7f;
 
-			b2WheelJointDef jointDef = b2_defaultWheelJointDef;
+			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
 
 			jointDef.bodyIdA = m_carId;
 			jointDef.bodyIdB = m_wheelId1;

@@ -138,7 +138,9 @@ int DestroyAllBodiesWorld(void)
 			if (count < BODY_COUNT)
 			{
 				bodyIds[count] = b2CreateBody(worldId, &bodyDef);
-				b2CreatePolygonShape(bodyIds[count], &b2DefaultShapeDef(), &square);
+
+				b2ShapeDef shapeDef = b2DefaultShapeDef();
+				b2CreatePolygonShape(bodyIds[count], &shapeDef, &square);
 				count += 1;
 			}
 			else

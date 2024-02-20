@@ -20,6 +20,16 @@
 #include "box2d/event_types.h"
 #include "box2d/id.h"
 
+// Get a validated body from a world using an id.
+b2Body* b2GetBody(b2World* world, b2BodyId id)
+{
+	B2_ASSERT(1 <= id.index && id.index <= world->bodyPool.capacity);
+	b2Body* body = world->bodies + (id.index - 1);
+	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(id.revision == body->object.revision);
+	return body;
+}
+
 static void b2CreateIslandForBody(b2World* world, b2Body* body, bool isAwake)
 {
 	B2_ASSERT(body->islandIndex == B2_NULL_INDEX);
@@ -189,7 +199,7 @@ static void b2DisableBody(b2World* world, b2Body* body)
 	}
 }
 
-B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
+b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -256,18 +266,8 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		b2CreateIslandForBody(world, body, def->isAwake);
 	}
 
-	b2BodyId id = {body->object.index, worldId.index, body->object.revision};
+	b2BodyId id = {body->object.index + 1, world->poolIndex, body->object.revision};
 	return id;
-}
-
-// Get a validated body from a world using an id.
-b2Body* b2GetBody(b2World* world, b2BodyId id)
-{
-	B2_ASSERT(0 <= id.index && id.index < world->bodyPool.capacity);
-	b2Body* body = world->bodies + id.index;
-	B2_ASSERT(b2ObjectValid(&body->object));
-	B2_ASSERT(id.revision == body->object.revision);
-	return body;
 }
 
 bool b2IsBodyAwake(b2World* world, b2Body* body)
@@ -294,7 +294,7 @@ void b2WakeBody(b2World* world, b2Body* body)
 	B2_ASSERT(body->type == b2_staticBody);
 }
 
-void b2DestroyBodyInternal(b2World* world, b2Body* body)
+static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 {
 	// User must destroy joints before destroying bodies
 	B2_ASSERT(body->jointList == B2_NULL_INDEX && body->jointCount == 0);
@@ -329,7 +329,7 @@ void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	b2FreeObject(&world->bodyPool, &body->object);
 }
 
-B2_API void b2DestroyBody(b2BodyId bodyId)
+void b2DestroyBody(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
 	if (world == NULL)
@@ -380,8 +380,8 @@ int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32
 			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
 
-			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index, bodyId.world, shapeA->object.revision};
-			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index, bodyId.world, shapeB->object.revision};
+			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, bodyId.world, shapeA->object.revision};
+			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, bodyId.world, shapeB->object.revision};
 			contactData[index].manifold = contact->manifold;
 			index += 1;
 		}
@@ -569,7 +569,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 		b2UpdateBodyMassData(world, body);
 	}
 
-	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
+	b2ShapeId id = {shape->object.index + 1, bodyId.world, shape->object.revision};
 	return id;
 }
 
@@ -584,7 +584,7 @@ b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2C
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
 	{
 		B2_ASSERT(false);
-		return b2_nullShapeId;
+		return (b2ShapeId){0};
 	}
 
 	return b2CreateShape(bodyId, def, capsule, b2_capsuleShape);
@@ -680,7 +680,6 @@ void b2DestroyShape(b2ShapeId shapeId)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
-
 	b2DestroyShapeInternal(world, shape);
 }
 
@@ -779,7 +778,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 		}
 	}
 
-	b2ChainId id = {chainShape->object.index, bodyId.world, chainShape->object.revision};
+	b2ChainId id = {chainShape->object.index + 1, bodyId.world, chainShape->object.revision};
 	return id;
 }
 
@@ -792,9 +791,9 @@ void b2DestroyChain(b2ChainId chainId)
 		return;
 	}
 
-	B2_ASSERT(0 <= chainId.index && chainId.index < world->chainPool.count);
+	B2_ASSERT(1 <= chainId.index && chainId.index <= world->chainPool.count);
 
-	b2ChainShape* chain = world->chains + chainId.index;
+	b2ChainShape* chain = world->chains + (chainId.index - 1);
 	B2_ASSERT(chain->object.revision == chainId.revision);
 
 	// Remove the chain from the body's singly linked list.
@@ -1322,11 +1321,11 @@ b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId)
 
 	if (body->shapeList == B2_NULL_INDEX)
 	{
-		return b2_nullShapeId;
+		return (b2ShapeId){0};
 	}
 
 	b2Shape* shape = world->shapes + body->shapeList;
-	b2ShapeId id = {shape->object.index, bodyId.world, shape->object.revision};
+	b2ShapeId id = {shape->object.index + 1, bodyId.world, shape->object.revision};
 	return id;
 }
 
@@ -1337,11 +1336,11 @@ b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId)
 
 	if (shape->nextShapeIndex == B2_NULL_INDEX)
 	{
-		return b2_nullShapeId;
+		return (b2ShapeId){0};
 	}
 
 	shape = world->shapes + shape->nextShapeIndex;
-	b2ShapeId id = {shape->object.index, shapeId.world, shape->object.revision};
+	b2ShapeId id = {shape->object.index + 1, shapeId.world, shape->object.revision};
 	return id;
 }
 

@@ -491,10 +491,10 @@ B2_API void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque);
 B2_API void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor);
 
 /// Get the current constraint force for a motor joint
-B2_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+B2_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current constraint torque for a motor joint
-B2_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+B2_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId);
 
 /// Set the target for a mouse joint
 B2_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
@@ -509,16 +509,16 @@ B2_API void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 B2_API void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 
 /// Get the current motor force for a prismatic joint
-B2_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId, float inverseTimeStep);
+B2_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId);
 
 /// Set the maximum force for a pristmatic joint motor
 B2_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
 
 /// Get the current constraint force for a prismatic joint
-B2_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+B2_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current constraint torque for a prismatic joint
-B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
 
 /// Enable/disable a revolute joint limit
 B2_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
@@ -530,16 +530,16 @@ B2_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 B2_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 
 /// Get the current motor torque for a revolute joint
-B2_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+B2_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId);
 
 /// Set the maximum torque for a revolute joint motor
 B2_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 
 /// Get the current constraint force for a revolute joint
-B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current constraint torque for a revolute joint
-B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId);
 
 /// Set the wheel joint stiffness in Hertz
 B2_API void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz);
@@ -557,16 +557,16 @@ B2_API void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 B2_API void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 
 /// Get the wheel joint current motor torque
-B2_API float b2WheelJoint_GetMotorTorque(b2JointId jointId, float inverseTimeStep);
+B2_API float b2WheelJoint_GetMotorTorque(b2JointId jointId);
 
 /// Set the wheel joint maximum motor torque
 B2_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 
 /// Get the current wheel joint constraint force
-B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep);
+B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current wheel joint constraint torque
-B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep);
+B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId);
 
 /// Set weld joint linear stiffness in Hertz. 0 is rigid.
 B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);

@@ -59,7 +59,7 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* user
 	}
 
 	// Create joints
-	b2WeldJointDef weldDef = b2_defaultWeldJointDef;
+	b2WeldJointDef weldDef = b2DefaultWeldJointDef();
 	weldDef.angularHertz = 5.0f;
 	weldDef.angularDampingRatio = 0.0f;
 	weldDef.localAnchorA = {0.0f, 0.5f * length};

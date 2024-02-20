@@ -38,8 +38,6 @@ typedef struct b2TaskContext
 /// management facilities.
 typedef struct b2World
 {
-	int16_t index;
-
 	struct b2BlockAllocator* blockAllocator;
 	struct b2StackAllocator* stackAllocator;
 
@@ -90,6 +88,10 @@ typedef struct b2World
 	// Id that is incremented every time step
 	uint64_t stepId;
 
+	// sub-step info from the most recent time step
+	int32_t subStepCount;
+	float inv_h;
+
 	b2Vec2 gravity;
 	float restitutionThreshold;
 	float contactPushoutVelocity;
@@ -117,6 +119,8 @@ typedef struct b2World
 	int32_t activeTaskCount;
 	int32_t taskCount;
 
+	uint16_t poolIndex;
+
 	bool enableSleep;
 	bool locked;
 	bool enableWarmStarting;
@@ -124,7 +128,7 @@ typedef struct b2World
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);
-b2World* b2GetWorldFromIndex(int16_t index);
-b2World* b2GetWorldFromIndexLocked(int16_t index);
+b2World* b2GetWorldFromIndex(uint16_t index);
+b2World* b2GetWorldFromIndexLocked(uint16_t index);
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id);

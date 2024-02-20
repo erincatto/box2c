@@ -12,6 +12,24 @@
 #include "box2d/box2d.h"
 #include "box2d/event_types.h"
 
+b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
+{
+	B2_ASSERT(1 <= shapeId.index && shapeId.index <= world->shapePool.capacity);
+	b2Shape* shape = world->shapes + (shapeId.index - 1);
+	B2_ASSERT(b2ObjectValid(&shape->object));
+	B2_ASSERT(shape->object.revision == shapeId.revision);
+	return shape;
+}
+
+static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
+{
+	B2_ASSERT(1 <= chainId.index && chainId.index <= world->chainPool.capacity);
+	b2ChainShape* chain = world->chains + (chainId.index - 1);
+	B2_ASSERT(b2ObjectValid(&chain->object));
+	B2_ASSERT(chain->object.revision == chainId.revision);
+	return chain;
+}
+
 b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf)
 {
 	switch (shape->type)
@@ -241,15 +259,6 @@ b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape)
 	}
 }
 
-b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
-{
-	B2_ASSERT(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
-	b2Shape* shape = world->shapes + shapeId.index;
-	B2_ASSERT(b2ObjectValid(&shape->object));
-	B2_ASSERT(shape->object.revision == shapeId.revision);
-	return shape;
-}
-
 b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
@@ -258,7 +267,7 @@ b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
 	b2Body* body = world->bodies + shape->bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
-	b2BodyId bodyId = {body->object.index, shapeId.world, body->object.revision};
+	b2BodyId bodyId = {body->object.index + 1, shapeId.world, body->object.revision};
 	return bodyId;
 }
 
@@ -279,11 +288,8 @@ bool b2Shape_IsSensor(b2ShapeId shapeId)
 bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
-	B2_ASSERT(0 <= shapeId.index && shapeId.index < world->shapePool.capacity);
-	b2Shape* shape = world->shapes + shapeId.index;
-	B2_ASSERT(b2ObjectValid(&shape->object));
+	b2Shape* shape = b2GetShape(world, shapeId);
 
-	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
 	b2Body* body = world->bodies + shape->bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
 
@@ -309,9 +315,8 @@ void b2Shape_SetDensity(b2ShapeId shapeId, float density)
 {
 	B2_ASSERT(b2IsValid(density) && density >= 0.0f);
 
-	b2World* world = b2GetWorldFromIndex(shapeId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
 	{
 		return;
 	}
@@ -394,6 +399,7 @@ void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
 	b2Shape* shape = b2GetShape(world, shapeId);
 	shape->filter = filter;
+	int32_t shapeIndex = shape->object.index;
 
 	b2Body* body = world->bodies + shape->bodyIndex;
 	B2_ASSERT(b2ObjectValid(&body->object));
@@ -408,7 +414,7 @@ void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
 		b2Contact* contact = world->contacts + contactIndex;
 		contactKey = contact->edges[edgeIndex].nextKey;
 
-		if (contact->shapeIndexA == shapeId.index || contact->shapeIndexB == shapeId.index)
+		if (contact->shapeIndexA == shapeIndex || contact->shapeIndexB == shapeIndex)
 		{
 			b2DestroyContact(world, contact);
 		}
@@ -494,17 +500,13 @@ b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId)
 
 void b2Chain_SetFriction(b2ChainId chainId, float friction)
 {
-	b2World* world = b2GetWorldFromIndex(chainId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(chainId.world);
+	if (world == NULL)
 	{
 		return;
 	}
 
-	B2_ASSERT(0 <= chainId.index && chainId.index < world->chainPool.count);
-
-	b2ChainShape* chainShape = world->chains + chainId.index;
-	B2_ASSERT(chainShape->object.revision == chainId.revision);
+	b2ChainShape* chainShape = b2GetChainShape(world, chainId);
 
 	int32_t count = chainShape->count;
 
@@ -519,17 +521,13 @@ void b2Chain_SetFriction(b2ChainId chainId, float friction)
 
 void b2Chain_SetRestitution(b2ChainId chainId, float restitution)
 {
-	b2World* world = b2GetWorldFromIndex(chainId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(chainId.world);
+	if (world == NULL)
 	{
 		return;
 	}
 
-	B2_ASSERT(0 <= chainId.index && chainId.index < world->chainPool.count);
-
-	b2ChainShape* chainShape = world->chains + chainId.index;
-	B2_ASSERT(chainShape->object.revision == chainId.revision);
+	b2ChainShape* chainShape = b2GetChainShape(world, chainId);
 
 	int32_t count = chainShape->count;
 
@@ -544,9 +542,8 @@ void b2Chain_SetRestitution(b2ChainId chainId, float restitution)
 
 int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId)
 {
-	b2World* world = b2GetWorldFromIndex(shapeId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
 	{
 		return 0;
 	}
@@ -560,9 +557,8 @@ int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId)
 
 int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity)
 {
-	b2World* world = b2GetWorldFromIndex(shapeId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
 	{
 		return 0;
 	}
@@ -586,8 +582,8 @@ int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, in
 			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
 
-			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index, shapeId.world, shapeA->object.revision};
-			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index, shapeId.world, shapeB->object.revision};
+			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, shapeId.world, shapeA->object.revision};
+			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, shapeId.world, shapeB->object.revision};
 			contactData[index].manifold = contact->manifold;
 			index += 1;
 		}

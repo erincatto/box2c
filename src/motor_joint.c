@@ -253,24 +253,24 @@ void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
 	joint->motorJoint.correctionFactor = B2_CLAMP(correctionFactor, 0.0f, 1.0f);
 }
 
-b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
+b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	b2Joint* base = b2GetJoint(world, jointId);
 	B2_ASSERT(base->type == b2_motorJoint);
 
 	b2MotorJoint* joint = &base->motorJoint;
-	b2Vec2 force = b2MulSV(inverseTimeStep, joint->linearImpulse);
+	b2Vec2 force = b2MulSV(world->inv_h, joint->linearImpulse);
 	return force;
 }
 
-float b2MotorJoint_GetConstraintTorque(b2JointId jointId, float inverseTimeStep)
+float b2MotorJoint_GetConstraintTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_motorJoint);
 
-	return inverseTimeStep * joint->motorJoint.angularImpulse;
+	return world->inv_h * joint->motorJoint.angularImpulse;
 }
 
 #if 0

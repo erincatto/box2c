@@ -39,24 +39,26 @@ b2World b2_worlds[b2_maxWorlds];
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
-	B2_ASSERT(0 <= id.index && id.index < b2_maxWorlds);
-	b2World* world = b2_worlds + id.index;
+	B2_ASSERT(1 <= id.index && id.index <= b2_maxWorlds);
+	b2World* world = b2_worlds + (id.index - 1);
 	B2_ASSERT(id.revision == world->revision);
 	return world;
 }
 
-b2World* b2GetWorldFromIndex(int16_t index)
+b2World* b2GetWorldFromIndex(uint16_t index)
 {
 	B2_ASSERT(0 <= index && index < b2_maxWorlds);
 	b2World* world = b2_worlds + index;
+	B2_ASSERT(world->poolIndex == index);
 	B2_ASSERT(world->blockAllocator != NULL);
 	return world;
 }
 
-b2World* b2GetWorldFromIndexLocked(int16_t index)
+b2World* b2GetWorldFromIndexLocked(uint16_t index)
 {
 	B2_ASSERT(0 <= index && index < b2_maxWorlds);
 	b2World* world = b2_worlds + index;
+	B2_ASSERT(world->poolIndex == index);
 	B2_ASSERT(world->blockAllocator != NULL);
 	if (world->locked)
 	{
@@ -83,27 +85,27 @@ static void b2DefaultFinishTaskFcn(void* userTask, void* userContext)
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
-	b2WorldId id = b2_nullWorldId;
+	int32_t index = -1;
 	for (int16_t i = 0; i < b2_maxWorlds; ++i)
 	{
 		if (b2_worlds[i].blockAllocator == NULL)
 		{
-			id.index = i;
+			index = i;
 			break;
 		}
 	}
 
-	if (id.index == b2_nullWorldId.index)
+	if (index == -1)
 	{
-		return id;
+		return (b2WorldId){0};
 	}
 
 	b2InitializeContactRegisters();
 
-	b2World* world = b2_worlds + id.index;
+	b2World* world = b2_worlds + index;
 	*world = (b2World){0};
 
-	world->index = id.index;
+	world->poolIndex = index;
 
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
@@ -158,7 +160,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->userTreeTask = NULL;
 	world->splitIslandIndex = B2_NULL_INDEX;
 
-	id.revision = world->revision;
 
 	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL)
 	{
@@ -184,7 +185,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
-	return id;
+	return (b2WorldId){(uint16_t)(index + 1), world->revision};
 }
 
 void b2DestroyWorld(b2WorldId id)
@@ -376,7 +377,7 @@ static void b2Collide(b2World* world)
 	}
 
 	const b2Shape* shapes = world->shapes;
-	int16_t worldIndex = world->index;
+	int16_t worldIndex = world->poolIndex;
 
 	// Process contact state changes. Iterate over set bits
 	uint64_t word;
@@ -395,8 +396,8 @@ static void b2Collide(b2World* world)
 			b2Contact* contact = world->contacts + contactIndex;
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;
 			const b2Shape* shapeB = shapes + contact->shapeIndexB;
-			b2ShapeId shapeIdA = {shapeA->object.index, worldIndex, shapeA->object.revision};
-			b2ShapeId shapeIdB = {shapeB->object.index, worldIndex, shapeB->object.revision};
+			b2ShapeId shapeIdA = {shapeA->object.index + 1, worldIndex, shapeA->object.revision};
+			b2ShapeId shapeIdB = {shapeB->object.index + 1, worldIndex, shapeB->object.revision};
 			uint32_t flags = contact->flags;
 
 			if (flags & b2_contactDisjoint)
@@ -525,11 +526,12 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	b2StepContext context = {0};
 	context.dt = timeStep;
 	context.subStepCount = B2_MAX(1, subStepCount);
+
 	if (timeStep > 0.0f)
 	{
 		context.inv_dt = 1.0f / timeStep;
-		context.h = timeStep / subStepCount;
-		context.inv_h = subStepCount * context.inv_dt;
+		context.h = timeStep / context.subStepCount;
+		context.inv_h = context.subStepCount * context.inv_dt;
 	}
 	else
 	{
@@ -537,6 +539,9 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 		context.h = 0.0f;
 		context.inv_h = 0.0f;
 	}
+
+	world->subStepCount = context.subStepCount;
+	world->inv_h = context.inv_h;
 
 	// Hertz values get reduced for large time steps
 	float contactHertz = B2_MIN(world->contactHertz, 0.25f * context.inv_h);
@@ -926,30 +931,30 @@ b2ContactEvents b2World_GetContactEvents(b2WorldId worldId)
 
 bool b2World_IsValid(b2WorldId id)
 {
-	if (id.index < 0 || b2_maxWorlds <= id.index)
+	if (id.index < 1 || b2_maxWorlds < id.index)
 	{
 		return false;
 	}
 
-	b2World* world = b2_worlds + id.index;
+	b2World* world = b2_worlds + (id.index - 1);
 	return id.revision == world->revision;
 }
 
 bool b2Body_IsValid(b2BodyId id)
 {
-	if (id.world < 0 || b2_maxWorlds <= id.world)
+	if (id.world < 1 || b2_maxWorlds < id.world)
 	{
 		return false;
 	}
 
-	b2World* world = b2_worlds + id.world;
+	b2World* world = b2_worlds + (id.world - 1);
 
-	if (id.index < 0 || world->bodyPool.capacity <= id.index)
+	if (id.index < 1 || world->bodyPool.capacity < id.index)
 	{
 		return false;
 	}
 
-	b2Body* body = world->bodies + id.index;
+	b2Body* body = world->bodies + (id.index - 1);
 	if (b2ObjectValid(&body->object) == false)
 	{
 		return false;
@@ -960,19 +965,19 @@ bool b2Body_IsValid(b2BodyId id)
 
 bool b2Shape_IsValid(b2ShapeId id)
 {
-	if (id.world < 0 || b2_maxWorlds <= id.world)
+	if (id.world < 1 || b2_maxWorlds < id.world)
 	{
 		return false;
 	}
 
-	b2World* world = b2_worlds + id.world;
+	b2World* world = b2_worlds + (id.world - 1);
 
-	if (id.index < 0 || world->shapePool.capacity <= id.index)
+	if (id.index < 1 || world->shapePool.capacity < id.index)
 	{
 		return false;
 	}
 
-	b2Shape* shape = world->shapes + id.index;
+	b2Shape* shape = world->shapes + (id.index - 1);
 	if (b2ObjectValid(&shape->object) == false)
 	{
 		return false;
@@ -983,19 +988,19 @@ bool b2Shape_IsValid(b2ShapeId id)
 
 bool b2Chain_IsValid(b2ChainId id)
 {
-	if (id.world < 0 || b2_maxWorlds <= id.world)
+	if (id.world < 1 || b2_maxWorlds < id.world)
 	{
 		return false;
 	}
 
-	b2World* world = b2_worlds + id.world;
+	b2World* world = b2_worlds + (id.world - 1);
 
-	if (id.index < 0 || world->chainPool.capacity <= id.index)
+	if (id.index < 1 || world->chainPool.capacity < id.index)
 	{
 		return false;
 	}
 
-	b2ChainShape* chain = world->chains + id.index;
+	b2ChainShape* chain = world->chains + (id.index - 1);
 	if (b2ObjectValid(&chain->object) == false)
 	{
 		return false;
@@ -1006,19 +1011,19 @@ bool b2Chain_IsValid(b2ChainId id)
 
 bool b2Joint_IsValid(b2JointId id)
 {
-	if (id.world < 0 || b2_maxWorlds <= id.world)
+	if (id.world < 1 || b2_maxWorlds < id.world)
 	{
 		return false;
 	}
 
-	b2World* world = b2_worlds + id.world;
+	b2World* world = b2_worlds + (id.world - 1);
 
-	if (id.index < 0 || world->jointPool.capacity <= id.index)
+	if (id.index < 1 || world->jointPool.capacity < id.index)
 	{
 		return false;
 	}
 
-	b2Joint* joint = world->joints + id.index;
+	b2Joint* joint = world->joints + (id.index - 1);
 	if (b2ObjectValid(&joint->object) == false)
 	{
 		return false;
@@ -1166,7 +1171,7 @@ static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context
 
 	B2_ASSERT(shape->object.index == shape->object.next);
 
-	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
+	b2ShapeId shapeId = {shape->object.index + 1, world->poolIndex, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
 	return result;
 }
@@ -1233,7 +1238,7 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	b2ShapeId shapeId = {shape->object.index, world->index, shape->object.revision};
+	b2ShapeId shapeId = {shape->object.index + 1, world->poolIndex, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
 	return result;
 }
@@ -1339,7 +1344,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 
 	if (output.hit)
 	{
-		b2ShapeId shapeId = {shapeIndex, world->index, shape->object.revision};
+		b2ShapeId shapeId = {shapeIndex + 1, world->poolIndex, shape->object.revision};
 		float fraction = worldContext->fcn(shapeId, output.point, output.normal, output.fraction, worldContext->userContext);
 		worldContext->fraction = fraction;
 		return fraction;
@@ -1447,7 +1452,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 
 	if (output.hit)
 	{
-		b2ShapeId shapeId = {shapeIndex, world->index, shape->object.revision};
+		b2ShapeId shapeId = {shapeIndex + 1, world->poolIndex, shape->object.revision};
 		float fraction = worldContext->fcn(shapeId, output.point, output.normal, output.fraction, worldContext->userContext);
 		worldContext->fraction = fraction;
 		return fraction;
@@ -1648,17 +1653,17 @@ void b2World_Dump()
 
 bool b2IsBodyIdValid(b2World* world, b2BodyId id)
 {
-	if (id.world != world->index)
+	if (id.world != world->poolIndex)
 	{
 		return false;
 	}
 
-	if (id.index >= world->bodyPool.capacity)
+	if (id.index > world->bodyPool.capacity)
 	{
 		return false;
 	}
 
-	b2Body* body = world->bodies + id.index;
+	b2Body* body = world->bodies + (id.index - 1);
 	if (body->object.index != body->object.next)
 	{
 		return false;

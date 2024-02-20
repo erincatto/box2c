@@ -87,10 +87,10 @@ public:
 			// }
 			// printf("};\n");
 
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.points = points;
 			chainDef.count = count;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 			chainDef.friction = 0.2f;
 			b2CreateChain(groundId, &chainDef);
 
@@ -118,7 +118,7 @@ public:
 				revoluteDef.localAnchorA = bodyDef.position;
 				revoluteDef.localAnchorB = b2Vec2_zero;
 				revoluteDef.maxMotorTorque = 200.0f;
-				revoluteDef.motorSpeed = 5.0f * sign;
+				revoluteDef.motorSpeed = 2.0f * sign;
 				revoluteDef.enableMotor = true;
 
 				b2CreateRevoluteJoint(m_worldId, &revoluteDef);
@@ -175,7 +175,7 @@ public:
 		else
 		{
 			Human* human = m_humans + index;
-			human->Spawn(m_worldId, center, 1.0f, index + 1, human);
+			human->Spawn(m_worldId, center, 2.0f, index + 1, human);
 		}
 
 		m_isSpawned[index] = true;
@@ -348,10 +348,10 @@ public:
 
 			b2Vec2 points[] = {{40.0f, -40.0f}, {-40.0f, -40.0f}, {-40.0f, 40.0f}, {40.0f, 40.0f}};
 
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.count = 4;
 			chainDef.points = points;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 
 			b2CreateChain(groundId, &chainDef);
 		}

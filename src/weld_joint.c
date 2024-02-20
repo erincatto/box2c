@@ -220,40 +220,29 @@ void b2DumpWeldJoint()
 
 void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_weldJoint);
 	B2_ASSERT(b2IsValid(hertz) && hertz >= 0.0f);
 
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_weldJoint);
 	joint->weldJoint.linearHertz = hertz;
 }
 
 void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_weldJoint);
 	B2_ASSERT(b2IsValid(dampingRatio) && dampingRatio >= 0.0f);
-
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_weldJoint);
 	joint->weldJoint.linearDampingRatio = dampingRatio;
 }
 
 void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_weldJoint);
 	B2_ASSERT(b2IsValid(hertz) && hertz >= 0.0f);
-
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_weldJoint);
 	joint->weldJoint.angularHertz = hertz;
 }
 
 void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_weldJoint);
 	B2_ASSERT(b2IsValid(dampingRatio) && dampingRatio >= 0.0f);
-
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_weldJoint);
 	joint->weldJoint.angularDampingRatio = dampingRatio;
 }

@@ -97,6 +97,7 @@ static inline b2MotorJointDef b2DefaultMotorJointDef()
 	def.maxForce = 1.0f;
 	def.maxTorque = 1.0f;
 	def.correctionFactor = 0.3f;
+	return def;
 }
 
 /// A mouse joint is used to make a point on a body track a

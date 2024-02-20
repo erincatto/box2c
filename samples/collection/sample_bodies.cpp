@@ -62,7 +62,7 @@ class BodyType : public Sample
 			revoluteDef.enableMotor = true;
 			b2CreateRevoluteJoint(m_worldId, &revoluteDef);
 
-			b2PrismaticJointDef prismaticDef = b2_defaultPrismaticJointDef;
+			b2PrismaticJointDef prismaticDef = b2DefaultPrismaticJointDef();
 			b2Vec2 anchor = {0.0f, 5.0f};
 			prismaticDef.bodyIdA = groundId;
 			prismaticDef.bodyIdB = m_platformId;
@@ -210,10 +210,10 @@ public:
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[4] = {{8.0f, 7.0f}, {7.0f, 8.0f}, {6.0f, 8.0f}, {5.0f, 7.0f}};
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.points = points;
 			chainDef.count = 4;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 
 			b2CreateChain(groundId, &chainDef);
 		}
@@ -239,10 +239,10 @@ public:
 			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 
 			b2Vec2 points[4] = {{-1.0f, 3.0}, {1.0f, 3.0f}, {1.0f, 5.0f}, {-1.0f, 5.0}};
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.points = points;
 			chainDef.count = 4;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 			b2CreateChain(groundId, &chainDef);
 		}
 
@@ -254,10 +254,10 @@ public:
 
 			b2Vec2 points[10] = {{0.0f, 0.0f}, {6.0f, 0.0f},  {6.0f, 2.0f},	 {4.0f, 1.0f},	{2.0f, 2.0f},
 								 {0.0f, 2.0f}, {-2.0f, 2.0f}, {-4.0f, 3.0f}, {-6.0f, 2.0f}, {-6.0f, 0.0f}};
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.points = points;
 			chainDef.count = 10;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 			b2CreateChain(groundId, &chainDef);
 		}
 

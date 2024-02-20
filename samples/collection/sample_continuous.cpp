@@ -144,10 +144,10 @@ public:
 
 		b2Vec2 points[4] = {{-10.0f, -2.0f}, {10.0f, -2.0f}, {10.0f, 1.0f}, {-10.0f, 1.0f}};
 
-		b2ChainDef chainDef = b2_defaultChainDef;
+		b2ChainDef chainDef = b2DefaultChainDef();
 		chainDef.points = points;
 		chainDef.count = 4;
-		chainDef.loop = true;
+		chainDef.isLoop = true;
 
 		b2CreateChain(groundId, &chainDef);
 
@@ -386,10 +386,10 @@ public:
 			points[18] = b2Add(points[17], {-2.0f * hx, 0.0f});
 			points[19] = b2Add(points[18], {-2.0f * hx, 0.0f});
 
-			b2ChainDef chainDef = b2_defaultChainDef;
+			b2ChainDef chainDef = b2DefaultChainDef();
 			chainDef.points = points;
 			chainDef.count = 20;
-			chainDef.loop = true;
+			chainDef.isLoop = true;
 			chainDef.friction = m_friction;
 
 			b2CreateChain(m_groundId, &chainDef);
