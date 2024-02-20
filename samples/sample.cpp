@@ -124,7 +124,7 @@ bool QueryCallback(b2ShapeId shapeId, void* context)
 
 void Sample::MouseDown(b2Vec2 p, int button, int mod)
 {
-	if (B2_NON_NULL(m_mouseJointId))
+	if (B2_IS_NON_NULL(m_mouseJointId))
 	{
 		return;
 	}
@@ -139,11 +139,11 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 		// Query the world for overlapping shapes.
 		QueryContext queryContext = {p, b2_nullBodyId};
-		b2World_QueryAABB(m_worldId, QueryCallback, box,b2_defaultQueryFilter, &queryContext);
+		b2World_QueryAABB(m_worldId, QueryCallback, box,b2DefaultQueryFilter(), &queryContext);
 
-		if (B2_NON_NULL(queryContext.bodyId))
+		if (B2_IS_NON_NULL(queryContext.bodyId))
 		{
-			m_groundBodyId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			m_groundBodyId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 
 			b2MouseJointDef jd = b2_defaultMouseJointDef;
 			jd.bodyIdA = m_groundBodyId;
@@ -160,7 +160,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 void Sample::MouseUp(b2Vec2 p, int button)
 {
-	if (B2_NON_NULL(m_mouseJointId) && button == GLFW_MOUSE_BUTTON_1)
+	if (B2_IS_NON_NULL(m_mouseJointId) && button == GLFW_MOUSE_BUTTON_1)
 	{
 		b2DestroyJoint(m_mouseJointId);
 		m_mouseJointId = b2_nullJointId;
@@ -172,7 +172,7 @@ void Sample::MouseUp(b2Vec2 p, int button)
 
 void Sample::MouseMove(b2Vec2 p)
 {
-	if (B2_NON_NULL(m_mouseJointId))
+	if (B2_IS_NON_NULL(m_mouseJointId))
 	{
 		b2MouseJoint_SetTarget(m_mouseJointId, p);
 		b2BodyId bodyIdB = b2Joint_GetBodyB(m_mouseJointId);

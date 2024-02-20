@@ -32,10 +32,10 @@ public:
 			g_camera.m_center = {0.0f, 0.0f};
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		{
 			b2Segment segment = {{-10.0f, -10.0f}, {10.0f, -10.0f}};
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
@@ -64,19 +64,19 @@ public:
 
 	void Launch()
 	{
-		if (B2_NON_NULL(m_bodyId))
+		if (B2_IS_NON_NULL(m_bodyId))
 		{
 			b2DestroyBody(m_bodyId);
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.linearVelocity = {10.0f, 20.0f};
 		bodyDef.position = {0.0f, 0.0f};
 		bodyDef.gravityScale = 0.0f;
 		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.restitution = 1.2f;
 
@@ -138,7 +138,7 @@ public:
 			g_camera.m_zoom = 0.5f;
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = {0.0f, -6.0f};
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -158,12 +158,12 @@ public:
 
 	void Launch()
 	{
-		if (B2_NON_NULL(m_bodyId))
+		if (B2_IS_NON_NULL(m_bodyId))
 		{
 			b2DestroyBody(m_bodyId);
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.linearVelocity = {0.0f, -200.0f};
 		bodyDef.position = {0.0f, 10.0f};
@@ -171,7 +171,7 @@ public:
 		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-		b2CreateCircleShape(m_bodyId, &b2_defaultShapeDef, &circle);
+		b2CreateCircleShape(m_bodyId, &b2DefaultShapeDef(), &circle);
 	}
 
 	void UpdateUI() override
@@ -205,11 +205,11 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Segment segment = {{-10.0f, 0.0f}, {10.0f, 0.0f}};
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.9f;
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
@@ -229,12 +229,12 @@ public:
 
 	void Launch()
 	{
-		if (B2_NON_NULL(m_bodyId))
+		if (B2_IS_NON_NULL(m_bodyId))
 		{
 			b2DestroyBody(m_bodyId);
 		}
 
-		if (B2_NON_NULL(m_bulletId))
+		if (B2_IS_NON_NULL(m_bulletId))
 		{
 			b2DestroyBody(m_bulletId);
 		}
@@ -242,13 +242,13 @@ public:
 		m_angularVelocity = RandomFloat(-50.0f, 50.0f);
 		// m_angularVelocity = -30.6695766f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {0.0f, 8.0f};
 		bodyDef.angularVelocity = m_angularVelocity;
 		bodyDef.linearVelocity = {0.0f, -100.0f};
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.9f;
 
@@ -348,14 +348,14 @@ public:
 
 	void CreateScene()
 	{
-		if (B2_NON_NULL(m_groundId))
+		if (B2_IS_NON_NULL(m_groundId))
 		{
 			b2DestroyBody(m_groundId);
 		}
 
 		m_shapeId = b2_nullShapeId;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float m = 1.0f / sqrt(2.0f);
@@ -396,7 +396,7 @@ public:
 		}
 		else
 		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = m_friction;
 
 			b2Hull hull = {0};
@@ -497,19 +497,19 @@ public:
 
 	void Launch()
 	{
-		if (B2_NON_NULL(m_bodyId))
+		if (B2_IS_NON_NULL(m_bodyId))
 		{
 			b2DestroyBody(m_bodyId);
 			m_shapeId = b2_nullShapeId;
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {-28.0f, 18.0f};
 		bodyDef.linearVelocity = {0.0f, 0.0f};
 		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = m_friction;
 
@@ -564,7 +564,7 @@ public:
 
 		if (ImGui::SliderFloat("Friction", &m_friction, 0.0f, 1.0f, "%.1f"))
 		{
-			if (B2_NON_NULL(m_shapeId))
+			if (B2_IS_NON_NULL(m_shapeId))
 			{
 				b2Shape_SetFriction(m_shapeId, m_friction);
 			}

@@ -542,10 +542,10 @@ public:
 	{
 		// Ground body
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-40.0f, 0.0f}, {40.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
@@ -607,7 +607,7 @@ public:
 
 	void Create(int index)
 	{
-		if (B2_NON_NULL(m_bodyIds[m_bodyIndex]))
+		if (B2_IS_NON_NULL(m_bodyIds[m_bodyIndex]))
 		{
 			b2DestroyBody(m_bodyIds[m_bodyIndex]);
 			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
@@ -616,13 +616,13 @@ public:
 		float x = RandomFloat(-20.0f, 20.0f);
 		float y = RandomFloat(0.0f, 20.0f);
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = {x, y};
 		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
 
 		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.userData = m_userData + m_bodyIndex;
 		m_userData[m_bodyIndex].ignore = false;
 		if (m_bodyIndex == m_ignoreIndex)
@@ -662,7 +662,7 @@ public:
 	{
 		for (int i = 0; i < e_maxCount; ++i)
 		{
-			if (B2_NON_NULL(m_bodyIds[i]))
+			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
 				b2DestroyBody(m_bodyIds[i]);
 				m_bodyIds[i] = b2_nullBodyId;
@@ -818,7 +818,7 @@ public:
 			m_textLine += m_textIncrement;
 
 			// This version doesn't have a callback, but it doesn't skip the ignored shape
-			b2RayResult result = b2World_RayCastClosest(m_worldId, m_rayStart, rayTranslation, b2_defaultQueryFilter);
+			b2RayResult result = b2World_RayCastClosest(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter());
 
 			if (result.hit == true)
 			{
@@ -874,19 +874,19 @@ public:
 			switch (m_castType)
 			{
 				case e_rayCast:
-					b2World_RayCast(m_worldId, m_rayStart, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					b2World_RayCast(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 
 				case e_circleCast:
-					b2World_CircleCast(m_worldId, &circle, transform, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					b2World_CircleCast(m_worldId, &circle, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 
 				case e_capsuleCast:
-					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 
 				case e_polygonCast:
-					b2World_PolygonCast(m_worldId, &box, transform, rayTranslation, b2_defaultQueryFilter, modeFcn, &context);
+					b2World_PolygonCast(m_worldId, &box, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 			}
 
@@ -972,7 +972,7 @@ public:
 
 		g_draw.DrawPoint(m_rayStart, 5.0f, green);
 
-		if (B2_NON_NULL(m_bodyIds[m_ignoreIndex]))
+		if (B2_IS_NON_NULL(m_bodyIds[m_ignoreIndex]))
 		{
 			b2Vec2 p = b2Body_GetPosition(m_bodyIds[m_ignoreIndex]);
 			p.x -= 0.2f;
@@ -1108,7 +1108,7 @@ public:
 
 	void Create(int index)
 	{
-		if (B2_NON_NULL(m_bodyIds[m_bodyIndex]))
+		if (B2_IS_NON_NULL(m_bodyIds[m_bodyIndex]))
 		{
 			b2DestroyBody(m_bodyIds[m_bodyIndex]);
 			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
@@ -1117,13 +1117,13 @@ public:
 		float x = RandomFloat(-20.0f, 20.0f);
 		float y = RandomFloat(0.0f, 20.0f);
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = {x, y};
 		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
 
 		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.userData = m_userData + m_bodyIndex;
 		m_userData[m_bodyIndex].index = m_bodyIndex;
 		m_userData[m_bodyIndex].ignore = false;
@@ -1164,7 +1164,7 @@ public:
 	{
 		for (int i = 0; i < e_maxCount; ++i)
 		{
-			if (B2_NON_NULL(m_bodyIds[i]))
+			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
 				b2DestroyBody(m_bodyIds[i]);
 				m_bodyIds[i] = b2_nullBodyId;
@@ -1291,13 +1291,13 @@ public:
 
 		if (m_shapeType == e_circleShape)
 		{
-			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2_defaultQueryFilter,
+			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2DefaultQueryFilter(),
 								  this);
 			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
-			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2_defaultQueryFilter,
+			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2DefaultQueryFilter(),
 								   this);
 			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.point1);
 			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.point2);
@@ -1305,7 +1305,7 @@ public:
 		}
 		else if (m_shapeType == e_boxShape)
 		{
-			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2_defaultQueryFilter,
+			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2DefaultQueryFilter(),
 								   this);
 			b2Vec2 points[b2_maxPolygonVertices] = {0};
 			for (int i = 0; i < m_queryBox.count; ++i)
@@ -1315,7 +1315,7 @@ public:
 			g_draw.DrawPolygon(points, m_queryBox.count, color);
 		}
 
-		if (B2_NON_NULL(m_bodyIds[m_ignoreIndex]))
+		if (B2_IS_NON_NULL(m_bodyIds[m_ignoreIndex]))
 		{
 			b2Vec2 p = b2Body_GetPosition(m_bodyIds[m_ignoreIndex]);
 			p.x -= 0.2f;
@@ -1333,7 +1333,7 @@ public:
 
 			int index = userData->index;
 			assert(0 <= index && index < e_maxCount);
-			assert(B2_NON_NULL(m_bodyIds[index]));
+			assert(B2_IS_NON_NULL(m_bodyIds[index]));
 
 			b2DestroyBody(m_bodyIds[index]);
 			m_bodyIds[index] = b2_nullBodyId;

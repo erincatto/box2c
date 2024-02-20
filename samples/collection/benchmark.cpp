@@ -37,11 +37,11 @@ class BenchmarkBarrel : public Sample
 		float groundSize = 25.0f;
 
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(groundSize, 1.2f);
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(1.2f, 2.0f * groundSize, {-groundSize, 2.0f * groundSize}, 0.0f);
@@ -68,7 +68,7 @@ class BenchmarkBarrel : public Sample
 	{
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
-			if (B2_NON_NULL(m_bodies[i]))
+			if (B2_IS_NON_NULL(m_bodies[i]))
 			{
 				b2DestroyBody(m_bodies[i]);
 				m_bodies[i] = b2_nullBodyId;
@@ -110,10 +110,10 @@ class BenchmarkBarrel : public Sample
 		float centerx = shift * m_columnCount / 2.0f;
 		float centery = shift / 2.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
 
@@ -250,18 +250,18 @@ class BenchmarkTumbler : public Sample
 	{
 		b2BodyId groundId;
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			groundId = b2CreateBody(m_worldId, &bodyDef);
 		}
 
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.enableSleep = false;
 			bodyDef.position = {0.0f, 10.0f};
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.density = 50.0f;
 
 			b2Polygon polygon;
@@ -277,7 +277,7 @@ class BenchmarkTumbler : public Sample
 			// m_motorSpeed = 9.0f;
 			m_motorSpeed = 25.0f;
 
-			b2RevoluteJointDef jd = b2_defaultRevoluteJointDef;
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 			jd.bodyIdA = groundId;
 			jd.bodyIdB = bodyId;
 			jd.localAnchorA = {0.0f, 10.0f};
@@ -315,12 +315,12 @@ class BenchmarkTumbler : public Sample
 			float a = 0.125f;
 			for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
 			{
-				b2BodyDef bodyDef = b2_defaultBodyDef;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {5.0f * a + 2.0f * a * i, 10.0f + 2.0f * a * (m_stepCount % 5)};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-				b2ShapeDef shapeDef = b2_defaultShapeDef;
+				b2ShapeDef shapeDef = b2DefaultShapeDef();
 				shapeDef.density = 1.0f;
 
 				b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
@@ -352,7 +352,7 @@ class BenchmarkManyTumblers : public Sample
 	BenchmarkManyTumblers(const Settings& settings)
 		: Sample(settings)
 	{
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		m_rowCount = g_sampleDebug ? 2 : 19;
@@ -383,13 +383,13 @@ class BenchmarkManyTumblers : public Sample
 
 	void CreateTumbler(b2Vec2 position, int index)
 	{
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {position.x, position.y};
 		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 		m_tumblerIds[index] = bodyId;
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 50.0f;
 
 		b2Polygon polygon;
@@ -402,7 +402,7 @@ class BenchmarkManyTumblers : public Sample
 		polygon = b2MakeOffsetBox(2.0f, 0.25f, {0.0f, -2.0f}, 0.0);
 		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 
-		b2RevoluteJointDef jd = b2_defaultRevoluteJointDef;
+		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 		jd.bodyIdA = m_groundId;
 		jd.bodyIdB = bodyId;
 		jd.localAnchorA = position;
@@ -419,7 +419,7 @@ class BenchmarkManyTumblers : public Sample
 	{
 		for (int32_t i = 0; i < m_bodyCount; ++i)
 		{
-			if (B2_NON_NULL(m_bodyIds[i]))
+			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
 				b2DestroyBody(m_bodyIds[i]);
 			}
@@ -503,7 +503,7 @@ class BenchmarkManyTumblers : public Sample
 
 		if (m_bodyIndex < m_bodyCount && (m_stepCount & 0x7) == 0)
 		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.density = 1.0f;
 			// shapeDef.restitution = 0.5f;
 
@@ -516,7 +516,7 @@ class BenchmarkManyTumblers : public Sample
 			{
 				assert(m_bodyIndex < m_bodyCount);
 
-				b2BodyDef bodyDef = b2_defaultBodyDef;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = m_positions[i];
 				m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
@@ -601,10 +601,10 @@ class BenchmarkPyramid : public Sample
 
 	void CreateStack(float centerX, float baseY)
 	{
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 
 		float h = m_extent - m_round;
@@ -633,7 +633,7 @@ class BenchmarkPyramid : public Sample
 
 	void CreateScene()
 	{
-		if (B2_NON_NULL(m_groundId))
+		if (B2_IS_NON_NULL(m_groundId))
 		{
 			b2DestroyBody(m_groundId);
 		}
@@ -649,12 +649,12 @@ class BenchmarkPyramid : public Sample
 		m_bodyIds = (b2BodyId*)malloc(m_bodyCount * sizeof(b2BodyId));
 		m_bodyIndex = 0;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundDeltaY = 2.0f * m_extent * (m_baseCount + 1.0f);
 		float groundWidth = 2.0f * m_extent * m_columnCount * (m_baseCount + 1.0f);
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 		float groundY = 0.0f;
 
@@ -789,11 +789,11 @@ class BenchmarkCreateDestroy : public Sample
 	{
 		float groundSize = 100.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		b2Polygon box = b2MakeBox(groundSize, 1.0f);
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 		for (int32_t i = 0; i < e_maxBodyCount; ++i)
@@ -810,7 +810,7 @@ class BenchmarkCreateDestroy : public Sample
 	{
 		for (int32_t i = 0; i < e_maxBodyCount; ++i)
 		{
-			if (B2_NON_NULL(m_bodies[i]))
+			if (B2_IS_NON_NULL(m_bodies[i]))
 			{
 				b2DestroyBody(m_bodies[i]);
 				m_bodies[i] = b2_nullBodyId;
@@ -823,10 +823,10 @@ class BenchmarkCreateDestroy : public Sample
 		float centerx = shift * count / 2.0f;
 		float centery = shift / 2.0f + 1.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
 
@@ -897,7 +897,7 @@ class BenchmarkJointGrid : public Sample
 		b2BodyId* bodies = static_cast<b2BodyId*>(malloc(numi * numk * sizeof(b2BodyId)));
 		int32_t index = 0;
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.filter.categoryBits = 2;
 		shapeDef.filter.maskBits = ~2u;
@@ -905,7 +905,7 @@ class BenchmarkJointGrid : public Sample
 		b2Circle circle = {0};
 		circle.radius = rad;
 
-		b2RevoluteJointDef jd = b2_defaultRevoluteJointDef;
+		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 
 		for (int32_t k = 0; k < numk; ++k)
 		{
@@ -914,7 +914,7 @@ class BenchmarkJointGrid : public Sample
 				float fk = (float)k;
 				float fi = (float)i;
 
-				b2BodyDef bodyDef = b2_defaultBodyDef;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
 				if (k >= numk / 2 - 3 && k <= numk / 2 + 3 && i == 0)
 				{
 					bodyDef.type = b2_staticBody;

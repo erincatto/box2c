@@ -707,7 +707,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	chainShape->nextIndex = body->chainList;
 	body->chainList = chainShape->object.index;
 
-	b2ShapeDef shapeDef = b2_defaultShapeDef;
+	b2ShapeDef shapeDef = b2DefaultShapeDef();
 	shapeDef.userData = def->userData;
 	shapeDef.restitution = def->restitution;
 	shapeDef.friction = def->friction;
@@ -718,7 +718,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	int32_t n = def->count;
 	const b2Vec2* points = def->points;
 
-	if (def->loop)
+	if (def->isLoop)
 	{
 		chainShape->count = n;
 		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));

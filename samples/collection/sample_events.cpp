@@ -34,9 +34,9 @@ public:
 		}
 		
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 			// b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			// b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			// b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
 
 			// b2Vec2 points[] = {
 			//{42.333, 44.979},	{177.271, 44.979},	{177.271, 100.542}, {142.875, 121.708}, {177.271, 121.708},
@@ -98,21 +98,21 @@ public:
 			float y = 14.0f;
 			for (int i = 0; i < 3; ++i)
 			{
-				b2BodyDef bodyDef = b2_defaultBodyDef;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.position = {0.0f, y};
 				bodyDef.type = b2_dynamicBody;
 
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 				b2Polygon box = b2MakeBox(6.0f, 0.5f);
-				b2ShapeDef shapeDef = b2_defaultShapeDef;
+				b2ShapeDef shapeDef = b2DefaultShapeDef();
 				shapeDef.friction = 0.1f;
 				shapeDef.restitution = 1.0f;
 				shapeDef.density = 1.0f;
 
 				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
-				b2RevoluteJointDef revoluteDef = b2_defaultRevoluteJointDef;
+				b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
 				revoluteDef.bodyIdA = groundId;
 				revoluteDef.bodyIdB = bodyId;
 				revoluteDef.localAnchorA = bodyDef.position;
@@ -129,7 +129,7 @@ public:
 
 			{
 				b2Polygon box = b2MakeOffsetBox(4.0f, 1.0f, {0.0f, -30.5f}, 0.0f);
-				b2ShapeDef shapeDef = b2_defaultShapeDef;
+				b2ShapeDef shapeDef = b2DefaultShapeDef();
 				shapeDef.isSensor = true;
 				b2CreatePolygonShape(groundId, &shapeDef, &box);
 			}
@@ -344,7 +344,7 @@ public:
 		}
 
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 
 			b2Vec2 points[] = {{40.0f, -40.0f}, {-40.0f, -40.0f}, {-40.0f, 40.0f}, {40.0f, 40.0f}};
 
@@ -358,7 +358,7 @@ public:
 
 		// Player
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.gravityScale = 0.0f;
 			bodyDef.linearDamping = 0.5f;
@@ -366,7 +366,7 @@ public:
 			m_playerId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Circle circle = {{0.0f, 0.0f}, 1.0f};
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 			// Enable contact events for the player shape
 			shapeDef.enableContactEvents = true;
@@ -402,7 +402,7 @@ public:
 		}
 
 		// Debris
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.position = {RandomFloat(-38.0f, 38.0f), RandomFloat(-38.0f, 38.0f)};
 		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
@@ -412,7 +412,7 @@ public:
 		bodyDef.userData = m_bodyUserData + index;
 		m_debrisIds[index] = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.restitution = 0.8f;
 
 		// No events when debris hits debris
@@ -575,7 +575,7 @@ public:
 			b2ShapeId shapeId = b2Body_GetFirstShape(debrisId);
 			b2ShapeType type = b2Shape_GetType(shapeId);
 
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.enableContactEvents = true;
 
 			switch (type)
@@ -657,26 +657,26 @@ public:
 
 		// Ground
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2_defaultBodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
 		}
 
 		// Platform
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_kinematicBody;
 			bodyDef.position = {0.0f, 6.0f};
 			bodyDef.linearVelocity = {2.0f, 0.0f};
 			m_platformId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(3.0f, 0.5f);
-			m_platformShapeId = b2CreatePolygonShape(m_platformId, &b2_defaultShapeDef, &box);
+			m_platformShapeId = b2CreatePolygonShape(m_platformId, &b2DefaultShapeDef(), &box);
 		}
 
 		// Actor
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.fixedRotation = true;
 			bodyDef.linearDamping = 0.5f;
@@ -685,7 +685,7 @@ public:
 
 			m_radius = 0.5f;
 			b2Capsule capsule = {{0.0f, 0.0f}, {0.0f, 1.0f}, m_radius};
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.1f;
 
 			// Need to turn this on to get the callback

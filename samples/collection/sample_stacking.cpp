@@ -25,11 +25,11 @@ public:
 
 		float extent = 1.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.friction = 0.5f;
 
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
@@ -64,12 +64,12 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, -1.0f};
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-			b2ShapeDef sd = b2_defaultShapeDef;
+			b2ShapeDef sd = b2DefaultShapeDef();
 			b2CreatePolygonShape(groundId, &sd, &box);
 		}
 
@@ -80,7 +80,7 @@ public:
 
 		b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
-		b2ShapeDef sd = b2_defaultShapeDef;
+		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;
 		sd.friction = 0.3f;
 
@@ -94,7 +94,7 @@ public:
 
 			for (int32_t i = 0; i < e_rows; ++i)
 			{
-				b2BodyDef bodyDef = b2_defaultBodyDef;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 
 				int32_t n = j * e_rows + i;
@@ -139,12 +139,12 @@ public:
 		: Sample(settings)
 	{
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, -1.0f};
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-			b2ShapeDef sd = b2_defaultShapeDef;
+			b2ShapeDef sd = b2DefaultShapeDef();
 			b2CreatePolygonShape(groundId, &sd, &box);
 		}
 
@@ -171,7 +171,7 @@ public:
 	{
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
-			if (B2_NON_NULL(m_bodies[i]))
+			if (B2_IS_NON_NULL(m_bodies[i]))
 			{
 				b2DestroyBody(m_bodies[i]);
 				m_bodies[i] = b2_nullBodyId;
@@ -184,7 +184,7 @@ public:
 		b2Polygon box = b2MakeBox(0.5f, 0.5f);
 		// b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
-		b2ShapeDef sd = b2_defaultShapeDef;
+		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 1.0f;
 		sd.friction = 0.3f;
 
@@ -208,7 +208,7 @@ public:
 
 			for (int32_t i = 0; i < m_rowCount; ++i)
 			{
-				b2BodyDef bodyDef = b2_defaultBodyDef;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 
 				int32_t n = j * m_rowCount + i;
@@ -240,7 +240,7 @@ public:
 			{
 				int32_t n = j * m_rowCount + i;
 
-				if (B2_NON_NULL(m_bodies[n]))
+				if (B2_IS_NON_NULL(m_bodies[n]))
 				{
 					b2DestroyBody(m_bodies[n]);
 					m_bodies[n] = b2_nullBodyId;
@@ -256,7 +256,7 @@ public:
 		{
 			b2BodyId bullet = m_bullets[i];
 
-			if (B2_NON_NULL(bullet))
+			if (B2_IS_NON_NULL(bullet))
 			{
 				b2DestroyBody(bullet);
 				m_bullets[i] = b2_nullBodyId;
@@ -271,13 +271,13 @@ public:
 
 		b2Polygon box = b2MakeBox(0.25f, 0.25f);
 
-		b2ShapeDef sd = b2_defaultShapeDef;
+		b2ShapeDef sd = b2DefaultShapeDef();
 		sd.density = 2.0f;
 		sd.friction = 0.6f;
 
 		for (int32_t i = 0; i < m_bulletCount; ++i)
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {-25.0f - i, 5.0f};
 			bodyDef.linearVelocity = {50.0f, 0.0f};
@@ -363,21 +363,21 @@ public:
 		}
 
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, 0.0f};
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(100.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
 
 			b2Segment segment = {{-14.0f, 4.0f}, {-8.0f, 4.0f}};
-			b2CreateSegmentShape(groundId, &b2_defaultShapeDef, &segment);
+			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
 
 			box = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 4.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2_defaultShapeDef, &box);
+			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
 
 			b2Capsule capsule = {{8.5f, 4.0f}, {13.5f, 4.0f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
 		}
 
 
@@ -409,7 +409,7 @@ public:
 	{
 		for (int32_t i = 0; i < 9; ++i)
 		{
-			if (B2_NON_NULL(m_bodyIds[i]))
+			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
 				b2DestroyBody(m_bodyIds[i]);
 				m_bodyIds[i] = b2_nullBodyId;
@@ -422,11 +422,11 @@ public:
 		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 		b2Polygon square = b2MakeSquare(0.5f);
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
 		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.01f;
 			bodyDef.linearVelocity = {2.0f * sign, 0.0f};
 
@@ -446,7 +446,7 @@ public:
 		}
 
 		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.01f;
 			bodyDef.linearVelocity = {2.5f * sign, 0.0f};
 
@@ -464,7 +464,7 @@ public:
 		}
 
 		{
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.friction = 0.2f;
 			bodyDef.linearVelocity = {1.5f * sign, 0.0f};
 
@@ -549,17 +549,17 @@ public:
 			ps2[i] = b2MulSV(scale, ps2[i]);
 		}
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.friction = 0.6f;
 
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 			b2Segment segment = {{-100.0f, 0.0f}, {100.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
 		for (int i = 0; i < 8; ++i)
@@ -619,20 +619,20 @@ public:
 		}
 
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, -1.0f};
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(100.0f, 1.0f);
-			b2ShapeDef shapeDef = b2_defaultShapeDef;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		b2Polygon box = b2MakeBox(0.125f, 0.5f);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.friction = 0.6f;
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
 		int count = 15;
@@ -678,25 +678,25 @@ public:
 		}
 
 		{
-			b2BodyDef bodyDef = b2_defaultBodyDef;
+			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Capsule capsule;
 			capsule = {{-10.5f, 0.0f}, {10.5f, 0.0f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
 			capsule = {{-10.5f, 0.0f}, {-10.5f, 20.5f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
 			capsule = {{10.5f, 0.0f}, {10.5f, 20.5f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
 			capsule = {{-10.5f, 20.5f}, {10.5f, 20.5f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2_defaultShapeDef, &capsule);
+			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
 		}
 
 		m_row = 0;
 		m_column = 0;
 		m_count = 0;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.gravityScale = 0.0f;
 
@@ -712,7 +712,7 @@ public:
 
 				bodyDef.position = {x, y};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreateCircleShape(bodyId, &b2_defaultShapeDef, &circle);
+				b2CreateCircleShape(bodyId, &b2DefaultShapeDef(), &circle);
 
 				m_count += 1;
 				m_row += 1;
@@ -746,11 +746,11 @@ public:
 			g_camera.m_zoom = 0.05f;
 		}
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = {0.0f, -2.0f};
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.friction = 0.7f;
 
 		b2Polygon groundBox = b2MakeBox(40.0f, 2.0f);

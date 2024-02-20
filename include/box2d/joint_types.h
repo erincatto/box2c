@@ -55,18 +55,13 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 
 /// Use this to initialize your joint definition
-static const b2DistanceJointDef b2_defaultDistanceJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // localAnchorA
-	{0.0f, 0.0f},	 // localAnchorB
-	1.0f,			 // length
-	0.0f,			 // minLength
-	b2_huge,		 // maxLength
-	0.0f,			 // hertz
-	0.0f,			 // dampingRatio
-	false,			 // collideConnected
-};
+static inline b2DistanceJointDef b2DefaultDistanceJointDef()
+{
+	b2DistanceJointDef def = B2_ZERO_INIT;
+	def.length = 1.0f;
+	def.maxLength = b2_huge;
+	return def;
+}
 
 /// A motor joint is used to control the relative motion
 /// between two bodies. A typical usage is to control the movement
@@ -96,15 +91,13 @@ typedef struct b2MotorJointDef
 } b2MotorJointDef;
 
 /// Use this to initialize your joint definition
-static const b2MotorJointDef b2_defaultMotorJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // linearOffset
-	0.0f,			 // angularOffset
-	1.0f,			 // maxForce
-	1.0f,			 // maxTorque
-	0.3f,			 // correctionFactor
-};
+static inline b2MotorJointDef b2DefaultMotorJointDef()
+{
+	b2MotorJointDef def = B2_ZERO_INIT;
+	def.maxForce = 1.0f;
+	def.maxTorque = 1.0f;
+	def.correctionFactor = 0.3f;
+}
 
 /// A mouse joint is used to make a point on a body track a
 /// specified world point. This a soft constraint and allows the constraint to stretch without
@@ -128,13 +121,13 @@ typedef struct b2MouseJointDef
 } b2MouseJointDef;
 
 /// Use this to initialize your joint definition
-static const b2MouseJointDef b2_defaultMouseJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // target
-	4.0f,			 // hertz
-	1.0f,			 // damping ratio
-};
+static inline b2MouseJointDef b2DefaultMouseJointDef()
+{
+	b2MouseJointDef def = B2_ZERO_INIT;
+	def.hertz = 4.0f;
+	def.dampingRatio = 1.0f;
+	return def;
+}
 
 /// Prismatic joint definition. This requires defining a line of
 /// motion using an axis and an anchor point. The definition uses local
@@ -184,21 +177,12 @@ typedef struct b2PrismaticJointDef
 } b2PrismaticJointDef;
 
 /// Use this to initialize your joint definition
-static const b2PrismaticJointDef b2_defaultPrismaticJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // localAnchorA
-	{0.0f, 0.0f},	 // localAnchorB
-	{1.0f, 0.0f},	 // localAxisA
-	0.0f,			 // referenceAngle
-	false,			 // enableLimit
-	0.0f,			 // lowerTranslation
-	0.0f,			 // upperTranslation
-	false,			 // enableMotor
-	0.0f,			 // maxMotorForce
-	0.0f,			 // motorSpeed
-	false,			 // collideConnected
-};
+static inline b2PrismaticJointDef b2DefaultPrismaticJointDef()
+{
+	b2PrismaticJointDef def = B2_ZERO_INIT;
+	def.localAxisA = B2_LITERAL(b2Vec2){1.0f, 0.0f};
+	return def;
+}
 
 /// Revolute joint definition. This requires defining an anchor point where the
 /// bodies are joined. The definition uses local anchor points so that the
@@ -255,21 +239,12 @@ typedef struct b2RevoluteJointDef
 } b2RevoluteJointDef;
 
 /// Use this to initialize your joint definition
-static const b2RevoluteJointDef b2_defaultRevoluteJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // localAnchorA
-	{0.0f, 0.0f},	 // localAnchorB
-	0.0f,			 // referenceAngle
-	false,			 // enableLimit
-	0.0f,			 // lowerAngle
-	0.0f,			 // upperAngle
-	false,			 // enableMotor
-	0.0f,			 // maxMotorTorque
-	0.0f,			 // motorSpeed
-	0.25f,			 // drawSize
-	false,			 // collideConnected
-};
+static inline b2RevoluteJointDef b2DefaultRevoluteJointDef()
+{
+	b2RevoluteJointDef def = B2_ZERO_INIT;
+	def.drawSize = 0.25f;
+	return def;
+}
 
 /// A weld joint connect to bodies together rigidly. This constraint can be made soft to mimic
 ///	soft-body simulation.
@@ -308,18 +283,11 @@ typedef struct b2WeldJointDef
 } b2WeldJointDef;
 
 /// Use this to initialize your joint definition
-static const b2WeldJointDef b2_defaultWeldJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // localAnchorA
-	{0.0f, 0.0f},	 // localAnchorB,
-	0.0f,			 // referenceAngle
-	0.0f,			 // linearHertz
-	0.0f,			 // angularHertz
-	1.0f,			 // linearDampingRatio
-	1.0f,			 // angularDampingRatio
-	false,			 // collideConnected
-};
+static const b2WeldJointDef b2DefaultWeldJointDef()
+{
+	b2WeldJointDef def = B2_ZERO_INIT;
+	return def;
+}
 
 /// Wheel joint definition. This requires defining a line of
 /// motion using an axis and an anchor point. The definition uses local
@@ -373,19 +341,11 @@ typedef struct b2WheelJointDef
 } b2WheelJointDef;
 
 /// Use this to initialize your joint definition
-static const b2WheelJointDef b2_defaultWheelJointDef = {
-	B2_NULL_BODY_ID, // bodyIdA
-	B2_NULL_BODY_ID, // bodyIdB
-	{0.0f, 0.0f},	 // localAnchorA
-	{0.0f, 0.0f},	 // localAnchorB
-	{1.0f, 0.0f},	 // localAxisA
-	false,			 // enableLimit
-	0.0f,			 // lowerTranslation
-	0.0f,			 // upperTranslation
-	false,			 // enableMotor
-	0.0f,			 // maxMotorTorque
-	0.0f,			 // motorSpeed
-	1.0f,			 // hertz
-	0.7f,			 // dampingRatio
-	false,			 // collideConnected
-};
+static inline b2WheelJointDef b2DefaultWheelJointDef()
+{
+	b2WheelJointDef def = B2_ZERO_INIT;
+	def.localAxisA.y = 1.0f;
+	def.hertz = 1.0f;
+	def.dampingRatio = 0.7f;
+	return def;
+}

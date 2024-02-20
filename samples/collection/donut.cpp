@@ -37,11 +37,11 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* user
 
 	b2Vec2 center = position;
 
-	b2BodyDef bodyDef = b2_defaultBodyDef;
+	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
 	bodyDef.userData = userData;
 
-	b2ShapeDef shapeDef = b2_defaultShapeDef;
+	b2ShapeDef shapeDef = b2DefaultShapeDef();
 	shapeDef.density = 1.0f;
 	shapeDef.filter.groupIndex = -groupIndex;
 

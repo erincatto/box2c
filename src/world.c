@@ -100,9 +100,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	b2InitializeContactRegisters();
 
-	b2World empty = {0};
 	b2World* world = b2_worlds + id.index;
-	*world = empty;
+	*world = (b2World){0};
 
 	world->index = id.index;
 
@@ -156,7 +155,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->locked = false;
 	world->enableWarmStarting = true;
 	world->enableContinuous = def->enableContinous;
-	world->profile = b2_emptyProfile;
 	world->userTreeTask = NULL;
 	world->splitIslandIndex = B2_NULL_INDEX;
 
@@ -511,7 +509,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	world->locked = true;
-	world->profile = b2_emptyProfile;
+	world->profile = (b2Profile){0};
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
 
@@ -1393,15 +1391,16 @@ static float b2RayCastClosestFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal,
 
 b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter)
 {
+	b2RayResult result = {0};
+
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
-		return b2_emptyRayResult;
+		return result;
 	}
 
 	b2RayCastInput input = {origin, translation, 1.0f};
-	b2RayResult result = b2_emptyRayResult;
 	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
