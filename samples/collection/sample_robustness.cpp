@@ -21,11 +21,11 @@ class HighMassRatio1 : public Sample
 	{
 		float extent = 1.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.friction = 0.5f;
 
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
@@ -91,11 +91,11 @@ class HighMassRatio2 : public Sample
 	{
 		float extent = 1.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
@@ -157,11 +157,11 @@ class OverlapRecovery : public Sample
 		m_hertz = 30.0f;
 		m_dampingRatio = 1.0f;
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		float groundWidth = 40.0f;
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 
 		b2Segment segment = {{-groundWidth, 0.0f}, {groundWidth, 0.0f}};
@@ -184,11 +184,11 @@ class OverlapRecovery : public Sample
 
 		b2World_SetContactTuning(m_worldId, m_hertz, m_dampingRatio, m_pushout);
 
-		b2BodyDef bodyDef = b2_defaultBodyDef;
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 
 		b2Polygon box = b2MakeBox(m_extent, m_extent);
-		b2ShapeDef shapeDef = b2_defaultShapeDef;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		
 		m_bodyCount = m_baseCount * (m_baseCount + 1) / 2;

@@ -25,7 +25,7 @@ int HelloWorld(void)
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 
 	// Define the ground body.
-	b2BodyDef groundBodyDef = b2_defaultBodyDef;
+	b2BodyDef groundBodyDef = b2DefaultBodyDef();
 	groundBodyDef.position = (b2Vec2){0.0f, -10.0f};
 
 	// Call the body factory which allocates memory for the ground body
@@ -37,11 +37,11 @@ int HelloWorld(void)
 	b2Polygon groundBox = b2MakeBox(50.0f, 10.0f);
 
 	// Add the box shape to the ground body.
-	b2ShapeDef groundShapeDef = b2_defaultShapeDef;
+	b2ShapeDef groundShapeDef = b2DefaultShapeDef();
 	b2CreatePolygonShape(groundBodyId, &groundShapeDef, &groundBox);
 
 	// Define the dynamic body. We set its position and call the body factory.
-	b2BodyDef bodyDef = b2_defaultBodyDef;
+	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
 	bodyDef.position = (b2Vec2){0.0f, 4.0f};
 	b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
@@ -50,7 +50,7 @@ int HelloWorld(void)
 	b2Polygon dynamicBox = b2MakeBox(1.0f, 1.0f);
 
 	// Define the dynamic body shape
-	b2ShapeDef shapeDef = b2_defaultShapeDef;
+	b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 	// Set the box density to be non-zero, so it will be dynamic.
 	shapeDef.density = 1.0f;
@@ -127,7 +127,7 @@ int DestroyAllBodiesWorld(void)
 	bool creating = true;
 
 	b2BodyId bodyIds[BODY_COUNT];
-	b2BodyDef bodyDef = b2_defaultBodyDef;
+	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
 	b2Polygon square = b2MakeSquare(0.5f);
 
@@ -138,7 +138,9 @@ int DestroyAllBodiesWorld(void)
 			if (count < BODY_COUNT)
 			{
 				bodyIds[count] = b2CreateBody(worldId, &bodyDef);
-				b2CreatePolygonShape(bodyIds[count], &b2_defaultShapeDef, &square);
+
+				b2ShapeDef shapeDef = b2DefaultShapeDef();
+				b2CreatePolygonShape(bodyIds[count], &shapeDef, &square);
 				count += 1;
 			}
 			else

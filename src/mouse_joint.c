@@ -12,19 +12,7 @@
 
 void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
-	{
-		return;
-	}
-
-	B2_ASSERT(0 <= jointId.index && jointId.index < world->jointPool.capacity);
-
-	b2Joint* base = world->joints + jointId.index;
-	B2_ASSERT(base->object.index == base->object.next);
-	B2_ASSERT(base->object.revision == jointId.revision);
-	B2_ASSERT(base->type == b2_mouseJoint);
+	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
 	base->mouseJoint.targetA = target;
 }
 

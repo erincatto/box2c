@@ -22,13 +22,9 @@
 // clang-format off
 #ifdef __cplusplus
 	#define B2_LITERAL(T) T
-	#define B2_ZERO_INIT {}
 #else
 	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
 	#define B2_LITERAL(T) (T)
-
-	/// Used for C zero initialization, such as b2Vec2 v = {0} where C++ requires b2Vec2 v = {}
-	#define B2_ZERO_INIT {0}
 #endif
 // clang-format on
 
@@ -107,9 +103,10 @@ typedef struct b2CastOutput
 /// The worker index must correctly identify each worker in the user thread pool, expected in [0, workerCount).
 ///	A worker must only exist on only one thread at a time and is analogous to the thread index.
 /// The task context is the context pointer sent from Box2D when it is enqueued.
-///	The startIndex and endIndex are expected in the range [0, itemCount) where itemCount is the argument to b2EnqueueTaskCallback below.
-///	Box2D expects startIndex < endIndex and will execute a loop like this:
-///	for (int i = startIndex; i < endIndex; ++i)
+///	The startIndex and endIndex are expected in the range [0, itemCount) where itemCount is the argument to b2EnqueueTaskCallback
+/// below. Box2D expects startIndex < endIndex and will execute a loop like this:
+///
+/// for (int i = startIndex; i < endIndex; ++i)
 ///	{
 ///		DoWork();
 ///	}
@@ -121,7 +118,7 @@ typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t worke
 ///	The itemCount is the number of Box2D work items that are to be partitioned among workers by the user's task system.
 ///	This is essentially a parallel-for. The minRange parameter is a suggestion of the minimum number of items to assign
 ///	per worker to reduce overhead. For example, suppose the task is small and that itemCount is 16. A minRange of 8 suggests
-///	that your task system should split the work items amoung just two workers, even if you have more available.
+///	that your task system should split the work items among just two workers, even if you have more available.
 ///	In general the range [startIndex, endIndex) send to b2TaskCallback should obey:
 ///	endIndex - startIndex >= minRange
 ///	The exception of course is when itemCount < minRange.
@@ -206,15 +203,7 @@ static inline b2WorldDef b2DefaultWorldDef()
 	def.jointDampingRatio = 2.0f;
 	def.enableSleep = true;
 	def.enableContinous = true;
-	def.bodyCapacity = 0;
-	def.shapeCapacity = 0;
-	def.contactCapacity = 0;
-	def.jointCapacity = 0;
 	def.stackAllocatorCapacity = 1024 * 1024;
-	def.workerCount = 0;
-	def.enqueueTask = NULL;
-	def.finishTask = NULL;
-	def.userTaskContext = NULL;
 	return def;
 }
 
@@ -282,21 +271,16 @@ typedef struct b2BodyDef
 } b2BodyDef;
 
 /// Use this to initialize your body definition
-static const b2BodyDef b2_defaultBodyDef = {
-	b2_staticBody, // bodyType
-	{0.0f, 0.0f},  // position
-	0.0f,		   // angle
-	{0.0f, 0.0f},  // linearVelocity
-	0.0f,		   // angularVelocity
-	0.0f,		   // linearDamping
-	0.0f,		   // angularDamping
-	1.0f,		   // gravityScale
-	NULL,		   // userData
-	true,		   // enableSleep
-	true,		   // isAwake
-	false,		   // fixedRotation
-	true,		   // isEnabled
-};
+static inline b2BodyDef b2DefaultBodyDef()
+{
+	b2BodyDef def = B2_ZERO_INIT;
+	def.type = b2_staticBody;
+	def.gravityScale = 1.0f;
+	def.enableSleep = true;
+	def.isAwake = true;
+	def.isEnabled = true;
+	return def;
+}
 
 /// This holds contact filtering data.
 typedef struct b2Filter
@@ -315,7 +299,11 @@ typedef struct b2Filter
 } b2Filter;
 
 /// Use this to initialize your filter
-static const b2Filter b2_defaultFilter = {0x00000001, 0xFFFFFFFF, 0};
+static inline b2Filter b2DefaultFilter()
+{
+	b2Filter filter = {0x00000001, 0xFFFFFFFF, 0};
+	return filter;
+}
 
 /// This holds contact filtering data.
 typedef struct b2QueryFilter
@@ -329,7 +317,11 @@ typedef struct b2QueryFilter
 } b2QueryFilter;
 
 /// Use this to initialize your query filter
-static const b2QueryFilter b2_defaultQueryFilter = {0x00000001, 0xFFFFFFFF};
+static inline b2QueryFilter b2DefaultQueryFilter()
+{
+	b2QueryFilter filter = {0x00000001, 0xFFFFFFFF};
+	return filter;
+}
 
 /// Shape type
 typedef enum b2ShapeType
@@ -376,17 +368,16 @@ typedef struct b2ShapeDef
 } b2ShapeDef;
 
 /// Use this to initialize your shape definition
-static const b2ShapeDef b2_defaultShapeDef = {
-	NULL,						 // userData
-	0.6f,						 // friction
-	0.0f,						 // restitution
-	1.0f,						 // density
-	{0x00000001, 0xFFFFFFFF, 0}, // filter
-	false,						 // isSensor
-	true,						 // enableSensorEvents
-	true,						 // enableContactEvents
-	false,						 // enablePreSolveEvents
-};
+static inline b2ShapeDef b2DefaultShapeDef()
+{
+	b2ShapeDef def = B2_ZERO_INIT;
+	def.friction = 0.6f;
+	def.density = 1.0f;
+	def.filter = b2DefaultFilter();
+	def.enableSensorEvents = true;
+	def.enableContactEvents = true;
+	return def;
+}
 
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
 ///	- DO NOT use chain shapes unless you understand the limitations. This is an advanced feature!
@@ -409,7 +400,7 @@ typedef struct b2ChainDef
 	int32_t count;
 
 	/// Indicates a closed chain formed by connecting the first and last points
-	bool loop;
+	bool isLoop;
 
 	/// Use this to store application specific shape data.
 	void* userData;
@@ -425,15 +416,13 @@ typedef struct b2ChainDef
 } b2ChainDef;
 
 /// Use this to initialize your chain definition
-static const b2ChainDef b2_defaultChainDef = {
-	NULL,						// points
-	0,							// count
-	false,						// loop
-	NULL,						// userData
-	0.6f,						// friction
-	0.0f,						// restitution
-	{0x00000001, 0xFFFFFFFF, 0} // filter
-};
+static inline b2ChainDef b2DefaultChainDef()
+{
+	b2ChainDef def = B2_ZERO_INIT;
+	def.friction = 0.6f;
+	def.filter = b2DefaultFilter();
+	return def;
+}
 
 /// Profiling data. Times are in milliseconds.
 typedef struct b2Profile
@@ -447,9 +436,6 @@ typedef struct b2Profile
 	float broadphase;
 	float continuous;
 } b2Profile;
-
-/// Use this to initialize your profile
-static const b2Profile b2_emptyProfile = B2_ZERO_INIT;
 
 /// Counters that give details of the simulation size
 typedef struct b2Counters
@@ -467,6 +453,3 @@ typedef struct b2Counters
 	int32_t taskCount;
 	int32_t colorCounts[b2_graphColorCount + 1];
 } b2Counters;
-
-/// Use this to initialize your counters
-static const b2Counters b2_emptyCounters = B2_ZERO_INIT;

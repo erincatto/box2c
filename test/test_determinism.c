@@ -115,17 +115,17 @@ void TiltedStacks(int testIndex, int workerCount)
 	b2BodyId bodies[e_count];
 
 	{
-		b2BodyDef bd = b2_defaultBodyDef;
+		b2BodyDef bd = b2DefaultBodyDef();
 		bd.position = (b2Vec2){0.0f, -1.0f};
 		b2BodyId groundId = b2CreateBody(worldId, &bd);
 
 		b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-		b2ShapeDef sd = b2_defaultShapeDef;
+		b2ShapeDef sd = b2DefaultShapeDef();
 		b2CreatePolygonShape(groundId, &sd, &box);
 	}
 
 	b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
-	b2ShapeDef sd = b2_defaultShapeDef;
+	b2ShapeDef sd = b2DefaultShapeDef();
 	sd.density = 1.0f;
 	sd.friction = 0.3f;
 
@@ -139,7 +139,7 @@ void TiltedStacks(int testIndex, int workerCount)
 
 		for (int i = 0; i < e_rows; ++i)
 		{
-			b2BodyDef bd = b2_defaultBodyDef;
+			b2BodyDef bd = b2DefaultBodyDef();
 			bd.type = b2_dynamicBody;
 
 			int n = j * e_rows + i;

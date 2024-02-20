@@ -56,5 +56,3 @@ typedef struct b2RayResult
 	float fraction;
 	bool hit;
 } b2RayResult;
-
-static const b2RayResult b2_emptyRayResult = {{-1, -1, 0}, {0.0f, 0.0f}, {0.0f, 0.0f}, 0.0f, false};
