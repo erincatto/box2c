@@ -434,6 +434,7 @@ static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 
 B2_API bool b2IsValid(float a);
 B2_API bool b2Vec2_IsValid(b2Vec2 v);
+B2_API bool b2Rot_IsValid(b2Rot q);
 B2_API bool b2AABB_IsValid(b2AABB aabb);
 
 /// Convert this vector into a unit vector

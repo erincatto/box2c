@@ -40,6 +40,7 @@ typedef struct b2BroadPhase
 	int32_t movePairCapacity;
 	_Atomic int movePairIndex;
 
+	// Tracks shape pairs that have a b2Contact
 	b2HashSet pairSet;
 
 } b2BroadPhase;

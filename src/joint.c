@@ -532,6 +532,69 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	return jointId;
 }
 
+void b2DestroyJointInternal(b2World* world, b2Joint* joint)
+{
+	b2JointEdge* edgeA = joint->edges + 0;
+	b2JointEdge* edgeB = joint->edges + 1;
+
+	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
+	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
+	B2_ASSERT(b2ObjectValid(&bodyA->object));
+	B2_ASSERT(b2ObjectValid(&bodyB->object));
+
+	// Remove from body A
+	if (edgeA->prevKey != B2_NULL_INDEX)
+	{
+		b2Joint* prevJoint = world->joints + (edgeA->prevKey >> 1);
+		b2JointEdge* prevEdge = prevJoint->edges + (edgeA->prevKey & 1);
+		prevEdge->nextKey = edgeA->nextKey;
+	}
+
+	if (edgeA->nextKey != B2_NULL_INDEX)
+	{
+		b2Joint* nextJoint = world->joints + (edgeA->nextKey >> 1);
+		b2JointEdge* nextEdge = nextJoint->edges + (edgeA->nextKey & 1);
+		nextEdge->prevKey = edgeA->prevKey;
+	}
+
+	int32_t edgeKeyA = (joint->object.index << 1) | 0;
+	if (bodyA->jointList == edgeKeyA)
+	{
+		bodyA->jointList = edgeA->nextKey;
+	}
+
+	bodyA->jointCount -= 1;
+
+	// Remove from body B
+	if (edgeB->prevKey != B2_NULL_INDEX)
+	{
+		b2Joint* prevJoint = world->joints + (edgeB->prevKey >> 1);
+		b2JointEdge* prevEdge = prevJoint->edges + (edgeB->prevKey & 1);
+		prevEdge->nextKey = edgeB->nextKey;
+	}
+
+	if (edgeB->nextKey != B2_NULL_INDEX)
+	{
+		b2Joint* nextJoint = world->joints + (edgeB->nextKey >> 1);
+		b2JointEdge* nextEdge = nextJoint->edges + (edgeB->nextKey & 1);
+		nextEdge->prevKey = edgeB->prevKey;
+	}
+
+	int32_t edgeKeyB = (joint->object.index << 1) | 1;
+	if (bodyB->jointList == edgeKeyB)
+	{
+		bodyB->jointList = edgeB->nextKey;
+	}
+
+	bodyB->jointCount -= 1;
+
+	b2UnlinkJoint(world, joint);
+
+	b2RemoveJointFromGraph(world, joint);
+
+	b2FreeObject(&world->jointPool, &joint->object);
+}
+
 void b2DestroyJoint(b2JointId jointId)
 {
 	b2World* world = b2GetWorldFromIndex(jointId.world);
@@ -634,6 +697,67 @@ b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 	B2_ASSERT(b2ObjectValid(&body->object));
 	b2BodyId bodyId = {bodyIndex + 1, jointId.world, body->object.revision};
 	return bodyId;
+}
+
+void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
+{
+	b2World* world = b2GetWorldFromIndexLocked(jointId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+	if (joint->collideConnected == shouldCollide)
+	{
+		return;
+	}
+
+	joint->collideConnected = shouldCollide;
+
+	int32_t bodyIndexA = joint->edges[0].bodyIndex;
+	int32_t bodyIndexB = joint->edges[1].bodyIndex;
+
+	b2Body* bodyA = world->bodies + bodyIndexA;
+	b2Body* bodyB = world->bodies + bodyIndexA;
+
+	if (shouldCollide)
+	{
+		int shapeCountA = bodyA->shapeList;
+		foo foo foo foo
+	}
+	else
+	{
+		// no collision between bodies, destroy any contact between them
+		int contactCountA = bodyA->contactCount;
+		int contactCountB = bodyB->contactCount;
+
+		int32_t contactKey = contactCountA < contactCountB ? bodyA->contactList : bodyB->contactList;
+		while (contactKey != B2_NULL_INDEX)
+		{
+			int32_t contactIndex = contactKey >> 1;
+			int32_t edgeIndex = contactKey & 1;
+
+			b2Contact* contact = world->contacts + contactIndex;
+			contactKey = contact->edges[edgeIndex].nextKey;
+
+			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
+			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
+			
+			if ((bodyIndexA == shapeA->bodyIndex && bodyIndexB == shapeB->bodyIndex) ||
+				(bodyIndexA == shapeB->bodyIndex && bodyIndexB == shapeA->bodyIndex))
+			{
+				b2DestroyContact(world, contact);
+			}
+		}
+	}
+}
+
+bool b2Joint_GetCollideConnected(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	return joint->collideConnected;
 }
 
 extern void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context);

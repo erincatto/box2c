@@ -11,6 +11,8 @@
 #include "joint_types.h"
 #include "types.h"
 
+#include <stdbool.h>
+
 typedef struct b2Capsule b2Capsule;
 typedef struct b2Circle b2Circle;
 typedef struct b2Polygon b2Polygon;
@@ -127,7 +129,8 @@ B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
 /// @warning This function is locked during callbacks.
 B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
 
-/// Destroy a rigid body given an id.
+/// Destroy a rigid body given an id. This destroys all shapes attached to the body
+/// but does not destroy the joints.
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBody(b2BodyId bodyId);
 
@@ -299,22 +302,22 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
  * @{
  */
 
-/// Create a circle shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Create a circle shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
 B2_API b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 
-/// Create a line segment shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Create a line segment shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
 B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 
-/// Create a capsule shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Create a capsule shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
 B2_API b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 
-/// Create a polygon shape and attach it to a body. The shape defintion and geometry are fully cloned.
+/// Create a polygon shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
 B2_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
@@ -455,11 +458,17 @@ B2_API bool b2Joint_IsValid(b2JointId id);
 /// Get the joint type
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
 
-	/// Get body A on a joint
+/// Get body A on a joint
 B2_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 
 /// Get body B on a joint
 B2_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
+
+/// Toggle collision between connected bodies
+B2_API void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide);
+
+/// Is collision allowed between connected bodies?
+B2_API bool b2Joint_GetCollideConnected(b2JointId jointId);
 
 /// Get the constraint force on a distance joint
 B2_API float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float timeStep);
@@ -511,7 +520,7 @@ B2_API void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 /// Get the current motor force for a prismatic joint
 B2_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId);
 
-/// Set the maximum force for a pristmatic joint motor
+/// Set the maximum force for a prismatic joint motor
 B2_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
 
 /// Get the current constraint force for a prismatic joint

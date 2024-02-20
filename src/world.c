@@ -1185,6 +1185,8 @@ void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2
 		return;
 	}
 
+	B2_ASSERT(b2AABB_IsValid(aabb));
+
 	WorldQueryContext worldContext = {world, fcn, filter, context};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
@@ -1253,6 +1255,9 @@ void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Cir
 		return;
 	}
 
+	B2_ASSERT(b2Vec2_IsValid(transform.p));
+	B2_ASSERT(b2Rot_IsValid(transform.q));
+
 	b2AABB aabb = b2ComputeCircleAABB(circle, transform);
 	WorldOverlapContext worldContext = {
 		world, fcn, filter, b2MakeProxy(&circle->point, 1, circle->radius), transform, context,
@@ -1274,6 +1279,9 @@ void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Ca
 		return;
 	}
 
+	B2_ASSERT(b2Vec2_IsValid(transform.p));
+	B2_ASSERT(b2Rot_IsValid(transform.q));
+
 	b2AABB aabb = b2ComputeCapsuleAABB(capsule, transform);
 	WorldOverlapContext worldContext = {
 		world, fcn, filter, b2MakeProxy(&capsule->point1, 2, capsule->radius), transform, context,
@@ -1294,6 +1302,9 @@ void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Po
 	{
 		return;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(transform.p));
+	B2_ASSERT(b2Rot_IsValid(transform.q));
 
 	b2AABB aabb = b2ComputePolygonAABB(polygon, transform);
 	WorldOverlapContext worldContext = {
@@ -1363,9 +1374,10 @@ void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2Que
 		return;
 	}
 
-	b2RayCastInput input = {origin, translation, 1.0f};
+	B2_ASSERT(b2Vec2_IsValid(origin));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
-	// todo validate input
+	b2RayCastInput input = {origin, translation, 1.0f};
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
@@ -1404,6 +1416,9 @@ b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 tran
 	{
 		return result;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(origin));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2RayCastInput input = {origin, translation, 1.0f};
 	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
@@ -1471,6 +1486,10 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 		return;
 	}
 
+	B2_ASSERT(b2Vec2_IsValid(originTransform.p));
+	B2_ASSERT(b2Rot_IsValid(originTransform.q));
+	B2_ASSERT(b2Vec2_IsValid(translation));
+
 	b2ShapeCastInput input;
 	input.points[0] = b2TransformPoint(originTransform, circle->point);
 	input.count = 1;
@@ -1502,6 +1521,10 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 	{
 		return;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(originTransform.p));
+	B2_ASSERT(b2Rot_IsValid(originTransform.q));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2ShapeCastInput input;
 	input.points[0] = b2TransformPoint(originTransform, capsule->point1);
@@ -1535,6 +1558,10 @@ void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transfor
 	{
 		return;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(originTransform.p));
+	B2_ASSERT(b2Rot_IsValid(originTransform.q));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2ShapeCastInput input;
 	for (int i = 0; i < polygon->count; ++i)

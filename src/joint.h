@@ -226,9 +226,8 @@ typedef struct b2Joint
 } b2Joint;
 
 b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
-
-// todo remove this
 b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
+void b2DestroyJointInternal(b2World* world, b2Joint* joint);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);

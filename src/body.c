@@ -219,7 +219,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
-	B2_ASSERT(b2IsValid(def->gravityScale) && def->gravityScale >= 0.0f);
+	B2_ASSERT(b2IsValid(def->gravityScale));
 
 	body->type = def->type;
 	body->origin = def->position;
@@ -281,7 +281,7 @@ bool b2IsBodyAwake(b2World* world, b2Body* body)
 	return false;
 }
 
-void b2WakeBody(b2World* world, b2Body* body)
+static void b2WakeBody(b2World* world, b2Body* body)
 {
 	if (body->islandIndex != B2_NULL_INDEX)
 	{
@@ -338,6 +338,33 @@ void b2DestroyBody(b2BodyId bodyId)
 	}
 
 	b2Body* body = b2GetBody(world, bodyId);
+	b2DestroyBodyInternal(world, body);
+}
+
+void b2DestroyBodyAndJoints(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+
+	// Destroy the attached joints
+	int32_t edgeKey = body->jointList;
+	while (edgeKey != B2_NULL_INDEX)
+	{
+		int32_t jointIndex = edgeKey >> 1;
+		int32_t edgeIndex = edgeKey & 1;
+
+		b2Joint* joint = world->joints + jointIndex;
+		edgeKey = joint->edges[edgeIndex].nextKey;
+
+		// Careful because this modifies the list being traversed
+		b2DestroyJointInternal(world, joint);
+	}
+
 	b2DestroyBodyInternal(world, body);
 }
 
@@ -563,6 +590,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	// Add to shape linked list
 	shape->nextShapeIndex = body->shapeList;
 	body->shapeList = shape->object.index;
+	body->shapeCount += 1;
 
 	if (shape->density > 0.0f)
 	{
@@ -636,6 +664,8 @@ static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 	{
 		return;
 	}
+
+	body->shapeCount -= 1;
 
 	const float density = shape->density;
 
@@ -1237,7 +1267,7 @@ float b2Body_GetAngularDamping(b2BodyId bodyId)
 
 void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale)
 {
-	B2_ASSERT(b2IsValid(gravityScale) && gravityScale >= 0.0f);
+	B2_ASSERT(b2IsValid(gravityScale));
 
 	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
 	if (world == NULL)

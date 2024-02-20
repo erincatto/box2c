@@ -38,6 +38,21 @@ bool b2Vec2_IsValid(b2Vec2 v)
 	return true;
 }
 
+bool b2Rot_IsValid(b2Rot q)
+{
+	if (isnan(q.s) || isnan(q.c))
+	{
+		return false;
+	}
+
+	if (isinf(q.s) || isinf(q.c))
+	{
+		return false;
+	}
+
+	return b2IsNormalized(q);
+}
+
 b2Vec2 b2Normalize(b2Vec2 v)
 {
 	float length = b2Length(v);

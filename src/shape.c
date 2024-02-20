@@ -422,6 +422,7 @@ void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
 
 	if (body->isEnabled)
 	{
+		// Must recreate proxy due to changed filter bits that exist in the dynamic tree
 		b2DestroyShapeProxy(shape, &world->broadPhase);
 		b2CreateShapeProxy(shape, &world->broadPhase, body->type, b2MakeTransform(body));
 	}
