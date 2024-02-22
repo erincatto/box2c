@@ -9,6 +9,15 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
+#include "box2d/joint_types.h"
+
+b2MouseJointDef b2DefaultMouseJointDef()
+{
+	b2MouseJointDef def = {0};
+	def.hertz = 4.0f;
+	def.dampingRatio = 1.0f;
+	return def;
+}
 
 void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 {

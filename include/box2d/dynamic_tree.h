@@ -160,13 +160,13 @@ B2_API void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
 /// Get proxy user data
 /// @return the proxy user data or 0 if the id is invalid
-static inline int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
+B2_INLINE int32_t b2DynamicTree_GetUserData(const b2DynamicTree* tree, int32_t proxyId)
 {
 	return tree->nodes[proxyId].userData;
 }
 
 /// Get the AABB of a proxy
-static inline b2AABB b2DynamicTree_GetAABB(const b2DynamicTree* tree, int32_t proxyId)
+B2_INLINE b2AABB b2DynamicTree_GetAABB(const b2DynamicTree* tree, int32_t proxyId)
 {
 	return tree->nodes[proxyId].aabb;
 }

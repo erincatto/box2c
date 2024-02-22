@@ -10,6 +10,16 @@
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
+#include "box2d/joint_types.h"
+
+b2MotorJointDef b2DefaultMotorJointDef()
+{
+	b2MotorJointDef def = {0};
+	def.maxForce = 1.0f;
+	def.maxTorque = 1.0f;
+	def.correctionFactor = 0.3f;
+	return def;
+}
 
 // Point-to-point constraint
 // C = p2 - p1

@@ -549,9 +549,9 @@ public:
 			b2Vec2 g2 = b2TransformPoint(xf1, segment.ghost2);
 			b2Vec2 p1 = b2TransformPoint(xf1, segment.segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.segment.point2);
-			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 			g_draw.DrawSegment(p1, p2, color1);
-			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 
 			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
@@ -584,11 +584,11 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
-				//g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				//g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
 			{
@@ -596,11 +596,11 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
-				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				//g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+				//g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
 			b2Vec2 vertices[b2_maxPolygonVertices];
@@ -619,7 +619,7 @@ public:
 				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
 			}
 
-			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro, 1.0f));
+			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro));
 
 			DrawManifold(&m1);
 			DrawManifold(&m2);
@@ -644,11 +644,11 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
-				//g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				//g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
 			{
@@ -656,18 +656,18 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
-				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray, 0.5f));
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				//g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray, 0.5f));
+				//g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
 			b2Vec2 p1 = b2TransformPoint(xf2, capsule.point1);
 			b2Vec2 p2 = b2TransformPoint(xf2, capsule.point2);
 			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
 
-			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro, 1.0f));
+			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro));
 
 			DrawManifold(&m1);
 			DrawManifold(&m2);

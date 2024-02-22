@@ -190,22 +190,7 @@ typedef struct b2WorldDef
 } b2WorldDef;
 
 /// Use this to initialize your world definition
-static inline b2WorldDef b2DefaultWorldDef()
-{
-	b2WorldDef def = B2_ZERO_INIT;
-	def.gravity.x = 0.0f;
-	def.gravity.y = -10.0f;
-	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
-	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
-	def.contactHertz = 30.0;
-	def.contactDampingRatio = 10.0f;
-	def.jointHertz = 60.0;
-	def.jointDampingRatio = 2.0f;
-	def.enableSleep = true;
-	def.enableContinous = true;
-	def.stackAllocatorCapacity = 1024 * 1024;
-	return def;
-}
+B2_API b2WorldDef b2DefaultWorldDef();
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved

@@ -723,8 +723,23 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 
 	if (shouldCollide)
 	{
-		int shapeCountA = bodyA->shapeList;
-		foo foo foo foo
+		// need to tell the broadphase to look for new pairs for one of the
+		// two bodies. Pick the one with the fewest shapes.
+		int shapeCountA = bodyA->shapeCount;
+		int shapeCountB = bodyB->shapeCount;
+
+		int shapeIndex = bodyA->shapeCount < bodyB->shapeCount ? bodyA->shapeList : bodyB->shapeList;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+
+			if (shape->proxyKey != B2_NULL_INDEX)
+			{
+				b2BufferMove(&world->broadPhase, shape->proxyKey);
+			}
+
+			shapeIndex = shape->nextShapeIndex;
+		}
 	}
 	else
 	{
@@ -1081,7 +1096,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		if (joint->colorIndex != B2_NULL_INDEX)
 		{
 			b2Vec2 p = b2Lerp(pA, pB, 0.5f);
-			draw->DrawPoint(p, 5.0f, b2MakeColor(colors[joint->colorIndex], 1.0f), draw->context);
+			draw->DrawPoint(p, 5.0f, b2MakeColor(colors[joint->colorIndex]), draw->context);
 		}
 	}
 }

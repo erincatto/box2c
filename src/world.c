@@ -37,6 +37,23 @@
 
 b2World b2_worlds[b2_maxWorlds];
 
+b2WorldDef b2DefaultWorldDef()
+{
+	b2WorldDef def = {0};
+	def.gravity.x = 0.0f;
+	def.gravity.y = -10.0f;
+	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
+	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
+	def.contactHertz = 30.0;
+	def.contactDampingRatio = 10.0f;
+	def.jointHertz = 60.0;
+	def.jointDampingRatio = 2.0f;
+	def.enableSleep = true;
+	def.enableContinous = true;
+	def.stackAllocatorCapacity = 1024 * 1024;
+	return def;
+}
+
 b2World* b2GetWorldFromId(b2WorldId id)
 {
 	B2_ASSERT(1 <= id.index && id.index <= b2_maxWorlds);
@@ -650,7 +667,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
 			draw->DrawSegment(p1, p2, color, draw->context);
 			draw->DrawPoint(p2, 4.0f, color, draw->context);
-			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2MakeColor(b2_colorPaleGreen4, 1.0f), draw->context);
+			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2MakeColor(b2_colorPaleGreen4), draw->context);
 		}
 		break;
 
@@ -695,39 +712,39 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				if (b->type == b2_dynamicBody && b->mass == 0.0f)
 				{
 					// Bad body
-					color = b2MakeColor(b2_colorRed, 0.5f);
+					color = b2MakeColor(b2_colorRed);
 				}
 				else if (b->isEnabled == false)
 				{
-					color = b2MakeColor(b2_colorSlateGray2, 0.5f);
+					color = b2MakeColor(b2_colorSlateGray2);
 				}
 				else if (shape->isSensor)
 				{
-					color = b2MakeColor(b2_colorWheat, 1.0f);
+					color = b2MakeColor(b2_colorWheat);
 				}
 				else if (b->isSpeedCapped)
 				{
-					color = b2MakeColor(b2_colorYellow, 1.0f);
+					color = b2MakeColor(b2_colorYellow);
 				}
 				else if (b->isFast)
 				{
-					color = b2MakeColor(b2_colorSalmon, 1.0f);
+					color = b2MakeColor(b2_colorSalmon);
 				}
 				else if (b->type == b2_staticBody)
 				{
-					color = b2MakeColor(b2_colorPaleGreen, 1.0f);
+					color = b2MakeColor(b2_colorPaleGreen);
 				}
 				else if (b->type == b2_kinematicBody)
 				{
-					color = (b2Color){0.5f, 0.5f, 0.9f, 1.0f};
+					color = (b2Color){0.5f, 0.5f, 0.9f};
 				}
 				else if (isAwake)
 				{
-					color = b2MakeColor(b2_colorPink3, 1.0f);
+					color = b2MakeColor(b2_colorPink3);
 				}
 				else
 				{
-					color = b2MakeColor(b2_colorGray, 1.0f);
+					color = b2MakeColor(b2_colorGray);
 				}
 
 				b2DrawShape(draw, shape, xf, color);
@@ -849,7 +866,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				{
 					// graph color
 					float pointSize = colorIndex == b2_graphColorCount ? 7.5f : 5.0f;
-					draw->DrawPoint(point->point, pointSize, b2MakeColor(colors[colorIndex], 1.0f), draw->context);
+					draw->DrawPoint(point->point, pointSize, b2MakeColor(colors[colorIndex]), draw->context);
 					// g_draw.DrawString(point->position, "%d", point->color);
 				}
 				else if (point->separation > b2_linearSlop)

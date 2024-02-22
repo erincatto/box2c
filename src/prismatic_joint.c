@@ -10,8 +10,16 @@
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
+#include "box2d/joint_types.h"
 
 #include <stdio.h>
+
+b2PrismaticJointDef b2DefaultPrismaticJointDef()
+{
+	b2PrismaticJointDef def = {0};
+	def.localAxisA = (b2Vec2){1.0f, 0.0f};
+	return def;
+}
 
 // Linear constraint (point-to-line)
 // d = p2 - p1 = x2 + r2 - x1 - r1

@@ -806,9 +806,9 @@ public:
 		b2Color color1 = {0.4f, 0.9f, 0.4f, 1.0f};
 		b2Color color2 = {0.8f, 0.8f, 0.8f, 1.0f};
 		b2Color color3 = {0.9f, 0.9f, 0.4f, 1.0f};
-		b2Color green = b2MakeColor(b2_colorGreen, 0.7f);
-		b2Color yellow = b2MakeColor(b2_colorYellow, 0.7f);
-		b2Color gray = b2MakeColor(b2_colorGray, 0.7f);
+		b2Color green = b2MakeColorAlpha(b2_colorGreen, 0.7f);
+		b2Color yellow = b2MakeColorAlpha(b2_colorYellow, 0.7f);
+		b2Color gray = b2MakeColorAlpha(b2_colorGray, 0.7f);
 
 		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
 
@@ -856,7 +856,8 @@ public:
 
 			m_textLine += m_textIncrement;
 
-			b2CastResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback, RayCastSortedCallback};
+			b2CastResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback,
+									   RayCastSortedCallback};
 			b2CastResultFcn* modeFcn = fcns[m_mode];
 
 			RayCastContext context = {0};
@@ -882,7 +883,8 @@ public:
 					break;
 
 				case e_capsuleCast:
-					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn,
+										&context);
 					break;
 
 				case e_polygonCast:
@@ -893,8 +895,7 @@ public:
 			if (context.count > 0)
 			{
 				assert(context.count <= 3);
-				b2Color colors[3] = {b2MakeColor(b2_colorRed, 1.0f), b2MakeColor(b2_colorGreen, 1.0f),
-									 b2MakeColor(b2_colorBlue, 1.0f)};
+				b2Color colors[3] = {b2MakeColor(b2_colorRed), b2MakeColor(b2_colorGreen), b2MakeColor(b2_colorBlue)};
 				for (int i = 0; i < context.count; ++i)
 				{
 					b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[i], rayTranslation);
@@ -1281,12 +1282,12 @@ public:
 
 		g_draw.DrawString(5, m_textLine, "left mouse button: drag query shape");
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "left moust button + shift: rotate query shape");
+		g_draw.DrawString(5, m_textLine, "left mouse button + shift: rotate query shape");
 		m_textLine += m_textIncrement;
 
 		m_doomCount = 0;
 
-		b2Color color = b2MakeColor(b2_colorWhite, 1.0f);
+		b2Color color = b2MakeColor(b2_colorWhite);
 		b2Transform transform = {m_position, b2MakeRot(m_angle)};
 
 		if (m_shapeType == e_circleShape)

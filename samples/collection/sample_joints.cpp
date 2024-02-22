@@ -44,6 +44,7 @@ public:
 		m_minLength = m_length;
 		m_maxLength = m_length;
 		m_fixedLength = true;
+		m_collideConnected = true;
 
 		for (int i = 0; i < e_maxCount; ++i)
 		{
@@ -101,7 +102,7 @@ public:
 			jointDef.length = m_length;
 			jointDef.minLength = m_minLength;
 			jointDef.maxLength = m_maxLength;
-			jointDef.collideConnected = true;
+			jointDef.collideConnected = m_collideConnected;
 			m_jointIds[i] = b2CreateDistanceJoint(m_worldId, &jointDef);
 
 			prevBodyId = m_bodyIds[i];
@@ -182,6 +183,14 @@ public:
 			CreateScene(count);
 		}
 
+		if (ImGui::Checkbox("collide connected", &m_collideConnected))
+		{
+			for (int32_t i = 0; i < m_count; ++i)
+			{
+				b2Joint_SetCollideConnected(m_jointIds[i], m_collideConnected);
+			}
+		}
+
 		ImGui::End();
 	}
 
@@ -200,6 +209,7 @@ public:
 	float m_minLength;
 	float m_maxLength;
 	bool m_fixedLength;
+	bool m_collideConnected;
 };
 
 static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", DistanceJoint::Create);
@@ -962,6 +972,7 @@ public:
 			m_linearDampingRatio = 0.5f;
 			m_angularHertz = 5.0f;
 			m_angularDampingRatio = 0.5f;
+			m_collideConnected = false;
 
 			float hx = 0.5f;
 			b2Capsule capsule = {{-hx, 0.0f}, {hx, 0.0f}, 0.125f};
@@ -988,6 +999,7 @@ public:
 				jointDef.linearDampingRatio = m_linearDampingRatio;
 				jointDef.angularHertz = m_angularHertz;
 				jointDef.angularDampingRatio = m_angularDampingRatio;
+				jointDef.collideConnected = m_collideConnected;
 				m_jointIds[i] = b2CreateWeldJoint(m_worldId, &jointDef);
 
 				prevBodyId = bodyId;
@@ -1035,6 +1047,14 @@ public:
 			}
 		}
 
+		if (ImGui::Checkbox("collide connected", &m_collideConnected))
+		{
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2Joint_SetCollideConnected(m_jointIds[i], m_collideConnected);
+			}
+		}
+
 		ImGui::End();
 	}
 
@@ -1058,6 +1078,7 @@ public:
 	float m_angularDampingRatio;
 	b2BodyId m_tipId;
 	b2JointId m_jointIds[e_count];
+	bool m_collideConnected;
 };
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);
@@ -1356,12 +1377,12 @@ public:
 			float C = length - slackLength;
 			if (C < 0.0f || length < 0.001f)
 			{
-				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan, 1.0f));
+				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan));
 				m_impulses[i] = 0.0f;
 				continue;
 			}
 
-			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet, 1.0f));
+			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet));
 			b2Vec2 axis = b2Normalize(deltaAnchor);
 
 			b2Vec2 rB = b2Sub(anchorB, pB);

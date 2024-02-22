@@ -27,94 +27,94 @@ static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
 /// Vector dot product
-static inline float b2Dot(b2Vec2 a, b2Vec2 b)
+B2_INLINE float b2Dot(b2Vec2 a, b2Vec2 b)
 {
 	return a.x * b.x + a.y * b.y;
 }
 
 /// Vector cross product. In 2D this yields a scalar.
-static inline float b2Cross(b2Vec2 a, b2Vec2 b)
+B2_INLINE float b2Cross(b2Vec2 a, b2Vec2 b)
 {
 	return a.x * b.y - a.y * b.x;
 }
 
 /// Perform the cross product on a vector and a scalar. In 2D this produces
 /// a vector.
-static inline b2Vec2 b2CrossVS(b2Vec2 v, float s)
+B2_INLINE b2Vec2 b2CrossVS(b2Vec2 v, float s)
 {
 	return B2_LITERAL(b2Vec2){s * v.y, -s * v.x};
 }
 
 /// Perform the cross product on a scalar and a vector. In 2D this produces
 /// a vector.
-static inline b2Vec2 b2CrossSV(float s, b2Vec2 v)
+B2_INLINE b2Vec2 b2CrossSV(float s, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){-s * v.y, s * v.x};
 }
 
 /// Get a left pointing perpendicular vector. Equivalent to b2CrossSV(1.0f, v)
-static inline b2Vec2 b2LeftPerp(b2Vec2 v)
+B2_INLINE b2Vec2 b2LeftPerp(b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){-v.y, v.x};
 }
 
 /// Get a right pointing perpendicular vector. Equivalent to b2CrossVS(v, 1.0f)
-static inline b2Vec2 b2RightPerp(b2Vec2 v)
+B2_INLINE b2Vec2 b2RightPerp(b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){v.y, -v.x};
 }
 
 /// Vector addition
-static inline b2Vec2 b2Add(b2Vec2 a, b2Vec2 b)
+B2_INLINE b2Vec2 b2Add(b2Vec2 a, b2Vec2 b)
 {
 	return B2_LITERAL(b2Vec2){a.x + b.x, a.y + b.y};
 }
 
 /// Vector subtraction
-static inline b2Vec2 b2Sub(b2Vec2 a, b2Vec2 b)
+B2_INLINE b2Vec2 b2Sub(b2Vec2 a, b2Vec2 b)
 {
 	return B2_LITERAL(b2Vec2){a.x - b.x, a.y - b.y};
 }
 
 /// Vector subtraction
-static inline b2Vec2 b2Neg(b2Vec2 a)
+B2_INLINE b2Vec2 b2Neg(b2Vec2 a)
 {
 	return B2_LITERAL(b2Vec2){-a.x, -a.y};
 }
 
 /// Vector linear interpolation
 /// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
-static inline b2Vec2 b2Lerp(b2Vec2 a, b2Vec2 b, float t)
+B2_INLINE b2Vec2 b2Lerp(b2Vec2 a, b2Vec2 b, float t)
 {
 	return B2_LITERAL(b2Vec2){(1.0f - t) * a.x + t * b.x, (1.0f - t) * a.y + t * b.y};
 }
 
 /// Component-wise multiplication
-static inline b2Vec2 b2Mul(b2Vec2 a, b2Vec2 b)
+B2_INLINE b2Vec2 b2Mul(b2Vec2 a, b2Vec2 b)
 {
 	return B2_LITERAL(b2Vec2){a.x * b.x, a.y * b.y};
 }
 
 /// Multiply a scalar and vector
-static inline b2Vec2 b2MulSV(float s, b2Vec2 v)
+B2_INLINE b2Vec2 b2MulSV(float s, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){s * v.x, s * v.y};
 }
 
 /// a + s * b
-static inline b2Vec2 b2MulAdd(b2Vec2 a, float s, b2Vec2 b)
+B2_INLINE b2Vec2 b2MulAdd(b2Vec2 a, float s, b2Vec2 b)
 {
 	return B2_LITERAL(b2Vec2){a.x + s * b.x, a.y + s * b.y};
 }
 
 /// a - s * b
-static inline b2Vec2 b2MulSub(b2Vec2 a, float s, b2Vec2 b)
+B2_INLINE b2Vec2 b2MulSub(b2Vec2 a, float s, b2Vec2 b)
 {
 	return B2_LITERAL(b2Vec2){a.x - s * b.x, a.y - s * b.y};
 }
 
 /// Component-wise absolute vector
-static inline b2Vec2 b2Abs(b2Vec2 a)
+B2_INLINE b2Vec2 b2Abs(b2Vec2 a)
 {
 	b2Vec2 b;
 	b.x = B2_ABS(a.x);
@@ -123,7 +123,7 @@ static inline b2Vec2 b2Abs(b2Vec2 a)
 }
 
 /// Component-wise absolute vector
-static inline b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
+B2_INLINE b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
 	c.x = B2_MIN(a.x, b.x);
@@ -132,7 +132,7 @@ static inline b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
 }
 
 /// Component-wise absolute vector
-static inline b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
+B2_INLINE b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
 	c.x = B2_MAX(a.x, b.x);
@@ -141,7 +141,7 @@ static inline b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 }
 
 /// Component-wise clamp vector so v into the range [a, b]
-static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
+B2_INLINE b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
 	c.x = B2_CLAMP(v.x, a.x, b.x);
@@ -150,18 +150,18 @@ static inline b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 }
 
 /// Get the length of this vector (the norm).
-static inline float b2Length(b2Vec2 v)
+B2_INLINE float b2Length(b2Vec2 v)
 {
 	return sqrtf(v.x * v.x + v.y * v.y);
 }
 
 /// Get the length of this vector (the norm).
-static inline float b2LengthSquared(b2Vec2 v)
+B2_INLINE float b2LengthSquared(b2Vec2 v)
 {
 	return v.x * v.x + v.y * v.y;
 }
 
-static inline float b2Distance(b2Vec2 a, b2Vec2 b)
+B2_INLINE float b2Distance(b2Vec2 a, b2Vec2 b)
 {
 	float dx = b.x - a.x;
 	float dy = b.y - a.y;
@@ -169,14 +169,14 @@ static inline float b2Distance(b2Vec2 a, b2Vec2 b)
 }
 
 /// Get the length of this vector (the norm).
-static inline float b2DistanceSquared(b2Vec2 a, b2Vec2 b)
+B2_INLINE float b2DistanceSquared(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c = {b.x - a.x, b.y - a.y};
 	return c.x * c.x + c.y * c.y;
 }
 
 /// Set using an angle in radians.
-static inline b2Rot b2MakeRot(float angle)
+B2_INLINE b2Rot b2MakeRot(float angle)
 {
 	// todo determinism
 	b2Rot q = {sinf(angle), cosf(angle)};
@@ -184,7 +184,7 @@ static inline b2Rot b2MakeRot(float angle)
 }
 
 /// Normalize rotation
-static inline b2Rot b2NormalizeRot(b2Rot q)
+B2_INLINE b2Rot b2NormalizeRot(b2Rot q)
 {
 	float mag = sqrtf(q.s * q.s + q.c * q.c);
 	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
@@ -193,7 +193,7 @@ static inline b2Rot b2NormalizeRot(b2Rot q)
 }
 
 /// Is this rotation normalized?
-static inline bool b2IsNormalized(b2Rot q)
+B2_INLINE bool b2IsNormalized(b2Rot q)
 {
 	float qq = q.s * q.s + q.c * q.c;
 	return 1.0f - 0.0004f < qq && qq < 1.0f + 0.0004f;
@@ -201,7 +201,7 @@ static inline bool b2IsNormalized(b2Rot q)
 
 /// Normalized linear interpolation
 /// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
-static inline b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
+B2_INLINE b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
 {
 	float omt = 1.0f - t;
 	b2Rot q = {
@@ -215,7 +215,7 @@ static inline b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
 /// Integration rotation from angular velocity
 ///	@param q1 initial rotation
 ///	@param deltaAngle the angular displacement in radians
-static inline b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
+B2_INLINE b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
 {
 	// ds/dt = omega * cos(t)
 	// dc/dt = -omega * sin(t)
@@ -233,7 +233,7 @@ static inline b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
 ///	@param q1 initial rotation
 ///	@param q2 final rotation
 ///	@param inv_h inverse time step
-static inline float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
+B2_INLINE float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
 {
 	// ds/dt = omega * cos(t)
 	// dc/dt = -omega * sin(t)
@@ -250,28 +250,28 @@ static inline float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
 }
 
 /// Get the angle in radians
-static inline float b2Rot_GetAngle(b2Rot q)
+B2_INLINE float b2Rot_GetAngle(b2Rot q)
 {
 	// todo determinism
 	return atan2f(q.s, q.c);
 }
 
 /// Get the x-axis
-static inline b2Vec2 b2Rot_GetXAxis(b2Rot q)
+B2_INLINE b2Vec2 b2Rot_GetXAxis(b2Rot q)
 {
 	b2Vec2 v = {q.c, q.s};
 	return v;
 }
 
 /// Get the y-axis
-static inline b2Vec2 b2Rot_GetYAxis(b2Rot q)
+B2_INLINE b2Vec2 b2Rot_GetYAxis(b2Rot q)
 {
 	b2Vec2 v = {-q.s, q.c};
 	return v;
 }
 
 /// Multiply two rotations: q * r
-static inline b2Rot b2MulRot(b2Rot q, b2Rot r)
+B2_INLINE b2Rot b2MulRot(b2Rot q, b2Rot r)
 {
 	// [qc -qs] * [rc -rs] = [qc*rc-qs*rs -qc*rs-qs*rc]
 	// [qs  qc]   [rs  rc]   [qs*rc+qc*rs -qs*rs+qc*rc]
@@ -284,7 +284,7 @@ static inline b2Rot b2MulRot(b2Rot q, b2Rot r)
 }
 
 /// Transpose multiply two rotations: qT * r
-static inline b2Rot b2InvMulRot(b2Rot q, b2Rot r)
+B2_INLINE b2Rot b2InvMulRot(b2Rot q, b2Rot r)
 {
 	// [ qc qs] * [rc -rs] = [qc*rc+qs*rs -qc*rs+qs*rc]
 	// [-qs qc]   [rs  rc]   [-qs*rc+qc*rs qs*rs+qc*rc]
@@ -297,7 +297,7 @@ static inline b2Rot b2InvMulRot(b2Rot q, b2Rot r)
 }
 
 // relative angle between b and a (rot_b * inv(rot_a))
-static inline float b2RelativeAngle(b2Rot b, b2Rot a)
+B2_INLINE float b2RelativeAngle(b2Rot b, b2Rot a)
 {
 	// sin(b - a) = bs * ac - bc * as
 	// cos(b - a) = bc * ac + bs * as
@@ -307,19 +307,19 @@ static inline float b2RelativeAngle(b2Rot b, b2Rot a)
 }
 
 /// Rotate a vector
-static inline b2Vec2 b2RotateVector(b2Rot q, b2Vec2 v)
+B2_INLINE b2Vec2 b2RotateVector(b2Rot q, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){q.c * v.x - q.s * v.y, q.s * v.x + q.c * v.y};
 }
 
 /// Inverse rotate a vector
-static inline b2Vec2 b2InvRotateVector(b2Rot q, b2Vec2 v)
+B2_INLINE b2Vec2 b2InvRotateVector(b2Rot q, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){q.c * v.x + q.s * v.y, -q.s * v.x + q.c * v.y};
 }
 
 /// Transform a point (e.g. local space to world space)
-static inline b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
+B2_INLINE b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
 {
 	float x = (xf.q.c * p.x - xf.q.s * p.y) + xf.p.x;
 	float y = (xf.q.s * p.x + xf.q.c * p.y) + xf.p.y;
@@ -328,7 +328,7 @@ static inline b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
 }
 
 /// Inverse transform a point (e.g. world space to local space)
-static inline b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
+B2_INLINE b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
 {
 	float vx = p.x - xf.p.x;
 	float vy = p.y - xf.p.y;
@@ -337,7 +337,7 @@ static inline b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
 
 /// v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p
 ///    = (A.q * B.q).Rot(v1) + A.q.Rot(B.p) + A.p
-static inline b2Transform b2MulTransforms(b2Transform A, b2Transform B)
+B2_INLINE b2Transform b2MulTransforms(b2Transform A, b2Transform B)
 {
 	b2Transform C;
 	C.q = b2MulRot(A.q, B.q);
@@ -347,7 +347,7 @@ static inline b2Transform b2MulTransforms(b2Transform A, b2Transform B)
 
 /// v2 = A.q' * (B.q * v1 + B.p - A.p)
 ///    = A.q' * B.q * v1 + A.q' * (B.p - A.p)
-static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
+B2_INLINE b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
 {
 	b2Transform C;
 	C.q = b2InvMulRot(A.q, B.q);
@@ -356,7 +356,7 @@ static inline b2Transform b2InvMulTransforms(b2Transform A, b2Transform B)
 }
 
 /// Multiply a 2-by-2 matrix times a 2D vector
-static inline b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
+B2_INLINE b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
 {
 	b2Vec2 u = {
 		A.cx.x * v.x + A.cy.x * v.y,
@@ -366,7 +366,7 @@ static inline b2Vec2 b2MulMV(b2Mat22 A, b2Vec2 v)
 }
 
 /// Get the inverse of a 2-by-2 matrix
-static inline b2Mat22 b2GetInverse22(b2Mat22 A)
+B2_INLINE b2Mat22 b2GetInverse22(b2Mat22 A)
 {
 	float a = A.cx.x, b = A.cy.x, c = A.cx.y, d = A.cy.y;
 	float det = a * d - b * c;
@@ -384,7 +384,7 @@ static inline b2Mat22 b2GetInverse22(b2Mat22 A)
 
 /// Solve A * x = b, where b is a column vector. This is more efficient
 /// than computing the inverse in one-shot cases.
-static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
+B2_INLINE b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
 {
 	float a11 = A.cx.x, a12 = A.cy.x, a21 = A.cx.y, a22 = A.cy.y;
 	float det = a11 * a22 - a12 * a21;
@@ -397,7 +397,7 @@ static inline b2Vec2 b2Solve22(b2Mat22 A, b2Vec2 b)
 }
 
 /// Does a fully contain b
-static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
+B2_INLINE bool b2AABB_Contains(b2AABB a, b2AABB b)
 {
 	bool s = true;
 	s = s && a.lowerBound.x <= b.lowerBound.x;
@@ -408,21 +408,21 @@ static inline bool b2AABB_Contains(b2AABB a, b2AABB b)
 }
 
 /// Get the center of the AABB.
-static inline b2Vec2 b2AABB_Center(b2AABB a)
+B2_INLINE b2Vec2 b2AABB_Center(b2AABB a)
 {
 	b2Vec2 b = {0.5f * (a.lowerBound.x + a.upperBound.x), 0.5f * (a.lowerBound.y + a.upperBound.y)};
 	return b;
 }
 
 /// Get the extents of the AABB (half-widths).
-static inline b2Vec2 b2AABB_Extents(b2AABB a)
+B2_INLINE b2Vec2 b2AABB_Extents(b2AABB a)
 {
 	b2Vec2 b = {0.5f * (a.upperBound.x - a.lowerBound.x), 0.5f * (a.upperBound.y - a.lowerBound.y)};
 	return b;
 }
 
 /// Union of two AABBs
-static inline b2AABB b2AABB_Union(b2AABB a, b2AABB b)
+B2_INLINE b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 {
 	b2AABB c;
 	c.lowerBound.x = B2_MIN(a.lowerBound.x, b.lowerBound.x);

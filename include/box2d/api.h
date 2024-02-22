@@ -6,23 +6,43 @@
 #include <stdint.h>
 
 #if defined(_WIN32) && defined(box2d_EXPORTS)
-	// building the Box2D DLL
+	// build the Windows DLL
 	#define BOX2D_EXPORT __declspec(dllexport)
 #elif defined(_WIN32) && defined(BOX2D_DLL)
-	// using the Box2D DLL
+	// using the Windows DLL
 	#define BOX2D_EXPORT __declspec(dllimport)
-#elif defined(__GNUC__) && defined(box2d_EXPORTS)
-	// building the Box2D shared library
+#elif defined(box2d_EXPORTS)
+	// building or using the Box2D shared library
 	#define BOX2D_EXPORT __attribute__((visibility("default")))
 #else
 	// static library
 	#define BOX2D_EXPORT
 #endif
 
+#if defined(BOX2D_IMPLEMENTATION)
+	#pragma message("BOX2D_IMPLEMENTATION")
+	#if defined(_WIN32) && defined(box2d_EXPORTS)
+		// build the Windows DLL
+		#define BOX2D_INLINE __declspec(dllexport) extern inline
+	#elif defined(_WIN32) && defined(BOX2D_DLL)
+		// using the Windows DLL
+		#define BOX2D_INLINE __declspec(dllimport)
+	#elif defined(box2d_EXPORTS)
+		#define BOX2D_INLINE __attribute__((visibility("default")))
+	#else
+		#define BOX2D_INLINE extern inline
+	#endif
+#else
+	//#pragma message("BOX2D inline")
+	#define BOX2D_INLINE inline
+#endif
+
 #ifdef __cplusplus
 	#define B2_API extern "C" BOX2D_EXPORT
+	#define B2_INLINE extern "C" BOX2D_INLINE
 #else
 	#define B2_API BOX2D_EXPORT
+	#define B2_INLINE BOX2D_INLINE
 #endif
 
 /// Prototype for user allocation function.
