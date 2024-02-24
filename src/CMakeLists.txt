@@ -3,8 +3,6 @@ set(BOX2D_SOURCE_FILES
 	aabb.h
 	allocate.c
 	allocate.h
-	arena_allocator.c
-	arena_allocator.h
 	array.c
 	array.h
 	bitset.c
@@ -16,6 +14,8 @@ set(BOX2D_SOURCE_FILES
 	body.h
 	broad_phase.c
 	broad_phase.h
+	constraint_graph.c
+	constraint_graph.h
 	contact.c
 	contact.h
 	contact_solver.c
@@ -26,9 +26,8 @@ set(BOX2D_SOURCE_FILES
 	distance_joint.c
 	dynamic_tree.c
 	geometry.c
-	graph.c
-	graph.h
 	hull.c
+	implementation.c
 	island.c
 	island.h
 	joint.c
@@ -44,7 +43,10 @@ set(BOX2D_SOURCE_FILES
 	revolute_joint.c
 	shape.c
 	shape.h
-	solver_data.h
+	solver.c
+	solver.h
+	stack_allocator.c
+	stack_allocator.h
 	table.c
 	table.h
 	timer.c
@@ -70,10 +72,10 @@ set(BOX2D_API_FILES
 	../include/box2d/hull.h
 	../include/box2d/id.h
 	../include/box2d/joint_types.h
-	../include/box2d/joint_util.h
 	../include/box2d/manifold.h
 	../include/box2d/math.h
 	../include/box2d/math_cpp.h
+	../include/box2d/math_types.h
 	../include/box2d/timer.h
 	../include/box2d/types.h
 )

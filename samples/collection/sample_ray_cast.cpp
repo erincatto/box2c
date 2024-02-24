@@ -4,6 +4,7 @@
 #include "sample.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math.h"
@@ -139,7 +140,7 @@ public:
 		}
 	}
 
-	void DrawRay(const b2RayCastOutput* output)
+	void DrawRay(const b2CastOutput* output)
 	{
 		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
 		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
@@ -194,7 +195,7 @@ public:
 		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
 
-		b2RayCastOutput output = {0};
+		b2CastOutput output = {0};
 		float maxFraction = 1.0f;
 
 		// circle
@@ -208,7 +209,7 @@ public:
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
 			b2RayCastInput input = {start, translation, maxFraction};
 
-			b2RayCastOutput localOutput = b2RayCastCircle(&input, &m_circle);
+			b2CastOutput localOutput = b2RayCastCircle(&input, &m_circle);
 			if (localOutput.hit)
 			{
 				output = localOutput;
@@ -231,7 +232,7 @@ public:
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
 			b2RayCastInput input = {start, translation, maxFraction};
 
-			b2RayCastOutput localOutput = b2RayCastCapsule(&input, &m_capsule);
+			b2CastOutput localOutput = b2RayCastCapsule(&input, &m_capsule);
 			if (localOutput.hit)
 			{
 				output = localOutput;
@@ -258,7 +259,7 @@ public:
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
 			b2RayCastInput input = {start, translation, maxFraction};
 
-			b2RayCastOutput localOutput = b2RayCastPolygon(&input, &m_box);
+			b2CastOutput localOutput = b2RayCastPolygon(&input, &m_box);
 			if (localOutput.hit)
 			{
 				output = localOutput;
@@ -285,7 +286,7 @@ public:
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
 			b2RayCastInput input = {start, translation, maxFraction};
 
-			b2RayCastOutput localOutput = b2RayCastPolygon(&input, &m_triangle);
+			b2CastOutput localOutput = b2RayCastPolygon(&input, &m_triangle);
 			if (localOutput.hit)
 			{
 				output = localOutput;
@@ -309,7 +310,7 @@ public:
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
 			b2RayCastInput input = {start, translation, maxFraction};
 
-			b2RayCastOutput localOutput = b2RayCastSegment(&input, &m_segment, false);
+			b2CastOutput localOutput = b2RayCastSegment(&input, &m_segment, false);
 			if (localOutput.hit)
 			{
 				output = localOutput;

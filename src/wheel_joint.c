@@ -4,24 +4,14 @@
 #include "body.h"
 #include "core.h"
 #include "joint.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
-#include "box2d/joint_types.h"
 
 #include <stdio.h>
-
-b2WheelJointDef b2DefaultWheelJointDef()
-{
-	b2WheelJointDef def = {0};
-	def.localAxisA.y = 1.0f;
-	def.hertz = 1.0f;
-	def.dampingRatio = 0.7f;
-	return def;
-}
 
 // Linear constraint (point-to-line)
 // d = pB - pA = xB + rB - xA - rA

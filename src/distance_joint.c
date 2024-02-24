@@ -6,7 +6,7 @@
 #include "body.h"
 #include "core.h"
 #include "joint.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
@@ -15,14 +15,6 @@
 #include "box2d/joint_types.h"
 
 #include <stdio.h>
-
-b2DistanceJointDef b2DefaultDistanceJointDef()
-{
-	b2DistanceJointDef def = {0};
-	def.length = 1.0f;
-	def.maxLength = b2_huge;
-	return def;
-}
 
 // 1-D constrained system
 // m (v2 - v1) = lambda

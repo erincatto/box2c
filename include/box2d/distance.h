@@ -5,7 +5,7 @@
 
 #include "api.h"
 #include "constants.h"
-#include "types.h"
+#include "geometry.h"
 
 /// Result of computing the distance between two line segments
 typedef struct b2SegmentDistanceResult
@@ -79,7 +79,7 @@ typedef struct b2ShapeCastPairInput
 
 /// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
 /// @returns true if hit, false if there is no hit or an initial overlap
-B2_API b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input);
+B2_API b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input);
 
 /// Make a proxy for use in GJK and related functions.
 B2_API b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius);

@@ -502,7 +502,7 @@ int32_t b2_gjkIters;
 int32_t b2_gjkMaxIters;
 #endif
 
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* B2_RESTRICT cache, const b2DistanceInput* B2_RESTRICT input)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input)
 {
 #if B2_GJK_DEBUG
 	++b2_gjkCalls;
@@ -659,9 +659,9 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* B2_RESTRICT cache, const b2Dis
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
 // TODO_ERIN this is failing when used to raycast a box
-b2RayCastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
+b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 {
-	b2RayCastOutput output = {0};
+	b2CastOutput output = {0};
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
 	const b2DistanceProxy* proxyB = &input->proxyB;

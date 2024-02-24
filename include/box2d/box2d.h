@@ -104,6 +104,9 @@ B2_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
 /// Adjust the restitution threshold. Advanced feature for testing.
 B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 
+/// Register the pre-solve callback. This is optional.
+B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
+
 /// Adjust contact tuning parameters:
 /// - hertz is the contact stiffness (cycles per second)
 /// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)
@@ -212,18 +215,25 @@ B2_API void b2Body_ApplyTorque(b2BodyId bodyId, float torque, bool wake);
 /// Apply an impulse at a point. This immediately modifies the velocity.
 /// It also modifies the angular velocity if the point of application
 /// is not at the center of mass. This wakes up the body.
+/// This should be used for one-shot impulses. If you need a steady force,
+/// use a force instead, which will work better with the sub-stepping solver.
 /// @param impulse the world impulse vector, usually in N-seconds or kg-m/s.
 /// @param point the world position of the point of application.
 /// @param wake also wake up the body
 B2_API void b2Body_ApplyLinearImpulse(b2BodyId bodyId, b2Vec2 impulse, b2Vec2 point, bool wake);
 
 /// Apply an impulse to the center of mass. This immediately modifies the velocity.
+/// This should be used for one-shot impulses. If you need a steady force,
+/// use a force instead, which will work better with the sub-stepping solver.
 /// @param impulse the world impulse vector, usually in N-seconds or kg-m/s.
 /// @param wake also wake up the body
 B2_API void b2Body_ApplyLinearImpulseToCenter(b2BodyId bodyId, b2Vec2 impulse, bool wake);
 
 /// Apply an angular impulse.
-/// @param impulse the angular impulse in units of kg*m*m/s
+/// This should be used for one-shot impulses. If you need a steady force,
+/// use a force instead, which will work better with the sub-stepping solver.
+/// @param impulse the angular impulse in units of
+/// kg*m*m/s
 /// @param wake also wake up the body
 B2_API void b2Body_ApplyAngularImpulse(b2BodyId bodyId, float impulse, bool wake);
 
@@ -246,6 +256,11 @@ B2_API void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData);
 
 /// Get the mass data for a body.
 B2_API b2MassData b2Body_GetMassData(b2BodyId bodyId);
+
+/// This resets the mass properties to the sum of the mass properties of the fixtures.
+/// This normally does not need to be called unless you called SetMassData to override
+/// the mass and you later want to reset the mass.
+B2_API void b2Body_ResetMassData(b2BodyId bodyId);
 
 /// Adjust the linear damping. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping);
@@ -352,7 +367,8 @@ B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
 B2_API void* b2Shape_GetUserData(b2ShapeId shapeId);
 
 /// Set the density on a shape. Normally this is specified in b2ShapeDef.
-///	This will recompute the mass properties on the parent body.
+///	This will not update the mass properties on the parent body until you
+/// call b2Body_ResetMassData.
 B2_API void b2Shape_SetDensity(b2ShapeId shapeId, float density);
 
 /// Get the density on a shape.
@@ -379,20 +395,37 @@ B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 /// Test a point for overlap with a shape
 B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
-/// Access the circle geometry of a shape.
-B2_API const b2Circle* b2Shape_GetCircle(b2ShapeId shapeId);
+/// Ray cast a shape directly
+B2_API b2RayResult b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translation);
 
-/// Access the line segment geometry of a shape.
-B2_API const b2Segment* b2Shape_GetSegment(b2ShapeId shapeId);
+/// Access the circle geometry of a shape. Asserts the type is correct.
+B2_API const b2Circle b2Shape_GetCircle(b2ShapeId shapeId);
+
+/// Access the line segment geometry of a shape. Asserts the type is correct.
+B2_API const b2Segment b2Shape_GetSegment(b2ShapeId shapeId);
 
 /// Access the smooth line segment geometry of a shape. These come from chain shapes.
-B2_API const b2SmoothSegment* b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+/// Asserts the type is correct.
+B2_API const b2SmoothSegment b2Shape_GetSmoothSegment(b2ShapeId shapeId);
 
-/// Access the capsule geometry of a shape.
-B2_API const b2Capsule* b2Shape_GetCapsule(b2ShapeId shapeId);
+/// Access the capsule geometry of a shape. Asserts the type is correct.
+B2_API const b2Capsule b2Shape_GetCapsule(b2ShapeId shapeId);
 
-/// Access the convex polygon geometry of a shape.
-B2_API const b2Polygon* b2Shape_GetPolygon(b2ShapeId shapeId);
+/// Access the convex polygon geometry of a shape. Asserts the type is correct.
+B2_API const b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
+
+/// Allows you to change a shape to be a circle or update the current circle.
+/// This does not modify the mass properties.
+B2_API const void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle);
+
+/// Allows you to change a shape to be a capsule or update the current capsule.
+B2_API const void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule);
+
+/// Allows you to change a shape to be a segment or update the current segment.
+B2_API const void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment);
+
+/// Allows you to change a shape to be a segment or update the current segment.
+B2_API const void b2Shape_SetPolygon(b2ShapeId shapeId, b2Polygon polygon);
 
 /// If the type is b2_smoothSegmentShape then you can get the parent chain id.
 /// If the shape is not a smooth segment then this will return b2_nullChainId.

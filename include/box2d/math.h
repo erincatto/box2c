@@ -4,10 +4,11 @@
 #pragma once
 
 #include "api.h"
-#include "types.h"
+#include "math_types.h"
 
 #include <float.h>
 #include <math.h>
+#include <stdbool.h>
 
 /// Macro to get the minimum of two values
 #define B2_MIN(A, B) ((A) < (B) ? (A) : (B))

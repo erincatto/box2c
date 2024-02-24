@@ -138,13 +138,13 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 	return extent;
 }
 
-b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)
+b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)
 {
 	b2RayCastInput localInput = *input;
 	localInput.origin = b2InvTransformPoint(xf, input->origin);
 	localInput.translation = b2InvRotateVector(xf.q, input->translation);
 
-	b2RayCastOutput output = {0};
+	b2CastOutput output = {0};
 	switch (shape->type)
 	{
 		case b2_capsuleShape:
@@ -171,7 +171,7 @@ b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape
 	return output;
 }
 
-b2RayCastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf)
+b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf)
 {
 	b2ShapeCastInput localInput = *input;
 
@@ -182,7 +182,7 @@ b2RayCastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* s
 
 	localInput.translation = b2InvRotateVector(xf.q, input->translation);
 
-	b2RayCastOutput output = {0};
+	b2CastOutput output = {0};
 	switch (shape->type)
 	{
 		case b2_capsuleShape:
@@ -329,11 +329,6 @@ void b2Shape_SetDensity(b2ShapeId shapeId, float density)
 	}
 
 	shape->density = density;
-
-	b2Body* body = world->bodies + shape->bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
-
-	b2UpdateBodyMassData(world, body);
 }
 
 float b2Shape_GetDensity(b2ShapeId shapeId)

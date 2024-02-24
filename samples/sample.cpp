@@ -7,7 +7,6 @@
 
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
-#include "box2d/joint_util.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/math_cpp.h"

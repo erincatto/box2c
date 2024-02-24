@@ -7,6 +7,7 @@
 #include "table.h"
 
 #include "box2d/dynamic_tree.h"
+#include "box2d/types.h"
 
 typedef struct b2Shape b2Shape;
 typedef struct b2MovePair b2MovePair;

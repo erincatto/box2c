@@ -4,12 +4,7 @@
 #pragma once
 
 #include "api.h"
-
-/// Color for debug drawing. Each value has the range [0,1].
-typedef struct b2Color
-{
-	float r, g, b, a;
-} b2Color;
+#include "types.h"
 
 /// All the colors! Credit to wherever I got this from, I forget.
 typedef enum b2HexColor

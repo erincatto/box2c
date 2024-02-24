@@ -33,16 +33,19 @@
 		#define BOX2D_INLINE extern inline
 	#endif
 #else
-	//#pragma message("BOX2D inline")
+	// #pragma message("BOX2D inline")
 	#define BOX2D_INLINE inline
 #endif
 
 #ifdef __cplusplus
 	#define B2_API extern "C" BOX2D_EXPORT
 	#define B2_INLINE extern "C" BOX2D_INLINE
+	#define B2_LITERAL(T) T
 #else
 	#define B2_API BOX2D_EXPORT
 	#define B2_INLINE BOX2D_INLINE
+	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
+	#define B2_LITERAL(T) (T)
 #endif
 
 /// Prototype for user allocation function.
@@ -54,15 +57,15 @@ typedef void* b2AllocFcn(uint32_t size, int32_t alignment);
 ///	@param mem the memory previously allocated through `b2AllocFcn`
 typedef void b2FreeFcn(void* mem);
 
+/// Prototype for the user assert callback. Return 0 to skip the debugger break.
+typedef int b2AssertFcn(const char* condition, const char* fileName, int lineNumber);
+
 /// This allows the user to override the allocation functions. These should be
 ///	set during application startup.
 B2_API void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
 /// Total bytes allocated by Box2D
 B2_API uint32_t b2GetByteCount(void);
-
-/// Prototype for the user assert callback. Return 0 to skip the debugger break.
-typedef int b2AssertFcn(const char* condition, const char* fileName, int lineNumber);
 
 /// Override the default assert callback.
 ///	@param assertFcn a non-null assert callback

@@ -7,7 +7,7 @@
 
 #include "aabb.h"
 #include "allocate.h"
-#include "arena_allocator.h"
+#include "stack_allocator.h"
 #include "array.h"
 #include "body.h"
 #include "contact.h"

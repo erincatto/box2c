@@ -74,7 +74,7 @@ b2Vec2 b2GetShapeCentroid(const b2Shape* shape);
 
 b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
 
-b2RayCastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf);
-b2RayCastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf);
+b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf);
+b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf);
 
 b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId);

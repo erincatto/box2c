@@ -3,6 +3,7 @@
 
 #include "sample.h"
 
+#include "box2d/color.h"
 #include "box2d/distance.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"

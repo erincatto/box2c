@@ -7,24 +7,25 @@
 
 #include "aabb.h"
 #include "allocate.h"
-#include "arena_allocator.h"
+#include "stack_allocator.h"
 #include "array.h"
 #include "bitset.h"
 #include "bitset.inl"
 #include "block_allocator.h"
 #include "body.h"
 #include "broad_phase.h"
+#include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
-#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "pool.h"
 #include "shape.h"
-#include "solver_data.h"
+#include "solver.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"
 #include "box2d/distance.h"
@@ -36,23 +37,6 @@
 #include <string.h>
 
 b2World b2_worlds[b2_maxWorlds];
-
-b2WorldDef b2DefaultWorldDef()
-{
-	b2WorldDef def = {0};
-	def.gravity.x = 0.0f;
-	def.gravity.y = -10.0f;
-	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
-	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
-	def.contactHertz = 30.0;
-	def.contactDampingRatio = 10.0f;
-	def.jointHertz = 60.0;
-	def.jointDampingRatio = 2.0f;
-	def.enableSleep = true;
-	def.enableContinous = true;
-	def.stackAllocatorCapacity = 1024 * 1024;
-	return def;
-}
 
 b2World* b2GetWorldFromId(b2WorldId id)
 {
@@ -1368,7 +1352,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	B2_ASSERT(b2ObjectValid(&body->object));
 
 	b2Transform transform = b2MakeTransform(body);
-	b2RayCastOutput output = b2RayCastShape(input, shape, transform);
+	b2CastOutput output = b2RayCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
@@ -1480,7 +1464,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 	B2_ASSERT(b2ObjectValid(&body->object));
 
 	b2Transform transform = b2MakeTransform(body);
-	b2RayCastOutput output = b2ShapeCastShape(input, shape, transform);
+	b2CastOutput output = b2ShapeCastShape(input, shape, transform);
 
 	if (output.hit)
 	{

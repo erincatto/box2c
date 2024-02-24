@@ -5,14 +5,14 @@
 
 #include "array.h"
 #include "body.h"
+#include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
-#include "graph.h"
 #include "world.h"
 #include "x86/avx2.h"
 #include "x86/fma.h"
 
-// Soft constraints with constraint error sub-stepping. Includes a relax stage to help remove excess energy.
+// Soft contact constraints with sub-stepping support
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
 

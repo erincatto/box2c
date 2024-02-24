@@ -3,7 +3,7 @@
 #pragma once
 
 #include "pool.h"
-#include "solver_data.h"
+#include "solver.h"
 
 #include "box2d/joint_types.h"
 

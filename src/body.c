@@ -7,9 +7,9 @@
 #include "allocate.h"
 #include "array.h"
 #include "block_allocator.h"
+#include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
-#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "shape.h"
@@ -1221,6 +1221,19 @@ b2MassData b2Body_GetMassData(b2BodyId bodyId)
 	b2Body* body = b2GetBody(world, bodyId);
 	b2MassData massData = {body->mass, body->localCenter, body->I};
 	return massData;
+}
+
+void b2Body_ResetMassData(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+
+	b2UpdateBodyMassData(world, body);
 }
 
 void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)

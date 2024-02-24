@@ -7,7 +7,7 @@
 #include "contact.h"
 #include "core.h"
 #include "shape.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
@@ -15,7 +15,60 @@
 #include "box2d/color.h"
 #include "box2d/debug_draw.h"
 #include "box2d/joint_types.h"
-#include "box2d/joint_util.h"
+
+b2DistanceJointDef b2DefaultDistanceJointDef()
+{
+	b2DistanceJointDef def = {0};
+	def.length = 1.0f;
+	def.maxLength = b2_huge;
+	return def;
+}
+
+b2MotorJointDef b2DefaultMotorJointDef()
+{
+	b2MotorJointDef def = {0};
+	def.maxForce = 1.0f;
+	def.maxTorque = 1.0f;
+	def.correctionFactor = 0.3f;
+	return def;
+}
+
+b2MouseJointDef b2DefaultMouseJointDef()
+{
+	b2MouseJointDef def = {0};
+	def.hertz = 4.0f;
+	def.dampingRatio = 1.0f;
+	return def;
+}
+
+b2PrismaticJointDef b2DefaultPrismaticJointDef()
+{
+	b2PrismaticJointDef def = {0};
+	def.localAxisA = (b2Vec2){1.0f, 0.0f};
+	return def;
+}
+
+b2RevoluteJointDef b2DefaultRevoluteJointDef()
+{
+	b2RevoluteJointDef def = {0};
+	def.drawSize = 0.25f;
+	return def;
+}
+
+b2WeldJointDef b2DefaultWeldJointDef()
+{
+	b2WeldJointDef def = {0};
+	return def;
+}
+
+b2WheelJointDef b2DefaultWheelJointDef()
+{
+	b2WheelJointDef def = {0};
+	def.localAxisA.y = 1.0f;
+	def.hertz = 1.0f;
+	def.dampingRatio = 0.7f;
+	return def;
+}
 
 // Get joint from id with validation
 b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type)
@@ -45,72 +98,6 @@ b2Joint* b2GetJoint(b2World* world, b2JointId jointId)
 	B2_ASSERT(b2ObjectValid(&joint->object));
 	B2_ASSERT(joint->object.revision == jointId.revision);
 	return joint;
-}
-
-void b2LinearStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
-					   b2BodyId bodyIdB)
-{
-	B2_ASSERT(bodyIdA.world == bodyIdB.world);
-
-	b2World* world = b2GetWorldFromIndex(bodyIdA.world);
-	B2_ASSERT(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
-	B2_ASSERT(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
-
-	b2Body* bodyA = world->bodies + bodyIdA.index;
-	b2Body* bodyB = world->bodies + bodyIdB.index;
-
-	float massA = bodyA->mass;
-	float massB = bodyB->mass;
-	float mass;
-	if (massA > 0.0f && massB > 0.0f)
-	{
-		mass = massA * massB / (massA + massB);
-	}
-	else if (massA > 0.0f)
-	{
-		mass = massA;
-	}
-	else
-	{
-		mass = massB;
-	}
-
-	float omega = 2.0f * b2_pi * frequencyHertz;
-	*stiffness = mass * omega * omega;
-	*damping = 2.0f * mass * dampingRatio * omega;
-}
-
-void b2AngularStiffness(float* stiffness, float* damping, float frequencyHertz, float dampingRatio, b2BodyId bodyIdA,
-						b2BodyId bodyIdB)
-{
-	B2_ASSERT(bodyIdA.world == bodyIdB.world);
-
-	b2World* world = b2GetWorldFromIndex(bodyIdA.world);
-	B2_ASSERT(0 <= bodyIdA.index && bodyIdA.index < world->bodyPool.capacity);
-	B2_ASSERT(0 <= bodyIdB.index && bodyIdB.index < world->bodyPool.capacity);
-
-	b2Body* bodyA = world->bodies + bodyIdA.index;
-	b2Body* bodyB = world->bodies + bodyIdB.index;
-
-	float IA = bodyA->I;
-	float IB = bodyB->I;
-	float I;
-	if (IA > 0.0f && IB > 0.0f)
-	{
-		I = IA * IB / (IA + IB);
-	}
-	else if (IA > 0.0f)
-	{
-		I = IA;
-	}
-	else
-	{
-		I = IB;
-	}
-
-	float omega = 2.0f * b2_pi * frequencyHertz;
-	*stiffness = I * omega * omega;
-	*damping = 2.0f * I * dampingRatio * omega;
 }
 
 static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)

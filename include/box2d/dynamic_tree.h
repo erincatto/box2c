@@ -5,10 +5,15 @@
 
 #include "api.h"
 #include "constants.h"
-#include "types.h"
+#include "math_types.h"
+
+#include <stdbool.h>
 
 #define b2_defaultCategoryBits (0x00000001)
 #define b2_defaultMaskBits (0xFFFFFFFF)
+
+typedef struct b2RayCastInput b2RayCastInput;
+typedef struct b2ShapeCastInput b2ShapeCastInput;
 
 /// A node in the dynamic tree. The user does not interact with this directly.
 /// 16 + 16 + 8 + pad(8)

@@ -130,7 +130,7 @@ static int RayCastShapeTest(void)
 	b2RayCastInput input = {{-4.0f, 0.0f}, {8.0f, 0.0f}, 1.0f};
 	
 	{
-		b2RayCastOutput output = b2RayCastCircle(&input, &circle);
+		b2CastOutput output = b2RayCastCircle(&input, &circle);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);
@@ -138,7 +138,7 @@ static int RayCastShapeTest(void)
 	}
 
 	{
-		b2RayCastOutput output = b2RayCastPolygon(&input, &box);
+		b2CastOutput output = b2RayCastPolygon(&input, &box);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);
@@ -146,7 +146,7 @@ static int RayCastShapeTest(void)
 	}
 
 	{
-		b2RayCastOutput output = b2RayCastSegment(&input, &segment, true);
+		b2CastOutput output = b2RayCastSegment(&input, &segment, true);
 		ENSURE(output.hit);
 		ENSURE_SMALL(output.normal.x + 1.0f, FLT_EPSILON);
 		ENSURE_SMALL(output.normal.y, FLT_EPSILON);

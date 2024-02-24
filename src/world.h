@@ -5,8 +5,8 @@
 
 #include "bitset.h"
 #include "broad_phase.h"
+#include "constraint_graph.h"
 #include "island.h"
-#include "graph.h"
 #include "pool.h"
 
 #include "box2d/callbacks.h"

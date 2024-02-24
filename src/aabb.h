@@ -5,10 +5,10 @@
 
 #include "box2d/constants.h"
 #include "box2d/math.h"
-#include "box2d/types.h"
+#include "box2d/geometry.h"
 
 // Ray cast an AABB
-b2RayCastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2);
+b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2);
 
 // Get the perimeter length
 static inline float b2Perimeter(b2AABB a)

@@ -6,22 +6,14 @@
 #include "body.h"
 #include "core.h"
 #include "joint.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
-#include "box2d/joint_types.h"
 
 #include <stdio.h>
-
-b2RevoluteJointDef b2DefaultRevoluteJointDef()
-{
-	b2RevoluteJointDef def = {0};
-	def.drawSize = 0.25f;
-	return def;
-}
 
 // Point-to-point constraint
 // C = p2 - p1

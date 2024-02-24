@@ -4,22 +4,14 @@
 #include "body.h"
 #include "core.h"
 #include "joint.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
-#include "box2d/joint_types.h"
 
 #include <stdio.h>
-
-b2PrismaticJointDef b2DefaultPrismaticJointDef()
-{
-	b2PrismaticJointDef def = {0};
-	def.localAxisA = (b2Vec2){1.0f, 0.0f};
-	return def;
-}
 
 // Linear constraint (point-to-line)
 // d = p2 - p1 = x2 + r2 - x1 - r1
@@ -202,7 +194,7 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 		float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
 		float impulse = joint->axialMass * (joint->motorSpeed - Cdot);
 		float oldImpulse = joint->motorImpulse;
-		float maxImpulse = context->dt * joint->maxMotorForce;
+		float maxImpulse = context->h * joint->maxMotorForce;
 		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 

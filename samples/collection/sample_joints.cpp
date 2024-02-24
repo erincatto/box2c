@@ -7,9 +7,9 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/joint_util.h"
 #include "box2d/math.h"
 
 #include <GLFW/glfw3.h>
