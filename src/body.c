@@ -260,6 +260,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandIndex = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
+	body->solverIndex = B2_NULL_INDEX;
 
 	if (body->isEnabled)
 	{

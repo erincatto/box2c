@@ -70,3 +70,25 @@ typedef struct b2ContactData
 	b2ShapeId shapeIdB;
 	b2Manifold manifold;
 } b2ContactData;
+
+/// Triggered when a body moves from simulation. Not reported for bodies moved by the user.
+/// This also has a flag to indicate that the body went to sleep so the application can also
+/// sleep that actor/entity/object associated with the body.
+/// On the other hand if the flag does not indicate the body went to sleep then the application
+/// can treat the actor/entity/object associated with the body as awake.
+typedef struct b2BodyMoveEvent
+{
+	b2Transform transform;
+	b2BodyId bodyId;
+	void* userData;
+	bool fellAsleep;
+} b2BodyMoveEvent;
+
+/// Body events are buffered in the Box2D world and are available
+///	as event arrays after the time step is complete.
+///	Note: this date becomes invalid if bodies are destroyed
+typedef struct b2BodyEvents
+{
+	b2BodyMoveEvent* moveEvents;
+	int moveCount;
+} b2BodyEvents;

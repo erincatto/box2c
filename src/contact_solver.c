@@ -25,17 +25,12 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 	b2World* world = context->world;
 	b2ConstraintGraph* graph = context->graph;
 	b2Contact* contacts = world->contacts;
-	const int32_t* bodyMap = context->bodyToSolverMap;
-	const b2BodyParam* params = context->bodyParams;
-	b2BodyState* states = context->bodyStates;
+	b2Body* bodies = world->bodies;
+	int32_t bodyCapacity = world->bodyPool.capacity;
 
 	b2ContactConstraint* constraints = graph->overflow.contactConstraints;
 	int32_t* contactIndices = graph->overflow.contactArray;
 	int32_t contactCount = b2Array(graph->overflow.contactArray).count;
-
-	// This is a dummy body to represent a static body because static bodies don't have a solver body.
-	b2BodyState dummyState = b2_identityBodyState;
-	b2BodyParam dummyParam = {0};
 
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
@@ -52,34 +47,34 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 		B2_ASSERT(0 < pointCount && pointCount <= 2);
 
-		// resolve solver body indices
-		int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
-		int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
+		int32_t indexA = contact->edges[0].bodyIndex;
+		int32_t indexB = contact->edges[1].bodyIndex;
+		B2_ASSERT(0 <= indexA && indexA < bodyCapacity);
+		B2_ASSERT(0 <= indexB && indexB < bodyCapacity);
+
+		b2Body* bodyA = context->bodies + indexA;
+		b2Body* bodyB = context->bodies + indexB;
+		B2_ASSERT(bodyA->object.index == bodyA->object.next);
+		B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
 		b2ContactConstraint* constraint = constraints + i;
 		constraint->contact = contact;
-		constraint->indexA = indexA;
-		constraint->indexB = indexB;
+		constraint->indexA = bodyA->solverIndex;
+		constraint->indexB = bodyB->solverIndex;
 		constraint->normal = manifold->normal;
 		constraint->friction = contact->friction;
 		constraint->restitution = contact->restitution;
 		constraint->pointCount = pointCount;
 
-		b2BodyState* stateA = indexA == B2_NULL_INDEX ? &dummyState : states + indexA;
-		const b2BodyParam* paramA = indexA == B2_NULL_INDEX ? &dummyParam : params + indexA;
+		b2Vec2 vA = bodyA->linearVelocity;
+		float wA = bodyA->angularVelocity;
+		float mA = bodyA->invMass;
+		float iA = bodyA->invI;
 
-		b2BodyState* stateB = indexB == B2_NULL_INDEX ? &dummyState : states + indexB;
-		const b2BodyParam* paramB = indexB == B2_NULL_INDEX ? &dummyParam : params + indexB;
-
-		b2Vec2 vA = stateA->linearVelocity;
-		float wA = stateA->angularVelocity;
-		float mA = paramA->invMass;
-		float iA = paramA->invI;
-
-		b2Vec2 vB = stateB->linearVelocity;
-		float wB = stateB->angularVelocity;
-		float mB = paramB->invMass;
-		float iB = paramB->invI;
+		b2Vec2 vB = bodyB->linearVelocity;
+		float wB = bodyB->angularVelocity;
+		float mB = bodyB->invMass;
+		float iB = bodyB->invI;
 
 		// Stiffer for static contacts to avoid bodies getting pushed through the ground
 		if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
@@ -568,18 +563,12 @@ static void b2ScatterBodies(b2BodyState* restrict bodies, int32_t* restrict indi
 void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
-
 	b2World* world = context->world;
 	b2Contact* contacts = world->contacts;
-	const int32_t* bodyMap = context->bodyToSolverMap;
-	b2BodyState* states = context->bodyStates;
-	const b2BodyParam* params = context->bodyParams;
+	b2Body* bodies = world->bodies;
+	int32_t bodyCapacity = world->bodyPool.capacity;
 	b2ContactConstraintSIMD* constraints = context->contactConstraints;
 	const int32_t* contactIndices = context->contactIndices;
-
-	// dummy body to represent a static body
-	b2BodyState dummyState = b2_identityBodyState;
-	b2BodyParam dummyParam = {0};
 
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
@@ -600,28 +589,29 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				b2Contact* contact = contacts + contactIndex;
 
 				const b2Manifold* manifold = &contact->manifold;
-				int32_t indexA = bodyMap[contact->edges[0].bodyIndex];
-				int32_t indexB = bodyMap[contact->edges[1].bodyIndex];
+				int32_t indexA = contact->edges[0].bodyIndex;
+				int32_t indexB = contact->edges[1].bodyIndex;
+				B2_ASSERT(0 <= indexA && indexA < bodyCapacity);
+				B2_ASSERT(0 <= indexB && indexB < bodyCapacity);
 
-				constraint->indexA[j] = indexA;
-				constraint->indexB[j] = indexB;
+				b2Body* bodyA = context->bodies + indexA;
+				b2Body* bodyB = context->bodies + indexB;
+				B2_ASSERT(bodyA->object.index == bodyA->object.next);
+				B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
-				b2BodyState* stateA = indexA == B2_NULL_INDEX ? &dummyState : states + indexA;
-				const b2BodyParam* paramA = indexA == B2_NULL_INDEX ? &dummyParam : params + indexA;
+				constraint->indexA[j] = bodyA->solverIndex;
+				constraint->indexB[j] = bodyB->solverIndex;
 
-				b2BodyState* stateB = indexB == B2_NULL_INDEX ? &dummyState : states + indexB;
-				const b2BodyParam* paramB = indexB == B2_NULL_INDEX ? &dummyParam : params + indexB;
+				b2Vec2 vA = bodyA->linearVelocity;
+				float wA = bodyA->angularVelocity;
 
-				b2Vec2 vA = stateA->linearVelocity;
-				float wA = stateA->angularVelocity;
+				b2Vec2 vB = bodyB->linearVelocity;
+				float wB = bodyB->angularVelocity;
 
-				b2Vec2 vB = stateB->linearVelocity;
-				float wB = stateB->angularVelocity;
-
-				float mA = paramA->invMass;
-				float iA = paramA->invI;
-				float mB = paramB->invMass;
-				float iB = paramB->invI;
+				float mA = bodyA->invMass;
+				float iA = bodyA->invI;
+				float mB = bodyB->invMass;
+				float iB = bodyB->invI;
 
 				((float*)&constraint->invMassA)[j] = mA;
 				((float*)&constraint->invMassB)[j] = mB;

@@ -174,8 +174,8 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 
 	b2WheelJoint* joint = &base->wheelJoint;
 
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
+	joint->indexA = bodyA->solverIndex;
+	joint->indexB = bodyB->solverIndex;
 
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));

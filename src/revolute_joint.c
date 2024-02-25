@@ -145,8 +145,8 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
+	joint->indexA = bodyA->solverIndex;
+	joint->indexB = bodyB->solverIndex;
 
 	// initial anchors in world space
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));

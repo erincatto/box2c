@@ -5,19 +5,18 @@
 
 #include "core.h"
 
-#include <stdint.h>
-
 typedef struct b2ArrayHeader
 {
-	int32_t count;
-	int32_t capacity;
+	int count;
+	int capacity;
 } b2ArrayHeader;
 
 #define b2Array(a) ((b2ArrayHeader*)(a))[-1]
 
-void* b2CreateArray(int32_t elementSize, int32_t capacity);
-void b2DestroyArray(void* a, int32_t elementSize);
-void b2Array_Grow(void** a, int32_t elementSize);
+void* b2CreateArray(int elementSize, int capacity);
+void b2DestroyArray(void* a, int elementSize);
+void b2Array_Grow(void** a, int elementSize);
+void b2Array_Resize(void** a, int elementSize, int count);
 
 #define b2Array_Check(a, index) B2_ASSERT(0 <= index && index < b2Array(a).count)
 

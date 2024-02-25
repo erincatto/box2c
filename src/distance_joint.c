@@ -55,8 +55,8 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
+	joint->indexA = bodyA->solverIndex;
+	joint->indexB = bodyB->solverIndex;
 
 	// initial anchors in world space
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
