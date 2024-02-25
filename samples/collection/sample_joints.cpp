@@ -728,6 +728,7 @@ public:
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
 			int32_t jointIndex = 0;
 			m_frictionTorque = 200.0f;
+			m_gravityScale = 1.0f;
 
 			float xbase = -80.0f;
 
@@ -739,19 +740,19 @@ public:
 				bodyDef.position = {xbase + 0.5f + 1.0f * i, 20.0f};
 				bodyDef.linearDamping = 0.1f;
 				bodyDef.angularDamping = 0.1f;
-				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreatePolygonShape(bodyId, &shapeDef, &box);
+				m_bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(m_bodyIds[i], &shapeDef, &box);
 
 				b2Vec2 pivot = {xbase + 1.0f * i, 20.0f};
 				jointDef.bodyIdA = prevBodyId;
-				jointDef.bodyIdB = bodyId;
+				jointDef.bodyIdB = m_bodyIds[i];
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 				jointDef.enableMotor = true;
 				jointDef.maxMotorTorque = m_frictionTorque;
 				m_jointIds[jointIndex++] = b2CreateRevoluteJoint(m_worldId, &jointDef);
 
-				prevBodyId = bodyId;
+				prevBodyId = m_bodyIds[i];
 			}
 
 			b2Vec2 pivot = {xbase + 1.0f * e_count, 20.0f};
@@ -816,6 +817,14 @@ public:
 			}
 		}
 
+		if (ImGui::SliderFloat("gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
+		{
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2Body_SetGravityScale(m_bodyIds[i], m_gravityScale);
+			}
+		}
+
 		ImGui::End();
 	}
 
@@ -824,8 +833,10 @@ public:
 		return new Bridge(settings);
 	}
 
+	b2BodyId m_bodyIds[e_count];
 	b2JointId m_jointIds[e_count + 1];
 	float m_frictionTorque;
+	float m_gravityScale;
 };
 
 static int sampleBridgeIndex = RegisterSample("Joints", "Bridge", Bridge::Create);
@@ -966,6 +977,7 @@ public:
 			m_linearDampingRatio = 0.5f;
 			m_angularHertz = 5.0f;
 			m_angularDampingRatio = 0.5f;
+			m_gravityScale = 1.0f;
 			m_collideConnected = false;
 
 			float hx = 0.5f;
@@ -981,12 +993,12 @@ public:
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {(1.0f + 2.0f * i) * hx, 0.0f};
-				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+				m_bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreateCapsuleShape(m_bodyIds[i], &shapeDef, &capsule);
 
 				b2Vec2 pivot = {(2.0f * i) * hx, 0.0f};
 				jointDef.bodyIdA = prevBodyId;
-				jointDef.bodyIdB = bodyId;
+				jointDef.bodyIdB = m_bodyIds[i];
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 				jointDef.linearHertz = m_linearHertz;
@@ -996,7 +1008,7 @@ public:
 				jointDef.collideConnected = m_collideConnected;
 				m_jointIds[i] = b2CreateWeldJoint(m_worldId, &jointDef);
 
-				prevBodyId = bodyId;
+				prevBodyId = m_bodyIds[i];
 			}
 
 			m_tipId = prevBodyId;
@@ -1049,6 +1061,14 @@ public:
 			}
 		}
 
+		if (ImGui::SliderFloat("gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
+		{
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2Body_SetGravityScale(m_bodyIds[i], m_gravityScale);
+			}
+		}
+
 		ImGui::End();
 	}
 
@@ -1070,7 +1090,9 @@ public:
 	float m_linearDampingRatio;
 	float m_angularHertz;
 	float m_angularDampingRatio;
+	float m_gravityScale;
 	b2BodyId m_tipId;
+	b2BodyId m_bodyIds[e_count];
 	b2JointId m_jointIds[e_count];
 	bool m_collideConnected;
 };

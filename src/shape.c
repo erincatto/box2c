@@ -357,7 +357,8 @@ b2CastOutput b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translatio
 			break;
 
 		default:
-			(b2RayResult){0};
+			B2_ASSERT(false);
+			return output;
 	}
 
 	if (output.hit)
