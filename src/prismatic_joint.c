@@ -13,6 +13,94 @@
 
 #include <stdio.h>
 
+void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	joint->prismaticJoint.enableLimit = enableLimit;
+}
+
+bool b2PrismaticJoint_IsLimitEnabled(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	return joint->prismaticJoint.enableLimit;
+}
+
+void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	joint->prismaticJoint.enableMotor = enableMotor;
+}
+
+bool b2PrismaticJoint_IsMotorEnabled(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	return joint->prismaticJoint.enableMotor;
+}
+
+void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	joint->prismaticJoint.motorSpeed = motorSpeed;
+}
+
+float b2PrismaticJoint_GetMotorSpeed(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	return joint->prismaticJoint.motorSpeed;
+}
+
+float b2PrismaticJoint_GetMotorForce(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* base = b2GetJoint(world, jointId);
+	B2_ASSERT(base->type == b2_prismaticJoint);
+	return world->inv_h * base->prismaticJoint.motorImpulse;
+}
+
+void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	joint->prismaticJoint.maxMotorForce = force;
+}
+
+float b2PrismaticJoint_GetMaxMotorForce(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	return joint->prismaticJoint.maxMotorForce;
+}
+
+b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* base = b2GetJoint(world, jointId);
+	B2_ASSERT(base->type == b2_prismaticJoint);
+
+	int32_t indexA = base->edges[0].bodyIndex;
+	b2Body* bodyA = world->bodies + indexA;
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+
+	b2PrismaticJoint* joint = &base->prismaticJoint;
+
+	b2Vec2 axisA = b2RotateVector(bodyA->rotation, joint->localAxisA);
+	b2Vec2 perpA = b2LeftPerp(axisA);
+
+	float inv_h = world->inv_h;
+	float perpForce = inv_h * joint->impulse.x;
+	float axialForce = inv_h * (joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse);
+
+	b2Vec2 force = b2Add(b2MulSV(perpForce, perpA), b2MulSV(axialForce, axisA));
+	return force;
+}
+
+float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_prismaticJoint);
+
+	return world->inv_h * joint->prismaticJoint.impulse.y;
+}
+
 // Linear constraint (point-to-line)
 // d = p2 - p1 = x2 + r2 - x1 - r1
 // C = dot(perp, d)
@@ -66,8 +154,8 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	int32_t indexB = base->edges[1].bodyIndex;
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -347,70 +435,6 @@ void b2SolvePrismaticJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	stateA->angularVelocity = wA;
 	stateB->linearVelocity = vB;
 	stateB->angularVelocity = wB;
-}
-
-void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
-	joint->prismaticJoint.enableLimit = enableLimit;
-}
-
-void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
-	joint->prismaticJoint.enableMotor = enableMotor;
-}
-
-void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
-	joint->prismaticJoint.motorSpeed = motorSpeed;
-}
-
-float b2PrismaticJoint_GetMotorForce(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* base = b2GetJoint(world, jointId);
-	B2_ASSERT(base->type == b2_prismaticJoint);
-	return world->inv_h * base->prismaticJoint.motorImpulse;
-}
-
-void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
-	joint->prismaticJoint.maxMotorForce = force;
-}
-
-b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* base = b2GetJoint(world, jointId);
-	B2_ASSERT(base->type == b2_prismaticJoint);
-
-	int32_t indexA = base->edges[0].bodyIndex;
-	b2Body* bodyA = world->bodies + indexA;
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-
-	b2PrismaticJoint* joint = &base->prismaticJoint;
-
-	b2Vec2 axisA = b2RotateVector(bodyA->rotation, joint->localAxisA);
-	b2Vec2 perpA = b2LeftPerp(axisA);
-
-	float inv_h = world->inv_h;
-	float perpForce = inv_h * joint->impulse.x;
-	float axialForce = inv_h * (joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse);
-
-	b2Vec2 force = b2Add(b2MulSV(perpForce, perpA), b2MulSV(axialForce, axisA));
-	return force;
-}
-
-float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
-
-	return world->inv_h * joint->prismaticJoint.impulse.y;
 }
 
 #if 0

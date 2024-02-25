@@ -220,6 +220,8 @@ typedef struct b2Joint
 		b2WheelJoint wheelJoint;
 	};
 
+	void* userData;
+
 	float drawSize;
 	bool isMarked;
 	bool collideConnected;

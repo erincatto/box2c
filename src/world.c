@@ -221,7 +221,7 @@ void b2DestroyWorld(b2WorldId id)
 	for (int32_t i = 0; i < chainCapacity; ++i)
 	{
 		b2ChainShape* chain = world->chains + i;
-		if (b2ObjectValid(&chain->object))
+		if (b2IsValidObject(&chain->object))
 		{
 			b2Free(chain->shapeIndices, chain->count * sizeof(int32_t));
 		}
@@ -795,7 +795,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		for (int32_t i = 0; i < bodyCapacity; ++i)
 		{
 			b2Body* body = bodies + i;
-			if (b2ObjectValid(&body->object) == false)
+			if (b2IsValidObject(&body->object) == false)
 			{
 				continue;
 			}
@@ -956,7 +956,7 @@ bool b2Body_IsValid(b2BodyId id)
 	}
 
 	b2Body* body = world->bodies + (id.index - 1);
-	if (b2ObjectValid(&body->object) == false)
+	if (b2IsValidObject(&body->object) == false)
 	{
 		return false;
 	}
@@ -979,7 +979,7 @@ bool b2Shape_IsValid(b2ShapeId id)
 	}
 
 	b2Shape* shape = world->shapes + (id.index - 1);
-	if (b2ObjectValid(&shape->object) == false)
+	if (b2IsValidObject(&shape->object) == false)
 	{
 		return false;
 	}
@@ -1002,7 +1002,7 @@ bool b2Chain_IsValid(b2ChainId id)
 	}
 
 	b2ChainShape* chain = world->chains + (id.index - 1);
-	if (b2ObjectValid(&chain->object) == false)
+	if (b2IsValidObject(&chain->object) == false)
 	{
 		return false;
 	}
@@ -1025,7 +1025,7 @@ bool b2Joint_IsValid(b2JointId id)
 	}
 
 	b2Joint* joint = world->joints + (id.index - 1);
-	if (b2ObjectValid(&joint->object) == false)
+	if (b2IsValidObject(&joint->object) == false)
 	{
 		return false;
 	}
@@ -1349,7 +1349,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2RayCastShape(input, shape, transform);
@@ -1461,7 +1461,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2ShapeCastShape(input, shape, transform);

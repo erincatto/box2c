@@ -35,7 +35,7 @@ void b2FreeObject(b2Pool* pool, b2Object* object);
 
 void b2GrowPool(b2Pool* pool, int32_t capacity);
 
-static inline bool b2ObjectValid(const b2Object* object)
+static inline bool b2IsValidObject(const b2Object* object)
 {
 	// this means the object is not on the free list
 	return object->index == object->next;

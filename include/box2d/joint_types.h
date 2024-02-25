@@ -52,6 +52,9 @@ typedef struct b2DistanceJointDef
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
 
+	/// User data pointer
+	void* userData;
+
 } b2DistanceJointDef;
 
 /// Use this to initialize your joint definition
@@ -82,6 +85,13 @@ typedef struct b2MotorJointDef
 
 	/// Position correction factor in the range [0,1].
 	float correctionFactor;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
 } b2MotorJointDef;
 
 /// Use this to initialize your joint definition
@@ -106,6 +116,13 @@ typedef struct b2MouseJointDef
 
 	/// Damping ratio, non-dimensional
 	float dampingRatio;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
 } b2MouseJointDef;
 
 /// Use this to initialize your joint definition
@@ -156,6 +173,9 @@ typedef struct b2PrismaticJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2PrismaticJointDef;
 
 /// Use this to initialize your joint definition
@@ -213,6 +233,9 @@ typedef struct b2RevoluteJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2RevoluteJointDef;
 
 /// Use this to initialize your joint definition
@@ -252,6 +275,9 @@ typedef struct b2WeldJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2WeldJointDef;
 
 /// Use this to initialize your joint definition
@@ -306,6 +332,9 @@ typedef struct b2WheelJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2WheelJointDef;
 
 /// Use this to initialize your joint definition

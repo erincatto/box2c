@@ -16,6 +16,31 @@ void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 	base->mouseJoint.targetA = target;
 }
 
+b2Vec2 b2MouseJoint_GetTarget(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	return base->mouseJoint.targetA;
+}
+
+void b2MouseJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	base->mouseJoint.hertz = hertz;
+	base->mouseJoint.dampingRatio = dampingRatio;
+}
+
+float b2MouseJoint_GetHertz(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	return base->mouseJoint.hertz;
+}
+
+float b2MouseJoint_GetDampingRatio(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	return base->mouseJoint.dampingRatio;
+}
+
 void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);

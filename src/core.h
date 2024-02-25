@@ -15,6 +15,8 @@
 #define B2_DEBUG 1
 #endif
 
+#define B2_VALIDATE B2_DEBUG
+
 // Define platform
 #if defined(_WIN64)
 #define B2_PLATFORM_WINDOWS
@@ -83,5 +85,3 @@ extern b2AssertFcn* b2AssertHandler;
 #else
 #define B2_ASSERT(...) ((void)0)
 #endif
-
-#define B2_VALIDATE B2_DEBUG

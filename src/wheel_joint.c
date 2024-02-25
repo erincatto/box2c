@@ -13,6 +13,128 @@
 
 #include <stdio.h>
 
+void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	joint->wheelJoint.hertz = hertz;
+}
+
+float b2WheelJoint_GetSpringHertz(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.hertz;
+}
+
+void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	joint->wheelJoint.dampingRatio = dampingRatio;
+}
+
+float b2WheelJoint_GetSpringDampingRatio(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.dampingRatio;
+}
+
+void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+
+	if (joint->wheelJoint.enableLimit != enableLimit)
+	{
+		joint->wheelJoint.lowerImpulse = 0.0f;
+		joint->wheelJoint.upperImpulse = 0.0f;
+	}
+
+	joint->wheelJoint.enableLimit = enableLimit;
+}
+
+bool b2WheelJoint_IsLimitEnabled(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.enableLimit;
+}
+
+void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+
+	if (joint->wheelJoint.enableMotor != enableMotor)
+	{
+		joint->wheelJoint.motorImpulse = 0.0f;
+	}
+
+	joint->wheelJoint.enableMotor = enableMotor;
+}
+
+bool b2WheelJoint_IsMotorEnabled(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.enableMotor;
+}
+
+void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	joint->wheelJoint.motorSpeed = motorSpeed;
+}
+
+float b2WheelJoint_GetMotorSpeed(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.motorSpeed;
+}
+
+float b2WheelJoint_GetMotorTorque(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_wheelJoint);
+
+	return world->inv_h * joint->wheelJoint.motorImpulse;
+}
+
+void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	joint->wheelJoint.maxMotorTorque = torque;
+}
+
+float b2WheelJoint_GetMaxMotorTorque(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.maxMotorTorque;
+}
+
+b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* base = b2GetJoint(world, jointId);
+	B2_ASSERT(base->type == b2_wheelJoint);
+
+	b2WheelJoint* joint = &base->wheelJoint;
+
+	// This is a frame behind
+	b2Vec2 axisA = joint->axisA;
+	b2Vec2 perpA = b2LeftPerp(axisA);
+
+	float perpForce = world->inv_h * joint->perpImpulse;
+	float axialForce = world->inv_h * (joint->springImpulse + joint->lowerImpulse - joint->upperImpulse);
+
+	b2Vec2 force = b2Add(b2MulSV(perpForce, perpA), b2MulSV(axialForce, axisA));
+	return force;
+}
+
+float b2WheelJoint_GetConstraintTorque(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_wheelJoint);
+
+	return world->inv_h * joint->wheelJoint.motorImpulse;
+}
+
 // Linear constraint (point-to-line)
 // d = pB - pA = xB + rB - xA - rA
 // C = dot(ay, d)
@@ -37,8 +159,8 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 	int32_t indexB = base->edges[1].bodyIndex;
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -327,93 +449,6 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	stateA->angularVelocity = wA;
 	stateB->linearVelocity = vB;
 	stateB->angularVelocity = wB;
-}
-
-void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-	joint->wheelJoint.hertz = hertz;
-}
-
-void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-	joint->wheelJoint.dampingRatio = dampingRatio;
-}
-
-void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-
-	if (joint->wheelJoint.enableLimit != enableLimit)
-	{
-		joint->wheelJoint.lowerImpulse = 0.0f;
-		joint->wheelJoint.upperImpulse = 0.0f;
-	}
-
-	joint->wheelJoint.enableLimit = enableLimit;
-
-}
-
-void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-
-	if (joint->wheelJoint.enableMotor != enableMotor)
-	{
-		joint->wheelJoint.motorImpulse = 0.0f;
-	}
-
-	joint->wheelJoint.enableMotor = enableMotor;
-}
-
-void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-	joint->wheelJoint.motorSpeed = motorSpeed;
-}
-
-float b2WheelJoint_GetMotorTorque(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_wheelJoint);
-
-	return world->inv_h * joint->wheelJoint.motorImpulse;
-}
-
-void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-	joint->wheelJoint.maxMotorTorque = torque;
-}
-
-b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* base = b2GetJoint(world, jointId);
-	B2_ASSERT(base->type == b2_wheelJoint);
-
-	b2WheelJoint* joint = &base->wheelJoint;
-
-	// This is a frame behind
-	b2Vec2 axisA = joint->axisA;
-	b2Vec2 perpA = b2LeftPerp(axisA);
-
-	float perpForce = world->inv_h * joint->perpImpulse;
-	float axialForce = world->inv_h * (joint->springImpulse + joint->lowerImpulse - joint->upperImpulse);
-
-	b2Vec2 force = b2Add(b2MulSV(perpForce, perpA), b2MulSV(axialForce, axisA));
-	return force;
-}
-
-float b2WheelJoint_GetConstraintTorque(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_wheelJoint);
-
-	return world->inv_h * joint->wheelJoint.motorImpulse;
 }
 
 #if 0

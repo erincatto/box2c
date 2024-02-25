@@ -95,7 +95,7 @@ static void b2PrepareJointsTask(int32_t startIndex, int32_t endIndex, b2StepCont
 		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
 		b2Joint* joint = joints + index;
-		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+		B2_ASSERT(b2IsValidObject(&joint->object) == true);
 
 		b2PrepareJoint(joint, context);
 	}
@@ -117,7 +117,7 @@ static void b2WarmStartJointsTask(int32_t startIndex, int32_t endIndex, b2StepCo
 		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
 		b2Joint* joint = joints + index;
-		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+		B2_ASSERT(b2IsValidObject(&joint->object) == true);
 
 		b2WarmStartJoint(joint, context);
 	}
@@ -139,7 +139,7 @@ static void b2SolveJointsTask(int32_t startIndex, int32_t endIndex, b2StepContex
 		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
 		b2Joint* joint = joints + index;
-		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+		B2_ASSERT(b2IsValidObject(&joint->object) == true);
 
 		b2SolveJoint(joint, context, useBias);
 	}
@@ -200,7 +200,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 		int32_t bodyIndex = solverToBodyMap[i];
 		b2Body* body = bodies + bodyIndex;
-		B2_ASSERT(b2ObjectValid(&body->object));
+		B2_ASSERT(b2IsValidObject(&body->object));
 
 		b2Vec2 v = state->linearVelocity;
 		float w = state->angularVelocity;
@@ -781,7 +781,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		while (bodyIndex != B2_NULL_INDEX)
 		{
 			b2Body* body = bodies + bodyIndex;
-			B2_ASSERT(b2ObjectValid(&body->object));
+			B2_ASSERT(b2IsValidObject(&body->object));
 			B2_ASSERT(body->object.index == bodyIndex);
 
 			awakeBodies[index] = body;
@@ -1404,7 +1404,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 				uint32_t ctz = b2CTZ(word);
 				uint32_t islandIndex = 64 * k + ctz;
 
-				B2_ASSERT(b2ObjectValid(&islands[islandIndex].object));
+				B2_ASSERT(b2IsValidObject(&islands[islandIndex].object));
 
 				b2Array_Push(world->awakeIslandArray, islandIndex);
 
@@ -1422,7 +1422,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	for (int32_t i = 0; i < world->islandPool.capacity; ++i)
 	{
 		b2Island* island = world->islands + i;
-		if (b2ObjectValid(&island->object) == false)
+		if (b2IsValidObject(&island->object) == false)
 		{
 			continue;
 		}
@@ -1565,7 +1565,7 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 {
 	b2Body* fastBody = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&fastBody->object));
+	B2_ASSERT(b2IsValidObject(&fastBody->object));
 	B2_ASSERT(fastBody->type == b2_dynamicBody && fastBody->isFast);
 
 	b2Shape* shapes = world->shapes;
@@ -1761,7 +1761,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 				uint32_t shapeIndex = 64 * k + ctz;
 
 				b2Shape* shape = shapes + shapeIndex;
-				B2_ASSERT(b2ObjectValid(&shape->object));
+				B2_ASSERT(b2IsValidObject(&shape->object));
 				if (shape->isFast == false)
 				{
 					b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);

@@ -44,7 +44,6 @@ public:
 		m_minLength = m_length;
 		m_maxLength = m_length;
 		m_fixedLength = true;
-		m_collideConnected = true;
 
 		for (int i = 0; i < e_maxCount; ++i)
 		{
@@ -102,7 +101,6 @@ public:
 			jointDef.length = m_length;
 			jointDef.minLength = m_minLength;
 			jointDef.maxLength = m_maxLength;
-			jointDef.collideConnected = m_collideConnected;
 			m_jointIds[i] = b2CreateDistanceJoint(m_worldId, &jointDef);
 
 			prevBodyId = m_bodyIds[i];
@@ -117,15 +115,19 @@ public:
 
 		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
 		{
+			for (int32_t i = 0; i < m_count; ++i)
+			{
+				b2DistanceJoint_SetLength(m_jointIds[i], m_length);
+			}
+
 			if (m_fixedLength)
 			{
 				m_minLength = m_length;
 				m_maxLength = m_length;
-			}
-
-			for (int32_t i = 0; i < m_count; ++i)
-			{
-				b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
+				}
 			}
 		}
 
@@ -137,7 +139,8 @@ public:
 				m_maxLength = m_length;
 				for (int32_t i = 0; i < m_count; ++i)
 				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+					b2DistanceJoint_SetLength(m_jointIds[i], m_length);
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
 				}
 			}
 		}
@@ -148,7 +151,7 @@ public:
 			{
 				for (int32_t i = 0; i < m_count; ++i)
 				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
 				}
 			}
 
@@ -156,7 +159,7 @@ public:
 			{
 				for (int32_t i = 0; i < m_count; ++i)
 				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
 				}
 			}
 
@@ -183,14 +186,6 @@ public:
 			CreateScene(count);
 		}
 
-		if (ImGui::Checkbox("collide connected", &m_collideConnected))
-		{
-			for (int32_t i = 0; i < m_count; ++i)
-			{
-				b2Joint_SetCollideConnected(m_jointIds[i], m_collideConnected);
-			}
-		}
-
 		ImGui::End();
 	}
 
@@ -209,7 +204,6 @@ public:
 	float m_minLength;
 	float m_maxLength;
 	bool m_fixedLength;
-	bool m_collideConnected;
 };
 
 static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", DistanceJoint::Create);

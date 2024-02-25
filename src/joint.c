@@ -95,7 +95,7 @@ b2Joint* b2GetJoint(b2World* world, b2JointId jointId)
 {
 	B2_ASSERT(1 <= jointId.index && jointId.index <= world->jointPool.capacity);
 	b2Joint* joint = world->joints + (jointId.index - 1);
-	B2_ASSERT(b2ObjectValid(&joint->object));
+	B2_ASSERT(b2IsValidObject(&joint->object));
 	B2_ASSERT(joint->object.revision == jointId.revision);
 	return joint;
 }
@@ -209,8 +209,8 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
@@ -218,6 +218,7 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 	joint->localOriginAnchorA = def->localAnchorA;
 	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
+	joint->userData = def->userData;
 
 	b2DistanceJoint empty = {0};
 	joint->distanceJoint = empty;
@@ -256,15 +257,16 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_motorJoint;
 	joint->localOriginAnchorA = (b2Vec2){0.0f, 0.0f};
 	joint->localOriginAnchorB = (b2Vec2){0.0f, 0.0f};
-	joint->collideConnected = true;
+	joint->collideConnected = def->collideConnected;
+	joint->userData = def->userData;
 
 	joint->motorJoint = (b2MotorJoint){0};
 	joint->motorJoint.linearOffset = def->linearOffset;
@@ -272,6 +274,12 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 	joint->motorJoint.maxForce = def->maxForce;
 	joint->motorJoint.maxTorque = def->maxTorque;
 	joint->motorJoint.correctionFactor = B2_CLAMP(def->correctionFactor, 0.0f, 1.0f);
+
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	if (def->collideConnected == false)
+	{
+		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
+	}
 
 	b2JointId jointId = {joint->object.index + 1, world->poolIndex, joint->object.revision};
 	return jointId;
@@ -293,8 +301,8 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
@@ -302,6 +310,7 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 	joint->localOriginAnchorA = b2InvTransformPoint(b2MakeTransform(bodyA), def->target);
 	joint->localOriginAnchorB = b2InvTransformPoint(b2MakeTransform(bodyB), def->target);
 	joint->collideConnected = true;
+	joint->userData = def->userData;
 
 	b2MouseJoint empty = {0};
 	joint->mouseJoint = empty;
@@ -329,8 +338,8 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
@@ -338,6 +347,7 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	joint->localOriginAnchorA = def->localAnchorA;
 	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
+	joint->userData = def->userData;
 	joint->drawSize = def->drawSize;
 
 	b2RevoluteJoint empty = {0};
@@ -382,8 +392,8 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
@@ -391,6 +401,7 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 	joint->localOriginAnchorA = def->localAnchorA;
 	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
+	joint->userData = def->userData;
 
 	b2PrismaticJoint empty = {0};
 	joint->prismaticJoint = empty;
@@ -435,8 +446,8 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
@@ -444,6 +455,7 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	joint->localOriginAnchorA = def->localAnchorA;
 	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
+	joint->userData = def->userData;
 
 	b2WeldJoint empty = {0};
 	joint->weldJoint = empty;
@@ -481,8 +493,8 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 
 	b2Body* bodyA = world->bodies + (def->bodyIdA.index - 1);
 	b2Body* bodyB = world->bodies + (def->bodyIdB.index - 1);
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
@@ -490,6 +502,7 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	joint->localOriginAnchorA = def->localAnchorA;
 	joint->localOriginAnchorB = def->localAnchorB;
 	joint->collideConnected = def->collideConnected;
+	joint->userData = def->userData;
 
 	// todo test this
 	joint->wheelJoint = (b2WheelJoint){0};
@@ -526,8 +539,8 @@ void b2DestroyJointInternal(b2World* world, b2Joint* joint)
 
 	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
 	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	// Remove from body A
 	if (edgeA->prevKey != B2_NULL_INDEX)
@@ -599,8 +612,8 @@ void b2DestroyJoint(b2JointId jointId)
 
 	b2Body* bodyA = world->bodies + edgeA->bodyIndex;
 	b2Body* bodyB = world->bodies + edgeB->bodyIndex;
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	// Remove from body A
 	if (edgeA->prevKey != B2_NULL_INDEX)
@@ -669,7 +682,7 @@ b2BodyId b2Joint_GetBodyA(b2JointId jointId)
 
 	int32_t bodyIndex = joint->edges[0].bodyIndex;
 	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 	b2BodyId bodyId = {bodyIndex + 1, jointId.world, body->object.revision};
 	return bodyId;
 }
@@ -681,9 +694,23 @@ b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 
 	int32_t bodyIndex = joint->edges[1].bodyIndex;
 	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 	b2BodyId bodyId = {bodyIndex + 1, jointId.world, body->object.revision};
 	return bodyId;
+}
+
+b2Vec2 b2Joint_GetLocalAnchorA(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	return joint->localOriginAnchorA;
+}
+
+b2Vec2 b2Joint_GetLocalAnchorB(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	return joint->localOriginAnchorB;
 }
 
 void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
@@ -760,6 +787,20 @@ bool b2Joint_GetCollideConnected(b2JointId jointId)
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	b2Joint* joint = b2GetJoint(world, jointId);
 	return joint->collideConnected;
+}
+
+void b2Joint_SetUserData(b2JointId jointId, void* userData)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	joint->userData = userData;
+}
+
+void* b2Joint_GetUserData(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	return joint->userData;
 }
 
 extern void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context);
@@ -914,7 +955,7 @@ void b2PrepareOverflowJoints(b2StepContext* context)
 		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
 		b2Joint* joint = joints + index;
-		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+		B2_ASSERT(b2IsValidObject(&joint->object) == true);
 
 		b2PrepareJoint(joint, context);
 	}
@@ -938,7 +979,7 @@ void b2WarmStartOverflowJoints(b2StepContext* context)
 		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
 		b2Joint* joint = joints + index;
-		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+		B2_ASSERT(b2IsValidObject(&joint->object) == true);
 
 		b2WarmStartJoint(joint, context);
 	}
@@ -962,7 +1003,7 @@ void b2SolveOverflowJoints(b2StepContext* context, bool useBias)
 		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
 
 		b2Joint* joint = joints + index;
-		B2_ASSERT(b2ObjectValid(&joint->object) == true);
+		B2_ASSERT(b2IsValidObject(&joint->object) == true);
 
 		b2SolveJoint(joint, context, useBias);
 	}

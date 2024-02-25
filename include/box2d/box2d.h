@@ -15,8 +15,8 @@
 
 typedef struct b2Capsule b2Capsule;
 typedef struct b2Circle b2Circle;
-typedef struct b2Polygon b2Polygon;
 typedef struct b2DebugDraw b2DebugDraw;
+typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 
 /**
@@ -150,6 +150,9 @@ B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 
 /// Set the type of a body. This has a similar cost to re-creating the body.
 B2_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+
+/// Set the user data for a body
+B2_API void b2Body_SetUserData(b2BodyId bodyId, void* userData);
 
 /// Get the user data stored in a body
 B2_API void* b2Body_GetUserData(b2BodyId bodyId);
@@ -286,6 +289,12 @@ B2_API bool b2Body_IsAwake(b2BodyId bodyId);
 /// Wake a body from sleep. This wakes the entire island the body is touching.
 B2_API void b2Body_Wake(b2BodyId bodyId);
 
+/// Enable or disable sleeping this body. If sleeping is disabled the body will wake.
+B2_API void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep);
+
+/// @return is sleeping enabled for this body?
+B2_API bool b2Body_IsSleepEnabled(b2BodyId bodyId);
+
 /// Is this body enabled?
 B2_API bool b2Body_IsEnabled(b2BodyId bodyId);
 
@@ -343,16 +352,6 @@ B2_API void b2DestroyShape(b2ShapeId shapeId);
 /// Shape identifier validation. Provides validation for up to 64K allocations.
 B2_API bool b2Shape_IsValid(b2ShapeId id);
 
-/// Create a chain shape
-///	@see b2ChainDef for details
-B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
-
-/// Destroy a chain shape
-B2_API void b2DestroyChain(b2ChainId chainId);
-
-/// Chain identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2Chain_IsValid(b2ChainId id);
-
 /// Get the type of a shape.
 B2_API b2ShapeType b2Shape_GetType(b2ShapeId shapeId);
 
@@ -362,8 +361,11 @@ B2_API b2BodyId b2Shape_GetBody(b2ShapeId shapeId);
 /// Is this shape a sensor? See b2ShapeDef.
 B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
 
+/// Set the user data for a shape.
+B2_API void b2Shape_SetUserData(b2ShapeId shapeId, void* userData);
+
 /// Get the user data for a shape. This is useful when you get a shape id
-///	from an event or query
+///	from an event or query.
 B2_API void* b2Shape_GetUserData(b2ShapeId shapeId);
 
 /// Set the density on a shape. Normally this is specified in b2ShapeDef.
@@ -396,7 +398,7 @@ B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
 /// Ray cast a shape directly
-B2_API b2RayResult b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translation);
+B2_API b2CastOutput b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translation);
 
 /// Access the circle geometry of a shape. Asserts the type is correct.
 B2_API const b2Circle b2Shape_GetCircle(b2ShapeId shapeId);
@@ -416,16 +418,16 @@ B2_API const b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
 
 /// Allows you to change a shape to be a circle or update the current circle.
 /// This does not modify the mass properties.
-B2_API const void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle);
+B2_API void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle);
 
 /// Allows you to change a shape to be a capsule or update the current capsule.
-B2_API const void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule);
+B2_API void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule);
 
 /// Allows you to change a shape to be a segment or update the current segment.
-B2_API const void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment);
+B2_API void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment);
 
 /// Allows you to change a shape to be a segment or update the current segment.
-B2_API const void b2Shape_SetPolygon(b2ShapeId shapeId, b2Polygon polygon);
+B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, b2Polygon polygon);
 
 /// If the type is b2_smoothSegmentShape then you can get the parent chain id.
 /// If the shape is not a smooth segment then this will return b2_nullChainId.
@@ -445,6 +447,18 @@ B2_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactD
 
 /// Get the current world AABB
 B2_API b2AABB b2Shape_GetAABB(b2ShapeId shapeId);
+
+/// Chain Shape
+
+/// Create a chain shape
+///	@see b2ChainDef for details
+B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
+
+/// Destroy a chain shape
+B2_API void b2DestroyChain(b2ChainId chainId);
+
+/// Chain identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2Chain_IsValid(b2ChainId id);
 
 /** @} */
 
@@ -497,40 +511,87 @@ B2_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 /// Get body B on a joint
 B2_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 
+/// Get local anchor on bodyA
+B2_API b2Vec2 b2Joint_GetLocalAnchorA(b2JointId jointId);
+
+/// Get local anchor on bodyB
+B2_API b2Vec2 b2Joint_GetLocalAnchorB(b2JointId jointId);
+
 /// Toggle collision between connected bodies
 B2_API void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide);
 
 /// Is collision allowed between connected bodies?
 B2_API bool b2Joint_GetCollideConnected(b2JointId jointId);
 
+/// Set the user data on a joint
+B2_API void b2Joint_SetUserData(b2JointId jointId, void* userData);
+
+/// Get the user data on a joint
+B2_API void* b2Joint_GetUserData(b2JointId jointId);
+
+/// Distance Joint
+
 /// Get the constraint force on a distance joint
 B2_API float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float timeStep);
 
-/// Set the length parameters of a distance joint
-///	@see b2DistanceJointDef for details
-B2_API void b2DistanceJoint_SetLength(b2JointId jointId, float length, float minLength, float maxLength);
+/// Set the rest length of a distance joint
+B2_API void b2DistanceJoint_SetLength(b2JointId jointId, float length);
+
+/// Get the rest length of a distance joint
+B2_API float b2DistanceJoint_GetLength(b2JointId jointId);
+
+/// Set the minimum and maximum length parameters of a distance joint
+B2_API void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength);
+
+/// Get the minimum distance joint length
+B2_API float b2DistanceJoint_GetMinLength(b2JointId jointId);
+
+/// Get the maximum distance joint length
+B2_API float b2DistanceJoint_GetMaxLength(b2JointId jointId);
 
 /// Get the current length of a distance joint
 B2_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
 
-/// Adjust the softness of a distance joint
-///	@see b2DistanceJointDef for details
+/// Adjust the softness parameters of a distance joint
 B2_API void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);
 
-/// Set the linear offset target for a motor joint
+/// Get the Hertz of a distance joint
+B2_API float b2DistanceJoint_GetHertz(b2JointId jointId);
+
+/// Get the damping ratio of a distance joint
+B2_API float b2DistanceJoint_GetDampingRatio(b2JointId jointId);
+
+/// Motor Joint
+
+/// Set/Get the linear offset target for a motor joint
 B2_API void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset);
+
+/// @return the linear offset target for a motor joint
+B2_API b2Vec2 b2MotorJoint_GetLinearOffset(b2JointId jointId);
 
 /// Set the angular offset target for a motor joint in radians
 B2_API void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset);
 
+/// @return the angular offset target for a motor joint in radians
+B2_API float b2MotorJoint_GetAngularOffset(b2JointId jointId);
+
 /// Set the maximum force for a motor joint
 B2_API void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce);
+
+/// @return the maximum force for a motor joint
+B2_API float b2MotorJoint_GetMaxForce(b2JointId jointId);
 
 /// Set the maximum torque for a motor joint
 B2_API void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque);
 
+/// @return the maximum torque for a motor joint
+B2_API float b2MotorJoint_GetMaxTorque(b2JointId jointId);
+
 /// Set the correction factor for a motor joint
 B2_API void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor);
+
+/// @return the correction factor for a motor joint
+B2_API float b2MotorJoint_GetCorrectionFactor(b2JointId jointId);
 
 /// Get the current constraint force for a motor joint
 B2_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId);
@@ -538,17 +599,42 @@ B2_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId);
 /// Get the current constraint torque for a motor joint
 B2_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId);
 
+/// Mouse Joint
+
 /// Set the target for a mouse joint
 B2_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
+
+/// @return the target for a mouse joint
+B2_API b2Vec2 b2MouseJoint_GetTarget(b2JointId jointId);
+
+/// Adjust the softness parameters of a mouse joint
+B2_API void b2MouseJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);
+
+/// Get the Hertz of a mouse joint
+B2_API float b2MouseJoint_GetHertz(b2JointId jointId);
+
+/// Get the damping ratio of a mouse joint
+B2_API float b2MouseJoint_GetDampingRatio(b2JointId jointId);
+
+/// Prismatic Joint
 
 /// Enable/disable a prismatic joint limit
 B2_API void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 
+/// @return is the prismatic joint limit enabled
+B2_API bool b2PrismaticJoint_IsLimitEnabled(b2JointId jointId);
+
 /// Enable/disable a prismatic joint motor
 B2_API void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 
+/// @return is the prismatic joint motor enabled
+B2_API bool b2PrismaticJoint_IsMotorEnabled(b2JointId jointId);
+
 /// Set the motor speed for a prismatic joint
 B2_API void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+/// @return the motor speed for a prismatic joint
+B2_API float b2PrismaticJoint_GetMotorSpeed(b2JointId jointId);
 
 /// Get the current motor force for a prismatic joint
 B2_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId);
@@ -556,20 +642,34 @@ B2_API float b2PrismaticJoint_GetMotorForce(b2JointId jointId);
 /// Set the maximum force for a prismatic joint motor
 B2_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
 
+/// @return the maximum force for a prismatic joint motor
+B2_API float b2PrismaticJoint_GetMaxMotorForce(b2JointId jointId);
+
 /// Get the current constraint force for a prismatic joint
 B2_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current constraint torque for a prismatic joint
 B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
 
+/// Revolute Joint
+
 /// Enable/disable a revolute joint limit
 B2_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+
+/// @return is the revolute joint limit enabled
+B2_API bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId);
 
 /// Enable/disable a revolute joint motor
 B2_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 
+/// @return is the revolute joint motor enabled
+B2_API bool b2RevoluteJoint_IsMotorEnabled(b2JointId jointId);
+
 /// Set the motor speed for a revolute joint in radians per second
 B2_API void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+/// @return the motor speed for a revolute joint in radians per second
+B2_API float b2RevoluteJoint_GetMotorSpeed(b2JointId jointId);
 
 /// Get the current motor torque for a revolute joint
 B2_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId);
@@ -577,26 +677,46 @@ B2_API float b2RevoluteJoint_GetMotorTorque(b2JointId jointId);
 /// Set the maximum torque for a revolute joint motor
 B2_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 
+/// @return the maximum torque for a revolute joint motor
+B2_API float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId);
+
 /// Get the current constraint force for a revolute joint
 B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current constraint torque for a revolute joint
 B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId);
 
+/// Wheel Joint
+
 /// Set the wheel joint stiffness in Hertz
 B2_API void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz);
+
+/// @return the wheel joint stiffness in Hertz
+B2_API float b2WheelJoint_GetSpringHertz(b2JointId jointId);
 
 /// Set the wheel joint damping ratio (non-dimensional)
 B2_API void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio);
 
+/// @return the wheel joint damping ratio (non-dimensional)
+B2_API float b2WheelJoint_GetSpringDampingRatio(b2JointId jointId);
+
 /// Enable/disable the wheel joint limit
 B2_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+
+/// @return is the wheel joint limit enabled
+B2_API bool b2WheelJoint_IsLimitEnabled(b2JointId jointId);
 
 /// Enable/disable the wheel joint motor
 B2_API void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 
+/// @return is the wheel joint motor enabled
+B2_API bool b2WheelJoint_IsMotorEnabled(b2JointId jointId);
+
 /// Set the wheel joint motor speed in radians per second
 B2_API void b2WheelJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+/// @return the wheel joint motor speed in radians per second
+B2_API float b2WheelJoint_GetMotorSpeed(b2JointId jointId);
 
 /// Get the wheel joint current motor torque
 B2_API float b2WheelJoint_GetMotorTorque(b2JointId jointId);
@@ -604,22 +724,39 @@ B2_API float b2WheelJoint_GetMotorTorque(b2JointId jointId);
 /// Set the wheel joint maximum motor torque
 B2_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 
+/// @return the wheel joint maximum motor torque
+B2_API float b2WheelJoint_GetMaxMotorTorque(b2JointId jointId);
+
 /// Get the current wheel joint constraint force
 B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current wheel joint constraint torque
 B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId);
 
+/// Weld Joint
+
 /// Set weld joint linear stiffness in Hertz. 0 is rigid.
 B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);
+
+/// @return the weld joint linear stiffness in Hertz.
+B2_API float b2WeldJoint_GetLinearHertz(b2JointId jointId);
 
 /// Set weld joint linear damping ratio (non-dimensional)
 B2_API void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio);
 
+/// @return the weld joint linear damping ratio (non-dimensional)
+B2_API float b2WeldJoint_GetLinearDampingRatio(b2JointId jointId);
+
 /// Set weld joint angular stiffness in Hertz. 0 is rigid.
 B2_API void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz);
 
+/// @return the weld joint angular stiffness in Hertz.
+B2_API float b2WeldJoint_GetAngularHertz(b2JointId jointId);
+
 /// Set weld joint angular damping ratio (non-dimensional)
 B2_API void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio);
+
+/// @return the weld joint angular damping ratio (non-dimensional)
+B2_API float b2WeldJoint_GetAngularDampingRatio(b2JointId jointId);
 
 /** @} */

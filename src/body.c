@@ -25,7 +25,7 @@ b2Body* b2GetBody(b2World* world, b2BodyId id)
 {
 	B2_ASSERT(1 <= id.index && id.index <= world->bodyPool.capacity);
 	b2Body* body = world->bodies + (id.index - 1);
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 	B2_ASSERT(id.revision == body->object.revision);
 	return body;
 }
@@ -281,7 +281,7 @@ bool b2IsBodyAwake(b2World* world, b2Body* body)
 	return false;
 }
 
-static void b2WakeBody(b2World* world, b2Body* body)
+void b2WakeBody(b2World* world, b2Body* body)
 {
 	if (body->islandIndex != B2_NULL_INDEX)
 	{
@@ -1155,6 +1155,13 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	b2UpdateBodyMassData(world, body);
 }
 
+void b2Body_SetUserData(b2BodyId bodyId, void* userData)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->userData = userData;
+}
+
 void* b2Body_GetUserData(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
@@ -1328,6 +1335,30 @@ bool b2Body_IsEnabled(b2BodyId bodyId)
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
 	return body->isEnabled;
+}
+
+bool b2Body_IsSleepEnabled(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->enableSleep;
+}
+
+void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+	body->enableSleep = enableSleep;
+
+	if (enableSleep == false)
+	{
+		b2WakeBody(world, body);
+	}
 }
 
 void b2Body_Disable(b2BodyId bodyId)
