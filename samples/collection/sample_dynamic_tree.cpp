@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-//#include "aabb.h"
 #include "sample.h"
 
 #include "box2d/dynamic_tree.h"
+#include "box2d/geometry.h"
 #include "box2d/math.h"
 
 #include <GLFW/glfw3.h>

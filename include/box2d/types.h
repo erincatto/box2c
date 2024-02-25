@@ -5,28 +5,21 @@
  * @file types.h
  * @brief types used by the Box2D API
  *
- * Mostly definition structs
+ * Mostly definition structures
  * @see http://www.box2d.org
  */
 
 #pragma once
 
-#include "color.h"
+#include "api.h"
+#include "callbacks.h"
 #include "constants.h"
 #include "id.h"
+#include "math_types.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-// clang-format off
-#ifdef __cplusplus
-	#define B2_LITERAL(T) T
-#else
-	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
-	#define B2_LITERAL(T) (T)
-#endif
-// clang-format on
 
 /// Returns the number of elements of an array
 #define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
@@ -34,99 +27,15 @@
 /// Used to prevent the compiler from warning about unused variables
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 
-/// A 2D vector
-/// This can be used to represent a point or free vector.
-typedef struct b2Vec2
+/// Result from b2World_RayCastClosest
+typedef struct b2RayResult
 {
-	/// coordinates
-	float x, y;
-} b2Vec2;
-
-/// 2D rotation
-typedef struct b2Rot
-{
-	/// sine and cosine
-	float s, c;
-} b2Rot;
-
-/// A 2D rigid transform
-typedef struct b2Transform
-{
-	b2Vec2 p;
-	b2Rot q;
-} b2Transform;
-
-/// A 2-by-2 Matrix
-typedef struct b2Mat22
-{
-	/// columns
-	b2Vec2 cx, cy;
-} b2Mat22;
-
-/// Axis-aligned bounding box
-typedef struct b2AABB
-{
-	b2Vec2 lowerBound;
-	b2Vec2 upperBound;
-} b2AABB;
-
-/// Low level ray-cast input data
-typedef struct b2RayCastInput
-{
-	b2Vec2 origin, translation;
-	float maxFraction;
-} b2RayCastInput;
-
-/// Low level hape cast input in generic form
-typedef struct b2ShapeCastInput
-{
-	b2Vec2 points[b2_maxPolygonVertices];
-	int32_t count;
-	float radius;
-	b2Vec2 translation;
-	float maxFraction;
-} b2ShapeCastInput;
-
-/// Low level ray-cast or shape-cast output data
-typedef struct b2CastOutput
-{
-	b2Vec2 normal;
+	b2ShapeId shapeId;
 	b2Vec2 point;
+	b2Vec2 normal;
 	float fraction;
-	int32_t iterations;
 	bool hit;
-} b2RayCastOutput;
-
-/// Task interface
-/// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.
-/// The task spans a range of the parallel-for: [startIndex, endIndex)
-/// The worker index must correctly identify each worker in the user thread pool, expected in [0, workerCount).
-///	A worker must only exist on only one thread at a time and is analogous to the thread index.
-/// The task context is the context pointer sent from Box2D when it is enqueued.
-///	The startIndex and endIndex are expected in the range [0, itemCount) where itemCount is the argument to b2EnqueueTaskCallback
-/// below. Box2D expects startIndex < endIndex and will execute a loop like this:
-///
-/// for (int i = startIndex; i < endIndex; ++i)
-///	{
-///		DoWork();
-///	}
-typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t workerIndex, void* taskContext);
-
-/// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
-/// Returns a pointer to the user's task object. May be nullptr. A nullptr indicates to Box2D that the work was executed
-///	serially within the callback and there is no need to call b2FinishTaskCallback.
-///	The itemCount is the number of Box2D work items that are to be partitioned among workers by the user's task system.
-///	This is essentially a parallel-for. The minRange parameter is a suggestion of the minimum number of items to assign
-///	per worker to reduce overhead. For example, suppose the task is small and that itemCount is 16. A minRange of 8 suggests
-///	that your task system should split the work items among just two workers, even if you have more available.
-///	In general the range [startIndex, endIndex) send to b2TaskCallback should obey:
-///	endIndex - startIndex >= minRange
-///	The exception of course is when itemCount < minRange.
-typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext,
-									void* userContext);
-
-/// Finishes a user task object that wraps a Box2D task.
-typedef void b2FinishTaskCallback(void* userTask, void* userContext);
+} b2RayResult;
 
 /// World definition used to create a simulation world. Must be initialized using b2DefaultWorldDef.
 typedef struct b2WorldDef
@@ -188,24 +97,6 @@ typedef struct b2WorldDef
 	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;
 } b2WorldDef;
-
-/// Use this to initialize your world definition
-static inline b2WorldDef b2DefaultWorldDef()
-{
-	b2WorldDef def = B2_ZERO_INIT;
-	def.gravity.x = 0.0f;
-	def.gravity.y = -10.0f;
-	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
-	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
-	def.contactHertz = 30.0;
-	def.contactDampingRatio = 10.0f;
-	def.jointHertz = 60.0;
-	def.jointDampingRatio = 2.0f;
-	def.enableSleep = true;
-	def.enableContinous = true;
-	def.stackAllocatorCapacity = 1024 * 1024;
-	return def;
-}
 
 /// The body type.
 /// static: zero mass, zero velocity, may be manually moved
@@ -270,18 +161,6 @@ typedef struct b2BodyDef
 	bool isEnabled;
 } b2BodyDef;
 
-/// Use this to initialize your body definition
-static inline b2BodyDef b2DefaultBodyDef()
-{
-	b2BodyDef def = B2_ZERO_INIT;
-	def.type = b2_staticBody;
-	def.gravityScale = 1.0f;
-	def.enableSleep = true;
-	def.isAwake = true;
-	def.isEnabled = true;
-	return def;
-}
-
 /// This holds contact filtering data.
 typedef struct b2Filter
 {
@@ -298,13 +177,6 @@ typedef struct b2Filter
 	int32_t groupIndex;
 } b2Filter;
 
-/// Use this to initialize your filter
-static inline b2Filter b2DefaultFilter()
-{
-	b2Filter filter = {0x00000001, 0xFFFFFFFF, 0};
-	return filter;
-}
-
 /// This holds contact filtering data.
 typedef struct b2QueryFilter
 {
@@ -316,20 +188,13 @@ typedef struct b2QueryFilter
 	uint32_t maskBits;
 } b2QueryFilter;
 
-/// Use this to initialize your query filter
-static inline b2QueryFilter b2DefaultQueryFilter()
-{
-	b2QueryFilter filter = {0x00000001, 0xFFFFFFFF};
-	return filter;
-}
-
 /// Shape type
 typedef enum b2ShapeType
 {
-	b2_capsuleShape,
 	b2_circleShape,
-	b2_polygonShape,
+	b2_capsuleShape,
 	b2_segmentShape,
+	b2_polygonShape,
 	b2_smoothSegmentShape,
 	b2_shapeTypeCount
 } b2ShapeType;
@@ -367,18 +232,6 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
-/// Use this to initialize your shape definition
-static inline b2ShapeDef b2DefaultShapeDef()
-{
-	b2ShapeDef def = B2_ZERO_INIT;
-	def.friction = 0.6f;
-	def.density = 1.0f;
-	def.filter = b2DefaultFilter();
-	def.enableSensorEvents = true;
-	def.enableContactEvents = true;
-	return def;
-}
-
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
 ///	- DO NOT use chain shapes unless you understand the limitations. This is an advanced feature!
 ///	- chains are one-sided
@@ -391,6 +244,7 @@ static inline b2ShapeDef b2DefaultShapeDef()
 ///	- an open chain shape has NO COLLISION on the first and final edge
 ///	- you may overlap two open chains on their first three and/or last three points to get smooth collision
 ///	- a chain shape creates multiple hidden shapes on the body
+/// https://en.wikipedia.org/wiki/Polygonal_chain
 typedef struct b2ChainDef
 {
 	/// An array of at least 4 points. These are cloned and may be temporary.
@@ -414,15 +268,6 @@ typedef struct b2ChainDef
 	/// Contact filtering data.
 	b2Filter filter;
 } b2ChainDef;
-
-/// Use this to initialize your chain definition
-static inline b2ChainDef b2DefaultChainDef()
-{
-	b2ChainDef def = B2_ZERO_INIT;
-	def.friction = 0.6f;
-	def.filter = b2DefaultFilter();
-	return def;
-}
 
 /// Profiling data. Times are in milliseconds.
 typedef struct b2Profile
@@ -453,3 +298,21 @@ typedef struct b2Counters
 	int32_t taskCount;
 	int32_t colorCounts[b2_graphColorCount + 1];
 } b2Counters;
+
+/// Use this to initialize your world definition
+B2_API b2WorldDef b2DefaultWorldDef();
+
+/// Use this to initialize your body definition
+B2_API b2BodyDef b2DefaultBodyDef();
+
+/// Use this to initialize your filter
+B2_API b2Filter b2DefaultFilter();
+
+/// Use this to initialize your query filter
+B2_API b2QueryFilter b2DefaultQueryFilter();
+
+/// Use this to initialize your shape definition
+B2_API b2ShapeDef b2DefaultShapeDef();
+
+/// Use this to initialize your chain definition
+B2_API b2ChainDef b2DefaultChainDef();

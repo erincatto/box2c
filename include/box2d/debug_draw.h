@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "types.h"
+#include "math_types.h"
 
 /// This struct holds callbacks you can implement to draw a box2d world.
 typedef struct b2DebugDraw

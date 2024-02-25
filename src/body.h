@@ -78,6 +78,8 @@ typedef struct b2Body
 	float torque;
 
 	int32_t shapeList;
+	int32_t shapeCount;
+
 	int32_t chainList;
 
 	// This is a key: [jointIndex:31, edgeIndex:1]
@@ -122,6 +124,7 @@ typedef struct b2Body
 b2Body* b2GetBody(b2World* world, b2BodyId id);
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 bool b2IsBodyAwake(b2World* world, b2Body* body);
+void b2WakeBody(b2World* world, b2Body* body);
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
 static inline b2Transform b2MakeTransform(const b2Body* body)

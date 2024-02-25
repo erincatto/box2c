@@ -6,12 +6,13 @@
 #include "body.h"
 #include "core.h"
 #include "joint.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
+#include "box2d/joint_types.h"
 
 #include <stdio.h>
 
@@ -39,8 +40,8 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
 
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -278,21 +279,50 @@ float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeSte
 	return (joint->impulse + joint->lowerImpulse - joint->upperImpulse) * inverseTimeStep;
 }
 
-void b2DistanceJoint_SetLength(b2JointId jointId, float length, float minLength, float maxLength)
+void b2DistanceJoint_SetLength(b2JointId jointId, float length)
 {
 	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	joint->length = B2_CLAMP(length, b2_linearSlop, b2_huge);
+	joint->impulse = 0.0f;
+	joint->lowerImpulse = 0.0f;
+	joint->upperImpulse = 0.0f;
+}
+
+float b2DistanceJoint_GetLength(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->length;
+}
+
+void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
 
 	minLength = B2_CLAMP(minLength, b2_linearSlop, b2_huge);
 	maxLength = B2_CLAMP(maxLength, b2_linearSlop, b2_huge);
 	joint->minLength = B2_MIN(minLength, maxLength);
 	joint->maxLength = B2_MAX(minLength, maxLength);
-
 	joint->impulse = 0.0f;
 	joint->lowerImpulse = 0.0f;
 	joint->upperImpulse = 0.0f;
+}
+
+float b2DistanceJoint_GetMinLength(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->minLength;
+}
+
+float b2DistanceJoint_GetMaxLength(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->maxLength;
 }
 
 float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
@@ -311,8 +341,8 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 	b2Body* bodyA = world->bodies + indexA;
 	b2Body* bodyB = world->bodies + indexB;
 
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localOriginAnchorB);
@@ -327,6 +357,20 @@ void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRati
 	b2DistanceJoint* joint = &base->distanceJoint;
 	joint->hertz = hertz;
 	joint->dampingRatio = dampingRatio;
+}
+
+float b2DistanceJoint_GetHertz(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->hertz;
+}
+
+float b2DistanceJoint_GetDampingRatio(b2JointId jointId)
+{
+	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->dampingRatio;
 }
 
 #if 0

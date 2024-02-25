@@ -6,7 +6,7 @@
 #include "body.h"
 #include "core.h"
 #include "joint.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
@@ -14,6 +14,84 @@
 #include "box2d/debug_draw.h"
 
 #include <stdio.h>
+
+void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	joint->revoluteJoint.enableLimit = enableLimit;
+}
+
+bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.enableLimit;
+}
+
+void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	joint->revoluteJoint.enableMotor = enableMotor;
+}
+
+bool b2RevoluteJoint_IsMotorEnabled(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.enableMotor;
+}
+
+void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	joint->revoluteJoint.motorSpeed = motorSpeed;
+}
+
+float b2RevoluteJoint_GetMotorSpeed(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.motorSpeed;
+}
+
+float b2RevoluteJoint_GetMotorTorque(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+
+	return world->inv_h * joint->revoluteJoint.motorImpulse;
+}
+
+void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	joint->revoluteJoint.maxMotorTorque = torque;
+}
+
+float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.maxMotorTorque;
+}
+
+b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+
+	b2Vec2 force = b2MulSV(world->inv_h, joint->revoluteJoint.linearImpulse);
+	return force;
+}
+
+float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2Joint* joint = b2GetJoint(world, jointId);
+	B2_ASSERT(joint->type == b2_revoluteJoint);
+
+	const b2RevoluteJoint* revolute = &joint->revoluteJoint;
+	float torque = world->inv_h * (revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse);
+	return torque;
+}
 
 // Point-to-point constraint
 // C = p2 - p1
@@ -52,8 +130,8 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	int32_t indexB = base->edges[1].bodyIndex;
 	b2Body* bodyA = context->bodies + indexA;
 	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(b2ObjectValid(&bodyA->object));
-	B2_ASSERT(b2ObjectValid(&bodyB->object));
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -270,60 +348,6 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	stateA->angularVelocity = wA;
 	stateB->linearVelocity = vB;
 	stateB->angularVelocity = wB;
-}
-
-void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
-	joint->revoluteJoint.enableLimit = enableLimit;
-}
-
-void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
-	joint->revoluteJoint.enableMotor = enableMotor;
-}
-
-void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
-	joint->revoluteJoint.motorSpeed = motorSpeed;
-}
-
-float b2RevoluteJoint_GetMotorTorque(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
-
-	return world->inv_h * joint->revoluteJoint.motorImpulse;
-}
-
-void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
-{
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
-	joint->revoluteJoint.maxMotorTorque = torque;
-}
-
-b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
-
-	b2Vec2 force = b2MulSV(world->inv_h, joint->revoluteJoint.linearImpulse);
-	return force;
-}
-
-float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
-{
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
-
-	const b2RevoluteJoint* revolute = &joint->revoluteJoint;
-	float torque = world->inv_h * (revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse);
-	return torque;
 }
 
 #if 0

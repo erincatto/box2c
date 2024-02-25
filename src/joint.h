@@ -3,7 +3,7 @@
 #pragma once
 
 #include "pool.h"
-#include "solver_data.h"
+#include "solver.h"
 
 #include "box2d/joint_types.h"
 
@@ -220,15 +220,16 @@ typedef struct b2Joint
 		b2WheelJoint wheelJoint;
 	};
 
+	void* userData;
+
 	float drawSize;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
 
 b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
-
-// todo remove this
 b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
+void b2DestroyJointInternal(b2World* world, b2Joint* joint);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);

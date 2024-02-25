@@ -3,11 +3,8 @@
 
 #pragma once
 
-/// Color for debug drawing. Each value has the range [0,1].
-typedef struct b2Color
-{
-	float r, g, b, a;
-} b2Color;
+#include "api.h"
+#include "types.h"
 
 /// All the colors! Credit to wherever I got this from, I forget.
 typedef enum b2HexColor
@@ -581,7 +578,18 @@ typedef enum b2HexColor
 } b2HexColor;
 
 /// Make a color from a hex code
-static inline b2Color b2MakeColor(enum b2HexColor hexCode, float alpha)
+B2_INLINE b2Color b2MakeColor(enum b2HexColor hexCode)
+{
+	b2Color color;
+	color.r = ((hexCode >> 16) & 0xFF) / 255.0f;
+	color.g = ((hexCode >> 8) & 0xFF) / 255.0f;
+	color.b = (hexCode & 0xFF) / 255.0f;
+	color.a = 1.0f;
+	return color;
+}
+
+/// Make a color from a hex code and alpha
+B2_INLINE b2Color b2MakeColorAlpha(enum b2HexColor hexCode, float alpha)
 {
 	b2Color color;
 	color.r = ((hexCode >> 16) & 0xFF) / 255.0f;

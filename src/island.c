@@ -4,14 +4,14 @@
 #include "island.h"
 
 #include "aabb.h"
-#include "arena_allocator.h"
+#include "stack_allocator.h"
 #include "array.h"
 #include "body.h"
 #include "contact.h"
 #include "core.h"
 #include "joint.h"
 #include "shape.h"
-#include "solver_data.h"
+#include "solver.h"
 #include "world.h"
 
 #include "box2d/callbacks.h"

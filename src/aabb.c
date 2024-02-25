@@ -4,6 +4,7 @@
 #include "aabb.h"
 
 #include "box2d/constants.h"
+#include "box2d/geometry.h"
 #include "box2d/math.h"
 
 #include <float.h>
@@ -17,10 +18,10 @@ bool b2AABB_IsValid(b2AABB a)
 }
 
 // From Real-time Collision Detection, p179.
-b2RayCastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
+b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 {
 	// Radius not handled
-	b2RayCastOutput output = {0};
+	b2CastOutput output = {0};
 
 	float tmin = -FLT_MAX;
 	float tmax = FLT_MAX;

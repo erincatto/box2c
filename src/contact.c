@@ -382,6 +382,9 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		world->contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 	}
 
+	b2WakeBody(world, bodyA);
+	b2WakeBody(world, bodyB);
+
 	b2FreeObject(&world->contactPool, &contact->object);
 }
 

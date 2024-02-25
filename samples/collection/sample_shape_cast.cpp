@@ -85,7 +85,7 @@ public:
 		input.transformB = m_transformB;
 		input.translationB = m_translationB;
 
-		b2RayCastOutput output = b2ShapeCast(&input);
+		b2CastOutput output = b2ShapeCast(&input);
 
 		b2Transform transformB2;
 		transformB2.q = m_transformB.q;

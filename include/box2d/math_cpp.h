@@ -37,7 +37,7 @@ inline b2Vec2 operator+(b2Vec2 a, b2Vec2 b)
 
 inline b2Vec2 operator-(b2Vec2 a, b2Vec2 b)
 {
-	return {a.x + b.x, a.y + b.y};
+	return {a.x - b.x, a.y - b.y};
 }
 
 inline b2Vec2 operator*(float a, b2Vec2 b)

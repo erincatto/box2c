@@ -7,9 +7,9 @@
 #include "allocate.h"
 #include "array.h"
 #include "block_allocator.h"
+#include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
-#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "shape.h"
@@ -25,7 +25,7 @@ b2Body* b2GetBody(b2World* world, b2BodyId id)
 {
 	B2_ASSERT(1 <= id.index && id.index <= world->bodyPool.capacity);
 	b2Body* body = world->bodies + (id.index - 1);
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 	B2_ASSERT(id.revision == body->object.revision);
 	return body;
 }
@@ -219,7 +219,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
-	B2_ASSERT(b2IsValid(def->gravityScale) && def->gravityScale >= 0.0f);
+	B2_ASSERT(b2IsValid(def->gravityScale));
 
 	body->type = def->type;
 	body->origin = def->position;
@@ -338,6 +338,33 @@ void b2DestroyBody(b2BodyId bodyId)
 	}
 
 	b2Body* body = b2GetBody(world, bodyId);
+	b2DestroyBodyInternal(world, body);
+}
+
+void b2DestroyBodyAndJoints(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+
+	// Destroy the attached joints
+	int32_t edgeKey = body->jointList;
+	while (edgeKey != B2_NULL_INDEX)
+	{
+		int32_t jointIndex = edgeKey >> 1;
+		int32_t edgeIndex = edgeKey & 1;
+
+		b2Joint* joint = world->joints + jointIndex;
+		edgeKey = joint->edges[edgeIndex].nextKey;
+
+		// Careful because this modifies the list being traversed
+		b2DestroyJointInternal(world, joint);
+	}
+
 	b2DestroyBodyInternal(world, body);
 }
 
@@ -563,6 +590,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	// Add to shape linked list
 	shape->nextShapeIndex = body->shapeList;
 	body->shapeList = shape->object.index;
+	body->shapeCount += 1;
 
 	if (shape->density > 0.0f)
 	{
@@ -636,6 +664,8 @@ static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 	{
 		return;
 	}
+
+	body->shapeCount -= 1;
 
 	const float density = shape->density;
 
@@ -1125,6 +1155,13 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	b2UpdateBodyMassData(world, body);
 }
 
+void b2Body_SetUserData(b2BodyId bodyId, void* userData)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	body->userData = userData;
+}
+
 void* b2Body_GetUserData(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
@@ -1193,6 +1230,19 @@ b2MassData b2Body_GetMassData(b2BodyId bodyId)
 	return massData;
 }
 
+void b2Body_ResetMassData(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+
+	b2UpdateBodyMassData(world, body);
+}
+
 void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping)
 {
 	B2_ASSERT(b2IsValid(linearDamping) && linearDamping >= 0.0f);
@@ -1237,7 +1287,7 @@ float b2Body_GetAngularDamping(b2BodyId bodyId)
 
 void b2Body_SetGravityScale(b2BodyId bodyId, float gravityScale)
 {
-	B2_ASSERT(b2IsValid(gravityScale) && gravityScale >= 0.0f);
+	B2_ASSERT(b2IsValid(gravityScale));
 
 	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
 	if (world == NULL)
@@ -1285,6 +1335,30 @@ bool b2Body_IsEnabled(b2BodyId bodyId)
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
 	return body->isEnabled;
+}
+
+bool b2Body_IsSleepEnabled(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->enableSleep;
+}
+
+void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+	body->enableSleep = enableSleep;
+
+	if (enableSleep == false)
+	{
+		b2WakeBody(world, body);
+	}
 }
 
 void b2Body_Disable(b2BodyId bodyId)

@@ -24,7 +24,7 @@ static int AABBTest(void)
 	b2Vec2 p1 = (b2Vec2){-2.0f, 0.0f};
 	b2Vec2 p2 = (b2Vec2){2.0f, 0.0f};
 
-	b2RayCastOutput output = b2AABB_RayCast(a, p1, p2);
+	b2CastOutput output = b2AABB_RayCast(a, p1, p2);
 	ENSURE(output.hit == true);
 	ENSURE(0.1f < output.fraction && output.fraction < 0.9f);
 

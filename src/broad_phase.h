@@ -7,6 +7,7 @@
 #include "table.h"
 
 #include "box2d/dynamic_tree.h"
+#include "box2d/types.h"
 
 typedef struct b2Shape b2Shape;
 typedef struct b2MovePair b2MovePair;
@@ -40,6 +41,7 @@ typedef struct b2BroadPhase
 	int32_t movePairCapacity;
 	_Atomic int movePairIndex;
 
+	// Tracks shape pairs that have a b2Contact
 	b2HashSet pairSet;
 
 } b2BroadPhase;

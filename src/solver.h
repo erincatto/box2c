@@ -11,6 +11,7 @@
 
 typedef struct b2BodyState b2BodyState;
 typedef struct b2BodyParam b2BodyParam;
+typedef struct b2World b2World;
 
 typedef struct b2Softness
 {
@@ -121,7 +122,6 @@ typedef struct b2StepContext
 	bool enableWarmStarting;
 } b2StepContext;
 
-
 static inline b2Softness b2MakeSoft(float hertz, float zeta, float h)
 {
 	if (hertz == 0.0f)
@@ -135,3 +135,5 @@ static inline b2Softness b2MakeSoft(float hertz, float zeta, float h)
 	float a3 = 1.0f / (1.0f + a2);
 	return (b2Softness){omega / a1, a2 * a3, a3};
 }
+
+void b2Solve(b2World* world, b2StepContext* stepContext);

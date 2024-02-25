@@ -582,7 +582,7 @@ public:
 			{
 				case b2_circleShape:
 				{
-					b2Circle circle = *b2Shape_GetCircle(shapeId);
+					b2Circle circle = b2Shape_GetCircle(shapeId);
 					circle.point = b2TransformPoint(relativeTransform, circle.point);
 
 					b2CreateCircleShape(m_playerId, &shapeDef, &circle);
@@ -591,7 +591,7 @@ public:
 
 				case b2_capsuleShape:
 				{
-					b2Capsule capsule = *b2Shape_GetCapsule(shapeId);
+					b2Capsule capsule = b2Shape_GetCapsule(shapeId);
 					capsule.point1 = b2TransformPoint(relativeTransform, capsule.point1);
 					capsule.point2 = b2TransformPoint(relativeTransform, capsule.point2);
 
@@ -601,7 +601,8 @@ public:
 
 				case b2_polygonShape:
 				{
-					b2Polygon polygon = b2TransformPolygon(relativeTransform, b2Shape_GetPolygon(shapeId));
+					b2Polygon originalPolygon = b2Shape_GetPolygon(shapeId);
+					b2Polygon polygon = b2TransformPolygon(relativeTransform, &originalPolygon);
 
 					b2CreatePolygonShape(m_playerId, &shapeDef, &polygon);
 				}

@@ -52,16 +52,13 @@ typedef struct b2DistanceJointDef
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
 
+	/// User data pointer
+	void* userData;
+
 } b2DistanceJointDef;
 
 /// Use this to initialize your joint definition
-static inline b2DistanceJointDef b2DefaultDistanceJointDef()
-{
-	b2DistanceJointDef def = B2_ZERO_INIT;
-	def.length = 1.0f;
-	def.maxLength = b2_huge;
-	return def;
-}
+B2_API b2DistanceJointDef b2DefaultDistanceJointDef();
 
 /// A motor joint is used to control the relative motion
 /// between two bodies. A typical usage is to control the movement
@@ -88,17 +85,17 @@ typedef struct b2MotorJointDef
 
 	/// Position correction factor in the range [0,1].
 	float correctionFactor;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
 } b2MotorJointDef;
 
 /// Use this to initialize your joint definition
-static inline b2MotorJointDef b2DefaultMotorJointDef()
-{
-	b2MotorJointDef def = B2_ZERO_INIT;
-	def.maxForce = 1.0f;
-	def.maxTorque = 1.0f;
-	def.correctionFactor = 0.3f;
-	return def;
-}
+B2_API b2MotorJointDef b2DefaultMotorJointDef();
 
 /// A mouse joint is used to make a point on a body track a
 /// specified world point. This a soft constraint and allows the constraint to stretch without
@@ -119,16 +116,17 @@ typedef struct b2MouseJointDef
 
 	/// Damping ratio, non-dimensional
 	float dampingRatio;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
 } b2MouseJointDef;
 
 /// Use this to initialize your joint definition
-static inline b2MouseJointDef b2DefaultMouseJointDef()
-{
-	b2MouseJointDef def = B2_ZERO_INIT;
-	def.hertz = 4.0f;
-	def.dampingRatio = 1.0f;
-	return def;
-}
+B2_API b2MouseJointDef b2DefaultMouseJointDef();
 
 /// Prismatic joint definition. This requires defining a line of
 /// motion using an axis and an anchor point. The definition uses local
@@ -175,15 +173,13 @@ typedef struct b2PrismaticJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2PrismaticJointDef;
 
 /// Use this to initialize your joint definition
-static inline b2PrismaticJointDef b2DefaultPrismaticJointDef()
-{
-	b2PrismaticJointDef def = B2_ZERO_INIT;
-	def.localAxisA = B2_LITERAL(b2Vec2){1.0f, 0.0f};
-	return def;
-}
+B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef();
 
 /// Revolute joint definition. This requires defining an anchor point where the
 /// bodies are joined. The definition uses local anchor points so that the
@@ -237,15 +233,13 @@ typedef struct b2RevoluteJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2RevoluteJointDef;
 
 /// Use this to initialize your joint definition
-static inline b2RevoluteJointDef b2DefaultRevoluteJointDef()
-{
-	b2RevoluteJointDef def = B2_ZERO_INIT;
-	def.drawSize = 0.25f;
-	return def;
-}
+B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef();
 
 /// A weld joint connect to bodies together rigidly. This constraint can be made soft to mimic
 ///	soft-body simulation.
@@ -281,14 +275,13 @@ typedef struct b2WeldJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2WeldJointDef;
 
 /// Use this to initialize your joint definition
-static const b2WeldJointDef b2DefaultWeldJointDef()
-{
-	b2WeldJointDef def = B2_ZERO_INIT;
-	return def;
-}
+B2_API b2WeldJointDef b2DefaultWeldJointDef();
 
 /// Wheel joint definition. This requires defining a line of
 /// motion using an axis and an anchor point. The definition uses local
@@ -339,14 +332,10 @@ typedef struct b2WheelJointDef
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
 } b2WheelJointDef;
 
 /// Use this to initialize your joint definition
-static inline b2WheelJointDef b2DefaultWheelJointDef()
-{
-	b2WheelJointDef def = B2_ZERO_INIT;
-	def.localAxisA.y = 1.0f;
-	def.hertz = 1.0f;
-	def.dampingRatio = 0.7f;
-	return def;
-}
+B2_API b2WheelJointDef b2DefaultWheelJointDef();

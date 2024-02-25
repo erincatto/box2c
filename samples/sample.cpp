@@ -7,9 +7,9 @@
 
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
-#include "box2d/joint_util.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
+#include "box2d/math_cpp.h"
 #include "box2d/timer.h"
 
 #include <GLFW/glfw3.h>
@@ -49,6 +49,34 @@ static void FinishTask(void* taskPtr, void* userContext)
 	}
 }
 
+static void TestMathCpp()
+{
+	b2Vec2 a = {1.0f, 2.0f};
+	b2Vec2 b = {3.0f, 4.0f};
+
+	b2Vec2 c = a;
+	c += b;
+	c -= b;
+	c *= 2.0f;
+	c = -a;
+	c = c + b;
+	c = c - a;
+	c = 2.0f * a;
+	c = a * 2.0f;
+
+	if (b == a)
+	{
+		c = a;
+	}
+
+	if (b != a)
+	{
+		c = b;
+	}
+
+	c += c;
+}
+
 Sample::Sample(const Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
@@ -79,6 +107,8 @@ Sample::Sample(const Settings& settings)
 
 	m_maxProfile = {};
 	m_totalProfile = {};
+
+	TestMathCpp();
 }
 
 Sample::~Sample()

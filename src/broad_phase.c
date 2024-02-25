@@ -7,7 +7,7 @@
 
 #include "aabb.h"
 #include "allocate.h"
-#include "arena_allocator.h"
+#include "stack_allocator.h"
 #include "array.h"
 #include "body.h"
 #include "contact.h"
@@ -229,13 +229,13 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	b2Body* bodyB = world->bodies + bodyIndexB;
 
 	// Does a joint override collision? Is at least one body dynamic?
-	// TODO_ERIN this could be a hash set
+	// #todo this could be a hash set
 	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
 	{
 		return true;
 	}
 
-	// TODO_ERIN per thread to eliminate atomic?
+	// #todo per thread to eliminate atomic?
 	int pairIndex = atomic_fetch_add(&bp->movePairIndex, 1);
 
 	b2MovePair* pair;

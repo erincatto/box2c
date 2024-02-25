@@ -7,24 +7,25 @@
 
 #include "aabb.h"
 #include "allocate.h"
-#include "arena_allocator.h"
+#include "stack_allocator.h"
 #include "array.h"
 #include "bitset.h"
 #include "bitset.inl"
 #include "block_allocator.h"
 #include "body.h"
 #include "broad_phase.h"
+#include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
-#include "graph.h"
 #include "island.h"
 #include "joint.h"
 #include "pool.h"
 #include "shape.h"
-#include "solver_data.h"
+#include "solver.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/constants.h"
 #include "box2d/debug_draw.h"
 #include "box2d/distance.h"
@@ -220,7 +221,7 @@ void b2DestroyWorld(b2WorldId id)
 	for (int32_t i = 0; i < chainCapacity; ++i)
 	{
 		b2ChainShape* chain = world->chains + i;
-		if (b2ObjectValid(&chain->object))
+		if (b2IsValidObject(&chain->object))
 		{
 			b2Free(chain->shapeIndices, chain->count * sizeof(int32_t));
 		}
@@ -650,7 +651,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
 			draw->DrawSegment(p1, p2, color, draw->context);
 			draw->DrawPoint(p2, 4.0f, color, draw->context);
-			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2MakeColor(b2_colorPaleGreen4, 1.0f), draw->context);
+			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2MakeColor(b2_colorPaleGreen4), draw->context);
 		}
 		break;
 
@@ -695,39 +696,39 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				if (b->type == b2_dynamicBody && b->mass == 0.0f)
 				{
 					// Bad body
-					color = b2MakeColor(b2_colorRed, 0.5f);
+					color = b2MakeColor(b2_colorRed);
 				}
 				else if (b->isEnabled == false)
 				{
-					color = b2MakeColor(b2_colorSlateGray2, 0.5f);
+					color = b2MakeColor(b2_colorSlateGray2);
 				}
 				else if (shape->isSensor)
 				{
-					color = b2MakeColor(b2_colorWheat, 1.0f);
+					color = b2MakeColor(b2_colorWheat);
 				}
 				else if (b->isSpeedCapped)
 				{
-					color = b2MakeColor(b2_colorYellow, 1.0f);
+					color = b2MakeColor(b2_colorYellow);
 				}
 				else if (b->isFast)
 				{
-					color = b2MakeColor(b2_colorSalmon, 1.0f);
+					color = b2MakeColor(b2_colorSalmon);
 				}
 				else if (b->type == b2_staticBody)
 				{
-					color = b2MakeColor(b2_colorPaleGreen, 1.0f);
+					color = b2MakeColor(b2_colorPaleGreen);
 				}
 				else if (b->type == b2_kinematicBody)
 				{
-					color = (b2Color){0.5f, 0.5f, 0.9f, 1.0f};
+					color = (b2Color){0.5f, 0.5f, 0.9f};
 				}
 				else if (isAwake)
 				{
-					color = b2MakeColor(b2_colorPink3, 1.0f);
+					color = b2MakeColor(b2_colorPink3);
 				}
 				else
 				{
-					color = b2MakeColor(b2_colorGray, 1.0f);
+					color = b2MakeColor(b2_colorGray);
 				}
 
 				b2DrawShape(draw, shape, xf, color);
@@ -794,7 +795,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		for (int32_t i = 0; i < bodyCapacity; ++i)
 		{
 			b2Body* body = bodies + i;
-			if (b2ObjectValid(&body->object) == false)
+			if (b2IsValidObject(&body->object) == false)
 			{
 				continue;
 			}
@@ -849,7 +850,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				{
 					// graph color
 					float pointSize = colorIndex == b2_graphColorCount ? 7.5f : 5.0f;
-					draw->DrawPoint(point->point, pointSize, b2MakeColor(colors[colorIndex], 1.0f), draw->context);
+					draw->DrawPoint(point->point, pointSize, b2MakeColor(colors[colorIndex]), draw->context);
 					// g_draw.DrawString(point->position, "%d", point->color);
 				}
 				else if (point->separation > b2_linearSlop)
@@ -955,7 +956,7 @@ bool b2Body_IsValid(b2BodyId id)
 	}
 
 	b2Body* body = world->bodies + (id.index - 1);
-	if (b2ObjectValid(&body->object) == false)
+	if (b2IsValidObject(&body->object) == false)
 	{
 		return false;
 	}
@@ -978,7 +979,7 @@ bool b2Shape_IsValid(b2ShapeId id)
 	}
 
 	b2Shape* shape = world->shapes + (id.index - 1);
-	if (b2ObjectValid(&shape->object) == false)
+	if (b2IsValidObject(&shape->object) == false)
 	{
 		return false;
 	}
@@ -1001,7 +1002,7 @@ bool b2Chain_IsValid(b2ChainId id)
 	}
 
 	b2ChainShape* chain = world->chains + (id.index - 1);
-	if (b2ObjectValid(&chain->object) == false)
+	if (b2IsValidObject(&chain->object) == false)
 	{
 		return false;
 	}
@@ -1024,7 +1025,7 @@ bool b2Joint_IsValid(b2JointId id)
 	}
 
 	b2Joint* joint = world->joints + (id.index - 1);
-	if (b2ObjectValid(&joint->object) == false)
+	if (b2IsValidObject(&joint->object) == false)
 	{
 		return false;
 	}
@@ -1185,6 +1186,8 @@ void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2
 		return;
 	}
 
+	B2_ASSERT(b2AABB_IsValid(aabb));
+
 	WorldQueryContext worldContext = {world, fcn, filter, context};
 
 	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
@@ -1253,6 +1256,9 @@ void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Cir
 		return;
 	}
 
+	B2_ASSERT(b2Vec2_IsValid(transform.p));
+	B2_ASSERT(b2Rot_IsValid(transform.q));
+
 	b2AABB aabb = b2ComputeCircleAABB(circle, transform);
 	WorldOverlapContext worldContext = {
 		world, fcn, filter, b2MakeProxy(&circle->point, 1, circle->radius), transform, context,
@@ -1274,6 +1280,9 @@ void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Ca
 		return;
 	}
 
+	B2_ASSERT(b2Vec2_IsValid(transform.p));
+	B2_ASSERT(b2Rot_IsValid(transform.q));
+
 	b2AABB aabb = b2ComputeCapsuleAABB(capsule, transform);
 	WorldOverlapContext worldContext = {
 		world, fcn, filter, b2MakeProxy(&capsule->point1, 2, capsule->radius), transform, context,
@@ -1294,6 +1303,9 @@ void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Po
 	{
 		return;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(transform.p));
+	B2_ASSERT(b2Rot_IsValid(transform.q));
 
 	b2AABB aabb = b2ComputePolygonAABB(polygon, transform);
 	WorldOverlapContext worldContext = {
@@ -1337,10 +1349,10 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 
 	b2Transform transform = b2MakeTransform(body);
-	b2RayCastOutput output = b2RayCastShape(input, shape, transform);
+	b2CastOutput output = b2RayCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
@@ -1363,9 +1375,10 @@ void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2Que
 		return;
 	}
 
-	b2RayCastInput input = {origin, translation, 1.0f};
+	B2_ASSERT(b2Vec2_IsValid(origin));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
-	// todo validate input
+	b2RayCastInput input = {origin, translation, 1.0f};
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
@@ -1404,6 +1417,9 @@ b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 tran
 	{
 		return result;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(origin));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2RayCastInput input = {origin, translation, 1.0f};
 	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
@@ -1445,10 +1461,10 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
 
 	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2ObjectValid(&body->object));
+	B2_ASSERT(b2IsValidObject(&body->object));
 
 	b2Transform transform = b2MakeTransform(body);
-	b2RayCastOutput output = b2ShapeCastShape(input, shape, transform);
+	b2CastOutput output = b2ShapeCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
@@ -1470,6 +1486,10 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 	{
 		return;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(originTransform.p));
+	B2_ASSERT(b2Rot_IsValid(originTransform.q));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2ShapeCastInput input;
 	input.points[0] = b2TransformPoint(originTransform, circle->point);
@@ -1503,6 +1523,10 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 		return;
 	}
 
+	B2_ASSERT(b2Vec2_IsValid(originTransform.p));
+	B2_ASSERT(b2Rot_IsValid(originTransform.q));
+	B2_ASSERT(b2Vec2_IsValid(translation));
+
 	b2ShapeCastInput input;
 	input.points[0] = b2TransformPoint(originTransform, capsule->point1);
 	input.points[1] = b2TransformPoint(originTransform, capsule->point2);
@@ -1535,6 +1559,10 @@ void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transfor
 	{
 		return;
 	}
+
+	B2_ASSERT(b2Vec2_IsValid(originTransform.p));
+	B2_ASSERT(b2Rot_IsValid(originTransform.q));
+	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2ShapeCastInput input;
 	for (int i = 0; i < polygon->count; ++i)

@@ -3,12 +3,11 @@
 
 #pragma once
 
-#include "solver_data.h"
+#include "solver.h"
 
-// todo this could be hidden in contact_solver.c, then graph.c just needs to know the sizeof(b2ContactConstraintSIMD)
+#include "box2d/math_types.h"
+
 #include "x86/avx.h"
-
-#include "box2d/math.h"
 
 typedef struct b2Contact b2Contact;
 

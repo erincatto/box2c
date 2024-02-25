@@ -7,9 +7,9 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/joint_util.h"
 #include "box2d/math.h"
 
 #include <GLFW/glfw3.h>
@@ -101,7 +101,6 @@ public:
 			jointDef.length = m_length;
 			jointDef.minLength = m_minLength;
 			jointDef.maxLength = m_maxLength;
-			jointDef.collideConnected = true;
 			m_jointIds[i] = b2CreateDistanceJoint(m_worldId, &jointDef);
 
 			prevBodyId = m_bodyIds[i];
@@ -116,15 +115,19 @@ public:
 
 		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
 		{
+			for (int32_t i = 0; i < m_count; ++i)
+			{
+				b2DistanceJoint_SetLength(m_jointIds[i], m_length);
+			}
+
 			if (m_fixedLength)
 			{
 				m_minLength = m_length;
 				m_maxLength = m_length;
-			}
-
-			for (int32_t i = 0; i < m_count; ++i)
-			{
-				b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+				for (int32_t i = 0; i < m_count; ++i)
+				{
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
+				}
 			}
 		}
 
@@ -136,7 +139,8 @@ public:
 				m_maxLength = m_length;
 				for (int32_t i = 0; i < m_count; ++i)
 				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+					b2DistanceJoint_SetLength(m_jointIds[i], m_length);
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
 				}
 			}
 		}
@@ -147,7 +151,7 @@ public:
 			{
 				for (int32_t i = 0; i < m_count; ++i)
 				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
 				}
 			}
 
@@ -155,7 +159,7 @@ public:
 			{
 				for (int32_t i = 0; i < m_count; ++i)
 				{
-					b2DistanceJoint_SetLength(m_jointIds[i], m_length, m_minLength, m_maxLength);
+					b2DistanceJoint_SetLengthRange(m_jointIds[i], m_minLength, m_maxLength);
 				}
 			}
 
@@ -724,6 +728,7 @@ public:
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
 			int32_t jointIndex = 0;
 			m_frictionTorque = 200.0f;
+			m_gravityScale = 1.0f;
 
 			float xbase = -80.0f;
 
@@ -735,19 +740,19 @@ public:
 				bodyDef.position = {xbase + 0.5f + 1.0f * i, 20.0f};
 				bodyDef.linearDamping = 0.1f;
 				bodyDef.angularDamping = 0.1f;
-				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreatePolygonShape(bodyId, &shapeDef, &box);
+				m_bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(m_bodyIds[i], &shapeDef, &box);
 
 				b2Vec2 pivot = {xbase + 1.0f * i, 20.0f};
 				jointDef.bodyIdA = prevBodyId;
-				jointDef.bodyIdB = bodyId;
+				jointDef.bodyIdB = m_bodyIds[i];
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 				jointDef.enableMotor = true;
 				jointDef.maxMotorTorque = m_frictionTorque;
 				m_jointIds[jointIndex++] = b2CreateRevoluteJoint(m_worldId, &jointDef);
 
-				prevBodyId = bodyId;
+				prevBodyId = m_bodyIds[i];
 			}
 
 			b2Vec2 pivot = {xbase + 1.0f * e_count, 20.0f};
@@ -812,6 +817,14 @@ public:
 			}
 		}
 
+		if (ImGui::SliderFloat("gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
+		{
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2Body_SetGravityScale(m_bodyIds[i], m_gravityScale);
+			}
+		}
+
 		ImGui::End();
 	}
 
@@ -820,8 +833,10 @@ public:
 		return new Bridge(settings);
 	}
 
+	b2BodyId m_bodyIds[e_count];
 	b2JointId m_jointIds[e_count + 1];
 	float m_frictionTorque;
+	float m_gravityScale;
 };
 
 static int sampleBridgeIndex = RegisterSample("Joints", "Bridge", Bridge::Create);
@@ -962,6 +977,8 @@ public:
 			m_linearDampingRatio = 0.5f;
 			m_angularHertz = 5.0f;
 			m_angularDampingRatio = 0.5f;
+			m_gravityScale = 1.0f;
+			m_collideConnected = false;
 
 			float hx = 0.5f;
 			b2Capsule capsule = {{-hx, 0.0f}, {hx, 0.0f}, 0.125f};
@@ -976,21 +993,22 @@ public:
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {(1.0f + 2.0f * i) * hx, 0.0f};
-				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+				m_bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreateCapsuleShape(m_bodyIds[i], &shapeDef, &capsule);
 
 				b2Vec2 pivot = {(2.0f * i) * hx, 0.0f};
 				jointDef.bodyIdA = prevBodyId;
-				jointDef.bodyIdB = bodyId;
+				jointDef.bodyIdB = m_bodyIds[i];
 				jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 				jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 				jointDef.linearHertz = m_linearHertz;
 				jointDef.linearDampingRatio = m_linearDampingRatio;
 				jointDef.angularHertz = m_angularHertz;
 				jointDef.angularDampingRatio = m_angularDampingRatio;
+				jointDef.collideConnected = m_collideConnected;
 				m_jointIds[i] = b2CreateWeldJoint(m_worldId, &jointDef);
 
-				prevBodyId = bodyId;
+				prevBodyId = m_bodyIds[i];
 			}
 
 			m_tipId = prevBodyId;
@@ -1035,6 +1053,22 @@ public:
 			}
 		}
 
+		if (ImGui::Checkbox("collide connected", &m_collideConnected))
+		{
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2Joint_SetCollideConnected(m_jointIds[i], m_collideConnected);
+			}
+		}
+
+		if (ImGui::SliderFloat("gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
+		{
+			for (int32_t i = 0; i < e_count; ++i)
+			{
+				b2Body_SetGravityScale(m_bodyIds[i], m_gravityScale);
+			}
+		}
+
 		ImGui::End();
 	}
 
@@ -1056,8 +1090,11 @@ public:
 	float m_linearDampingRatio;
 	float m_angularHertz;
 	float m_angularDampingRatio;
+	float m_gravityScale;
 	b2BodyId m_tipId;
+	b2BodyId m_bodyIds[e_count];
 	b2JointId m_jointIds[e_count];
+	bool m_collideConnected;
 };
 
 static int sampleCantileverIndex = RegisterSample("Joints", "Cantilever", Cantilever::Create);
@@ -1356,12 +1393,12 @@ public:
 			float C = length - slackLength;
 			if (C < 0.0f || length < 0.001f)
 			{
-				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan, 1.0f));
+				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan));
 				m_impulses[i] = 0.0f;
 				continue;
 			}
 
-			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet, 1.0f));
+			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet));
 			b2Vec2 axis = b2Normalize(deltaAnchor);
 
 			b2Vec2 rB = b2Sub(anchorB, pB);
