@@ -1598,14 +1598,14 @@ public:
 		{
 			const char* castTypes[] = {"Ray", "Circle", "Capsule", "Polygon"};
 			int castType = int(m_castType);
-			if (ImGui::Combo("Cast Type", &castType, castTypes, IM_ARRAYSIZE(castTypes)))
+			if (ImGui::Combo("Type", &castType, castTypes, IM_ARRAYSIZE(castTypes)))
 			{
 				m_castType = CastType(castType);
 			}
 
 			if (m_castType != e_rayCast)
 			{
-				ImGui::SliderFloat("radius", &m_castRadius, 0.0f, 2.0f, "%.1f");
+				ImGui::SliderFloat("Radius", &m_castRadius, 0.0f, 2.0f, "%.1f");
 			}
 
 			const char* modes[] = {"Any", "Closest", "Multiple", "Sorted"};
@@ -3274,10 +3274,11 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {-1.5f, 1.0f};
-			g_camera.m_zoom = 0.12f;
+			g_camera.m_zoom = 0.2f;
 		}
 
 #if 1
+		// box swept against a triangle
 		m_vAs[0] = {-0.5f, 1.0f};
 		m_vAs[1] = {0.5f, 1.0f};
 		m_vAs[2] = {0.0f, 0.0f};
@@ -3297,36 +3298,56 @@ public:
 		m_transformB.q = b2Rot_identity;
 		m_translationB = {8.0f, 0.0f};
 #elif 0
-		m_vAs[0].Set(0.0f, 0.0f);
+		// A point swept against a box
+		m_vAs[0] = {-0.5f, -0.5f};
+		m_vAs[1] = {0.5f, -0.5f};
+		m_vAs[2] = {0.5f, 0.5f};
+		m_vAs[3] = {-0.5f, 0.5f};
+		m_countA = 4;
+		m_radiusA = 0.0f;
+
+		m_vBs[0] = {0.0f, 0.0f};
+		m_countB = 1;
+		m_radiusB = 0.0f;
+
+		m_transformA.p = {0.0f, 0.0f};
+		m_transformA.q = b2Rot_identity;
+		m_transformB.p = {-1.0f, 0.0f};
+		m_transformB.q = b2Rot_identity;
+		m_translationB = {1.0f, 0.0f};
+#elif 0
+		m_vAs[0] = {0.0f, 0.0f};
 		m_countA = 1;
 		m_radiusA = 0.5f;
 
-		m_vBs[0].Set(0.0f, 0.0f);
+		m_vBs[0] = {0.0f, 0.0f};
 		m_countB = 1;
 		m_radiusB = 0.5f;
 
-		m_transformA.p.Set(0.0f, 0.25f);
-		m_transformA.q.SetIdentity();
-		m_transformB.p.Set(-4.0f, 0.0f);
-		m_transformB.q.SetIdentity();
-		m_translationB.Set(8.0f, 0.0f);
+		m_transformA.p = {0.0f, 0.25f};
+		m_transformA.q = b2Rot_identity;
+		m_transformB.p = {-4.0f, 0.0f};
+		m_transformB.q = b2Rot_identity;
+		m_translationB = {8.0f, 0.0f};
 #else
-		m_vAs[0].Set(0.0f, 0.0f);
-		m_vAs[1].Set(2.0f, 0.0f);
+		m_vAs[0] = {0.0f, 0.0f};
+		m_vAs[1] = {2.0f, 0.0f};
 		m_countA = 2;
-		m_radiusA = b2_polygonRadius;
+		m_radiusA = 0.0f;
 
-		m_vBs[0].Set(0.0f, 0.0f);
+		m_vBs[0] = {0.0f, 0.0f};
 		m_countB = 1;
 		m_radiusB = 0.25f;
 
 		// Initial overlap
-		m_transformA.p.Set(0.0f, 0.0f);
-		m_transformA.q.SetIdentity();
-		m_transformB.p.Set(-0.244360745f, 0.05999358f);
-		m_transformB.q.SetIdentity();
-		m_translationB.Set(0.0f, 0.0399999991f);
+		m_transformA.p = b2Vec2_zero;
+		m_transformA.q = b2Rot_identity;
+		m_transformB.p = {-0.244360745f, 0.05999358f};
+		m_transformB.q = b2Rot_identity;
+		m_translationB = {0.0f, 0.0399999991f};
 #endif
+
+		m_rayDrag = false;
 	}
 
 	static Sample* Create(Settings& settings)
@@ -3334,16 +3355,42 @@ public:
 		return new ShapeCast(settings);
 	}
 
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_transformB.p = p;
+			m_rayDrag = true;
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_rayDrag = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_rayDrag)
+		{
+			m_translationB = b2Sub(p, m_transformB.p);
+		}
+	}
+
 	void Step(Settings& settings) override
 	{
 		Sample::Step(settings);
 
-		b2ShapeCastPairInput input;
+		b2ShapeCastPairInput input = {0};
 		input.proxyA = b2MakeProxy(m_vAs, m_countA, m_radiusA);
 		input.proxyB = b2MakeProxy(m_vBs, m_countB, m_radiusB);
 		input.transformA = m_transformA;
 		input.transformB = m_transformB;
 		input.translationB = m_translationB;
+		input.maxFraction = 1.0f;
 
 		b2CastOutput output = b2ShapeCast(&input);
 
@@ -3374,7 +3421,14 @@ public:
 
 		if (m_countA == 1)
 		{
-			g_draw.DrawCircle(vertices[0], m_radiusA, {0.9f, 0.9f, 0.9f, 1.0f});
+			if (m_radiusA > 0.0f)
+			{
+				g_draw.DrawCircle(vertices[0], m_radiusA, {0.9f, 0.9f, 0.9f, 1.0f});
+			}
+			else
+			{
+				g_draw.DrawPoint(vertices[0], 5.0f, {0.9f, 0.9f, 0.9f, 1.0f});
+			}
 		}
 		else
 		{
@@ -3388,7 +3442,14 @@ public:
 
 		if (m_countB == 1)
 		{
-			g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.9f, 0.5f, 1.0f});
+			if (m_radiusB > 0.0f)
+			{
+				g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.9f, 0.5f, 1.0f});
+			}
+			else
+			{
+				g_draw.DrawPoint(vertices[0], 5.0f, {0.5f, 0.9f, 0.5f, 1.0f});
+			}
 		}
 		else
 		{
@@ -3402,7 +3463,14 @@ public:
 
 		if (m_countB == 1)
 		{
-			g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.7f, 0.9f, 1.0f});
+			if (m_radiusB > 0.0f)
+			{
+				g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.7f, 0.9f, 1.0f});
+			}
+			else
+			{
+				g_draw.DrawPoint(vertices[0], 5.0f, {0.5f, 0.7f, 0.9f, 1.0f});
+			}
 		}
 		else
 		{
@@ -3416,6 +3484,8 @@ public:
 			b2Vec2 p2 = b2MulAdd(p1, 1.0f, output.normal);
 			g_draw.DrawSegment(p1, p2, {0.9f, 0.3f, 0.3f, 1.0f});
 		}
+
+		g_draw.DrawSegment(m_transformB.p, b2Add(m_transformB.p, m_translationB), {0.9f, 0.9f, 0.9f, 1.0f});
 	}
 
 	b2Vec2 m_vAs[b2_maxPolygonVertices];
@@ -3429,6 +3499,7 @@ public:
 	b2Transform m_transformA;
 	b2Transform m_transformB;
 	b2Vec2 m_translationB;
+	bool m_rayDrag;
 };
 
 static int sampleShapeCast = RegisterSample("Collision", "Shape Cast", ShapeCast::Create);

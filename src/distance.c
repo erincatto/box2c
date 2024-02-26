@@ -658,21 +658,32 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 // GJK-raycast
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010
-// TODO_ERIN this is failing when used to raycast a box
+// #todo this is failing when used to raycast a box
 b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 {
 	b2CastOutput output = {0};
+	output.fraction = input->maxFraction;
 
-	const b2DistanceProxy* proxyA = &input->proxyA;
-	const b2DistanceProxy* proxyB = &input->proxyB;
-
-	float radius = proxyA->radius + proxyB->radius;
+	b2DistanceProxy proxyA = input->proxyA;
 
 	b2Transform xfA = input->transformA;
 	b2Transform xfB = input->transformB;
+	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
-	b2Vec2 r = input->translationB;
-	b2Vec2 n = b2Vec2_zero;
+	// Put proxyB in proxyA's frame to reduce round-off error
+	b2DistanceProxy proxyB;
+	proxyB.count = input->proxyB.count;
+	proxyB.radius = input->proxyB.radius;
+	B2_ASSERT(proxyB.count <= b2_maxPolygonVertices);
+
+	for (int i = 0; i < proxyB.count; ++i)
+	{
+		proxyB.vertices[i] = b2TransformPoint(xf, input->proxyB.vertices[i]);
+	}
+	
+	float radius = proxyA.radius + proxyB.radius;
+
+	b2Vec2 r = b2RotateVector(xf.q, input->translationB);
 	float lambda = 0.0f;
 	float maxFraction = input->maxFraction;
 
@@ -683,11 +694,11 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
 
-	// Get support point in -r direction
-	int32_t indexA = b2FindSupport(proxyA, b2InvRotateVector(xfA.q, b2Neg(r)));
-	b2Vec2 wA = b2TransformPoint(xfA, proxyA->vertices[indexA]);
-	int32_t indexB = b2FindSupport(proxyB, b2InvRotateVector(xfB.q, r));
-	b2Vec2 wB = b2TransformPoint(xfB, proxyB->vertices[indexB]);
+	// Get an initial point in A - B
+	int32_t indexA = b2FindSupport(&proxyA, b2Neg(r));
+	b2Vec2 wA = proxyA.vertices[indexA];
+	int32_t indexB = b2FindSupport(&proxyB, r);
+	b2Vec2 wB = proxyB.vertices[indexB];
 	b2Vec2 v = b2Sub(wA, wB);
 
 	// Sigma is the target distance between proxies
@@ -696,20 +707,20 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	// Main iteration loop.
 	const int32_t k_maxIters = 20;
 	int32_t iter = 0;
-	while (iter < k_maxIters && b2Length(v) > sigma)
+	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * b2_linearSlop)
 	{
 		B2_ASSERT(simplex.count < 3);
 
 		output.iterations += 1;
 
 		// Support in direction -v (A - B)
-		indexA = b2FindSupport(proxyA, b2InvRotateVector(xfA.q, b2Neg(v)));
-		wA = b2TransformPoint(xfA, proxyA->vertices[indexA]);
-		indexB = b2FindSupport(proxyB, b2InvRotateVector(xfB.q, v));
-		wB = b2TransformPoint(xfB, proxyB->vertices[indexB]);
+		indexA = b2FindSupport(&proxyA, b2Neg(v));
+		wA = proxyA.vertices[indexA];
+		indexB = b2FindSupport(&proxyB, v);
+		wB = proxyB.vertices[indexB];
 		b2Vec2 p = b2Sub(wA, wB);
 
-		// -v is a normal at p
+		// -v is a normal at p, normalize to work with sigma
 		v = b2Normalize(v);
 
 		// Intersect ray with plane
@@ -719,16 +730,18 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 		{
 			if (vr <= 0.0f)
 			{
+				// miss
 				return output;
 			}
 
 			lambda = (vp - sigma) / vr;
 			if (lambda > maxFraction)
 			{
+				// too far
 				return output;
 			}
 
-			n = (b2Vec2){-v.x, -v.y};
+			// reset the simplex
 			simplex.count = 0;
 		}
 
@@ -776,7 +789,7 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 		++iter;
 	}
 
-	if (iter == 0)
+	if (iter == 0 || lambda == 0.0f)
 	{
 		// Initial overlap
 		return output;
@@ -786,14 +799,11 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	b2Vec2 pointA, pointB;
 	b2ComputeSimplexWitnessPoints(&pointB, &pointA, &simplex);
 
-	if (b2Dot(v, v) > 0.0f)
-	{
-		n = b2Normalize(b2Neg(v));
-	}
+	b2Vec2 n = b2Normalize(b2Neg(v));
+	b2Vec2 point = {pointA.x + proxyA.radius * n.x, pointA.y + proxyA.radius * n.y};
 
-	float radiusA = proxyA->radius;
-	output.point = (b2Vec2){pointA.x + radiusA * n.x, pointA.y + radiusA * n.y};
-	output.normal = n;
+	output.point = b2TransformPoint(xfA, point);
+	output.normal = b2RotateVector(xfA.q, n);
 	output.fraction = lambda;
 	output.iterations = iter;
 	output.hit = true;
@@ -1043,7 +1053,7 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 	float tMax = input->tMax;
 
 	float totalRadius = proxyA->radius + proxyB->radius;
-	float target = B2_MAX(b2_linearSlop, totalRadius + b2_linearSlop);
+	float target = B2_MAX(b2_linearSlop, totalRadius - b2_linearSlop);
 	float tolerance = 0.25f * b2_linearSlop;
 	B2_ASSERT(target > tolerance);
 
