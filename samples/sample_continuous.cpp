@@ -609,3 +609,51 @@ public:
 };
 
 static int sampleGhostCollision = RegisterSample("Continuous", "Ghost Collision", GhostCollision::Create);
+
+// Speculative collision failure case suggested by Dirk Gregorius
+class SpeculativeFail : public Sample
+{
+public:
+	SpeculativeFail(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {1.0f, 5.0f};
+			g_camera.m_zoom = 0.25f;
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Segment segment = {{-10.0f, 0.0f}, {10.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
+
+			b2Vec2 points[5] = {{-2.0f, 4.0f}, {2.0f, 4.0f}, {2.0f, 4.1f}, {-0.5f, 4.2f}, {-2.0f, 4.2f}};
+			b2Hull hull = b2ComputeHull(points, 5);
+			b2Polygon poly = b2MakePolygon(&hull, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &poly);
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 8.0f};
+			bodyDef.linearVelocity = {0.0f, -100.0f};
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeBox(2.0f, 0.05f);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new SpeculativeFail(settings);
+	}
+};
+
+static int sampleSpeculativeFail = RegisterSample("Continuous", "Speculative Fail", SpeculativeFail::Create);
