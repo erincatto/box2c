@@ -755,7 +755,12 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2BodyState* bodyStates = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyState), "body states");
 	b2BodyParam* bodyParams = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyParam), "body params");
 
-	b2Array_Resize(&world->bodyMoveEventArray, sizeof(b2BodyMoveEvent), awakeBodyCount);
+	// Deal with void**
+	{
+		void* bodyMoveEventArray = world->bodyMoveEventArray;
+		b2Array_Resize(&bodyMoveEventArray, sizeof(b2BodyMoveEvent), awakeBodyCount);
+		world->bodyMoveEventArray = bodyMoveEventArray;
+	}
 
 	// Map from solver body to body
 	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
