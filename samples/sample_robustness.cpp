@@ -15,65 +15,53 @@
 class HighMassRatio1 : public Sample
 {
   public:
-	HighMassRatio1(const Settings& settings)
+	HighMassRatio1(Settings& settings)
 		: Sample(settings)
 	{
 		float extent = 1.0f;
 
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
-
-		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
-		shapeDef.friction = 0.5f;
-
-		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
-		b2CreateSegmentShape(groundId, &shapeDef, &segment);
-
-		bodyDef.type = b2_dynamicBody;
-
-		b2Polygon box = b2MakeBox(extent, extent);
-
-#if 0
-		//b2Circle circle = {{0.0f, 0.0f}, extent};
-		int count = 2;
-		for (int i = 0; i < count; ++i)
 		{
-			bodyDef.position = {0.0f, (2.0f * i + 1.0f) * 1.0f * extent};
-			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-
-			shapeDef.density = i == count - 1 ? 300.0f : 1.0f;
-			//b2CreateCircleShape(bodyId, &shapeDef, &circle);
-			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(50.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
-#else
-		for (int j = 0; j < 3; ++j)
+
 		{
-			int count = 10;
-			float offset = -20.0f * extent + 2.0f * (count + 1.0f) * extent * j;
-			float y = extent;
-			while (count > 0)
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			b2Polygon box = b2MakeBox(extent, extent);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+			for (int j = 0; j < 3; ++j)
 			{
-				for (int i = 0; i < count; ++i)
+				int count = 10;
+				float offset = -20.0f * extent + 2.0f * (count + 1.0f) * extent * j;
+				float y = extent;
+				while (count > 0)
 				{
-					float coeff = i - 0.5f * count;
+					for (int i = 0; i < count; ++i)
+					{
+						float coeff = i - 0.5f * count;
 
-					float yy = count == 1 ? y + 0.0f : y;
-					bodyDef.position = {2.0f * coeff * extent + offset, yy};
-					b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+						float yy = count == 1 ? y + 2.0f : y;
+						bodyDef.position = {2.0f * coeff * extent + offset, yy};
+						b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-					shapeDef.density = count == 1 ? (j + 1.0f) * 100.0f : 1.0f;
-					b2CreatePolygonShape(bodyId, &shapeDef, &box);
+						shapeDef.density = count == 1 ? (j + 1.0f) * 100.0f : 1.0f;
+						b2CreatePolygonShape(bodyId, &shapeDef, &box);
+					}
+
+					--count;
+					y += 2.0f * extent;
 				}
-
-				--count;
-				y += 2.0f * extent;
 			}
+
 		}
-#endif
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new HighMassRatio1(settings);
 	}
@@ -85,49 +73,50 @@ static int sampleIndex1 = RegisterSample("Robustness", "HighMassRatio1", HighMas
 class HighMassRatio2 : public Sample
 {
   public:
-	HighMassRatio2(const Settings& settings)
+	HighMassRatio2(Settings& settings)
 		: Sample(settings)
 	{
-		float extent = 1.0f;
-
-		b2BodyDef bodyDef = b2DefaultBodyDef();
-		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
-
-		float groundWidth = 66.0f * extent;
-		b2ShapeDef shapeDef = b2DefaultShapeDef();
-		shapeDef.density = 1.0f;
-
-		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
-		b2CreateSegmentShape(groundId, &shapeDef, &segment);
-
-		bodyDef.type = b2_dynamicBody;
-
-		b2Vec2 points[3] = {{-0.5f * extent, 0.0f}, {0.5f * extent, 0.0f}, {0.0f, 1.0f * extent}};
-		b2Hull hull = b2ComputeHull(points, 3);
-		b2Polygon smallTriangle = b2MakePolygon(&hull, 0.0f);
-		b2Polygon smallBox = b2MakeBox(0.5f * extent, 0.5f * extent);
-		b2Polygon bigBox = b2MakeBox(10.0f * extent, 10.0f * extent);
-
 		{
-			bodyDef.position = {-9.0f * extent, 0.5f * extent};
-			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bodyId, &shapeDef, &smallBox);
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(50.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		{
-			bodyDef.position = {9.0f * extent, 0.5f * extent};
-			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bodyId, &shapeDef, &smallBox);
-		}
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 
-		{
-			bodyDef.position = {0.0f, (10.0f + 16.0f) * extent};
-			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bodyId, &shapeDef, &bigBox);
+			float extent = 1.0f;
+			b2Vec2 points[3] = {{-0.5f * extent, 0.0f}, {0.5f * extent, 0.0f}, {0.0f, 1.0f * extent}};
+			b2Hull hull = b2ComputeHull(points, 3);
+			b2Polygon smallTriangle = b2MakePolygon(&hull, 0.0f);
+			b2Polygon smallBox = b2MakeBox(0.5f * extent, 0.5f * extent);
+			b2Polygon bigBox = b2MakeBox(10.0f * extent, 10.0f * extent);
+
+			{
+				bodyDef.position = {-9.0f * extent, 0.5f * extent};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(bodyId, &shapeDef, &smallBox);
+			}
+
+			{
+				bodyDef.position = {9.0f * extent, 0.5f * extent};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(bodyId, &shapeDef, &smallBox);
+			}
+
+			{
+				bodyDef.position = {0.0f, (10.0f + 16.0f) * extent};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(bodyId, &shapeDef, &bigBox);
+			}
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new HighMassRatio2(settings);
 	}
@@ -138,23 +127,23 @@ static int sampleIndex2 = RegisterSample("Robustness", "HighMassRatio2", HighMas
 class OverlapRecovery : public Sample
 {
   public:
-	OverlapRecovery(const Settings& settings)
+	OverlapRecovery(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.25f;
-			g_camera.m_center = {0.0f, 5.0f};
+			g_camera.m_center = {0.0f, 2.5f};
+			g_camera.m_zoom = 0.15f;
 		}
 
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
 		m_baseCount = 4;
-		m_overlap = 0.5f;
-		m_extent = 0.3f;
+		m_overlap = 0.25f;
+		m_extent = 0.5f;
 		m_pushout = 3.0f;
 		m_hertz = 30.0f;
-		m_dampingRatio = 1.0f;
+		m_dampingRatio = 10.0f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
@@ -226,7 +215,7 @@ class OverlapRecovery : public Sample
 		bool changed = false;
 		changed = changed || ImGui::SliderFloat("Extent", &m_extent, 0.1f, 1.0f, "%.1f");
 		changed = changed || ImGui::SliderInt("Base Count", &m_baseCount, 1, 10);
-		changed = changed || ImGui::SliderFloat("Overlap", &m_overlap, 0.0f, 1.0f, "%.1f");
+		changed = changed || ImGui::SliderFloat("Overlap", &m_overlap, 0.0f, 1.0f, "%.2f");
 		changed = changed || ImGui::SliderFloat("Pushout", &m_pushout, 0.0f, 10.0f, "%.1f");
 		changed = changed || ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 120.0f, "%.f");
 		changed = changed || ImGui::SliderFloat("Damping Ratio", &m_dampingRatio, 0.0f, 20.0f, "%.1f");
@@ -240,7 +229,7 @@ class OverlapRecovery : public Sample
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new OverlapRecovery(settings);
 	}

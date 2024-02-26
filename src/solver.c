@@ -5,7 +5,6 @@
 
 #include "aabb.h"
 #include "allocate.h"
-#include "stack_allocator.h"
 #include "array.h"
 #include "bitset.inl"
 #include "body.h"
@@ -15,7 +14,10 @@
 #include "joint.h"
 #include "shape.h"
 #include "solver.h"
+#include "stack_allocator.h"
 #include "world.h"
+
+#include "box2d/event_types.h"
 
 // for mm_pause
 #include "x86/sse2.h"
@@ -181,6 +183,9 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 	float timeStep = context->dt;
 
+	uint16_t worldIndex = world->poolIndex;
+	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
+
 	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
@@ -215,6 +220,11 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->position = b2Add(body->position, state->deltaPosition);
 		body->rotation = b2MulRot(state->deltaRotation, body->rotation);
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
+
+		moveEvents[i].transform = b2MakeTransform(body);
+		moveEvents[i].bodyId = (b2BodyId){bodyIndex + 1, worldIndex, body->object.revision};
+		moveEvents[i].userData = body->userData;
+		moveEvents[i].fellAsleep = false;
 
 		// reset applied force and torque
 		body->force = b2Vec2_zero;
@@ -740,23 +750,20 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		return false;
 	}
 
-	// Reserve space for awake bodies
+	// Reserve space for solver body arrays
 	b2Body* bodies = world->bodies;
-	b2Body** awakeBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2Body*), "awake bodies");
-	b2BodyState* bodyStates =
-		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyState), "body states");
-	b2BodyParam* bodyParams =
-		b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyParam), "body params");
+	b2BodyState* bodyStates = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyState), "body states");
+	b2BodyParam* bodyParams = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyParam), "body params");
+
+	// Deal with void**
+	{
+		void* bodyMoveEventArray = world->bodyMoveEventArray;
+		b2Array_Resize(&bodyMoveEventArray, sizeof(b2BodyMoveEvent), awakeBodyCount);
+		world->bodyMoveEventArray = bodyMoveEventArray;
+	}
 
 	// Map from solver body to body
-	// todo have body directly reference solver body for user access?
 	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
-
-	// Map from world body to solver body
-	// todo eliminate this?
-	int32_t bodyCapacity = world->bodyPool.capacity;
-	int32_t* bodyToSolverMap = b2AllocateStackItem(world->stackAllocator, bodyCapacity * sizeof(int32_t), "body map");
-	memset(bodyToSolverMap, 0xFF, bodyCapacity * sizeof(int32_t));
 
 	// Build array of awake bodies and also search for an awake island to split
 	b2Vec2 gravity = world->gravity;
@@ -784,13 +791,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			B2_ASSERT(b2IsValidObject(&body->object));
 			B2_ASSERT(body->object.index == bodyIndex);
 
-			awakeBodies[index] = body;
-
-			B2_ASSERT(0 <= bodyIndex && bodyIndex < bodyCapacity);
-			bodyToSolverMap[bodyIndex] = index;
+			body->solverIndex = index;
 			solverToBodyMap[index] = bodyIndex;
-
-			// todo cache misses
 
 			b2BodyState* state = bodyStates + index;
 			state->linearVelocity = body->linearVelocity;
@@ -813,7 +815,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			param->angularDamping = 1.0f / (1.0f + h * body->angularDamping);
 			param->linearDamping = 1.0f / (1.0f + h * body->linearDamping);
 
-			param->linearVelocityDelta = b2MulSV(body->invMass * h, b2MulAdd(body->force, body->mass * body->gravityScale, gravity));
+			param->linearVelocityDelta =
+				b2MulSV(body->invMass * h, b2MulAdd(body->force, body->mass * body->gravityScale, gravity));
 			param->angularVelocityDelta = h * body->invI * body->torque;
 
 			bodyIndex = body->islandNext;
@@ -1233,8 +1236,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	context->world = world;
 	context->graph = graph;
 	context->solverToBodyMap = solverToBodyMap;
-	context->bodyToSolverMap = bodyToSolverMap;
-	context->awakeBodies = awakeBodies;
 	context->bodyStates = bodyStates;
 	context->bodyParams = bodyParams;
 	context->contactConstraints = contactConstraints;
@@ -1305,11 +1306,9 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2FreeStackItem(world->stackAllocator, jointIndices);
 	b2FreeStackItem(world->stackAllocator, contactIndices);
 	b2FreeStackItem(world->stackAllocator, contactConstraints);
-	b2FreeStackItem(world->stackAllocator, bodyToSolverMap);
 	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
 	b2FreeStackItem(world->stackAllocator, bodyParams);
 	b2FreeStackItem(world->stackAllocator, bodyStates);
-	b2FreeStackItem(world->stackAllocator, awakeBodies);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
 
@@ -1341,7 +1340,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 				continue;
 			}
 
-			// Put island to sleep
+			// There are no bodies keeping the island awake, so put the island to sleep
 			b2Island* island = islands + islandIndex;
 			island->awakeIndex = B2_NULL_INDEX;
 
@@ -1366,6 +1365,9 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 					contactKey = contact->edges[edgeIndex].nextKey;
 				}
 
+				// Report to the user that this body fell asleep
+				world->bodyMoveEventArray[body->solverIndex].fellAsleep = true;
+
 				bodyIndex = body->islandNext;
 			}
 
@@ -1375,7 +1377,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			{
 				b2Contact* contact = contacts + contactIndex;
 				b2RemoveContactFromGraph(world, contact);
-
 				contactIndex = contact->islandNext;
 			}
 
@@ -1734,7 +1735,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
 
 	// Enlarge broad-phase proxies and build move array
-	// todo this is a hack to deal with stale shapeBitSet when no bodies are awake because they were all destroyed
+	// #todo this is a hack to deal with stale shapeBitSet when no bodies are awake because they were all destroyed
 	if (anyAwake)
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
@@ -1790,7 +1791,8 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	// Parallel continuous collision
 	int32_t minRange = 8;
-	void* userContinuousTask = world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+	void* userContinuousTask =
+		world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
 	world->taskCount += 1;
 	if (userContinuousTask != NULL)
 	{

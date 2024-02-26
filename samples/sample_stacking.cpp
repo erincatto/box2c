@@ -4,7 +4,7 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/math_cpp.h"
+#include "box2d/math.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -14,7 +14,7 @@
 class SingleBox : public Sample
 {
 public:
-	SingleBox(const Settings& settings)
+	SingleBox(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -42,7 +42,7 @@ public:
 		b2CreatePolygonShape(bodyId, &shapeDef, &box);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new SingleBox(settings);
 	}
@@ -60,7 +60,7 @@ public:
 		e_rows = 10,
 	};
 
-	TiltedStack(const Settings& settings)
+	TiltedStack(Settings& settings)
 		: Sample(settings)
 	{
 		{
@@ -109,7 +109,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new TiltedStack(settings);
 	}
@@ -135,7 +135,7 @@ public:
 		e_boxShape
 	};
 
-	VerticalStack(const Settings& settings)
+	VerticalStack(Settings& settings)
 		: Sample(settings)
 	{
 		{
@@ -334,7 +334,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new VerticalStack(settings);
 	}
@@ -353,7 +353,7 @@ static int sampleVerticalStack = RegisterSample("Stacking", "Vertical Stack", Ve
 class Cliff : public Sample
 {
 public:
-	Cliff(const Settings& settings)
+	Cliff(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -389,20 +389,6 @@ public:
 		}
 
 		CreateBodies();
-
-		// Unrelated testing of math_cpp.h
-		b2Vec2 a = {1.0f, 2.0f};
-		b2Vec2 b = {3.0f, 4.0f};
-		b2Vec2 c = {-5.0f, -6.0f};
-
-		c += a;
-		b -= c;
-		a = -c;
-		a *= 2.0f;
-		a += a + b - c;
-		b = 3.0f * a - c * 2.0f;
-
-		b.x += 0.0f;
 	}
 
 	void CreateBodies()
@@ -499,7 +485,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Cliff(settings);
 	}
@@ -508,12 +494,12 @@ public:
 	bool m_flip;
 };
 
-static int sampleShapesOnShapes = RegisterSample("Stacking", "Cliff", Cliff::Create);
+static int sampleCliff = RegisterSample("Stacking", "Cliff", Cliff::Create);
 
 class Arch : public Sample
 {
 public:
-	Arch(const Settings& settings)
+	Arch(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -598,7 +584,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Arch(settings);
 	}
@@ -609,7 +595,7 @@ static int sampleArch = RegisterSample("Stacking", "Arch", Arch::Create);
 class DoubleDomino : public Sample
 {
 public:
-	DoubleDomino(const Settings& settings)
+	DoubleDomino(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -651,7 +637,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new DoubleDomino(settings);
 	}
@@ -668,7 +654,7 @@ public:
 		e_maxCount = e_gridCount * e_gridCount
 	};
 
-	Confined(const Settings& settings)
+	Confined(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -721,7 +707,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Confined(settings);
 	}
@@ -737,7 +723,7 @@ static int sampleConfined = RegisterSample("Stacking", "Confined", Confined::Cre
 class CardHouse : public Sample
 {
 public:
-	CardHouse(const Settings& settings)
+	CardHouse(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -802,7 +788,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new CardHouse(settings);
 	}

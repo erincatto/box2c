@@ -50,8 +50,8 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	base->invIB = iB;
 
 	b2MotorJoint* joint = &base->motorJoint;
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
+	joint->indexA = bodyA->solverIndex;
+	joint->indexB = bodyB->solverIndex;
 
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));

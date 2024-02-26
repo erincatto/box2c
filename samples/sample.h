@@ -23,26 +23,6 @@ constexpr bool g_sampleDebug = false;
 constexpr bool g_sampleDebug = true;
 #endif
 
-#define RAND_LIMIT 32767
-
-/// Random number in range [-1,1]
-inline float RandomFloat()
-{
-	float r = (float)(rand() & (RAND_LIMIT));
-	r /= RAND_LIMIT;
-	r = 2.0f * r - 1.0f;
-	return r;
-}
-
-/// Random floating point number in range [lo, hi]
-inline float RandomFloat(float lo, float hi)
-{
-	float r = (float)(rand() & (RAND_LIMIT));
-	r /= RAND_LIMIT;
-	r = (hi - lo) * r + lo;
-	return r;
-}
-
 constexpr int32_t k_maxContactPoints = 12 * 2048;
 
 struct ContactPoint
@@ -78,7 +58,7 @@ constexpr int32_t maxTasks = 64;
 class Sample
 {
   public:
-	explicit Sample(const Settings& settings);
+	explicit Sample(Settings& settings);
 	virtual ~Sample();
 
 	void DrawTitle(const char* string);
@@ -116,7 +96,7 @@ class Sample
 	b2Profile m_totalProfile;
 };
 
-typedef Sample* SampleCreateFcn(const Settings& settings);
+typedef Sample* SampleCreateFcn(Settings& settings);
 
 int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn);
 
@@ -130,3 +110,34 @@ struct SampleEntry
 #define MAX_SAMPLES 256
 extern SampleEntry g_sampleEntries[MAX_SAMPLES];
 extern int g_sampleCount;
+
+#define RAND_LIMIT 32767
+
+/// Random number in range [-1,1]
+inline float RandomFloat()
+{
+	float r = (float)(rand() & (RAND_LIMIT));
+	r /= RAND_LIMIT;
+	r = 2.0f * r - 1.0f;
+	return r;
+}
+
+/// Random floating point number in range [lo, hi]
+inline float RandomFloat(float lo, float hi)
+{
+	float r = (float)(rand() & (RAND_LIMIT));
+	r /= RAND_LIMIT;
+	r = (hi - lo) * r + lo;
+	return r;
+}
+
+/// Random vector with coordinates in range [lo, hi]
+inline b2Vec2 RandomVec2(float lo, float hi)
+{
+	b2Vec2 v;
+	v.x = RandomFloat(lo, hi);
+	v.y = RandomFloat(lo, hi);
+	return v;
+}
+
+b2Polygon RandomPolygon(float extent);

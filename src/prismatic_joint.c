@@ -16,7 +16,12 @@
 void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
 	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
-	joint->prismaticJoint.enableLimit = enableLimit;
+	if (enableLimit != joint->prismaticJoint.enableLimit)
+	{
+		joint->prismaticJoint.enableLimit = enableLimit;
+		joint->prismaticJoint.lowerImpulse = 0.0f;
+		joint->prismaticJoint.upperImpulse = 0.0f;
+	}
 }
 
 bool b2PrismaticJoint_IsLimitEnabled(b2JointId jointId)
@@ -25,10 +30,38 @@ bool b2PrismaticJoint_IsLimitEnabled(b2JointId jointId)
 	return joint->prismaticJoint.enableLimit;
 }
 
+float b2PrismaticJoint_GetLowerLimit(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	return joint->prismaticJoint.lowerTranslation;
+}
+
+float b2PrismaticJoint_GetUpperLimit(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	return joint->prismaticJoint.upperTranslation;
+}
+
+void b2PrismaticJoint_SetLimits(b2JointId jointId, float lower, float upper)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	if (lower != joint->prismaticJoint.lowerTranslation || upper != joint->prismaticJoint.upperTranslation)
+	{
+		joint->prismaticJoint.lowerTranslation = B2_MIN(lower, upper);
+		joint->prismaticJoint.upperTranslation = B2_MAX(lower, upper);
+		joint->prismaticJoint.lowerImpulse = 0.0f;
+		joint->prismaticJoint.upperImpulse = 0.0f;
+	}
+}
+
 void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
 	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
-	joint->prismaticJoint.enableMotor = enableMotor;
+	if (enableMotor != joint->prismaticJoint.enableMotor)
+	{
+		joint->prismaticJoint.enableMotor = enableMotor;
+		joint->prismaticJoint.motorImpulse = 0.0f;
+	}
 }
 
 bool b2PrismaticJoint_IsMotorEnabled(b2JointId jointId)
@@ -169,8 +202,8 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 
 	b2PrismaticJoint* joint = &base->prismaticJoint;
 
-	joint->indexA = context->bodyToSolverMap[indexA];
-	joint->indexB = context->bodyToSolverMap[indexB];
+	joint->indexA = bodyA->solverIndex;
+	joint->indexB = bodyB->solverIndex;
 
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));

@@ -167,6 +167,8 @@ static void b2EnableBody(b2World* world, b2Body* body)
 
 static void b2DisableBody(b2World* world, b2Body* body)
 {
+	body->solverIndex = B2_NULL_INDEX;
+
 	b2DestroyBodyContacts(world, body);
 	b2RemoveBodyFromIsland(world, body);
 
@@ -233,6 +235,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->force = b2Vec2_zero;
 	body->torque = 0.0f;
 	body->shapeList = B2_NULL_INDEX;
+	body->shapeCount = 0;
 	body->chainList = B2_NULL_INDEX;
 	body->jointList = B2_NULL_INDEX;
 	body->jointCount = 0;
@@ -260,6 +263,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandIndex = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
+	body->solverIndex = B2_NULL_INDEX;
 
 	if (body->isEnabled)
 	{
@@ -1129,6 +1133,8 @@ b2BodyType b2Body_GetType(b2BodyId bodyId)
 	return body->type;
 }
 
+// Changing the body type is quite complex. So we basically recreate the body.
+// #todo check joints
 void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
@@ -1150,6 +1156,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	{
 		body->type = type;
 	}
+
+	body->solverIndex = B2_NULL_INDEX;
 
 	// Body type affects the mass
 	b2UpdateBodyMassData(world, body);
@@ -1379,13 +1387,42 @@ void b2Body_Disable(b2BodyId bodyId)
 
 void b2Body_Enable(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
 	b2Body* body = b2GetBody(world, bodyId);
 	if (body->isEnabled == false)
 	{
 		b2EnableBody(world, body);
 		body->isEnabled = true;
 	}
+}
+
+void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+	if (body->fixedRotation != flag)
+	{
+		body->fixedRotation = flag;
+		body->angularVelocity = 0.0f;
+		b2UpdateBodyMassData(world, body);
+	}
+}
+
+bool b2Body_IsFixedRotation(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->fixedRotation;
 }
 
 b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId)

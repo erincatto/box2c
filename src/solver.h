@@ -92,9 +92,6 @@ typedef struct b2StepContext
 	struct b2Body* bodies;
 	int32_t bodyCapacity;
 
-	// Map from world body pool index to body state and param
-	const int32_t* bodyToSolverMap;
-
 	// Map from body state to world body
 	const int32_t* solverToBodyMap;
 
@@ -104,7 +101,6 @@ typedef struct b2StepContext
 
 	struct b2World* world;
 	struct b2ConstraintGraph* graph;
-	struct b2Body** awakeBodies;
 
 	int32_t* jointIndices;
 	int32_t* contactIndices;

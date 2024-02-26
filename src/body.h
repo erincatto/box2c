@@ -96,6 +96,8 @@ typedef struct b2Body
 	int32_t islandPrev;
 	int32_t islandNext;
 
+	int32_t solverIndex;
+
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.

@@ -47,6 +47,9 @@ B2_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 B2_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
 
+/// Get the body events for the current time step. The event data is transient. Do not store a reference to this data.
+B2_API b2BodyEvents b2World_GetBodyEvents(b2WorldId worldId);
+
 /// Get sensor events for the current time step. The event data is transient. Do not store a reference to this data.
 B2_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
 
@@ -304,6 +307,12 @@ B2_API void b2Body_Disable(b2BodyId bodyId);
 /// Enable a body by adding it to the simulation
 B2_API void b2Body_Enable(b2BodyId bodyId);
 
+/// Set this body to have fixed rotation. This causes the mass to be reset.
+B2_API void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag);
+
+/// Does this body have fixed rotation?
+B2_API bool b2Body_IsFixedRotation(b2BodyId bodyId);
+
 /// Iterate over shapes on a body
 B2_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
 B2_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
@@ -529,6 +538,9 @@ B2_API void b2Joint_SetUserData(b2JointId jointId, void* userData);
 /// Get the user data on a joint
 B2_API void* b2Joint_GetUserData(b2JointId jointId);
 
+/// Wake the bodies connect to this joint
+B2_API void b2Joint_WakeBodies(b2JointId jointId);
+
 /// Distance Joint
 
 /// Get the constraint force on a distance joint
@@ -624,6 +636,15 @@ B2_API void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 /// @return is the prismatic joint limit enabled
 B2_API bool b2PrismaticJoint_IsLimitEnabled(b2JointId jointId);
 
+/// Get the lower joint limit in length units (meters).
+B2_API float b2PrismaticJoint_GetLowerLimit(b2JointId jointId);
+
+/// Get the upper joint limit in length units (meters).
+B2_API float b2PrismaticJoint_GetUpperLimit(b2JointId jointId);
+
+/// Set the joint limits in length units (meters).
+B2_API void b2PrismaticJoint_SetLimits(b2JointId jointId, float lower, float upper);
+
 /// Enable/disable a prismatic joint motor
 B2_API void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 
@@ -653,13 +674,22 @@ B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
 
 /// Revolute Joint
 
-/// Enable/disable a revolute joint limit
+/// Enable/disable a revolute joint limit.
 B2_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 
 /// @return is the revolute joint limit enabled
 B2_API bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId);
 
-/// Enable/disable a revolute joint motor
+/// Get the lower joint limit in radians.
+B2_API float b2RevoluteJoint_GetLowerLimit(b2JointId jointId);
+
+/// Get the upper joint limit in radians.
+B2_API float b2RevoluteJoint_GetUpperLimit(b2JointId jointId);
+
+/// Set the joint limits in radians.
+B2_API void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper);
+
+/// Enable/disable a revolute joint motor.
 B2_API void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 
 /// @return is the revolute joint motor enabled
@@ -700,11 +730,20 @@ B2_API void b2WheelJoint_SetSpringDampingRatio(b2JointId jointId, float dampingR
 /// @return the wheel joint damping ratio (non-dimensional)
 B2_API float b2WheelJoint_GetSpringDampingRatio(b2JointId jointId);
 
-/// Enable/disable the wheel joint limit
+/// Enable/disable the wheel joint limit.
 B2_API void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 
 /// @return is the wheel joint limit enabled
 B2_API bool b2WheelJoint_IsLimitEnabled(b2JointId jointId);
+
+/// Get the lower joint limit in length units (meters).
+B2_API float b2WheelJoint_GetLowerLimit(b2JointId jointId);
+
+/// Get the upper joint limit in length units (meters).
+B2_API float b2WheelJoint_GetUpperLimit(b2JointId jointId);
+
+/// Set the joint limits in length units (meters).
+B2_API void b2WheelJoint_SetLimits(b2JointId jointId, float lower, float upper);
 
 /// Enable/disable the wheel joint motor
 B2_API void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor);

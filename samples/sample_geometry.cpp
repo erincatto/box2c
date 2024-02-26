@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
+#include "settings.h"
+
 #include "box2d/hull.h"
 #include "box2d/math.h"
 
@@ -15,9 +17,15 @@ public:
 		e_count = b2_maxPolygonVertices
 	};
 
-	ConvexHull(const Settings& settings)
+	ConvexHull(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.5f, 0.0f};
+			g_camera.m_zoom = 0.3f;
+		}
+
 		m_generation = 0;
 		m_auto = false;
 		m_bulk = false;
@@ -176,7 +184,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new ConvexHull(settings);
 	}

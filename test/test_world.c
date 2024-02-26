@@ -44,6 +44,7 @@ int HelloWorld(void)
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
 	bodyDef.position = (b2Vec2){0.0f, 4.0f};
+
 	b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
 
 	// Define another box shape for our dynamic body.
@@ -71,7 +72,7 @@ int HelloWorld(void)
 	float angle = b2Body_GetAngle(bodyId);
 
 	// This is our little game loop.
-	for (int32_t i = 0; i < 60; ++i)
+	for (int32_t i = 0; i < 90; ++i)
 	{
 		// Instruct the world to perform a single step of simulation.
 		// It is generally best to keep the time step and iterations fixed.

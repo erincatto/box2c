@@ -55,7 +55,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	base->invIB = bodyB->invI;
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	joint->indexB = context->bodyToSolverMap[indexB];
+	joint->indexB = bodyB->solverIndex;
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 
 	joint->linearSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);

@@ -138,6 +138,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
 	world->contactAwakeIndexArray = b2CreateArray(sizeof(int32_t), world->contactPool.capacity);
 
+	world->bodyMoveEventArray = b2CreateArray(sizeof(b2BodyMoveEvent), 4);
+
 	world->sensorBeginEventArray = b2CreateArray(sizeof(b2SensorBeginTouchEvent), 4);
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 
@@ -206,6 +208,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
 	b2DestroyArray(world->contactAwakeIndexArray, sizeof(int32_t));
 
+	b2DestroyArray(world->bodyMoveEventArray, sizeof(b2BodyMoveEvent));
 	b2DestroyArray(world->sensorBeginEventArray, sizeof(b2SensorBeginTouchEvent));
 	b2DestroyArray(world->sensorEndEventArray, sizeof(b2SensorEndTouchEvent));
 
@@ -497,6 +500,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 
 	// Prepare to capture events
 	// Ensure user does not access stale data if there is an early return
+	b2Array_Clear(world->bodyMoveEventArray);
 	b2Array_Clear(world->sensorBeginEventArray);
 	b2Array_Clear(world->sensorEndEventArray);
 	b2Array_Clear(world->contactBeginArray);
@@ -896,6 +900,20 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			}
 		}
 	}
+}
+
+b2BodyEvents b2World_GetBodyEvents(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return (b2BodyEvents){0};
+	}
+
+	int count = b2Array(world->bodyMoveEventArray).count;
+	b2BodyEvents events = {world->bodyMoveEventArray, count};
+	return events;
 }
 
 b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId)

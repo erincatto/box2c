@@ -76,6 +76,7 @@ typedef struct b2World
 	// TODO_ERIN use a bit array somehow?
 	int32_t* contactAwakeIndexArray;
 
+	struct b2BodyMoveEvent* bodyMoveEventArray;
 	struct b2SensorBeginTouchEvent* sensorBeginEventArray;
 	struct b2SensorEndTouchEvent* sensorEndEventArray;
 	struct b2ContactBeginTouchEvent* contactBeginArray;
