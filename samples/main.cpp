@@ -48,6 +48,7 @@ static int MyAllocHook(int allocType, void* userData, size_t size, int blockType
 GLFWwindow* g_mainWindow = nullptr;
 static int32_t s_selection = 0;
 static Sample* s_sample = nullptr;
+static Settings s_defaultSettings;
 static Settings s_settings;
 static bool s_rightMouseDown = false;
 static b2Vec2 s_clickPointWS = b2Vec2_zero;
@@ -696,8 +697,8 @@ int main(int, char**)
 
 		// if (g_draw.m_showUI)
 		{
-			snprintf(buffer, 128, "%.1f ms - step %d - camera (%g, %g)", 1000.0f * frameTime, s_sample->m_stepCount, g_camera.m_center.x,
-					 g_camera.m_center.y);
+			snprintf(buffer, 128, "%.1f ms - step %d - camera (%g, %g, %g)", 1000.0f * frameTime, s_sample->m_stepCount, g_camera.m_center.x,
+					 g_camera.m_center.y, g_camera.m_zoom);
 
 			ImGui::Begin("Overlay", nullptr,
 						ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
@@ -718,6 +719,10 @@ int main(int, char**)
 		{
 			g_camera.ResetView();
 			s_settings.sampleIndex = s_selection;
+
+			// #todo restore all drawing settings that may have been overridden by a sample
+			s_settings.drawJoints = true;
+
 			delete s_sample;
 			s_sample = nullptr;
 			s_sample = g_sampleEntries[s_settings.sampleIndex].createFcn(s_settings);

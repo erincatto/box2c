@@ -40,14 +40,12 @@ float b2WheelJoint_GetSpringDampingRatio(b2JointId jointId)
 void b2WheelJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
 	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-
 	if (joint->wheelJoint.enableLimit != enableLimit)
 	{
 		joint->wheelJoint.lowerImpulse = 0.0f;
 		joint->wheelJoint.upperImpulse = 0.0f;
+		joint->wheelJoint.enableLimit = enableLimit;
 	}
-
-	joint->wheelJoint.enableLimit = enableLimit;
 }
 
 bool b2WheelJoint_IsLimitEnabled(b2JointId jointId)
@@ -56,16 +54,38 @@ bool b2WheelJoint_IsLimitEnabled(b2JointId jointId)
 	return joint->wheelJoint.enableLimit;
 }
 
+float b2WheelJoint_GetLowerLimit(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.lowerTranslation;
+}
+
+float b2WheelJoint_GetUpperLimit(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.upperTranslation;
+}
+
+void b2WheelJoint_SetLimits(b2JointId jointId, float lower, float upper)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
+	if (lower != joint->wheelJoint.lowerTranslation || upper != joint->wheelJoint.upperTranslation)
+	{
+		joint->wheelJoint.lowerTranslation = B2_MIN(lower, upper);
+		joint->wheelJoint.upperTranslation = B2_MAX(lower, upper);
+		joint->wheelJoint.lowerImpulse = 0.0f;
+		joint->wheelJoint.upperImpulse = 0.0f;
+	}
+}
+
 void b2WheelJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
 	b2Joint* joint = b2GetJointCheckType(jointId, b2_wheelJoint);
-
 	if (joint->wheelJoint.enableMotor != enableMotor)
 	{
 		joint->wheelJoint.motorImpulse = 0.0f;
+		joint->wheelJoint.enableMotor = enableMotor;
 	}
-
-	joint->wheelJoint.enableMotor = enableMotor;
 }
 
 bool b2WheelJoint_IsMotorEnabled(b2JointId jointId)

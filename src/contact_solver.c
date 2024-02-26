@@ -599,6 +599,9 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 				B2_ASSERT(bodyA->object.index == bodyA->object.next);
 				B2_ASSERT(bodyB->object.index == bodyB->object.next);
 
+				B2_ASSERT(bodyA->solverIndex == B2_NULL_INDEX || bodyA->type != b2_staticBody);
+				B2_ASSERT(bodyB->solverIndex == B2_NULL_INDEX || bodyB->type != b2_staticBody);
+
 				constraint->indexA[j] = bodyA->solverIndex;
 				constraint->indexB[j] = bodyB->solverIndex;
 

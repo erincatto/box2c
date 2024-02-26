@@ -31,9 +31,15 @@ class BenchmarkBarrel : public Sample
 		e_maxRows = 130,
 	};
 
-	BenchmarkBarrel(const Settings& settings)
+	BenchmarkBarrel(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {8.0f, 53.0f};
+			g_camera.m_zoom = 2.35f;
+		}
+
 		float groundSize = 25.0f;
 
 		{
@@ -227,7 +233,7 @@ class BenchmarkBarrel : public Sample
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkBarrel(settings);
 	}
@@ -245,9 +251,15 @@ static int benchmarkBarrel = RegisterSample("Benchmark", "Barrel", BenchmarkBarr
 class BenchmarkTumbler : public Sample
 {
   public:
-	BenchmarkTumbler(const Settings& settings)
+	BenchmarkTumbler(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {1.5f, 10.0f};
+			g_camera.m_zoom = 0.6f;
+		}
+
 		b2BodyId groundId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -332,7 +344,7 @@ class BenchmarkTumbler : public Sample
 		Sample::Step(settings);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkTumbler(settings);
 	}
@@ -345,13 +357,20 @@ class BenchmarkTumbler : public Sample
 
 static int benchmarkTumbler = RegisterSample("Benchmark", "Tumbler", BenchmarkTumbler::Create);
 
-// TODO_ERIN make these kinematic
+// #todo add option to make these kinematic
 class BenchmarkManyTumblers : public Sample
 {
   public:
-	BenchmarkManyTumblers(const Settings& settings)
+	BenchmarkManyTumblers(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {1.0f, -5.5};
+			g_camera.m_zoom = 3.4f;
+			settings.drawJoints = false;
+		}
+
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -541,7 +560,7 @@ class BenchmarkManyTumblers : public Sample
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkManyTumblers(settings);
 	}
@@ -569,9 +588,15 @@ static int benchmarkManyTumblers = RegisterSample("Benchmark", "Many Tumblers", 
 class BenchmarkPyramid : public Sample
 {
   public:
-	BenchmarkPyramid(const Settings& settings)
+	BenchmarkPyramid(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {14.0f, 75.0f};
+			g_camera.m_zoom = 3.4f;
+		}
+
 		m_extent = 0.5f;
 		m_round = 0.0f;
 		m_baseCount = 10;
@@ -748,7 +773,7 @@ class BenchmarkPyramid : public Sample
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkPyramid(settings);
 	}
@@ -784,7 +809,7 @@ class BenchmarkCreateDestroy : public Sample
 		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
 	};
 
-	BenchmarkCreateDestroy(const Settings& settings)
+	BenchmarkCreateDestroy(Settings& settings)
 		: Sample(settings)
 	{
 		float groundSize = 100.0f;
@@ -868,7 +893,7 @@ class BenchmarkCreateDestroy : public Sample
 		Sample::Step(settings);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkCreateDestroy(settings);
 	}
@@ -885,9 +910,15 @@ static int benchmarkCreateDestroy = RegisterSample("Benchmark", "CreateDestroy",
 class BenchmarkJointGrid : public Sample
 {
   public:
-	BenchmarkJointGrid(const Settings& settings)
+	BenchmarkJointGrid(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 2.5f;
+			g_camera.m_center = {60.0f, -57.0f};
+		}
+
 		constexpr float rad = 0.4f;
 		constexpr int32_t numi = g_sampleDebug ? 10 : 100;
 		constexpr int32_t numk = g_sampleDebug ? 10 : 100;
@@ -955,7 +986,7 @@ class BenchmarkJointGrid : public Sample
 		free(bodies);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkJointGrid(settings);
 	}

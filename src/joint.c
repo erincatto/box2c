@@ -359,8 +359,8 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	joint->revoluteJoint.motorImpulse = 0.0f;
 	joint->revoluteJoint.lowerImpulse = 0.0f;
 	joint->revoluteJoint.upperImpulse = 0.0f;
-	joint->revoluteJoint.lowerAngle = def->lowerAngle;
-	joint->revoluteJoint.upperAngle = def->upperAngle;
+	joint->revoluteJoint.lowerAngle = B2_MIN(def->lowerAngle, def->upperAngle);
+	joint->revoluteJoint.upperAngle = B2_MAX(def->lowerAngle, def->upperAngle);
 	joint->revoluteJoint.maxMotorTorque = def->maxMotorTorque;
 	joint->revoluteJoint.motorSpeed = def->motorSpeed;
 	joint->revoluteJoint.enableLimit = def->enableLimit;
@@ -663,9 +663,19 @@ void b2DestroyJoint(b2JointId jointId)
 
 	b2UnlinkJoint(world, joint);
 
-	b2RemoveJointFromGraph(world, joint);
+	if (joint->colorIndex != B2_NULL_INDEX)
+	{
+		b2RemoveJointFromGraph(world, joint);
+	}
+	else
+	{
+		B2_ASSERT(b2IsBodyAwake(world, bodyA) == false && b2IsBodyAwake(world, bodyB) == false);
+	}
 
 	b2FreeObject(&world->jointPool, &joint->object);
+
+	b2WakeBody(world, bodyA);
+	b2WakeBody(world, bodyB);
 }
 
 b2JointType b2Joint_GetType(b2JointId jointId)
@@ -772,7 +782,7 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 
 			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-			
+
 			if ((bodyIndexA == shapeA->bodyIndex && bodyIndexB == shapeB->bodyIndex) ||
 				(bodyIndexA == shapeB->bodyIndex && bodyIndexB == shapeA->bodyIndex))
 			{
@@ -801,6 +811,25 @@ void* b2Joint_GetUserData(b2JointId jointId)
 	b2World* world = b2GetWorldFromIndex(jointId.world);
 	b2Joint* joint = b2GetJoint(world, jointId);
 	return joint->userData;
+}
+
+void b2Joint_WakeBodies(b2JointId jointId)
+{
+	b2World* world = b2GetWorldFromIndexLocked(jointId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJoint(world, jointId);
+
+	b2Body* bodyA = world->bodies + joint->edges[0].bodyIndex;
+	b2Body* bodyB = world->bodies + joint->edges[1].bodyIndex;
+	B2_ASSERT(b2IsValidObject(&bodyA->object));
+	B2_ASSERT(b2IsValidObject(&bodyB->object));
+
+	b2WakeBody(world, bodyA);
+	b2WakeBody(world, bodyB);
 }
 
 extern void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context);
@@ -1071,7 +1100,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		return;
 	}
 
-	b2Transform transformA = b2MakeTransform(bodyA);;
+	b2Transform transformA = b2MakeTransform(bodyA);
 	b2Transform transformB = b2MakeTransform(bodyB);
 	b2Vec2 pA = b2TransformPoint(transformA, joint->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, joint->localOriginAnchorB);

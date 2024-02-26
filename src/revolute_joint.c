@@ -18,7 +18,12 @@
 void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
 	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
-	joint->revoluteJoint.enableLimit = enableLimit;
+	if (enableLimit != joint->revoluteJoint.enableLimit)
+	{
+		joint->revoluteJoint.enableLimit = enableLimit;
+		joint->revoluteJoint.lowerImpulse = 0.0f;
+		joint->revoluteJoint.upperImpulse = 0.0f;
+	}
 }
 
 bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId)
@@ -27,10 +32,38 @@ bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId)
 	return joint->revoluteJoint.enableLimit;
 }
 
+float b2RevoluteJoint_GetLowerLimit(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.lowerAngle;
+}
+
+float b2RevoluteJoint_GetUpperLimit(b2JointId jointId)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.upperAngle;
+}
+
+void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
+{
+	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	if (lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle)
+	{
+		joint->revoluteJoint.lowerAngle = B2_MIN(lower, upper);
+		joint->revoluteJoint.upperAngle = B2_MAX(lower, upper);
+		joint->revoluteJoint.lowerImpulse = 0.0f;
+		joint->revoluteJoint.upperImpulse = 0.0f;
+	}
+}
+
 void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
 	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
-	joint->revoluteJoint.enableMotor = enableMotor;
+	if (enableMotor != joint->revoluteJoint.enableMotor)
+	{
+		joint->revoluteJoint.enableMotor = enableMotor;
+		joint->revoluteJoint.motorImpulse = 0.0f;
+	}
 }
 
 bool b2RevoluteJoint_IsMotorEnabled(b2JointId jointId)

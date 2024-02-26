@@ -24,7 +24,7 @@ public:
 		e_maxCount = 10
 	};
 
-	DistanceJoint(const Settings& settings)
+	DistanceJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -189,7 +189,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new DistanceJoint(settings);
 	}
@@ -216,9 +216,15 @@ static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", Dist
 class MotorJoint : public Sample
 {
 public:
-	MotorJoint(const Settings& settings)
+	MotorJoint(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 7.0f};
+			g_camera.m_zoom = 0.4f;
+		}
+
 		b2BodyId groundId;
 		{
 			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
@@ -312,7 +318,7 @@ public:
 		m_textLine += 15;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new MotorJoint(settings);
 	}
@@ -330,9 +336,15 @@ static int sampleMotorJoint = RegisterSample("Joints", "Motor Joint", MotorJoint
 class RevoluteJoint : public Sample
 {
 public:
-	RevoluteJoint(const Settings& settings)
+	RevoluteJoint(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 15.5f};
+			g_camera.m_zoom = 0.7f;
+		}
+
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -348,7 +360,7 @@ public:
 		m_enableLimit = true;
 		m_enableMotor = false;
 		m_motorSpeed = 1.0f;
-		m_motorTorque = 100.0f;
+		m_motorTorque = 1000.0f;
 
 		{
 			b2Polygon box = b2MakeOffsetBox(0.25f, 3.0f, {0.0f, 3.0f}, 0.0f);
@@ -359,7 +371,7 @@ public:
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			shapeDef.density = 5.0f;
+			shapeDef.density = 1.0f;
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
 			b2Vec2 pivot = {-10.0f, 20.5f};
@@ -388,7 +400,7 @@ public:
 			m_ball = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			shapeDef.density = 5.0f;
+			shapeDef.density = 1.0f;
 
 			b2CreateCircleShape(m_ball, &shapeDef, &circle);
 		}
@@ -401,7 +413,7 @@ public:
 
 			b2Polygon box = b2MakeOffsetBox(10.0f, 0.5f, {-10.0f, 0.0f}, 0.0f);
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			shapeDef.density = 2.0f;
+			shapeDef.density = 1.0f;
 			b2CreatePolygonShape(body, &shapeDef, &box);
 
 			b2Vec2 pivot = {19.0f, 10.0f};
@@ -430,14 +442,16 @@ public:
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
 			b2RevoluteJoint_EnableLimit(m_jointId1, m_enableLimit);
+			b2Joint_WakeBodies(m_jointId1);
 		}
 
 		if (ImGui::Checkbox("Motor", &m_enableMotor))
 		{
 			b2RevoluteJoint_EnableMotor(m_jointId1, m_enableMotor);
+			b2Joint_WakeBodies(m_jointId1);
 		}
 
-		if (ImGui::SliderFloat("Max Torque", &m_motorTorque, 0.0f, 500.0f, "%.0f"))
+		if (ImGui::SliderFloat("Max Torque", &m_motorTorque, 0.0f, 5000.0f, "%.0f"))
 		{
 			b2RevoluteJoint_SetMaxMotorTorque(m_jointId1, m_motorTorque);
 		}
@@ -463,7 +477,7 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new RevoluteJoint(settings);
 	}
@@ -482,7 +496,7 @@ static int sampleRevolute = RegisterSample("Joints", "Revolute", RevoluteJoint::
 class PrismaticJoint : public Sample
 {
 public:
-	PrismaticJoint(const Settings& settings)
+	PrismaticJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -566,7 +580,7 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new PrismaticJoint(settings);
 	}
@@ -583,13 +597,13 @@ static int samplePrismatic = RegisterSample("Joints", "Prismatic", PrismaticJoin
 class WheelJoint : public Sample
 {
 public:
-	WheelJoint(const Settings& settings)
+	WheelJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 10.0f};
-			g_camera.m_zoom = 0.25f;
+			g_camera.m_zoom = 0.15f;
 		}
 
 		b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
@@ -680,7 +694,7 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new WheelJoint(settings);
 	}
@@ -705,7 +719,7 @@ public:
 		e_count = 160
 	};
 
-	Bridge(const Settings& settings)
+	Bridge(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -828,7 +842,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Bridge(settings);
 	}
@@ -849,7 +863,7 @@ public:
 		e_count = 30
 	};
 
-	BallAndChain(const Settings& settings)
+	BallAndChain(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -936,7 +950,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BallAndChain(settings);
 	}
@@ -957,13 +971,13 @@ public:
 		e_count = 8
 	};
 
-	Cantilever(const Settings& settings)
+	Cantilever(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.25f;
 			g_camera.m_center = {0.0f, 0.0f};
+			g_camera.m_zoom = 0.35f;
 		}
 
 		b2BodyId groundId = b2_nullBodyId;
@@ -1081,7 +1095,7 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Cantilever(settings);
 	}
@@ -1108,9 +1122,15 @@ public:
 		e_count = 6
 	};
 
-	FixedRotation(const Settings& settings)
+	FixedRotation(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 8.0f};
+			g_camera.m_zoom = 0.7f;
+		}
+
 		m_groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 		m_fixedRotation = true;
 
@@ -1140,7 +1160,7 @@ public:
 			}
 		}
 
-		b2Vec2 position = {-20.0f, 10.0f};
+		b2Vec2 position = {-12.5f, 10.0f};
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.enableSleep = false;
@@ -1293,18 +1313,21 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, 60.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 60.0f));
 		ImGui::Begin("Fixed Rotation", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("fixed rotation", &m_fixedRotation))
 		{
-			CreateScene();
+			for (int i = 0; i < e_count; ++i)
+			{
+				b2Body_SetFixedRotation(m_bodyIds[i], m_fixedRotation);
+			}
 		}
 
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new FixedRotation(settings);
 	}
@@ -1321,9 +1344,15 @@ static int sampleFixedRotation = RegisterSample("Joints", "Fixed Rotation", Fixe
 class UserConstraint : public Sample
 {
 public:
-	UserConstraint(const Settings& settings)
+	UserConstraint(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {3.0f, -1.0f};
+			g_camera.m_zoom = 0.15f;
+		}
+
 		b2Polygon box = b2MakeBox(1.0f, 0.5f);
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -1423,7 +1452,7 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new UserConstraint(settings);
 	}
@@ -1438,9 +1467,16 @@ static int sampleUserConstraintIndex = RegisterSample("Joints", "User Constraint
 class Car : public Sample
 {
 public:
-	Car(const Settings& settings)
+	Car(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center.y = 5.0f;
+			g_camera.m_zoom = 0.4f;
+			settings.drawJoints = false;
+		}
+
 		b2BodyId groundId;
 		{
 			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
@@ -1625,8 +1661,8 @@ public:
 			b2Vec2 pivot = b2Body_GetPosition(m_wheelId1);
 
 			m_throttle = 0.0f;
-			m_speed = 30.0f;
-			m_torque = 1.5f;
+			m_speed = 35.0f;
+			m_torque = 2.5f;
 			m_hertz = 5.0f;
 			m_dampingRatio = 0.7f;
 
@@ -1707,6 +1743,7 @@ public:
 			m_throttle = 1.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, m_speed);
 			b2WheelJoint_SetMotorSpeed(m_jointId2, m_speed);
+			b2Joint_WakeBodies(m_jointId1);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)
@@ -1721,9 +1758,15 @@ public:
 			m_throttle = -1.0f;
 			b2WheelJoint_SetMotorSpeed(m_jointId1, -m_speed);
 			b2WheelJoint_SetMotorSpeed(m_jointId2, -m_speed);
+			b2Joint_WakeBodies(m_jointId1);
 		}
 
 		g_draw.DrawString(5, m_textLine, "Keys: left = a, brake = s, right = d");
+		m_textLine += m_textIncrement;
+
+		b2Vec2 linearVelocity = b2Body_GetLinearVelocity(m_carId);
+		float kph = linearVelocity.x * 3.6f;
+		g_draw.DrawString(5, m_textLine, "speed in kph: %.2g", kph);
 		m_textLine += m_textIncrement;
 
 		b2Vec2 carPosition = b2Body_GetPosition(m_carId);
@@ -1732,7 +1775,7 @@ public:
 		Sample::Step(settings);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Car(settings);
 	}
@@ -1756,26 +1799,25 @@ static int sampleCar = RegisterSample("Joints", "Car", Car::Create);
 class Ragdoll : public Sample
 {
 public:
-	Ragdoll(const Settings& settings)
+	Ragdoll(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.25f;
-			g_camera.m_center = {0.0f, 5.0f};
+			g_camera.m_center = {0.0f, 3.0f};
+			g_camera.m_zoom = 0.15f;
 		}
 
-		b2BodyId groundId;
 		{
-			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
 		}
 
-		m_human.Spawn(m_worldId, {0.0f, 10.0f}, 1.0f, 1, nullptr);
+		m_human.Spawn(m_worldId, {0.0f, 5.0f}, 1.0f, 1, nullptr);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Ragdoll(settings);
 	}
@@ -1788,7 +1830,7 @@ static int sampleRagdoll = RegisterSample("Joints", "Ragdoll", Ragdoll::Create);
 class SoftBody : public Sample
 {
 public:
-	SoftBody(const Settings& settings)
+	SoftBody(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1807,7 +1849,7 @@ public:
 		m_donut.Spawn(m_worldId, {0.0f, 10.0f}, 0, nullptr);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new SoftBody(settings);
 	}

@@ -7,6 +7,7 @@
 
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
+#include "box2d/hull.h"
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/math_cpp.h"
@@ -77,7 +78,7 @@ static void TestMathCpp()
 	c += c;
 }
 
-Sample::Sample(const Settings& settings)
+Sample::Sample(Settings& settings)
 {
 	b2Vec2 gravity = {0.0f, -10.0f};
 
@@ -384,4 +385,21 @@ int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn)
 	}
 
 	return -1;
+}
+
+b2Polygon RandomPolygon(float extent)
+{
+	b2Vec2 points[b2_maxPolygonVertices];
+	for (int i = 0; i < b2_maxPolygonVertices; ++i)
+	{
+		points[i] = RandomVec2(-extent, extent);
+	}
+
+	b2Hull hull = b2ComputeHull(points, b2_maxPolygonVertices);
+	if (hull.count > 0)
+	{
+		return b2MakePolygon(&hull, 0.0f);
+	}
+
+	return b2MakeSquare(extent);
 }

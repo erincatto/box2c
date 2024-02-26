@@ -24,7 +24,7 @@ public:
 		e_count = 32
 	};
 
-	SensorEvent(const Settings& settings)
+	SensorEvent(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -221,8 +221,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 120.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f));
+		ImGui::SetNextWindowSize(ImVec2(140.0f, 100.0f));
 		ImGui::Begin("Sensor Event", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("donut", m_type == e_donut))
@@ -306,7 +306,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new SensorEvent(settings);
 	}
@@ -334,7 +334,7 @@ public:
 		e_count = 20
 	};
 
-	ContactEvent(const Settings& settings)
+	ContactEvent(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -632,7 +632,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new ContactEvent(settings);
 	}
@@ -651,9 +651,15 @@ static int sampleWeeble = RegisterSample("Events", "Contact", ContactEvent::Crea
 class Platformer : public Sample
 {
 public:
-	Platformer(const Settings& settings)
+	Platformer(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.5f, 7.5f};
+			g_camera.m_zoom = 0.4f;
+		}
+
 		b2World_SetPreSolveCallback(m_worldId, PreSolveStatic, this);
 
 		// Ground
@@ -762,8 +768,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 120.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 200.0f));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
 		ImGui::Begin("Sample Platformer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("force", &m_force, 0.0f, 50.0f, "%.1f");
@@ -852,7 +858,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Platformer(settings);
 	}
@@ -868,3 +874,136 @@ public:
 };
 
 static int samplePlatformer = RegisterSample("Events", "Platformer", Platformer::Create);
+
+// This shows how to process body events.
+class BodyMove : public Sample
+{
+public:
+	enum
+	{
+		e_count = 50
+	};
+
+	BodyMove(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.55f;
+			g_camera.m_center = {2.0f, 8.0f};
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(20.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 5.0f, {19.0f, 5.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 5.0f, {-19.0f, 5.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		m_sleepCount = 0;
+		m_count = 0;
+	}
+
+	void CreateBodies()
+	{
+		b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, 0.25f};
+		b2Circle circle = {{0.0f, 0.0f}, 0.35f};
+		b2Polygon square = b2MakeSquare(0.35f);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		float x = -5.0f, y = 10.0f;
+		for (int32_t i = 0; i < 10 && m_count < e_count; ++i)
+		{
+			bodyDef.position = {x, y};
+			bodyDef.userData = m_bodyIds + m_count;
+			m_bodyIds[m_count] = b2CreateBody(m_worldId, &bodyDef);
+			m_sleeping[m_count] = false;
+
+			int remainder = m_count % 4;
+			if (remainder == 0)
+			{
+				b2CreateCapsuleShape(m_bodyIds[m_count], &shapeDef, &capsule);
+			}
+			else if (remainder == 1)
+			{
+				b2CreateCircleShape(m_bodyIds[m_count], &shapeDef, &circle);
+			}
+			else if (remainder == 2)
+			{
+				b2CreatePolygonShape(m_bodyIds[m_count], &shapeDef, &square);
+			}
+			else
+			{
+				b2Polygon poly = RandomPolygon(0.75f);
+				b2CreatePolygonShape(m_bodyIds[m_count], &shapeDef, &poly);
+			}
+
+			m_count += 1;
+			x += 1.0f;
+		}
+	}
+
+	void Step(Settings& settings) override
+	{
+		if (settings.pause == false && (m_stepCount & 15) == 15 && m_count < e_count)
+		{
+			CreateBodies();
+		}
+
+		Sample::Step(settings);
+
+		// Process body events
+		b2BodyEvents events = b2World_GetBodyEvents(m_worldId);
+		for (int i = 0; i < events.moveCount; ++i)
+		{
+			// draw the transform of every body that moved (not sleeping)
+			const b2BodyMoveEvent* event = events.moveEvents + i;
+			g_draw.DrawTransform(event->transform);
+
+			// this shows a somewhat contrived way to track body sleeping
+			b2BodyId* bodyId = static_cast<b2BodyId*>(event->userData);
+			ptrdiff_t diff = bodyId - m_bodyIds;
+			bool* sleeping = m_sleeping + diff;
+
+			if (event->fellAsleep)
+			{
+				*sleeping = true;
+				m_sleepCount += 1;
+			}
+			else
+			{
+				if (*sleeping)
+				{
+					*sleeping = false;
+					m_sleepCount -= 1;
+				}
+			}
+		}
+
+		g_draw.DrawString(5, m_textLine, "sleep count: %d", m_sleepCount);
+		m_textLine += m_textIncrement;
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new BodyMove(settings);
+	}
+
+	b2BodyId m_bodyIds[e_count];
+	bool m_sleeping[e_count];
+	int m_count;
+	int m_sleepCount;
+};
+
+static int sampleBodyMove = RegisterSample("Events", "Body Move", BodyMove::Create);

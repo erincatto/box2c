@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "sample.h"
+#include "settings.h"
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
@@ -12,9 +13,15 @@
 class BodyType : public Sample
 {
   public:
-	BodyType(const Settings& settings)
+	BodyType(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.8f, 6.4f};
+			g_camera.m_zoom = 0.4f;
+		}
+
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -157,7 +164,7 @@ class BodyType : public Sample
 		Sample::Step(settings);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BodyType(settings);
 	}
@@ -176,9 +183,15 @@ static int sampleBodyType = RegisterSample("Bodies", "Body Type", BodyType::Crea
 class Character : public Sample
 {
 public:
-	Character(const Settings& settings)
+	Character(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {-2.0f, 7.0f};
+			g_camera.m_zoom = 0.4f;
+		}
+
 		// Ground body
 		{
 			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
@@ -328,7 +341,7 @@ public:
 		m_textLine += m_textIncrement;
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Character(settings);
 	}
@@ -343,9 +356,15 @@ static int sampleCharacter = RegisterSample("Bodies", "Character", Character::Cr
 class Weeble : public Sample
 {
 public:
-	Weeble(const Settings& settings)
+	Weeble(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {2.3f, 10.0f};
+			g_camera.m_zoom = 0.5f;
+		}
+
 		b2BodyId groundId = b2_nullBodyId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -396,7 +415,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Weeble(settings);
 	}

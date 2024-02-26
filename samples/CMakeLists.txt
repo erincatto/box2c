@@ -56,32 +56,27 @@ add_library(jsmn INTERFACE ${JSMN_DIR}/jsmn.h)
 target_include_directories(jsmn INTERFACE ${JSMN_DIR})
 
 add_executable(samples
+	donut.cpp
+	donut.h
 	draw.cpp
 	draw.h
+	human.cpp
+	human.h
 	main.cpp
 	sample.cpp
 	sample.h
-	settings.h
+	sample_benchmark.cpp
+	sample_bodies.cpp
+	sample_collision.cpp
+	sample_continuous.cpp
+	sample_events.cpp
+	sample_geometry.cpp
+	sample_joints.cpp
+	sample_robustness.cpp
+	sample_shapes.cpp
+	sample_stacking.cpp
 	settings.cpp
-	collection/benchmark.cpp
-	collection/donut.cpp
-	collection/donut.h
-	collection/human.cpp
-	collection/human.h
-	collection/sample_joints.cpp
-	collection/sample_robustness.cpp
-	collection/sample_bodies.cpp
-	collection/sample_continuous.cpp
-	collection/sample_distance.cpp
-	collection/sample_dynamic_tree.cpp
-	collection/sample_events.cpp
-	collection/sample_hull.cpp
-	collection/sample_manifold.cpp
-	collection/sample_ray_cast.cpp
-	collection/sample_shapes.cpp
-	collection/sample_shape_cast.cpp
-	collection/sample_stacking.cpp
-	collection/sample_time_of_impact.cpp
+	settings.h
 )
 
 set_target_properties(samples PROPERTIES

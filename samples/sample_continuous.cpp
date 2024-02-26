@@ -24,12 +24,13 @@ public:
 		e_boxShape
 	};
 
-	BounceHouse(const Settings& settings)
+	BounceHouse(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
+			g_camera.m_zoom = 0.45f;
 		}
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -115,7 +116,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new BounceHouse(settings);
 	}
@@ -129,13 +130,13 @@ static int sampleBounceHouse = RegisterSample("Continuous", "Bounce House", Boun
 class FastChain : public Sample
 {
 public:
-	FastChain(const Settings& settings)
+	FastChain(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 0.35f;
 		}
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -188,7 +189,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new FastChain(settings);
 	}
@@ -201,9 +202,15 @@ static int sampleFastChainHouse = RegisterSample("Continuous", "Fast Chain", Fas
 class SkinnyBox : public Sample
 {
 public:
-	SkinnyBox(const Settings& settings)
+	SkinnyBox(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {1.0f, 5.0f};
+			g_camera.m_zoom = 0.25f;
+		}
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
@@ -278,8 +285,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 130.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::Checkbox("Capsule", &m_capsule);
@@ -304,7 +311,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new SkinnyBox(settings);
 	}
@@ -330,9 +337,15 @@ public:
 		e_boxShape
 	};
 
-	GhostCollision(const Settings& settings)
+	GhostCollision(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {1.5f, 16.0f};
+			g_camera.m_zoom = 0.8f;
+		}
+
 		m_groundId = b2_nullBodyId;
 		m_bodyId = b2_nullBodyId;
 		m_shapeId = b2_nullShapeId;
@@ -533,8 +546,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 130.0f));
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Chain", &m_useChain))
@@ -580,7 +593,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new GhostCollision(settings);
 	}

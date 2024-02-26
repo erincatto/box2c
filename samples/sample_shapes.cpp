@@ -39,7 +39,7 @@ public:
 		e_boxShape
 	};
 
-	ChainShape(const Settings& settings)
+	ChainShape(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -210,7 +210,7 @@ public:
 		g_draw.DrawSegment(b2Vec2_zero, {0.0f, 0.5f}, b2MakeColor(b2_colorGreen));
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new ChainShape(settings);
 	}
@@ -232,12 +232,12 @@ static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape
 class CompoundShapes : public Sample
 {
 public:
-	CompoundShapes(const Settings& settings)
+	CompoundShapes(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {0.0f, 0.0f};
+			g_camera.m_center = {0.0f, 6.0f};
 			g_camera.m_zoom = 0.5f;
 		}
 
@@ -425,7 +425,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new CompoundShapes(settings);
 	}
@@ -452,7 +452,7 @@ public:
 		ALL_BITS = (~0u)
 	};
 
-	ShapeFilter(const Settings& settings)
+	ShapeFilter(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -633,7 +633,7 @@ public:
 		g_draw.DrawString({p3.x - 0.5f, p3.y}, "player 3");
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new ShapeFilter(settings);
 	}
@@ -664,9 +664,15 @@ public:
 		e_boxShape
 	};
 
-	Restitution(const Settings& settings)
+	Restitution(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {5.0f, 24.0f};
+			g_camera.m_zoom = 1.1f;
+		}
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
@@ -737,8 +743,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
 		ImGui::Begin("Restitution", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -758,7 +764,7 @@ public:
 		ImGui::End();
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Restitution(settings);
 	}
@@ -772,9 +778,14 @@ static int sampleIndex = RegisterSample("Shapes", "Restitution", Restitution::Cr
 class Friction : public Sample
 {
 public:
-	Friction(const Settings& settings)
+	Friction(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 14.0f};
+			g_camera.m_zoom = 0.6f;
+		}
 
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -823,7 +834,7 @@ public:
 		}
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new Friction(settings);
 	}
@@ -836,7 +847,7 @@ static int sampleIndex3 = RegisterSample("Shapes", "Friction", Friction::Create)
 class ModifyGeometry : public Sample
 {
 public:
-	ModifyGeometry(const Settings& settings)
+	ModifyGeometry(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -970,7 +981,7 @@ public:
 		Sample::Step(settings);
 	}
 
-	static Sample* Create(const Settings& settings)
+	static Sample* Create(Settings& settings)
 	{
 		return new ModifyGeometry(settings);
 	}

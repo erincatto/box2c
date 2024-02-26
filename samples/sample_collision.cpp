@@ -1,0 +1,3544 @@
+// SPDX-FileCopyrightText: 2023 Erin Catto
+// SPDX-License-Identifier: MIT
+
+#include "sample.h"
+#include "settings.h"
+
+#include "box2d/box2d.h"
+#include "box2d/color.h"
+#include "box2d/distance.h"
+#include "box2d/dynamic_tree.h"
+#include "box2d/geometry.h"
+#include "box2d/hull.h"
+#include "box2d/math.h"
+
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+
+class SampleDistance : public Sample
+{
+public:
+	SampleDistance(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, -1.2f};
+			g_camera.m_zoom = 0.1f;
+		}
+
+		m_circle1 = {{0.0f, 0.0f}, 0.5f};
+		m_circle2 = {{0.0f, 0.0f}, 1.0f};
+		m_capsule = {{-0.5f, 0.0f}, {0.5f, 0.0f}, 0.5f};
+		m_box = b2MakeBox(0.5f, 0.5f);
+
+		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
+		m_smoothSegment = {{2.0f, 1.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0}}, {-2.0f, -1.0f}};
+
+		m_transform = b2Transform_identity;
+		m_angle = 0.0f;
+
+		m_boxbox = b2_emptyDistanceCache;
+		m_startPoint = {0.0f, 0.0f};
+		m_basePosition = {0.0f, 0.0f};
+		m_baseAngle = 0.0f;
+
+		m_dragging = false;
+		m_rotating = false;
+		m_showIndices = false;
+		m_useCache = false;
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 230.0f));
+		ImGui::Begin("Distance Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		{
+			m_transform.q = b2MakeRot(m_angle);
+		}
+
+		if (ImGui::Checkbox("show indices", &m_showIndices))
+		{
+		}
+
+		if (ImGui::Checkbox("use cache", &m_useCache))
+		{
+		}
+
+		if (ImGui::Button("Reset"))
+		{
+			m_transform = b2Transform_identity;
+			m_angle = 0.0f;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: drag");
+		ImGui::Text("mouse button 1 + shift: rotate");
+
+		ImGui::End();
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_dragging = true;
+				m_startPoint = p;
+				m_basePosition = m_transform.p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_startPoint = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_transform.p.x = m_basePosition.x + 0.5f * (p.x - m_startPoint.x);
+			m_transform.p.y = m_basePosition.y + 0.5f * (p.y - m_startPoint.y);
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPoint.x;
+			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_transform.q = b2MakeRot(m_angle);
+		}
+	}
+
+	void DrawDistance(const b2DistanceInput* input, const b2DistanceCache* cache, const b2DistanceOutput* output)
+	{
+		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
+		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
+		b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
+
+		g_draw.DrawSegment(output->pointA, output->pointB, white);
+
+		if (m_showIndices)
+		{
+			for (int32_t i = 0; i < cache->count; ++i)
+			{
+				b2Vec2 pointA = b2TransformPoint(input->transformA, input->proxyA.vertices[cache->indexA[i]]);
+				b2Vec2 pointB = b2TransformPoint(input->transformB, input->proxyB.vertices[cache->indexB[i]]);
+				g_draw.DrawPoint(pointA, 5.0f, green);
+				g_draw.DrawPoint(pointB, 5.0f, red);
+			}
+			b2Vec2 m = b2Lerp(output->pointA, output->pointB, 0.5f);
+			g_draw.DrawString(m, " %d", cache->count);
+		}
+		else
+		{
+			g_draw.DrawPoint(output->pointA, 5.0f, green);
+			g_draw.DrawPoint(output->pointB, 5.0f, red);
+		}
+	}
+
+	void Step(Settings&) override
+	{
+		b2Vec2 offset = {-20.0f, 10.0f};
+		b2Vec2 increment = {5.0f, 0.0f};
+
+		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
+		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
+		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
+		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
+
+		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
+
+#if 0
+		// circle-circle
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideCircles(&m_circle1, &m_circle2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, m_circle1.radius, xf2, m_circle2.radius);
+
+			b2Vec2 c1 = b2TransformPoint(xf1, m_circle1.point);
+			b2Vec2 c2 = b2TransformPoint(xf2, m_circle2.point);
+			b2Vec2 axis1 = b2RotateVector(xf1.q, {1.0f, 0.0f});
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c1, m_circle1.radius, axis1, color1);
+			g_draw.DrawSolidCircle(c2, m_circle2.radius, axis2, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// capsule-circle
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideCapsuleAndCircle(&m_capsule, xf1, &m_circle1, xf2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, m_capsule.radius, xf2, m_circle1.radius);
+
+			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf1, m_capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
+
+			b2Vec2 c1 = b2TransformPoint(xf2, m_circle1.point);
+			b2Vec2 axis1 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c1, m_circle1.radius, axis1, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// segment-circle
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSegmentAndCircle(&m_segment, xf1, &m_circle1, xf2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, m_circle1.radius);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, m_segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, m_segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			b2Vec2 c2 = b2TransformPoint(xf2, m_circle1.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// smooth segment-circle
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSmoothSegmentAndCircle(&m_smoothSegment, xf1, &m_circle1, xf2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, m_circle1.radius);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, m_smoothSegment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, m_smoothSegment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			p1 = b2TransformPoint(xf1, m_smoothSegment.ghost1);
+			p2 = b2TransformPoint(xf1, m_smoothSegment.point1);
+			g_draw.DrawSegment(p1, p2, dim1);
+
+			p1 = b2TransformPoint(xf1, m_smoothSegment.point2);
+			p2 = b2TransformPoint(xf1, m_smoothSegment.ghost2);
+			g_draw.DrawSegment(p1, p2, dim1);
+
+			b2Vec2 c2 = b2TransformPoint(xf2, m_circle1.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+#endif
+
+		// TODO temp
+		offset = b2Vec2_zero;
+
+#if 0
+		// capsule-capsule
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideCapsules(&m_capsule, xf1, &m_capsule, xf2);
+
+			b2Vec2 v1 = b2TransformPoint(xf1, m_capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf1, m_capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
+
+			v1 = b2TransformPoint(xf2, m_capsule.point1);
+			v2 = b2TransformPoint(xf2, m_capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// box-circle
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollidePolygonAndCircle(&m_box, xf1, &m_circle1, xf2);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, m_box.vertices[i]);
+			}
+			g_draw.DrawPolygon(vertices, m_box.count, color1);
+
+			b2Vec2 c2 = b2TransformPoint(xf2, m_circle1.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, m_circle1.radius, axis2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+#endif
+
+		// box-box
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2DistanceInput input;
+			input.proxyA = b2MakeProxy(m_box.vertices, m_box.count, 0.0f);
+			input.proxyB = b2MakeProxy(m_box.vertices, m_box.count, 0.0f);
+			input.transformA = xf1;
+			input.transformB = xf2;
+			input.useRadii = false;
+
+			b2DistanceCache cache = {0};
+			b2DistanceOutput output;
+
+			if (m_useCache)
+			{
+				output = b2ShapeDistance(&m_boxbox, &input);
+				cache = m_boxbox;
+			}
+			else
+			{
+				output = b2ShapeDistance(&cache, &input);
+			}
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, m_box.vertices[i]);
+			}
+			g_draw.DrawPolygon(vertices, m_box.count, color1);
+
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
+			}
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
+
+			DrawDistance(&input, &cache, &output);
+
+			g_draw.DrawString(5, m_textLine, "box-box: distance = %.2f, iters = %d", output.distance, output.iterations);
+			m_textLine += m_textIncrement;
+
+			offset = b2Add(offset, increment);
+		}
+
+#if 0
+		// segment-box
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSegmentAndPolygon(&m_segment, xf1, &m_box, xf2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, 0.0f);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, m_segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, m_segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
+			}
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// smooth segment-box
+		{
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSmoothSegmentAndPolygon(&m_smoothSegment, xf1, &m_box, xf2);
+			b2WorldManifold wm = b2ComputeWorldManifold(&m, xf1, 0.0f, xf2, 0.0f);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, m_smoothSegment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, m_smoothSegment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			p1 = b2TransformPoint(xf1, m_smoothSegment.ghost1);
+			p2 = b2TransformPoint(xf1, m_smoothSegment.point1);
+			g_draw.DrawSegment(p1, p2, dim1);
+
+			p1 = b2TransformPoint(xf1, m_smoothSegment.point2);
+			p2 = b2TransformPoint(xf1, m_smoothSegment.ghost2);
+			g_draw.DrawSegment(p1, p2, dim1);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, m_box.vertices[i]);
+			}
+			g_draw.DrawPolygon(vertices, m_box.count, color2);
+
+			DrawManifold(&m, &wm);
+
+			offset = b2Add(offset, increment);
+		}
+#endif
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new SampleDistance(settings);
+	}
+
+	b2Polygon m_box;
+	b2Circle m_circle1;
+	b2Circle m_circle2;
+	b2Capsule m_capsule;
+	b2Segment m_segment;
+	b2SmoothSegment m_smoothSegment;
+
+	b2DistanceCache m_boxbox;
+
+	b2Transform m_transform;
+	float m_angle;
+
+	b2Vec2 m_basePosition;
+	b2Vec2 m_startPoint;
+	float m_baseAngle;
+
+	bool m_dragging;
+	bool m_rotating;
+	bool m_showIndices;
+	bool m_useCache;
+};
+
+static int sampleDistance = RegisterSample("Collision", "Distance", SampleDistance::Create);
+
+enum UpdateType
+{
+	Update_Incremental = 0,
+	Update_FullRebuild = 1,
+	Update_PartialRebuild = 2,
+};
+
+struct Proxy
+{
+	b2AABB box;
+	b2AABB fatBox;
+	b2Vec2 position;
+	b2Vec2 width;
+	int32_t proxyId;
+	int32_t rayStamp;
+	int32_t queryStamp;
+	bool moved;
+};
+
+static bool QueryCallback(int32_t proxyId, int32_t userData, void* context);
+static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context);
+
+// Tests the Box2D bounding volume hierarchy (BVH). The dynamic tree
+// can be used independently as a spatial data structure.
+class DynamicTree : public Sample
+{
+public:
+	DynamicTree(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {500.0f, 500.0f};
+			g_camera.m_zoom = 21.0f;
+		}
+
+		m_fill = 0.25f;
+		m_moveFraction = 0.05f;
+		m_moveDelta = 0.1f;
+		m_proxies = nullptr;
+		m_proxyCount = 0;
+		m_proxyCapacity = 0;
+		m_ratio = 5.0f;
+		m_grid = 1.0f;
+
+		m_moveBuffer = nullptr;
+		m_moveCount = 0;
+
+		m_rowCount = g_sampleDebug ? 100 : 1000;
+		m_columnCount = g_sampleDebug ? 100 : 1000;
+		memset(&m_tree, 0, sizeof(m_tree));
+		BuildTree();
+		m_timeStamp = 0;
+		m_updateType = Update_Incremental;
+
+		m_startPoint = {0.0f, 0.0f};
+		m_endPoint = {0.0f, 0.0f};
+		m_queryDrag = false;
+		m_rayDrag = false;
+		m_validate = true;
+	}
+
+	~DynamicTree()
+	{
+		free(m_proxies);
+		free(m_moveBuffer);
+		b2DynamicTree_Destroy(&m_tree);
+	}
+
+	void BuildTree()
+	{
+		b2DynamicTree_Destroy(&m_tree);
+		free(m_proxies);
+		free(m_moveBuffer);
+
+		m_proxyCapacity = m_rowCount * m_columnCount;
+		m_proxies = static_cast<Proxy*>(malloc(m_proxyCapacity * sizeof(Proxy)));
+		m_proxyCount = 0;
+
+		m_moveBuffer = static_cast<int*>(malloc(m_proxyCapacity * sizeof(int)));
+		m_moveCount = 0;
+
+		float y = -4.0f;
+
+		bool isStatic = false;
+		m_tree = b2DynamicTree_Create();
+
+		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
+
+		for (int i = 0; i < m_rowCount; ++i)
+		{
+			float x = -40.0f;
+
+			for (int j = 0; j < m_columnCount; ++j)
+			{
+				float fillTest = RandomFloat(0.0f, 1.0f);
+				if (fillTest <= m_fill)
+				{
+					assert(m_proxyCount <= m_proxyCapacity);
+					Proxy* p = m_proxies + m_proxyCount;
+					p->position = {x, y};
+
+					float ratio = RandomFloat(1.0f, m_ratio);
+					float width = RandomFloat(0.1f, 0.5f);
+					if (RandomFloat() > 0.0f)
+					{
+						p->width.x = ratio * width;
+						p->width.y = width;
+					}
+					else
+					{
+						p->width.x = width;
+						p->width.y = ratio * width;
+					}
+
+					p->box.lowerBound = {x, y};
+					p->box.upperBound = {x + p->width.x, y + p->width.y};
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbMargin);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbMargin);
+
+					p->proxyId = b2DynamicTree_CreateProxy(&m_tree, p->fatBox, b2_defaultCategoryBits, m_proxyCount);
+					p->rayStamp = -1;
+					p->queryStamp = -1;
+					p->moved = false;
+					++m_proxyCount;
+				}
+
+				x += m_grid;
+			}
+
+			y += m_grid;
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 340.0f));
+		ImGui::Begin("Tree Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		bool changed = false;
+		if (ImGui::SliderInt("rows", &m_rowCount, 0, 1000, "%d"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderInt("columns", &m_columnCount, 0, 1000, "%d"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderFloat("fill", &m_fill, 0.0f, 1.0f, "%.2f"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderFloat("grid", &m_grid, 0.5f, 2.0f, "%.2f"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderFloat("ratio", &m_ratio, 1.0f, 10.0f, "%.2f"))
+		{
+			changed = true;
+		}
+
+		if (ImGui::SliderFloat("move", &m_moveFraction, 0.0f, 1.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("delta", &m_moveDelta, 0.0f, 1.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::RadioButton("Incremental", m_updateType == Update_Incremental))
+		{
+			m_updateType = Update_Incremental;
+			changed = true;
+		}
+
+		if (ImGui::RadioButton("Full Rebuild", m_updateType == Update_FullRebuild))
+		{
+			m_updateType = Update_FullRebuild;
+			changed = true;
+		}
+
+		if (ImGui::RadioButton("Partial Rebuild", m_updateType == Update_PartialRebuild))
+		{
+			m_updateType = Update_PartialRebuild;
+			changed = true;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: ray cast");
+		ImGui::Text("mouse button 1 + shift: query");
+
+		ImGui::End();
+
+		if (changed)
+		{
+			BuildTree();
+		}
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_queryDrag == false)
+			{
+				m_rayDrag = true;
+				m_startPoint = p;
+				m_endPoint = p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_rayDrag == false)
+			{
+				m_queryDrag = true;
+				m_startPoint = p;
+				m_endPoint = p;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_queryDrag = false;
+			m_rayDrag = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		m_endPoint = p;
+	}
+
+	void Step(Settings&) override
+	{
+		if (m_queryDrag)
+		{
+			b2AABB box = {b2Min(m_startPoint, m_endPoint), b2Max(m_startPoint, m_endPoint)};
+			b2DynamicTree_QueryFiltered(&m_tree, box, b2_defaultMaskBits, QueryCallback, this);
+
+			g_draw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
+		}
+
+		// m_startPoint = {-1.0f, 0.5f};
+		// m_endPoint = {7.0f, 0.5f};
+
+		if (m_rayDrag)
+		{
+			b2RayCastInput input = {m_startPoint, b2Sub(m_endPoint, m_startPoint), 1.0f};
+			b2DynamicTree_RayCast(&m_tree, &input, b2_defaultMaskBits, RayCallback, this);
+
+			g_draw.DrawSegment(m_startPoint, m_endPoint, {1.0f, 1.0f, 1.0f, 1.0f});
+			g_draw.DrawPoint(m_startPoint, 5.0f, {0.0f, 1.0f, 0.0f, 1.0f});
+			g_draw.DrawPoint(m_endPoint, 5.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+		}
+
+		b2Color c = {0.3f, 0.3f, 0.8f, 0.7f};
+		b2Color qc = {0.3, 0.8f, 0.3f, 1.0f};
+
+		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
+
+		for (int i = 0; i < m_proxyCount; ++i)
+		{
+			Proxy* p = m_proxies + i;
+
+			if (p->queryStamp == m_timeStamp || p->rayStamp == m_timeStamp)
+			{
+				g_draw.DrawAABB(p->box, qc);
+			}
+			else
+			{
+				g_draw.DrawAABB(p->box, c);
+			}
+
+			float moveTest = RandomFloat(0.0f, 1.0f);
+			if (m_moveFraction > moveTest)
+			{
+				float dx = m_moveDelta * RandomFloat();
+				float dy = m_moveDelta * RandomFloat();
+
+				p->position.x += dx;
+				p->position.y += dy;
+
+				p->box.lowerBound.x = p->position.x + dx;
+				p->box.lowerBound.y = p->position.y + dy;
+				p->box.upperBound.x = p->position.x + dx + p->width.x;
+				p->box.upperBound.y = p->position.y + dy + p->width.y;
+
+				if (b2AABB_Contains(p->fatBox, p->box) == false)
+				{
+					p->fatBox.lowerBound = b2Sub(p->box.lowerBound, aabbMargin);
+					p->fatBox.upperBound = b2Add(p->box.upperBound, aabbMargin);
+					p->moved = true;
+				}
+				else
+				{
+					p->moved = false;
+				}
+			}
+			else
+			{
+				p->moved = false;
+			}
+		}
+
+		switch (m_updateType)
+		{
+			case Update_Incremental:
+			{
+				b2Timer timer = b2CreateTimer();
+				for (int i = 0; i < m_proxyCount; ++i)
+				{
+					Proxy* p = m_proxies + i;
+					if (p->moved)
+					{
+						b2DynamicTree_MoveProxy(&m_tree, p->proxyId, p->fatBox);
+					}
+				}
+				float ms = b2GetMilliseconds(&timer);
+				g_draw.DrawString(5, m_textLine, "incremental : %.3f ms", ms);
+				m_textLine += m_textIncrement;
+			}
+			break;
+
+			case Update_FullRebuild:
+			{
+				for (int i = 0; i < m_proxyCount; ++i)
+				{
+					Proxy* p = m_proxies + i;
+					if (p->moved)
+					{
+						b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
+					}
+				}
+
+				b2Timer timer = b2CreateTimer();
+				int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, true);
+				float ms = b2GetMilliseconds(&timer);
+				g_draw.DrawString(5, m_textLine, "full build %d : %.3f ms", boxCount, ms);
+				m_textLine += m_textIncrement;
+			}
+			break;
+
+			case Update_PartialRebuild:
+			{
+				for (int i = 0; i < m_proxyCount; ++i)
+				{
+					Proxy* p = m_proxies + i;
+					if (p->moved)
+					{
+						b2DynamicTree_EnlargeProxy(&m_tree, p->proxyId, p->fatBox);
+					}
+				}
+
+				b2Timer timer = b2CreateTimer();
+				int32_t boxCount = b2DynamicTree_Rebuild(&m_tree, false);
+				float ms = b2GetMilliseconds(&timer);
+				g_draw.DrawString(5, m_textLine, "partial rebuild %d : %.3f ms", boxCount, ms);
+				m_textLine += m_textIncrement;
+			}
+			break;
+
+			default:
+				break;
+		}
+
+		int32_t height = b2DynamicTree_GetHeight(&m_tree);
+		float areaRatio = b2DynamicTree_GetAreaRatio(&m_tree);
+
+		int32_t hmin = (int32_t)(ceilf(logf((float)m_proxyCount) / logf(2.0f) - 1.0f));
+		g_draw.DrawString(5, m_textLine, "proxies = %d, height = %d, hmin = %d, area ratio = %.1f", m_proxyCount, height, hmin,
+						  areaRatio);
+		m_textLine += m_textIncrement;
+
+		b2DynamicTree_Validate(&m_tree);
+
+		m_timeStamp += 1;
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new DynamicTree(settings);
+	}
+
+	b2DynamicTree m_tree;
+	int m_rowCount, m_columnCount;
+	Proxy* m_proxies;
+	int* m_moveBuffer;
+	int m_moveCount;
+	int m_proxyCapacity;
+	int m_proxyCount;
+	int m_timeStamp;
+	int m_updateType;
+	float m_fill;
+	float m_moveFraction;
+	float m_moveDelta;
+	float m_ratio;
+	float m_grid;
+
+	b2Vec2 m_startPoint;
+	b2Vec2 m_endPoint;
+
+	bool m_rayDrag;
+	bool m_queryDrag;
+	bool m_validate;
+};
+
+static bool QueryCallback(int32_t proxyId, int32_t userData, void* context)
+{
+	DynamicTree* sample = static_cast<DynamicTree*>(context);
+	Proxy* proxy = sample->m_proxies + userData;
+	assert(proxy->proxyId == proxyId);
+	proxy->queryStamp = sample->m_timeStamp;
+	return true;
+}
+
+static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t userData, void* context)
+{
+	DynamicTree* sample = static_cast<DynamicTree*>(context);
+	Proxy* proxy = sample->m_proxies + userData;
+	assert(proxy->proxyId == proxyId);
+	proxy->rayStamp = sample->m_timeStamp;
+	return input->maxFraction;
+}
+
+static int sampleDynamicTree = RegisterSample("Collision", "Dynamic Tree", DynamicTree::Create);
+
+class RayCast : public Sample
+{
+public:
+	RayCast(Settings& settings)
+		: Sample(settings)
+	{
+		m_circle = {{0.0f, 0.0f}, 2.0f};
+		m_capsule = {{-1.0f, 1.0f}, {1.0f, -1.0f}, 1.5f};
+		m_box = b2MakeBox(2.0f, 2.0f);
+
+		b2Vec2 vertices[3] = {{-2.0f, 0.0f}, {2.0f, 0.0f}, {2.0f, 3.0f}};
+		b2Hull hull = b2ComputeHull(vertices, 3);
+		m_triangle = b2MakePolygon(&hull, 0.0f);
+
+		m_segment = {{-3.0f, 0.0f}, {3.0f, 0.0}};
+
+		m_transform = b2Transform_identity;
+		m_angle = 0.0f;
+
+		m_basePosition = {0.0f, 0.0f};
+		m_baseAngle = 0.0f;
+		m_startPosition = {0.0f, 0.0f};
+
+		m_rayStart = {0.0f, 30.0f};
+		m_rayEnd = {0.0f, 0.0f};
+
+		m_rayDrag = false;
+		m_translating = false;
+		m_rotating = false;
+
+		m_showFraction = false;
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(250.0f, 230.0f));
+		ImGui::Begin("RayCast Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		{
+			m_transform.q = b2MakeRot(m_angle);
+		}
+
+		// if (ImGui::SliderFloat("ray radius", &m_rayRadius, 0.0f, 1.0f, "%.1f"))
+		//{
+		// }
+
+		if (ImGui::Checkbox("show fraction", &m_showFraction))
+		{
+		}
+
+		if (ImGui::Button("Reset"))
+		{
+			m_transform = b2Transform_identity;
+			m_angle = 0.0f;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse btn 1: ray cast");
+		ImGui::Text("mouse btn 1 + shft: translate");
+		ImGui::Text("mouse btn 1 + ctrl: rotate");
+
+		ImGui::End();
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_startPosition = p;
+
+			if (mods == 0)
+			{
+				m_rayStart = p;
+				m_rayDrag = true;
+			}
+			else if (mods == GLFW_MOD_SHIFT)
+			{
+				m_translating = true;
+				m_basePosition = m_transform.p;
+			}
+			else if (mods == GLFW_MOD_CONTROL)
+			{
+				m_rotating = true;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_rayDrag = false;
+			m_rotating = false;
+			m_translating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_rayDrag)
+		{
+			m_rayEnd = p;
+		}
+		else if (m_translating)
+		{
+			m_transform.p.x = m_basePosition.x + 0.5f * (p.x - m_startPosition.x);
+			m_transform.p.y = m_basePosition.y + 0.5f * (p.y - m_startPosition.y);
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPosition.x;
+			m_angle = B2_CLAMP(m_baseAngle + 0.5f * dx, -b2_pi, b2_pi);
+			m_transform.q = b2MakeRot(m_angle);
+		}
+	}
+
+	void DrawRay(const b2CastOutput* output)
+	{
+		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
+		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
+		b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
+		b2Color violet = {1.0f, 0.0f, 1.0f, 1.0f};
+
+		b2Vec2 p1 = m_rayStart;
+		b2Vec2 p2 = m_rayEnd;
+		b2Vec2 d = b2Sub(p2, p1);
+
+		if (output->hit)
+		{
+			b2Vec2 p = b2MulAdd(p1, output->fraction, d);
+			g_draw.DrawSegment(p1, p, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+			g_draw.DrawPoint(output->point, 5.0f, white);
+
+			b2Vec2 n = b2MulAdd(p, 1.0f, output->normal);
+			g_draw.DrawSegment(p, n, violet);
+
+			// if (m_rayRadius > 0.0f)
+			//{
+			//	g_draw.DrawCircle(p1, m_rayRadius, green);
+			//	g_draw.DrawCircle(p, m_rayRadius, red);
+			// }
+
+			if (m_showFraction)
+			{
+				b2Vec2 ps = {p.x + 0.05f, p.y - 0.02f};
+				g_draw.DrawString(ps, "%.2f", output->fraction);
+			}
+		}
+		else
+		{
+			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+			g_draw.DrawPoint(p2, 5.0f, red);
+
+			// if (m_rayRadius > 0.0f)
+			//{
+			//	g_draw.DrawCircle(p1, m_rayRadius, green);
+			//	g_draw.DrawCircle(p2, m_rayRadius, red);
+			// }
+		}
+	}
+
+	void Step(Settings&) override
+	{
+		b2Vec2 offset = {-20.0f, 20.0f};
+		b2Vec2 increment = {10.0f, 0.0f};
+
+		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
+		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
+
+		b2CastOutput output = {0};
+		float maxFraction = 1.0f;
+
+		// circle
+		{
+			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
+			b2Vec2 c = b2TransformPoint(xf, m_circle.point);
+			b2Vec2 axis = b2RotateVector(xf.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c, m_circle.radius, axis, color1);
+
+			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
+
+			b2CastOutput localOutput = b2RayCastCircle(&input, &m_circle);
+			if (localOutput.hit)
+			{
+				output = localOutput;
+				output.point = b2TransformPoint(xf, localOutput.point);
+				output.normal = b2RotateVector(xf.q, localOutput.normal);
+				maxFraction = localOutput.fraction;
+			}
+
+			offset = b2Add(offset, increment);
+		}
+
+		// capsule
+		{
+			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
+			b2Vec2 v1 = b2TransformPoint(xf, m_capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf, m_capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
+
+			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
+
+			b2CastOutput localOutput = b2RayCastCapsule(&input, &m_capsule);
+			if (localOutput.hit)
+			{
+				output = localOutput;
+				output.point = b2TransformPoint(xf, localOutput.point);
+				output.normal = b2RotateVector(xf.q, localOutput.normal);
+				maxFraction = localOutput.fraction;
+			}
+
+			offset = b2Add(offset, increment);
+		}
+
+		// box
+		{
+			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf, m_box.vertices[i]);
+			}
+			g_draw.DrawSolidPolygon(vertices, m_box.count, color1);
+
+			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
+
+			b2CastOutput localOutput = b2RayCastPolygon(&input, &m_box);
+			if (localOutput.hit)
+			{
+				output = localOutput;
+				output.point = b2TransformPoint(xf, localOutput.point);
+				output.normal = b2RotateVector(xf.q, localOutput.normal);
+				maxFraction = localOutput.fraction;
+			}
+
+			offset = b2Add(offset, increment);
+		}
+
+		// triangle
+		{
+			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < m_triangle.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf, m_triangle.vertices[i]);
+			}
+			g_draw.DrawSolidPolygon(vertices, m_triangle.count, color1);
+
+			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
+
+			b2CastOutput localOutput = b2RayCastPolygon(&input, &m_triangle);
+			if (localOutput.hit)
+			{
+				output = localOutput;
+				output.point = b2TransformPoint(xf, localOutput.point);
+				output.normal = b2RotateVector(xf.q, localOutput.normal);
+				maxFraction = localOutput.fraction;
+			}
+
+			offset = b2Add(offset, increment);
+		}
+
+		// segment
+		{
+			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Vec2 p1 = b2TransformPoint(xf, m_segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf, m_segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
+			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
+			b2RayCastInput input = {start, translation, maxFraction};
+
+			b2CastOutput localOutput = b2RayCastSegment(&input, &m_segment, false);
+			if (localOutput.hit)
+			{
+				output = localOutput;
+				output.point = b2TransformPoint(xf, localOutput.point);
+				output.normal = b2RotateVector(xf.q, localOutput.normal);
+				maxFraction = localOutput.fraction;
+			}
+
+			offset = b2Add(offset, increment);
+		}
+
+		DrawRay(&output);
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new RayCast(settings);
+	}
+
+	b2Polygon m_box;
+	b2Polygon m_triangle;
+	b2Circle m_circle;
+	b2Capsule m_capsule;
+	b2Segment m_segment;
+
+	b2Transform m_transform;
+	float m_angle;
+
+	b2Vec2 m_rayStart;
+	b2Vec2 m_rayEnd;
+
+	b2Vec2 m_basePosition;
+	float m_baseAngle;
+
+	b2Vec2 m_startPosition;
+
+	bool m_rayDrag;
+	bool m_translating;
+	bool m_rotating;
+	bool m_showFraction;
+};
+
+static int sampleIndex = RegisterSample("Collision", "Ray Cast", RayCast::Create);
+
+// This shows how to filter a specific shape using using data.
+struct ShapeUserData
+{
+	int index;
+	bool ignore;
+};
+
+// Context for ray cast callbacks. Do what you want with this.
+struct RayCastContext
+{
+	b2Vec2 points[3];
+	b2Vec2 normals[3];
+	float fractions[3];
+	int count;
+};
+
+// This callback finds the closest hit. This is the most common callback used in games.
+static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext* rayContext = (RayCastContext*)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData != nullptr && userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
+		return -1.0f;
+	}
+
+	rayContext->points[0] = point;
+	rayContext->normals[0] = normal;
+	rayContext->fractions[0] = fraction;
+	rayContext->count = 1;
+
+	// By returning the current fraction, we instruct the calling code to clip the ray and
+	// continue the ray-cast to the next shape. WARNING: do not assume that shapes
+	// are reported in order. However, by clipping, we can always get the closest shape.
+	return fraction;
+}
+
+// This callback finds any hit. For this type of query we are usually just checking for obstruction,
+// so the hit data is not relevant.
+// NOTE: shape hits are not ordered, so this may not return the closest hit
+static float RayCastAnyCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext* rayContext = (RayCastContext*)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData != nullptr && userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
+		return -1.0f;
+	}
+
+	rayContext->points[0] = point;
+	rayContext->normals[0] = normal;
+	rayContext->fractions[0] = fraction;
+	rayContext->count = 1;
+
+	// At this point we have a hit, so we know the ray is obstructed.
+	// By returning 0, we instruct the calling code to terminate the ray-cast.
+	return 0.0f;
+}
+
+// This ray cast collects multiple hits along the ray.
+// The shapes are not necessary reported in order, so we might not capture
+// the closest shape.
+// NOTE: shape hits are not ordered, so this may return hits in any order. This means that
+// if you limit the number of results, you may discard the closest hit. You can see this
+// behavior in the sample.
+static float RayCastMultipleCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext* rayContext = (RayCastContext*)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData != nullptr && userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
+		return -1.0f;
+	}
+
+	int count = rayContext->count;
+	assert(count < 3);
+
+	rayContext->points[count] = point;
+	rayContext->normals[count] = normal;
+	rayContext->fractions[count] = fraction;
+	rayContext->count = count + 1;
+
+	if (rayContext->count == 3)
+	{
+		// At this point the buffer is full.
+		// By returning 0, we instruct the calling code to terminate the ray-cast.
+		return 0.0f;
+	}
+
+	// By returning 1, we instruct the caller to continue without clipping the ray.
+	return 1.0f;
+}
+
+// This ray cast collects multiple hits along the ray and sorts them.
+static float RayCastSortedCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+	RayCastContext* rayContext = (RayCastContext*)context;
+
+	ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+	if (userData != nullptr && userData->ignore)
+	{
+		// By returning -1, we instruct the calling code to ignore this shape and
+		// continue the ray-cast to the next shape.
+		return -1.0f;
+	}
+
+	int count = rayContext->count;
+	assert(count <= 3);
+
+	int index = 3;
+	while (fraction < rayContext->fractions[index - 1])
+	{
+		index -= 1;
+
+		if (index == 0)
+		{
+			break;
+		}
+	}
+
+	if (index == 3)
+	{
+		// not closer, continue but tell the caller not to consider fractions further than the largest fraction acquired
+		// this only happens once the buffer is full
+		assert(rayContext->count == 3);
+		assert(rayContext->fractions[2] <= 1.0f);
+		return rayContext->fractions[2];
+	}
+
+	for (int j = 2; j > index; --j)
+	{
+		rayContext->points[j] = rayContext->points[j - 1];
+		rayContext->normals[j] = rayContext->normals[j - 1];
+		rayContext->fractions[j] = rayContext->fractions[j - 1];
+	}
+
+	rayContext->points[index] = point;
+	rayContext->normals[index] = normal;
+	rayContext->fractions[index] = fraction;
+	rayContext->count = count < 3 ? count + 1 : 3;
+
+	if (rayContext->count == 3)
+	{
+		return rayContext->fractions[2];
+	}
+
+	// By returning 1, we instruct the caller to continue without clipping the ray.
+	return 1.0f;
+}
+
+class RayCastWorld : public Sample
+{
+public:
+	enum Mode
+	{
+		e_any = 0,
+		e_closest = 1,
+		e_multiple = 2,
+		e_sorted = 3
+	};
+
+	enum CastType
+	{
+		e_rayCast = 0,
+		e_circleCast = 1,
+		e_capsuleCast = 2,
+		e_polygonCast = 3
+	};
+
+	enum
+	{
+		e_maxCount = 64
+	};
+
+	RayCastWorld(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {2.0f, 14.0f};
+			g_camera.m_zoom = 0.75f;
+		}
+
+		// Ground body
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Segment segment = {{-40.0f, 0.0f}, {40.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
+		}
+
+		{
+			b2Vec2 vertices[3] = {{-0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.5f}};
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			m_polygons[0] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		{
+			b2Vec2 vertices[3] = {{-0.1f, 0.0f}, {0.1f, 0.0f}, {0.0f, 1.5f}};
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			m_polygons[1] = b2MakePolygon(&hull, 0.0f);
+			m_polygons[1].radius = 0.5f;
+		}
+
+		{
+			float w = 1.0f;
+			float b = w / (2.0f + sqrtf(2.0f));
+			float s = sqrtf(2.0f) * b;
+
+			b2Vec2 vertices[8] = {{0.5f * s, 0.0f}, {0.5f * w, b},		{0.5f * w, b + s}, {0.5f * s, w},
+								  {-0.5f * s, w},	{-0.5f * w, b + s}, {-0.5f * w, b},	   {-0.5f * s, 0.0f}};
+
+			b2Hull hull = b2ComputeHull(vertices, 8);
+			m_polygons[2] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		m_polygons[3] = b2MakeBox(0.5f, 0.5f);
+		m_capsule = {{-0.5f, 0.0f}, {0.5f, 0.0f}, 0.25f};
+		m_circle = {{0.0f, 0.0f}, 0.5f};
+		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0f}};
+
+		m_bodyIndex = 0;
+
+		for (int i = 0; i < e_maxCount; ++i)
+		{
+			m_bodyIds[i] = b2_nullBodyId;
+		}
+
+		m_mode = e_closest;
+		m_ignoreIndex = 7;
+
+		m_castType = e_rayCast;
+		m_castRadius = 0.5f;
+
+		m_rayStart = {-20.0f, 10.0f};
+		m_rayEnd = {20.0f, 10.0f};
+		m_dragging = false;
+
+		m_angle = 0.0f;
+		m_baseAngle = 0.0f;
+		m_angleAnchor = {0.0f, 0.0f};
+		m_rotating = false;
+
+		m_simple = false;
+	}
+
+	void Create(int index)
+	{
+		if (B2_IS_NON_NULL(m_bodyIds[m_bodyIndex]))
+		{
+			b2DestroyBody(m_bodyIds[m_bodyIndex]);
+			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
+		}
+
+		float x = RandomFloat(-20.0f, 20.0f);
+		float y = RandomFloat(0.0f, 20.0f);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.position = {x, y};
+		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
+
+		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.userData = m_userData + m_bodyIndex;
+		m_userData[m_bodyIndex].ignore = false;
+		if (m_bodyIndex == m_ignoreIndex)
+		{
+			m_userData[m_bodyIndex].ignore = true;
+		}
+
+		if (index < 4)
+		{
+			b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
+		}
+		else if (index == 4)
+		{
+			b2CreateCircleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_circle);
+		}
+		else if (index == 5)
+		{
+			b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_capsule);
+		}
+		else
+		{
+			b2CreateSegmentShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_segment);
+		}
+
+		m_bodyIndex = (m_bodyIndex + 1) % e_maxCount;
+	}
+
+	void CreateN(int index, int count)
+	{
+		for (int i = 0; i < count; ++i)
+		{
+			Create(index);
+		}
+	}
+
+	void DestroyBody()
+	{
+		for (int i = 0; i < e_maxCount; ++i)
+		{
+			if (B2_IS_NON_NULL(m_bodyIds[i]))
+			{
+				b2DestroyBody(m_bodyIds[i]);
+				m_bodyIds[i] = b2_nullBodyId;
+				return;
+			}
+		}
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_rayStart = p;
+				m_rayEnd = p;
+				m_dragging = true;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_angleAnchor = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_rayEnd = p;
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_angleAnchor.x;
+			m_angle = m_baseAngle + 1.0f * dx;
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 360.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::Checkbox("Simple", &m_simple);
+
+		if (m_simple == false)
+		{
+			const char* castTypes[] = {"Ray", "Circle", "Capsule", "Polygon"};
+			int castType = int(m_castType);
+			if (ImGui::Combo("Cast Type", &castType, castTypes, IM_ARRAYSIZE(castTypes)))
+			{
+				m_castType = CastType(castType);
+			}
+
+			if (m_castType != e_rayCast)
+			{
+				ImGui::SliderFloat("radius", &m_castRadius, 0.0f, 2.0f, "%.1f");
+			}
+
+			const char* modes[] = {"Any", "Closest", "Multiple", "Sorted"};
+			int mode = int(m_mode);
+			if (ImGui::Combo("Mode", &mode, modes, IM_ARRAYSIZE(modes)))
+			{
+				m_mode = Mode(mode);
+			}
+		}
+
+		if (ImGui::Button("Polygon 1"))
+			Create(0);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Poly1"))
+			CreateN(0, 10);
+
+		if (ImGui::Button("Polygon 2"))
+			Create(1);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Poly2"))
+			CreateN(1, 10);
+
+		if (ImGui::Button("Polygon 3"))
+			Create(2);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Poly3"))
+			CreateN(2, 10);
+
+		if (ImGui::Button("Box"))
+			Create(3);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Box"))
+			CreateN(3, 10);
+
+		if (ImGui::Button("Circle"))
+			Create(4);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Circle"))
+			CreateN(4, 10);
+
+		if (ImGui::Button("Capsule"))
+			Create(5);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Capsule"))
+			CreateN(5, 10);
+
+		if (ImGui::Button("Segment"))
+			Create(6);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Segment"))
+			CreateN(6, 10);
+
+		if (ImGui::Button("Destroy Shape"))
+		{
+			DestroyBody();
+		}
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawString(5, m_textLine, "Click left mouse button and drag to modify ray cast");
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "Shape 7 is intentionally ignored by the ray");
+		m_textLine += m_textIncrement;
+
+		m_textLine += m_textIncrement;
+
+		b2Color color1 = {0.4f, 0.9f, 0.4f, 1.0f};
+		b2Color color2 = {0.8f, 0.8f, 0.8f, 1.0f};
+		b2Color color3 = {0.9f, 0.9f, 0.4f, 1.0f};
+		b2Color green = b2MakeColorAlpha(b2_colorGreen, 0.7f);
+		b2Color yellow = b2MakeColorAlpha(b2_colorYellow, 0.7f);
+		b2Color gray = b2MakeColorAlpha(b2_colorGray, 0.7f);
+
+		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
+
+		if (m_simple)
+		{
+			g_draw.DrawString(5, m_textLine, "Simple closest point ray cast");
+			m_textLine += m_textIncrement;
+
+			// This version doesn't have a callback, but it doesn't skip the ignored shape
+			b2RayResult result = b2World_RayCastClosest(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter());
+
+			if (result.hit == true)
+			{
+				b2Vec2 c = b2MulAdd(m_rayStart, result.fraction, rayTranslation);
+				g_draw.DrawPoint(result.point, 5.0f, color1);
+				g_draw.DrawSegment(m_rayStart, c, color2);
+				b2Vec2 head = b2MulAdd(result.point, 0.5f, result.normal);
+				g_draw.DrawSegment(result.point, head, color3);
+			}
+			else
+			{
+				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+			}
+		}
+		else
+		{
+			switch (m_mode)
+			{
+				case e_any:
+					g_draw.DrawString(5, m_textLine, "Cast mode: any - check for obstruction - unsorted");
+					break;
+
+				case e_closest:
+					g_draw.DrawString(5, m_textLine, "Cast mode: closest - find closest shape along the cast");
+					break;
+
+				case e_multiple:
+					g_draw.DrawString(5, m_textLine, "Cast mode: multiple - gather up to 3 shapes - unsorted");
+					break;
+
+				case e_sorted:
+					g_draw.DrawString(5, m_textLine, "Cast mode: sorted - gather up to 3 shapes sorted by closeness");
+					break;
+			}
+
+			m_textLine += m_textIncrement;
+
+			b2CastResultFcn* fcns[] = {RayCastAnyCallback, RayCastClosestCallback, RayCastMultipleCallback,
+									   RayCastSortedCallback};
+			b2CastResultFcn* modeFcn = fcns[m_mode];
+
+			RayCastContext context = {0};
+
+			// Must initialize fractions for sorting
+			context.fractions[0] = FLT_MAX;
+			context.fractions[1] = FLT_MAX;
+			context.fractions[2] = FLT_MAX;
+
+			b2Circle circle = {{0.0f, 0.0f}, m_castRadius};
+			b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, m_castRadius};
+			b2Polygon box = b2MakeRoundedBox(0.25f, 0.5f, m_castRadius);
+			b2Transform transform = {m_rayStart, b2MakeRot(m_angle)};
+
+			switch (m_castType)
+			{
+				case e_rayCast:
+					b2World_RayCast(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					break;
+
+				case e_circleCast:
+					b2World_CircleCast(m_worldId, &circle, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					break;
+
+				case e_capsuleCast:
+					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn,
+										&context);
+					break;
+
+				case e_polygonCast:
+					b2World_PolygonCast(m_worldId, &box, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					break;
+			}
+
+			if (context.count > 0)
+			{
+				assert(context.count <= 3);
+				b2Color colors[3] = {b2MakeColor(b2_colorRed), b2MakeColor(b2_colorGreen), b2MakeColor(b2_colorBlue)};
+				for (int i = 0; i < context.count; ++i)
+				{
+					b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[i], rayTranslation);
+					b2Vec2 p = context.points[i];
+					b2Vec2 n = context.normals[i];
+					g_draw.DrawPoint(p, 5.0f, colors[i]);
+					g_draw.DrawSegment(m_rayStart, c, color2);
+					b2Vec2 head = b2MulAdd(p, 0.5f, n);
+					g_draw.DrawSegment(p, head, color3);
+
+					b2Vec2 t = b2MulSV(context.fractions[i], rayTranslation);
+
+					if (m_castType == e_circleCast)
+					{
+						g_draw.DrawCircle(b2Add(m_rayStart, t), m_castRadius, yellow);
+					}
+					else if (m_castType == e_capsuleCast)
+					{
+						b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.point1), t);
+						b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.point2), t);
+						g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
+					}
+					else if (m_castType == e_polygonCast)
+					{
+						b2Vec2 points[b2_maxPolygonVertices];
+						for (int j = 0; j < box.count; ++j)
+						{
+							points[j] = b2Add(b2TransformPoint(transform, box.vertices[j]), t);
+						}
+
+						if (box.radius == 0.0f)
+						{
+							g_draw.DrawPolygon(points, box.count, yellow);
+						}
+						else
+						{
+							g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow, yellow);
+						}
+					}
+				}
+			}
+			else
+			{
+				g_draw.DrawSegment(m_rayStart, m_rayEnd, color2);
+
+				if (m_castType == e_circleCast)
+				{
+					g_draw.DrawCircle(b2Add(m_rayStart, rayTranslation), m_castRadius, gray);
+				}
+				else if (m_castType == e_capsuleCast)
+				{
+					b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.point1), rayTranslation);
+					b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.point2), rayTranslation);
+					g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
+				}
+				else if (m_castType == e_polygonCast)
+				{
+					b2Vec2 points[b2_maxPolygonVertices];
+					for (int j = 0; j < box.count; ++j)
+					{
+						points[j] = b2Add(b2TransformPoint(transform, box.vertices[j]), rayTranslation);
+					}
+
+					if (box.radius == 0.0f)
+					{
+						g_draw.DrawPolygon(points, box.count, yellow);
+					}
+					else
+					{
+						g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow, yellow);
+					}
+				}
+			}
+		}
+
+		g_draw.DrawPoint(m_rayStart, 5.0f, green);
+
+		if (B2_IS_NON_NULL(m_bodyIds[m_ignoreIndex]))
+		{
+			b2Vec2 p = b2Body_GetPosition(m_bodyIds[m_ignoreIndex]);
+			p.x -= 0.2f;
+			g_draw.DrawString(p, "ign");
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new RayCastWorld(settings);
+	}
+
+	int m_bodyIndex;
+	b2BodyId m_bodyIds[e_maxCount];
+	ShapeUserData m_userData[e_maxCount];
+	b2Polygon m_polygons[4];
+	b2Capsule m_capsule;
+	b2Circle m_circle;
+	b2Segment m_segment;
+
+	bool m_simple;
+
+	int m_mode;
+	int m_ignoreIndex;
+
+	CastType m_castType;
+	float m_castRadius;
+
+	b2Vec2 m_angleAnchor;
+	float m_baseAngle;
+	float m_angle;
+	bool m_rotating;
+
+	b2Vec2 m_rayStart;
+	b2Vec2 m_rayEnd;
+	bool m_dragging;
+};
+
+static int sampleRayCastWorld = RegisterSample("Collision", "Ray Cast World", RayCastWorld::Create);
+
+class OverlapWorld : public Sample
+{
+public:
+	enum
+	{
+		e_circleShape = 0,
+		e_capsuleShape = 1,
+		e_boxShape = 2
+	};
+
+	enum
+	{
+		e_maxCount = 64,
+		e_maxDoomed = 16,
+	};
+
+	static bool OverlapResultFcn(b2ShapeId shapeId, void* context)
+	{
+		ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+		if (userData != nullptr && userData->ignore)
+		{
+			// continue the query
+			return true;
+		}
+
+		OverlapWorld* sample = (OverlapWorld*)context;
+
+		if (sample->m_doomCount < e_maxDoomed)
+		{
+			int index = sample->m_doomCount;
+			sample->m_doomIds[index] = shapeId;
+			sample->m_doomCount += 1;
+		}
+
+		// continue the query
+		return true;
+	}
+
+	OverlapWorld(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 10.0f};
+			g_camera.m_zoom = 0.7f;
+		}
+
+		{
+			b2Vec2 vertices[3] = {{-0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.5f}};
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			m_polygons[0] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		{
+			b2Vec2 vertices[3] = {{-0.1f, 0.0f}, {0.1f, 0.0f}, {0.0f, 1.5f}};
+			b2Hull hull = b2ComputeHull(vertices, 3);
+			m_polygons[1] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		{
+			float w = 1.0f;
+			float b = w / (2.0f + sqrtf(2.0f));
+			float s = sqrtf(2.0f) * b;
+
+			b2Vec2 vertices[8] = {{0.5f * s, 0.0f}, {0.5f * w, b},		{0.5f * w, b + s}, {0.5f * s, w},
+								  {-0.5f * s, w},	{-0.5f * w, b + s}, {-0.5f * w, b},	   {-0.5f * s, 0.0f}};
+
+			b2Hull hull = b2ComputeHull(vertices, 8);
+			m_polygons[2] = b2MakePolygon(&hull, 0.0f);
+		}
+
+		m_polygons[3] = b2MakeBox(0.5f, 0.5f);
+		m_capsule = {{-0.5f, 0.0f}, {0.5f, 0.0f}, 0.25f};
+		m_circle = {{0.0f, 0.0f}, 0.5f};
+		m_segment = {{-1.0f, 0.0f}, {1.0f, 0.0f}};
+
+		m_bodyIndex = 0;
+
+		for (int i = 0; i < e_maxCount; ++i)
+		{
+			m_bodyIds[i] = b2_nullBodyId;
+		}
+
+		m_ignoreIndex = 7;
+
+		m_shapeType = e_circleShape;
+
+		m_queryCircle = {{0.0f, 0.0f}, 1.0f};
+		m_queryCapsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 0.5f};
+		m_queryBox = b2MakeBox(2.0f, 0.5f);
+
+		m_position = {0.0f, 10.0f};
+		m_angle = 0.0f;
+		m_dragging = false;
+		m_rotating = false;
+
+		m_doomCount = 0;
+
+		CreateN(0, 10);
+	}
+
+	void Create(int index)
+	{
+		if (B2_IS_NON_NULL(m_bodyIds[m_bodyIndex]))
+		{
+			b2DestroyBody(m_bodyIds[m_bodyIndex]);
+			m_bodyIds[m_bodyIndex] = b2_nullBodyId;
+		}
+
+		float x = RandomFloat(-20.0f, 20.0f);
+		float y = RandomFloat(0.0f, 20.0f);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.position = {x, y};
+		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
+
+		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.userData = m_userData + m_bodyIndex;
+		m_userData[m_bodyIndex].index = m_bodyIndex;
+		m_userData[m_bodyIndex].ignore = false;
+		if (m_bodyIndex == m_ignoreIndex)
+		{
+			m_userData[m_bodyIndex].ignore = true;
+		}
+
+		if (index < 4)
+		{
+			b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, m_polygons + index);
+		}
+		else if (index == 4)
+		{
+			b2CreateCircleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_circle);
+		}
+		else if (index == 5)
+		{
+			b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_capsule);
+		}
+		else
+		{
+			b2CreateSegmentShape(m_bodyIds[m_bodyIndex], &shapeDef, &m_segment);
+		}
+
+		m_bodyIndex = (m_bodyIndex + 1) % e_maxCount;
+	}
+
+	void CreateN(int index, int count)
+	{
+		for (int i = 0; i < count; ++i)
+		{
+			Create(index);
+		}
+	}
+
+	void DestroyBody()
+	{
+		for (int i = 0; i < e_maxCount; ++i)
+		{
+			if (B2_IS_NON_NULL(m_bodyIds[i]))
+			{
+				b2DestroyBody(m_bodyIds[i]);
+				m_bodyIds[i] = b2_nullBodyId;
+				return;
+			}
+		}
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_dragging = true;
+				m_position = p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_startPosition = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_position = p;
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPosition.x;
+			m_angle = m_baseAngle + 1.0f * dx;
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(210.0f, 310.0f));
+		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Polygon 1"))
+			Create(0);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Poly1"))
+			CreateN(0, 10);
+
+		if (ImGui::Button("Polygon 2"))
+			Create(1);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Poly2"))
+			CreateN(1, 10);
+
+		if (ImGui::Button("Polygon 3"))
+			Create(2);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Poly3"))
+			CreateN(2, 10);
+
+		if (ImGui::Button("Box"))
+			Create(3);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Box"))
+			CreateN(3, 10);
+
+		if (ImGui::Button("Circle"))
+			Create(4);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Circle"))
+			CreateN(4, 10);
+
+		if (ImGui::Button("Capsule"))
+			Create(5);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Capsule"))
+			CreateN(5, 10);
+
+		if (ImGui::Button("Segment"))
+			Create(6);
+		ImGui::SameLine();
+		if (ImGui::Button("10x##Segment"))
+			CreateN(6, 10);
+
+		if (ImGui::Button("Destroy Shape"))
+		{
+			DestroyBody();
+		}
+
+		ImGui::Separator();
+		ImGui::Text("Overlap Shape");
+		ImGui::RadioButton("Circle##Overlap", &m_shapeType, e_circleShape);
+		ImGui::RadioButton("Capsule##Overlap", &m_shapeType, e_capsuleShape);
+		ImGui::RadioButton("Box##Overlap", &m_shapeType, e_boxShape);
+
+		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawString(5, m_textLine, "left mouse button: drag query shape");
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "left mouse button + shift: rotate query shape");
+		m_textLine += m_textIncrement;
+
+		m_doomCount = 0;
+
+		b2Color color = b2MakeColor(b2_colorWhite);
+		b2Transform transform = {m_position, b2MakeRot(m_angle)};
+
+		if (m_shapeType == e_circleShape)
+		{
+			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2DefaultQueryFilter(),
+								  this);
+			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
+		}
+		else if (m_shapeType == e_capsuleShape)
+		{
+			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2DefaultQueryFilter(),
+								   this);
+			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.point1);
+			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.point2);
+			g_draw.DrawCapsule(p1, p2, m_queryCapsule.radius, color);
+		}
+		else if (m_shapeType == e_boxShape)
+		{
+			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2DefaultQueryFilter(),
+								   this);
+			b2Vec2 points[b2_maxPolygonVertices] = {0};
+			for (int i = 0; i < m_queryBox.count; ++i)
+			{
+				points[i] = b2TransformPoint(transform, m_queryBox.vertices[i]);
+			}
+			g_draw.DrawPolygon(points, m_queryBox.count, color);
+		}
+
+		if (B2_IS_NON_NULL(m_bodyIds[m_ignoreIndex]))
+		{
+			b2Vec2 p = b2Body_GetPosition(m_bodyIds[m_ignoreIndex]);
+			p.x -= 0.2f;
+			g_draw.DrawString(p, "ign");
+		}
+
+		for (int i = 0; i < m_doomCount; ++i)
+		{
+			b2ShapeId shapeId = m_doomIds[i];
+			ShapeUserData* userData = (ShapeUserData*)b2Shape_GetUserData(shapeId);
+			if (userData == nullptr)
+			{
+				continue;
+			}
+
+			int index = userData->index;
+			assert(0 <= index && index < e_maxCount);
+			assert(B2_IS_NON_NULL(m_bodyIds[index]));
+
+			b2DestroyBody(m_bodyIds[index]);
+			m_bodyIds[index] = b2_nullBodyId;
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new OverlapWorld(settings);
+	}
+
+	int m_bodyIndex;
+	b2BodyId m_bodyIds[e_maxCount];
+	ShapeUserData m_userData[e_maxCount];
+	b2Polygon m_polygons[4];
+	b2Capsule m_capsule;
+	b2Circle m_circle;
+	b2Segment m_segment;
+	int m_ignoreIndex;
+
+	b2ShapeId m_doomIds[e_maxDoomed];
+	int m_doomCount;
+
+	b2Circle m_queryCircle;
+	b2Capsule m_queryCapsule;
+	b2Polygon m_queryBox;
+
+	int m_shapeType;
+	b2Transform m_transform;
+
+	b2Vec2 m_startPosition;
+
+	b2Vec2 m_position;
+	b2Vec2 m_basePosition;
+	float m_angle;
+	float m_baseAngle;
+
+	bool m_dragging;
+	bool m_rotating;
+};
+
+static int sampleOverlapWorld = RegisterSample("Collision", "Overlap World", OverlapWorld::Create);
+
+// Tests manifolds and contact points
+class Manifold : public Sample
+{
+public:
+	Manifold(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {1.8f, 15.0f};
+			g_camera.m_zoom = 0.45f;
+		}
+
+		m_capcapCache = b2_emptyDistanceCache;
+		m_capboxCache = b2_emptyDistanceCache;
+		m_boxboxCache = b2_emptyDistanceCache;
+		m_boxroxCache = b2_emptyDistanceCache;
+		m_roxroxCache = b2_emptyDistanceCache;
+		m_segroxCache = b2_emptyDistanceCache;
+		m_segcapCache = b2_emptyDistanceCache;
+		m_woxwoxCache = b2_emptyDistanceCache;
+		m_smgroxCache1 = b2_emptyDistanceCache;
+		m_smgroxCache2 = b2_emptyDistanceCache;
+		m_smgcapCache1 = b2_emptyDistanceCache;
+		m_smgcapCache2 = b2_emptyDistanceCache;
+
+		m_transform = b2Transform_identity;
+		m_angle = 0.0f;
+		m_round = 0.0f;
+
+		m_startPoint = {0.0f, 0.0f};
+		m_basePosition = {0.0f, 0.0f};
+		m_baseAngle = 0.0f;
+
+		m_dragging = false;
+		m_rotating = false;
+		m_showIds = false;
+		m_showSeparation = false;
+		m_enableCaching = true;
+
+		b2Vec2 points[3] = {{-0.1f, -0.5f}, {0.1f, -0.5f}, {0.0f, 0.5f}};
+		m_wedge = b2ComputeHull(points, 3);
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 260.0f));
+		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f"))
+		{
+		}
+
+		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		{
+			m_transform.q = b2MakeRot(m_angle);
+		}
+
+		if (ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f"))
+		{
+		}
+
+		if (ImGui::Checkbox("show ids", &m_showIds))
+		{
+		}
+
+		if (ImGui::Checkbox("show separation", &m_showSeparation))
+		{
+		}
+
+		if (ImGui::Checkbox("enable caching", &m_enableCaching))
+		{
+		}
+
+		if (ImGui::Button("Reset"))
+		{
+			m_transform = b2Transform_identity;
+			m_angle = 0.0f;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: drag");
+		ImGui::Text("mouse button 1 + shift: rotate");
+
+		ImGui::End();
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_dragging = true;
+				m_startPoint = p;
+				m_basePosition = m_transform.p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_startPoint = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_transform.p.x = m_basePosition.x + 0.5f * (p.x - m_startPoint.x);
+			m_transform.p.y = m_basePosition.y + 0.5f * (p.y - m_startPoint.y);
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPoint.x;
+			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_transform.q = b2MakeRot(m_angle);
+		}
+	}
+
+	void DrawManifold(const b2Manifold* manifold)
+	{
+		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
+		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
+
+		for (int i = 0; i < manifold->pointCount; ++i)
+		{
+			const b2ManifoldPoint* mp = manifold->points + i;
+
+			b2Vec2 p1 = mp->point;
+			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
+			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+
+			if (m_showIds)
+			{
+				// uint32_t indexA = mp->id >> 8;
+				// uint32_t indexB = 0xFF & mp->id;
+				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
+				g_draw.DrawString(p, "0x%04x", mp->id);
+			}
+
+			if (m_showSeparation)
+			{
+				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
+				g_draw.DrawString(p, "%.3f", mp->separation);
+			}
+		}
+	}
+
+	void Step(Settings&) override
+	{
+		b2Vec2 offset = {-10.0f, 10.0f};
+		b2Vec2 increment = {4.0f, 0.0f};
+
+		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
+		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
+		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
+		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
+
+		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
+
+		// box = b2MakeRoundedBox(10.0f, 10.0f, 10.0f);
+		// box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
+
+		// b2Color fill = {0.345098048f, 0.431372553f, 0.458823532f, 1.0f};
+		// b2Color outline = {0.933333337f, 0.909803927f, 0.835294127f, 1.0f};
+		// g_draw.DrawRoundedPolygon(box.vertices, box.count, box.radius, fill, outline);
+
+		if (m_enableCaching == false)
+		{
+			m_capcapCache = b2_emptyDistanceCache;
+			m_capboxCache = b2_emptyDistanceCache;
+			m_segcapCache = b2_emptyDistanceCache;
+			m_boxboxCache = b2_emptyDistanceCache;
+			m_boxroxCache = b2_emptyDistanceCache;
+			m_roxroxCache = b2_emptyDistanceCache;
+			m_segroxCache = b2_emptyDistanceCache;
+			m_woxwoxCache = b2_emptyDistanceCache;
+			m_smgroxCache1 = b2_emptyDistanceCache;
+			m_smgroxCache2 = b2_emptyDistanceCache;
+			m_smgcapCache1 = b2_emptyDistanceCache;
+			m_smgcapCache2 = b2_emptyDistanceCache;
+		}
+
+		// circle-circle
+		{
+			b2Circle circle1 = {{0.0f, 0.0f}, 0.5f};
+			b2Circle circle2 = {{0.0f, 0.0f}, 1.0f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideCircles(&circle1, xf1, &circle2, xf2);
+
+			b2Vec2 c1 = b2TransformPoint(xf1, circle1.point);
+			b2Vec2 c2 = b2TransformPoint(xf2, circle2.point);
+			b2Vec2 axis1 = b2RotateVector(xf1.q, {1.0f, 0.0f});
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c1, circle1.radius, axis1, color1);
+			g_draw.DrawSolidCircle(c2, circle2.radius, axis2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// capsule-circle
+		{
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideCapsuleAndCircle(&capsule, xf1, &circle, xf2);
+
+			b2Vec2 v1 = b2TransformPoint(xf1, capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf1, capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color1);
+
+			b2Vec2 c1 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis1 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c1, circle.radius, axis1, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// segment-circle
+		{
+			b2Segment segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSegmentAndCircle(&segment, xf1, &circle, xf2);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// box-circle
+		{
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+			b2Polygon box = b2MakeSquare(0.5f);
+			box.radius = m_round;
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollidePolygonAndCircle(&box, xf1, &circle, xf2);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, fillColor1, color1);
+
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// capsule-capsule
+		{
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			if (m_enableCaching == false)
+			{
+				m_capcapCache = b2_emptyDistanceCache;
+			}
+
+			b2Manifold m = b2CollideCapsules(&capsule, xf1, &capsule, xf2, &m_capcapCache);
+
+			b2Vec2 v1 = b2TransformPoint(xf1, capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf1, capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color1);
+
+			v1 = b2TransformPoint(xf2, capsule.point1);
+			v2 = b2TransformPoint(xf2, capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// box-capsule
+		{
+			b2Capsule capsule = {{-0.1f, 0.0f}, {0.1f, 0.0f}, 0.075f};
+			b2Polygon box = b2MakeBox(2.0f, 0.25f);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2DistanceCache cache = b2_emptyDistanceCache;
+			b2Manifold m = b2CollidePolygonAndCapsule(&box, xf1, &capsule, xf2, &cache);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
+			}
+			g_draw.DrawSolidPolygon(vertices, box.count, color1);
+
+			b2Vec2 v1 = b2TransformPoint(xf2, capsule.point1);
+			b2Vec2 v2 = b2TransformPoint(xf2, capsule.point2);
+			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// segment-capsule
+		{
+			b2Segment segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSegmentAndCapsule(&segment, xf1, &capsule, xf2, &m_segcapCache);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			p1 = b2TransformPoint(xf2, capsule.point1);
+			p2 = b2TransformPoint(xf2, capsule.point2);
+			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		offset = {-10.0f, 15.0f};
+
+		// box-box
+		{
+			b2Polygon box = b2MakeSquare(0.5f);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+			// b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
+
+			b2Manifold m = b2CollidePolygons(&box, xf1, &box, xf2, &m_boxboxCache);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
+			}
+			g_draw.DrawSolidPolygon(vertices, box.count, color1);
+
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, box.vertices[i]);
+			}
+			g_draw.DrawSolidPolygon(vertices, box.count, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// box-rox
+		{
+			b2Polygon box = b2MakeSquare(0.5f);
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+			// b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
+
+			b2Manifold m = b2CollidePolygons(&box, xf1, &rox, xf2, &m_boxroxCache);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
+			}
+			g_draw.DrawSolidPolygon(vertices, box.count, color1);
+
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// rox-rox
+		{
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+			// b2Transform xf1 = {{6.48024225f, 2.07872653f}, {-0.938356698f, 0.345668465f}};
+			// b2Transform xf2 = {{5.52862263f, 2.51146317f}, {-0.859374702f, -0.511346340f}};
+
+			b2Manifold m = b2CollidePolygons(&rox, xf1, &rox, xf2, &m_roxroxCache);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, rox.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor1, color1);
+
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// segment-rox
+		{
+			b2Segment segment = {{-1.0f, 0.0f}, {1.0f, 0.0}};
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+			// b2Transform xf2 = {b2Add({-1.44583416f, 0.397352695f}, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSegmentAndPolygon(&segment, xf1, &rox, xf2, &m_segroxCache);
+
+			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+
+			if (m_round > 0.0f)
+			{
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+			}
+			else
+			{
+				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
+			}
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		// wox-wox
+		{
+			b2Polygon wox = b2MakePolygon(&m_wedge, m_round);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+			// b2Transform xf2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
+
+			b2Manifold m = b2CollidePolygons(&wox, xf1, &wox, xf2, &m_woxwoxCache);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < wox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf1, wox.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, fillColor1, color1);
+
+			for (int i = 0; i < wox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, wox.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, fillColor2, color2);
+
+			DrawManifold(&m);
+
+			offset = b2Add(offset, increment);
+		}
+
+		offset = {-10.0f, 20.0f};
+
+		// smooth-segment vs circle
+		{
+			b2SmoothSegment segment = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m = b2CollideSmoothSegmentAndCircle(&segment, xf1, &circle, xf2);
+
+			b2Vec2 g1 = b2TransformPoint(xf1, segment.ghost1);
+			b2Vec2 g2 = b2TransformPoint(xf1, segment.ghost2);
+			b2Vec2 p1 = b2TransformPoint(xf1, segment.segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment.segment.point2);
+			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+			g_draw.DrawSegment(p1, p2, color1);
+			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+
+			DrawManifold(&m);
+
+			offset.x += 2.0f * increment.x;
+		}
+
+		// smooth-segment vs rounded polygon
+		{
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}, -1};
+			// b2SmoothSegment segment1 = {{2.0f, 0.0f}, {{1.0f, 0.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			// b2SmoothSegment segment2 = {{3.0f, 0.0f}, {{2.0f, 0.0f}, {1.0f, 0.0f}}, {-1.0f, 0.0f}, -1};
+			// b2SmoothSegment segment1 = {{0.5f, 1.0f}, {{0.0f, 2.0f}, {-0.5f, 1.0f}}, {-1.0f, 0.0f}, -1};
+			// b2SmoothSegment segment2 = {{1.0f, 0.0f}, {{0.5f, 1.0f}, {0.0f, 2.0f}}, {-0.5f, 1.0f}, -1};
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m1 = b2CollideSmoothSegmentAndPolygon(&segment1, xf1, &rox, xf2, &m_smgroxCache1);
+			b2Manifold m2 = b2CollideSmoothSegmentAndPolygon(&segment2, xf1, &rox, xf2, &m_smgroxCache2);
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment1.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
+				// g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+			}
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+			}
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+
+			if (m_round > 0.0f)
+			{
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+				g_draw.DrawPolygon(vertices, rox.count, color2);
+			}
+			else
+			{
+				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
+			}
+
+			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro));
+
+			DrawManifold(&m1);
+			DrawManifold(&m2);
+
+			offset.x += 2.0f * increment.x;
+		}
+
+		// smooth-segment vs capsule
+		{
+			b2SmoothSegment segment1 = {{2.0f, 1.0f}, {{1.0f, 1.0f}, {-1.0f, 0.0f}}, {-2.0f, 0.0f}, -1};
+			b2SmoothSegment segment2 = {{3.0f, 1.0f}, {{2.0f, 1.0f}, {1.0f, 1.0f}}, {-1.0f, 0.0f}, -1};
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+
+			b2Transform xf1 = {offset, b2Rot_identity};
+			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
+
+			b2Manifold m1 = b2CollideSmoothSegmentAndCapsule(&segment1, xf1, &capsule, xf2, &m_smgcapCache1);
+			b2Manifold m2 = b2CollideSmoothSegmentAndCapsule(&segment2, xf1, &capsule, xf2, &m_smgcapCache2);
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment1.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
+				// g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+			}
+
+			{
+				b2Vec2 g1 = b2TransformPoint(xf1, segment2.ghost1);
+				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
+				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
+				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
+				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(p1, p2, color1);
+				g_draw.DrawPoint(p1, 4.0f, color1);
+				g_draw.DrawPoint(p2, 4.0f, color1);
+				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+			}
+
+			b2Vec2 p1 = b2TransformPoint(xf2, capsule.point1);
+			b2Vec2 p2 = b2TransformPoint(xf2, capsule.point2);
+			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
+
+			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro));
+
+			DrawManifold(&m1);
+			DrawManifold(&m2);
+
+			offset.x += 2.0f * increment.x;
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new Manifold(settings);
+	}
+
+	b2DistanceCache m_capcapCache;
+	b2DistanceCache m_capboxCache;
+	b2DistanceCache m_boxboxCache;
+	b2DistanceCache m_boxroxCache;
+	b2DistanceCache m_roxroxCache;
+	b2DistanceCache m_segcapCache;
+	b2DistanceCache m_segroxCache;
+	b2DistanceCache m_woxwoxCache;
+	b2DistanceCache m_smgroxCache1;
+	b2DistanceCache m_smgroxCache2;
+	b2DistanceCache m_smgcapCache1;
+	b2DistanceCache m_smgcapCache2;
+
+	b2Hull m_wedge;
+
+	b2Transform m_transform;
+	float m_angle;
+	float m_round;
+
+	b2Vec2 m_basePosition;
+	b2Vec2 m_startPoint;
+	float m_baseAngle;
+
+	bool m_dragging;
+	bool m_rotating;
+	bool m_showIds;
+	bool m_showSeparation;
+	bool m_enableCaching;
+};
+
+static int sampleManifoldIndex = RegisterSample("Collision", "Manifold", Manifold::Create);
+
+class SmoothManifold : public Sample
+{
+public:
+	enum ShapeType
+	{
+		e_circleShape = 0,
+		e_boxShape
+	};
+
+	SmoothManifold(Settings& settings)
+		: Sample(settings)
+	{
+		m_shapeType = e_boxShape;
+		m_transform = {{0.0f, 20.0f}, b2Rot_identity};
+		m_angle = 0.0f;
+		m_round = 0.0f;
+
+		m_startPoint = {0.0f, 00.0f};
+		m_basePosition = {0.0f, 0.0f};
+		m_baseAngle = 0.0f;
+
+		m_dragging = false;
+		m_rotating = false;
+		m_showIds = false;
+		m_showSeparation = false;
+
+		// https://betravis.github.io/shape-tools/path-to-polygon/
+		m_count = 36;
+
+		b2Vec2 points[36];
+		points[0] = {-20.58325, 14.54175};
+		points[1] = {-21.90625, 15.8645};
+		points[2] = {-24.552, 17.1875};
+		points[3] = {-27.198, 11.89575};
+		points[4] = {-29.84375, 15.8645};
+		points[5] = {-29.84375, 21.15625};
+		points[6] = {-25.875, 23.802};
+		points[7] = {-20.58325, 25.125};
+		points[8] = {-25.875, 29.09375};
+		points[9] = {-20.58325, 31.7395};
+		points[10] = {-11.0089998, 23.2290001};
+		points[11] = {-8.67700005, 21.15625};
+		points[12] = {-6.03125, 21.15625};
+		points[13] = {-7.35424995, 29.09375};
+		points[14] = {-3.38549995, 29.09375};
+		points[15] = {1.90625, 30.41675};
+		points[16] = {5.875, 17.1875};
+		points[17] = {11.16675, 25.125};
+		points[18] = {9.84375, 29.09375};
+		points[19] = {13.8125, 31.7395};
+		points[20] = {21.75, 30.41675};
+		points[21] = {28.3644981, 26.448};
+		points[22] = {25.71875, 18.5105};
+		points[23] = {24.3957481, 13.21875};
+		points[24] = {17.78125, 11.89575};
+		points[25] = {15.1355, 7.92700005};
+		points[26] = {5.875, 9.25};
+		points[27] = {1.90625, 11.89575};
+		points[28] = {-3.25, 11.89575};
+		points[29] = {-3.25, 9.9375};
+		points[30] = {-4.70825005, 9.25};
+		points[31] = {-8.67700005, 9.25};
+		points[32] = {-11.323, 11.89575};
+		points[33] = {-13.96875, 11.89575};
+		points[34] = {-15.29175, 14.54175};
+		points[35] = {-19.2605, 14.54175};
+
+		m_segments = (b2SmoothSegment*)malloc(m_count * sizeof(b2SmoothSegment));
+
+		for (int i = 0; i < m_count; ++i)
+		{
+			int i0 = i > 0 ? i - 1 : m_count - 1;
+			int i1 = i;
+			int i2 = i1 < m_count - 1 ? i1 + 1 : 0;
+			int i3 = i2 < m_count - 1 ? i2 + 1 : 0;
+
+			b2Vec2 g1 = points[i0];
+			b2Vec2 p1 = points[i1];
+			b2Vec2 p2 = points[i2];
+			b2Vec2 g2 = points[i3];
+
+			m_segments[i] = {g1, {p1, p2}, g2, -1};
+		}
+	}
+
+	virtual ~SmoothManifold() override
+	{
+		free(m_segments);
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 260.0f));
+		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		{
+			const char* shapeTypes[] = {"Circle", "Box"};
+			int shapeType = int(m_shapeType);
+			ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
+			m_shapeType = ShapeType(shapeType);
+		}
+
+		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
+
+		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		{
+			m_transform.q = b2MakeRot(m_angle);
+		}
+
+		ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f");
+		ImGui::Checkbox("show ids", &m_showIds);
+		ImGui::Checkbox("show separation", &m_showSeparation);
+
+		if (ImGui::Button("Reset"))
+		{
+			m_transform = b2Transform_identity;
+			m_angle = 0.0f;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: drag");
+		ImGui::Text("mouse button 1 + shift: rotate");
+
+		ImGui::End();
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_dragging = true;
+				m_startPoint = p;
+				m_basePosition = m_transform.p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_startPoint = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_transform.p.x = m_basePosition.x + (p.x - m_startPoint.x);
+			m_transform.p.y = m_basePosition.y + (p.y - m_startPoint.y);
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPoint.x;
+			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_transform.q = b2MakeRot(m_angle);
+		}
+	}
+
+	void DrawManifold(const b2Manifold* manifold)
+	{
+		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
+		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
+
+		for (int i = 0; i < manifold->pointCount; ++i)
+		{
+			const b2ManifoldPoint* mp = manifold->points + i;
+
+			b2Vec2 p1 = mp->point;
+			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
+			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawPoint(p1, 5.0f, green);
+
+			if (m_showIds)
+			{
+				// uint32_t indexA = mp->id >> 8;
+				// uint32_t indexB = 0xFF & mp->id;
+				b2Vec2 p = {p1.x + 0.05f, p1.y - 0.02f};
+				g_draw.DrawString(p, "0x%04x", mp->id);
+			}
+
+			if (m_showSeparation)
+			{
+				b2Vec2 p = {p1.x + 0.05f, p1.y + 0.03f};
+				g_draw.DrawString(p, "%.3f", mp->separation);
+			}
+		}
+	}
+
+	void Step(Settings&) override
+	{
+		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
+		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
+		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
+		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
+
+		b2Transform xf1 = b2Transform_identity;
+		b2Transform xf2 = m_transform;
+
+		for (int i = 0; i < m_count; ++i)
+		{
+			const b2SmoothSegment* segment = m_segments + i;
+			b2Vec2 p1 = b2TransformPoint(xf1, segment->segment.point1);
+			b2Vec2 p2 = b2TransformPoint(xf1, segment->segment.point2);
+			g_draw.DrawSegment(p1, p2, color1);
+			g_draw.DrawPoint(p1, 4.0f, color1);
+		}
+
+		// smooth-segment vs circle
+		if (m_shapeType == e_circleShape)
+		{
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
+			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+
+			for (int i = 0; i < m_count; ++i)
+			{
+				const b2SmoothSegment* segment = m_segments + i;
+				b2Manifold m = b2CollideSmoothSegmentAndCircle(segment, xf1, &circle, xf2);
+				DrawManifold(&m);
+			}
+		}
+		else if (m_shapeType == e_boxShape)
+		{
+			float h = 0.5f - m_round;
+			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
+
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < rox.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
+			}
+
+			if (m_round > 0.0f)
+			{
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+			}
+			else
+			{
+				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
+			}
+
+			for (int i = 0; i < m_count; ++i)
+			{
+				const b2SmoothSegment* segment = m_segments + i;
+				b2DistanceCache cache = {};
+				b2Manifold m = b2CollideSmoothSegmentAndPolygon(segment, xf1, &rox, xf2, &cache);
+				DrawManifold(&m);
+			}
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new SmoothManifold(settings);
+	}
+
+	ShapeType m_shapeType;
+
+	b2SmoothSegment* m_segments;
+	int m_count;
+
+	b2Transform m_transform;
+	float m_angle;
+	float m_round;
+
+	b2Vec2 m_basePosition;
+	b2Vec2 m_startPoint;
+	float m_baseAngle;
+
+	bool m_dragging;
+	bool m_rotating;
+	bool m_showIds;
+	bool m_showSeparation;
+};
+
+static int sampleSmoothManifoldIndex = RegisterSample("Collision", "Smooth Manifold", SmoothManifold::Create);
+
+class ShapeCast : public Sample
+{
+public:
+	enum
+	{
+		e_vertexCount = 8
+	};
+
+	ShapeCast(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {-1.5f, 1.0f};
+			g_camera.m_zoom = 0.12f;
+		}
+
+#if 1
+		m_vAs[0] = {-0.5f, 1.0f};
+		m_vAs[1] = {0.5f, 1.0f};
+		m_vAs[2] = {0.0f, 0.0f};
+		m_countA = 3;
+		m_radiusA = 0.0f;
+
+		m_vBs[0] = {-0.5f, -0.5f};
+		m_vBs[1] = {0.5f, -0.5f};
+		m_vBs[2] = {0.5f, 0.5f};
+		m_vBs[3] = {-0.5f, 0.5f};
+		m_countB = 4;
+		m_radiusB = 0.0f;
+
+		m_transformA.p = {0.0f, 0.25f};
+		m_transformA.q = b2Rot_identity;
+		m_transformB.p = {-4.0f, 0.0f};
+		m_transformB.q = b2Rot_identity;
+		m_translationB = {8.0f, 0.0f};
+#elif 0
+		m_vAs[0].Set(0.0f, 0.0f);
+		m_countA = 1;
+		m_radiusA = 0.5f;
+
+		m_vBs[0].Set(0.0f, 0.0f);
+		m_countB = 1;
+		m_radiusB = 0.5f;
+
+		m_transformA.p.Set(0.0f, 0.25f);
+		m_transformA.q.SetIdentity();
+		m_transformB.p.Set(-4.0f, 0.0f);
+		m_transformB.q.SetIdentity();
+		m_translationB.Set(8.0f, 0.0f);
+#else
+		m_vAs[0].Set(0.0f, 0.0f);
+		m_vAs[1].Set(2.0f, 0.0f);
+		m_countA = 2;
+		m_radiusA = b2_polygonRadius;
+
+		m_vBs[0].Set(0.0f, 0.0f);
+		m_countB = 1;
+		m_radiusB = 0.25f;
+
+		// Initial overlap
+		m_transformA.p.Set(0.0f, 0.0f);
+		m_transformA.q.SetIdentity();
+		m_transformB.p.Set(-0.244360745f, 0.05999358f);
+		m_transformB.q.SetIdentity();
+		m_translationB.Set(0.0f, 0.0399999991f);
+#endif
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new ShapeCast(settings);
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		b2ShapeCastPairInput input;
+		input.proxyA = b2MakeProxy(m_vAs, m_countA, m_radiusA);
+		input.proxyB = b2MakeProxy(m_vBs, m_countB, m_radiusB);
+		input.transformA = m_transformA;
+		input.transformB = m_transformB;
+		input.translationB = m_translationB;
+
+		b2CastOutput output = b2ShapeCast(&input);
+
+		b2Transform transformB2;
+		transformB2.q = m_transformB.q;
+		transformB2.p = b2MulAdd(m_transformB.p, output.fraction, input.translationB);
+
+		b2DistanceInput distanceInput;
+		distanceInput.proxyA = b2MakeProxy(m_vAs, m_countA, m_radiusA);
+		distanceInput.proxyB = b2MakeProxy(m_vBs, m_countB, m_radiusB);
+		distanceInput.transformA = m_transformA;
+		distanceInput.transformB = transformB2;
+		distanceInput.useRadii = false;
+		b2DistanceCache distanceCache;
+		distanceCache.count = 0;
+		b2DistanceOutput distanceOutput = b2ShapeDistance(&distanceCache, &distanceInput);
+
+		g_draw.DrawString(5, m_textLine, "hit = %s, iters = %d, lambda = %g, distance = %g", output.hit ? "true" : "false",
+						  output.iterations, output.fraction, distanceOutput.distance);
+		m_textLine += m_textIncrement;
+
+		b2Vec2 vertices[b2_maxPolygonVertices];
+
+		for (int32_t i = 0; i < m_countA; ++i)
+		{
+			vertices[i] = b2TransformPoint(m_transformA, m_vAs[i]);
+		}
+
+		if (m_countA == 1)
+		{
+			g_draw.DrawCircle(vertices[0], m_radiusA, {0.9f, 0.9f, 0.9f, 1.0f});
+		}
+		else
+		{
+			g_draw.DrawPolygon(vertices, m_countA, {0.9f, 0.9f, 0.9f, 1.0f});
+		}
+
+		for (int32_t i = 0; i < m_countB; ++i)
+		{
+			vertices[i] = b2TransformPoint(m_transformB, m_vBs[i]);
+		}
+
+		if (m_countB == 1)
+		{
+			g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.9f, 0.5f, 1.0f});
+		}
+		else
+		{
+			g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.9f, 0.5f, 1.0f});
+		}
+
+		for (int32_t i = 0; i < m_countB; ++i)
+		{
+			vertices[i] = b2TransformPoint(transformB2, m_vBs[i]);
+		}
+
+		if (m_countB == 1)
+		{
+			g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.7f, 0.9f, 1.0f});
+		}
+		else
+		{
+			g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.7f, 0.9f, 1.0f});
+		}
+
+		if (output.hit)
+		{
+			b2Vec2 p1 = output.point;
+			g_draw.DrawPoint(p1, 10.0f, {0.9f, 0.3f, 0.3f, 1.0f});
+			b2Vec2 p2 = b2MulAdd(p1, 1.0f, output.normal);
+			g_draw.DrawSegment(p1, p2, {0.9f, 0.3f, 0.3f, 1.0f});
+		}
+	}
+
+	b2Vec2 m_vAs[b2_maxPolygonVertices];
+	int32_t m_countA;
+	float m_radiusA;
+
+	b2Vec2 m_vBs[b2_maxPolygonVertices];
+	int32_t m_countB;
+	float m_radiusB;
+
+	b2Transform m_transformA;
+	b2Transform m_transformB;
+	b2Vec2 m_translationB;
+};
+
+static int sampleShapeCast = RegisterSample("Collision", "Shape Cast", ShapeCast::Create);
+
+class TimeOfImpact : public Sample
+{
+public:
+	TimeOfImpact(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.6f, 2.0f};
+			g_camera.m_zoom = 0.18f;
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new TimeOfImpact(settings);
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		b2Sweep sweepA = {b2Vec2_zero, {0.0f, 0.0f}, {0.0f, 0.0f}, b2Rot_identity, b2Rot_identity};
+		b2Sweep sweepB = {b2Vec2_zero, {2.0f, 4.0f}, {2.0f, 4.0f}, b2Rot_identity, b2MakeRot(-0.25f * b2_pi)};
+
+		b2TOIInput input;
+		input.proxyA = b2MakeProxy(m_verticesA, m_countA, 0.0f);
+		input.proxyB = b2MakeProxy(m_verticesB, m_countB, 0.0f);
+		input.sweepA = sweepA;
+		input.sweepB = sweepB;
+		input.tMax = 1.0f;
+
+		b2TOIOutput output = b2TimeOfImpact(&input);
+
+		g_draw.DrawString(5, m_textLine, "toi = %g", output.t);
+		m_textLine += m_textIncrement;
+
+		// g_draw.DrawString(5, m_textLine, "max toi iters = %d, max root iters = %d", b2_toiMaxIters,
+		//                        b2_toiMaxRootIters);
+		m_textLine += m_textIncrement;
+
+		b2Vec2 vertices[b2_maxPolygonVertices];
+
+		// Draw A
+		b2Transform transformA = b2GetSweepTransform(&sweepA, 0.0f);
+		for (int32_t i = 0; i < m_countA; ++i)
+		{
+			vertices[i] = b2TransformPoint(transformA, m_verticesA[i]);
+		}
+		g_draw.DrawPolygon(vertices, m_countA, {0.9f, 0.9f, 0.9f, 1.0f});
+
+		// Draw B at t = 0
+		b2Transform transformB = b2GetSweepTransform(&sweepB, 0.0f);
+		for (int32_t i = 0; i < m_countB; ++i)
+		{
+			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
+		}
+		g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.9f, 0.5f, 1.0f});
+
+		// Draw B at t = hit_time
+		transformB = b2GetSweepTransform(&sweepB, output.t);
+		for (int32_t i = 0; i < m_countB; ++i)
+		{
+			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
+		}
+		g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.7f, 0.9f, 1.0f});
+
+		// Draw B at t = 1
+		transformB = b2GetSweepTransform(&sweepB, 1.0f);
+		for (int32_t i = 0; i < m_countB; ++i)
+		{
+			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
+		}
+		g_draw.DrawPolygon(vertices, m_countB, {0.9f, 0.5f, 0.5f, 1.0f});
+
+		if (output.state == b2_toiStateHit)
+		{
+			b2DistanceInput dinput;
+			dinput.proxyA = input.proxyA;
+			dinput.proxyB = input.proxyB;
+			dinput.transformA = b2GetSweepTransform(&sweepA, output.t);
+			dinput.transformB = b2GetSweepTransform(&sweepB, output.t);
+			dinput.useRadii = false;
+			b2DistanceCache cache = {0};
+			b2DistanceOutput doutput = b2ShapeDistance(&cache, &dinput);
+			g_draw.DrawString(5, m_textLine, "distance = %g", doutput.distance);
+			m_textLine += m_textIncrement;
+		}
+
+#if 0
+		for (float t = 0.0f; t < 1.0f; t += 0.1f)
+		{
+			transformB = b2GetSweepTransform(&sweepB, t);
+			for (int32_t i = 0; i < m_countB; ++i)
+			{
+				vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
+			}
+			g_draw.DrawPolygon(vertices, m_countB, {0.3f, 0.3f, 0.3f});
+		}
+#endif
+	}
+
+	b2Vec2 m_verticesA[4] = {{-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 5.0f}, {-1.0f, 5.0f}};
+	b2Vec2 m_verticesB[4] = {{-0.5f, -4.0f}, {0.0f, -4.0f}, {0.0f, 0.0f}, {-0.5f, 0.0f}};
+	int32_t m_countA = B2_ARRAY_COUNT(m_verticesA);
+	int32_t m_countB = B2_ARRAY_COUNT(m_verticesB);
+};
+
+static int sampleTimeOfImpact = RegisterSample("Collision", "Time of Impact", TimeOfImpact::Create);

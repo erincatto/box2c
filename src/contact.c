@@ -381,11 +381,10 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		world->awakeContactArray[awakeIndex] = B2_NULL_INDEX;
 		world->contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 	}
+	b2FreeObject(&world->contactPool, &contact->object);
 
 	b2WakeBody(world, bodyA);
 	b2WakeBody(world, bodyB);
-
-	b2FreeObject(&world->contactPool, &contact->object);
 }
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
