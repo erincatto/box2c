@@ -18,17 +18,6 @@ static inline float b2Perimeter(b2AABB a)
 	return 2.0f * (wx + wy);
 }
 
-// Fatten an AABB
-static inline b2AABB b2ExtendAABB(b2AABB a)
-{
-	b2AABB c;
-	c.lowerBound.x = a.lowerBound.x - b2_aabbMargin;
-	c.lowerBound.y = a.lowerBound.y - b2_aabbMargin;
-	c.upperBound.x = a.upperBound.x + b2_aabbMargin;
-	c.upperBound.y = a.upperBound.y + b2_aabbMargin;
-	return c;
-}
-
 /// Enlarge a to contain b
 /// @return true if the AABB grew
 static inline bool b2EnlargeAABB(b2AABB* a, b2AABB b)

@@ -180,7 +180,6 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	const b2BodyState* states = context->bodyStates;
 	b2Contact* contacts = world->contacts;
 	const int32_t* solverToBodyMap = context->solverToBodyMap;
-	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 	float timeStep = context->dt;
 
 	uint16_t worldIndex = world->poolIndex;
@@ -287,12 +286,21 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			}
 			else
 			{
-				shape->aabb = b2ComputeShapeAABB(shape, transform);
+				b2AABB aabb = b2ComputeShapeAABB(shape, transform);
+				aabb.lowerBound.x -= b2_speculativeDistance;
+				aabb.lowerBound.y -= b2_speculativeDistance;
+				aabb.upperBound.x += b2_speculativeDistance;
+				aabb.upperBound.y += b2_speculativeDistance;
+				shape->aabb = aabb;
 
-				if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+				if (b2AABB_Contains(shape->fatAABB, aabb) == false)
 				{
-					shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbMargin);
-					shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbMargin);
+					b2AABB fatAABB;
+					fatAABB.lowerBound.x = aabb.lowerBound.x - b2_aabbMargin;
+					fatAABB.lowerBound.y = aabb.lowerBound.y - b2_aabbMargin;
+					fatAABB.upperBound.x = aabb.upperBound.x + b2_aabbMargin;
+					fatAABB.upperBound.y = aabb.upperBound.y + b2_aabbMargin;
+					shape->fatAABB = fatAABB;
 
 					// Bit-set to keep the move array sorted
 					b2SetBit(shapeBitSet, shapeIndex);
@@ -1627,7 +1635,7 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		fastBody->position0 = c;
 		fastBody->position = c;
 
-		b2Transform xf = {origin, q};
+		b2Transform transform = {origin, q};
 		fastBody->origin = origin;
 
 		// Prepare AABBs for broad-phase
@@ -1637,11 +1645,22 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 			b2Shape* shape = shapes + shapeIndex;
 
 			// Must recompute aabb at the interpolated transform
-			shape->aabb = b2ComputeShapeAABB(shape, xf);
+			b2AABB aabb = b2ComputeShapeAABB(shape, transform);
+			aabb.lowerBound.x -= b2_speculativeDistance;
+			aabb.lowerBound.y -= b2_speculativeDistance;
+			aabb.upperBound.x += b2_speculativeDistance;
+			aabb.upperBound.y += b2_speculativeDistance;
+			shape->aabb = aabb;
 
-			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+			if (b2AABB_Contains(shape->fatAABB, aabb) == false)
 			{
-				shape->fatAABB = b2ExtendAABB(shape->aabb);
+				b2AABB fatAABB;
+				fatAABB.lowerBound.x = aabb.lowerBound.x - b2_aabbMargin;
+				fatAABB.lowerBound.y = aabb.lowerBound.y - b2_aabbMargin;
+				fatAABB.upperBound.x = aabb.upperBound.x + b2_aabbMargin;
+				fatAABB.upperBound.y = aabb.upperBound.y + b2_aabbMargin;
+				shape->fatAABB = fatAABB;
+
 				shape->enlargedAABB = true;
 				fastBody->enlargeAABB = true;
 			}
@@ -1667,7 +1686,13 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 
 			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 			{
-				shape->fatAABB = b2ExtendAABB(shape->aabb);
+				b2AABB fatAABB;
+				fatAABB.lowerBound.x = shape->aabb.lowerBound.x - b2_aabbMargin;
+				fatAABB.lowerBound.y = shape->aabb.lowerBound.y - b2_aabbMargin;
+				fatAABB.upperBound.x = shape->aabb.upperBound.x + b2_aabbMargin;
+				fatAABB.upperBound.y = shape->aabb.upperBound.y + b2_aabbMargin;
+				shape->fatAABB = fatAABB;
+
 				shape->enlargedAABB = true;
 				fastBody->enlargeAABB = true;
 			}

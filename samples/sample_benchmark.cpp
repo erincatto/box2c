@@ -482,8 +482,7 @@ class BenchmarkManyTumblers : public Sample
 
 		m_bodyIds = static_cast<b2BodyId*>(malloc(m_bodyCount * sizeof(b2BodyId)));
 
-		// 0xFF is a fast way to make all bodies satisfy B2_IS_NULL
-		memset(m_bodyIds, 0XFF, m_bodyCount * sizeof(b2BodyId));
+		memset(m_bodyIds, 0, m_bodyCount * sizeof(b2BodyId));
 		m_bodyIndex = 0;
 
 		m_shapeType = 0;
