@@ -477,13 +477,13 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 
-			bodyDef.position = {0.0f, 4.0f};
+			bodyDef.position = {0.0f, 2.0f};
 			m_player1Id = b2CreateBody(m_worldId, &bodyDef);
 
-			bodyDef.position = {0.0f, 8.0f};
+			bodyDef.position = {0.0f, 5.0f};
 			m_player2Id = b2CreateBody(m_worldId, &bodyDef);
 
-			bodyDef.position = {0.0f, 12.0f};
+			bodyDef.position = {0.0f, 8.0f};
 			m_player3Id = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(2.0f, 1.0f);

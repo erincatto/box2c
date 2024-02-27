@@ -938,18 +938,30 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 
 	b2BroadPhase* broadPhase = &world->broadPhase;
 
-	const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
+	b2Transform transform = b2MakeTransform(body);
+	float margin = body->type == b2_staticBody ? b2_speculativeDistance : b2_aabbMargin;
+
 	int32_t shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
-		shape->aabb = b2ComputeShapeAABB(shape, b2MakeTransform(body));
+		b2AABB aabb = b2ComputeShapeAABB(shape, transform);
+		aabb.lowerBound.x -= b2_speculativeDistance;
+		aabb.lowerBound.y -= b2_speculativeDistance;
+		aabb.upperBound.x += b2_speculativeDistance;
+		aabb.upperBound.y += b2_speculativeDistance;
+		shape->aabb = aabb;
 
-		if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
+		if (b2AABB_Contains(shape->fatAABB, aabb) == false)
 		{
-			shape->fatAABB.lowerBound = b2Sub(shape->aabb.lowerBound, aabbMargin);
-			shape->fatAABB.upperBound = b2Add(shape->aabb.upperBound, aabbMargin);
-			b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+			b2AABB fatAABB;
+			fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
+			fatAABB.lowerBound.y = aabb.lowerBound.y - margin;
+			fatAABB.upperBound.x = aabb.upperBound.x + margin;
+			fatAABB.upperBound.y = aabb.upperBound.y + margin;
+			shape->fatAABB = fatAABB;
+
+			b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB);
 		}
 
 		shapeIndex = shape->nextShapeIndex;

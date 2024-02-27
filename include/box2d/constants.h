@@ -25,12 +25,6 @@
 /// https://en.wikipedia.org/wiki/Pi
 #define b2_pi 3.14159265359f
 
-/// This is used to fatten AABBs in the dynamic tree. This allows proxies
-/// to move by a small amount without triggering a tree adjustment.
-/// This is in meters.
-/// @warning modifying this can have a significant impact on performance
-#define b2_aabbMargin (0.1f * b2_lengthUnitsPerMeter)
-
 /// A small length used as a collision and constraint tolerance. Usually it is
 /// chosen to be numerically significant, but visually insignificant. In meters.
 /// @warning modifying this can have a significant impact on stability
@@ -62,6 +56,12 @@
 
 /// @warning modifying this can have a significant impact on performance and stability
 #define b2_speculativeDistance (4.0f * b2_linearSlop)
+
+/// This is used to fatten AABBs in the dynamic tree. This allows proxies
+/// to move by a small amount without triggering a tree adjustment.
+/// This is in meters.
+/// @warning modifying this can have a significant impact on performance
+#define b2_aabbMargin (0.1f * b2_lengthUnitsPerMeter)
 
 /// The time that a body must be still before it will go to sleep. In seconds.
 #define b2_timeToSleep 0.5f

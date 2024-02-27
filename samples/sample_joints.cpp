@@ -551,21 +551,25 @@ public:
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
 			b2PrismaticJoint_EnableLimit(m_jointId, m_enableLimit);
+			b2Joint_WakeBodies(m_jointId);
 		}
 
 		if (ImGui::Checkbox("Motor", &m_enableMotor))
 		{
 			b2PrismaticJoint_EnableMotor(m_jointId, m_enableMotor);
+			b2Joint_WakeBodies(m_jointId);
 		}
 
 		if (ImGui::SliderFloat("Max Force", &m_motorForce, 0.0f, 50.0f, "%.0f"))
 		{
 			b2PrismaticJoint_SetMaxMotorForce(m_jointId, m_motorForce);
+			b2Joint_WakeBodies(m_jointId);
 		}
 
 		if (ImGui::SliderFloat("Speed", &m_motorSpeed, -40.0f, 40.0f, "%.0f"))
 		{
 			b2PrismaticJoint_SetMotorSpeed(m_jointId, m_motorSpeed);
+			b2Joint_WakeBodies(m_jointId);
 		}
 
 		ImGui::End();
