@@ -255,6 +255,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->world = worldId.index;
 	body->enableSleep = def->enableSleep;
 	body->fixedRotation = def->fixedRotation;
+	body->isBullet = def->isBullet;
 	body->isEnabled = def->isEnabled;
 	body->isMarked = false;
 	body->enlargeAABB = false;

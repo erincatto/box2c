@@ -8,7 +8,6 @@
 #include "sample.h"
 #include "settings.h"
 
-#include <GLFW/glfw3.h>
 #include <imgui.h>
 
 class SingleBox : public Sample

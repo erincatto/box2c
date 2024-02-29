@@ -34,7 +34,6 @@
 
 #include <float.h>
 #include <stdio.h>
-#include <string.h>
 
 b2World b2_worlds[b2_maxWorlds];
 
