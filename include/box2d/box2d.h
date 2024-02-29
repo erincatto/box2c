@@ -56,20 +56,20 @@ B2_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
 /// Get contact events for this current time step. The event data is transient. Do not store a reference to this data.
 B2_API b2ContactEvents b2World_GetContactEvents(b2WorldId worldId);
 
-/// Query the world for all shapes that potentially overlap the provided AABB.
-B2_API void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context);
+/// Overlap test for all shapes that *potentially* overlap the provided AABB.
+B2_API void b2World_OverlapAABB(b2WorldId worldId, b2AABB aabb, b2QueryFilter filter, b2OverlapResultFcn* fcn, void* context);
 
-/// Query the world for all shapes that overlap the provided circle.
-B2_API void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Circle* circle, b2Transform transform,
-									 b2QueryFilter filter, void* context);
+/// Overlap test for for all shapes that overlap the provided circle.
+B2_API void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transform transform, b2QueryFilter filter,
+								  b2OverlapResultFcn* fcn, void* context);
 
-/// Query the world for all shapes that overlap the provided capsule.
-B2_API void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
-									  b2QueryFilter filter, void* context);
+/// Overlap test for all shapes that overlap the provided capsule.
+B2_API void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Transform transform, b2QueryFilter filter,
+								   b2OverlapResultFcn* fcn, void* context);
 
-/// Query the world for all shapes that overlap the provided polygon.
-B2_API void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
-									  b2QueryFilter filter, void* context);
+/// Overlap test for all shapes that overlap the provided polygon.
+B2_API void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transform transform, b2QueryFilter filter,
+								   b2OverlapResultFcn* fcn, void* context);
 
 /// Ray-cast the world for all shapes in the path of the ray. Your callback
 /// controls whether you get the closest point, any point, or n-points.
@@ -427,16 +427,16 @@ B2_API const b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
 
 /// Allows you to change a shape to be a circle or update the current circle.
 /// This does not modify the mass properties.
-B2_API void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle);
+B2_API void b2Shape_SetCircle(b2ShapeId shapeId, const b2Circle* circle);
 
 /// Allows you to change a shape to be a capsule or update the current capsule.
-B2_API void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule);
+B2_API void b2Shape_SetCapsule(b2ShapeId shapeId, const b2Capsule* capsule);
 
 /// Allows you to change a shape to be a segment or update the current segment.
-B2_API void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment);
+B2_API void b2Shape_SetSegment(b2ShapeId shapeId, const b2Segment* segment);
 
 /// Allows you to change a shape to be a segment or update the current segment.
-B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, b2Polygon polygon);
+B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon);
 
 /// If the type is b2_smoothSegmentShape then you can get the parent chain id.
 /// If the shape is not a smooth segment then this will return b2_nullChainId.

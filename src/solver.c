@@ -218,6 +218,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 		body->position = b2Add(body->position, state->deltaPosition);
 		body->rotation = b2MulRot(state->deltaRotation, body->rotation);
+		body->rotation = b2NormalizeRot(body->rotation);
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		moveEvents[i].transform = b2MakeTransform(body);

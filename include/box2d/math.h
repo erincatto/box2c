@@ -77,7 +77,7 @@ B2_INLINE b2Vec2 b2Sub(b2Vec2 a, b2Vec2 b)
 	return B2_LITERAL(b2Vec2){a.x - b.x, a.y - b.y};
 }
 
-/// Vector subtraction
+/// Vector negation
 B2_INLINE b2Vec2 b2Neg(b2Vec2 a)
 {
 	return B2_LITERAL(b2Vec2){-a.x, -a.y};
@@ -123,7 +123,7 @@ B2_INLINE b2Vec2 b2Abs(b2Vec2 a)
 	return b;
 }
 
-/// Component-wise absolute vector
+/// Component-wise minimum vector
 B2_INLINE b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
@@ -132,7 +132,7 @@ B2_INLINE b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
-/// Component-wise absolute vector
+/// Component-wise maximum vector
 B2_INLINE b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
@@ -156,7 +156,7 @@ B2_INLINE float b2Length(b2Vec2 v)
 	return sqrtf(v.x * v.x + v.y * v.y);
 }
 
-/// Get the length of this vector (the norm).
+/// Get the length squared of this vector.
 B2_INLINE float b2LengthSquared(b2Vec2 v)
 {
 	return v.x * v.x + v.y * v.y;
@@ -169,14 +169,14 @@ B2_INLINE float b2Distance(b2Vec2 a, b2Vec2 b)
 	return sqrtf(dx * dx + dy * dy);
 }
 
-/// Get the length of this vector (the norm).
+/// Get the distance squared between points
 B2_INLINE float b2DistanceSquared(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c = {b.x - a.x, b.y - a.y};
 	return c.x * c.x + c.y * c.y;
 }
 
-/// Set using an angle in radians.
+/// Set using an angle in radians
 B2_INLINE b2Rot b2MakeRot(float angle)
 {
 	// todo determinism
@@ -196,8 +196,9 @@ B2_INLINE b2Rot b2NormalizeRot(b2Rot q)
 /// Is this rotation normalized?
 B2_INLINE bool b2IsNormalized(b2Rot q)
 {
+	// larger tolerance due to failure on mingw 32-bit
 	float qq = q.s * q.s + q.c * q.c;
-	return 1.0f - 0.0004f < qq && qq < 1.0f + 0.0004f;
+	return 1.0f - 0.0006f < qq && qq < 1.0f + 0.0006f;
 }
 
 /// Normalized linear interpolation

@@ -893,22 +893,22 @@ public:
 		{
 			case b2_circleShape:
 				m_circle = {{0.0f, 0.0f}, 0.5f * m_scale};
-				b2Shape_SetCircle(m_shapeId, m_circle);
+				b2Shape_SetCircle(m_shapeId, &m_circle);
 				break;
 
 			case b2_capsuleShape:
 				m_capsule = {{-0.5f * m_scale, 0.0f}, {0.0f, 0.5f * m_scale}, 0.5f * m_scale};
-				b2Shape_SetCapsule(m_shapeId, m_capsule);
+				b2Shape_SetCapsule(m_shapeId, &m_capsule);
 				break;
 
 			case b2_segmentShape:
 				m_segment = {{-0.5f * m_scale, 0.0f}, {0.75f * m_scale, 0.0f}};
-				b2Shape_SetSegment(m_shapeId, m_segment);
+				b2Shape_SetSegment(m_shapeId, &m_segment);
 				break;
 
 			case b2_polygonShape:
 				m_polygon = b2MakeBox(0.5f * m_scale, 0.75f * m_scale);
-				b2Shape_SetPolygon(m_shapeId, m_polygon);
+				b2Shape_SetPolygon(m_shapeId, &m_polygon);
 				break;
 
 			default:

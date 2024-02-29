@@ -115,7 +115,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			const b2Polygon* poly = &shape->polygon;
 			float minExtent = b2_huge;
-			float maxExtent = 0.0f;
+			float maxExtentSqr = 0.0f;
 			int32_t count = poly->count;
 			for (int32_t i = 0; i < count; ++i)
 			{
@@ -123,11 +123,11 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 				minExtent = B2_MIN(minExtent, planeOffset);
 
 				float distanceSqr = b2LengthSquared(poly->vertices[i]);
-				maxExtent = B2_MAX(maxExtent, distanceSqr);
+				maxExtentSqr = B2_MAX(maxExtentSqr, distanceSqr);
 			}
 
 			extent.minExtent = minExtent + poly->radius;
-			extent.maxExtent = maxExtent + poly->radius;
+			extent.maxExtent = sqrtf(maxExtentSqr) + poly->radius;
 		}
 		break;
 
@@ -581,7 +581,7 @@ const b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId)
 	return shape->polygon;
 }
 
-void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle)
+void b2Shape_SetCircle(b2ShapeId shapeId, const b2Circle* circle)
 {
 	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
 	if (world == NULL)
@@ -590,7 +590,7 @@ void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
-	shape->circle = circle;
+	shape->circle = *circle;
 	shape->type = b2_circleShape;
 
 	b2ResetContactsAndProxy(world, shape);
@@ -600,7 +600,7 @@ void b2Shape_SetCircle(b2ShapeId shapeId, b2Circle circle)
 	b2WakeBody(world, body);
 }
 
-void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule)
+void b2Shape_SetCapsule(b2ShapeId shapeId, const b2Capsule* capsule)
 {
 	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
 	if (world == NULL)
@@ -609,7 +609,7 @@ void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
-	shape->capsule = capsule;
+	shape->capsule = *capsule;
 	shape->type = b2_capsuleShape;
 
 	b2ResetContactsAndProxy(world, shape);
@@ -619,7 +619,7 @@ void b2Shape_SetCapsule(b2ShapeId shapeId, b2Capsule capsule)
 	b2WakeBody(world, body);
 }
 
-void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment)
+void b2Shape_SetSegment(b2ShapeId shapeId, const b2Segment* segment)
 {
 	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
 	if (world == NULL)
@@ -628,7 +628,7 @@ void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
-	shape->segment = segment;
+	shape->segment = *segment;
 	shape->type = b2_segmentShape;
 
 	b2ResetContactsAndProxy(world, shape);
@@ -638,7 +638,7 @@ void b2Shape_SetSegment(b2ShapeId shapeId, b2Segment segment)
 	b2WakeBody(world, body);
 }
 
-void b2Shape_SetPolygon(b2ShapeId shapeId, b2Polygon polygon)
+void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon)
 {
 	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
 	if (world == NULL)
@@ -647,7 +647,7 @@ void b2Shape_SetPolygon(b2ShapeId shapeId, b2Polygon polygon)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
-	shape->polygon = polygon;
+	shape->polygon = *polygon;
 	shape->type = b2_polygonShape;
 
 	b2ResetContactsAndProxy(world, shape);
