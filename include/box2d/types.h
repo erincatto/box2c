@@ -157,6 +157,10 @@ typedef struct b2BodyDef
 	/// Should this body be prevented from rotating? Useful for characters.
 	bool fixedRotation;
 
+	/// Treat this body as high speed object that performs continuous collision detection
+	/// against dynamic and kinematic bodies, but not other bullet bodies.
+	bool isBullet;
+
 	/// Does this body start out enabled?
 	bool isEnabled;
 } b2BodyDef;

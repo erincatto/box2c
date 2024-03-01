@@ -255,6 +255,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->world = worldId.index;
 	body->enableSleep = def->enableSleep;
 	body->fixedRotation = def->fixedRotation;
+	body->isBullet = def->isBullet;
 	body->isEnabled = def->isEnabled;
 	body->isMarked = false;
 	body->enlargeAABB = false;
@@ -267,7 +268,8 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (body->isEnabled)
 	{
-		b2CreateIslandForBody(world, body, def->isAwake);
+		bool isAwake = def->isAwake || def->enableSleep == false;
+		b2CreateIslandForBody(world, body, isAwake);
 	}
 
 	b2BodyId id = {body->object.index + 1, world->poolIndex, body->object.revision};
@@ -1435,6 +1437,25 @@ bool b2Body_IsFixedRotation(b2BodyId bodyId)
 	b2World* world = b2GetWorldFromIndex(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
 	return body->fixedRotation;
+}
+
+void b2Body_SetBullet(b2BodyId bodyId, bool flag)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+	body->isBullet = flag;
+}
+
+bool b2Body_IsBullet(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->isBullet;
 }
 
 b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId)

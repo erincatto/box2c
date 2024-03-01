@@ -3,7 +3,6 @@
 
 #include "box2d/hull.h"
 
-#include "aabb.h"
 #include "core.h"
 
 #include "box2d/math.h"

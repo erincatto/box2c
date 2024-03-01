@@ -54,11 +54,11 @@ typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 ///	Return false if you want to disable the contact this step
 typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
 
-/// Prototype callback for AABB queries.
-/// See b2World_Query
+/// Prototype callback for overlap queries.
+/// See b2World_QueryAABB
 /// Called for each shape found in the query AABB.
 /// @return false to terminate the query.
-typedef bool b2QueryResultFcn(b2ShapeId shapeId, void* context);
+typedef bool b2OverlapResultFcn(b2ShapeId shapeId, void* context);
 
 /// Prototype callback for ray casts.
 /// See b2World::RayCast

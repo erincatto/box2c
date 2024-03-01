@@ -194,26 +194,30 @@ public:
 
 		// Ground body
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Collinear edges with no adjacency information.
 		// This shows the problematic case where a box shape can hit
 		// an internal vertex.
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 			
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment1 = {{-8.0f, 1.0f}, {-6.0f, 1.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment1);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment1);
 
 			b2Segment segment2 = {{-6.0f, 1.0f}, {-4.0f, 1.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment2);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment2);
 
 			b2Segment segment3 = {{-4.0f, 1.0f}, {-2.0f, 1.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment3);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment3);
 		}
 
 		// Chain shape
@@ -235,21 +239,24 @@ public:
 		// to this problem.
 		// TODO_ERIN try this: https://briansemrau.github.io/dealing-with-ghost-collisions/
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {4.0f, 3.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(1.0f, 1.0f, {6.0f, 3.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			box = b2MakeOffsetBox(1.0f, 1.0f, {8.0f, 3.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		// Square made from a chain loop. Collision should be smooth.
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[4] = {{-1.0f, 3.0}, {1.0f, 3.0f}, {1.0f, 5.0f}, {-1.0f, 5.0}};
 			b2ChainDef chainDef = b2DefaultChainDef();
@@ -424,3 +431,76 @@ public:
 };
 
 static int sampleWeeble = RegisterSample("Bodies", "Weeble", Weeble::Create);
+
+class Sleep : public Sample
+{
+public:
+	Sleep(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {2.3f, 10.0f};
+			g_camera.m_zoom = 0.5f;
+		}
+
+		b2BodyId groundId = b2_nullBodyId;
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
+		}
+
+		// Sleeping body
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {-4.0f, 3.0f};
+			bodyDef.isAwake = false;
+			bodyDef.enableSleep = true;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule = {{0.0f, 1.0f}, {1.0f, 1.0f}, 1.0f};
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+		}
+
+		// Sleeping body but sleep is disabled
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 3.0f};
+			bodyDef.isAwake = false;
+			bodyDef.enableSleep = false;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Circle circle = {{1.0f, 1.0f}, 1.0f};
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateCircleShape(bodyId, &shapeDef, &circle);
+		}
+
+		// Awake body and sleep is disabled
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {5.0f, 3.0f};
+			bodyDef.isAwake = true;
+			bodyDef.enableSleep = false;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {0.0f, 1.0f}, 0.25f * b2_pi);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new Sleep(settings);
+	}
+};
+
+static int sampleSleep = RegisterSample("Bodies", "Sleep", Sleep::Create);

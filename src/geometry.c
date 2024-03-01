@@ -230,6 +230,9 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 	float boxInertia = boxMass * (4.0f * rr + ll) / 12.0f;
 	massData.I = circleInertia + boxInertia;
 
+	// inertia about the local origin
+	massData.I += massData.mass * b2Dot(massData.center, massData.center);
+
 	return massData;
 }
 

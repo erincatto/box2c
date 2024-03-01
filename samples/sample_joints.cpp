@@ -227,9 +227,11 @@ public:
 
 		b2BodyId groundId;
 		{
-			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Define motorized body
@@ -242,7 +244,7 @@ public:
 			b2Polygon box = b2MakeBox(2.0f, 0.5f);
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.density = 1.0f;
-			b2CreatePolygonShape(bodyId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
 			m_maxForce = 500.0f;
 			m_maxTorque = 500.0f;
@@ -505,7 +507,11 @@ public:
 			g_camera.m_zoom = 0.5f;
 		}
 
-		b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+		b2BodyId groundId;
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
+		}
 
 		m_enableLimit = true;
 		m_enableMotor = false;
@@ -513,14 +519,14 @@ public:
 		m_motorForce = 25.0f;
 
 		{
-			b2Polygon box = b2MakeBox(0.5f, 2.0f);
-
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, 10.0f};
 			bodyDef.type = b2_dynamicBody;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2CreatePolygonShape(bodyId, &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeBox(0.5f, 2.0f);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
 			b2Vec2 pivot = {0.0f, 9.0f};
 			// b2Vec2 axis = b2Normalize({1.0f, 0.0f});
@@ -610,7 +616,12 @@ public:
 			g_camera.m_zoom = 0.15f;
 		}
 
-		b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+		b2BodyId groundId;
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
+		}
 
 		m_enableLimit = true;
 		m_enableMotor = true;
@@ -620,14 +631,14 @@ public:
 		m_dampingRatio = 0.7f;
 
 		{
-			b2Capsule capsule = {{0.0f, -0.5f}, {0.0f, 0.5f}, 0.5f};
-
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, 10.25f};
 			bodyDef.type = b2_dynamicBody;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2CreateCapsuleShape(bodyId, &b2DefaultShapeDef(), &capsule);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Capsule capsule = {{0.0f, -0.5f}, {0.0f, 0.5f}, 0.5f};
+			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
 
 			b2Vec2 pivot = {0.0f, 10.0f};
 			b2Vec2 axis = b2Normalize({1.0f, 1.0f});
@@ -1135,7 +1146,8 @@ public:
 			g_camera.m_zoom = 0.7f;
 		}
 
-		m_groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 		m_fixedRotation = true;
 
 		for (int i = 0; i < e_count; ++i)
@@ -1180,7 +1192,8 @@ public:
 
 			bodyDef.position = position;
 			m_bodyIds[index] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
 			float length = 2.0f;
 			b2Vec2 pivot1 = {position.x, position.y + 1.0f + length};
@@ -1204,7 +1217,8 @@ public:
 
 			bodyDef.position = position;
 			m_bodyIds[index] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
 			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
@@ -1225,7 +1239,8 @@ public:
 
 			bodyDef.position = position;
 			m_bodyIds[index] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
 			b2PrismaticJointDef jointDef = b2DefaultPrismaticJointDef();
@@ -1246,7 +1261,8 @@ public:
 
 			bodyDef.position = position;
 			m_bodyIds[index] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
@@ -1266,7 +1282,8 @@ public:
 
 			bodyDef.position = position;
 			m_bodyIds[index] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
 			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
@@ -1290,7 +1307,8 @@ public:
 
 			bodyDef.position = position;
 			m_bodyIds[index] = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_bodyIds[index], &b2DefaultShapeDef(), &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
 			b2Vec2 pivot = {position.x - 1.0f, position.y};
 			b2WheelJointDef jointDef = b2DefaultWheelJointDef();
@@ -1483,7 +1501,8 @@ public:
 
 		b2BodyId groundId;
 		{
-			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[25];
 			int count = 24;
@@ -1521,22 +1540,23 @@ public:
 
 			// flat after bridge
 			x += 80.0f;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 			// jump ramp
 			x += 40.0f;
 			segment = {{x, 0.0f}, {x + 10.0f, 5.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 			// final corner
 			x += 20.0f;
 			segment = {{x, 0.0f}, {x + 40.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 			x += 40.0f;
 			segment = {{x, 0.0f}, {x, 20.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Teeter
@@ -1547,8 +1567,9 @@ public:
 			bodyDef.type = b2_dynamicBody;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon box = b2MakeBox(10.0f, 0.25f);
-			b2CreatePolygonShape(bodyId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
 			b2Vec2 pivot = bodyDef.position;
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
@@ -1565,6 +1586,7 @@ public:
 		// Bridge
 		{
 			int N = 20;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Capsule capsule = {{-1.0f, 0.0f}, {1.0f, 0.0f}, 0.125f};
 
 			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
@@ -1576,7 +1598,7 @@ public:
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {161.0f + 2.0f * i, -0.125f};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreateCapsuleShape(bodyId, &b2DefaultShapeDef(), &capsule);
+				b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
 
 				b2Vec2 pivot = {160.0f + 2.0f * i, -0.125f};
 				jointDef.bodyIdA = prevBodyId;
@@ -1641,15 +1663,15 @@ public:
 			b2Hull hull = b2ComputeHull(vertices, B2_ARRAY_COUNT(vertices));
 			b2Polygon chassis = b2MakePolygon(&hull, 0.0f);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Circle circle = {{0.0f, 0.0f}, 0.4f};
 
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 1.0f};
 			m_carId = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(m_carId, &b2DefaultShapeDef(), &chassis);
+			b2CreatePolygonShape(m_carId, &shapeDef, &chassis);
 
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.density = 2.0f;
 			shapeDef.friction = 0.8f;
 
@@ -1813,9 +1835,11 @@ public:
 		}
 
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		m_human.Spawn(m_worldId, {0.0f, 5.0f}, 1.0f, 1, nullptr);
@@ -1845,9 +1869,11 @@ public:
 
 		b2BodyId groundId;
 		{
-			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		m_donut.Spawn(m_worldId, {0.0f, 10.0f}, 0, nullptr);

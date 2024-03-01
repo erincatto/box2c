@@ -242,9 +242,11 @@ public:
 		}
 
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{50.0f, 0.0f}, {-50.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Table 1
@@ -254,13 +256,14 @@ public:
 			bodyDef.position = {-15.0f, 1.0f};
 			m_table1Id = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon top = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 3.5f}, 0.0f);
 			b2Polygon leftLeg = b2MakeOffsetBox(0.5f, 1.5f, {-2.5f, 1.5f}, 0.0f);
 			b2Polygon rightLeg = b2MakeOffsetBox(0.5f, 1.5f, {2.5f, 1.5f}, 0.0f);
 
-			b2CreatePolygonShape(m_table1Id, &b2DefaultShapeDef(), &top);
-			b2CreatePolygonShape(m_table1Id, &b2DefaultShapeDef(), &leftLeg);
-			b2CreatePolygonShape(m_table1Id, &b2DefaultShapeDef(), &rightLeg);
+			b2CreatePolygonShape(m_table1Id, &shapeDef, &top);
+			b2CreatePolygonShape(m_table1Id, &shapeDef, &leftLeg);
+			b2CreatePolygonShape(m_table1Id, &shapeDef, &rightLeg);
 		}
 
 		// Table 2
@@ -270,13 +273,14 @@ public:
 			bodyDef.position = {-5.0f, 1.0f};
 			m_table2Id = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon top = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 3.5f}, 0.0f);
 			b2Polygon leftLeg = b2MakeOffsetBox(0.5f, 2.0f, {-2.5f, 2.0f}, 0.0f);
 			b2Polygon rightLeg = b2MakeOffsetBox(0.5f, 2.0f, {2.5f, 2.0f}, 0.0f);
 
-			b2CreatePolygonShape(m_table2Id, &b2DefaultShapeDef(), &top);
-			b2CreatePolygonShape(m_table2Id, &b2DefaultShapeDef(), &leftLeg);
-			b2CreatePolygonShape(m_table2Id, &b2DefaultShapeDef(), &rightLeg);
+			b2CreatePolygonShape(m_table2Id, &shapeDef, &top);
+			b2CreatePolygonShape(m_table2Id, &shapeDef, &leftLeg);
+			b2CreatePolygonShape(m_table2Id, &shapeDef, &rightLeg);
 		}
 
 		// Spaceship 1
@@ -286,6 +290,7 @@ public:
 			bodyDef.position = {5.0f, 1.0f};
 			m_ship1Id = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Vec2 vertices[3];
 
 			vertices[0] = {-2.0f, 0.0f};
@@ -300,8 +305,8 @@ public:
 			hull = b2ComputeHull(vertices, 3);
 			b2Polygon right = b2MakePolygon(&hull, 0.0f);
 
-			b2CreatePolygonShape(m_ship1Id, &b2DefaultShapeDef(), &left);
-			b2CreatePolygonShape(m_ship1Id, &b2DefaultShapeDef(), &right);
+			b2CreatePolygonShape(m_ship1Id, &shapeDef, &left);
+			b2CreatePolygonShape(m_ship1Id, &shapeDef, &right);
 		}
 
 		// Spaceship 2
@@ -311,6 +316,7 @@ public:
 			bodyDef.position = {15.0f, 1.0f};
 			m_ship2Id = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Vec2 vertices[3];
 
 			vertices[0] = {-2.0f, 0.0f};
@@ -325,8 +331,8 @@ public:
 			hull = b2ComputeHull(vertices, 3);
 			b2Polygon right = b2MakePolygon(&hull, 0.0f);
 
-			b2CreatePolygonShape(m_ship2Id, &b2DefaultShapeDef(), &left);
-			b2CreatePolygonShape(m_ship2Id, &b2DefaultShapeDef(), &right);
+			b2CreatePolygonShape(m_ship2Id, &shapeDef, &left);
+			b2CreatePolygonShape(m_ship2Id, &shapeDef, &right);
 		}
 
 		m_drawBodyAABBs = false;
@@ -342,8 +348,9 @@ public:
 			bodyDef.angle = b2Body_GetAngle(m_table1Id);
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon box = b2MakeOffsetBox(4.0f, 0.1f, {0.0f, 3.0f}, 0.0f);
-			b2CreatePolygonShape(bodyId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
 
 		// Table 2 obstruction
@@ -354,8 +361,9 @@ public:
 			bodyDef.angle = b2Body_GetAngle(m_table2Id);
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon box = b2MakeOffsetBox(4.0f, 0.1f, {0.0f, 3.0f}, 0.0f);
-			b2CreatePolygonShape(bodyId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
 
 		// Ship 1 obstruction
@@ -367,8 +375,9 @@ public:
 			// bodyDef.gravityScale = 0.0f;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Circle circle = {{0.0f, 2.0f}, 0.5f};
-			b2CreateCircleShape(bodyId, &b2DefaultShapeDef(), &circle);
+			b2CreateCircleShape(bodyId, &shapeDef, &circle);
 		}
 
 		// Ship 2 obstruction
@@ -380,8 +389,9 @@ public:
 			// bodyDef.gravityScale = 0.0f;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Circle circle = {{0.0f, 2.0f}, 0.5f};
-			b2CreateCircleShape(bodyId, &b2DefaultShapeDef(), &circle);
+			b2CreateCircleShape(bodyId, &shapeDef, &circle);
 		}
 	}
 
@@ -463,14 +473,15 @@ public:
 
 		b2BodyId groundId;
 		{
-			groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			shapeDef.filter.categoryBits = GROUND;
 			shapeDef.filter.maskBits = ALL_BITS;
 
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		{
@@ -859,8 +870,8 @@ public:
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
-			b2Polygon box = b2MakeOffsetBox(10.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(10.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
@@ -893,22 +904,22 @@ public:
 		{
 			case b2_circleShape:
 				m_circle = {{0.0f, 0.0f}, 0.5f * m_scale};
-				b2Shape_SetCircle(m_shapeId, m_circle);
+				b2Shape_SetCircle(m_shapeId, &m_circle);
 				break;
 
 			case b2_capsuleShape:
 				m_capsule = {{-0.5f * m_scale, 0.0f}, {0.0f, 0.5f * m_scale}, 0.5f * m_scale};
-				b2Shape_SetCapsule(m_shapeId, m_capsule);
+				b2Shape_SetCapsule(m_shapeId, &m_capsule);
 				break;
 
 			case b2_segmentShape:
 				m_segment = {{-0.5f * m_scale, 0.0f}, {0.75f * m_scale, 0.0f}};
-				b2Shape_SetSegment(m_shapeId, m_segment);
+				b2Shape_SetSegment(m_shapeId, &m_segment);
 				break;
 
 			case b2_polygonShape:
 				m_polygon = b2MakeBox(0.5f * m_scale, 0.75f * m_scale);
-				b2Shape_SetPolygon(m_shapeId, m_polygon);
+				b2Shape_SetPolygon(m_shapeId, &m_polygon);
 				break;
 
 			default:

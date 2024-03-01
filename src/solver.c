@@ -3,8 +3,6 @@
 
 #include "solver.h"
 
-#include "aabb.h"
-#include "allocate.h"
 #include "array.h"
 #include "bitset.inl"
 #include "body.h"
@@ -218,6 +216,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 
 		body->position = b2Add(body->position, state->deltaPosition);
 		body->rotation = b2MulRot(state->deltaRotation, body->rotation);
+		body->rotation = b2NormalizeRot(body->rotation);
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		moveEvents[i].transform = b2MakeTransform(body);
@@ -239,8 +238,18 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			if (enableContinuous && (b2Length(v) + B2_ABS(w) * body->maxExtent) * timeStep > saftetyFactor * body->minExtent)
 			{
 				// Store in fast array for the continuous collision stage
-				int fastIndex = atomic_fetch_add(&world->fastBodyCount, 1);
-				world->fastBodies[fastIndex] = bodyIndex;
+				// This is deterministic because the order of TOI sweeps doesn't matter
+				if (body->isBullet)
+				{
+					int bulletIndex = atomic_fetch_add(&world->bulletBodyCount, 1);
+					world->bulletBodies[bulletIndex] = bodyIndex;
+				}
+				else
+				{
+					int fastIndex = atomic_fetch_add(&world->fastBodyCount, 1);
+					world->fastBodies[fastIndex] = bodyIndex;
+				}
+
 				body->isFast = true;
 			}
 			else
@@ -743,9 +752,12 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 
 	// Prepare world to receive fast bodies from body finalization
-	// todo scope problem
 	world->fastBodyCount = 0;
 	world->fastBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
+
+	// Prepare world to receive bullet bodies from body finalization
+	world->bulletBodyCount = 0;
+	world->bulletBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
 
 	if (awakeBodyCount == 0)
 	{
@@ -1526,7 +1538,13 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 
 	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
 	b2Body* body = world->bodies + shape->bodyIndex;
-	B2_ASSERT(body->type == b2_staticBody);
+	B2_ASSERT(body->type == b2_staticBody || continuousContext->fastBody->isBullet);
+
+	// Skip bullets
+	if (body->isBullet)
+	{
+		return true;
+	}
 
 	// Skip filtered bodies
 	canCollide = b2ShouldBodiesCollide(world, continuousContext->fastBody, body);
@@ -1566,6 +1584,17 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	{
 		continuousContext->fraction = output.t;
 	}
+	else if (0.0f == output.t)
+	{
+		// fallback to TOI of a small circle around the fast shape centroid
+		b2Vec2 centroid = b2GetShapeCentroid(fastShape);
+		input.proxyB = b2MakeProxy(&centroid, 1, b2_speculativeDistance);
+		output = b2TimeOfImpact(&input);
+		if (0.0f < output.t && output.t < continuousContext->fraction)
+		{
+			continuousContext->fraction = output.t;
+		}
+	}
 
 	return true;
 }
@@ -1590,12 +1619,16 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	xf2.p = b2Sub(sweep.c2, b2RotateVector(sweep.q2, sweep.localCenter));
 
 	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
+	b2DynamicTree* kinematicTree = world->broadPhase.trees + b2_kinematicBody;
+	b2DynamicTree* dynamicTree = world->broadPhase.trees + b2_dynamicBody;
 
 	struct b2ContinuousContext context;
 	context.world = world;
 	context.sweep = sweep;
 	context.fastBody = fastBody;
 	context.fraction = 1.0f;
+
+	bool isBullet = fastBody->isBullet;
 
 	int32_t shapeIndex = fastBody->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
@@ -1618,6 +1651,12 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 		fastShape->aabb = box2;
 
 		b2DynamicTree_Query(staticTree, box, b2ContinuousQueryCallback, &context);
+
+		if (isBullet)
+		{
+			b2DynamicTree_Query(kinematicTree, box, b2ContinuousQueryCallback, &context);
+			b2DynamicTree_Query(dynamicTree, box, b2ContinuousQueryCallback, &context);
+		}
 
 		shapeIndex = fastShape->nextShapeIndex;
 	}
@@ -1702,11 +1741,11 @@ static void b2SolveContinuous(b2World* world, int32_t bodyIndex)
 	}
 }
 
-static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+static void b2FastBodyTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
 {
 	B2_MAYBE_UNUSED(threadIndex);
 
-	b2TracyCZoneNC(continuous_task, "Continuous Task", b2_colorAqua, true);
+	b2TracyCZoneNC(fast_body_task, "Fast Body Task", b2_colorAqua, true);
 
 	b2World* world = taskContext;
 
@@ -1720,7 +1759,28 @@ static void b2ContinuousParallelForTask(int32_t startIndex, int32_t endIndex, ui
 		b2SolveContinuous(world, index);
 	}
 
-	b2TracyCZoneEnd(continuous_task);
+	b2TracyCZoneEnd(fast_body_task);
+}
+
+static void b2BulletBodyTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+{
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2TracyCZoneNC(bullet_body_task, "Bullet Body Task", b2_colorLightSkyBlue, true);
+
+	b2World* world = taskContext;
+
+	B2_ASSERT(startIndex <= endIndex);
+	B2_ASSERT(startIndex <= world->bodyPool.capacity);
+	B2_ASSERT(endIndex <= world->bodyPool.capacity);
+
+	for (int32_t i = startIndex; i < endIndex; ++i)
+	{
+		int32_t index = world->bulletBodies[i];
+		b2SolveContinuous(world, index);
+	}
+
+	b2TracyCZoneEnd(bullet_body_task);
 }
 
 // Solve with graph coloring
@@ -1815,13 +1875,28 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
 
 	// Parallel continuous collision
-	int32_t minRange = 8;
-	void* userContinuousTask =
-		world->enqueueTaskFcn(&b2ContinuousParallelForTask, world->fastBodyCount, minRange, world, world->userTaskContext);
-	world->taskCount += 1;
-	if (userContinuousTask != NULL)
 	{
-		world->finishTaskFcn(userContinuousTask, world->userTaskContext);
+		// fast bodies
+		int32_t minRange = 8;
+		void* userFastBodyTask =
+			world->enqueueTaskFcn(&b2FastBodyTask, world->fastBodyCount, minRange, world, world->userTaskContext);
+		world->taskCount += 1;
+		if (userFastBodyTask != NULL)
+		{
+			world->finishTaskFcn(userFastBodyTask, world->userTaskContext);
+		}
+	}
+
+	{
+		// bullet bodies
+		int32_t minRange = 8;
+		void* userBulletBodyTask =
+			world->enqueueTaskFcn(&b2BulletBodyTask, world->bulletBodyCount, minRange, world, world->userTaskContext);
+		world->taskCount += 1;
+		if (userBulletBodyTask != NULL)
+		{
+			world->finishTaskFcn(userBulletBodyTask, world->userTaskContext);
+		}
 	}
 
 	// Serially enlarge broad-phase proxies for fast shapes
@@ -1833,7 +1908,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 		int32_t fastBodyCount = world->fastBodyCount;
 		b2DynamicTree* tree = broadPhase->trees + b2_dynamicBody;
 
-		// Warning: this loop has non-deterministic order
+		// This loop has non-deterministic order but it shouldn't affect the result
 		for (int32_t i = 0; i < fastBodyCount; ++i)
 		{
 			b2Body* fastBody = bodies + fastBodies[i];
@@ -1863,6 +1938,55 @@ void b2Solve(b2World* world, b2StepContext* context)
 				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
 
 				// all fast shapes should already be in the move buffer
+				B2_ASSERT(b2ContainsKey(&broadPhase->moveSet, proxyKey + 1));
+
+				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
+
+				shapeIndex = shape->nextShapeIndex;
+			}
+		}
+	}
+
+	// Serially enlarge broad-phase proxies for bullet shapes
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+		b2Body* bodies = world->bodies;
+		b2Shape* shapes = world->shapes;
+		int32_t* bulletBodies = world->bulletBodies;
+		int32_t bulletBodyCount = world->bulletBodyCount;
+		b2DynamicTree* tree = broadPhase->trees + b2_dynamicBody;
+
+		// This loop has non-deterministic order but it shouldn't affect the result
+		for (int32_t i = 0; i < bulletBodyCount; ++i)
+		{
+			b2Body* bulletBody = bodies + bulletBodies[i];
+			if (bulletBody->enlargeAABB == false)
+			{
+				continue;
+			}
+
+			// clear flag
+			bulletBody->enlargeAABB = false;
+
+			int32_t shapeIndex = bulletBody->shapeList;
+			while (shapeIndex != B2_NULL_INDEX)
+			{
+				b2Shape* shape = shapes + shapeIndex;
+				if (shape->enlargedAABB == false)
+				{
+					shapeIndex = shape->nextShapeIndex;
+					continue;
+				}
+
+				// clear flag
+				shape->enlargedAABB = false;
+
+				int32_t proxyKey = shape->proxyKey;
+				int32_t proxyId = B2_PROXY_ID(proxyKey);
+				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
+
+				// all fast shapes should already be in the move buffer
+				B2_ASSERT(b2ContainsKey(&broadPhase->moveSet, proxyKey + 1));
 
 				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
 
@@ -1873,8 +1997,13 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(continuous_collision);
 
+	b2FreeStackItem(world->stackAllocator, world->bulletBodies);
+	world->bulletBodies = NULL;
+	world->bulletBodyCount = 0;
+
 	b2FreeStackItem(world->stackAllocator, world->fastBodies);
 	world->fastBodies = NULL;
+	world->fastBodyCount = 0;
 
 	world->profile.continuous = b2GetMilliseconds(&timer);
 

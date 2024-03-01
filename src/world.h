@@ -86,6 +86,10 @@ typedef struct b2World
 	int32_t* fastBodies;
 	_Atomic int fastBodyCount;
 
+	// Array of bullet bodies that need continuous collision handling
+	int32_t* bulletBodies;
+	_Atomic int bulletBodyCount;
+
 	// Id that is incremented every time step
 	uint64_t stepId;
 

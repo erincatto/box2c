@@ -2174,13 +2174,13 @@ public:
 
 		if (m_shapeType == e_circleShape)
 		{
-			b2World_OverlapCircle(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCircle, transform, b2DefaultQueryFilter(),
+			b2World_OverlapCircle(m_worldId, &m_queryCircle, transform, b2DefaultQueryFilter(), OverlapWorld::OverlapResultFcn, 
 								  this);
 			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
-			b2World_OverlapCapsule(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryCapsule, transform, b2DefaultQueryFilter(),
+			b2World_OverlapCapsule(m_worldId, &m_queryCapsule, transform, b2DefaultQueryFilter(), OverlapWorld::OverlapResultFcn, 
 								   this);
 			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.point1);
 			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.point2);
@@ -2188,7 +2188,7 @@ public:
 		}
 		else if (m_shapeType == e_boxShape)
 		{
-			b2World_OverlapPolygon(m_worldId, OverlapWorld::OverlapResultFcn, &m_queryBox, transform, b2DefaultQueryFilter(),
+			b2World_OverlapPolygon(m_worldId, &m_queryBox, transform, b2DefaultQueryFilter(), OverlapWorld::OverlapResultFcn,
 								   this);
 			b2Vec2 points[b2_maxPolygonVertices] = {0};
 			for (int i = 0; i < m_queryBox.count; ++i)
@@ -2202,7 +2202,7 @@ public:
 		{
 			b2Vec2 p = b2Body_GetPosition(m_bodyIds[m_ignoreIndex]);
 			p.x -= 0.2f;
-			g_draw.DrawString(p, "ign");
+			g_draw.DrawString(p, "skip");
 		}
 
 		for (int i = 0; i < m_doomCount; ++i)

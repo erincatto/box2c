@@ -34,7 +34,6 @@
 
 #include <float.h>
 #include <stdio.h>
-#include <string.h>
 
 b2World b2_worlds[b2_maxWorlds];
 
@@ -1165,7 +1164,7 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 typedef struct WorldQueryContext
 {
 	b2World* world;
-	b2QueryResultFcn* fcn;
+	b2OverlapResultFcn* fcn;
 	b2QueryFilter filter;
 	void* userContext;
 } WorldQueryContext;
@@ -1195,7 +1194,7 @@ static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context
 	return result;
 }
 
-void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2QueryFilter filter, void* context)
+void b2World_OverlapAABB(b2WorldId worldId, b2AABB aabb, b2QueryFilter filter, b2OverlapResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1217,7 +1216,7 @@ void b2World_QueryAABB(b2WorldId worldId, b2QueryResultFcn* fcn, b2AABB aabb, b2
 typedef struct WorldOverlapContext
 {
 	b2World* world;
-	b2QueryResultFcn* fcn;
+	b2OverlapResultFcn* fcn;
 	b2QueryFilter filter;
 	b2DistanceProxy proxy;
 	b2Transform transform;
@@ -1264,8 +1263,8 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	return result;
 }
 
-void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Circle* circle, b2Transform transform,
-						   b2QueryFilter filter, void* context)
+void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transform transform, b2QueryFilter filter,
+						   b2OverlapResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1288,8 +1287,8 @@ void b2World_OverlapCircle(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Cir
 	}
 }
 
-void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Capsule* capsule, b2Transform transform,
-							b2QueryFilter filter, void* context)
+void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Transform transform, b2QueryFilter filter,
+							b2OverlapResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
@@ -1312,8 +1311,8 @@ void b2World_OverlapCapsule(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Ca
 	}
 }
 
-void b2World_OverlapPolygon(b2WorldId worldId, b2QueryResultFcn* fcn, const b2Polygon* polygon, b2Transform transform,
-							b2QueryFilter filter, void* context)
+void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transform transform, b2QueryFilter filter,
+							b2OverlapResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	B2_ASSERT(world->locked == false);
