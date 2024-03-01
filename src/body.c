@@ -1439,6 +1439,25 @@ bool b2Body_IsFixedRotation(b2BodyId bodyId)
 	return body->fixedRotation;
 }
 
+void b2Body_SetBullet(b2BodyId bodyId, bool flag)
+{
+	b2World* world = b2GetWorldFromIndexLocked(bodyId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Body* body = b2GetBody(world, bodyId);
+	body->isBullet = flag;
+}
+
+bool b2Body_IsBullet(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->isBullet;
+}
+
 b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldFromIndex(bodyId.world);

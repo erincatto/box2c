@@ -123,9 +123,9 @@ class VerticalStack : public Sample
 public:
 	enum
 	{
-		e_maxColumns = 50,
-		e_maxRows = 30,
-		e_maxBullets = 20
+		e_maxColumns = 10,
+		e_maxRows = 12,
+		e_maxBullets = 8
 	};
 
 	enum ShapeType
@@ -137,6 +137,12 @@ public:
 	VerticalStack(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {-5.5f, 6.5f};
+			g_camera.m_zoom = 0.4f;
+		}
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, -1.0f};
@@ -158,8 +164,8 @@ public:
 		}
 
 		m_shapeType = e_boxShape;
-		m_rowCount = 10;
-		m_columnCount = g_sampleDebug ? 4 : e_maxColumns;
+		m_rowCount = e_maxRows;
+		m_columnCount = 4;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -265,25 +271,31 @@ public:
 
 	void FireBullets()
 	{
-		b2Circle circle;
-		circle.radius = 0.25f;
-
+		b2Circle circle = {{0.0f, 0.0f}, 0.25f};
 		b2Polygon box = b2MakeBox(0.25f, 0.25f);
 
 		b2ShapeDef sd = b2DefaultShapeDef();
-		sd.density = 2.0f;
-		sd.friction = 0.6f;
+		sd.density = 4.0f;
 
 		for (int32_t i = 0; i < m_bulletCount; ++i)
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {-25.0f - i, 5.0f};
-			bodyDef.linearVelocity = {50.0f, 0.0f};
+			bodyDef.position = {-25.0f - i, 6.0f};
+			float speed = RandomFloat(200.0f, 300.0f);
+			bodyDef.linearVelocity = {speed, 0.0f};
+			bodyDef.isBullet = true;
 
 			b2BodyId bullet = b2CreateBody(m_worldId, &bodyDef);
-			b2CreatePolygonShape(bullet, &sd, &box);
 
+			if (m_bulletType == e_boxShape)
+			{
+				b2CreatePolygonShape(bullet, &sd, &box);
+			}
+			else
+			{
+				b2CreateCircleShape(bullet, &sd, &circle);
+			}
 			assert(B2_IS_NULL(m_bullets[i]));
 			m_bullets[i] = bullet;
 		}
@@ -294,6 +306,8 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
+
+		ImGui::PushItemWidth(120.0f);
 
 		bool changed = false;
 		const char* shapeTypes[] = {"Circle", "Box"};
@@ -310,6 +324,8 @@ public:
 		int bulletType = int(m_bulletType);
 		ImGui::Combo("Bullet Shape", &bulletType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
 		m_bulletType = ShapeType(bulletType);
+
+		ImGui::PopItemWidth();
 
 		if (ImGui::Button("Fire Bullets"))
 		{

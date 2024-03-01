@@ -313,6 +313,13 @@ B2_API void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag);
 /// Does this body have fixed rotation?
 B2_API bool b2Body_IsFixedRotation(b2BodyId bodyId);
 
+/// Set this body to be a bullet. A bullet does continuous collision detection
+/// against dynamic bodies (but not other bullets).
+B2_API void b2Body_SetBullet(b2BodyId bodyId, bool flag);
+
+/// Is this body a bullet?
+B2_API bool b2Body_IsBullet(b2BodyId bodyId);
+
 /// Iterate over shapes on a body
 B2_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
 B2_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);

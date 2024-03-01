@@ -1538,7 +1538,7 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 
 	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
 	b2Body* body = world->bodies + shape->bodyIndex;
-	B2_ASSERT(body->type == b2_staticBody);
+	B2_ASSERT(body->type == b2_staticBody || continuousContext->fastBody->isBullet);
 
 	// Skip bullets
 	if (body->isBullet)
@@ -1583,6 +1583,17 @@ static bool b2ContinuousQueryCallback(int32_t proxyId, int32_t shapeIndex, void*
 	if (0.0f < output.t && output.t < continuousContext->fraction)
 	{
 		continuousContext->fraction = output.t;
+	}
+	else if (0.0f == output.t)
+	{
+		// fallback to TOI of a small circle around the fast shape centroid
+		b2Vec2 centroid = b2GetShapeCentroid(fastShape);
+		input.proxyB = b2MakeProxy(&centroid, 1, b2_speculativeDistance);
+		output = b2TimeOfImpact(&input);
+		if (0.0f < output.t && output.t < continuousContext->fraction)
+		{
+			continuousContext->fraction = output.t;
+		}
 	}
 
 	return true;
