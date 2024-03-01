@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <string.h>
 
 typedef struct b2WorkerContext
 {
