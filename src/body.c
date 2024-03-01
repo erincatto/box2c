@@ -268,7 +268,8 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (body->isEnabled)
 	{
-		b2CreateIslandForBody(world, body, def->isAwake);
+		bool isAwake = def->isAwake || def->enableSleep == false;
+		b2CreateIslandForBody(world, body, isAwake);
 	}
 
 	b2BodyId id = {body->object.index + 1, world->poolIndex, body->object.revision};

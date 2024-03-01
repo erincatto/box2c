@@ -34,9 +34,8 @@ public:
 		}
 		
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
-			// b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			// b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			// b2Vec2 points[] = {
 			//{42.333, 44.979},	{177.271, 44.979},	{177.271, 100.542}, {142.875, 121.708}, {177.271, 121.708},
@@ -344,7 +343,8 @@ public:
 		}
 
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[] = {{40.0f, -40.0f}, {-40.0f, -40.0f}, {-40.0f, 40.0f}, {40.0f, 40.0f}};
 
@@ -664,9 +664,11 @@ public:
 
 		// Ground
 		{
-			b2BodyId groundId = b2CreateBody(m_worldId, &b2DefaultBodyDef());
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		// Platform
@@ -677,8 +679,9 @@ public:
 			bodyDef.linearVelocity = {2.0f, 0.0f};
 			m_platformId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon box = b2MakeBox(3.0f, 0.5f);
-			m_platformShapeId = b2CreatePolygonShape(m_platformId, &b2DefaultShapeDef(), &box);
+			m_platformShapeId = b2CreatePolygonShape(m_platformId, &shapeDef, &box);
 		}
 
 		// Actor

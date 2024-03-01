@@ -366,17 +366,18 @@ public:
 			bodyDef.position = {0.0f, 0.0f};
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Polygon box = b2MakeOffsetBox(100.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			b2Segment segment = {{-14.0f, 4.0f}, {-8.0f, 4.0f}};
-			b2CreateSegmentShape(groundId, &b2DefaultShapeDef(), &segment);
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 
 			box = b2MakeOffsetBox(3.0f, 0.5f, {0.0f, 4.0f}, 0.0f);
-			b2CreatePolygonShape(groundId, &b2DefaultShapeDef(), &box);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
 			b2Capsule capsule = {{8.5f, 4.0f}, {13.5f, 4.0f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
+			b2CreateCapsuleShape(groundId, &shapeDef, &capsule);
 		}
 
 
@@ -666,15 +667,16 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Capsule capsule;
 			capsule = {{-10.5f, 0.0f}, {10.5f, 0.0f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
+			b2CreateCapsuleShape(groundId, &shapeDef, &capsule);
 			capsule = {{-10.5f, 0.0f}, {-10.5f, 20.5f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
+			b2CreateCapsuleShape(groundId, &shapeDef, &capsule);
 			capsule = {{10.5f, 0.0f}, {10.5f, 20.5f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
+			b2CreateCapsuleShape(groundId, &shapeDef, &capsule);
 			capsule = {{-10.5f, 20.5f}, {10.5f, 20.5f}, 0.5f};
-			b2CreateCapsuleShape(groundId, &b2DefaultShapeDef(), &capsule);
+			b2CreateCapsuleShape(groundId, &shapeDef, &capsule);
 		}
 
 		m_row = 0;
@@ -685,6 +687,7 @@ public:
 		bodyDef.type = b2_dynamicBody;
 		bodyDef.gravityScale = 0.0f;
 
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 
 		while (m_count < e_maxCount)
@@ -697,7 +700,7 @@ public:
 
 				bodyDef.position = {x, y};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreateCircleShape(bodyId, &b2DefaultShapeDef(), &circle);
+				b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
 				m_count += 1;
 				m_row += 1;

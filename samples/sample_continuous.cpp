@@ -171,8 +171,9 @@ public:
 		bodyDef.gravityScale = 1.0f;
 		m_bodyId = b2CreateBody(m_worldId, &bodyDef);
 
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-		b2CreateCircleShape(m_bodyId, &b2DefaultShapeDef(), &circle);
+		b2CreateCircleShape(m_bodyId, &shapeDef, &circle);
 	}
 
 	void UpdateUI() override
