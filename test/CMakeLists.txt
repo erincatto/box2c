@@ -24,4 +24,6 @@ target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 target_link_libraries(test PRIVATE box2d enkiTS simde)
 
+# target_link_options(test PRIVATE -fsanitize=thread)
+
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "" FILES ${BOX2D_TESTS})

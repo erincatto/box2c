@@ -769,7 +769,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			}
 
 			char buffer[32];
-			sprintf(buffer, "%d", b->object.index);
+			snprintf(buffer, 32, "%d", b->object.index);
 			draw->DrawString(b->position, buffer, draw->context);
 
 			int32_t shapeIndex = b->shapeList;
@@ -809,7 +809,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			b2Vec2 p = b2TransformPoint(transform, offset);
 
 			char buffer[32];
-			sprintf(buffer, "%.2f", body->mass);
+			snprintf(buffer, 32, "%.2f", body->mass);
 			draw->DrawString(p, buffer, draw->context);
 		}
 	}

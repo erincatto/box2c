@@ -181,7 +181,7 @@ void TiltedStacks(int testIndex, int workerCount)
 int DeterminismTest(void)
 {
 	// Test 1 : 4 threads
-	TiltedStacks(0, 16);
+	TiltedStacks(0, 4);
 
 	// Test 2 : 1 thread
 	TiltedStacks(1, 1);

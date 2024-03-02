@@ -169,7 +169,7 @@ elseif (MINGW)
 	endif()
 elseif (APPLE)
 	message(STATUS "Box2D on Apple")
-	# target_compile_options(box2d PRIVATE)
+	# target_compile_options(box2d PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
 elseif (EMSCRIPTEN)
 	message(STATUS "Box2D on Emscripten")
 	# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
