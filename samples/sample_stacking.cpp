@@ -9,6 +9,7 @@
 #include "settings.h"
 
 #include <imgui.h>
+#include <GLFW/glfw3.h>
 
 class SingleBox : public Sample
 {
@@ -68,8 +69,8 @@ public:
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-			b2ShapeDef sd = b2DefaultShapeDef();
-			b2CreatePolygonShape(groundId, &sd, &box);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		for (int32_t i = 0; i < e_rows * e_columns; ++i)
@@ -79,9 +80,9 @@ public:
 
 		b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
-		b2ShapeDef sd = b2DefaultShapeDef();
-		sd.density = 1.0f;
-		sd.friction = 0.3f;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+		shapeDef.friction = 0.3f;
 
 		float offset = 0.2f;
 		float dx = 5.0f;
@@ -103,7 +104,7 @@ public:
 
 				m_bodies[n] = bodyId;
 
-				b2CreatePolygonShape(bodyId, &sd, &box);
+				b2CreatePolygonShape(bodyId, &shapeDef, &box);
 			}
 		}
 	}
@@ -139,7 +140,7 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {-5.5f, 6.5f};
+			g_camera.m_center = {-2.0f, 6.5f};
 			g_camera.m_zoom = 0.4f;
 		}
 
@@ -148,9 +149,12 @@ public:
 			bodyDef.position = {0.0f, -1.0f};
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2Polygon box = b2MakeBox(1000.0f, 1.0f);
-			b2ShapeDef sd = b2DefaultShapeDef();
-			b2CreatePolygonShape(groundId, &sd, &box);
+			b2Polygon box = b2MakeBox(100.0f, 1.0f);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			b2Segment segment = {{10.0f, 1.0f}, {10.0f, 21.0f}};
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
 		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
@@ -165,7 +169,7 @@ public:
 
 		m_shapeType = e_boxShape;
 		m_rowCount = e_maxRows;
-		m_columnCount = 4;
+		m_columnCount = 1;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -189,9 +193,9 @@ public:
 		b2Polygon box = b2MakeBox(0.5f, 0.5f);
 		// b2Polygon box = b2MakeRoundedBox(0.45f, 0.45f, 0.05f);
 
-		b2ShapeDef sd = b2DefaultShapeDef();
-		sd.density = 1.0f;
-		sd.friction = 0.3f;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+		shapeDef.friction = 0.3f;
 
 		float offset;
 
@@ -204,8 +208,8 @@ public:
 			offset = 0.01f;
 		}
 
-		float dx = 3.0f;
-		float xroot = -0.5f * dx * (m_columnCount - 1.0f);
+		float dx = -3.0f;
+		float xroot = 8.0f;
 
 		for (int32_t j = 0; j < m_columnCount; ++j)
 		{
@@ -227,11 +231,11 @@ public:
 
 				if (m_shapeType == e_circleShape)
 				{
-					b2CreateCircleShape(bodyId, &sd, &circle);
+					b2CreateCircleShape(bodyId, &shapeDef, &circle);
 				}
 				else
 				{
-					b2CreatePolygonShape(bodyId, &sd, &box);
+					b2CreatePolygonShape(bodyId, &shapeDef, &box);
 				}
 			}
 		}
@@ -274,8 +278,8 @@ public:
 		b2Circle circle = {{0.0f, 0.0f}, 0.25f};
 		b2Polygon box = b2MakeBox(0.25f, 0.25f);
 
-		b2ShapeDef sd = b2DefaultShapeDef();
-		sd.density = 4.0f;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 4.0f;
 
 		for (int32_t i = 0; i < m_bulletCount; ++i)
 		{
@@ -290,11 +294,11 @@ public:
 
 			if (m_bulletType == e_boxShape)
 			{
-				b2CreatePolygonShape(bullet, &sd, &box);
+				b2CreatePolygonShape(bullet, &shapeDef, &box);
 			}
 			else
 			{
-				b2CreateCircleShape(bullet, &sd, &circle);
+				b2CreateCircleShape(bullet, &shapeDef, &circle);
 			}
 			assert(B2_IS_NULL(m_bullets[i]));
 			m_bullets[i] = bullet;
@@ -327,7 +331,7 @@ public:
 
 		ImGui::PopItemWidth();
 
-		if (ImGui::Button("Fire Bullets"))
+		if (ImGui::Button("Fire Bullets") || glfwGetKey(g_mainWindow, GLFW_KEY_B) == GLFW_PRESS)
 		{
 			DestroyBullets();
 			FireBullets();
