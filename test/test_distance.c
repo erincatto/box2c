@@ -107,7 +107,7 @@ static int TimeOfImpactTest(void)
 
 	b2TOIOutput output = b2TimeOfImpact(&input);
 
-	ENSURE(output.state = b2_toiStateHit);
+	ENSURE(output.state == b2_toiStateHit);
 	ENSURE_SMALL(output.t - 0.5f, b2_linearSlop);
 
 	return 0;

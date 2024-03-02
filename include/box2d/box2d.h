@@ -410,6 +410,25 @@ B2_API b2Filter b2Shape_GetFilter(b2ShapeId shapeId);
 /// Set the current filter. This is almost as expensive as recreating the shape.
 B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 
+/// Enable sensor events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+B2_API void b2Shape_EnableSensorEvents(b2ShapeId shapeId, bool flag);
+
+/// @return are sensor events enabled?
+B2_API bool b2Shape_AreSensorEventsEnabled(b2ShapeId shapeId);
+
+/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId, bool flag);
+
+/// @return are contact events enabled?
+B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
+
+/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
+///	and must be carefully handled due to multi-threading. Ignored for sensors.
+B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag);
+
+/// @return are pre-solve events enabled?
+B2_API bool b2Shape_ArePreSolveEventsEnabled(b2ShapeId shapeId);
+
 /// Test a point for overlap with a shape
 B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 
@@ -449,12 +468,6 @@ B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon);
 /// If the shape is not a smooth segment then this will return b2_nullChainId.
 B2_API b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId);
 
-/// Set the friction of a chain. Normally this is set in b2ChainDef.
-B2_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
-
-/// Set the restitution (bounciness) on a chain. Normally this is specified in b2ChainDef.
-B2_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
-
 /// Get the maximum capacity required for retrieving all the touching contacts on a shape
 B2_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
@@ -472,6 +485,12 @@ B2_API b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def);
 
 /// Destroy a chain shape
 B2_API void b2DestroyChain(b2ChainId chainId);
+
+/// Set the friction of a chain. Normally this is set in b2ChainDef.
+B2_API void b2Chain_SetFriction(b2ChainId chainId, float friction);
+
+/// Set the restitution (bounciness) on a chain. Normally this is specified in b2ChainDef.
+B2_API void b2Chain_SetRestitution(b2ChainId chainId, float restitution);
 
 /// Chain identifier validation. Provides validation for up to 64K allocations.
 B2_API bool b2Chain_IsValid(b2ChainId id);

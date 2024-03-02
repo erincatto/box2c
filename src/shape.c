@@ -534,6 +534,63 @@ void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
 	}
 }
 
+void b2Shape_EnableSensorEvents(b2ShapeId shapeId, bool flag)
+{
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->enableSensorEvents = flag;
+}
+
+bool b2Shape_AreSensorEventsEnabled(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->enableSensorEvents;
+}
+
+void b2Shape_EnableContactEvents(b2ShapeId shapeId, bool flag)
+{
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->enableContactEvents = flag;
+}
+
+bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->enableContactEvents;
+}
+
+void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag)
+{
+	b2World* world = b2GetWorldFromIndexLocked(shapeId.world);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->enablePreSolveEvents = flag;
+}
+
+bool b2Shape_ArePreSolveEventsEnabled(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorldFromIndex(shapeId.world);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->enablePreSolveEvents;
+}
+
 b2ShapeType b2Shape_GetType(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorldFromIndex(shapeId.world);
