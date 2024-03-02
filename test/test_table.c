@@ -55,7 +55,7 @@ int TableTest(void)
 		ENSURE(set.count == (itemCount - removeCount));
 
 #if !NDEBUG
-		extern int32_t g_probeCount;
+		extern _Atomic int g_probeCount;
 		g_probeCount = 0;
 #endif
 

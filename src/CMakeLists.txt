@@ -187,8 +187,7 @@ elseif (UNIX)
 			message(STATUS "Box2D using AVX2")
 			# FMA -mfma -mavx -march=native
 			target_compile_options(box2d PRIVATE -mavx2)
-			target_compile_options(box2d PRIVATE -fsanitize=address)
-			target_link_options(box2d PUBLIC -fsanitize=address)
+			# target_compile_options(box2d PRIVATE -fsanitize=address)
 		else()
 			# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
 			message(STATUS "Box2D disabling ABI warning")
