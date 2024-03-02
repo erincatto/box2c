@@ -8,11 +8,12 @@
 
 #include "box2d/types.h"
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <string.h>
 
 #if B2_DEBUG
-int32_t g_probeCount;
+_Atomic int g_probeCount;
 #endif
 
 static inline bool b2IsPowerOf2(uint32_t x)
@@ -91,10 +92,6 @@ static inline uint32_t b2KeyHash(uint64_t key)
 	return (uint32_t)h;
 }
 
-#if B2_DEBUG
-int32_t g_probeCount;
-#endif
-
 int32_t b2FindSlot(const b2HashSet* set, uint64_t key, uint32_t hash)
 {
 	uint32_t capacity = set->capacity;
@@ -103,7 +100,7 @@ int32_t b2FindSlot(const b2HashSet* set, uint64_t key, uint32_t hash)
 	while (items[index].hash != 0 && items[index].key != key)
 	{
 #if B2_DEBUG
-		g_probeCount += 1;
+		atomic_fetch_add(&g_probeCount, 1);
 #endif
 		index = (index + 1) & (capacity - 1);
 	}

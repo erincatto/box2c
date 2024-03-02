@@ -5,9 +5,10 @@
 #include "table.h"
 #include "box2d/timer.h"
 
+#include <stdatomic.h>
+
 #define SET_SPAN 317
 #define ITEM_COUNT ((SET_SPAN * SET_SPAN - SET_SPAN) / 2)
-
 
 int TableTest(void)
 {
@@ -55,7 +56,7 @@ int TableTest(void)
 		ENSURE(set.count == (itemCount - removeCount));
 
 #if !NDEBUG
-		extern int32_t g_probeCount;
+		extern _Atomic int g_probeCount;
 		g_probeCount = 0;
 #endif
 
