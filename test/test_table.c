@@ -5,9 +5,10 @@
 #include "table.h"
 #include "box2d/timer.h"
 
+#include <stdatomic.h>
+
 #define SET_SPAN 317
 #define ITEM_COUNT ((SET_SPAN * SET_SPAN - SET_SPAN) / 2)
-
 
 int TableTest(void)
 {
