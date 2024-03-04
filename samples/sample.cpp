@@ -269,11 +269,11 @@ void Sample::Step(Settings& settings)
 	{
 		b2Counters s = b2World_GetCounters(m_worldId);
 
-		g_draw.DrawString(5, m_textLine, "islands/bodies/contacts/joints = %d/%d/%d/%d", s.islandCount, s.bodyCount, s.contactCount,
+		g_draw.DrawString(5, m_textLine, "bodies/shapes/contacts/joints = %d/%d/%d/%d", s.bodyCount, s.shapeCount, s.contactCount,
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "pairs/proxies/height = %d/%d/%d", s.pairCount, s.proxyCount, s.treeHeight);
+		g_draw.DrawString(5, m_textLine, "islands/tree_height/stack/tasks = %d/%d/%d/%d", s.islandCount, s.treeHeight, s.stackUsed, s.taskCount);
 		m_textLine += m_textIncrement;
 
 		int32_t totalCount = 0;
@@ -287,15 +287,6 @@ void Sample::Step(Settings& settings)
 		totalCount += s.colorCounts[b2_graphColorCount];
 		snprintf(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
 		g_draw.DrawString(5, m_textLine, buffer);
-		m_textLine += m_textIncrement;
-
-		g_draw.DrawString(5, m_textLine, "tree: proxies/height = %d/%d", s.proxyCount, s.treeHeight);
-		m_textLine += m_textIncrement;
-
-		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
-		m_textLine += m_textIncrement;
-
-		g_draw.DrawString(5, m_textLine, "task count = %d", s.taskCount);
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);

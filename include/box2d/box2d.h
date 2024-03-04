@@ -110,6 +110,12 @@ B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 /// Register the pre-solve callback. This is optional.
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
+/// Set the gravity vector for the entire world. Typically in m/s^2
+B2_API void b2World_SetGravity(b2WorldId worldId, b2Vec2 gravity);
+
+/// @return the gravity vector
+B2_API b2Vec2 b2World_GetGravity(b2WorldId worldId);
+
 /// Adjust contact tuning parameters:
 /// - hertz is the contact stiffness (cycles per second)
 /// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)

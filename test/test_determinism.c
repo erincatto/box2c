@@ -158,6 +158,7 @@ void TiltedStacks(int testIndex, int workerCount)
 	for (int i = 0; i < 100; ++i)
 	{
 		b2World_Step(worldId, timeStep, subStepCount);
+		taskCount = 0;
 		TracyCFrameMark;
 	}
 

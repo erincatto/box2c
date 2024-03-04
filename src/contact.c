@@ -276,19 +276,21 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		bodyB->contactCount += 1;
 	}
 
-	// A contact should only be created from an awake body
-	B2_ASSERT(b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB));
-
-	int32_t awakeIndex = b2Array(world->awakeContactArray).count;
-	b2Array_Push(world->awakeContactArray, contactIndex);
-
 	if (contactIndex == b2Array(world->contactAwakeIndexArray).count)
 	{
-		b2Array_Push(world->contactAwakeIndexArray, awakeIndex);
+		// reserve space, regardless of awake status
+		b2Array_Push(world->contactAwakeIndexArray, B2_NULL_INDEX);
 	}
-	else
+
+	// A contact may be created when bodies are added to the simulation asleep.
+	bool isAwake = b2IsBodyAwake(world, bodyA) || b2IsBodyAwake(world, bodyB);
+
+	if (isAwake)
 	{
-		B2_ASSERT(contactIndex < b2Array(world->contactAwakeIndexArray).count);
+		int32_t awakeIndex = b2Array(world->awakeContactArray).count;
+		b2Array_Push(world->awakeContactArray, contactIndex);
+
+		// reverse-lookup
 		world->contactAwakeIndexArray[contactIndex] = awakeIndex;
 	}
 

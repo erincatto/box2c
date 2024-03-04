@@ -1141,16 +1141,18 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	b2Counters s = {0};
-	s.islandCount = world->islandPool.count;
 	s.bodyCount = world->bodyPool.count;
+	s.bodyCapacity = world->bodyPool.capacity;
+	s.shapeCount = world->shapePool.count;
+	s.shapeCapacity = world->shapePool.capacity;
 	s.contactCount = world->contactPool.count;
+	s.contactCapacity = world->contactPool.capacity;
 	s.jointCount = world->jointPool.count;
-	s.pairCount = world->broadPhase.pairSet.count;
+	s.jointCapacity = world->jointPool.capacity;
+	s.islandCount = world->islandPool.count;
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
-	s.proxyCount = tree->nodeCount;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
-	s.stackCapacity = b2GetStackCapacity(world->stackAllocator);
 	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	s.taskCount = world->taskCount;
@@ -1727,4 +1729,16 @@ void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* co
 	b2World* world = b2GetWorldFromId(worldId);
 	world->preSolveFcn = fcn;
 	world->preSolveContext = context;
+}
+
+void b2World_SetGravity(b2WorldId worldId, b2Vec2 gravity)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	world->gravity = gravity;
+}
+
+b2Vec2 b2World_GetGravity(b2WorldId worldId)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	return world->gravity;
 }
