@@ -40,6 +40,29 @@ static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRan
 	}
 }
 
+static void* AddPinnedTask(b2PinnedTaskFcn* box2dTask, int32_t threadIndex, void* box2dContext, void* userContext)
+{
+	assert(threadIndex < maxThreads);
+	Sample* sample = static_cast<Sample*>(userContext);
+
+	SamplePinnedTask& pinnedTask = sample->m_pinnedTasks[threadIndex];
+	if (pinnedTask.m_inUse == false)
+	{
+		assert(pinnedTask.threadNum == threadIndex);
+		pinnedTask.m_pinnedTask = box2dTask;
+		pinnedTask.m_box2DContext = box2dContext;
+		pinnedTask.m_inUse = true;
+		sample->m_scheduler.AddPinnedTask(&pinnedTask);
+		return &pinnedTask;
+	}
+	else
+	{
+		assert(false);
+		box2dTask(threadIndex, box2dContext);
+		return nullptr;
+	}
+}
+
 static void FinishTask(void* taskPtr, void* userContext)
 {
 	if (taskPtr != nullptr)
@@ -47,6 +70,19 @@ static void FinishTask(void* taskPtr, void* userContext)
 		SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
 		Sample* sample = static_cast<Sample*>(userContext);
 		sample->m_scheduler.WaitforTask(sampleTask);
+	}
+}
+
+static void FinishPinnedTask(void* taskPtr, void* userContext)
+{
+	if (taskPtr != nullptr)
+	{
+		SamplePinnedTask* pinnedTask = static_cast<SamplePinnedTask*>(taskPtr);
+		Sample* sample = static_cast<Sample*>(userContext);
+		sample->m_scheduler.WaitforTask(pinnedTask);
+		pinnedTask->m_pinnedTask = nullptr;
+		pinnedTask->m_box2DContext = nullptr;
+		pinnedTask->m_inUse = false;
 	}
 }
 
@@ -85,10 +121,19 @@ Sample::Sample(Settings& settings)
 	m_scheduler.Initialize(settings.workerCount);
 	m_taskCount = 0;
 
+	m_threadCount = 1 + settings.workerCount;
+
+	for (int i = 0; i < m_threadCount; ++i)
+	{
+		m_pinnedTasks[i].threadNum = i;
+	}
+
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = settings.workerCount;
-	worldDef.enqueueTask = &EnqueueTask;
-	worldDef.finishTask = &FinishTask;
+	worldDef.enqueueTask = EnqueueTask;
+	worldDef.finishTask = FinishTask;
+	worldDef.addPinnedTask = AddPinnedTask;
+	worldDef.finishPinnedTask = FinishPinnedTask;
 	worldDef.userTaskContext = this;
 	worldDef.enableSleep = settings.enableSleep;
 
@@ -302,6 +347,9 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
 		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
 		m_maxProfile.solveConstraints = B2_MAX(m_maxProfile.solveConstraints, p.solveConstraints);
+		m_maxProfile.prepareTasks = B2_MAX(m_maxProfile.prepareTasks, p.prepareTasks);
+		m_maxProfile.solverTasks = B2_MAX(m_maxProfile.solverTasks, p.solverTasks);
+		m_maxProfile.awakeUpdate = B2_MAX(m_maxProfile.awakeUpdate, p.awakeUpdate);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
 
@@ -311,6 +359,9 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.solve += p.solve;
 		m_totalProfile.buildIslands += p.buildIslands;
 		m_totalProfile.solveConstraints += p.solveConstraints;
+		m_totalProfile.prepareTasks += p.prepareTasks;
+		m_totalProfile.solverTasks += p.solverTasks;
+		m_totalProfile.awakeUpdate += p.awakeUpdate;
 		m_totalProfile.broadphase += p.broadphase;
 		m_totalProfile.continuous += p.continuous;
 	}
@@ -330,6 +381,9 @@ void Sample::Step(Settings& settings)
 			aveProfile.solve = scale * m_totalProfile.solve;
 			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
 			aveProfile.solveConstraints = scale * m_totalProfile.solveConstraints;
+			aveProfile.prepareTasks = scale * m_totalProfile.prepareTasks;
+			aveProfile.solverTasks = scale * m_totalProfile.solverTasks;
+			aveProfile.awakeUpdate = scale * m_totalProfile.awakeUpdate;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 			aveProfile.continuous = scale * m_totalProfile.continuous;
 		}
@@ -348,6 +402,15 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "solve constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveConstraints, aveProfile.solveConstraints,
 						  m_maxProfile.solveConstraints);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "prepare tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.prepareTasks, aveProfile.prepareTasks,
+						  m_maxProfile.prepareTasks);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "solver tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solverTasks,
+						  aveProfile.solverTasks, m_maxProfile.solverTasks);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "awake update [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.awakeUpdate,
+						  aveProfile.awakeUpdate, m_maxProfile.awakeUpdate);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);

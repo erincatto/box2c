@@ -15,6 +15,7 @@
 #include "world.h"
 
 #include "box2d/callbacks.h"
+#include "box2d/color.h"
 #include "box2d/timer.h"
 
 #include <float.h>

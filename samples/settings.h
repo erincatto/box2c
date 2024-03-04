@@ -28,7 +28,7 @@ struct Settings
 	bool drawProfile = false;
 	bool enableWarmStarting = true;
 	bool enableContinuous = true;
-	bool enableSleep = true;
+	bool enableSleep = false;
 	bool pause = false;
 	bool singleStep = false;
 	bool restart = false;

@@ -12,6 +12,8 @@
 #include "x86/avx2.h"
 #include "x86/fma.h"
 
+#include "box2d/color.h"
+
 // Soft contact constraints with sub-stepping support
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
@@ -472,13 +474,12 @@ typedef struct b2SimdBody
 	b2RotW dq;
 } b2SimdBody;
 
-
 // This is a load and 8x8 transpose
 static b2SimdBody b2GatherBodies(const b2BodyState* restrict bodies, int32_t* restrict indices)
 {
 	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
 	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
-	//static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
+	// static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 	b2FloatW identity = simde_mm256_setr_ps(0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, 1.0f);
 	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[0]));
 	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[1]));

@@ -91,8 +91,12 @@ typedef struct b2WorldDef
 	/// function to spawn task
 	b2EnqueueTaskCallback* enqueueTask;
 
+	/// function to spawn a task pinned to a certain thread
+	b2AddPinnedTaskCallback* addPinnedTask;
+
 	/// function to finish a task
 	b2FinishTaskCallback* finishTask;
+	b2FinishPinnedTaskCallback* finishPinnedTask;
 
 	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;
@@ -282,6 +286,9 @@ typedef struct b2Profile
 	float solve;
 	float buildIslands;
 	float solveConstraints;
+	float prepareTasks;
+	float solverTasks;
+	float awakeUpdate;
 	float broadphase;
 	float continuous;
 } b2Profile;

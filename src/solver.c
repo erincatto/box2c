@@ -15,6 +15,7 @@
 #include "stack_allocator.h"
 #include "world.h"
 
+#include "box2d/color.h"
 #include "box2d/event_types.h"
 
 // for mm_pause
@@ -543,10 +544,8 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2StepContext* context, uin
 }
 
 // This should not use the thread index because thread 0 can be called twice by enkiTS.
-static void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDontUse, void* taskContext)
+static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 {
-	B2_MAYBE_UNUSED(startIndex);
-	B2_MAYBE_UNUSED(endIndex);
 	B2_MAYBE_UNUSED(threadIndexDontUse);
 
 	b2WorkerContext* workerContext = taskContext;
@@ -737,6 +736,7 @@ static void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIn
 static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_stages, "Prepare Stages", b2_colorDarkOrange, true);
+	b2Timer timer = b2CreateTimer();
 
 	b2ConstraintGraph* graph = &world->graph;
 	b2GraphColor* colors = graph->colors;
@@ -904,8 +904,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			int32_t colorContactCountSIMD = colorContactCount > 0 ? ((colorContactCount - 1) >> 3) + 1 : 0;
 
 			colorContactCounts[c] = colorContactCountSIMD;
-			colorContactBlockSizes[c] = 4;
-			if (colorContactCountSIMD > 4 * maxBlockCount)
+			colorContactBlockSizes[c] = blocksPerWorker;
+			if (colorContactCountSIMD > blocksPerWorker * maxBlockCount)
 			{
 				// Too many contact blocks
 				colorContactBlockSizes[c] = colorContactCountSIMD / maxBlockCount;
@@ -921,8 +921,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			}
 
 			colorJointCounts[c] = colorJointCount;
-			colorJointBlockSizes[c] = 4;
-			if (colorJointCount > 4 * maxBlockCount)
+			colorJointBlockSizes[c] = blocksPerWorker;
+			if (colorJointCount > blocksPerWorker * maxBlockCount)
 			{
 				// Too many joint blocks
 				colorJointBlockSizes[c] = colorJointCount / maxBlockCount;
@@ -996,7 +996,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 
 	// Define work blocks for preparing contacts and storing contact impulses
-	int32_t contactBlockSize = 4;
+	int32_t contactBlockSize = blocksPerWorker;
 	int32_t contactBlockCount = contactCount > 0 ? ((contactCount - 1) >> 2) + 1 : 0;
 	if (contactCount > contactBlockSize * maxBlockCount)
 	{
@@ -1006,7 +1006,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 
 	// Define work blocks for preparing joints
-	int32_t jointBlockSize = 4;
+	int32_t jointBlockSize = blocksPerWorker;
 	int32_t jointBlockCount = jointCount > 0 ? ((jointCount - 1) >> 2) + 1 : 0;
 	if (jointCount > jointBlockSize * maxBlockCount)
 	{
@@ -1267,6 +1267,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	context->stages = stages;
 	context->syncBits = 0;
 
+	world->profile.prepareTasks = b2GetMillisecondsAndReset(&timer);
+
 	b2TracyCZoneEnd(prepare_stages);
 
 	// Must use worker index because thread 0 can be assigned multiple tasks by enkiTS
@@ -1274,7 +1276,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	{
 		workerContext[i].context = context;
 		workerContext[i].workerIndex = i;
-		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
+		workerContext[i].userTask = world->addPinnedTaskFcn(b2SolverTask, i, workerContext + i, world->userTaskContext);
 		world->taskCount += 1;
 		world->activeTaskCount += workerContext[i].userTask == NULL ? 0 : 1;
 	}
@@ -1293,7 +1295,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	{
 		if (workerContext[i].userTask != NULL)
 		{
-			world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
+			world->finishPinnedTaskFcn(workerContext[i].userTask, world->userTaskContext);
 			world->activeTaskCount -= 1;
 		}
 	}
@@ -1310,7 +1312,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
-	void* finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 16, context, world->userTaskContext);
+	void* finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 64, context, world->userTaskContext);
 	world->taskCount += 1;
 	if (finalizeBodiesTask != NULL)
 	{
@@ -1329,6 +1331,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
 	b2FreeStackItem(world->stackAllocator, bodyParams);
 	b2FreeStackItem(world->stackAllocator, bodyStates);
+
+	world->profile.solverTasks = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
 
@@ -1489,6 +1493,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			}
 		}
 	}
+
+	world->profile.awakeUpdate = b2GetMilliseconds(&timer);
 
 	b2TracyCZoneEnd(awake_contacts);
 

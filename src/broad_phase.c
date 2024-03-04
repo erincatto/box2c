@@ -15,6 +15,7 @@
 #include "shape.h"
 #include "world.h"
 
+#include "box2d/color.h"
 #include "box2d/timer.h"
 
 #include <stdatomic.h>
