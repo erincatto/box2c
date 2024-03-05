@@ -12,10 +12,18 @@
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
 
+// map from b2BodyId to body group and index
+typedef struct b2BodyMap
+{
+	// index of group
+	int group;
+
+	// index within group
+	int index;
+} b2BodyMap;
+
 // The body state is designed for fast conversion to and from SIMD via scatter-gather
-// todo every non-static body gets a solver body.
 // No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
-// Keep two solver body arrays: awake and sleeping
 // However, this makes it slower to access transform for collision/broad-phase?
 //
 // 32 bytes
@@ -35,6 +43,7 @@ typedef struct b2BodyState
 
 static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 
+#if 0
 // Holds extra data needed by the constraint solver, but not in the SIMD contact solver
 typedef struct b2BodyParam
 {
@@ -42,17 +51,19 @@ typedef struct b2BodyParam
 	float invI;
 	float linearDamping;
 	float angularDamping;
+
 	// force, torque, and gravity to be applied each sub-step
 	b2Vec2 linearVelocityDelta;
 	float angularVelocityDelta;
-	int bodyIndex;
+
+
+	b2BodyId bodyId;
 } b2BodyParam;
+#endif
 
 // A rigid body
 typedef struct b2Body
 {
-	b2Object object;
-
 	enum b2BodyType type;
 
 	// the body origin (not center of mass)
@@ -70,9 +81,6 @@ typedef struct b2Body
 
 	// location of center of mass relative to the body origin
 	b2Vec2 localCenter;
-
-	b2Vec2 linearVelocity;
-	float angularVelocity;
 
 	b2Vec2 force;
 	float torque;
@@ -95,9 +103,7 @@ typedef struct b2Body
 	// Doubly linked island list
 	int32_t islandPrev;
 	int32_t islandNext;
-
-	int32_t solverIndex;
-
+	
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.
@@ -124,7 +130,15 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
+typedef struct b2BodyGroup
+{
+	b2BodyState* stateArray;
+	b2Body* bodyArray;
+} b2BodyGroup;
+
 b2Body* b2GetBody(b2World* world, b2BodyId id);
+b2BodyState* b2GetBodyState(b2World* world, b2BodyId id);
+
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 bool b2IsBodyAwake(b2World* world, b2Body* body);
 void b2WakeBody(b2World* world, b2Body* body);

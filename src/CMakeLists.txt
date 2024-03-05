@@ -27,6 +27,8 @@ set(BOX2D_SOURCE_FILES
 	dynamic_tree.c
 	geometry.c
 	hull.c
+	id_pool.c
+	id_pool.h
 	implementation.c
 	island.c
 	island.h

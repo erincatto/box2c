@@ -59,6 +59,11 @@ typedef struct b2World
 	struct b2ChainShape* chains;
 	struct b2Island* islands;
 
+
+	// Awake bodies
+	struct b2SolverBody* awakeBodyArray;
+	struct b2SolverBody* sleepingBodyArray;
+
 	// Per thread storage
 	b2TaskContext* taskContextArray;
 
