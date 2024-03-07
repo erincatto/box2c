@@ -11,6 +11,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#define ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
+#define MAYBE_UNUSED(x) ((void)(x))
+
 typedef b2WorldId CreateBenchmarkFcn(b2WorldDef* worldDef);
 extern b2WorldId BenchmarkPyramids(b2WorldDef* worldDef);
 
@@ -53,7 +56,7 @@ void ExecuteRangeTask(uint32_t start, uint32_t end, uint32_t threadIndex, void* 
 
 static void* EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange, void* box2dContext, void* userContext)
 {
-	B2_MAYBE_UNUSED(userContext);
+	MAYBE_UNUSED(userContext);
 
 	if (taskCount < MAX_TASKS)
 	{
@@ -113,7 +116,7 @@ static void* AddPinnedTask(b2PinnedTaskFcn* box2dTask, int32_t threadIndex, void
 
 static void FinishTask(void* userTask, void* userContext)
 {
-	B2_MAYBE_UNUSED(userContext);
+	MAYBE_UNUSED(userContext);
 
 	enkiTaskSet* task = userTask;
 	enkiWaitForTaskSet(scheduler, task);
@@ -121,7 +124,7 @@ static void FinishTask(void* userTask, void* userContext)
 
 static void FinishPinnedTask(void* userTask, void* userContext)
 {
-	B2_MAYBE_UNUSED(userContext);
+	MAYBE_UNUSED(userContext);
 
 	enkiPinnedTask* task = userTask;
 	enkiWaitForPinnedTask(scheduler, task);
@@ -151,7 +154,7 @@ int main(int argc, char** argv)
 		{"pyramids", BenchmarkPyramids},
 	};
 
-	int benchmarkCount = B2_ARRAY_COUNT(benchmarks);
+	int benchmarkCount = ARRAY_COUNT(benchmarks);
 
 	printf("Starting Box2D benchmarks\n");
 	printf("======================================\n");

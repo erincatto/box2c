@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include "block_allocator.h"
 #include "bitset.h"
 #include "broad_phase.h"
 #include "constraint_graph.h"
+#include "id_pool.h"
 #include "island.h"
 #include "pool.h"
 
@@ -15,6 +17,12 @@
 #define B2_GRAPH_COLOR 1
 
 typedef struct b2Contact b2Contact;
+
+enum b2BodySetType
+{
+	b2_staticBodySet = 0,
+	b2_awakeBodySet = 1,
+};
 
 // Per thread task storage
 typedef struct b2TaskContext
@@ -38,13 +46,26 @@ typedef struct b2TaskContext
 /// management facilities.
 typedef struct b2World
 {
-	struct b2BlockAllocator* blockAllocator;
+	b2BlockAllocator blockAllocator;
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph graph;
 
-	b2Pool bodyPool;
+	// The body id pool is used to allocate and recycle body ids. Body ids
+	// provide a stable identifier for users, but incur caches misses when used
+	// to access body data.
+	b2IdPool bodyIdPool;
+
+	// This is a sparse array that maps body ids to the body data
+	// stored in body sets. As bodies move within a set or across set
+	struct b2BodyLookup* bodyLookupArray;
+
+	// Body sets allow bodies to be stored in contiguous arrays. The first
+	// set is all static bodies. The second set is active bodies. The remaining
+	// sets are sleeping islands.
+	struct b2BodySet* bodySetArray;
+
 	b2Pool contactPool;
 	b2Pool jointPool;
 	b2Pool shapePool;
@@ -52,17 +73,11 @@ typedef struct b2World
 	b2Pool islandPool;
 
 	// These are sparse arrays that point into the pools above
-	struct b2Body* bodies;
 	struct b2Contact* contacts;
 	struct b2Joint* joints;
 	struct b2Shape* shapes;
 	struct b2ChainShape* chains;
 	struct b2Island* islands;
-
-
-	// Awake bodies
-	struct b2SolverBody* awakeBodyArray;
-	struct b2SolverBody* sleepingBodyArray;
 
 	// Per thread storage
 	b2TaskContext* taskContextArray;

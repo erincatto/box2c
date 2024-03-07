@@ -7,7 +7,6 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
-	bitset.inl
 	block_allocator.c
 	block_allocator.h
 	body.c
@@ -22,6 +21,7 @@ set(BOX2D_SOURCE_FILES
 	contact_solver.h
 	core.c
 	core.h
+	ctz.h
 	distance.c
 	distance_joint.c
 	dynamic_tree.c
@@ -54,6 +54,7 @@ set(BOX2D_SOURCE_FILES
 	timer.c
 	types.c
 	user_constants.h.in
+	util.h
 	weld_joint.c
 	wheel_joint.c
 	world.c

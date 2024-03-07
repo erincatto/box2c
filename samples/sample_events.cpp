@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "donut.h"
+#include "draw.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"

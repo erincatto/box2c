@@ -8,12 +8,11 @@
 #include "box2d/timer.h"
 #include "box2d/types.h"
 
-#include "draw.h"
-
 #include "TaskScheduler.h"
 
-#include <atomic>
 #include <stdlib.h>
+
+#define ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
 
 struct Settings;
 

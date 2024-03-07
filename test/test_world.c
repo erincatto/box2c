@@ -169,11 +169,29 @@ int DestroyAllBodiesWorld(void)
 	return 0;
 }
 
+static int TestIsValid(void)
+{
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld(&worldDef);
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
+	bool valid1 = b2Body_IsValid(bodyId);
+	ENSURE(valid1);
+
+	worldId = b2CreateWorld(&worldDef);
+	bodyId = b2CreateBody(worldId, &bodyDef);
+	bool valid2 = b2Body_IsValid(bodyId);
+	ENSURE(valid2);
+
+	return 0;
+}
+
 int WorldTest(void)
 {
 	RUN_SUBTEST(HelloWorld);
 	RUN_SUBTEST(EmptyWorld);
 	RUN_SUBTEST(DestroyAllBodiesWorld);
+	RUN_SUBTEST(TestIsValid);
 
 	return 0;
 }

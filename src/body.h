@@ -12,19 +12,20 @@
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
 
-// map from b2BodyId to body group and index
-typedef struct b2BodyMap
+// map from b2BodyId to body set and index
+typedef struct b2BodyLookup
 {
-	// index of group
-	int group;
+	// index of body set stored in b2World
+	// may be B2_NULL_INDEX
+	int setIndex;
 
-	// index within group
+	// index within set
+	// may be B2_NULL_INDEX
 	int index;
-} b2BodyMap;
+} b2BodyLookup;
 
 // The body state is designed for fast conversion to and from SIMD via scatter-gather
-// No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
-// However, this makes it slower to access transform for collision/broad-phase?
+// Only awake dynamic and kinematic bodies have a body state.
 //
 // 32 bytes
 typedef struct b2BodyState
@@ -117,6 +118,9 @@ typedef struct b2Body
 
 	float sleepTime;
 
+	// body data can be moved around, the id index is stable
+	int32_t idIndex;
+
 	void* userData;
 	int16_t world;
 
@@ -130,11 +134,13 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
-typedef struct b2BodyGroup
+typedef struct b2BodySet
 {
-	b2BodyState* stateArray;
-	b2Body* bodyArray;
-} b2BodyGroup;
+	b2BodyState* states;
+	b2Body* bodies;
+	int count;
+	int capacity;
+} b2BodySet;
 
 b2Body* b2GetBody(b2World* world, b2BodyId id);
 b2BodyState* b2GetBodyState(b2World* world, b2BodyId id);

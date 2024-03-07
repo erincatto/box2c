@@ -18,14 +18,7 @@
 #include "math_types.h"
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
-
-/// Returns the number of elements of an array
-#define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
-
-/// Used to prevent the compiler from warning about unused variables
-#define B2_MAYBE_UNUSED(x) ((void)(x))
 
 /// Result from b2World_RayCastClosest
 typedef struct b2RayResult

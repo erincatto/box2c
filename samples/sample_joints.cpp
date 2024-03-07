@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "donut.h"
+#include "draw.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"
@@ -1660,7 +1661,7 @@ public:
 				{-1.5f, -0.5f}, {1.5f, -0.5f}, {1.5f, 0.0f}, {0.0f, 0.9f}, {-1.15f, 0.9f}, {-1.5f, 0.2f},
 			};
 
-			b2Hull hull = b2ComputeHull(vertices, B2_ARRAY_COUNT(vertices));
+			b2Hull hull = b2ComputeHull(vertices, ARRAY_COUNT(vertices));
 			b2Polygon chassis = b2MakePolygon(&hull, 0.0f);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();

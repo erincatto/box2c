@@ -3,6 +3,7 @@
 
 #include "sample.h"
 
+#include "draw.h"
 #include "settings.h"
 
 #include "box2d/box2d.h"
@@ -11,7 +12,6 @@
 #include "box2d/manifold.h"
 #include "box2d/math.h"
 #include "box2d/math_cpp.h"
-#include "box2d/timer.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -318,7 +318,8 @@ void Sample::Step(Settings& settings)
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "islands/tree_height/stack/tasks = %d/%d/%d/%d", s.islandCount, s.treeHeight, s.stackUsed, s.taskCount);
+		g_draw.DrawString(5, m_textLine, "islands/tree_height/stack/tasks = %d/%d/%d/%d", s.islandCount, s.treeHeight,
+						  s.stackUsed, s.taskCount);
 		m_textLine += m_textIncrement;
 
 		int32_t totalCount = 0;
@@ -390,21 +391,23 @@ void Sample::Step(Settings& settings)
 
 		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs, m_maxProfile.pairs);
+		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs,
+						  m_maxProfile.pairs);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve, m_maxProfile.solve);
+		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve,
+						  m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands, aveProfile.buildIslands,
-						  m_maxProfile.buildIslands);
+		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands,
+						  aveProfile.buildIslands, m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveConstraints, aveProfile.solveConstraints,
-						  m_maxProfile.solveConstraints);
+		g_draw.DrawString(5, m_textLine, "solve constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveConstraints,
+						  aveProfile.solveConstraints, m_maxProfile.solveConstraints);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "prepare tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.prepareTasks, aveProfile.prepareTasks,
-						  m_maxProfile.prepareTasks);
+		g_draw.DrawString(5, m_textLine, "prepare tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.prepareTasks,
+						  aveProfile.prepareTasks, m_maxProfile.prepareTasks);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "solver tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solverTasks,
 						  aveProfile.solverTasks, m_maxProfile.solverTasks);
@@ -415,8 +418,8 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "continuous collision [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.continuous, aveProfile.continuous,
-						  m_maxProfile.continuous);
+		g_draw.DrawString(5, m_textLine, "continuous collision [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.continuous,
+						  aveProfile.continuous, m_maxProfile.continuous);
 		m_textLine += m_textIncrement;
 	}
 }

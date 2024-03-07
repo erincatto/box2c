@@ -10,18 +10,19 @@
 #include "stack_allocator.h"
 #include "array.h"
 #include "bitset.h"
-#include "bitset.inl"
 #include "block_allocator.h"
 #include "body.h"
 #include "broad_phase.h"
 #include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
+#include "ctz.h"
 #include "island.h"
 #include "joint.h"
 #include "pool.h"
 #include "shape.h"
 #include "solver.h"
+#include "util.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
@@ -41,25 +42,24 @@ b2World* b2GetWorldFromId(b2WorldId id)
 {
 	B2_ASSERT(1 <= id.index && id.index <= b2_maxWorlds);
 	b2World* world = b2_worlds + (id.index - 1);
+	B2_ASSERT(id.index == world->poolIndex);
 	B2_ASSERT(id.revision == world->revision);
 	return world;
 }
 
 b2World* b2GetWorldFromIndex(uint16_t index)
 {
-	B2_ASSERT(0 <= index && index < b2_maxWorlds);
-	b2World* world = b2_worlds + index;
+	B2_ASSERT(1 <= index && index < b2_maxWorlds);
+	b2World* world = b2_worlds + (index - 1);
 	B2_ASSERT(world->poolIndex == index);
-	B2_ASSERT(world->blockAllocator != NULL);
 	return world;
 }
 
 b2World* b2GetWorldFromIndexLocked(uint16_t index)
 {
-	B2_ASSERT(0 <= index && index < b2_maxWorlds);
-	b2World* world = b2_worlds + index;
+	B2_ASSERT(1 <= index && index < b2_maxWorlds);
+	b2World* world = b2_worlds + (index - 1);
 	B2_ASSERT(world->poolIndex == index);
-	B2_ASSERT(world->blockAllocator != NULL);
 	if (world->locked)
 	{
 		B2_ASSERT(false);
@@ -92,17 +92,17 @@ static void* b2DefaultAddPinnedTaskFcn(b2PinnedTaskFcn* task, int32_t threadInde
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
-	int32_t index = -1;
+	int32_t index = 0;
 	for (int16_t i = 0; i < b2_maxWorlds; ++i)
 	{
-		if (b2_worlds[i].blockAllocator == NULL)
+		if (b2_worlds[i].poolIndex == 0)
 		{
-			index = i;
+			index = i + 1;
 			break;
 		}
 	}
 
-	if (index == -1)
+	if (index == 0)
 	{
 		return (b2WorldId){0};
 	}
@@ -121,8 +121,13 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);
 
 	// pools
-	world->bodyPool = b2CreatePool(sizeof(b2Body), B2_MAX(def->bodyCapacity, 1));
-	world->bodies = (b2Body*)world->bodyPool.memory;
+	world->bodyIdPool = b2CreateIdPool();
+	world->bodyLookupArray = b2CreateArray(sizeof(b2BodyLookup), def->bodyCapacity);
+	world->bodySetArray = b2CreateArray(sizeof(b2BodySet), 2);
+
+	// add empty active and static sets
+	b2Array_Push(world->bodySetArray, (b2BodySet){0});
+	b2Array_Push(world->bodySetArray, (b2BodySet){0});
 
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
@@ -198,12 +203,12 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
-	return (b2WorldId){(uint16_t)(index + 1), world->revision};
+	return (b2WorldId){(uint16_t)index, world->revision};
 }
 
-void b2DestroyWorld(b2WorldId id)
+void b2DestroyWorld(b2WorldId worldId)
 {
-	b2World* world = b2GetWorldFromId(id);
+	b2World* world = b2GetWorldFromId(worldId);
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
@@ -246,7 +251,7 @@ void b2DestroyWorld(b2WorldId id)
 	b2DestroyGraph(&world->graph);
 	b2DestroyBroadPhase(&world->broadPhase);
 
-	b2DestroyBlockAllocator(world->blockAllocator);
+	b2DestroyBlockAllocator(&world->blockAllocator);
 	b2DestroyStackAllocator(world->stackAllocator);
 
 	// Wipe world but preserve revision

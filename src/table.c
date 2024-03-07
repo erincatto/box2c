@@ -5,8 +5,7 @@
 
 #include "allocate.h"
 #include "core.h"
-
-#include "box2d/types.h"
+#include "util.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -15,30 +14,6 @@
 #if B2_DEBUG
 _Atomic int g_probeCount;
 #endif
-
-static inline bool b2IsPowerOf2(uint32_t x)
-{
-	return (x & (x - 1)) == 0;
-}
-
-static inline uint32_t b2RoundUpPowerOf2(uint32_t x)
-{
-	if (b2IsPowerOf2(x))
-	{
-		return x;
-	}
-
-	// Hacker's Delight p48
-	// Can also use ctz, but perf is not needed in this use case.
-	x -= 1;
-	x |= x >> 1;
-	x |= x >> 2;
-	x |= x >> 4;
-	x |= x >> 8;
-	x |= x >> 16;
-
-	return x + 1;
-}
 
 b2HashSet b2CreateSet(int32_t capacity)
 {

@@ -31,13 +31,6 @@ typedef struct b2Shape
 	b2Filter filter;
 	void* userData;
 
-	bool isSensor;
-	bool enableSensorEvents;
-	bool enableContactEvents;
-	bool enablePreSolveEvents;
-	bool enlargedAABB;
-	bool isFast;
-
 	// TODO_ERIN maybe not anonymous, check asm
 	union
 	{
@@ -47,6 +40,13 @@ typedef struct b2Shape
 		b2Segment segment;
 		b2SmoothSegment smoothSegment;
 	};
+
+	bool isSensor;
+	bool enableSensorEvents;
+	bool enableContactEvents;
+	bool enablePreSolveEvents;
+	bool enlargedAABB;
+	bool isFast;
 } b2Shape;
 
 typedef struct b2ChainShape
