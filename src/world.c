@@ -42,7 +42,7 @@ b2World* b2GetWorldFromId(b2WorldId id)
 {
 	B2_ASSERT(1 <= id.index && id.index <= b2_maxWorlds);
 	b2World* world = b2_worlds + (id.index - 1);
-	B2_ASSERT(id.index == world->poolIndex);
+	B2_ASSERT(id.index == world->worldIndex);
 	B2_ASSERT(id.revision == world->revision);
 	return world;
 }
@@ -51,7 +51,7 @@ b2World* b2GetWorldFromIndex(uint16_t index)
 {
 	B2_ASSERT(1 <= index && index < b2_maxWorlds);
 	b2World* world = b2_worlds + (index - 1);
-	B2_ASSERT(world->poolIndex == index);
+	B2_ASSERT(world->worldIndex == index);
 	return world;
 }
 
@@ -59,7 +59,7 @@ b2World* b2GetWorldFromIndexLocked(uint16_t index)
 {
 	B2_ASSERT(1 <= index && index < b2_maxWorlds);
 	b2World* world = b2_worlds + (index - 1);
-	B2_ASSERT(world->poolIndex == index);
+	B2_ASSERT(world->worldIndex == index);
 	if (world->locked)
 	{
 		B2_ASSERT(false);
@@ -95,7 +95,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	int32_t index = 0;
 	for (int16_t i = 0; i < b2_maxWorlds; ++i)
 	{
-		if (b2_worlds[i].poolIndex == 0)
+		if (b2_worlds[i].worldIndex == 0)
 		{
 			index = i + 1;
 			break;
@@ -112,7 +112,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2World* world = b2_worlds + index;
 	*world = (b2World){0};
 
-	world->poolIndex = index;
+	world->worldIndex = index;
 
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
@@ -123,9 +123,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	// pools
 	world->bodyIdPool = b2CreateIdPool();
 	world->bodyLookupArray = b2CreateArray(sizeof(b2BodyLookup), def->bodyCapacity);
-	world->bodySetArray = b2CreateArray(sizeof(b2BodySet), 2);
+	world->bodySetArray = b2CreateArray(sizeof(b2BodySet), 8);
 
-	// add empty active and static sets
+	// add empty static, active, and disabled body sets
+	b2Array_Push(world->bodySetArray, (b2BodySet){0});
 	b2Array_Push(world->bodySetArray, (b2BodySet){0});
 	b2Array_Push(world->bodySetArray, (b2BodySet){0});
 
@@ -246,7 +247,10 @@ void b2DestroyWorld(b2WorldId worldId)
 	}
 
 	b2DestroyPool(&world->chainPool);
-	b2DestroyPool(&world->bodyPool);
+
+	// The data in the body sets all comes from the block allocator so no
+	// need to destroy the set contents.
+	b2DestroyArray(world->bodySetArray, sizeof(b2BodySet));
 
 	b2DestroyGraph(&world->graph);
 	b2DestroyBroadPhase(&world->broadPhase);
@@ -268,11 +272,11 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
 	b2Shape* shapes = world->shapes;
-	b2Body* bodies = world->bodies;
 	b2Contact* contacts = world->contacts;
 	int32_t awakeCount = b2Array(world->awakeContactArray).count;
 	int32_t* awakeContactArray = world->awakeContactArray;
 	int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
+	b2BodyLookup* bodyLookup = world->bodyLookupArray;
 
 	B2_MAYBE_UNUSED(awakeCount);
 	B2_ASSERT(startIndex < endIndex);
@@ -313,8 +317,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
-			b2Body* bodyA = bodies + shapeA->bodyIndex;
-			b2Body* bodyB = bodies + shapeB->bodyIndex;
+			b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
+			b2Body* bodyB = b2GetBody(world, shapeA->bodyId);
 			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
@@ -396,16 +400,15 @@ static void b2Collide(b2World* world)
 	}
 
 	const b2Shape* shapes = world->shapes;
-	int16_t worldIndex = world->poolIndex;
+	int16_t worldIndex = world->worldIndex;
 
 	// Process contact state changes. Iterate over set bits
-	uint64_t word;
 	for (uint32_t k = 0; k < bitSet->blockCount; ++k)
 	{
-		word = bitSet->bits[k];
-		while (word != 0)
+		uint64_t bits = bitSet->bits[k];
+		while (bits != 0)
 		{
-			uint32_t ctz = b2CTZ(word);
+			uint32_t ctz = b2CTZ64(bits);
 			uint32_t awakeIndex = 64 * k + ctz;
 			B2_ASSERT(awakeIndex < (uint32_t)awakeContactCount);
 
@@ -495,7 +498,7 @@ static void b2Collide(b2World* world)
 			}
 
 			// Clear the smallest set bit
-			word = word & (word - 1);
+			bits = bits & (bits - 1);
 		}
 	}
 
@@ -574,8 +577,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	context.restitutionThreshold = world->restitutionThreshold;
 	context.maxBiasVelocity = b2_maxTranslation * context.inv_dt;
 	context.enableWarmStarting = world->enableWarmStarting;
-	context.bodies = world->bodies;
-	context.bodyCapacity = world->bodyPool.capacity;
 
 	// Update contacts
 	{
@@ -690,68 +691,69 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 
 	if (draw->drawShapes)
 	{
-		int32_t count = world->bodyPool.capacity;
-		for (int32_t i = 0; i < count; ++i)
+		int setCount = b2Array(world->bodySetArray).count;
+		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			b2Body* b = world->bodies + i;
-			if (b->object.next != i)
+			b2BodySet* set = world->bodySetArray + setIndex;
+			int bodyCount = set->count;
+			for (int32_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
-				continue;
-			}
+				b2Body* body = set->bodies + bodyIndex;
 
-			bool isAwake = false;
-			if (b->islandIndex != B2_NULL_INDEX)
-			{
-				isAwake = world->islands[b->islandIndex].awakeIndex != B2_NULL_INDEX;
-			}
-
-			b2Transform xf = b2MakeTransform(b);
-			int32_t shapeIndex = b->shapeList;
-			while (shapeIndex != B2_NULL_INDEX)
-			{
-				b2Shape* shape = world->shapes + shapeIndex;
-				b2Color color;
-
-				if (b->type == b2_dynamicBody && b->mass == 0.0f)
+				bool isAwake = false;
+				if (body->islandIndex != B2_NULL_INDEX)
 				{
-					// Bad body
-					color = b2MakeColor(b2_colorRed);
-				}
-				else if (b->isEnabled == false)
-				{
-					color = b2MakeColor(b2_colorSlateGray2);
-				}
-				else if (shape->isSensor)
-				{
-					color = b2MakeColor(b2_colorWheat);
-				}
-				else if (b->isSpeedCapped)
-				{
-					color = b2MakeColor(b2_colorYellow);
-				}
-				else if (b->isFast)
-				{
-					color = b2MakeColor(b2_colorSalmon);
-				}
-				else if (b->type == b2_staticBody)
-				{
-					color = b2MakeColor(b2_colorPaleGreen);
-				}
-				else if (b->type == b2_kinematicBody)
-				{
-					color = (b2Color){0.5f, 0.5f, 0.9f};
-				}
-				else if (isAwake)
-				{
-					color = b2MakeColor(b2_colorPink3);
-				}
-				else
-				{
-					color = b2MakeColor(b2_colorGray);
+					isAwake = world->islands[body->islandIndex].awakeIndex != B2_NULL_INDEX;
 				}
 
-				b2DrawShape(draw, shape, xf, color);
-				shapeIndex = shape->nextShapeIndex;
+				b2Transform xf = b2MakeTransform(body);
+				int32_t shapeIndex = body->shapeList;
+				while (shapeIndex != B2_NULL_INDEX)
+				{
+					b2Shape* shape = world->shapes + shapeIndex;
+					b2Color color;
+
+					if (body->type == b2_dynamicBody && body->mass == 0.0f)
+					{
+						// Bad body
+						color = b2MakeColor(b2_colorRed);
+					}
+					else if (body->isEnabled == false)
+					{
+						color = b2MakeColor(b2_colorSlateGray2);
+					}
+					else if (shape->isSensor)
+					{
+						color = b2MakeColor(b2_colorWheat);
+					}
+					else if (body->isSpeedCapped)
+					{
+						color = b2MakeColor(b2_colorYellow);
+					}
+					else if (body->isFast)
+					{
+						color = b2MakeColor(b2_colorSalmon);
+					}
+					else if (body->type == b2_staticBody)
+					{
+						color = b2MakeColor(b2_colorPaleGreen);
+					}
+					else if (body->type == b2_kinematicBody)
+					{
+						color = (b2Color){0.5f, 0.5f, 0.9f};
+					}
+					else if (isAwake)
+					{
+						color = b2MakeColor(b2_colorPink3);
+					}
+					else
+					{
+						color = b2MakeColor(b2_colorGray);
+					}
+
+					b2DrawShape(draw, shape, xf, color);
+					shapeIndex = shape->nextShapeIndex;
+				}
 			}
 		}
 	}
@@ -775,33 +777,34 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	{
 		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
 
-		int32_t count = world->bodyPool.capacity;
-		for (int32_t i = 0; i < count; ++i)
+		int setCount = b2Array(world->bodySetArray).count;
+		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			b2Body* b = world->bodies + i;
-			if (b->object.next != i)
+			b2BodySet* set = world->bodySetArray + setIndex;
+			int bodyCount = set->count;
+			for (int32_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
-				continue;
-			}
+				b2Body* body = set->bodies + bodyIndex;
 
-			char buffer[32];
-			snprintf(buffer, 32, "%d", b->object.index);
-			draw->DrawString(b->position, buffer, draw->context);
+				char buffer[32];
+				snprintf(buffer, 32, "%d", body->idIndex);
+				draw->DrawString(body->position, buffer, draw->context);
 
-			int32_t shapeIndex = b->shapeList;
-			while (shapeIndex != B2_NULL_INDEX)
-			{
-				b2Shape* shape = world->shapes + shapeIndex;
-				b2AABB aabb = shape->fatAABB;
+				int32_t shapeIndex = body->shapeList;
+				while (shapeIndex != B2_NULL_INDEX)
+				{
+					b2Shape* shape = world->shapes + shapeIndex;
+					b2AABB aabb = shape->fatAABB;
 
-				b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
-								{aabb.upperBound.x, aabb.lowerBound.y},
-								{aabb.upperBound.x, aabb.upperBound.y},
-								{aabb.lowerBound.x, aabb.upperBound.y}};
+					b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
+									{aabb.upperBound.x, aabb.lowerBound.y},
+									{aabb.upperBound.x, aabb.upperBound.y},
+									{aabb.lowerBound.x, aabb.upperBound.y}};
 
-				draw->DrawPolygon(vs, 4, color, draw->context);
+					draw->DrawPolygon(vs, 4, color, draw->context);
 
-				shapeIndex = shape->nextShapeIndex;
+					shapeIndex = shape->nextShapeIndex;
+				}
 			}
 		}
 	}
@@ -809,24 +812,24 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	if (draw->drawMass)
 	{
 		b2Vec2 offset = {0.1f, 0.1f};
-		b2Body* bodies = world->bodies;
-		int32_t bodyCapacity = world->bodyPool.capacity;
-		for (int32_t i = 0; i < bodyCapacity; ++i)
+		int setCount = b2Array(world->bodySetArray).count;
+		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			b2Body* body = bodies + i;
-			if (b2IsValidObject(&body->object) == false)
+			b2BodySet* set = world->bodySetArray + setIndex;
+			int bodyCount = set->count;
+			for (int32_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
-				continue;
+				b2Body* body = set->bodies + bodyIndex;
+
+				b2Transform transform = {body->position, body->rotation};
+				draw->DrawTransform(transform, draw->context);
+
+				b2Vec2 p = b2TransformPoint(transform, offset);
+
+				char buffer[32];
+				snprintf(buffer, 32, "%.2f", body->mass);
+				draw->DrawString(p, buffer, draw->context);
 			}
-
-			b2Transform transform = {body->position, body->rotation};
-			draw->DrawTransform(transform, draw->context);
-
-			b2Vec2 p = b2TransformPoint(transform, offset);
-
-			char buffer[32];
-			snprintf(buffer, 32, "%.2f", body->mass);
-			draw->DrawString(p, buffer, draw->context);
 		}
 	}
 
@@ -971,6 +974,13 @@ bool b2World_IsValid(b2WorldId id)
 	}
 
 	b2World* world = b2_worlds + (id.index - 1);
+
+	if (world->worldIndex != id.index - 1)
+	{
+		// world is not allocated
+		return false;
+	}
+
 	return id.revision == world->revision;
 }
 
@@ -978,23 +988,39 @@ bool b2Body_IsValid(b2BodyId id)
 {
 	if (id.world < 1 || b2_maxWorlds < id.world)
 	{
+		// invalid world
 		return false;
 	}
 
 	b2World* world = b2_worlds + (id.world - 1);
-
-	if (id.index < 1 || world->bodyPool.capacity < id.index)
+	if (world->worldIndex != id.world)
 	{
+		// world is free
 		return false;
 	}
 
-	b2Body* body = world->bodies + (id.index - 1);
-	if (b2IsValidObject(&body->object) == false)
+	if (id.index < 1 || b2Array(world->bodyLookupArray).count < id.index)
 	{
+		// invalid world index
 		return false;
 	}
 
-	return id.revision == body->object.revision;
+	b2BodyLookup lookup = world->bodyLookupArray[id.index - 1];
+	if (lookup.setIndex == B2_NULL_INDEX)
+	{
+		// this body was freed
+		return false;
+	}
+
+	B2_ASSERT(lookup.bodyIndex != B2_NULL_INDEX);
+
+	if (lookup.revision != id.revision)
+	{
+		// this id is orphaned
+		return false;
+	}
+
+	return true;
 }
 
 bool b2Shape_IsValid(b2ShapeId id)
@@ -1005,6 +1031,11 @@ bool b2Shape_IsValid(b2ShapeId id)
 	}
 
 	b2World* world = b2_worlds + (id.world - 1);
+	if (world->worldIndex != id.world)
+	{
+		// world is free
+		return false;
+	}
 
 	if (id.index < 1 || world->shapePool.capacity < id.index)
 	{
@@ -1028,6 +1059,11 @@ bool b2Chain_IsValid(b2ChainId id)
 	}
 
 	b2World* world = b2_worlds + (id.world - 1);
+	if (world->worldIndex != id.world)
+	{
+		// world is free
+		return false;
+	}
 
 	if (id.index < 1 || world->chainPool.capacity < id.index)
 	{
@@ -1051,6 +1087,11 @@ bool b2Joint_IsValid(b2JointId id)
 	}
 
 	b2World* world = b2_worlds + (id.world - 1);
+	if (world->worldIndex != id.world)
+	{
+		// world is free
+		return false;
+	}
 
 	if (id.index < 1 || world->jointPool.capacity < id.index)
 	{
@@ -1157,8 +1198,8 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	b2Counters s = {0};
-	s.bodyCount = world->bodyPool.count;
-	s.bodyCapacity = world->bodyPool.capacity;
+	s.bodyCount = world->bodyIdPool.nextIndex - b2Array(world->bodyIdPool.freeArray).count;
+	s.bodyCapacity = world->bodyIdPool.nextIndex;
 	s.shapeCount = world->shapePool.count;
 	s.shapeCapacity = world->shapePool.capacity;
 	s.contactCount = world->contactPool.count;
@@ -1207,7 +1248,7 @@ static bool TreeQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context
 
 	B2_ASSERT(shape->object.index == shape->object.next);
 
-	b2ShapeId shapeId = {shape->object.index + 1, world->poolIndex, shape->object.revision};
+	b2ShapeId shapeId = {shape->object.index + 1, world->worldIndex, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
 	return result;
 }
@@ -1261,11 +1302,13 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 
 	B2_ASSERT(shape->object.index == shape->object.next);
 
+	b2Body* body = b2GetBody(world, shape->bodyId);
+
 	b2DistanceInput input;
 	input.proxyA = worldContext->proxy;
 	input.proxyB = b2MakeShapeDistanceProxy(shape);
 	input.transformA = worldContext->transform;
-	input.transformB = b2MakeTransform(world->bodies + shape->bodyIndex);
+	input.transformB = b2MakeTransform(body);
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
@@ -1276,7 +1319,7 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	b2ShapeId shapeId = {shape->object.index + 1, world->poolIndex, shape->object.revision};
+	b2ShapeId shapeId = {shape->object.index + 1, world->worldIndex, shape->object.revision};
 	bool result = worldContext->fcn(shapeId, worldContext->userContext);
 	return result;
 }
@@ -1380,18 +1423,14 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 		return input->maxFraction;
 	}
 
-	int32_t bodyIndex = shape->bodyIndex;
-	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
-
-	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2IsValidObject(&body->object));
+	b2Body* body = b2GetBody(world, shape->bodyId);
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2RayCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
-		b2ShapeId shapeId = {shapeIndex + 1, world->poolIndex, shape->object.revision};
+		b2ShapeId shapeId = {shapeIndex + 1, world->worldIndex, shape->object.revision};
 		float fraction = worldContext->fcn(shapeId, output.point, output.normal, output.fraction, worldContext->userContext);
 		worldContext->fraction = fraction;
 		return fraction;
@@ -1492,18 +1531,14 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 		return input->maxFraction;
 	}
 
-	int32_t bodyIndex = shape->bodyIndex;
-	B2_ASSERT(0 <= bodyIndex && bodyIndex < world->bodyPool.capacity);
-
-	b2Body* body = world->bodies + bodyIndex;
-	B2_ASSERT(b2IsValidObject(&body->object));
+	b2Body* body = b2GetBody(world, shape->bodyId);
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2ShapeCastShape(input, shape, transform);
 
 	if (output.hit)
 	{
-		b2ShapeId shapeId = {shapeIndex + 1, world->poolIndex, shape->object.revision};
+		b2ShapeId shapeId = {shapeIndex + 1, world->worldIndex, shape->object.revision};
 		float fraction = worldContext->fcn(shapeId, output.point, output.normal, output.fraction, worldContext->userContext);
 		worldContext->fraction = fraction;
 		return fraction;
@@ -1713,32 +1748,6 @@ void b2World_Dump()
 	b2CloseDump();
 }
 #endif
-
-bool b2IsBodyIdValid(b2World* world, b2BodyId id)
-{
-	if (id.world != world->poolIndex)
-	{
-		return false;
-	}
-
-	if (id.index > world->bodyPool.capacity)
-	{
-		return false;
-	}
-
-	b2Body* body = world->bodies + (id.index - 1);
-	if (body->object.index != body->object.next)
-	{
-		return false;
-	}
-
-	if (body->object.revision != id.revision)
-	{
-		return false;
-	}
-
-	return true;
-}
 
 void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context)
 {

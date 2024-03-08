@@ -22,6 +22,7 @@ enum b2BodySetType
 {
 	b2_staticBodySet = 0,
 	b2_awakeBodySet = 1,
+	b2_disabledBodySet = 2,
 };
 
 // Per thread task storage
@@ -84,6 +85,7 @@ typedef struct b2World
 
 	// Awake island array holds indices into the island array (islandPool).
 	// This is a dense array that is rebuilt every time step.
+	// todo should not be needed with body sets
 	int32_t* awakeIslandArray;
 
 	// Awake contact array holds contacts that should be updated.
@@ -146,7 +148,7 @@ typedef struct b2World
 	int32_t activeTaskCount;
 	int32_t taskCount;
 
-	uint16_t poolIndex;
+	uint16_t worldIndex;
 
 	bool enableSleep;
 	bool locked;
@@ -157,5 +159,3 @@ typedef struct b2World
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorldFromIndex(uint16_t index);
 b2World* b2GetWorldFromIndexLocked(uint16_t index);
-
-bool b2IsBodyIdValid(b2World* world, b2BodyId id);

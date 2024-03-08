@@ -19,9 +19,13 @@ typedef struct b2BodyLookup
 	// may be B2_NULL_INDEX
 	int setIndex;
 
-	// index within set
+	// body index within set
 	// may be B2_NULL_INDEX
-	int index;
+	int bodyIndex;
+
+	// This is monotonically advanced when a body is allocated in this slot
+	// Used to check for invalid b2BodyId
+	int revision;
 } b2BodyLookup;
 
 // The body state is designed for fast conversion to and from SIMD via scatter-gather
@@ -118,15 +122,18 @@ typedef struct b2Body
 
 	float sleepTime;
 
-	// body data can be moved around, the id index is stable
-	int32_t idIndex;
+	// body data can be moved around, the key is stable
+	int32_t bodyKey;
 
 	void* userData;
 	int16_t world;
 
 	bool enableSleep;
 	bool fixedRotation;
+
+	// todo redundant with body set index
 	bool isEnabled;
+
 	bool isMarked;
 	bool isFast;
 	bool isBullet;
@@ -134,6 +141,7 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
+// todo split hot and cold better
 typedef struct b2BodySet
 {
 	b2BodyState* states;
@@ -143,6 +151,8 @@ typedef struct b2BodySet
 } b2BodySet;
 
 b2Body* b2GetBody(b2World* world, b2BodyId id);
+b2Body* b2GetBodyFromKey(b2World* world, int32_t bodyKey);
+b2BodyId b2GetBodyId(b2World* world, int32_t bodyKey);
 b2BodyState* b2GetBodyState(b2World* world, b2BodyId id);
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);

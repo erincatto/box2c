@@ -16,7 +16,7 @@ typedef struct b2World b2World;
 typedef struct b2Shape
 {
 	b2Object object;
-	int32_t bodyIndex;
+	int32_t bodyKey;
 	int32_t nextShapeIndex;
 	b2ShapeType type;
 	float density;

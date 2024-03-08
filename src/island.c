@@ -204,9 +204,8 @@ void b2WakeIsland(b2Island* island)
 	b2Array_Push(world->awakeIslandArray, islandIndex);
 
 	// Reset sleep timers on bodies
-	// TODO_ERIN make this parallel somehow?
-	int32_t bodyIndex = island->headBody;
-	while (bodyIndex != B2_NULL_INDEX)
+	int32_t bodyKey = island->headBody;
+	while (bodyKey != B2_NULL_INDEX)
 	{
 		b2Body* body = world->bodies + bodyIndex;
 		B2_ASSERT(body->islandIndex == islandIndex);
@@ -1092,3 +1091,17 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 }
 
 #endif
+
+void b2FindBodiesToSleep(b2World* world)
+{
+	b2BodySet* bodySet = world->bodySetArray + b2_awakeBodySet;
+	int awakeCount = bodySet->count;
+
+	b2Body* bodies = bodySet->bodies;
+	b2BodyState* states = bodySet->states;
+}
+
+void b2PutBodiesToSleep(b2World* world)
+{
+
+}

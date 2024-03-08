@@ -24,6 +24,8 @@ b2BlockAllocator b2CreateBlockAllocator(void);
 void b2DestroyBlockAllocator(b2BlockAllocator* allocator);
 
 // Allocate memory. This will use b2Alloc if the size is larger than b2_maxBlockSize.
+// Allocates memory in power of two sizes, so the actual allocation may be larger than requested.
+// Returns the memory pointer along with the actual capacity.
 void* b2AllocBlock(b2BlockAllocator* allocator, int size);
 
 // Free memory. This will use b2Free if the size is larger than b2_maxBlockSize.

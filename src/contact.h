@@ -20,7 +20,7 @@ typedef struct b2World b2World;
 // edges, one for each attached body.
 typedef struct b2ContactEdge
 {
-	int32_t bodyIndex;
+	int32_t bodyKey;
 	int32_t prevKey;
 	int32_t nextKey;
 } b2ContactEdge;

@@ -88,10 +88,6 @@ typedef struct b2StepContext
 	float restitutionThreshold;
 	float maxBiasVelocity;
 
-	// #todo for joints
-	struct b2Body* bodies;
-	int32_t bodyCapacity;
-
 	// Map from body state to world body
 	const int32_t* solverToBodyMap;
 

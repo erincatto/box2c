@@ -14,4 +14,3 @@ void b2DestroyIdPool(b2IdPool* pool);
 
 int b2AllocateId(b2IdPool* pool);
 void b2FreeId(b2IdPool* pool, int id);
-

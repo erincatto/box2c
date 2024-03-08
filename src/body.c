@@ -10,6 +10,7 @@
 #include "constraint_graph.h"
 #include "contact.h"
 #include "core.h"
+#include "id_pool.h"
 #include "island.h"
 #include "joint.h"
 #include "shape.h"
@@ -23,11 +24,34 @@
 // Get a validated body from a world using an id.
 b2Body* b2GetBody(b2World* world, b2BodyId id)
 {
-	B2_ASSERT(1 <= id.index && id.index <= world->bodyPool.capacity);
-	b2Body* body = world->bodies + (id.index - 1);
-	B2_ASSERT(b2IsValidObject(&body->object));
-	B2_ASSERT(id.revision == body->object.revision);
+	B2_ASSERT(1 <= id.index && id.index <= b2Array(world->bodyLookupArray).count);
+	b2BodyLookup lookup = world->bodyLookupArray[id.index - 1];
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->bodySetArray).count);
+	b2BodySet* set = world->bodySetArray + lookup.setIndex;
+	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->count);
+	b2Body* body = set->bodies + lookup.bodyIndex;
 	return body;
+}
+
+// Get a validated body from a world using an id.
+b2Body* b2GetBodyFromKey(b2World* world, int32_t bodyKey)
+{
+	B2_ASSERT(0 <= bodyKey && bodyKey < b2Array(world->bodyLookupArray).count);
+	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->bodySetArray).count);
+	b2BodySet* set = world->bodySetArray + lookup.setIndex;
+	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->count);
+	b2Body* body = set->bodies + lookup.bodyIndex;
+	return body;
+}
+
+// Get a validated body from a world using an id.
+b2BodyId b2GetBodyId(b2World* world, int32_t bodyKey)
+{
+	B2_ASSERT(0 <= bodyKey && bodyKey < b2Array(world->bodyLookupArray).count);
+	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->bodySetArray).count);
+	return (b2BodyId){bodyKey + 1, world->worldIndex, lookup.revision};
 }
 
 static void b2CreateIslandForBody(b2World* world, b2Body* body, bool isAwake)
@@ -48,8 +72,8 @@ static void b2CreateIslandForBody(b2World* world, b2Body* body, bool isAwake)
 	island->world = world;
 
 	body->islandIndex = island->object.index;
-	island->headBody = body->object.index;
-	island->tailBody = body->object.index;
+	island->headBody = body->bodyKey;
+	island->tailBody = body->bodyKey;
 	island->bodyCount = 1;
 
 	if (isAwake)
@@ -73,26 +97,28 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 	// Fix the island's linked list of bodies
 	if (body->islandPrev != B2_NULL_INDEX)
 	{
-		world->bodies[body->islandPrev].islandNext = body->islandNext;
+		b2Body* prevBody = b2GetBodyFromKey(world, body->islandPrev);
+		prevBody->islandNext = body->islandNext;
 	}
 
 	if (body->islandNext != B2_NULL_INDEX)
 	{
-		world->bodies[body->islandNext].islandPrev = body->islandPrev;
+		b2Body* nextBody = b2GetBodyFromKey(world, body->islandNext);
+		nextBody->islandPrev = body->islandPrev;
 	}
 
 	B2_ASSERT(island->bodyCount > 0);
 	island->bodyCount -= 1;
 	bool islandDestroyed = false;
 
-	if (island->headBody == body->object.index)
+	if (island->headBody == body->bodyKey)
 	{
 		island->headBody = body->islandNext;
 
 		if (island->headBody == B2_NULL_INDEX)
 		{
 			// Destroy empty island
-			B2_ASSERT(island->tailBody == body->object.index);
+			B2_ASSERT(island->tailBody == body->bodyKey);
 			B2_ASSERT(island->bodyCount == 0);
 			B2_ASSERT(island->contactCount == 0);
 			B2_ASSERT(island->jointCount == 0);
@@ -102,7 +128,7 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 			islandDestroyed = true;
 		}
 	}
-	else if (island->tailBody == body->object.index)
+	else if (island->tailBody == body->bodyKey)
 	{
 		island->tailBody = body->islandPrev;
 	}
@@ -133,6 +159,11 @@ static void b2DestroyBodyContacts(b2World* world, b2Body* body)
 	}
 }
 
+static void b2ChangeBodySet(b2World* world, int32_t bodyKey, int32_t setIndex)
+{
+
+}
+
 static void b2EnableBody(b2World* world, b2Body* body)
 {
 	// Add shapes to broad-phase
@@ -154,8 +185,8 @@ static void b2EnableBody(b2World* world, b2Body* body)
 		int32_t edgeIndex = jointKey & 1;
 		b2Joint* joint = world->joints + jointIndex;
 		B2_ASSERT(joint->islandIndex == B2_NULL_INDEX);
-		b2Body* bodyA = world->bodies + joint->edges[0].bodyIndex;
-		b2Body* bodyB = world->bodies + joint->edges[1].bodyIndex;
+		b2Body* bodyA = b2GetBodyFromKey(world, joint->edges[0].bodyKey);
+		b2Body* bodyB = b2GetBodyFromKey(world, joint->edges[1].bodyKey);
 		if (bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody)
 		{
 			b2AddJointToGraph(world, joint);
@@ -167,8 +198,6 @@ static void b2EnableBody(b2World* world, b2Body* body)
 
 static void b2DisableBody(b2World* world, b2Body* body)
 {
-	body->solverIndex = B2_NULL_INDEX;
-
 	b2DestroyBodyContacts(world, body);
 	b2RemoveBodyFromIsland(world, body);
 
@@ -211,8 +240,65 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		return b2_nullBodyId;
 	}
 
-	b2Body* body = (b2Body*)b2AllocObject(&world->bodyPool);
-	world->bodies = (b2Body*)world->bodyPool.memory;
+	bool isAwake = (def->isAwake || def->enableSleep == false) && def->isEnabled;
+
+	// Determine the body set
+	int32_t setIndex;
+	if (def->isEnabled == false)
+	{
+		setIndex = b2_disabledBodySet;
+	}
+	else if (def->type == b2_staticBody)
+	{
+		setIndex = b2_staticBodySet;
+	}
+	else if (isAwake == true )
+	{
+		setIndex = b2_awakeBodySet;
+	}
+	else
+	{
+		// new set for a sleeping body in its own island
+		setIndex = b2Array(world->bodySetArray).count;
+		b2Array_Push(world->bodySetArray, (b2BodySet){0});
+	}
+
+	B2_ASSERT(0 <= setIndex && setIndex < b2Array(world->bodySetArray).count);
+	
+	b2BodySet* bodySet = world->bodySetArray + setIndex;
+	// Allocate from body set
+	if (bodySet->capacity == bodySet->count)
+	{
+		int newCapacity = B2_MAX(1, 2 * bodySet->capacity);
+		b2Body* newBodies = b2AllocBlock(&world->blockAllocator, newCapacity * sizeof(b2Body));
+		if (bodySet->count > 0)
+		{
+			memcpy(newBodies, bodySet->bodies, bodySet->count * sizeof(b2Body));
+			b2FreeBlock(&world->blockAllocator, bodySet->bodies, bodySet->capacity * sizeof(b2Body));
+		}
+		bodySet->bodies = newBodies;
+
+		// Only awake bodies get a body state (velocity)
+		if (setIndex == b2_awakeBodySet)
+		{
+			b2BodyState* newStates = b2AllocBlock(&world->blockAllocator, newCapacity * sizeof(b2BodyState));
+			if (bodySet->count > 0)
+			{
+				memcpy(newStates, bodySet->states, bodySet->count * sizeof(b2BodyState));
+				b2FreeBlock(&world->blockAllocator, bodySet->states, bodySet->capacity * sizeof(b2BodyState));
+			}
+			bodySet->states = newStates;
+		}
+
+		bodySet->capacity = newCapacity;
+	}
+
+	B2_ASSERT(bodySet->capacity > bodySet->count);
+
+	int32_t bodyIndex = bodySet->count;
+	b2Body* body = bodySet->bodies + bodyIndex;
+	b2BodyState* state = bodySet->states == NULL ? NULL : bodySet->states + bodyIndex;
+	bodySet->count += 1;
 
 	B2_ASSERT(0 <= def->type && def->type < b2_bodyTypeCount);
 	B2_ASSERT(b2Vec2_IsValid(def->position));
@@ -223,6 +309,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->gravityScale));
 
+	*body = (b2Body){0};
 	body->type = def->type;
 	body->origin = def->position;
 	body->rotation = b2MakeRot(def->angle);
@@ -230,8 +317,6 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->rotation0 = body->rotation;
 	body->position0 = body->position;
 	body->localCenter = b2Vec2_zero;
-	body->linearVelocity = def->linearVelocity;
-	body->angularVelocity = def->angularVelocity;
 	body->force = b2Vec2_zero;
 	body->torque = 0.0f;
 	body->shapeList = B2_NULL_INDEX;
@@ -264,15 +349,38 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandIndex = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
-	body->solverIndex = B2_NULL_INDEX;
+
+	if (state != NULL)
+	{
+		*state = (b2BodyState){0};
+		state->linearVelocity = def->linearVelocity;
+		state->angularVelocity = def->angularVelocity;
+	}
 
 	if (body->isEnabled)
 	{
-		bool isAwake = def->isAwake || def->enableSleep == false;
 		b2CreateIslandForBody(world, body, isAwake);
 	}
 
-	b2BodyId id = {body->object.index + 1, world->poolIndex, body->object.revision};
+	int32_t bodyKey = b2AllocateId(&world->bodyIdPool);
+
+	uint16_t revision = 0;
+	if (bodyKey >= b2Array(world->bodyLookupArray).count)
+	{
+		b2BodyLookup lookup = {setIndex, bodyIndex, revision};
+		b2Array_Push(world->bodyLookupArray, lookup);
+	}
+	else
+	{
+		b2BodyLookup* lookup = world->bodyLookupArray + bodyKey;
+		B2_ASSERT(lookup->setIndex == B2_NULL_INDEX && lookup->bodyIndex == B2_NULL_INDEX);
+		lookup->setIndex = setIndex;
+		lookup->bodyIndex = bodyIndex;
+		lookup->revision += 1;
+		revision = lookup->revision;
+	}
+
+	b2BodyId id = {bodyKey + 1, world->worldIndex + 1, revision};
 	return id;
 }
 

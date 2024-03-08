@@ -181,7 +181,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	const int32_t* solverToBodyMap = context->solverToBodyMap;
 	float timeStep = context->dt;
 
-	uint16_t worldIndex = world->poolIndex;
+	uint16_t worldIndex = world->worldIndex;
 	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
 
 	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;

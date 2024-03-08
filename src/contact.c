@@ -424,8 +424,8 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	B2_ASSERT(shapeA->object.index == contact->shapeIndexA);
 	B2_ASSERT(shapeB->object.index == contact->shapeIndexB);
 
-	b2ShapeId shapeIdA = {shapeA->object.index, world->poolIndex, shapeA->object.revision};
-	b2ShapeId shapeIdB = {shapeB->object.index, world->poolIndex, shapeB->object.revision};
+	b2ShapeId shapeIdA = {shapeA->object.index, world->worldIndex, shapeA->object.revision};
+	b2ShapeId shapeIdB = {shapeB->object.index, world->worldIndex, shapeB->object.revision};
 
 	bool touching = false;
 	contact->manifold.pointCount = 0;
