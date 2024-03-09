@@ -23,7 +23,7 @@ typedef struct b2World b2World;
 // Reserve island jobs
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
-// Persistent island
+// Persistent island for awake bodies, joints, and contacts
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
 typedef struct b2Island
@@ -47,17 +47,12 @@ typedef struct b2Island
 	// Union find
 	int32_t parentIsland;
 
-	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
-	int32_t awakeIndex;
-
 	// Keeps track of how many contacts have been removed from this island.
 	int32_t constraintRemoveCount;
 } b2Island;
 
 void b2CreateIsland(b2Island* island);
 void b2DestroyIsland(b2Island* island);
-
-void b2WakeIsland(b2Island* island);
 
 // Link contacts into the island graph when it starts having contact points
 void b2LinkContact(b2World* world, b2Contact* contact);

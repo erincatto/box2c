@@ -13,6 +13,21 @@ typedef struct b2Body b2Body;
 typedef struct b2Shape b2Shape;
 typedef struct b2World b2World;
 
+typedef struct b2ContactLookup
+{
+	// index of simulation set stored in b2World
+	// B2_NULL_INDEX when slot is free
+	int setIndex;
+
+	// index into the constraint graph color array, B2_NULL_INDEX for sleeping contacts
+	// B2_NULL_INDEX when slot is free
+	int graphColorIndex;
+
+	// contact index within set or graph color
+	// B2_NULL_INDEX when slot is free
+	int contactIndex;
+} b2ContactLookup;
+
 // A contact edge is used to connect bodies and contacts together
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list

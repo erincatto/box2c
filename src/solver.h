@@ -9,9 +9,35 @@
 #include <stdint.h>
 #include <stdatomic.h>
 
+typedef struct b2Body b2Body;
 typedef struct b2BodyState b2BodyState;
-typedef struct b2BodyParam b2BodyParam;
+typedef struct b2Contact b2Contact;
+typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
+
+// This holds solver set data. The following sets are used:
+// - static set for all static bodies (no contacts or joints)
+// - active set for all active bodies with body states (no contacts or joints)
+// - disabled set for disabled bodies and their joints
+// - all further sets are sleeping island sets along with their contacts and joints
+typedef struct b2SolverSet
+{
+	b2Body* bodies;
+
+	// Body state only exists for active set
+	b2BodyState* states;
+
+	int bodyCount;
+	int bodyCapacity;
+
+	// This holds sleeping/disabled joints. Empty for static/active set.
+	b2Joint* joints;
+	int jointCount;
+
+	// This holds sleeping contacts. Empty for static/active/disabled set.
+	b2Contact* contacts;
+	int contactCount;
+} b2SolverSet;
 
 typedef struct b2Softness
 {

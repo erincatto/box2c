@@ -9,6 +9,8 @@ set(BOX2D_SOURCE_FILES
 	bitset.h
 	block_allocator.c
 	block_allocator.h
+	block_array.c
+	block_array.h
 	body.c
 	body.h
 	broad_phase.c

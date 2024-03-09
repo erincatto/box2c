@@ -118,17 +118,17 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2CreateBroadPhase(&world->broadPhase);
-	b2CreateGraph(&world->graph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);
+	b2CreateGraph(&world->constraintGraph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);
 
 	// pools
 	world->bodyIdPool = b2CreateIdPool();
 	world->bodyLookupArray = b2CreateArray(sizeof(b2BodyLookup), def->bodyCapacity);
-	world->bodySetArray = b2CreateArray(sizeof(b2BodySet), 8);
+	world->solverSetArray = b2CreateArray(sizeof(b2SolverSet), 8);
 
 	// add empty static, active, and disabled body sets
-	b2Array_Push(world->bodySetArray, (b2BodySet){0});
-	b2Array_Push(world->bodySetArray, (b2BodySet){0});
-	b2Array_Push(world->bodySetArray, (b2BodySet){0});
+	b2Array_Push(world->solverSetArray, (b2SolverSet){0});
+	b2Array_Push(world->solverSetArray, (b2SolverSet){0});
+	b2Array_Push(world->solverSetArray, (b2SolverSet){0});
 
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
@@ -136,19 +136,14 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->chainPool = b2CreatePool(sizeof(b2ChainShape), 4);
 	world->chains = (b2ChainShape*)world->chainPool.memory;
 
-	world->contactPool = b2CreatePool(sizeof(b2Contact), B2_MAX(def->contactCapacity, 1));
-	world->contacts = (b2Contact*)world->contactPool.memory;
+	world->contactIdPool = b2CreateIdPool();
+	world->contactLookupArray = b2CreateArray(sizeof(b2ContactLookup), 16);
 
-	world->jointPool = b2CreatePool(sizeof(b2Joint), B2_MAX(def->jointCapacity, 1));
-	world->joints = (b2Joint*)world->jointPool.memory;
+	world->jointIdPool = b2CreateIdPool();
+	world->jointLookupArray = b2CreateArray(sizeof(b2JointLookup), 16);
 
 	world->islandPool = b2CreatePool(sizeof(b2Island), B2_MAX(def->bodyCapacity, 1));
 	world->islands = (b2Island*)world->islandPool.memory;
-
-	world->awakeIslandArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->bodyCapacity, 1));
-
-	world->awakeContactArray = b2CreateArray(sizeof(int32_t), B2_MAX(def->contactCapacity, 1));
-	world->contactAwakeIndexArray = b2CreateArray(sizeof(int32_t), world->contactPool.capacity);
 
 	world->bodyMoveEventArray = b2CreateArray(sizeof(b2BodyMoveEvent), 4);
 
@@ -220,21 +215,12 @@ void b2DestroyWorld(b2WorldId worldId)
 	}
 
 	b2DestroyArray(world->taskContextArray, sizeof(b2TaskContext));
-	b2DestroyArray(world->awakeContactArray, sizeof(int32_t));
-	b2DestroyArray(world->awakeIslandArray, sizeof(int32_t));
-	b2DestroyArray(world->contactAwakeIndexArray, sizeof(int32_t));
 
 	b2DestroyArray(world->bodyMoveEventArray, sizeof(b2BodyMoveEvent));
 	b2DestroyArray(world->sensorBeginEventArray, sizeof(b2SensorBeginTouchEvent));
 	b2DestroyArray(world->sensorEndEventArray, sizeof(b2SensorEndTouchEvent));
-
 	b2DestroyArray(world->contactBeginArray, sizeof(b2ContactBeginTouchEvent));
 	b2DestroyArray(world->contactEndArray, sizeof(b2ContactEndTouchEvent));
-
-	b2DestroyPool(&world->islandPool);
-	b2DestroyPool(&world->jointPool);
-	b2DestroyPool(&world->contactPool);
-	b2DestroyPool(&world->shapePool);
 
 	int32_t chainCapacity = world->chainPool.capacity;
 	for (int32_t i = 0; i < chainCapacity; ++i)
@@ -246,13 +232,22 @@ void b2DestroyWorld(b2WorldId worldId)
 		}
 	}
 
+	b2DestroyPool(&world->islandPool);
+	b2DestroyPool(&world->shapePool);
 	b2DestroyPool(&world->chainPool);
+
+	b2DestroyIdPool(&world->bodyIdPool);
+	b2DestroyIdPool(&world->contactIdPool);
+	b2DestroyIdPool(&world->jointIdPool);
+	b2DestroyArray(world->bodyLookupArray, sizeof(b2BodyLookup));
+	b2DestroyArray(world->contactLookupArray, sizeof(b2ContactLookup));
+	b2DestroyArray(world->jointLookupArray, sizeof(b2JointLookup));
 
 	// The data in the body sets all comes from the block allocator so no
 	// need to destroy the set contents.
-	b2DestroyArray(world->bodySetArray, sizeof(b2BodySet));
+	b2DestroyArray(world->solverSetArray, sizeof(b2SolverSet));
 
-	b2DestroyGraph(&world->graph);
+	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyBlockAllocator(&world->blockAllocator);
@@ -272,37 +267,60 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
 	b2Shape* shapes = world->shapes;
-	b2Contact* contacts = world->contacts;
-	int32_t awakeCount = b2Array(world->awakeContactArray).count;
-	int32_t* awakeContactArray = world->awakeContactArray;
-	int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
 	b2BodyLookup* bodyLookup = world->bodyLookupArray;
+	b2ConstraintGraph* graph = &world->constraintGraph;
 
-	B2_MAYBE_UNUSED(awakeCount);
-	B2_ASSERT(startIndex < endIndex);
-	B2_ASSERT(endIndex <= awakeCount);
-
-	for (int32_t awakeIndex = startIndex; awakeIndex < endIndex; ++awakeIndex)
+	int baseIndex = 0;
+	b2ContactBlock* block = graph->contactBlocks;
+	b2ContactBlock* endBlock = graph->contactBlocks + graph->contactBlockCount;
+	while (baseIndex + block->count < startIndex && block < endBlock)
 	{
-		int32_t contactIndex = awakeContactArray[awakeIndex];
-		if (contactIndex == B2_NULL_INDEX)
+		baseIndex += block->count;
+		block += 1;
+	}
+
+	B2_ASSERT(block < endBlock);
+	B2_ASSERT(baseIndex <= startIndex && endIndex <= baseIndex + block->count);
+	B2_ASSERT(startIndex < endIndex);
+
+	for (int i = startIndex; i < endIndex; ++i)
+	{
+		if (i >= baseIndex + block->count)
 		{
-			// Contact was destroyed
-			continue;
+			baseIndex += block->count;
+			block += 1;
 		}
 
-		B2_ASSERT(0 <= contactIndex && contactIndex < world->contactPool.capacity);
-		b2Contact* contact = contacts + contactIndex;
+		B2_ASSERT(block < endBlock);
+		B2_ASSERT(baseIndex <= i && i <= baseIndex + block->count);
 
-		B2_ASSERT(contactAwakeIndexArray[contactIndex] == awakeIndex);
-		B2_ASSERT(contact->object.index == contactIndex && contact->object.index == contact->object.next);
+		b2Contact* contact = block->contacts + (i - baseIndex);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
-		contactAwakeIndexArray[contactIndex] = B2_NULL_INDEX;
 
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
+
+		b2BodyLookup lookupA = world->bodyLookupArray[shapeA->bodyKey];
+		b2BodyLookup lookupB = world->bodyLookupArray[shapeB->bodyKey];
+
+		if (lookupA.setIndex != b2_awakeBodySet && lookupB.setIndex != b2_awakeBodySet)
+		{
+			B2_ASSERT(lookupA.setIndex != b2_disabledBodySet);
+			B2_ASSERT(lookupB.setIndex != b2_disabledBodySet);
+			B2_ASSERT(lookupA.setIndex >= b2_firstSleepingSet || lookupB.setIndex >= b2_firstSleepingSet);
+			// contact needs to be moved to sleeping set, but what if both bodies are sleeping in different sets?
+			// perhaps there should be a separate place for sleeping non-touching contacts
+			// certainly when a non-touching contact is woken up, it should not go into the constraint graph
+			// but we are iterating contacts in the constraint graph, so where should awake non-touching contacts go?
+			// perhaps the world should hold an array of non-touching awake contacts and non-touching sleeping contacts
+			// the non-touching sleeping contacts should be moved to the non-touching awake contacts whenever either body
+			// becomes awake
+		}
+
+		b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyKey);
+		b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyKey);
 
 		// Do proxies still overlap?
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
@@ -317,8 +335,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
-			b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
-			b2Body* bodyB = b2GetBody(world, shapeA->bodyId);
+			b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyKey);
+			b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyKey);
 			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
@@ -691,10 +709,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 
 	if (draw->drawShapes)
 	{
-		int setCount = b2Array(world->bodySetArray).count;
+		int setCount = b2Array(world->solverSetArray).count;
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			b2BodySet* set = world->bodySetArray + setIndex;
+			b2SolverSet* set = world->solverSetArray + setIndex;
 			int bodyCount = set->count;
 			for (int32_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
@@ -777,10 +795,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	{
 		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
 
-		int setCount = b2Array(world->bodySetArray).count;
+		int setCount = b2Array(world->solverSetArray).count;
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			b2BodySet* set = world->bodySetArray + setIndex;
+			b2SolverSet* set = world->solverSetArray + setIndex;
 			int bodyCount = set->count;
 			for (int32_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
@@ -812,10 +830,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	if (draw->drawMass)
 	{
 		b2Vec2 offset = {0.1f, 0.1f};
-		int setCount = b2Array(world->bodySetArray).count;
+		int setCount = b2Array(world->solverSetArray).count;
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			b2BodySet* set = world->bodySetArray + setIndex;
+			b2SolverSet* set = world->solverSetArray + setIndex;
 			int bodyCount = set->count;
 			for (int32_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{

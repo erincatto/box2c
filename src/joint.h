@@ -13,6 +13,26 @@ typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
+// map from b2JointId to b2Joint in the solver sets
+typedef struct b2JointLookup
+{
+	// index of simulation set stored in b2World
+	// B2_NULL_INDEX when slot is free
+	int setIndex;
+
+	// index into the constraint graph color array, may be B2_NULL_INDEX for sleeping/disabled joints
+	// B2_NULL_INDEX when slot is free
+	int graphColorIndex;
+
+	// joint index within set or graph color
+	// B2_NULL_INDEX when slot is free
+	int jointIndex;
+
+	// This is monotonically advanced when a body is allocated in this slot
+	// Used to check for invalid b2JointId
+	int revision;
+} b2JointLookup;
+
 /// A joint edge is used to connect bodies and joints together
 /// in a joint graph where each body is a node and each joint
 /// is an edge. A joint edge belongs to a doubly linked list
@@ -228,6 +248,7 @@ typedef struct b2Joint
 } b2Joint;
 
 b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
+b2Joint* b2GetJointFromKey(b2World* world, int32_t jointKey);
 b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
 void b2DestroyJointInternal(b2World* world, b2Joint* joint);
 

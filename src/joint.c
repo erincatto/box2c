@@ -94,11 +94,24 @@ b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type)
 
 b2Joint* b2GetJoint(b2World* world, b2JointId jointId)
 {
-	B2_ASSERT(1 <= jointId.index && jointId.index <= world->jointPool.capacity);
-	b2Joint* joint = world->joints + (jointId.index - 1);
-	B2_ASSERT(b2IsValidObject(&joint->object));
-	B2_ASSERT(joint->object.revision == jointId.revision);
-	return joint;
+	int32_t jointKey = jointId.index - 1;
+	B2_ASSERT(0 <= jointKey && jointKey < b2Array(world->jointLookupArray).count);
+	b2JointLookup lookup = world->jointLookupArray[jointKey];
+	B2_ASSERT(lookup.revision == jointId.revision);
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
+	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
+	if (lookup.setIndex == b2_awakeBodySet)
+	{
+		B2_ASSERT(0 <= lookup.graphColorIndex && lookup.graphColorIndex <= b2_graphColorCount);
+		if (lookup.graphColorIndex < b2_graphColorCount)
+		{
+			b2GraphColor* graphColor = world->constraintGraph.colors + lookup.graphColorIndex;
+
+		}
+	}
+	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->bodyCount);
+	b2Body* body = set->bodies + lookup.bodyIndex;
+	return body;
 }
 
 static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)

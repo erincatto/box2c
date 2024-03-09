@@ -23,6 +23,7 @@ enum b2BodySetType
 	b2_staticBodySet = 0,
 	b2_awakeBodySet = 1,
 	b2_disabledBodySet = 2,
+	b2_firstSleepingSet = 3,
 };
 
 // Per thread task storage
@@ -51,7 +52,6 @@ typedef struct b2World
 	struct b2StackAllocator* stackAllocator;
 
 	b2BroadPhase broadPhase;
-	b2ConstraintGraph graph;
 
 	// The body id pool is used to allocate and recycle body ids. Body ids
 	// provide a stable identifier for users, but incur caches misses when used
@@ -65,38 +65,35 @@ typedef struct b2World
 	// Body sets allow bodies to be stored in contiguous arrays. The first
 	// set is all static bodies. The second set is active bodies. The remaining
 	// sets are sleeping islands.
-	struct b2BodySet* bodySetArray;
+	struct b2SolverSet* solverSetArray;
 
-	b2Pool contactPool;
-	b2Pool jointPool;
+	b2ConstraintGraph constraintGraph;
+
+	// Used to create stable ids for joints
+	b2IdPool jointIdPool;
+
+	// This is a sparse array that maps joint ids to the joint data stored in the constraint graph
+	// or in the simulation sets.
+	struct b2JointLookup* jointLookupArray;
+
+	// Used to create stable ids for contacts
+	b2IdPool contactIdPool;
+
+	// This is a sparse array that maps contact ids to the contact data stored in the constraint graph
+	// or in the simulation sets.
+	struct b2ContactLookup* contactLookupArray;
+
 	b2Pool shapePool;
 	b2Pool chainPool;
 	b2Pool islandPool;
 
 	// These are sparse arrays that point into the pools above
-	struct b2Contact* contacts;
-	struct b2Joint* joints;
 	struct b2Shape* shapes;
 	struct b2ChainShape* chains;
 	struct b2Island* islands;
 
 	// Per thread storage
 	b2TaskContext* taskContextArray;
-
-	// Awake island array holds indices into the island array (islandPool).
-	// This is a dense array that is rebuilt every time step.
-	// todo should not be needed with body sets
-	int32_t* awakeIslandArray;
-
-	// Awake contact array holds contacts that should be updated.
-	// This is a dense array that is rebuilt every time step. Order doesn't matter for determinism
-	// but a bit set is used to prevent duplicates
-	int32_t* awakeContactArray;
-
-	// Hot data split from b2Contact. Used when a contact is destroyed and needs to be removed from the awake contact array.
-	// A contact is destroyed when a shape/body is destroyed or when the shape AABBs stop overlapping.
-	// TODO_ERIN use a bit array somehow?
-	int32_t* contactAwakeIndexArray;
 
 	struct b2BodyMoveEvent* bodyMoveEventArray;
 	struct b2SensorBeginTouchEvent* sensorBeginEventArray;

@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "pool.h"
-
 #include "box2d/distance.h"
 #include "box2d/id.h"
 #include "box2d/math.h"
 
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
+typedef struct b2Joint b2Joint;
+typedef struct b2Contact b2Contact;
 
 // map from b2BodyId to body set and index
 typedef struct b2BodyLookup
@@ -140,15 +140,6 @@ typedef struct b2Body
 	bool isSpeedCapped;
 	bool enlargeAABB;
 } b2Body;
-
-// todo split hot and cold better
-typedef struct b2BodySet
-{
-	b2BodyState* states;
-	b2Body* bodies;
-	int count;
-	int capacity;
-} b2BodySet;
 
 b2Body* b2GetBody(b2World* world, b2BodyId id);
 b2Body* b2GetBodyFromKey(b2World* world, int32_t bodyKey);

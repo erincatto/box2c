@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "array.h"
+#include "block_array.h"
 #include "bitset.h"
 #include "box2d/constants.h"
 
@@ -19,8 +19,8 @@ typedef struct b2World b2World;
 typedef struct b2GraphColor
 {
 	b2BitSet bodySet;
-	int32_t* contactArray;
-	int32_t* jointArray;
+	b2ContactArray contacts;
+	b2JointArray joints;
 
 	// transient
 	b2ContactConstraintSIMD* contactConstraints;
@@ -30,22 +30,32 @@ typedef struct b2GraphColor
 // is touching many other bodies.
 typedef struct b2GraphOverflow
 {
-	int32_t* contactArray;
-	int32_t* jointArray;
+	b2ContactArray contacts;
+	b2JointArray joints;
 
 	// transient
 	b2ContactConstraint* contactConstraints;
 } b2GraphOverflow;
 
+typedef struct b2ContactBlock
+{
+	b2Contact* contacts;
+	int count;
+} b2ContactBlock;
+
 typedef struct b2ConstraintGraph
 {
 	b2GraphColor colors[b2_graphColorCount];
-	int32_t colorCount;
+	int colorCount;
 
 	// debug info
-	int32_t occupancy[b2_graphColorCount + 1];
+	int occupancy[b2_graphColorCount + 1];
 
 	b2GraphOverflow overflow;
+
+	// transient blocks for parallel-for, pointers copied from graph colors
+	b2ContactBlock contactBlocks[b2_graphColorCount + 1];
+	int contactBlockCount;
 } b2ConstraintGraph;
 
 void b2CreateGraph(b2ConstraintGraph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity);

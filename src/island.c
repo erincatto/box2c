@@ -22,110 +22,6 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
-/*
-todo these are notes from v2.4 and may no longer be relevant
-
-Position Correction Notes
-=========================
-I tried the several algorithms for position correction of the 2D revolute joint.
-I looked at these systems:
-- simple pendulum (1m diameter sphere on massless 5m stick) with initial angular velocity of 100 rad/s.
-- suspension bridge with 30 1m long planks of length 1m.
-- multi-link chain with 30 1m long links.
-
-Here are the algorithms:
-
-Baumgarte - A fraction of the position error is added to the velocity error. There is no
-separate position solver.
-
-Pseudo Velocities - After the velocity solver and position integration,
-the position error, Jacobian, and effective mass are recomputed. Then
-the velocity constraints are solved with pseudo velocities and a fraction
-of the position error is added to the pseudo velocity error. The pseudo
-velocities are initialized to zero and there is no warm-starting. After
-the position solver, the pseudo velocities are added to the positions.
-This is also called the First Order World method or the Position LCP method.
-
-Modified Nonlinear Gauss-Seidel (NGS) - Like Pseudo Velocities except the
-position error is re-computed for each constraint and the positions are updated
-after the constraint is solved. The radius vectors (aka Jacobians) are
-re-computed too (otherwise the algorithm has horrible instability). The pseudo
-velocity states are not needed because they are effectively zero at the beginning
-of each iteration. Since we have the current position error, we allow the
-iterations to terminate early if the error becomes smaller than b2_linearSlop.
-
-Full NGS or just NGS - Like Modified NGS except the effective mass are re-computed
-each time a constraint is solved.
-
-Here are the results:
-Baumgarte - this is the cheapest algorithm but it has some stability problems,
-especially with the bridge. The chain links separate easily close to the root
-and they jitter as they struggle to pull together. This is one of the most common
-methods in the field. The big drawback is that the position correction artificially
-affects the momentum, thus leading to instabilities and false bounce. I used a
-bias factor of 0.2. A larger bias factor makes the bridge less stable, a smaller
-factor makes joints and contacts more spongy.
-
-Pseudo Velocities - the is more stable than the Baumgarte method. The bridge is
-stable. However, joints still separate with large angular velocities. Drag the
-simple pendulum in a circle quickly and the joint will separate. The chain separates
-easily and does not recover. I used a bias factor of 0.2. A larger value lead to
-the bridge collapsing when a heavy cube drops on it.
-
-Modified NGS - this algorithm is better in some ways than Baumgarte and Pseudo
-Velocities, but in other ways it is worse. The bridge and chain are much more
-stable, but the simple pendulum goes unstable at high angular velocities.
-
-Full NGS - stable in all tests. The joints display good stiffness. The bridge
-still sags, but this is better than infinite forces.
-
-Recommendations
-Pseudo Velocities are not really worthwhile because the bridge and chain cannot
-recover from joint separation. In other cases the benefit over Baumgarte is small.
-
-Modified NGS is not a robust method for the revolute joint due to the violent
-instability seen in the simple pendulum. Perhaps it is viable with other constraint
-types, especially scalar constraints where the effective mass is a scalar.
-
-This leaves Baumgarte and Full NGS. Baumgarte has small, but manageable instabilities
-and is very fast. I don't think we can escape Baumgarte, especially in highly
-demanding cases where high constraint fidelity is not needed.
-
-Full NGS is robust and easy on the eyes. I recommend this as an option for
-higher fidelity simulation and certainly for suspension bridges and long chains.
-Full NGS might be a good choice for ragdolls, especially motorized ragdolls where
-joint separation can be problematic. The number of NGS iterations can be reduced
-for better performance without harming robustness much.
-
-Each joint in a can be handled differently in the position solver. So I recommend
-a system where the user can select the algorithm on a per joint basis. I would
-probably default to the slower Full NGS and let the user select the faster
-Baumgarte method in performance critical scenarios.
-*/
-
-/*
-2D Rotation
-
-R = [cos(theta) -sin(theta)]
-	[sin(theta) cos(theta) ]
-
-thetaDot = omega
-
-Let q1 = cos(theta), q2 = sin(theta).
-R = [q1 -q2]
-	[q2  q1]
-
-q1Dot = -thetaDot * q2
-q2Dot = thetaDot * q1
-
-q1_new = q1_old - dt * w * q2
-q2_new = q2_old + dt * w * q1
-then normalize.
-
-This might be faster than computing sin+cos.
-However, we can compute sin+cos of the same angle fast.
-*/
-
 void b2CreateIsland(b2Island* island)
 {
 	island->world = NULL;
@@ -139,27 +35,11 @@ void b2CreateIsland(b2Island* island)
 	island->tailJoint = B2_NULL_INDEX;
 	island->jointCount = 0;
 	island->parentIsland = B2_NULL_INDEX;
-	island->awakeIndex = B2_NULL_INDEX;
 	island->constraintRemoveCount = 0;
 }
 
 void b2DestroyIsland(b2Island* island)
 {
-	// Remove from awake islands array
-	if (island->awakeIndex != B2_NULL_INDEX)
-	{
-		b2World* world = island->world;
-		int32_t islandCount = b2Array(world->awakeIslandArray).count;
-		B2_ASSERT(islandCount > 0);
-		b2Array_RemoveSwap(world->awakeIslandArray, island->awakeIndex);
-		if (island->awakeIndex < islandCount - 1)
-		{
-			// Fix awake index on swapped island
-			int32_t swappedIslandIndex = world->awakeIslandArray[island->awakeIndex];
-			world->islands[swappedIslandIndex].awakeIndex = island->awakeIndex;
-		}
-	}
-
 	b2FreeObject(&island->world->islandPool, &island->object);
 }
 
@@ -186,51 +66,6 @@ static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* co
 	contact->islandIndex = island->object.index;
 
 	b2ValidateIsland(island, false);
-}
-
-void b2WakeIsland(b2Island* island)
-{
-	b2World* world = island->world;
-
-	if (island->awakeIndex != B2_NULL_INDEX)
-	{
-		// already awake
-		B2_ASSERT(world->awakeIslandArray[island->awakeIndex] == island->object.index);
-		return;
-	}
-
-	int32_t islandIndex = island->object.index;
-	island->awakeIndex = b2Array(world->awakeIslandArray).count;
-	b2Array_Push(world->awakeIslandArray, islandIndex);
-
-	// Reset sleep timers on bodies
-	int32_t bodyKey = island->headBody;
-	while (bodyKey != B2_NULL_INDEX)
-	{
-		b2Body* body = world->bodies + bodyIndex;
-		B2_ASSERT(body->islandIndex == islandIndex);
-		body->sleepTime = 0.0f;
-		bodyIndex = body->islandNext;
-	}
-
-	// Add constraints to graph
-	int32_t contactIndex = island->headContact;
-	while (contactIndex != B2_NULL_INDEX)
-	{
-		b2Contact* contact = world->contacts + contactIndex;
-		B2_ASSERT(contact->islandIndex == islandIndex);
-		b2AddContactToGraph(world, contact);
-		contactIndex = contact->islandNext;
-	}
-
-	int32_t jointIndex = island->headJoint;
-	while (jointIndex != B2_NULL_INDEX)
-	{
-		b2Joint* joint = world->joints + jointIndex;
-		B2_ASSERT(joint->islandIndex == islandIndex);
-		b2AddJointToGraph(world, joint);
-		jointIndex = joint->islandNext;
-	}
 }
 
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
@@ -261,7 +96,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	if (islandIndexA != B2_NULL_INDEX)
 	{
 		islandA = world->islands + islandIndexA;
-		b2WakeIsland(islandA);
 		while (islandA->parentIsland != B2_NULL_INDEX)
 		{
 			b2Island* parent = world->islands + islandA->parentIsland;
@@ -272,7 +106,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 			}
 
 			islandA = parent;
-			b2WakeIsland(islandA);
 		}
 	}
 
@@ -281,7 +114,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	if (islandIndexB != B2_NULL_INDEX)
 	{
 		islandB = world->islands + islandIndexB;
-		b2WakeIsland(islandB);
 		while (islandB->parentIsland != B2_NULL_INDEX)
 		{
 			b2Island* parent = world->islands + islandB->parentIsland;
@@ -292,7 +124,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 			}
 
 			islandB = parent;
-			b2WakeIsland(islandB);
 		}
 	}
 
@@ -1094,7 +925,7 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 
 void b2FindBodiesToSleep(b2World* world)
 {
-	b2BodySet* bodySet = world->bodySetArray + b2_awakeBodySet;
+	b2SolverSet* bodySet = world->solverSetArray + b2_awakeBodySet;
 	int awakeCount = bodySet->count;
 
 	b2Body* bodies = bodySet->bodies;

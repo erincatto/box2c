@@ -14,6 +14,7 @@
 #include "island.h"
 #include "joint.h"
 #include "shape.h"
+#include "solver.h"
 #include "world.h"
 
 // needed for dll export
@@ -22,13 +23,16 @@
 #include "box2d/id.h"
 
 // Get a validated body from a world using an id.
-b2Body* b2GetBody(b2World* world, b2BodyId id)
+b2Body* b2GetBody(b2World* world, b2BodyId bodyId)
 {
-	B2_ASSERT(1 <= id.index && id.index <= b2Array(world->bodyLookupArray).count);
-	b2BodyLookup lookup = world->bodyLookupArray[id.index - 1];
-	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->bodySetArray).count);
-	b2BodySet* set = world->bodySetArray + lookup.setIndex;
-	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->count);
+	// id index starts at one so that zero can represent null
+	int32_t bodyKey = bodyId.index - 1;
+	B2_ASSERT(0 <= bodyKey && bodyKey < b2Array(world->bodyLookupArray).count);
+	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
+	B2_ASSERT(lookup.revision == bodyId.revision);
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
+	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
+	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->bodyCount);
 	b2Body* body = set->bodies + lookup.bodyIndex;
 	return body;
 }
@@ -38,9 +42,9 @@ b2Body* b2GetBodyFromKey(b2World* world, int32_t bodyKey)
 {
 	B2_ASSERT(0 <= bodyKey && bodyKey < b2Array(world->bodyLookupArray).count);
 	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
-	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->bodySetArray).count);
-	b2BodySet* set = world->bodySetArray + lookup.setIndex;
-	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->count);
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
+	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
+	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->bodyCount);
 	b2Body* body = set->bodies + lookup.bodyIndex;
 	return body;
 }
@@ -50,7 +54,7 @@ b2BodyId b2GetBodyId(b2World* world, int32_t bodyKey)
 {
 	B2_ASSERT(0 <= bodyKey && bodyKey < b2Array(world->bodyLookupArray).count);
 	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
-	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->bodySetArray).count);
+	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
 	return (b2BodyId){bodyKey + 1, world->worldIndex, lookup.revision};
 }
 
@@ -259,13 +263,13 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	else
 	{
 		// new set for a sleeping body in its own island
-		setIndex = b2Array(world->bodySetArray).count;
-		b2Array_Push(world->bodySetArray, (b2BodySet){0});
+		setIndex = b2Array(world->solverSetArray).count;
+		b2Array_Push(world->solverSetArray, (b2SolverSet){0});
 	}
 
-	B2_ASSERT(0 <= setIndex && setIndex < b2Array(world->bodySetArray).count);
+	B2_ASSERT(0 <= setIndex && setIndex < b2Array(world->solverSetArray).count);
 	
-	b2BodySet* bodySet = world->bodySetArray + setIndex;
+	b2SolverSet* bodySet = world->solverSetArray + setIndex;
 	// Allocate from body set
 	if (bodySet->capacity == bodySet->count)
 	{
