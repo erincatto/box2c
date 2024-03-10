@@ -18,11 +18,11 @@
 
 typedef struct b2Contact b2Contact;
 
-enum b2BodySetType
+enum b2SetType
 {
-	b2_staticBodySet = 0,
-	b2_awakeBodySet = 1,
-	b2_disabledBodySet = 2,
+	b2_staticSet = 0,
+	b2_awakeSet = 1,
+	b2_disabledSet = 2,
 	b2_firstSleepingSet = 3,
 };
 
@@ -51,14 +51,18 @@ typedef struct b2World
 
 	// The body id pool is used to allocate and recycle body ids. Body ids
 	// provide a stable identifier for users, but incur caches misses when used
-	// to access body data.
+	// to access body data. Aligns with b2BodyLookup.
 	b2IdPool bodyIdPool;
 
 	// This is a sparse array that maps body ids to the body data
-	// stored in body sets. As bodies move within a set or across set
+	// stored in body sets. As bodies move within a set or across set.
+	// Indices come from id pool.
 	struct b2BodyLookup* bodyLookupArray;
 
-	// Body sets allow bodies to be stored in contiguous arrays. The first
+	// Provides free list for solver sets.
+	b2IdPool solverSetIdPool;
+
+	// Solvers sets allow bodies to be stored in contiguous arrays. The first
 	// set is all static bodies. The second set is active bodies. The remaining
 	// sets are sleeping islands.
 	struct b2SolverSet* solverSetArray;

@@ -54,23 +54,18 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 		b2GraphColor* color = graph->colors + i;
 		b2DestroyBitSet(&color->bodySet);
 
-		// the rest is block allocation
+		// the rest is from b2BlockAllocator
 	}
 }
 
-void b2AddContactToGraph(b2World* world, b2Contact* contact)
+b2Contact* b2EmplaceContactInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
-	B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
-	B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
-
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyKeyA = contact->edges[0].bodyKey;
-	int bodyKeyB = contact->edges[1].bodyKey;
-	b2Body* bodyA = b2GetBodyFromKey(world, bodyKeyA);
-	b2Body* bodyB = b2GetBodyFromKey(world, bodyKeyB);
+	int bodyKeyA = bodyA->bodyKey;
+	int bodyKeyB = bodyB->bodyKey;
 	b2BodyType typeA = bodyA->type;
 	b2BodyType typeB = bodyB->type;
 	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
@@ -125,13 +120,11 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 #endif
 
-	b2Contact* destinationContact = b2EmplaceContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
-	memcpy(destinationContact, contact, sizeof(b2Contact));
+	b2Contact* contact = b2EmplaceContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
+	memset(contact, 0, sizeof(b2Contact));
 	contact->colorIndex = colorIndex;
 	contact->colorSubIndex = graph->colors[colorIndex].contacts.count - 1;
-
-	// the caller should handle the contact lookup because b2RemoveContactFromGraph cannot adjust the lookup
-	// because it doesn't know the destination of the contact
+	return contact;
 }
 
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
@@ -163,7 +156,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		int key = movedContact->contactKey;
 		B2_ASSERT(0 <= key && key < b2Array(world->contactLookupArray).count);
 		b2ContactLookup* lookup = world->contactLookupArray + key;
-		B2_ASSERT(lookup->setIndex == b2_awakeBodySet);
+		B2_ASSERT(lookup->setIndex == b2_awakeSet);
 		B2_ASSERT(lookup->graphColorIndex == colorIndex);
 		B2_ASSERT(lookup->contactIndex == movedIndex);
 		lookup->contactIndex = colorSubIndex;
@@ -173,19 +166,14 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	contact->colorSubIndex = B2_NULL_INDEX;
 }
 
-void b2AddJointToGraph(b2World* world, b2Joint* joint)
+b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
-	B2_ASSERT(joint->colorIndex == B2_NULL_INDEX);
-	B2_ASSERT(joint->colorSubIndex == B2_NULL_INDEX);
-
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int32_t bodyKeyA = joint->edges[0].bodyKey;
-	int32_t bodyKeyB = joint->edges[1].bodyKey;
-	b2Body* bodyA = b2GetBodyFromKey(world, bodyKeyA);
-	b2Body* bodyB = b2GetBodyFromKey(world, bodyKeyB);
+	int32_t bodyKeyA = bodyA->bodyKey;
+	int32_t bodyKeyB = bodyB->bodyKey;
 	b2BodyType typeA = bodyA->type;
 	b2BodyType typeB = bodyB->type;
 	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
@@ -238,13 +226,11 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 	}
 #endif
 
-	b2Joint* destinationJoint = b2EmplaceJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
-	memcpy(destinationJoint, joint, sizeof(b2Joint));
+	b2Joint* joint = b2EmplaceJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
+	memset(joint, 0, sizeof(b2Joint));
 	joint->colorIndex = colorIndex;
 	joint->colorSubIndex = graph->colors[colorIndex].joints.count - 1;
-
-	// the caller should fix the contact lookup because b2RemoveContactFromGraph cannot fix the lookup because it
-	// doesn't know the destination of the contact
+	return joint;
 }
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
@@ -276,7 +262,7 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 		int key = movedJoint->jointKey;
 		B2_ASSERT(0 <= key && key < b2Array(world->jointLookupArray).count);
 		b2JointLookup* lookup = world->jointLookupArray + key;
-		B2_ASSERT(lookup->setIndex == b2_awakeBodySet);
+		B2_ASSERT(lookup->setIndex == b2_awakeSet);
 		B2_ASSERT(lookup->graphColorIndex == colorIndex);
 		B2_ASSERT(lookup->jointIndex == movedIndex);
 		lookup->jointIndex = colorSubIndex;

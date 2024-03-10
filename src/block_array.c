@@ -31,20 +31,20 @@ b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity)
 
 void b2DestroyBodyArray(b2BlockAllocator* allocator, b2BodyArray* array)
 {
-	b2FreeBlock(allocator, array->bodies, array->capacity * sizeof(b2Body));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Body));
 }
 
 void b2DestroyContactArray(b2BlockAllocator* allocator, b2ContactArray* array)
 {
-	b2FreeBlock(allocator, array->contacts, array->capacity * sizeof(b2Contact));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Contact));
 }
 
 void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array)
 {
-	b2FreeBlock(allocator, array->joints, array->capacity * sizeof(b2Joint));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Joint));
 }
 
-b2Body* b2AllocateBody(b2BlockAllocator* allocator, b2BodyArray* array)
+b2Body* b2EmplaceBody(b2BlockAllocator* allocator, b2BodyArray* array)
 {
 	if (array->count == array->capacity)
 	{
@@ -52,18 +52,18 @@ b2Body* b2AllocateBody(b2BlockAllocator* allocator, b2BodyArray* array)
 		int elementSize = sizeof(b2Body);
 		int newCapacity = 2 * array->capacity;
 		b2Body* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
-		memcpy(newElements, array->bodies, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->bodies, array->capacity * elementSize);
-		array->bodies = newElements;
+		memcpy(newElements, array->data, array->capacity * elementSize);
+		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Body* element = array->bodies + array->count;
+	b2Body* element = array->data + array->count;
 	array->count += 1;
 	return element;
 }
 
-b2Contact* b2AllocateContact(b2BlockAllocator* allocator, b2ContactArray* array)
+b2Contact* b2EmplaceContact(b2BlockAllocator* allocator, b2ContactArray* array)
 {
 	if (array->count == array->capacity)
 	{
@@ -71,18 +71,20 @@ b2Contact* b2AllocateContact(b2BlockAllocator* allocator, b2ContactArray* array)
 		int elementSize = sizeof(b2Contact);
 		int newCapacity = 2 * array->capacity;
 		b2Contact* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
-		memcpy(newElements, array->contacts, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->contacts, array->capacity * elementSize);
-		array->contacts = newElements;
+		memcpy(newElements, array->data, array->capacity * elementSize);
+		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Contact* element = array->contacts + array->count;
+	b2Contact* element = array->data + array->count;
+	element->colorIndex = B2_NULL_INDEX;
+	element->colorSubIndex = array->count;
 	array->count += 1;
 	return element;
 }
 
-b2Joint* b2AllocateJoint(b2BlockAllocator* allocator, b2JointArray* array)
+b2Joint* b2EmplaceJoint(b2BlockAllocator* allocator, b2JointArray* array)
 {
 	if (array->count == array->capacity)
 	{
@@ -90,13 +92,15 @@ b2Joint* b2AllocateJoint(b2BlockAllocator* allocator, b2JointArray* array)
 		int elementSize = sizeof(b2Joint);
 		int newCapacity = 2 * array->capacity;
 		b2Joint* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
-		memcpy(newElements, array->joints, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->joints, array->capacity * elementSize);
-		array->joints = newElements;
+		memcpy(newElements, array->data, array->capacity * elementSize);
+		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Joint* element = array->joints + array->count;
+	b2Joint* element = array->data + array->count;
+	element->colorIndex = B2_NULL_INDEX;
+	element->colorSubIndex = array->count;
 	array->count += 1;
 	return element;
 }
@@ -108,7 +112,7 @@ int b2RemoveBody(b2BlockAllocator* allocator, b2BodyArray* array, int index)
 	if (index < array->count - 1)
 	{
 		int removed = array->count - 1;
-		array->bodies[index] = array->bodies[removed];
+		array->data[index] = array->data[removed];
 		array->count -= 1;
 		return removed;
 	}
@@ -123,7 +127,9 @@ int b2RemoveContact(b2BlockAllocator* allocator, b2ContactArray* array, int inde
 	if (index < array->count - 1)
 	{
 		int removed = array->count - 1;
-		array->contacts[index] = array->contacts[removed];
+		array->data[index] = array->data[removed];
+		array->data[index].colorIndex = B2_NULL_INDEX;
+		array->data[index].colorSubIndex = index;
 		array->count -= 1;
 		return removed;
 	}
@@ -138,7 +144,9 @@ int b2RemoveJoint(b2BlockAllocator* allocator, b2JointArray* array, int index)
 	if (index < array->count - 1)
 	{
 		int removed = array->count - 1;
-		array->joints[index] = array->joints[removed];
+		array->data[index] = array->data[removed];
+		array->data[index].colorIndex = B2_NULL_INDEX;
+		array->data[index].colorSubIndex = index;
 		array->count -= 1;
 		return removed;
 	}

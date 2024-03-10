@@ -248,9 +248,9 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
 b2Joint* b2GetJointFromKey(b2World* world, int32_t jointKey);
-b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
+b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
+b2Joint* b2GetJointCheckType(b2JointId jointId, b2JointType type);
 void b2DestroyJointInternal(b2World* world, b2Joint* joint);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);

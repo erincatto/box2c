@@ -250,15 +250,15 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	int32_t setIndex;
 	if (def->isEnabled == false)
 	{
-		setIndex = b2_disabledBodySet;
+		setIndex = b2_disabledSet;
 	}
 	else if (def->type == b2_staticBody)
 	{
-		setIndex = b2_staticBodySet;
+		setIndex = b2_staticSet;
 	}
 	else if (isAwake == true )
 	{
-		setIndex = b2_awakeBodySet;
+		setIndex = b2_awakeSet;
 	}
 	else
 	{
@@ -283,7 +283,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		bodySet->bodies = newBodies;
 
 		// Only awake bodies get a body state (velocity)
-		if (setIndex == b2_awakeBodySet)
+		if (setIndex == b2_awakeSet)
 		{
 			b2BodyState* newStates = b2AllocBlock(&world->blockAllocator, newCapacity * sizeof(b2BodyState));
 			if (bodySet->count > 0)

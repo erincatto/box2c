@@ -49,8 +49,10 @@ typedef struct b2ConstraintGraph
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity);
 void b2DestroyGraph(b2ConstraintGraph* graph);
 
-void b2AddContactToGraph(b2World* world, b2Contact* contact);
+//void b2AddContactToGraph(b2World* world, b2Contact* contact);
+b2Contact* b2EmplaceContactInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-void b2AddJointToGraph(b2World* world, b2Joint* joint);
+//void b2AddJointToGraph(b2World* world, b2Joint* joint);
+b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint);

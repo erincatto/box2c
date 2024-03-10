@@ -304,10 +304,10 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		b2BodyLookup lookupA = world->bodyLookupArray[shapeA->bodyKey];
 		b2BodyLookup lookupB = world->bodyLookupArray[shapeB->bodyKey];
 
-		if (lookupA.setIndex != b2_awakeBodySet && lookupB.setIndex != b2_awakeBodySet)
+		if (lookupA.setIndex != b2_awakeSet && lookupB.setIndex != b2_awakeSet)
 		{
-			B2_ASSERT(lookupA.setIndex != b2_disabledBodySet);
-			B2_ASSERT(lookupB.setIndex != b2_disabledBodySet);
+			B2_ASSERT(lookupA.setIndex != b2_disabledSet);
+			B2_ASSERT(lookupB.setIndex != b2_disabledSet);
 			B2_ASSERT(lookupA.setIndex >= b2_firstSleepingSet || lookupB.setIndex >= b2_firstSleepingSet);
 			// contact needs to be moved to sleeping set, but what if both bodies are sleeping in different sets?
 			// perhaps there should be a separate place for sleeping non-touching contacts
@@ -442,10 +442,10 @@ static void b2Collide(b2StepContext* context)
 	}
 
 	// gather non-touching contact array
-	int nonTouchingCount = world->solverSetArray[b2_awakeBodySet].contacts.count;
+	int nonTouchingCount = world->solverSetArray[b2_awakeSet].contacts.count;
 	if (nonTouchingCount > 0)
 	{
-		context->contactSubsets[subsetCount].contacts = world->solverSetArray[b2_awakeBodySet].contacts.data;
+		context->contactSubsets[subsetCount].contacts = world->solverSetArray[b2_awakeSet].contacts.data;
 		context->contactSubsets[subsetCount].count = nonTouchingCount;
 		context->contactSubsets[subsetCount].colorIndex = B2_NULL_INDEX;
 		subsetCount += 1;
@@ -554,7 +554,7 @@ static void b2Collide(b2StepContext* context)
 					}
 
 					b2LinkContact(world, contact);
-					b2RemoveNonTouchingContact(world, b2_awakeBodySet, contact->colorSubIndex);
+					b2RemoveNonTouchingContact(world, b2_awakeSet, contact->colorSubIndex);
 					// todo contact orphaned
 					b2AddContactToGraph(world, contact);
 					b2SyncContactLookup(world, contact);
@@ -588,13 +588,13 @@ static void b2Collide(b2StepContext* context)
 					}
 
 					b2UnlinkContact(world, contact);
-					b2SolverSet* set = world->solverSetArray + b2_awakeBodySet;
+					b2SolverSet* set = world->solverSetArray + b2_awakeSet;
 					int storageIndex = set->contacts.count;
-					b2Contact* temp = b2AddNonTouchingContact(world, contact, b2_awakeBodySet);
+					b2Contact* temp = b2AddNonTouchingContact(world, contact, b2_awakeSet);
 					b2RemoveContactFromGraph(world, contact);
 					temp->colorIndex = B2_NULL_INDEX;
 					temp->colorSubIndex = storageIndex;
-					b2SyncContactLookup(world, temp, b2_awakeBodySet);
+					b2SyncContactLookup(world, temp, b2_awakeSet);
 				}
 
 				contact->flags &= ~b2_contactStoppedTouching;
