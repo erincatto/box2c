@@ -3,8 +3,9 @@
 
 #pragma once
 
-#include "block_array.h"
 #include "bitset.h"
+#include "block_array.h"
+
 #include "box2d/constants.h"
 
 typedef struct b2Contact b2Contact;
@@ -14,51 +15,38 @@ typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-#define b2_overflowIndex b2_graphColorCount
+#define b2_graphColorCount 12
+
+// This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
+// is touching many other bodies.
+#define b2_overflowIndex b2_graphColorCount - 1
 
 typedef struct b2GraphColor
 {
 	b2BitSet bodySet;
+
+	// cache friendly arrays
 	b2ContactArray contacts;
 	b2JointArray joints;
 
 	// transient
-	b2ContactConstraintSIMD* contactConstraints;
+	union
+	{
+		b2ContactConstraintSIMD* simdConstraints;
+		b2ContactConstraint* overflowConstraints;
+	};
 } b2GraphColor;
-
-// This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
-// is touching many other bodies.
-typedef struct b2GraphOverflow
-{
-	b2ContactArray contacts;
-	b2JointArray joints;
-
-	// transient
-	b2ContactConstraint* contactConstraints;
-} b2GraphOverflow;
-
-typedef struct b2ContactBlock
-{
-	b2Contact* contacts;
-	int count;
-} b2ContactBlock;
 
 typedef struct b2ConstraintGraph
 {
+	// including overflow at the end
 	b2GraphColor colors[b2_graphColorCount];
-	int colorCount;
 
 	// debug info
-	int occupancy[b2_graphColorCount + 1];
-
-	b2GraphOverflow overflow;
-
-	// transient blocks for parallel-for, pointers copied from graph colors
-	b2ContactBlock contactBlocks[b2_graphColorCount + 1];
-	int contactBlockCount;
+	int occupancy[b2_graphColorCount];
 } b2ConstraintGraph;
 
-void b2CreateGraph(b2ConstraintGraph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity);
+void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity);
 void b2DestroyGraph(b2ConstraintGraph* graph);
 
 void b2AddContactToGraph(b2World* world, b2Contact* contact);

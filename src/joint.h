@@ -118,8 +118,8 @@ typedef struct b2PrismaticJoint
 	float lowerTranslation;
 	float upperTranslation;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
@@ -142,8 +142,8 @@ typedef struct b2RevoluteJoint
 	float lowerAngle;
 	float upperAngle;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -164,8 +164,8 @@ typedef struct b2WeldJoint
 	b2Vec2 linearImpulse;
 	float angularImpulse;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -192,8 +192,8 @@ typedef struct b2WheelJoint
 	bool enableLimit;
 
 	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
@@ -208,16 +208,17 @@ typedef struct b2WheelJoint
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
 {
-	b2Object object;
+	int jointKey;
+
 	b2JointType type;
 	b2JointEdge edges[2];
 
-	int32_t islandIndex;
-	int32_t islandPrev;
-	int32_t islandNext;
+	int islandIndex;
+	int islandPrev;
+	int islandNext;
 
 	// The color of this constraint in the graph coloring
-	int32_t colorIndex;
+	int colorIndex;
 
 	// Index of joint within color
 	int32_t colorSubIndex;

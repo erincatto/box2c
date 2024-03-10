@@ -73,28 +73,28 @@ enum b2ContactFlags
 /// that has no contact points.
 typedef struct b2Contact
 {
-	b2Object object;
+	int contactKey;
 
 	uint32_t flags;
 
 	// The color of this constraint in the graph coloring
-	int32_t colorIndex;
+	int colorIndex;
 
 	// Index of contact within color
-	int32_t colorSubIndex;
+	int colorSubIndex;
 
 	b2ContactEdge edges[2];
 
-	int32_t shapeIndexA;
-	int32_t shapeIndexB;
+	int shapeIndexA;
+	int shapeIndexB;
 
 	b2DistanceCache cache;
 	b2Manifold manifold;
 
 	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
-	int32_t islandPrev;
-	int32_t islandNext;
-	int32_t islandIndex;
+	int islandPrev;
+	int islandNext;
+	int islandIndex;
 
 	// Mixed friction and restitution
 	float friction;

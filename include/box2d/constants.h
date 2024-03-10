@@ -79,9 +79,6 @@
 /// Maximum parallel workers. Used to size some static arrays.
 #define b2_maxWorkers 64
 
-/// Solver graph coloring
-#define b2_graphColorCount 12
-
 /// Version numbering scheme.
 /// See http://en.wikipedia.org/wiki/Software_versioning
 typedef struct b2Version

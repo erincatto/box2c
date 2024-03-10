@@ -29,12 +29,8 @@ enum b2BodySetType
 // Per thread task storage
 typedef struct b2TaskContext
 {
-	// These bits align with the awake contact array and signal change in contact status
-	// that affects the island graph.
+	// These bits align with the b2ConstraingGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
-
-	// Used to prevent duplicate awake contacts
-	b2BitSet awakeContactBitSet;
 
 	// Used to sort shapes that have enlarged AABBs
 	b2BitSet shapeBitSet;
@@ -111,10 +107,6 @@ typedef struct b2World
 
 	// Id that is incremented every time step
 	uint64_t stepId;
-
-	// sub-step info from the most recent time step
-	int32_t subStepCount;
-	float inv_h;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;

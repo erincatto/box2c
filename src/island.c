@@ -68,6 +68,52 @@ static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* co
 	b2ValidateIsland(island, false);
 }
 
+void b2WakeIsland(b2Island* island)
+{
+	b2World* world = island->world;
+
+	if (island->awakeIndex != B2_NULL_INDEX)
+	{
+		// already awake
+		B2_ASSERT(world->awakeIslandArray[island->awakeIndex] == island->object.index);
+		return;
+	}
+
+	int32_t islandIndex = island->object.index;
+	island->awakeIndex = b2Array(world->awakeIslandArray).count;
+	b2Array_Push(world->awakeIslandArray, islandIndex);
+
+	// Reset sleep timers on bodies
+	// TODO_ERIN make this parallel somehow?
+	int32_t bodyIndex = island->headBody;
+	while (bodyIndex != B2_NULL_INDEX)
+	{
+		b2Body* body = world->bodies + bodyIndex;
+		B2_ASSERT(body->islandIndex == islandIndex);
+		body->sleepTime = 0.0f;
+		bodyIndex = body->islandNext;
+	}
+
+	// Add constraints to graph
+	int32_t contactIndex = island->headContact;
+	while (contactIndex != B2_NULL_INDEX)
+	{
+		b2Contact* contact = world->contacts + contactIndex;
+		B2_ASSERT(contact->islandIndex == islandIndex);
+		b2AddContactToGraph(world, contact);
+		contactIndex = contact->islandNext;
+	}
+
+	int32_t jointIndex = island->headJoint;
+	while (jointIndex != B2_NULL_INDEX)
+	{
+		b2Joint* joint = world->joints + jointIndex;
+		B2_ASSERT(joint->islandIndex == islandIndex);
+		b2AddJointToGraph(world, joint);
+		jointIndex = joint->islandNext;
+	}
+}
+
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
 {
@@ -96,6 +142,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	if (islandIndexA != B2_NULL_INDEX)
 	{
 		islandA = world->islands + islandIndexA;
+b2WakeIsland(islandA);
 		while (islandA->parentIsland != B2_NULL_INDEX)
 		{
 			b2Island* parent = world->islands + islandA->parentIsland;
@@ -106,6 +153,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 			}
 
 			islandA = parent;
+b2WakeIsland(islandA);
 		}
 	}
 
@@ -114,6 +162,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	if (islandIndexB != B2_NULL_INDEX)
 	{
 		islandB = world->islands + islandIndexB;
+b2WakeIsland(islandB);
 		while (islandB->parentIsland != B2_NULL_INDEX)
 		{
 			b2Island* parent = world->islands + islandB->parentIsland;
@@ -124,6 +173,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 			}
 
 			islandB = parent;
+b2WakeIsland(islandB);
 		}
 	}
 
@@ -922,17 +972,3 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 }
 
 #endif
-
-void b2FindBodiesToSleep(b2World* world)
-{
-	b2SolverSet* bodySet = world->solverSetArray + b2_awakeBodySet;
-	int awakeCount = bodySet->count;
-
-	b2Body* bodies = bodySet->bodies;
-	b2BodyState* states = bodySet->states;
-}
-
-void b2PutBodiesToSleep(b2World* world)
-{
-
-}

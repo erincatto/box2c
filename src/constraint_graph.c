@@ -4,7 +4,7 @@
 #include "constraint_graph.h"
 
 #include "array.h"
-#include "bitset.inl"
+#include "bitset.h"
 #include "body.h"
 #include "contact.h"
 #include "joint.h"
@@ -24,28 +24,27 @@
 // This is used for debugging by making all constraints be assigned to overflow.
 #define B2_FORCE_OVERFLOW 0
 
-void b2CreateGraph(b2ConstraintGraph* graph, int32_t bodyCapacity, int32_t contactCapacity, int32_t jointCapacity)
+void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity)
 {
 	*graph = (b2ConstraintGraph){0};
 
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
-	contactCapacity = B2_MAX(contactCapacity, 8);
-	jointCapacity = B2_MAX(jointCapacity, 8);
+	int contactCapacity = 16;
+	int jointCapacity = 16;
 
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
-		color->bodySet = b2CreateBitSet(bodyCapacity);
-		b2SetBitCountAndClear(&color->bodySet, bodyCapacity);
 
-		color->contactArray = b2CreateArray(sizeof(int32_t), contactCapacity);
-		color->jointArray = b2CreateArray(sizeof(int32_t), jointCapacity);
-		color->contactConstraints = NULL;
+		if (i != b2_overflowIndex)
+		{
+			color->bodySet = b2CreateBitSet(bodyCapacity);
+			b2SetBitCountAndClear(&color->bodySet, bodyCapacity);
+		}
+
+		color->contacts = b2CreateContactArray(allocator, contactCapacity);
+		color->joints = b2CreateJointArray(allocator, jointCapacity);
 	}
-
-	graph->overflow.contactArray = b2CreateArray(sizeof(int32_t), contactCapacity);
-	graph->overflow.jointArray = b2CreateArray(sizeof(int32_t), jointCapacity);
-	graph->overflow.contactConstraints = NULL;
 }
 
 void b2DestroyGraph(b2ConstraintGraph* graph)
@@ -54,12 +53,9 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 	{
 		b2GraphColor* color = graph->colors + i;
 		b2DestroyBitSet(&color->bodySet);
-		b2DestroyArray(color->contactArray, sizeof(int32_t));
-		b2DestroyArray(color->jointArray, sizeof(int32_t));
-	}
 
-	b2DestroyArray(graph->overflow.contactArray, sizeof(int32_t));
-	b2DestroyArray(graph->overflow.jointArray, sizeof(int32_t));
+		// the rest is block allocation
+	}
 }
 
 void b2AddContactToGraph(b2World* world, b2Contact* contact)
@@ -67,166 +63,110 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact)
 	B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
 	B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
 
-	b2ConstraintGraph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->constraintGraph;
+	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int32_t bodyIndexA = contact->edges[0].bodyIndex;
-	int32_t bodyIndexB = contact->edges[1].bodyIndex;
-
-	b2BodyType typeA = world->bodies[bodyIndexA].type;
-	b2BodyType typeB = world->bodies[bodyIndexB].type;
+	int bodyKeyA = contact->edges[0].bodyKey;
+	int bodyKeyB = contact->edges[1].bodyKey;
+	b2Body* bodyA = b2GetBodyFromKey(world, bodyKeyA);
+	b2Body* bodyB = b2GetBodyFromKey(world, bodyKeyB);
+	b2BodyType typeA = bodyA->type;
+	b2BodyType typeB = bodyB->type;
 	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
 
 	if (typeA != b2_staticBody && typeB != b2_staticBody)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		for (int32_t i = 0; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyIndexA) || b2GetBit(&color->bodySet, bodyIndexB))
+			if (b2GetBit(&color->bodySet, bodyKeyA) || b2GetBit(&color->bodySet, bodyKeyB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyIndexA);
-			b2SetBitGrow(&color->bodySet, bodyIndexB);
-
-			contact->colorSubIndex = b2Array(color->contactArray).count;
-			b2Array_Push(color->contactArray, contact->object.index);
-			contact->colorIndex = i;
+			b2SetBitGrow(&color->bodySet, bodyKeyA);
+			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			colorIndex = i;
 			break;
 		}
 	}
 	else if (typeA != b2_staticBody)
 	{
 		// Static contacts never in color 0
-		for (int32_t i = 1; i < b2_graphColorCount; ++i)
+		for (int32_t i = 1; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyIndexA))
+			if (b2GetBit(&color->bodySet, bodyKeyA))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyIndexA);
-
-			contact->colorSubIndex = b2Array(color->contactArray).count;
-			b2Array_Push(color->contactArray, contact->object.index);
-			contact->colorIndex = i;
+			b2SetBitGrow(&color->bodySet, bodyKeyA);
+			colorIndex = i;
 			break;
 		}
 	}
 	else if (typeB != b2_staticBody)
 	{
 		// Static contacts never in color 0
-		for (int32_t i = 1; i < b2_graphColorCount; ++i)
+		for (int32_t i = 1; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyIndexB))
+			if (b2GetBit(&color->bodySet, bodyKeyB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyIndexB);
-
-			contact->colorSubIndex = b2Array(color->contactArray).count;
-			b2Array_Push(color->contactArray, contact->object.index);
-			contact->colorIndex = i;
+			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			colorIndex = i;
 			break;
 		}
 	}
 #endif
 
-	// Overflow
-	if (contact->colorIndex == B2_NULL_INDEX)
-	{
-		contact->colorSubIndex = b2Array(graph->overflow.contactArray).count;
-		b2Array_Push(graph->overflow.contactArray, contact->object.index);
-		contact->colorIndex = b2_overflowIndex;
-	}
+	b2Contact* destinationContact = b2EmplaceContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
+	memcpy(destinationContact, contact, sizeof(b2Contact));
+	contact->colorIndex = colorIndex;
+	contact->colorSubIndex = graph->colors[colorIndex].contacts.count - 1;
+
+	// the caller should handle the contact lookup because b2RemoveContactFromGraph cannot adjust the lookup
+	// because it doesn't know the destination of the contact
 }
 
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 {
-	B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
-	B2_ASSERT(contact->colorSubIndex != B2_NULL_INDEX);
+	int bodyKeyA = contact->edges[0].bodyKey;
+	int bodyKeyB = contact->edges[1].bodyKey;
 
-	b2ConstraintGraph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->constraintGraph;
 
-	// Overflow
-	if (contact->colorIndex == b2_overflowIndex)
+	int colorIndex = contact->colorIndex;
+	B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
+	b2GraphColor* color = graph->colors + colorIndex;
+
+	if (colorIndex != b2_overflowIndex)
 	{
-		int32_t colorSubIndex = contact->colorSubIndex;
-		b2Array_RemoveSwap(graph->overflow.contactArray, colorSubIndex);
-		if (colorSubIndex < b2Array(graph->overflow.contactArray).count)
-		{
-			// Fix index on swapped contact
-			int32_t swappedIndex = graph->overflow.contactArray[colorSubIndex];
-			B2_ASSERT(world->contacts[swappedIndex].colorIndex == b2_overflowIndex);
-			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		contact->colorIndex = B2_NULL_INDEX;
-		contact->colorSubIndex = B2_NULL_INDEX;
-
-		return;
+		b2ClearBit(&color->bodySet, bodyKeyA);
+		b2ClearBit(&color->bodySet, bodyKeyB);
 	}
 
-	B2_ASSERT(0 <= contact->colorIndex && contact->colorIndex < b2_graphColorCount);
-	int32_t bodyIndexA = contact->edges[0].bodyIndex;
-	int32_t bodyIndexB = contact->edges[1].bodyIndex;
-
-	b2BodyType typeA = world->bodies[bodyIndexA].type;
-	b2BodyType typeB = world->bodies[bodyIndexB].type;
-	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
-
-	if (typeA != b2_staticBody && typeB != b2_staticBody)
+	int colorSubIndex = contact->colorSubIndex;
+	int movedIndex = b2RemoveContact(&world->blockAllocator, &color->contacts, colorSubIndex);
+	if (movedIndex != B2_NULL_INDEX)
 	{
-		b2GraphColor* color = graph->colors + contact->colorIndex;
-		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA) && b2GetBit(&color->bodySet, bodyIndexB));
+		// Fix index on swapped contact
+		b2Contact* movedContact = color->contacts.data + colorSubIndex;
+		movedContact->colorSubIndex = colorSubIndex;
 
-		int32_t colorSubIndex = contact->colorSubIndex;
-		b2Array_RemoveSwap(color->contactArray, colorSubIndex);
-		if (colorSubIndex < b2Array(color->contactArray).count)
-		{
-			// Fix index on swapped contact
-			int32_t swappedIndex = color->contactArray[colorSubIndex];
-			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		b2ClearBit(&color->bodySet, bodyIndexA);
-		b2ClearBit(&color->bodySet, bodyIndexB);
-	}
-	else if (typeA != b2_staticBody)
-	{
-		b2GraphColor* color = graph->colors + contact->colorIndex;
-		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
-
-		int32_t colorSubIndex = contact->colorSubIndex;
-		b2Array_RemoveSwap(color->contactArray, colorSubIndex);
-		if (colorSubIndex < b2Array(color->contactArray).count)
-		{
-			// Fix index on swapped contact
-			int32_t swappedIndex = color->contactArray[colorSubIndex];
-			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		b2ClearBit(&color->bodySet, bodyIndexA);
-	}
-	else if (typeB != b2_staticBody)
-	{
-		b2GraphColor* color = graph->colors + contact->colorIndex;
-		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));
-
-		int32_t colorSubIndex = contact->colorSubIndex;
-		b2Array_RemoveSwap(color->contactArray, colorSubIndex);
-		if (colorSubIndex < b2Array(color->contactArray).count)
-		{
-			// Fix index on swapped contact
-			int32_t swappedIndex = color->contactArray[colorSubIndex];
-			world->contacts[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		b2ClearBit(&color->bodySet, bodyIndexB);
+		// Fix contact lookup for moved contact
+		int key = movedContact->contactKey;
+		B2_ASSERT(0 <= key && key < b2Array(world->contactLookupArray).count);
+		b2ContactLookup* lookup = world->contactLookupArray + key;
+		B2_ASSERT(lookup->setIndex == b2_awakeBodySet);
+		B2_ASSERT(lookup->graphColorIndex == colorIndex);
+		B2_ASSERT(lookup->contactIndex == movedIndex);
+		lookup->contactIndex = colorSubIndex;
 	}
 
 	contact->colorIndex = B2_NULL_INDEX;
@@ -238,31 +178,31 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 	B2_ASSERT(joint->colorIndex == B2_NULL_INDEX);
 	B2_ASSERT(joint->colorSubIndex == B2_NULL_INDEX);
 
-	b2ConstraintGraph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->constraintGraph;
+	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int32_t bodyIndexA = joint->edges[0].bodyIndex;
-	int32_t bodyIndexB = joint->edges[1].bodyIndex;
-
-	b2BodyType typeA = world->bodies[bodyIndexA].type;
-	b2BodyType typeB = world->bodies[bodyIndexB].type;
+	int32_t bodyKeyA = joint->edges[0].bodyKey;
+	int32_t bodyKeyB = joint->edges[1].bodyKey;
+	b2Body* bodyA = b2GetBodyFromKey(world, bodyKeyA);
+	b2Body* bodyB = b2GetBodyFromKey(world, bodyKeyB);
+	b2BodyType typeA = bodyA->type;
+	b2BodyType typeB = bodyB->type;
+	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
 
 	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
 	{
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyIndexA) || b2GetBit(&color->bodySet, bodyIndexB))
+			if (b2GetBit(&color->bodySet, bodyKeyA) || b2GetBit(&color->bodySet, bodyKeyB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyIndexA);
-			b2SetBitGrow(&color->bodySet, bodyIndexB);
-
-			joint->colorSubIndex = b2Array(color->jointArray).count;
-			b2Array_Push(color->jointArray, joint->object.index);
-			joint->colorIndex = i;
+			b2SetBitGrow(&color->bodySet, bodyKeyA);
+			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			colorIndex = i;
 			break;
 		}
 	}
@@ -271,16 +211,13 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyIndexA))
+			if (b2GetBit(&color->bodySet, bodyKeyA))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyIndexA);
-
-			joint->colorSubIndex = b2Array(color->jointArray).count;
-			b2Array_Push(color->jointArray, joint->object.index);
-			joint->colorIndex = i;
+			b2SetBitGrow(&color->bodySet, bodyKeyA);
+			colorIndex = i;
 			break;
 		}
 	}
@@ -289,111 +226,60 @@ void b2AddJointToGraph(b2World* world, b2Joint* joint)
 		for (int32_t i = 0; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyIndexB))
+			if (b2GetBit(&color->bodySet, bodyKeyB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyIndexB);
-
-			joint->colorSubIndex = b2Array(color->jointArray).count;
-			b2Array_Push(color->jointArray, joint->object.index);
-			joint->colorIndex = i;
+			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			colorIndex = i;
 			break;
 		}
 	}
 #endif
 
-	// Overflow
-	if (joint->colorIndex == B2_NULL_INDEX)
-	{
-		joint->colorSubIndex = b2Array(graph->overflow.jointArray).count;
-		b2Array_Push(graph->overflow.jointArray, joint->object.index);
-		joint->colorIndex = b2_overflowIndex;
-	}
+	b2Joint* destinationJoint = b2EmplaceJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
+	memcpy(destinationJoint, joint, sizeof(b2Joint));
+	joint->colorIndex = colorIndex;
+	joint->colorSubIndex = graph->colors[colorIndex].joints.count - 1;
+
+	// the caller should fix the contact lookup because b2RemoveContactFromGraph cannot fix the lookup because it
+	// doesn't know the destination of the contact
 }
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 {
-	B2_ASSERT(joint->colorIndex != B2_NULL_INDEX);
-	B2_ASSERT(joint->colorSubIndex != B2_NULL_INDEX);
+	int bodyKeyA = joint->edges[0].bodyKey;
+	int bodyKeyB = joint->edges[1].bodyKey;
 
-	b2ConstraintGraph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->constraintGraph;
 
-	// Overflow
-	if (joint->colorIndex == b2_overflowIndex)
+	int colorIndex = joint->colorIndex;
+	B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
+	b2GraphColor* color = graph->colors + colorIndex;
+
+	if (colorIndex != b2_overflowIndex)
 	{
-		int32_t colorSubIndex = joint->colorSubIndex;
-		b2Array_RemoveSwap(graph->overflow.jointArray, colorSubIndex);
-		if (colorSubIndex < b2Array(graph->overflow.jointArray).count)
-		{
-			// Fix index on swapped joint
-			int32_t swappedIndex = graph->overflow.jointArray[colorSubIndex];
-			B2_ASSERT(world->joints[swappedIndex].colorIndex == b2_overflowIndex);
-			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		joint->colorIndex = B2_NULL_INDEX;
-		joint->colorSubIndex = B2_NULL_INDEX;
-
-		return;
+		b2ClearBit(&color->bodySet, bodyKeyA);
+		b2ClearBit(&color->bodySet, bodyKeyB);
 	}
 
-	B2_ASSERT(0 <= joint->colorIndex && joint->colorIndex < b2_graphColorCount);
-	int32_t bodyIndexA = joint->edges[0].bodyIndex;
-	int32_t bodyIndexB = joint->edges[1].bodyIndex;
-
-	b2BodyType typeA = world->bodies[bodyIndexA].type;
-	b2BodyType typeB = world->bodies[bodyIndexB].type;
-
-	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
+	int colorSubIndex = joint->colorSubIndex;
+	int movedIndex = b2RemoveJoint(&world->blockAllocator, &color->joints, colorSubIndex);
+	if (movedIndex != B2_NULL_INDEX)
 	{
-		b2GraphColor* color = graph->colors + joint->colorIndex;
-		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA) && b2GetBit(&color->bodySet, bodyIndexB));
+		// Fix index on swapped contact
+		b2Joint* movedJoint = color->joints.data + colorSubIndex;
+		movedJoint->colorSubIndex = colorSubIndex;
 
-		int32_t colorSubIndex = joint->colorSubIndex;
-		b2Array_RemoveSwap(color->jointArray, colorSubIndex);
-		if (colorSubIndex < b2Array(color->jointArray).count)
-		{
-			// Fix index on swapped joint
-			int32_t swappedIndex = color->jointArray[colorSubIndex];
-			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		b2ClearBit(&color->bodySet, bodyIndexA);
-		b2ClearBit(&color->bodySet, bodyIndexB);
-	}
-	else if (typeA == b2_dynamicBody)
-	{
-		b2GraphColor* color = graph->colors + joint->colorIndex;
-		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexA));
-
-		int32_t colorSubIndex = joint->colorSubIndex;
-		b2Array_RemoveSwap(color->jointArray, colorSubIndex);
-		if (colorSubIndex < b2Array(color->jointArray).count)
-		{
-			// Fix index on swapped joint
-			int32_t swappedIndex = color->jointArray[colorSubIndex];
-			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		b2ClearBit(&color->bodySet, bodyIndexA);
-	}
-	else if (typeB == b2_dynamicBody)
-	{
-		b2GraphColor* color = graph->colors + joint->colorIndex;
-		B2_ASSERT(b2GetBit(&color->bodySet, bodyIndexB));
-
-		int32_t colorSubIndex = joint->colorSubIndex;
-		b2Array_RemoveSwap(color->jointArray, colorSubIndex);
-		if (colorSubIndex < b2Array(color->jointArray).count)
-		{
-			// Fix index on swapped joint
-			int32_t swappedIndex = color->jointArray[colorSubIndex];
-			world->joints[swappedIndex].colorSubIndex = colorSubIndex;
-		}
-
-		b2ClearBit(&color->bodySet, bodyIndexB);
+		// Fix contact lookup for moved contact
+		int key = movedJoint->jointKey;
+		B2_ASSERT(0 <= key && key < b2Array(world->jointLookupArray).count);
+		b2JointLookup* lookup = world->jointLookupArray + key;
+		B2_ASSERT(lookup->setIndex == b2_awakeBodySet);
+		B2_ASSERT(lookup->graphColorIndex == colorIndex);
+		B2_ASSERT(lookup->jointIndex == movedIndex);
+		lookup->jointIndex = colorSubIndex;
 	}
 
 	joint->colorIndex = B2_NULL_INDEX;

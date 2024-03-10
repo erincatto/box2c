@@ -3,11 +3,13 @@
 
 #pragma once
 
+#include "block_array.h"
+
 #include "box2d/constants.h"
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdatomic.h>
 
 typedef struct b2Body b2Body;
 typedef struct b2BodyState b2BodyState;
@@ -22,7 +24,7 @@ typedef struct b2World b2World;
 // - all further sets are sleeping island sets along with their contacts and joints
 typedef struct b2SolverSet
 {
-	b2Body* bodies;
+	b2BodyArray bodies;
 
 	// Body state only exists for active set
 	b2BodyState* states;
@@ -31,12 +33,12 @@ typedef struct b2SolverSet
 	int bodyCapacity;
 
 	// This holds sleeping/disabled joints. Empty for static/active set.
-	b2Joint* joints;
-	int jointCount;
+	b2JointArray joints;
 
-	// This holds sleeping contacts. Empty for static/active/disabled set.
-	b2Contact* contacts;
-	int contactCount;
+	// This holds sleeping contacts for sleeping sets.
+	// For the awake set this holds the non-touching awake contacts.
+	// For the
+	b2ContactArray contacts;
 } b2SolverSet;
 
 typedef struct b2Softness
@@ -92,6 +94,20 @@ typedef struct b2SolverStage
 	_Atomic int completionCount;
 } b2SolverStage;
 
+typedef struct b2ContactSubset
+{
+	b2Contact* contacts;
+	int count;
+	int colorIndex;
+} b2ContactSubset;
+
+typedef struct b2JointSubset
+{
+	b2Joint* joints;
+	int count;
+	int colorIndex;
+} b2JointSubset;
+
 // Context for a time step. Recreated each time step.
 typedef struct b2StepContext
 {
@@ -114,15 +130,20 @@ typedef struct b2StepContext
 	float restitutionThreshold;
 	float maxBiasVelocity;
 
-	// Map from body state to world body
-	const int32_t* solverToBodyMap;
-
 	b2BodyState* bodyStates;
-	b2BodyParam* bodyParams;
-	int32_t solverBodyCount;
 
 	struct b2World* world;
 	struct b2ConstraintGraph* graph;
+
+	// Transient array of contact arrays organized for easier parallel-for.
+	// Pointers copied from graph colors and non-touching contacts.
+	b2ContactSubset contactSubsets[b2_graphColorCount + 2];
+	int contactSubsetCount;
+
+	// Transient array of joint arrays organize for easier parallel-for.
+	// Pointers copied from graph colors.
+	b2JointSubset jointSubsets[b2_graphColorCount + 1];
+	int jointSubsetCount;
 
 	int32_t* jointIndices;
 	int32_t* contactIndices;

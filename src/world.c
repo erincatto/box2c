@@ -11,6 +11,7 @@
 #include "array.h"
 #include "bitset.h"
 #include "block_allocator.h"
+#include "block_array.h"
 #include "body.h"
 #include "broad_phase.h"
 #include "constraint_graph.h"
@@ -194,7 +195,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
-		world->taskContextArray[i].awakeContactBitSet = b2CreateBitSet(def->contactCapacity);
 		world->taskContextArray[i].shapeBitSet = b2CreateBitSet(def->shapeCapacity);
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
@@ -209,7 +209,6 @@ void b2DestroyWorld(b2WorldId worldId)
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
-		b2DestroyBitSet(&world->taskContextArray[i].awakeContactBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].shapeBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].awakeIslandBitSet);
 	}
@@ -263,38 +262,38 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 {
 	b2TracyCZoneNC(collide_task, "Collide Task", b2_colorDodgerBlue1, true);
 
-	b2World* world = context;
+	b2StepContext* stepContext = context;
+	b2World* world = stepContext->world;
 	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
 	b2Shape* shapes = world->shapes;
 	b2BodyLookup* bodyLookup = world->bodyLookupArray;
-	b2ConstraintGraph* graph = &world->constraintGraph;
 
 	int baseIndex = 0;
-	b2ContactBlock* block = graph->contactBlocks;
-	b2ContactBlock* endBlock = graph->contactBlocks + graph->contactBlockCount;
-	while (baseIndex + block->count < startIndex && block < endBlock)
+	b2ContactSubset* subset = stepContext->contactSubsets;
+	b2ContactSubset* endSubset = stepContext->contactSubsets + stepContext->contactSubsetCount;
+	while (baseIndex + subset->count < startIndex && subset < endSubset)
 	{
-		baseIndex += block->count;
-		block += 1;
+		baseIndex += subset->count;
+		subset += 1;
 	}
 
-	B2_ASSERT(block < endBlock);
-	B2_ASSERT(baseIndex <= startIndex && endIndex <= baseIndex + block->count);
+	B2_ASSERT(subset < endSubset);
+	B2_ASSERT(baseIndex <= startIndex && endIndex <= baseIndex + subset->count);
 	B2_ASSERT(startIndex < endIndex);
 
 	for (int i = startIndex; i < endIndex; ++i)
 	{
-		if (i >= baseIndex + block->count)
+		if (i >= baseIndex + subset->count)
 		{
-			baseIndex += block->count;
-			block += 1;
+			baseIndex += subset->count;
+			subset += 1;
 		}
 
-		B2_ASSERT(block < endBlock);
-		B2_ASSERT(baseIndex <= i && i <= baseIndex + block->count);
+		B2_ASSERT(subset < endSubset);
+		B2_ASSERT(baseIndex <= i && i <= baseIndex + subset->count);
 
-		b2Contact* contact = block->contacts + (i - baseIndex);
+		b2Contact* contact = subset->contacts + (i - baseIndex);
 
 		// Reset contact awake index. Contacts must be added to the awake contact array
 		// each time step in the island solver.
@@ -327,7 +326,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		if (overlap == false)
 		{
 			contact->flags |= b2_contactDisjoint;
-			b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
+			b2SetBit(&taskContext->contactStateBitSet, i);
 		}
 		else
 		{
@@ -345,12 +344,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			if (touching == true && wasTouching == false)
 			{
 				contact->flags |= b2_contactStartedTouching;
-				b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
+				b2SetBit(&taskContext->contactStateBitSet, i);
 			}
 			else if (touching == false && wasTouching == true)
 			{
 				contact->flags |= b2_contactStoppedTouching;
-				b2SetBit(&taskContext->contactStateBitSet, awakeIndex);
+				b2SetBit(&taskContext->contactStateBitSet, i);
 			}
 		}
 	}
@@ -372,10 +371,51 @@ static void b2UpdateTreesTask(int32_t startIndex, int32_t endIndex, uint32_t thr
 	b2TracyCZoneEnd(tree_task);
 }
 
-// Narrow-phase collision
-static void b2Collide(b2World* world)
+static void b2SyncContactLookup(b2World* world, b2Contact* contact, int setIndex)
 {
-	B2_ASSERT(world->workerCount > 0);
+	B2_ASSERT(0 <= contact->contactKey && contact->contactKey < b2Array(world->contactLookupArray).count);
+	b2ContactLookup* lookup = world->contactLookupArray + contact->contactKey;
+	lookup->graphColorIndex = contact->colorIndex;
+	lookup->contactIndex = contact->colorSubIndex;
+	lookup->setIndex = setIndex;
+}
+
+static b2Contact* b2AddNonTouchingContact(b2World* world, b2Contact* contact, int setIndex)
+{
+	B2_ASSERT(0 <= setIndex && setIndex < b2Array(world->solverSetArray).count);
+	b2SolverSet* set = world->solverSetArray + setIndex;
+	b2Contact* newContact = b2EmplaceContact(&world->blockAllocator, &set->contacts);
+	memcpy(newContact, contact, sizeof(b2Contact));
+	return newContact;
+}
+
+static void b2RemoveNonTouchingContact(b2World* world, int setIndex, int indexInSet)
+{
+	B2_ASSERT(0 <= setIndex && setIndex < b2Array(world->solverSetArray).count);
+	b2SolverSet* set = world->solverSetArray + setIndex;
+	int movedIndex = b2RemoveContact(&world->blockAllocator, &set->contacts, indexInSet);
+	if (movedIndex != B2_NULL_INDEX)
+	{
+		b2Contact* movedContact = set->contacts.data + indexInSet;
+		B2_ASSERT(movedContact->colorIndex == B2_NULL_INDEX);
+		B2_ASSERT(movedContact->colorSubIndex == movedIndex);
+		movedContact->colorSubIndex = indexInSet;
+
+		B2_ASSERT(0 <= movedContact->contactKey && movedContact->contactKey < b2Array(world->contactLookupArray).count);
+		b2ContactLookup* lookup = world->contactLookupArray + movedContact->contactKey;
+		B2_ASSERT(lookup->setIndex == setIndex);
+		B2_ASSERT(lookup->contactIndex == movedIndex);
+		B2_ASSERT(lookup->graphColorIndex == B2_NULL_INDEX);
+		lookup->contactIndex = movedContact->colorSubIndex;
+	}
+}
+
+// Narrow-phase collision
+static void b2Collide(b2StepContext* context)
+{
+	b2World* world = context->world;
+
+	B2_ASSERT(context->world->workerCount > 0);
 
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
@@ -385,9 +425,36 @@ static void b2Collide(b2World* world)
 	world->taskCount += 1;
 	world->activeTaskCount += world->userTreeTask == NULL ? 0 : 1;
 
-	int32_t awakeContactCount = b2Array(world->awakeContactArray).count;
+	// gather constraint graph contact arrays
+	int contactCount = 0;
+	int subsetCount = 0;
+	b2GraphColor* colors = world->constraintGraph.colors;
+	for (int i = 0; i <= b2_graphColorCount; ++i)
+	{
+		if (colors[i].contacts.count > 0)
+		{
+			context->contactSubsets[subsetCount].contacts = colors[i].contacts.data;
+			context->contactSubsets[subsetCount].count = colors[i].contacts.count;
+			context->contactSubsets[subsetCount].colorIndex = i;
+			subsetCount += 1;
+			contactCount += colors[i].contacts.count;
+		}
+	}
 
-	if (awakeContactCount == 0)
+	// gather non-touching contact array
+	int nonTouchingCount = world->solverSetArray[b2_awakeBodySet].contacts.count;
+	if (nonTouchingCount > 0)
+	{
+		context->contactSubsets[subsetCount].contacts = world->solverSetArray[b2_awakeBodySet].contacts.data;
+		context->contactSubsets[subsetCount].count = nonTouchingCount;
+		context->contactSubsets[subsetCount].colorIndex = B2_NULL_INDEX;
+		subsetCount += 1;
+		contactCount += nonTouchingCount;
+	}
+
+	context->contactSubsetCount = subsetCount;
+
+	if (contactCount == 0)
 	{
 		b2TracyCZoneEnd(collide);
 		return;
@@ -395,12 +462,12 @@ static void b2Collide(b2World* world)
 
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].contactStateBitSet, awakeContactCount);
+		b2SetBitCountAndClear(&world->taskContextArray[i].contactStateBitSet, contactCount);
 	}
 
 	// Task should take at least 40us on a 4GHz CPU (10K cycles)
 	int32_t minRange = 64;
-	void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, awakeContactCount, minRange, world, world->userTaskContext);
+	void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, contactCount, minRange, world, world->userTaskContext);
 	world->taskCount += 1;
 	if (userCollideTask != NULL)
 	{
@@ -427,13 +494,22 @@ static void b2Collide(b2World* world)
 		while (bits != 0)
 		{
 			uint32_t ctz = b2CTZ64(bits);
-			uint32_t awakeIndex = 64 * k + ctz;
-			B2_ASSERT(awakeIndex < (uint32_t)awakeContactCount);
+			int contactIndex = (int)(64 * k + ctz);
+			B2_ASSERT(contactIndex < contactCount);
 
-			int32_t contactIndex = world->awakeContactArray[awakeIndex];
-			B2_ASSERT(contactIndex != B2_NULL_INDEX);
+			// todo make faster/simpler?
+			int baseIndex = 0;
+			b2ContactSubset* subset = context->contactSubsets;
+			b2ContactSubset* endset = subset + context->contactSubsetCount;
+			while (contactIndex >= baseIndex + subset->count && subset < endset)
+			{
+				baseIndex += subset->count;
+				subset += 1;
+			}
 
-			b2Contact* contact = world->contacts + contactIndex;
+			B2_ASSERT(subset < endset);
+
+			b2Contact* contact = subset->contacts + (contactIndex - baseIndex);
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;
 			const b2Shape* shapeB = shapes + contact->shapeIndexB;
 			b2ShapeId shapeIdA = {shapeA->object.index + 1, worldIndex, shapeA->object.revision};
@@ -473,12 +549,15 @@ static void b2Collide(b2World* world)
 				{
 					if (flags & b2_contactEnableContactEvents)
 					{
-						b2ContactBeginTouchEvent event = {shapeIdA, shapeIdB, contact->manifold};
+						b2ContactBeginTouchEvent event = {shapeIdA, shapeIdB};
 						b2Array_Push(world->contactBeginArray, event);
 					}
 
 					b2LinkContact(world, contact);
+					b2RemoveNonTouchingContact(world, b2_awakeBodySet, contact->colorSubIndex);
+					// todo contact orphaned
 					b2AddContactToGraph(world, contact);
+					b2SyncContactLookup(world, contact);
 				}
 
 				contact->flags &= ~b2_contactStartedTouching;
@@ -509,7 +588,13 @@ static void b2Collide(b2World* world)
 					}
 
 					b2UnlinkContact(world, contact);
+					b2SolverSet* set = world->solverSetArray + b2_awakeBodySet;
+					int storageIndex = set->contacts.count;
+					b2Contact* temp = b2AddNonTouchingContact(world, contact, b2_awakeBodySet);
 					b2RemoveContactFromGraph(world, contact);
+					temp->colorIndex = B2_NULL_INDEX;
+					temp->colorSubIndex = storageIndex;
+					b2SyncContactLookup(world, temp, b2_awakeBodySet);
 				}
 
 				contact->flags &= ~b2_contactStoppedTouching;
@@ -521,7 +606,6 @@ static void b2Collide(b2World* world)
 	}
 
 	b2TracyCZoneEnd(contact_state);
-
 	b2TracyCZoneEnd(collide);
 }
 
@@ -565,6 +649,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	}
 
 	b2StepContext context = {0};
+	context.world = world;
 	context.dt = timeStep;
 	context.subStepCount = B2_MAX(1, subStepCount);
 
@@ -581,9 +666,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 		context.inv_h = 0.0f;
 	}
 
-	world->subStepCount = context.subStepCount;
-	world->inv_h = context.inv_h;
-
 	// Hertz values get reduced for large time steps
 	float contactHertz = B2_MIN(world->contactHertz, 0.25f * context.inv_h);
 	float jointHertz = B2_MIN(world->jointHertz, 0.125f * context.inv_h);
@@ -599,7 +681,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	// Update contacts
 	{
 		b2Timer timer = b2CreateTimer();
-		b2Collide(world);
+		b2Collide(&context);
 		world->profile.collide = b2GetMilliseconds(&timer);
 	}
 
