@@ -21,7 +21,7 @@ typedef struct b2ContactLookup
 
 	// index into the constraint graph color array, B2_NULL_INDEX for sleeping contacts
 	// B2_NULL_INDEX when slot is free
-	int graphColorIndex;
+	int colorIndex;
 
 	// contact index within set or graph color
 	// B2_NULL_INDEX when slot is free
@@ -35,7 +35,7 @@ typedef struct b2ContactLookup
 // edges, one for each attached body.
 typedef struct b2ContactEdge
 {
-	int32_t bodyKey;
+	int32_t bodyId;
 	int32_t prevKey;
 	int32_t nextKey;
 } b2ContactEdge;
@@ -110,6 +110,8 @@ void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
+
+b2Contact* b2GetContactFromKey(b2World* world, int contactKey);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

@@ -16,8 +16,8 @@ typedef struct b2World b2World;
 typedef struct b2Shape
 {
 	b2Object object;
-	int32_t bodyKey;
-	int32_t nextShapeIndex;
+	int bodyId;
+	int nextShapeIndex;
 	b2ShapeType type;
 	float density;
 	float friction;
@@ -26,12 +26,11 @@ typedef struct b2Shape
 	b2AABB aabb;
 	b2AABB fatAABB;
 	b2Vec2 localCentroid;
-	int32_t proxyKey;
+	int proxyKey;
 
 	b2Filter filter;
 	void* userData;
 
-	// TODO_ERIN maybe not anonymous, check asm
 	union
 	{
 		b2Capsule capsule;
@@ -52,10 +51,10 @@ typedef struct b2Shape
 typedef struct b2ChainShape
 {
 	b2Object object;
-	int32_t bodyIndex;
-	int32_t nextIndex;
-	int32_t* shapeIndices;
-	int32_t count;
+	int bodyId;
+	int nextIndex;
+	int* shapeIndices;
+	int count;
 } b2ChainShape;
 
 typedef struct b2ShapeExtent

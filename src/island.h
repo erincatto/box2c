@@ -32,23 +32,24 @@ typedef struct b2Island
 
 	struct b2World* world;
 
-	int32_t headBody;
-	int32_t tailBody;
-	int32_t bodyCount;
+	int headBody;
+	int tailBody;
+	int bodyCount;
 
-	int32_t headContact;
-	int32_t tailContact;
-	int32_t contactCount;
+	int headContact;
+	int tailContact;
+	int contactCount;
 
-	int32_t headJoint;
-	int32_t tailJoint;
-	int32_t jointCount;
+	int headJoint;
+	int tailJoint;
+	int jointCount;
 
 	// Union find
-	int32_t parentIsland;
+	int parentIsland;
 
 	// Keeps track of how many contacts have been removed from this island.
-	int32_t constraintRemoveCount;
+	// todo track islands close to sleep and make sure they are split first
+	int constraintRemoveCount;
 } b2Island;
 
 void b2CreateIsland(b2Island* island);
@@ -65,6 +66,9 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 
 // Unlink a joint from the island graph when it is destroyed
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
+
+void b2WakeIsland(b2Island* island);
+void b2SleepIsland(b2Island* island);
 
 void b2MergeAwakeIslands(b2World* world);
 

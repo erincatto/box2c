@@ -46,6 +46,7 @@ typedef struct b2BodyState
 	b2Rot deltaRotation; // 8
 } b2BodyState;
 
+// Identity body state, notice the deltaRotation is {0, 1}
 static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 
 #if 0
@@ -69,6 +70,8 @@ typedef struct b2BodyParam
 // A rigid body
 typedef struct b2Body
 {
+	void* userData;
+
 	enum b2BodyType type;
 
 	// the body origin (not center of mass)
@@ -90,24 +93,24 @@ typedef struct b2Body
 	b2Vec2 force;
 	float torque;
 
-	int32_t shapeList;
-	int32_t shapeCount;
+	int shapeList;
+	int shapeCount;
 
-	int32_t chainList;
+	int chainList;
 
 	// This is a key: [jointIndex:31, edgeIndex:1]
-	int32_t jointList;
-	int32_t jointCount;
+	int jointList;
+	int jointCount;
 
-	int32_t contactList;
-	int32_t contactCount;
+	int contactList;
+	int contactCount;
 
 	// A non-static body is always in an island. B2_NULL_INDEX for static bodies.
-	int32_t islandIndex;
+	int islandIndex;
 
 	// Doubly linked island list
-	int32_t islandPrev;
-	int32_t islandNext;
+	int islandPrev;
+	int islandNext;
 	
 	float mass, invMass;
 
@@ -119,13 +122,11 @@ typedef struct b2Body
 	float linearDamping;
 	float angularDamping;
 	float gravityScale;
-
 	float sleepTime;
 
-	// body data can be moved around, the key is stable
-	int32_t bodyKey;
-
-	void* userData;
+	// body data can be moved around, the id is stable (used in b2BodyId)
+	int bodyId;
+	uint16_t revision;
 	int16_t world;
 
 	bool enableSleep;
@@ -141,14 +142,14 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
-b2Body* b2GetBody(b2World* world, b2BodyId id);
-b2Body* b2GetBodyFromKey(b2World* world, int32_t bodyKey);
-b2BodyId b2GetBodyId(b2World* world, int32_t bodyKey);
-b2BodyState* b2GetBodyState(b2World* world, b2BodyId id);
+b2Body* b2GetBody(b2World* world, b2BodyId bodyId);
+b2Body* b2GetBodyFromKey(b2World* world, int bodyKey);
+b2BodyId b2MakeBodyId(b2World* world, int bodyKey);
+b2BodyState* b2GetBodyState(b2World* world, int bodyId);
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
-bool b2IsBodyAwake(b2World* world, b2Body* body);
-void b2WakeBody(b2World* world, b2Body* body);
+bool b2IsBodyAwake(b2World* world, int bodyId);
+bool b2WakeBody(b2World* world, int bodyId);
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
 static inline b2Transform b2MakeTransform(const b2Body* body)

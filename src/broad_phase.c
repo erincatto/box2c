@@ -13,6 +13,7 @@
 #include "contact.h"
 #include "core.h"
 #include "shape.h"
+#include "util.h"
 #include "world.h"
 
 #include "box2d/color.h"
@@ -214,7 +215,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	b2Shape* shapeB = world->shapes + shapeIndexB;
 
 	// Are the shapes on the same body?
-	if (shapeA->bodyIndex == shapeB->bodyIndex)
+	if (shapeA->bodyId == shapeB->bodyId)
 	{
 		return true;
 	}
@@ -224,10 +225,10 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	int32_t bodyIndexA = shapeA->bodyIndex;
-	int32_t bodyIndexB = shapeB->bodyIndex;
-	b2Body* bodyA = world->bodies + bodyIndexA;
-	b2Body* bodyB = world->bodies + bodyIndexB;
+	int32_t bodyIdA = shapeA->bodyId;
+	int32_t bodyIdB = shapeB->bodyId;
+	b2Body* bodyA = b2GetBodyFromKey(world, bodyIdA);
+	b2Body* bodyB = b2GetBodyFromKey(world, bodyIdB);
 
 	// Does a joint override collision? Is at least one body dynamic?
 	// #todo this could be a hash set

@@ -4,14 +4,14 @@
 #include "solver.h"
 
 #include "array.h"
-#include "bitset.inl"
+#include "bitset.h"
 #include "body.h"
 #include "contact.h"
 #include "contact_solver.h"
 #include "core.h"
+#include "ctz.h"
 #include "joint.h"
 #include "shape.h"
-#include "solver.h"
 #include "stack_allocator.h"
 #include "world.h"
 
@@ -29,18 +29,20 @@
 typedef struct b2WorkerContext
 {
 	b2StepContext* context;
-	int32_t workerIndex;
+	int workerIndex;
 	void* userTask;
 } b2WorkerContext;
 
-// Integrate velocities and apply damping.
-static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
+// Integrate velocities and apply damping
+static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(integrate_velocity, "IntVel", b2_colorDeepPink, true);
 
-	b2BodyState* states = context->bodyStates;
-	const b2BodyParam* params = context->bodyParams;
+	b2BodyState* states = context->states;
+	b2Body* bodies = context->bodies;
 
+	b2Vec2 gravity = context->world->gravity;
+	float h = context->h;
 	float maxLinearSpeed = b2_maxTranslation * context->inv_dt;
 	float maxAngularSpeed = b2_maxRotation * context->inv_dt;
 	float maxLinearSpeedSquared = maxLinearSpeed * maxLinearSpeed;
@@ -48,15 +50,27 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2St
 
 	for (int i = startIndex; i < endIndex; ++i)
 	{
-		const b2BodyParam* param = params + i;
+		const b2Body* body = bodies + i;
 		b2BodyState* state = states + i;
 
 		b2Vec2 v = state->linearVelocity;
 		float w = state->angularVelocity;
 
 		// Apply forces, torque, gravity, and damping
-		v = b2MulAdd(param->linearVelocityDelta, param->linearDamping, v);
-		w = param->angularVelocityDelta + param->angularDamping * w;
+		// Apply damping.
+		// ODE: dv/dt + c * v = 0
+		// Solution: v(t) = v0 * exp(-c * t)
+		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+		// v2 = exp(-c * dt) * v1
+		// Pade approximation:
+		// v2 = v1 * 1 / (1 + c * dt)
+		float linearDamping = 1.0f / (1.0f + h * body->linearDamping);
+		float angularDamping = 1.0f / (1.0f + h * body->angularDamping);
+		b2Vec2 linearVelocityDelta = b2MulSV(h * body->invMass, b2MulAdd(body->force, body->mass * body->gravityScale, gravity));
+		float angularVelocityDelta = h * body->invI * body->torque;
+
+		v = b2MulAdd(linearVelocityDelta, linearDamping, v);
+		w = angularVelocityDelta + angularDamping * w;
 
 		// Clamp to max linear speed
 		if (b2Dot(v, v) > maxLinearSpeedSquared)
@@ -81,86 +95,69 @@ static void b2IntegrateVelocitiesTask(int32_t startIndex, int32_t endIndex, b2St
 	b2TracyCZoneEnd(integrate_velocity);
 }
 
-static void b2PrepareJointsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
+static void b2PrepareJointsTask(int startIndex, int endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
-	b2World* world = context->world;
+	b2Joint** joints = context->joints;
 
-	b2Joint* joints = world->joints;
-	const int32_t* jointIndices = context->jointIndices;
-
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
-		int32_t index = jointIndices[i];
-		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
-
-		b2Joint* joint = joints + index;
-		B2_ASSERT(b2IsValidObject(&joint->object) == true);
-
+		b2Joint* joint = joints[i];
 		b2PrepareJoint(joint, context);
 	}
 
 	b2TracyCZoneEnd(prepare_joints);
 }
 
-static void b2WarmStartJointsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex)
+static void b2WarmStartJointsTask(int startIndex, int endIndex, b2StepContext* context, int colorIndex)
 {
 	b2TracyCZoneNC(warm_joints, "WarmJoints", b2_colorGold, true);
 
-	b2World* world = context->world;
-	b2Joint* joints = world->joints;
-	int32_t* jointIndices = context->graph->colors[colorIndex].jointArray;
+	b2GraphColor* color = context->graph->colors + colorIndex;
+	b2Joint* joints = color->joints.data;
+	B2_ASSERT(0 <= startIndex && startIndex < color->joints.count);
+	B2_ASSERT(startIndex <= endIndex && endIndex <= color->joints.count);
 
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
-		int32_t index = jointIndices[i];
-		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
-
-		b2Joint* joint = joints + index;
-		B2_ASSERT(b2IsValidObject(&joint->object) == true);
-
+		b2Joint* joint = joints + i;
 		b2WarmStartJoint(joint, context);
 	}
 
 	b2TracyCZoneEnd(warm_joints);
 }
 
-static void b2SolveJointsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias)
+static void b2SolveJointsTask(int startIndex, int endIndex, b2StepContext* context, int colorIndex, bool useBias)
 {
 	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
 
-	b2World* world = context->world;
-	b2Joint* joints = world->joints;
-	int32_t* jointIndices = context->graph->colors[colorIndex].jointArray;
+	b2GraphColor* color = context->graph->colors + colorIndex;
+	b2Joint* joints = color->joints.data;
+	B2_ASSERT(0 <= startIndex && startIndex < color->joints.count);
+	B2_ASSERT(startIndex <= endIndex && endIndex <= color->joints.count);
 
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
-		int32_t index = jointIndices[i];
-		B2_ASSERT(0 <= index && index < world->jointPool.capacity);
-
-		b2Joint* joint = joints + index;
-		B2_ASSERT(b2IsValidObject(&joint->object) == true);
-
+		b2Joint* joint = joints + i;
 		b2SolveJoint(joint, context, useBias);
 	}
 
 	b2TracyCZoneEnd(solve_joints);
 }
 
-static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)
+static void b2IntegratePositionsTask(int startIndex, int endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(integrate_positions, "IntPos", b2_colorDarkSeaGreen, true);
 
-	b2BodyState* states = context->bodyStates;
+	b2BodyState* states = context->states;
 	float h = context->h;
 
 	B2_ASSERT(startIndex <= endIndex);
 
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
 		b2BodyState* state = states + i;
-
 		state->deltaRotation = b2IntegrateRotation(state->deltaRotation, h * state->angularVelocity);
 		state->deltaPosition = b2MulAdd(state->deltaPosition, h, state->linearVelocity);
 	}
@@ -168,30 +165,25 @@ static void b2IntegratePositionsTask(int32_t startIndex, int32_t endIndex, b2Ste
 	b2TracyCZoneEnd(integrate_positions);
 }
 
-static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* taskContext)
+static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIndex, void* taskContext)
 {
 	b2TracyCZoneNC(finalize_bodies, "FinalizeBodies", b2_colorViolet, true);
 
 	b2StepContext* context = taskContext;
 	b2World* world = context->world;
 	bool enableSleep = world->enableSleep;
-	b2Body* bodies = world->bodies;
-	const b2BodyState* states = context->bodyStates;
-	b2Contact* contacts = world->contacts;
-	const int32_t* solverToBodyMap = context->solverToBodyMap;
+	b2BodyState* states = context->states;
+	b2Body* bodies = context->bodies;
 	float timeStep = context->dt;
 
 	uint16_t worldIndex = world->worldIndex;
 	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
 
-	b2BitSet* awakeContactBitSet = &world->taskContextArray[threadIndex].awakeContactBitSet;
 	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
 	bool enableContinuous = world->enableContinuous;
 
 	B2_ASSERT(startIndex <= endIndex);
-	B2_ASSERT(startIndex <= world->bodyPool.capacity);
-	B2_ASSERT(endIndex <= world->bodyPool.capacity);
 
 	// Update sleep
 	const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
@@ -200,10 +192,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
 		const b2BodyState* state = states + i;
-
-		int32_t bodyIndex = solverToBodyMap[i];
-		b2Body* body = bodies + bodyIndex;
-		B2_ASSERT(b2IsValidObject(&body->object));
+		b2Body* body = bodies + i;
 
 		b2Vec2 v = state->linearVelocity;
 		float w = state->angularVelocity;
@@ -211,8 +200,6 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		B2_ASSERT(b2Vec2_IsValid(v));
 		B2_ASSERT(b2IsValid(w));
 
-		body->linearVelocity = v;
-		body->angularVelocity = w;
 		body->isSpeedCapped = state->flags != 0;
 
 		body->position = b2Add(body->position, state->deltaPosition);
@@ -221,7 +208,7 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		moveEvents[i].transform = b2MakeTransform(body);
-		moveEvents[i].bodyId = (b2BodyId){bodyIndex + 1, worldIndex, body->object.revision};
+		moveEvents[i].bodyId = (b2BodyId){body->bodyId + 1, worldIndex, body->revision};
 		moveEvents[i].userData = body->userData;
 		moveEvents[i].fellAsleep = false;
 
@@ -243,12 +230,12 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 				if (body->isBullet)
 				{
 					int bulletIndex = atomic_fetch_add(&world->bulletBodyCount, 1);
-					world->bulletBodies[bulletIndex] = bodyIndex;
+					world->bulletBodies[bulletIndex] = i;
 				}
 				else
 				{
 					int fastIndex = atomic_fetch_add(&world->fastBodyCount, 1);
-					world->fastBodies[fastIndex] = bodyIndex;
+					world->fastBodies[fastIndex] = i;
 				}
 
 				body->isFast = true;
@@ -318,19 +305,6 @@ static void b2FinalizeBodiesTask(int32_t startIndex, int32_t endIndex, uint32_t 
 			}
 
 			shapeIndex = shape->nextShapeIndex;
-		}
-
-		// Wake contacts
-		int32_t contactKey = body->contactList;
-		while (contactKey != B2_NULL_INDEX)
-		{
-			int32_t contactIndex = contactKey >> 1;
-			int32_t edgeIndex = contactKey & 1;
-			b2Contact* contact = contacts + contactIndex;
-
-			// Bit set to prevent duplicates
-			b2SetBit(awakeContactBitSet, contactIndex);
-			contactKey = contact->edges[edgeIndex].nextKey;
 		}
 	}
 
@@ -769,6 +743,23 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 		return false;
 	}
+
+	// Gather constraint graph contact arrays for efficient parallel-for processing
+	int contactCount = 0;
+	int subsetCount = 0;
+	for (int i = 0; i < b2_graphColorCount; ++i)
+	{
+		if (colors[i].contacts.count > 0)
+		{
+			context->contactSubsets[subsetCount].contacts = colors[i].contacts.data;
+			context->contactSubsets[subsetCount].count = colors[i].contacts.count;
+			context->contactSubsets[subsetCount].colorIndex = i;
+			subsetCount += 1;
+			contactCount += colors[i].contacts.count;
+		}
+	}
+
+	context->contactSubsetCount = subsetCount;
 
 	// Reserve space for solver body arrays
 	b2Body* bodies = world->bodies;
@@ -1255,12 +1246,9 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	context->world = world;
 	context->graph = graph;
-	context->solverToBodyMap = solverToBodyMap;
-	context->bodyStates = bodyStates;
-	context->bodyParams = bodyParams;
 	context->contactConstraints = contactConstraints;
-	context->jointIndices = jointIndices;
-	context->contactIndices = contactIndices;
+	context->joints = joints;
+	context->contacts = contacts;
 	context->activeColorCount = activeColorCount;
 	context->workerCount = workerCount;
 	context->stageCount = stageCount;
@@ -1413,29 +1401,26 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			}
 		}
 
-		// Clear awake island array
-		b2Array_Clear(world->awakeIslandArray);
-
-		// Use bitSet to build awake island array. No need to add edges.
+		// Use bitSet to put islands to sleep.
 		uint64_t word;
 		uint32_t wordCount = awakeIslandBitSet->blockCount;
 		uint64_t* bits = awakeIslandBitSet->bits;
-		int32_t awakeIndex = 0;
 		for (uint32_t k = 0; k < wordCount; ++k)
 		{
 			word = bits[k];
 			while (word != 0)
 			{
-				uint32_t ctz = b2CTZ(word);
+				uint32_t ctz = b2CTZ64(word);
 				uint32_t islandIndex = 64 * k + ctz;
 
 				B2_ASSERT(b2IsValidObject(&islands[islandIndex].object));
 
-				b2Array_Push(world->awakeIslandArray, islandIndex);
-
-				// Reference index. This tells the island and bodies they are awake.
-				islands[islandIndex].awakeIndex = awakeIndex;
-				awakeIndex += 1;
+				// An island with outstanding contact removals, it cannot sleep
+				b2Island* island = islands + islandIndex;
+				if (island->constraintRemoveCount == 0)
+				{
+					b2SleepIsland(island);
+				}
 
 				// Clear the smallest set bit
 				word = word & (word - 1);

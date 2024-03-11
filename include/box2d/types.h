@@ -302,7 +302,7 @@ typedef struct b2Counters
 	int32_t treeHeight;
 	int32_t byteCount;
 	int32_t taskCount;
-	int32_t colorCounts[b2_graphColorCount + 1];
+	int32_t colorCounts[b2_graphColorCount];
 } b2Counters;
 
 /// Use this to initialize your world definition

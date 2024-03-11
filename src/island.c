@@ -12,6 +12,7 @@
 #include "joint.h"
 #include "shape.h"
 #include "solver.h"
+#include "util.h"
 #include "world.h"
 
 #include "box2d/callbacks.h"
@@ -79,6 +80,9 @@ void b2WakeIsland(b2Island* island)
 		return;
 	}
 
+	// should never sleep an island that should be split first
+	B2_ASSERT(island->constraintRemoveCount == 0);
+
 	int32_t islandIndex = island->object.index;
 	island->awakeIndex = b2Array(world->awakeIslandArray).count;
 	b2Array_Push(world->awakeIslandArray, islandIndex);
@@ -113,6 +117,12 @@ void b2WakeIsland(b2Island* island)
 		jointIndex = joint->islandNext;
 	}
 }
+
+void b2SleepIsland(b2Island* island)
+{
+	B2_ASSERT(island->constraintRemoveCount == 0);
+}
+
 
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
@@ -840,7 +850,7 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 	bool isAwake = false;
 	if (island->awakeIndex != B2_NULL_INDEX)
 	{
-		b2Array_Check(world->awakeIslandArray, island->awakeIndex);
+		b2CheckIndex(world->awakeIslandArray, island->awakeIndex);
 		B2_ASSERT(world->awakeIslandArray[island->awakeIndex] == islandIndex);
 		isAwake = true;
 	}

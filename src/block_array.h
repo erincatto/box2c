@@ -47,10 +47,10 @@ void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* arra
 void b2DestroyContactArray(b2BlockAllocator* allocator, b2ContactArray* array);
 void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array);
 
-b2Body* b2EmplaceBody(b2BlockAllocator* allocator, b2BodyArray* array);
-b2BodyState* b2EmplaceBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array);
-b2Contact* b2EmplaceContact(b2BlockAllocator* allocator, b2ContactArray* array);
-b2Joint* b2EmplaceJoint(b2BlockAllocator* allocator, b2JointArray* array);
+b2Body* b2AddBody(b2BlockAllocator* allocator, b2BodyArray* array);
+b2BodyState* b2AddBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array);
+b2Contact* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array);
+b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array);
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)
 int b2RemoveBody(b2BlockAllocator* allocator, b2BodyArray* array, int index);

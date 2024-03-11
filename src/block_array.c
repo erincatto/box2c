@@ -44,7 +44,7 @@ void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array)
 	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Joint));
 }
 
-b2Body* b2EmplaceBody(b2BlockAllocator* allocator, b2BodyArray* array)
+b2Body* b2AddBody(b2BlockAllocator* allocator, b2BodyArray* array)
 {
 	if (array->count == array->capacity)
 	{
@@ -63,7 +63,7 @@ b2Body* b2EmplaceBody(b2BlockAllocator* allocator, b2BodyArray* array)
 	return element;
 }
 
-b2Contact* b2EmplaceContact(b2BlockAllocator* allocator, b2ContactArray* array)
+b2Contact* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
 {
 	if (array->count == array->capacity)
 	{
@@ -84,7 +84,7 @@ b2Contact* b2EmplaceContact(b2BlockAllocator* allocator, b2ContactArray* array)
 	return element;
 }
 
-b2Joint* b2EmplaceJoint(b2BlockAllocator* allocator, b2JointArray* array)
+b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
 {
 	if (array->count == array->capacity)
 	{

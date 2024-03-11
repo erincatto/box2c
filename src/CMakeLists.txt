@@ -49,6 +49,8 @@ set(BOX2D_SOURCE_FILES
 	shape.h
 	solver.c
 	solver.h
+	solver_set.c
+	solver_set.h
 	stack_allocator.c
 	stack_allocator.h
 	table.c

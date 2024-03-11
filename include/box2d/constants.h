@@ -79,6 +79,10 @@
 /// Maximum parallel workers. Used to size some static arrays.
 #define b2_maxWorkers 64
 
+/// Maximum number of colors in the constraint graph. Constraints that cannot
+///	find a color are added to the overflow set.
+#define b2_graphColorCount 12
+
 /// Version numbering scheme.
 /// See http://en.wikipedia.org/wiki/Software_versioning
 typedef struct b2Version

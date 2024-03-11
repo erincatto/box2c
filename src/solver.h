@@ -7,7 +7,7 @@
 
 #include "box2d/constants.h"
 
-#include <stdatomic.h>
+//#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -16,30 +16,6 @@ typedef struct b2BodyState b2BodyState;
 typedef struct b2Contact b2Contact;
 typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
-
-// This holds solver set data. The following sets are used:
-// - static set for all static bodies (no contacts or joints)
-// - active set for all active bodies with body states (no contacts or joints)
-// - disabled set for disabled bodies and their joints
-// - all further sets are sleeping island sets along with their contacts and joints
-typedef struct b2SolverSet
-{
-	b2BodyArray bodies;
-
-	// Body state only exists for active set
-	b2BodyState* states;
-
-	int bodyCount;
-	int bodyCapacity;
-
-	// This holds sleeping/disabled joints. Empty for static/active set.
-	b2JointArray joints;
-
-	// This holds sleeping contacts for sleeping sets.
-	// For the awake set this holds the non-touching awake contacts.
-	// For the
-	b2ContactArray contacts;
-} b2SolverSet;
 
 typedef struct b2Softness
 {
@@ -94,20 +70,6 @@ typedef struct b2SolverStage
 	_Atomic int completionCount;
 } b2SolverStage;
 
-typedef struct b2ContactSubset
-{
-	b2Contact* contacts;
-	int count;
-	int colorIndex;
-} b2ContactSubset;
-
-typedef struct b2JointSubset
-{
-	b2Joint* joints;
-	int count;
-	int colorIndex;
-} b2JointSubset;
-
 // Context for a time step. Recreated each time step.
 typedef struct b2StepContext
 {
@@ -130,23 +92,24 @@ typedef struct b2StepContext
 	float restitutionThreshold;
 	float maxBiasVelocity;
 
-	b2BodyState* bodyStates;
-
 	struct b2World* world;
 	struct b2ConstraintGraph* graph;
 
-	// Transient array of contact arrays organized for easier parallel-for.
-	// Pointers copied from graph colors and non-touching contacts.
-	b2ContactSubset contactSubsets[b2_graphColorCount + 2];
-	int contactSubsetCount;
+	// shortcut to body states from awake set
+	b2BodyState* states;
 
-	// Transient array of joint arrays organize for easier parallel-for.
-	// Pointers copied from graph colors.
-	b2JointSubset jointSubsets[b2_graphColorCount + 1];
-	int jointSubsetCount;
+	// shortcut to bodies from awake set (no static bodies)
+	b2Body* bodies;
 
-	int32_t* jointIndices;
-	int32_t* contactIndices;
+	// joint pointers for simplified parallel-for access.
+	b2Joint** joints;
+
+	// contact pointers for simplified parallel-for access.
+	// - parallel-for collide with no gaps
+	// - parallel-for prepare and store contacts with NULL gaps for SIMD remainders
+	// despite being an array of pointers, these are contiguous sub-arrays corresponding
+	// to constraint graph colors
+	b2Contact** contacts;
 
 	struct b2ContactConstraintSIMD* contactConstraints;
 	int32_t activeColorCount;

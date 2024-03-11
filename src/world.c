@@ -23,6 +23,7 @@
 #include "pool.h"
 #include "shape.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "util.h"
 
 // needed for dll export
@@ -119,7 +120,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
 
 	b2CreateBroadPhase(&world->broadPhase);
-	b2CreateGraph(&world->constraintGraph, def->bodyCapacity, def->contactCapacity, def->jointCapacity);
+	b2CreateGraph(&world->constraintGraph, &world->blockAllocator, def->bodyCapacity);
 
 	// pools
 	world->bodyIdPool = b2CreateIdPool();
@@ -301,8 +302,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
 
-		b2BodyLookup lookupA = world->bodyLookupArray[shapeA->bodyKey];
-		b2BodyLookup lookupB = world->bodyLookupArray[shapeB->bodyKey];
+		b2BodyLookup lookupA = world->bodyLookupArray[shapeA->bodyId];
+		b2BodyLookup lookupB = world->bodyLookupArray[shapeB->bodyId];
 
 		if (lookupA.setIndex != b2_awakeSet && lookupB.setIndex != b2_awakeSet)
 		{
@@ -318,8 +319,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			// becomes awake
 		}
 
-		b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyKey);
-		b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyKey);
+		b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyId);
+		b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyId);
 
 		// Do proxies still overlap?
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
@@ -334,8 +335,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
-			b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyKey);
-			b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyKey);
+			b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyId);
+			b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyId);
 			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
@@ -375,7 +376,7 @@ static void b2SyncContactLookup(b2World* world, b2Contact* contact, int setIndex
 {
 	B2_ASSERT(0 <= contact->contactKey && contact->contactKey < b2Array(world->contactLookupArray).count);
 	b2ContactLookup* lookup = world->contactLookupArray + contact->contactKey;
-	lookup->graphColorIndex = contact->colorIndex;
+	lookup->colorIndex = contact->colorIndex;
 	lookup->contactIndex = contact->colorSubIndex;
 	lookup->setIndex = setIndex;
 }
@@ -405,7 +406,7 @@ static void b2RemoveNonTouchingContact(b2World* world, int setIndex, int indexIn
 		b2ContactLookup* lookup = world->contactLookupArray + movedContact->contactKey;
 		B2_ASSERT(lookup->setIndex == setIndex);
 		B2_ASSERT(lookup->contactIndex == movedIndex);
-		B2_ASSERT(lookup->graphColorIndex == B2_NULL_INDEX);
+		B2_ASSERT(lookup->colorIndex == B2_NULL_INDEX);
 		lookup->contactIndex = movedContact->colorSubIndex;
 	}
 }
@@ -429,7 +430,7 @@ static void b2Collide(b2StepContext* context)
 	int contactCount = 0;
 	int subsetCount = 0;
 	b2GraphColor* colors = world->constraintGraph.colors;
-	for (int i = 0; i <= b2_graphColorCount; ++i)
+	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		if (colors[i].contacts.count > 0)
 		{
@@ -840,7 +841,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					}
 					else if (body->type == b2_kinematicBody)
 					{
-						color = (b2Color){0.5f, 0.5f, 0.9f};
+						color = (b2Color){0.5f, 0.5f, 0.9f, 1.0f};
 					}
 					else if (isAwake)
 					{

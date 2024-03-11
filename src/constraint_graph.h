@@ -15,8 +15,6 @@ typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-#define b2_graphColorCount 12
-
 // This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
 // is touching many other bodies.
 #define b2_overflowIndex b2_graphColorCount - 1

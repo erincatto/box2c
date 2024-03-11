@@ -26,6 +26,8 @@
 
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity)
 {
+	_Static_assert(b2_graphColorCount >= 2, "must have at least two constraint graph colors");
+
 	*graph = (b2ConstraintGraph){0};
 
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
@@ -64,8 +66,8 @@ b2Contact* b2EmplaceContactInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyKeyA = bodyA->bodyKey;
-	int bodyKeyB = bodyB->bodyKey;
+	int bodyKeyA = bodyA->bodyId;
+	int bodyKeyB = bodyB->bodyId;
 	b2BodyType typeA = bodyA->type;
 	b2BodyType typeB = bodyB->type;
 	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
@@ -120,7 +122,7 @@ b2Contact* b2EmplaceContactInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	}
 #endif
 
-	b2Contact* contact = b2EmplaceContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
+	b2Contact* contact = b2AddContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
 	memset(contact, 0, sizeof(b2Contact));
 	contact->colorIndex = colorIndex;
 	contact->colorSubIndex = graph->colors[colorIndex].contacts.count - 1;
@@ -129,8 +131,8 @@ b2Contact* b2EmplaceContactInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 {
-	int bodyKeyA = contact->edges[0].bodyKey;
-	int bodyKeyB = contact->edges[1].bodyKey;
+	int bodyKeyA = contact->edges[0].bodyId;
+	int bodyKeyB = contact->edges[1].bodyId;
 
 	b2ConstraintGraph* graph = &world->constraintGraph;
 
@@ -153,11 +155,11 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		movedContact->colorSubIndex = colorSubIndex;
 
 		// Fix contact lookup for moved contact
-		int key = movedContact->contactKey;
-		B2_ASSERT(0 <= key && key < b2Array(world->contactLookupArray).count);
-		b2ContactLookup* lookup = world->contactLookupArray + key;
+		int movedKey = movedContact->contactKey;
+		B2_ASSERT(0 <= movedKey && movedKey < b2Array(world->contactLookupArray).count);
+		b2ContactLookup* lookup = world->contactLookupArray + movedKey;
 		B2_ASSERT(lookup->setIndex == b2_awakeSet);
-		B2_ASSERT(lookup->graphColorIndex == colorIndex);
+		B2_ASSERT(lookup->colorIndex == colorIndex);
 		B2_ASSERT(lookup->contactIndex == movedIndex);
 		lookup->contactIndex = colorSubIndex;
 	}
@@ -172,8 +174,8 @@ b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int32_t bodyKeyA = bodyA->bodyKey;
-	int32_t bodyKeyB = bodyB->bodyKey;
+	int32_t bodyKeyA = bodyA->bodyId;
+	int32_t bodyKeyB = bodyB->bodyId;
 	b2BodyType typeA = bodyA->type;
 	b2BodyType typeB = bodyB->type;
 	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
@@ -226,7 +228,7 @@ b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	}
 #endif
 
-	b2Joint* joint = b2EmplaceJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
+	b2Joint* joint = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
 	memset(joint, 0, sizeof(b2Joint));
 	joint->colorIndex = colorIndex;
 	joint->colorSubIndex = graph->colors[colorIndex].joints.count - 1;
@@ -235,8 +237,8 @@ b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 {
-	int bodyKeyA = joint->edges[0].bodyKey;
-	int bodyKeyB = joint->edges[1].bodyKey;
+	int bodyKeyA = joint->edges[0].bodyId;
+	int bodyKeyB = joint->edges[1].bodyId;
 
 	b2ConstraintGraph* graph = &world->constraintGraph;
 
@@ -263,7 +265,7 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 		B2_ASSERT(0 <= key && key < b2Array(world->jointLookupArray).count);
 		b2JointLookup* lookup = world->jointLookupArray + key;
 		B2_ASSERT(lookup->setIndex == b2_awakeSet);
-		B2_ASSERT(lookup->graphColorIndex == colorIndex);
+		B2_ASSERT(lookup->colorIndex == colorIndex);
 		B2_ASSERT(lookup->jointIndex == movedIndex);
 		lookup->jointIndex = colorSubIndex;
 	}

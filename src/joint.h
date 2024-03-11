@@ -22,7 +22,7 @@ typedef struct b2JointLookup
 
 	// index into the constraint graph color array, may be B2_NULL_INDEX for sleeping/disabled joints
 	// B2_NULL_INDEX when slot is free
-	int graphColorIndex;
+	int colorIndex;
 
 	// joint index within set or graph color
 	// B2_NULL_INDEX when slot is free
@@ -40,9 +40,9 @@ typedef struct b2JointLookup
 /// nodes, one for each attached body.
 typedef struct b2JointEdge
 {
-	int32_t bodyKey;
-	int32_t prevKey;
-	int32_t nextKey;
+	int bodyId;
+	int prevKey;
+	int nextKey;
 } b2JointEdge;
 
 typedef struct b2DistanceJoint
@@ -221,7 +221,7 @@ typedef struct b2Joint
 	int colorIndex;
 
 	// Index of joint within color
-	int32_t colorSubIndex;
+	int colorSubIndex;
 
 	// Anchors relative to body origin
 	b2Vec2 localOriginAnchorA;
