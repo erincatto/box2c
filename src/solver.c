@@ -12,7 +12,9 @@
 #include "ctz.h"
 #include "joint.h"
 #include "shape.h"
+#include "solver_set.h"
 #include "stack_allocator.h"
+#include "util.h"
 #include "world.h"
 
 #include "box2d/color.h"
@@ -712,18 +714,13 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(prepare_stages, "Prepare Stages", b2_colorDarkOrange, true);
 	b2Timer timer = b2CreateTimer();
 
-	b2ConstraintGraph* graph = &world->graph;
+	b2ConstraintGraph* graph = &world->constraintGraph;
 	b2GraphColor* colors = graph->colors;
 
+	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+
 	// Count awake bodies
-	int32_t awakeIslandCount = b2Array(world->awakeIslandArray).count;
-	int32_t awakeBodyCount = 0;
-	for (int32_t i = 0; i < awakeIslandCount; ++i)
-	{
-		int32_t islandIndex = world->awakeIslandArray[i];
-		b2Island* island = world->islands + islandIndex;
-		awakeBodyCount += island->bodyCount;
-	}
+	int awakeBodyCount = awakeSet->bodies.count;
 
 	// Prepare world to receive fast bodies from body finalization
 	world->fastBodyCount = 0;
@@ -733,38 +730,35 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	world->bulletBodyCount = 0;
 	world->bulletBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
 
+	int awakeContactCount = 0;
+	int awakeJointCount = 0;
+	int activeColorCount = 0;
+	for (int i = 0; i < b2_graphColorCount - 1; ++i)
+	{
+		int perColorContactCount = colors[i].contacts.count;
+		int perColorJointCount = colors[i].joints.count;
+		int occupancyCount = perColorContactCount + perColorJointCount;
+		activeColorCount += occupancyCount > 0 ? 1 : 0;
+		graph->occupancy[i] = occupancyCount;
+		awakeContactCount += perColorContactCount;
+		awakeJointCount += perColorJointCount;
+	}
+
+	int overflowContactCount = colors[b2_overflowIndex].contacts.count;
+	int overflowJointCount = colors[b2_overflowIndex].joints.count;
+	graph->occupancy[b2_overflowIndex] = overflowContactCount + overflowJointCount;
+
 	if (awakeBodyCount == 0)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
-		{
-			graph->occupancy[i] = b2Array(colors[i].contactArray).count;
-		}
-		graph->occupancy[b2_overflowIndex] = b2Array(graph->overflow.contactArray).count;
-
+		B2_ASSERT(awakeContactCount == 0);
+		B2_ASSERT(awakeJointCount == 0);
+		B2_ASSERT(overflowContactCount == 0);
+		B2_ASSERT(overflowJointCount == 0);
 		return false;
 	}
 
-	// Gather constraint graph contact arrays for efficient parallel-for processing
-	int contactCount = 0;
-	int subsetCount = 0;
-	for (int i = 0; i < b2_graphColorCount; ++i)
-	{
-		if (colors[i].contacts.count > 0)
-		{
-			context->contactSubsets[subsetCount].contacts = colors[i].contacts.data;
-			context->contactSubsets[subsetCount].count = colors[i].contacts.count;
-			context->contactSubsets[subsetCount].colorIndex = i;
-			subsetCount += 1;
-			contactCount += colors[i].contacts.count;
-		}
-	}
-
-	context->contactSubsetCount = subsetCount;
-
-	// Reserve space for solver body arrays
-	b2Body* bodies = world->bodies;
-	b2BodyState* bodyStates = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyState), "body states");
-	b2BodyParam* bodyParams = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(b2BodyParam), "body params");
+	//b2Body* bodies = awakeSet->bodies.data;
+	//b2BodyState* bodyStates = awakeSet->states.data;
 
 	// Deal with void**
 	{
@@ -772,69 +766,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		b2Array_Resize(&bodyMoveEventArray, sizeof(b2BodyMoveEvent), awakeBodyCount);
 		world->bodyMoveEventArray = bodyMoveEventArray;
 	}
-
-	// Map from solver body to body
-	int32_t* solverToBodyMap = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "solver body map");
-
-	// Build array of awake bodies and also search for an awake island to split
-	b2Vec2 gravity = world->gravity;
-	float h = context->h;
-	int32_t splitIslandIndex = B2_NULL_INDEX;
-	int32_t maxRemovedContacts = 0;
-	int32_t splitIslandBodyCount = 0;
-	int32_t index = 0;
-	for (int32_t i = 0; i < awakeIslandCount; ++i)
-	{
-		int32_t islandIndex = world->awakeIslandArray[i];
-		b2Island* island = world->islands + islandIndex;
-
-		if (island->constraintRemoveCount > maxRemovedContacts)
-		{
-			maxRemovedContacts = island->constraintRemoveCount;
-			splitIslandIndex = islandIndex;
-			splitIslandBodyCount = island->bodyCount;
-		}
-
-		int32_t bodyIndex = island->headBody;
-		while (bodyIndex != B2_NULL_INDEX)
-		{
-			b2Body* body = bodies + bodyIndex;
-			B2_ASSERT(b2IsValidObject(&body->object));
-			B2_ASSERT(body->object.index == bodyIndex);
-
-			body->solverIndex = index;
-			solverToBodyMap[index] = bodyIndex;
-
-			b2BodyState* state = bodyStates + index;
-			state->linearVelocity = body->linearVelocity;
-			state->angularVelocity = body->angularVelocity;
-			state->flags = 0;
-			state->deltaPosition = b2Vec2_zero;
-			state->deltaRotation = b2Rot_identity;
-
-			b2BodyParam* param = bodyParams + index;
-			param->invMass = body->invMass;
-			param->invI = body->invI;
-
-			// Apply damping.
-			// ODE: dv/dt + c * v = 0
-			// Solution: v(t) = v0 * exp(-c * t)
-			// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
-			// v2 = exp(-c * dt) * v1
-			// Pade approximation:
-			// v2 = v1 * 1 / (1 + c * dt)
-			param->angularDamping = 1.0f / (1.0f + h * body->angularDamping);
-			param->linearDamping = 1.0f / (1.0f + h * body->linearDamping);
-
-			param->linearVelocityDelta =
-				b2MulSV(body->invMass * h, b2MulAdd(body->force, body->mass * body->gravityScale, gravity));
-			param->angularVelocityDelta = h * body->invI * body->torque;
-
-			bodyIndex = body->islandNext;
-			index += 1;
-		}
-	}
-	B2_ASSERT(index == awakeBodyCount);
 
 	// Each worker receives at most M blocks of work. The workers may receive less than there is not sufficient work.
 	// Each block of work has a minimum number of elements (block size). This in turn may limit number of blocks.
@@ -845,8 +776,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	// The block size is a power of two to make math efficient.
 
 	int32_t workerCount = world->workerCount;
-	const int32_t blocksPerWorker = 4;
-	const int32_t maxBlockCount = blocksPerWorker * workerCount;
+	const int blocksPerWorker = 4;
+	const int maxBlockCount = blocksPerWorker * workerCount;
 
 	// Configure blocks for tasks that parallel-for bodies
 	int32_t bodyBlockSize = 1 << 5;
@@ -864,145 +795,160 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	// Configure blocks for tasks parallel-for each active graph color
 	// The blocks are a mix of SIMD contact blocks and joint blocks
-	int32_t activeColorIndices[b2_graphColorCount];
+	int activeColorIndices[b2_graphColorCount];
 
-	int32_t colorContactCounts[b2_graphColorCount];
-	int32_t colorContactBlockSizes[b2_graphColorCount];
-	int32_t colorContactBlockCounts[b2_graphColorCount];
+	int colorContactCounts[b2_graphColorCount];
+	int colorContactBlockSizes[b2_graphColorCount];
+	int colorContactBlockCounts[b2_graphColorCount];
 
-	int32_t colorJointCounts[b2_graphColorCount];
-	int32_t colorJointBlockSizes[b2_graphColorCount];
-	int32_t colorJointBlockCounts[b2_graphColorCount];
+	int colorJointCounts[b2_graphColorCount];
+	int colorJointBlockSizes[b2_graphColorCount];
+	int colorJointBlockCounts[b2_graphColorCount];
 
-	int32_t activeColorCount = 0;
-	int32_t graphBlockCount = 0;
-	int32_t contactCount = 0;
-	int32_t jointCount = 0;
+	int graphBlockCount = 0;
 
-	int32_t c = 0;
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	// c is the active color index
+	int simdContactCount = 0;
+	int c = 0;
+	for (int i = 0; i < b2_graphColorCount - 1; ++i)
 	{
-		int32_t colorContactCount = b2Array(colors[i].contactArray).count;
-		int32_t colorJointCount = b2Array(colors[i].jointArray).count;
-
-		graph->occupancy[i] = colorContactCount + colorJointCount;
+		int colorContactCount = colors[i].contacts.count;
+		int colorJointCount = colors[i].joints.count;
 
 		if (colorContactCount + colorJointCount > 0)
 		{
 			activeColorIndices[c] = i;
 
 			// 8-way SIMD
-			int32_t colorContactCountSIMD = colorContactCount > 0 ? ((colorContactCount - 1) >> 3) + 1 : 0;
+			int colorContactCountSIMD = colorContactCount > 0 ? ((colorContactCount - 1) >> 3) + 1 : 0;
 
 			colorContactCounts[c] = colorContactCountSIMD;
-			colorContactBlockSizes[c] = blocksPerWorker;
+
+			// determine the number of contact work blocks for this color
 			if (colorContactCountSIMD > blocksPerWorker * maxBlockCount)
 			{
-				// Too many contact blocks
+				// too many contact blocks
 				colorContactBlockSizes[c] = colorContactCountSIMD / maxBlockCount;
 				colorContactBlockCounts[c] = maxBlockCount;
 			}
 			else if (colorContactCountSIMD > 0)
 			{
+				// dividing by blocksPerWorker (4)
+				colorContactBlockSizes[c] = blocksPerWorker;
 				colorContactBlockCounts[c] = ((colorContactCountSIMD - 1) >> 2) + 1;
 			}
 			else
 			{
+				// no contacts in this color
+				colorContactBlockSizes[c] = 0;
 				colorContactBlockCounts[c] = 0;
 			}
 
 			colorJointCounts[c] = colorJointCount;
-			colorJointBlockSizes[c] = blocksPerWorker;
+
+			// determine number of joint work blocks for this color
 			if (colorJointCount > blocksPerWorker * maxBlockCount)
 			{
-				// Too many joint blocks
+				// too many joint blocks
 				colorJointBlockSizes[c] = colorJointCount / maxBlockCount;
 				colorJointBlockCounts[c] = maxBlockCount;
 			}
 			else if (colorJointCount > 0)
 			{
+				// dividing by blocksPerWorker (4)
+				colorJointBlockSizes[c] = blocksPerWorker;
 				colorJointBlockCounts[c] = ((colorJointCount - 1) >> 2) + 1;
 			}
 			else
 			{
+				colorJointBlockSizes[c] = 0;
 				colorJointBlockCounts[c] = 0;
 			}
 
 			graphBlockCount += colorContactBlockCounts[c] + colorJointBlockCounts[c];
-			contactCount += colorContactCountSIMD;
-			jointCount += colorJointCount;
+			simdContactCount += colorContactCountSIMD;
 			c += 1;
 		}
 	}
 	activeColorCount = c;
 
-	b2ContactConstraintSIMD* contactConstraints =
-		b2AllocateStackItem(world->stackAllocator, contactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
+	// Gather contact pointers for easy parallel-for traversal. Some many be NULL due to SIMD remainders.
+	b2Contact** contacts =
+		b2AllocateStackItem(world->stackAllocator, 8 * simdContactCount * sizeof(b2Contact*), "contact pointers");
 
-	int32_t* contactIndices = b2AllocateStackItem(world->stackAllocator, 8 * contactCount * sizeof(int32_t), "contact indices");
-	int32_t* jointIndices = b2AllocateStackItem(world->stackAllocator, jointCount * sizeof(int32_t), "joint indices");
+	// Gather joint pointers for easy parallel-for traversal.
+	b2Joint** joints =
+		b2AllocateStackItem(world->stackAllocator, awakeJointCount * sizeof(b2Joint*), "joint pointers");
 
-	int32_t overflowContactCount = b2Array(graph->overflow.contactArray).count;
-	graph->occupancy[b2_overflowIndex] = overflowContactCount;
-	graph->overflow.contactConstraints = b2AllocateStackItem(
+	b2ContactConstraintSIMD* simdContactConstraints =
+		b2AllocateStackItem(world->stackAllocator, simdContactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
+
+	graph->colors[b2_overflowIndex].overflowConstraints = b2AllocateStackItem(
 		world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
-	// Distribute transient constraints to each graph color
+	// Distribute transient constraints to each graph color and build flat arrays of contact and joint pointers
 	{
-		int32_t base = 0;
-		int32_t jointBaseIndex = 0;
-		for (int32_t i = 0; i < activeColorCount; ++i)
+		int contactBase = 0;
+		int jointBase = 0;
+		for (int i = 0; i < activeColorCount; ++i)
 		{
-			int32_t j = activeColorIndices[i];
+			int j = activeColorIndices[i];
 			b2GraphColor* color = colors + j;
 
-			int32_t colorJointCount = b2Array(color->jointArray).count;
-			memcpy(jointIndices + jointBaseIndex, color->jointArray, colorJointCount * sizeof(int32_t));
-			jointBaseIndex += colorJointCount;
-
-			int32_t colorContactCount = b2Array(color->contactArray).count;
+			int colorContactCount = color->contacts.count;
 
 			if (colorContactCount == 0)
 			{
-				color->contactConstraints = NULL;
-				continue;
+				color->simdConstraints = NULL;
 			}
-
-			color->contactConstraints = contactConstraints + base;
-
-			for (int32_t k = 0; k < colorContactCount; ++k)
+			else
 			{
-				contactIndices[8 * base + k] = color->contactArray[k];
+				color->simdConstraints = simdContactConstraints + contactBase;
+
+				for (int k = 0; k < colorContactCount; ++k)
+				{
+					contacts[8 * contactBase + k] = color->contacts.data + k;
+				}
+
+				// remainder
+				int colorContactCountSIMD = ((colorContactCount - 1) >> 3) + 1;
+				for (int k = colorContactCount; k < 8 * colorContactCountSIMD; ++k)
+				{
+					contacts[8 * contactBase + k] = NULL;
+				}
+
+				contactBase += colorContactCountSIMD;
 			}
 
-			// remainder
-			int32_t colorContactCountSIMD = ((colorContactCount - 1) >> 3) + 1;
-			for (int32_t k = colorContactCount; k < 8 * colorContactCountSIMD; ++k)
+			int colorJointCount = color->joints.count;
+			for (int k = 0; k < colorJointCount; ++k)
 			{
-				contactIndices[8 * base + k] = B2_NULL_INDEX;
+				joints[jointBase + k] = color->joints.data + k;
 			}
-
-			base += colorContactCountSIMD;
+			jointBase += colorJointCount;
 		}
+
+		B2_ASSERT(contactBase == simdContactCount);
+		B2_ASSERT(jointBase == awakeJointCount);
 	}
 
 	// Define work blocks for preparing contacts and storing contact impulses
-	int32_t contactBlockSize = blocksPerWorker;
-	int32_t contactBlockCount = contactCount > 0 ? ((contactCount - 1) >> 2) + 1 : 0;
-	if (contactCount > contactBlockSize * maxBlockCount)
+	int contactBlockSize = blocksPerWorker;
+	int contactBlockCount = simdContactCount > 0 ? ((simdContactCount - 1) >> 2) + 1 : 0;
+	if (simdContactCount > contactBlockSize * maxBlockCount)
 	{
 		// Too many blocks, increase block size
-		contactBlockSize = contactCount / maxBlockCount;
+		contactBlockSize = simdContactCount / maxBlockCount;
 		contactBlockCount = maxBlockCount;
 	}
 
 	// Define work blocks for preparing joints
-	int32_t jointBlockSize = blocksPerWorker;
-	int32_t jointBlockCount = jointCount > 0 ? ((jointCount - 1) >> 2) + 1 : 0;
-	if (jointCount > jointBlockSize * maxBlockCount)
+	int jointBlockSize = blocksPerWorker;
+	int jointBlockCount = awakeJointCount > 0 ? ((awakeJointCount - 1) >> 2) + 1 : 0;
+	if (awakeJointCount > jointBlockSize * maxBlockCount)
 	{
 		// Too many blocks, increase block size
-		jointBlockSize = jointCount / maxBlockCount;
+		jointBlockSize = awakeJointCount / maxBlockCount;
 		jointBlockCount = maxBlockCount;
 	}
 
@@ -1055,6 +1001,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	// - island indices on bodies, contacts, and joints
 	// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
 	// Note: cannot split islands in parallel with FinalizeBodies
+	#if 0
 	world->splitIslandIndex = splitIslandIndex;
 	void* splitIslandTask = NULL;
 	if (splitIslandIndex != B2_NULL_INDEX)
@@ -1063,6 +1010,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		world->taskCount += 1;
 		world->activeTaskCount += splitIslandTask == NULL ? 0 : 1;
 	}
+	#endif
 
 	// Prepare body work blocks
 	for (int32_t i = 0; i < bodyBlockCount; ++i)
@@ -1087,7 +1035,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	if (jointBlockCount > 0)
 	{
-		jointBlocks[jointBlockCount - 1].count = (int16_t)(jointCount - (jointBlockCount - 1) * jointBlockSize);
+		jointBlocks[jointBlockCount - 1].count = (int16_t)(awakeJointCount - (jointBlockCount - 1) * jointBlockSize);
 	}
 
 	// Prepare contact work blocks
@@ -1102,7 +1050,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	if (contactBlockCount > 0)
 	{
-		contactBlocks[contactBlockCount - 1].count = (int16_t)(contactCount - (contactBlockCount - 1) * contactBlockSize);
+		contactBlocks[contactBlockCount - 1].count = (int16_t)(simdContactCount - (contactBlockCount - 1) * contactBlockSize);
 	}
 
 	// Prepare graph work blocks
@@ -1246,7 +1194,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	context->world = world;
 	context->graph = graph;
-	context->contactConstraints = contactConstraints;
 	context->joints = joints;
 	context->contacts = contacts;
 	context->activeColorCount = activeColorCount;
