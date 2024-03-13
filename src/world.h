@@ -141,7 +141,7 @@ typedef struct b2World
 	int32_t activeTaskCount;
 	int32_t taskCount;
 
-	uint16_t worldIndex;
+	uint16_t worldId;
 
 	bool enableSleep;
 	bool locked;
@@ -150,5 +150,5 @@ typedef struct b2World
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);
-b2World* b2GetWorldFromIndex(uint16_t index);
-b2World* b2GetWorldFromIndexLocked(uint16_t index);
+b2World* b2GetWorldFromIndex(int index);
+b2World* b2GetWorldFromIndexLocked(int index);

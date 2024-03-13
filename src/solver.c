@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 
 typedef struct b2WorkerContext
@@ -178,7 +179,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 	b2Body* bodies = context->bodies;
 	float timeStep = context->dt;
 
-	uint16_t worldIndex = world->worldIndex;
+	uint16_t worldId = world->worldId;
 	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
 
 	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
@@ -210,7 +211,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		moveEvents[i].transform = b2MakeTransform(body);
-		moveEvents[i].bodyId = (b2BodyId){body->bodyId + 1, worldIndex, body->revision};
+		moveEvents[i].bodyId = (b2BodyId){body->bodyId + 1, worldId, body->revision};
 		moveEvents[i].userData = body->userData;
 		moveEvents[i].fellAsleep = false;
 
@@ -718,18 +719,9 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2GraphColor* colors = graph->colors;
 
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
-
-	// Count awake bodies
 	int awakeBodyCount = awakeSet->bodies.count;
 
-	// Prepare world to receive fast bodies from body finalization
-	world->fastBodyCount = 0;
-	world->fastBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
-
-	// Prepare world to receive bullet bodies from body finalization
-	world->bulletBodyCount = 0;
-	world->bulletBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
-
+	// count contacts, joints, and colors
 	int awakeContactCount = 0;
 	int awakeJointCount = 0;
 	int activeColorCount = 0;
@@ -739,14 +731,12 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		int perColorJointCount = colors[i].joints.count;
 		int occupancyCount = perColorContactCount + perColorJointCount;
 		activeColorCount += occupancyCount > 0 ? 1 : 0;
-		graph->occupancy[i] = occupancyCount;
 		awakeContactCount += perColorContactCount;
 		awakeJointCount += perColorJointCount;
 	}
 
 	int overflowContactCount = colors[b2_overflowIndex].contacts.count;
 	int overflowJointCount = colors[b2_overflowIndex].joints.count;
-	graph->occupancy[b2_overflowIndex] = overflowContactCount + overflowJointCount;
 
 	if (awakeBodyCount == 0)
 	{
@@ -756,9 +746,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		B2_ASSERT(overflowJointCount == 0);
 		return false;
 	}
-
-	//b2Body* bodies = awakeSet->bodies.data;
-	//b2BodyState* bodyStates = awakeSet->states.data;
 
 	// Deal with void**
 	{
@@ -877,14 +864,15 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		b2AllocateStackItem(world->stackAllocator, 8 * simdContactCount * sizeof(b2Contact*), "contact pointers");
 
 	// Gather joint pointers for easy parallel-for traversal.
-	b2Joint** joints =
-		b2AllocateStackItem(world->stackAllocator, awakeJointCount * sizeof(b2Joint*), "joint pointers");
+	b2Joint** joints = b2AllocateStackItem(world->stackAllocator, awakeJointCount * sizeof(b2Joint*), "joint pointers");
 
 	b2ContactConstraintSIMD* simdContactConstraints =
 		b2AllocateStackItem(world->stackAllocator, simdContactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
 
-	graph->colors[b2_overflowIndex].overflowConstraints = b2AllocateStackItem(
+	b2ContactConstraint* overflowContactConstraints = b2AllocateStackItem(
 		world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
+
+	graph->colors[b2_overflowIndex].overflowConstraints = overflowContactConstraints;
 
 	// Distribute transient constraints to each graph color and build flat arrays of contact and joint pointers
 	{
@@ -994,14 +982,14 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2SolverBlock* graphBlocks =
 		b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
 
-	// Split an awake island. This modifies:
-	// - stack allocator
-	// - awake island array
-	// - island pool
-	// - island indices on bodies, contacts, and joints
-	// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
-	// Note: cannot split islands in parallel with FinalizeBodies
-	#if 0
+// Split an awake island. This modifies:
+// - stack allocator
+// - awake island array
+// - island pool
+// - island indices on bodies, contacts, and joints
+// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
+// Note: cannot split islands in parallel with FinalizeBodies
+#if 0
 	world->splitIslandIndex = splitIslandIndex;
 	void* splitIslandTask = NULL;
 	if (splitIslandIndex != B2_NULL_INDEX)
@@ -1010,7 +998,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		world->taskCount += 1;
 		world->activeTaskCount += splitIslandTask == NULL ? 0 : 1;
 	}
-	#endif
+#endif
 
 	// Prepare body work blocks
 	for (int32_t i = 0; i < bodyBlockCount; ++i)
@@ -1098,7 +1086,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		}
 	}
 
-	B2_ASSERT((ptrdiff_t)(baseGraphBlock - graphBlocks) == graphBlockCount);
+	ptrdiff_t blockDiff = baseGraphBlock - graphBlocks;
+	B2_ASSERT(blockDiff == graphBlockCount);
 
 	b2SolverStage* stage = stages;
 
@@ -1216,12 +1205,15 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		world->activeTaskCount += workerContext[i].userTask == NULL ? 0 : 1;
 	}
 
-	// Finish split
+// Finish split
+#if 0
+	// #todo islands
 	if (splitIslandTask != NULL)
 	{
 		world->finishTaskFcn(splitIslandTask, world->userTaskContext);
 		world->activeTaskCount -= 1;
 	}
+#endif
 
 	world->splitIslandIndex = B2_NULL_INDEX;
 
@@ -1236,12 +1228,10 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 
 	// Prepare contact, shape, and island bit sets used in body finalization.
-	int32_t contactCapacity = world->contactPool.capacity;
 	int32_t shapeCapacity = world->shapePool.capacity;
-	int32_t islandCapacity = world->islandPool.capacity + splitIslandBodyCount;
+	int32_t islandCapacity = world->islandPool.capacity;
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeContactBitSet, contactCapacity);
 		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
 	}
@@ -1259,26 +1249,19 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2FreeStackItem(world->stackAllocator, contactBlocks);
 	b2FreeStackItem(world->stackAllocator, bodyBlocks);
 	b2FreeStackItem(world->stackAllocator, stages);
-	b2FreeStackItem(world->stackAllocator, graph->overflow.contactConstraints);
-	b2FreeStackItem(world->stackAllocator, jointIndices);
-	b2FreeStackItem(world->stackAllocator, contactIndices);
-	b2FreeStackItem(world->stackAllocator, contactConstraints);
-	b2FreeStackItem(world->stackAllocator, solverToBodyMap);
-	b2FreeStackItem(world->stackAllocator, bodyParams);
-	b2FreeStackItem(world->stackAllocator, bodyStates);
+	b2FreeStackItem(world->stackAllocator, overflowContactConstraints);
+	b2FreeStackItem(world->stackAllocator, simdContactConstraints);
+	b2FreeStackItem(world->stackAllocator, joints);
+	b2FreeStackItem(world->stackAllocator, contacts);
 
 	world->profile.solverTasks = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
 
+#if 0
+	// #todo islands
 	// Prepare awake contact bit set so that putting islands to sleep can clear bits
 	// for the associated contacts.
-	b2BitSet* awakeContactBitSet = &world->taskContextArray[0].awakeContactBitSet;
-	for (uint32_t i = 1; i < world->workerCount; ++i)
-	{
-		b2InPlaceUnion(awakeContactBitSet, &world->taskContextArray[i].awakeContactBitSet);
-	}
-
 	{
 		b2BitSet* awakeIslandBitSet = &world->taskContextArray[0].awakeIslandBitSet;
 		for (uint32_t i = 1; i < world->workerCount; ++i)
@@ -1286,8 +1269,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			b2InPlaceUnion(awakeIslandBitSet, &world->taskContextArray[i].awakeIslandBitSet);
 		}
 
-		b2Contact* contacts = world->contacts;
-		b2Joint* joints = world->joints;
 		b2Island* islands = world->islands;
 
 		int32_t count = b2Array(world->awakeIslandArray).count;
@@ -1375,7 +1356,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		}
 	}
 
-#if B2_VALIDATE
+	#if B2_VALIDATE
 	for (int32_t i = 0; i < world->islandPool.capacity; ++i)
 	{
 		b2Island* island = world->islands + i;
@@ -1386,53 +1367,18 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 		b2ValidateIsland(island, true);
 	}
+	#endif
 #endif
 
 	b2TracyCZoneEnd(awake_islands);
 
-	b2TracyCZoneNC(awake_contacts, "Awake Contacts", b2_colorYellowGreen, true);
-
-	// Build awake contact array
-	{
-		b2Array_Clear(world->awakeContactArray);
-
-		int32_t* contactAwakeIndexArray = world->contactAwakeIndexArray;
-
-		// Iterate the bit set
-		// The order of the awake contact array doesn't matter, but I don't want duplicates. It is possible
-		// that body A or body B or both bodies wake the contact.
-		uint64_t word;
-		uint32_t wordCount = awakeContactBitSet->blockCount;
-		uint64_t* bits = awakeContactBitSet->bits;
-		for (uint32_t k = 0; k < wordCount; ++k)
-		{
-			word = bits[k];
-			while (word != 0)
-			{
-				uint32_t ctz = b2CTZ(word);
-				uint32_t contactIndex = 64 * k + ctz;
-
-				B2_ASSERT(contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
-
-				// This cache miss is brutal but is necessary to make contact destruction reasonably quick.
-				contactAwakeIndexArray[contactIndex] = b2Array(world->awakeContactArray).count;
-
-				// This is fast
-				b2Array_Push(world->awakeContactArray, contactIndex);
-
-				// Clear the smallest set bit
-				word = word & (word - 1);
-			}
-		}
-	}
-
 	world->profile.awakeUpdate = b2GetMilliseconds(&timer);
-
-	b2TracyCZoneEnd(awake_contacts);
 
 	return true;
 }
 
+#if 0
+// #todo continuous
 struct b2ContinuousContext
 {
 	b2World* world;
@@ -1720,6 +1666,7 @@ static void b2BulletBodyTask(int32_t startIndex, int32_t endIndex, uint32_t thre
 
 	b2TracyCZoneEnd(bullet_body_task);
 }
+#endif
 
 // Solve with graph coloring
 void b2Solve(b2World* world, b2StepContext* context)
@@ -1734,9 +1681,20 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
 
+	// Prepare buffers for continuous collision (fast bodies)
+	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+	int awakeBodyCount = awakeSet->bodies.count;
+	world->fastBodyCount = 0;
+	world->fastBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
+	world->bulletBodyCount = 0;
+	world->bulletBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
+
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	// Solve constraints using graph coloring
+	// #todo handle no awake bodies better, I think there are some bitsets that get into a bad
+	// state if no bodies are awake. I should make these operate cleanly even when there are no awake
+	// bodies
 	bool anyAwake = b2SolveConstraintGraph(world, context);
 
 	b2TracyCZoneEnd(graph_solver);
@@ -1812,6 +1770,8 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
 
+	#if 0
+	// #todo continuous
 	// Parallel continuous collision
 	{
 		// fast bodies
@@ -1932,6 +1892,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 			}
 		}
 	}
+	#endif
 
 	b2TracyCZoneEnd(continuous_collision);
 

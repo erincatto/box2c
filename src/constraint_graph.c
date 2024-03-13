@@ -60,73 +60,79 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 	}
 }
 
-b2Contact* b2EmplaceContactInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
+// Contacts are always created as non-touching. They get cloned into the constraint
+// graph once they are found to be touching.
+b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyKeyA = bodyA->bodyId;
-	int bodyKeyB = bodyB->bodyId;
-	b2BodyType typeA = bodyA->type;
-	b2BodyType typeB = bodyB->type;
-	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
+	int bodyIdA = contact->edges[0].bodyId;
+	int bodyIdB = contact->edges[1].bodyId;
+	b2CheckIndex(world->bodyLookupArray, bodyIdA);
+	b2CheckIndex(world->bodyLookupArray, bodyIdB);
+	b2BodyLookup lookupA = world->bodyLookupArray[bodyIdA];
+	b2BodyLookup lookupB = world->bodyLookupArray[bodyIdB];
+	bool staticA = lookupA.setIndex == b2_staticSet;
+	bool staticB = lookupB.setIndex == b2_staticSet;
+	B2_ASSERT(staticA == false || staticB == false);
 
-	if (typeA != b2_staticBody && typeB != b2_staticBody)
+	if (staticA == false && staticB == false)
 	{
-		for (int32_t i = 0; i < b2_overflowIndex; ++i)
+		for (int i = 0; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyKeyA) || b2GetBit(&color->bodySet, bodyKeyB))
+			if (b2GetBit(&color->bodySet, bodyIdA) || b2GetBit(&color->bodySet, bodyIdB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyKeyA);
-			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			b2SetBitGrow(&color->bodySet, bodyIdA);
+			b2SetBitGrow(&color->bodySet, bodyIdB);
 			colorIndex = i;
 			break;
 		}
 	}
-	else if (typeA != b2_staticBody)
+	else if (staticA == false)
 	{
-		// Static contacts never in color 0
-		for (int32_t i = 1; i < b2_overflowIndex; ++i)
+		// No static contacts in color 0
+		for (int i = 1; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyKeyA))
+			if (b2GetBit(&color->bodySet, bodyIdA))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyKeyA);
+			b2SetBitGrow(&color->bodySet, bodyIdA);
 			colorIndex = i;
 			break;
 		}
 	}
-	else if (typeB != b2_staticBody)
+	else if (staticB == false)
 	{
-		// Static contacts never in color 0
-		for (int32_t i = 1; i < b2_overflowIndex; ++i)
+		// No static contacts in color 0
+		for (int i = 1; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyKeyB))
+			if (b2GetBit(&color->bodySet, bodyIdB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			b2SetBitGrow(&color->bodySet, bodyIdB);
 			colorIndex = i;
 			break;
 		}
 	}
 #endif
 
-	b2Contact* contact = b2AddContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
-	memset(contact, 0, sizeof(b2Contact));
-	contact->colorIndex = colorIndex;
-	contact->colorSubIndex = graph->colors[colorIndex].contacts.count - 1;
-	return contact;
+	b2Contact* newContact = b2AddContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
+	memcpy(newContact, contact, sizeof(b2Contact));
+	newContact->colorIndex = colorIndex;
+	newContact->localIndex = graph->colors[colorIndex].contacts.count - 1;
+	return newContact;
 }
 
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
@@ -146,16 +152,16 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		b2ClearBit(&color->bodySet, bodyKeyB);
 	}
 
-	int colorSubIndex = contact->colorSubIndex;
+	int colorSubIndex = contact->localIndex;
 	int movedIndex = b2RemoveContact(&world->blockAllocator, &color->contacts, colorSubIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix index on swapped contact
 		b2Contact* movedContact = color->contacts.data + colorSubIndex;
-		movedContact->colorSubIndex = colorSubIndex;
+		movedContact->localIndex = colorSubIndex;
 
 		// Fix contact lookup for moved contact
-		int movedKey = movedContact->contactKey;
+		int movedKey = movedContact->contactId;
 		B2_ASSERT(0 <= movedKey && movedKey < b2Array(world->contactLookupArray).count);
 		b2ContactLookup* lookup = world->contactLookupArray + movedKey;
 		B2_ASSERT(lookup->setIndex == b2_awakeSet);
@@ -165,7 +171,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	}
 
 	contact->colorIndex = B2_NULL_INDEX;
-	contact->colorSubIndex = B2_NULL_INDEX;
+	contact->localIndex = B2_NULL_INDEX;
 }
 
 b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)

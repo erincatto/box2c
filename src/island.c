@@ -909,7 +909,7 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 				if (isAwake)
 				{
 					B2_ASSERT(contact->colorIndex != B2_NULL_INDEX);
-					B2_ASSERT(contact->colorSubIndex != B2_NULL_INDEX);
+					B2_ASSERT(contact->localIndex != B2_NULL_INDEX);
 
 					// int32_t awakeIndex = world->contactAwakeIndexArray[contactIndex];
 					// B2_ASSERT(0 <= awakeIndex && awakeIndex < b2Array(world->awakeContactArray).count);
@@ -918,7 +918,7 @@ void b2ValidateIsland(b2Island* island, bool checkSleep)
 				else
 				{
 					B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
-					B2_ASSERT(contact->colorSubIndex == B2_NULL_INDEX);
+					B2_ASSERT(contact->localIndex == B2_NULL_INDEX);
 					// B2_ASSERT(world->contactAwakeIndexArray[contactIndex] == B2_NULL_INDEX);
 				}
 			}

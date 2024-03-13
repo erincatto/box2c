@@ -79,7 +79,7 @@ b2Contact* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
 
 	b2Contact* element = array->data + array->count;
 	element->colorIndex = B2_NULL_INDEX;
-	element->colorSubIndex = array->count;
+	element->localIndex = array->count;
 	array->count += 1;
 	return element;
 }
@@ -129,7 +129,7 @@ int b2RemoveContact(b2BlockAllocator* allocator, b2ContactArray* array, int inde
 		int removed = array->count - 1;
 		array->data[index] = array->data[removed];
 		array->data[index].colorIndex = B2_NULL_INDEX;
-		array->data[index].colorSubIndex = index;
+		array->data[index].localIndex = index;
 		array->count -= 1;
 		return removed;
 	}

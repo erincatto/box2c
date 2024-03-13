@@ -289,20 +289,16 @@ typedef struct b2Profile
 /// Counters that give details of the simulation size
 typedef struct b2Counters
 {
-	int32_t bodyCount;
-	int32_t bodyCapacity;
-	int32_t shapeCount;
-	int32_t shapeCapacity;
-	int32_t contactCount;
-	int32_t contactCapacity;
-	int32_t jointCount;
-	int32_t jointCapacity;
-	int32_t islandCount;
-	int32_t stackUsed;
-	int32_t treeHeight;
-	int32_t byteCount;
-	int32_t taskCount;
-	int32_t colorCounts[b2_graphColorCount];
+	int bodyCount;
+	int shapeCount;
+	int contactCount;
+	int jointCount;
+	int islandCount;
+	int stackUsed;
+	int treeHeight;
+	int byteCount;
+	int taskCount;
+	int colorCounts[b2_graphColorCount];
 } b2Counters;
 
 /// Use this to initialize your world definition

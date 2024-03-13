@@ -46,6 +46,9 @@ enum b2ContactFlags
 	// Set when the shapes are touching.
 	b2_contactTouchingFlag = 0x00000002,
 
+	// Contact has a hit event
+	b2_contactHitEventFlag = 0x00000004,
+
 	// One of the shapes is a sensor
 	b2_contactSensorFlag = 0x00000010,
 
@@ -73,15 +76,15 @@ enum b2ContactFlags
 /// that has no contact points.
 typedef struct b2Contact
 {
-	int contactKey;
+	int contactId;
 
 	uint32_t flags;
 
 	// The color of this constraint in the graph coloring
 	int colorIndex;
 
-	// Index of contact within color
-	int colorSubIndex;
+	// Index of contact within color or within b2SolverSet contact array (non-touching or sleeping)
+	int localIndex;
 
 	b2ContactEdge edges[2];
 

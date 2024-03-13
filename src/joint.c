@@ -349,7 +349,7 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
 	}
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 
@@ -388,7 +388,7 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
 	}
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 
@@ -420,7 +420,7 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 	joint->mouseJoint.hertz = def->hertz;
 	joint->mouseJoint.dampingRatio = def->dampingRatio;
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 
@@ -469,7 +469,7 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
 	}
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 
@@ -518,7 +518,7 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
 	}
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 
@@ -560,7 +560,7 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
 	}
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 
@@ -610,7 +610,7 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
 	}
 
-	b2JointId jointId = {joint->object.index + 1, world->worldIndex, joint->object.revision};
+	b2JointId jointId = {joint->object.index + 1, world->worldId, joint->object.revision};
 	return jointId;
 }
 

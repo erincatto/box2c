@@ -48,7 +48,7 @@ b2BodyId b2MakeBodyId(b2World* world, int bodyKey)
 	B2_ASSERT(0 <= bodyKey && bodyKey < b2Array(world->bodyLookupArray).count);
 	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
 	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
-	return (b2BodyId){bodyKey + 1, world->worldIndex, lookup.revision};
+	return (b2BodyId){bodyKey + 1, world->worldId, lookup.revision};
 }
 
 b2BodyState* b2GetBodyState(b2World* world, int bodyId)
@@ -367,7 +367,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		revision = lookup->revision;
 	}
 
-	b2BodyId id = {bodyKey + 1, world->worldIndex, revision};
+	b2BodyId id = {bodyKey + 1, world->worldId, revision};
 	return id;
 }
 

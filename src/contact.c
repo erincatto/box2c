@@ -228,7 +228,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	// Contacts are created as non-touching. Later if they are found to be touching
 	// they will link islands and be moved into the constraint graph.
 	b2Contact* contact = b2AddContact(&world->blockAllocator, &set->contacts);
-	contact->contactKey = contactKey;
+	contact->contactId = contactKey;
 	contact->flags = 0;
 
 	if (shapeA->isSensor || shapeB->isSensor)
@@ -342,7 +342,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		nextEdge->prevKey = edgeA->prevKey;
 	}
 
-	int contactKey = contact->contactKey;
+	int contactKey = contact->contactId;
 
 	int32_t edgeKeyA = (contactKey << 1) | 0;
 	if (bodyA->contactList == edgeKeyA)
@@ -396,8 +396,8 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		if (movedIndex != B2_NULL_INDEX)
 		{
 			b2Contact* movedContact = set->contacts.data + lookup->contactIndex;
-			movedContact->colorSubIndex = lookup->contactIndex;
-			int movedKey = movedContact->contactKey;
+			movedContact->localIndex = lookup->contactIndex;
+			int movedKey = movedContact->contactId;
 			b2ContactLookup* movedLookup = world->contactLookupArray + movedKey;
 			movedLookup->contactIndex = lookup->contactIndex;
 		}
@@ -465,8 +465,8 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 	B2_ASSERT(shapeA->object.index == contact->shapeIndexA);
 	B2_ASSERT(shapeB->object.index == contact->shapeIndexB);
 
-	b2ShapeId shapeIdA = {shapeA->object.index, world->worldIndex, shapeA->object.revision};
-	b2ShapeId shapeIdB = {shapeB->object.index, world->worldIndex, shapeB->object.revision};
+	b2ShapeId shapeIdA = {shapeA->object.index, world->worldId, shapeA->object.revision};
+	b2ShapeId shapeIdB = {shapeB->object.index, world->worldId, shapeB->object.revision};
 
 	bool touching = false;
 	contact->manifold.pointCount = 0;
