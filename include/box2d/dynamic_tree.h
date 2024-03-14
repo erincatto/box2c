@@ -4,10 +4,10 @@
 #pragma once
 
 #include "api.h"
-#include "constants.h"
 #include "math_types.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define b2_defaultCategoryBits (0x00000001)
 #define b2_defaultMaskBits (0xFFFFFFFF)

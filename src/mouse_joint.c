@@ -5,6 +5,7 @@
 #include "core.h"
 #include "joint.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "world.h"
 
 // needed for dll export
@@ -45,17 +46,30 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
-	int32_t indexB = base->edges[1].bodyIndex;
-	B2_ASSERT(0 <= indexB && indexB < context->bodyCapacity);
+	// chase body id to the solver set where the body lives
+	int idB = base->edges[1].bodyId;
 
-	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(bodyB->object.index == bodyB->object.next);
+	b2World* world = context->world;
+	b2BodyLookup* lookup = world->bodyLookupArray;
+
+	b2CheckIndex(lookup, idB);
+
+	b2BodyLookup lookupB = lookup[idB];
+
+	B2_ASSERT(lookupB.setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+
+	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+
+	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
 
 	base->invMassB = bodyB->invMass;
 	base->invIB = bodyB->invI;
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	joint->indexB = bodyB->solverIndex;
+	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
 	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
 
 	joint->linearSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
@@ -97,7 +111,7 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 
 	b2MouseJoint* joint = &base->mouseJoint;
 
-	b2BodyState* stateB = context->bodyStates + joint->indexB;
+	b2BodyState* stateB = context->states + joint->indexB;
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
@@ -117,7 +131,7 @@ void b2SolveMouseJoint(b2Joint* base, b2StepContext* context)
 	float iB = base->invIB;
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	b2BodyState* stateB = context->bodyStates + joint->indexB;
+	b2BodyState* stateB = context->states + joint->indexB;
 
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;

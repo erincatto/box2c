@@ -136,6 +136,9 @@ typedef struct b2World
 
 	void* userTreeTask;
 
+	// Remember type step used for reporting forces and torques
+	float inv_h;
+
 	int32_t splitIslandIndex;
 
 	int32_t activeTaskCount;

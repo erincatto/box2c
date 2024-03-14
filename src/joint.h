@@ -208,7 +208,7 @@ typedef struct b2WheelJoint
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
 {
-	int jointKey;
+	int jointId;
 
 	b2JointType type;
 	b2JointEdge edges[2];
@@ -244,6 +244,7 @@ typedef struct b2Joint
 	void* userData;
 
 	float drawSize;
+	uint16_t revision;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
@@ -251,7 +252,7 @@ typedef struct b2Joint
 b2Joint* b2GetJointFromKey(b2World* world, int32_t jointKey);
 b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
 b2Joint* b2GetJointCheckType(b2JointId jointId, b2JointType type);
-void b2DestroyJointInternal(b2World* world, b2Joint* joint);
+void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);

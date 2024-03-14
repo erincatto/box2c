@@ -173,7 +173,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->userTreeTask = NULL;
 	world->splitIslandIndex = B2_NULL_INDEX;
 
-
 	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL)
 	{
 		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
@@ -301,9 +300,6 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			// becomes awake
 		}
 
-		b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyId);
-		b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyId);
-
 		// Do proxies still overlap?
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
 		if (overlap == false)
@@ -317,8 +313,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
-			b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyId);
-			b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyId);
+			b2Body* bodyA = b2GetBodyFromRawId(world, shapeA->bodyId);
+			b2Body* bodyB = b2GetBodyFromRawId(world, shapeB->bodyId);
 			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
@@ -358,9 +354,9 @@ static void b2SyncContactLookup(b2World* world, b2Contact* contact, int setIndex
 {
 	B2_ASSERT(0 <= contact->contactId && contact->contactId < b2Array(world->contactLookupArray).count);
 	b2ContactLookup* lookup = world->contactLookupArray + contact->contactId;
+	lookup->setIndex = setIndex;
 	lookup->colorIndex = contact->colorIndex;
 	lookup->contactIndex = contact->localIndex;
-	lookup->setIndex = setIndex;
 }
 
 static b2Contact* b2AddNonTouchingContact(b2World* world, b2Contact* contact, int setIndex)
@@ -652,6 +648,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 		context.h = 0.0f;
 		context.inv_h = 0.0f;
 	}
+
+	world->inv_h = context.inv_h;
 
 	// Hertz values get reduced for large time steps
 	float contactHertz = B2_MIN(world->contactHertz, 0.25f * context.inv_h);
@@ -1394,7 +1392,7 @@ static bool TreeOverlapCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 
 	B2_ASSERT(shape->object.index == shape->object.next);
 
-	b2Body* body = b2GetBodyFromKey(world, shape->bodyId);
+	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
 
 	b2DistanceInput input;
 	input.proxyA = worldContext->proxy;
@@ -1515,7 +1513,7 @@ static float RayCastCallback(const b2RayCastInput* input, int32_t proxyId, int32
 		return input->maxFraction;
 	}
 
-	b2Body* body = b2GetBodyFromKey(world, shape->bodyId);
+	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2RayCastShape(input, shape, transform);
@@ -1623,7 +1621,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int32_t proxyId, i
 		return input->maxFraction;
 	}
 
-	b2Body* body = b2GetBodyFromKey(world, shape->bodyId);
+	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2ShapeCastShape(input, shape, transform);

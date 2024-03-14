@@ -7,6 +7,7 @@
 #include "core.h"
 #include "joint.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "world.h"
 
 // needed for dll export
@@ -35,13 +36,31 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
-	int32_t indexA = base->edges[0].bodyIndex;
-	int32_t indexB = base->edges[1].bodyIndex;
-	b2Body* bodyA = context->bodies + indexA;
-	b2Body* bodyB = context->bodies + indexB;
+	// chase body id to the solver set where the body lives
+	int idA = base->edges[0].bodyId;
+	int idB = base->edges[1].bodyId;
 
-	B2_ASSERT(b2IsValidObject(&bodyA->object));
-	B2_ASSERT(b2IsValidObject(&bodyB->object));
+	b2World* world = context->world;
+	b2BodyLookup* lookup = world->bodyLookupArray;
+
+	b2CheckIndex(lookup, idA);
+	b2CheckIndex(lookup, idB);
+
+	b2BodyLookup lookupA = lookup[idA];
+	b2BodyLookup lookupB = lookup[idB];
+
+	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
+	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+
+	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
+	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+
+	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->bodies.count);
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+
+	b2Body* bodyA = setA->bodies.data + lookupA.bodyIndex;
+	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -55,8 +74,8 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	joint->indexA = bodyA->solverIndex;
-	joint->indexB = bodyB->solverIndex;
+	joint->indexA = lookupA.setIndex == b2_awakeSet ? lookupA.bodyIndex : B2_NULL_INDEX;
+	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
 
 	// initial anchors in world space
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
@@ -97,8 +116,8 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
-	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
 	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
 	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
@@ -129,8 +148,8 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
-	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 	
 	b2Vec2 vA = stateA->linearVelocity;
 	float wA = stateA->angularVelocity;
@@ -329,21 +348,15 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 {
 	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
 
-	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2World* world = b2GetWorldFromIndex(jointId.world0);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return 0.0f;
 	}
 
-	int32_t indexA = base->edges[0].bodyIndex;
-	int32_t indexB = base->edges[1].bodyIndex;
-	b2Body* bodyA = world->bodies + indexA;
-	b2Body* bodyB = world->bodies + indexB;
-
-	B2_ASSERT(b2IsValidObject(&bodyA->object));
-	B2_ASSERT(b2IsValidObject(&bodyB->object));
-
+	b2Body* bodyA = b2GetBodyFromRawId(world, base->edges[0].bodyId);
+	b2Body* bodyB = b2GetBodyFromRawId(world, base->edges[1].bodyId);
 	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localOriginAnchorB);
 	b2Vec2 d = b2Sub(pB, pA);

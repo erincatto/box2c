@@ -114,7 +114,7 @@ void b2InitializeContactRegisters(void);
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
 
-b2Contact* b2GetContactFromKey(b2World* world, int contactKey);
+b2Contact* b2GetContactFromRawId(b2World* world, int contactKey);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

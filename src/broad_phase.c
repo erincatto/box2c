@@ -227,8 +227,8 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 
 	int32_t bodyIdA = shapeA->bodyId;
 	int32_t bodyIdB = shapeB->bodyId;
-	b2Body* bodyA = b2GetBodyFromKey(world, bodyIdA);
-	b2Body* bodyB = b2GetBodyFromKey(world, bodyIdB);
+	b2Body* bodyA = b2GetBodyFromRawId(world, bodyIdA);
+	b2Body* bodyB = b2GetBodyFromRawId(world, bodyIdB);
 
 	// Does a joint override collision? Is at least one body dynamic?
 	// #todo this could be a hash set

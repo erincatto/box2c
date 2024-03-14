@@ -33,3 +33,4 @@ typedef struct b2SolverSet
 } b2SolverSet;
 
 void b2WakeSolverSet(b2World* world, int setIndex);
+void b2MergeSolverSets(b2World* world, int setIndex1, int setIndex2);

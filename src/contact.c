@@ -208,8 +208,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	// Contacts should only be created from an awake body
 	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
 
-	b2Body* bodyA = b2GetBodyFromKey(world, shapeA->bodyId);
-	b2Body* bodyB = b2GetBodyFromKey(world, shapeB->bodyId);
+	b2Body* bodyA = b2GetBodyFromRawId(world, shapeA->bodyId);
+	b2Body* bodyB = b2GetBodyFromRawId(world, shapeB->bodyId);
 
 	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
 
@@ -272,7 +272,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		int32_t keyA = (contactKey << 1) | 0;
 		if (bodyA->contactList != B2_NULL_INDEX)
 		{
-			b2Contact* contactA = b2GetContactFromKey(world, bodyA->contactList >> 1);
+			b2Contact* contactA = b2GetContactFromRawId(world, bodyA->contactList >> 1);
 			b2ContactEdge* edgeA = contactA->edges + (bodyA->contactList & 1);
 			edgeA->prevKey = keyA;
 		}
@@ -289,7 +289,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		int32_t keyB = (contactKey << 1) | 1;
 		if (bodyB->contactList != B2_NULL_INDEX)
 		{
-			b2Contact* contactB = b2GetContactFromKey(world, bodyB->contactList >> 1);
+			b2Contact* contactB = b2GetContactFromRawId(world, bodyB->contactList >> 1);
 			b2ContactEdge* edgeB = contactB->edges + (bodyB->contactList & 1);
 			edgeB->prevKey = keyB;
 		}
@@ -319,8 +319,8 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2ContactEdge* edgeA = contact->edges + 0;
 	b2ContactEdge* edgeB = contact->edges + 1;
 
-	b2Body* bodyA = b2GetBodyFromKey(world, edgeA->bodyId);
-	b2Body* bodyB = b2GetBodyFromKey(world, edgeB->bodyId);
+	b2Body* bodyA = b2GetBodyFromRawId(world, edgeA->bodyId);
+	b2Body* bodyB = b2GetBodyFromRawId(world, edgeB->bodyId);
 
 	// if (contactListener && contact->IsTouching())
 	//{
@@ -330,14 +330,14 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	// Remove from body A
 	if (edgeA->prevKey != B2_NULL_INDEX)
 	{
-		b2Contact* prevContact = b2GetContactFromKey(world, edgeA->prevKey >> 1);
+		b2Contact* prevContact = b2GetContactFromRawId(world, edgeA->prevKey >> 1);
 		b2ContactEdge* prevEdge = prevContact->edges + (edgeA->prevKey & 1);
 		prevEdge->nextKey = edgeA->nextKey;
 	}
 
 	if (edgeA->nextKey != B2_NULL_INDEX)
 	{
-		b2Contact* nextContact = b2GetContactFromKey(world, edgeA->nextKey >> 1);
+		b2Contact* nextContact = b2GetContactFromRawId(world, edgeA->nextKey >> 1);
 		b2ContactEdge* nextEdge = nextContact->edges + (edgeA->nextKey & 1);
 		nextEdge->prevKey = edgeA->prevKey;
 	}
@@ -355,14 +355,14 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	// Remove from body B
 	if (edgeB->prevKey != B2_NULL_INDEX)
 	{
-		b2Contact* prevContact = b2GetContactFromKey(world, edgeB->prevKey >> 1);
+		b2Contact* prevContact = b2GetContactFromRawId(world, edgeB->prevKey >> 1);
 		b2ContactEdge* prevEdge = prevContact->edges + (edgeB->prevKey & 1);
 		prevEdge->nextKey = edgeB->nextKey;
 	}
 
 	if (edgeB->nextKey != B2_NULL_INDEX)
 	{
-		b2Contact* nextContact = b2GetContactFromKey(world, edgeB->nextKey >> 1);
+		b2Contact* nextContact = b2GetContactFromRawId(world, edgeB->nextKey >> 1);
 		b2ContactEdge* nextEdge = nextContact->edges + (edgeB->nextKey & 1);
 		nextEdge->prevKey = edgeB->prevKey;
 	}
@@ -411,7 +411,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2WakeBody(world, edgeB->bodyId);
 }
 
-b2Contact* b2GetContactFromKey(b2World* world, int contactKey)
+b2Contact* b2GetContactFromRawId(b2World* world, int contactKey)
 {
 	B2_ASSERT(0 <= contactKey && contactKey < b2Array(world->contactLookupArray).count);
 	b2ContactLookup lookup = world->contactLookupArray[contactKey];

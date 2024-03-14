@@ -267,7 +267,7 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 		movedJoint->colorSubIndex = colorSubIndex;
 
 		// Fix contact lookup for moved contact
-		int key = movedJoint->jointKey;
+		int key = movedJoint->jointId;
 		B2_ASSERT(0 <= key && key < b2Array(world->jointLookupArray).count);
 		b2JointLookup* lookup = world->jointLookupArray + key;
 		B2_ASSERT(lookup->setIndex == b2_awakeSet);

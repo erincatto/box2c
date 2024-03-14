@@ -49,25 +49,8 @@ typedef struct b2BodyState
 // Identity body state, notice the deltaRotation is {0, 1}
 static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 
-#if 0
-// Holds extra data needed by the constraint solver, but not in the SIMD contact solver
-typedef struct b2BodyParam
-{
-	float invMass;
-	float invI;
-	float linearDamping;
-	float angularDamping;
-
-	// force, torque, and gravity to be applied each sub-step
-	b2Vec2 linearVelocityDelta;
-	float angularVelocityDelta;
-
-
-	b2BodyId bodyId;
-} b2BodyParam;
-#endif
-
 // A rigid body
+// todo perhaps split out the transform
 typedef struct b2Body
 {
 	void* userData;
@@ -143,13 +126,16 @@ typedef struct b2Body
 } b2Body;
 
 b2Body* b2GetBody(b2World* world, b2BodyId bodyId);
-b2Body* b2GetBodyFromKey(b2World* world, int bodyKey);
+b2Body* b2GetBodyFromRawId(b2World* world, int bodyKey);
 b2BodyId b2MakeBodyId(b2World* world, int bodyKey);
 b2BodyState* b2GetBodyState(b2World* world, int bodyId);
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 bool b2IsBodyAwake(b2World* world, int bodyId);
+
+// careful calling this because it can invalidate body, state, joint, and contact pointers
 bool b2WakeBody(b2World* world, int bodyId);
+
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
 static inline b2Transform b2MakeTransform(const b2Body* body)
