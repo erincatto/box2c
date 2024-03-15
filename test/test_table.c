@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "test_macros.h"
+#include "ctz.h"
 #include "table.h"
+#include "test_macros.h"
+
 #include "box2d/timer.h"
 
 #include <stdatomic.h>
@@ -12,6 +14,12 @@
 
 int TableTest(void)
 {
+	int power = b2BoundingPowerOf2(3008);
+	ENSURE(power == 12);
+
+	int nextPowerOf2 = b2RoundUpPowerOf2(3008);
+	ENSURE(nextPowerOf2 == (1 << power));
+
 	const int32_t N = SET_SPAN;
 	const uint32_t itemCount = ITEM_COUNT;
 	bool removed[ITEM_COUNT] = {0};

@@ -217,7 +217,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	}
 
 	// Create joint key and lookup
-	int jointId = b2AllocateId(&world->jointIdPool);
+	int jointId = b2AllocId(&world->jointIdPool);
 	if (jointId == b2Array(world->jointLookupArray).count)
 	{
 		b2Array_Push(world->jointLookupArray, (b2JointLookup){0});
@@ -262,7 +262,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	bodyB->jointList = keyB;
 	bodyB->jointCount += 1;
 
-	joint->islandIndex = B2_NULL_INDEX;
+	joint->islandId = B2_NULL_INDEX;
 	joint->islandPrev = B2_NULL_INDEX;
 	joint->islandNext = B2_NULL_INDEX;
 

@@ -174,7 +174,7 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	contact->localIndex = B2_NULL_INDEX;
 }
 
-b2Joint* b2EmplaceJointInGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
+b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;

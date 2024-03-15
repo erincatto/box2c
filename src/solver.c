@@ -261,8 +261,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		// Any single body in an island can keep it awake
 		if (body->sleepTime < b2_timeToSleep)
 		{
-			B2_ASSERT(0 <= body->islandIndex && body->islandIndex < world->islandPool.capacity);
-			b2SetBit(awakeIslandBitSet, body->islandIndex);
+			b2SetBit(awakeIslandBitSet, body->islandId);
 		}
 
 		// Update shapes AABBs
@@ -861,16 +860,16 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	// Gather contact pointers for easy parallel-for traversal. Some many be NULL due to SIMD remainders.
 	b2Contact** contacts =
-		b2AllocateStackItem(world->stackAllocator, 8 * simdContactCount * sizeof(b2Contact*), "contact pointers");
+		b2AllocateStackItem(&world->stackAllocator, 8 * simdContactCount * sizeof(b2Contact*), "contact pointers");
 
 	// Gather joint pointers for easy parallel-for traversal.
-	b2Joint** joints = b2AllocateStackItem(world->stackAllocator, awakeJointCount * sizeof(b2Joint*), "joint pointers");
+	b2Joint** joints = b2AllocateStackItem(&world->stackAllocator, awakeJointCount * sizeof(b2Joint*), "joint pointers");
 
 	b2ContactConstraintSIMD* simdContactConstraints =
-		b2AllocateStackItem(world->stackAllocator, simdContactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
+		b2AllocateStackItem(&world->stackAllocator, simdContactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
 
 	b2ContactConstraint* overflowContactConstraints = b2AllocateStackItem(
-		world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
+		&world->stackAllocator, overflowContactCount * sizeof(b2ContactConstraint), "overflow contact constraint");
 
 	graph->colors[b2_overflowIndex].overflowConstraints = overflowContactConstraints;
 
@@ -973,14 +972,14 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	// b2_stageStoreImpulses
 	stageCount += 1;
 
-	b2SolverStage* stages = b2AllocateStackItem(world->stackAllocator, stageCount * sizeof(b2SolverStage), "stages");
-	b2SolverBlock* bodyBlocks = b2AllocateStackItem(world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
+	b2SolverStage* stages = b2AllocateStackItem(&world->stackAllocator, stageCount * sizeof(b2SolverStage), "stages");
+	b2SolverBlock* bodyBlocks = b2AllocateStackItem(&world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
 	b2SolverBlock* contactBlocks =
-		b2AllocateStackItem(world->stackAllocator, contactBlockCount * sizeof(b2SolverBlock), "contact blocks");
+		b2AllocateStackItem(&world->stackAllocator, contactBlockCount * sizeof(b2SolverBlock), "contact blocks");
 	b2SolverBlock* jointBlocks =
-		b2AllocateStackItem(world->stackAllocator, jointBlockCount * sizeof(b2SolverBlock), "joint blocks");
+		b2AllocateStackItem(&world->stackAllocator, jointBlockCount * sizeof(b2SolverBlock), "joint blocks");
 	b2SolverBlock* graphBlocks =
-		b2AllocateStackItem(world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
+		b2AllocateStackItem(&world->stackAllocator, graphBlockCount * sizeof(b2SolverBlock), "graph blocks");
 
 // Split an awake island. This modifies:
 // - stack allocator
@@ -1215,7 +1214,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 #endif
 
-	world->splitIslandIndex = B2_NULL_INDEX;
+	context->splitIslandIndex = B2_NULL_INDEX;
 
 	// Finish solve
 	for (int32_t i = 0; i < workerCount; ++i)
@@ -1229,11 +1228,11 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	// Prepare contact, shape, and island bit sets used in body finalization.
 	int32_t shapeCapacity = world->shapePool.capacity;
-	int32_t islandCapacity = world->islandPool.capacity;
+	int32_t islandCount = awakeSet->islands.count;
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCount);
 	}
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
@@ -1244,15 +1243,15 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		world->finishTaskFcn(finalizeBodiesTask, world->userTaskContext);
 	}
 
-	b2FreeStackItem(world->stackAllocator, graphBlocks);
-	b2FreeStackItem(world->stackAllocator, jointBlocks);
-	b2FreeStackItem(world->stackAllocator, contactBlocks);
-	b2FreeStackItem(world->stackAllocator, bodyBlocks);
-	b2FreeStackItem(world->stackAllocator, stages);
-	b2FreeStackItem(world->stackAllocator, overflowContactConstraints);
-	b2FreeStackItem(world->stackAllocator, simdContactConstraints);
-	b2FreeStackItem(world->stackAllocator, joints);
-	b2FreeStackItem(world->stackAllocator, contacts);
+	b2FreeStackItem(&world->stackAllocator, graphBlocks);
+	b2FreeStackItem(&world->stackAllocator, jointBlocks);
+	b2FreeStackItem(&world->stackAllocator, contactBlocks);
+	b2FreeStackItem(&world->stackAllocator, bodyBlocks);
+	b2FreeStackItem(&world->stackAllocator, stages);
+	b2FreeStackItem(&world->stackAllocator, overflowContactConstraints);
+	b2FreeStackItem(&world->stackAllocator, simdContactConstraints);
+	b2FreeStackItem(&world->stackAllocator, joints);
+	b2FreeStackItem(&world->stackAllocator, contacts);
 
 	world->profile.solverTasks = b2GetMillisecondsAndReset(&timer);
 
@@ -1675,7 +1674,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2Timer timer = b2CreateTimer();
 
-	world->stepId += 1;
+	world->stepIndex += 1;
 
 	b2MergeAwakeIslands(world);
 
@@ -1685,9 +1684,9 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	int awakeBodyCount = awakeSet->bodies.count;
 	world->fastBodyCount = 0;
-	world->fastBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
+	world->fastBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
 	world->bulletBodyCount = 0;
-	world->bulletBodies = b2AllocateStackItem(world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
+	world->bulletBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
 
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
@@ -1739,7 +1738,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 			word = bits[k];
 			while (word != 0)
 			{
-				uint32_t ctz = b2CTZ(word);
+				uint32_t ctz = b2CTZ64(word);
 				uint32_t shapeIndex = 64 * k + ctz;
 
 				b2Shape* shape = shapes + shapeIndex;
@@ -1896,11 +1895,11 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(continuous_collision);
 
-	b2FreeStackItem(world->stackAllocator, world->bulletBodies);
+	b2FreeStackItem(&world->stackAllocator, world->bulletBodies);
 	world->bulletBodies = NULL;
 	world->bulletBodyCount = 0;
 
-	b2FreeStackItem(world->stackAllocator, world->fastBodies);
+	b2FreeStackItem(&world->stackAllocator, world->fastBodies);
 	world->fastBodies = NULL;
 	world->fastBodyCount = 0;
 

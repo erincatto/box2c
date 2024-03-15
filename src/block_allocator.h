@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #define b2_blockPowerCount 11
 
 // This is a block allocator used for allocating objects that persist for more than one time step. Allocations
@@ -30,3 +32,5 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int size);
 
 // Free memory. This will use b2Free if the size is larger than b2_maxBlockSize.
 void b2FreeBlock(b2BlockAllocator* allocator, void* memory, int size);
+
+bool b2ValidateBlockAllocator(b2BlockAllocator* allocator);

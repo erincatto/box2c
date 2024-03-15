@@ -12,10 +12,10 @@ typedef struct b2World b2World;
 typedef struct b2Joint b2Joint;
 typedef struct b2Contact b2Contact;
 
-// map from b2BodyId to body set and index
+// map from b2BodyId/int to solver set and index
 typedef struct b2BodyLookup
 {
-	// index of body set stored in b2World
+	// index of solver set stored in b2World
 	// may be B2_NULL_INDEX
 	int setIndex;
 
@@ -88,8 +88,8 @@ typedef struct b2Body
 	int contactList;
 	int contactCount;
 
-	// A non-static body is always in an island. B2_NULL_INDEX for static bodies.
-	int islandIndex;
+	// A non-static body is always in an island. B2_NULL_INDEX for static and disabled bodies.
+	int islandId;
 
 	// Doubly linked island list
 	int islandPrev;

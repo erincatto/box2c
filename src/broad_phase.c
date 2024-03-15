@@ -331,7 +331,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 
 	b2TracyCZoneNC(update_pairs, "Pairs", b2_colorFuchsia, true);
 
-	b2StackAllocator* alloc = world->stackAllocator;
+	b2StackAllocator* alloc = &world->stackAllocator;
 
 	bp->moveResults = b2AllocateStackItem(alloc, moveCount * sizeof(b2MoveResult), "move results");
 	bp->movePairCapacity = 16 * moveCount;

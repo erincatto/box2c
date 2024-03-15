@@ -53,7 +53,7 @@ typedef enum b2SolverBlockType
 // increases monotonically.
 typedef struct b2SolverBlock
 {
-	int32_t startIndex;
+	int startIndex;
 	int16_t count;
 	int16_t blockType; // b2SolverBlockType
 	_Atomic int syncIndex;
@@ -65,8 +65,8 @@ typedef struct b2SolverStage
 {
 	b2SolverStageType type;
 	b2SolverBlock* blocks;
-	int32_t blockCount;
-	int32_t colorIndex;
+	int blockCount;
+	int colorIndex;
 	_Atomic int completionCount;
 } b2SolverStage;
 
@@ -83,7 +83,7 @@ typedef struct b2StepContext
 	float h;
 	float inv_h;
 
-	int32_t subStepCount;
+	int subStepCount;
 
 	b2Softness jointSoftness;
 	b2Softness contactSoftness;
@@ -112,11 +112,12 @@ typedef struct b2StepContext
 	b2Contact** contacts;
 
 	struct b2ContactConstraintSIMD* contactConstraints;
-	int32_t activeColorCount;
-	int32_t workerCount;
+	int activeColorCount;
+	int workerCount;
 
 	b2SolverStage* stages;
-	int32_t stageCount;
+	int stageCount;
+	int splitIslandIndex;
 
 	// sync index (16-bits) | stage type (16-bits)
 	_Atomic unsigned int syncBits;

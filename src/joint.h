@@ -213,7 +213,7 @@ typedef struct b2Joint
 	b2JointType type;
 	b2JointEdge edges[2];
 
-	int islandIndex;
+	int islandId;
 	int islandPrev;
 	int islandNext;
 

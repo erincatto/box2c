@@ -97,7 +97,7 @@ typedef struct b2Contact
 	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
 	int islandPrev;
 	int islandNext;
-	int islandIndex;
+	int islandId;
 
 	// Mixed friction and restitution
 	float friction;

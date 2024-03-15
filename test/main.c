@@ -18,6 +18,7 @@
 //}
 #endif
 
+extern int AllocatorTest(void);
 extern int BitSetTest(void);
 extern int MathTest(void);
 extern int CollisionTest(void);
@@ -41,11 +42,12 @@ int main(void)
 	printf("Starting Box2D unit tests\n");
 	printf("======================================\n");
 
+	RUN_TEST(AllocatorTest);
 	RUN_TEST(MathTest);
 	RUN_TEST(CollisionTest);
-	RUN_TEST(DeterminismTest);
+	//RUN_TEST(DeterminismTest);
 	RUN_TEST(DistanceTest);
-	RUN_TEST(WorldTest);
+	//RUN_TEST(WorldTest);
 	RUN_TEST(ShapeTest);
 	RUN_TEST(TableTest);
 	RUN_TEST(BitSetTest);

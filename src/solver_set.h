@@ -18,6 +18,7 @@ typedef struct b2World b2World;
 // - all further sets are sleeping island sets along with their contacts and joints
 typedef struct b2SolverSet
 {
+	// Body array. Empty for unused set.
 	b2BodyArray bodies;
 
 	// Body state only exists for active set
@@ -30,6 +31,10 @@ typedef struct b2SolverSet
 	// For the awake set this holds the non-touching awake contacts.
 	// For the
 	b2ContactArray contacts;
+
+	// The awake set has an array of islands. Sleeping sets have a single islands.
+	// The static and disabled sets have no islands.
+	b2IslandArray islands;
 } b2SolverSet;
 
 void b2WakeSolverSet(b2World* world, int setIndex);

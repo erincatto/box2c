@@ -52,3 +52,8 @@
 			return 1; \
 		} \
 	} while (false)
+
+#define ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
+
+/// Used to prevent the compiler from warning about unused variables
+#define MAYBE_UNUSED(x) ((void)(x))

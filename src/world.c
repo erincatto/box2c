@@ -119,7 +119,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
-
 	b2CreateBroadPhase(&world->broadPhase);
 	b2CreateGraph(&world->constraintGraph, &world->blockAllocator, def->bodyCapacity);
 
@@ -145,18 +144,16 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->jointIdPool = b2CreateIdPool();
 	world->jointLookupArray = b2CreateArray(sizeof(b2JointLookup), 16);
 
-	world->islandPool = b2CreatePool(sizeof(b2Island), B2_MAX(def->bodyCapacity, 1));
-	world->islands = (b2Island*)world->islandPool.memory;
+	world->islandIdPool = b2CreateIdPool();
+	world->islandLookupArray = b2CreateArray(sizeof(b2IslandLookup), 8);
 
 	world->bodyMoveEventArray = b2CreateArray(sizeof(b2BodyMoveEvent), 4);
-
 	world->sensorBeginEventArray = b2CreateArray(sizeof(b2SensorBeginTouchEvent), 4);
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
-
 	world->contactBeginArray = b2CreateArray(sizeof(b2ContactBeginTouchEvent), 4);
 	world->contactEndArray = b2CreateArray(sizeof(b2ContactEndTouchEvent), 4);
 
-	world->stepId = 0;
+	world->stepIndex = 0;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
 	world->gravity = def->gravity;
@@ -171,7 +168,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->enableWarmStarting = true;
 	world->enableContinuous = def->enableContinous;
 	world->userTreeTask = NULL;
-	world->splitIslandIndex = B2_NULL_INDEX;
 
 	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL)
 	{
@@ -232,16 +228,17 @@ void b2DestroyWorld(b2WorldId worldId)
 		}
 	}
 
-	b2DestroyPool(&world->islandPool);
 	b2DestroyPool(&world->shapePool);
 	b2DestroyPool(&world->chainPool);
 
 	b2DestroyIdPool(&world->bodyIdPool);
 	b2DestroyIdPool(&world->contactIdPool);
 	b2DestroyIdPool(&world->jointIdPool);
+	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroyArray(world->bodyLookupArray, sizeof(b2BodyLookup));
 	b2DestroyArray(world->contactLookupArray, sizeof(b2ContactLookup));
 	b2DestroyArray(world->jointLookupArray, sizeof(b2JointLookup));
+	b2DestroyArray(world->islandLookupArray, sizeof(b2IslandLookup));
 
 	// The data in the body sets all comes from the block allocator so no
 	// need to destroy the set contents.
@@ -251,7 +248,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyBlockAllocator(&world->blockAllocator);
-	b2DestroyStackAllocator(world->stackAllocator);
+	b2DestroyStackAllocator(&world->stackAllocator);
 
 	// Wipe world but preserve revision
 	uint16_t revision = world->revision;
@@ -283,8 +280,8 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		b2Shape* shapeA = shapes + contact->shapeIndexA;
 		b2Shape* shapeB = shapes + contact->shapeIndexB;
 
-		b2BodyLookup lookupA = world->bodyLookupArray[shapeA->bodyId];
-		b2BodyLookup lookupB = world->bodyLookupArray[shapeB->bodyId];
+		b2BodyLookup lookupA = bodyLookup[shapeA->bodyId];
+		b2BodyLookup lookupB = bodyLookup[shapeB->bodyId];
 
 		if (lookupA.setIndex != b2_awakeSet && lookupB.setIndex != b2_awakeSet)
 		{
@@ -310,7 +307,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		else
 		{
 			bool wasTouching = (contact->flags & b2_contactTouchingFlag);
-			B2_ASSERT(wasTouching || contact->islandIndex == B2_NULL_INDEX);
+			B2_ASSERT(wasTouching || contact->islandId == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = b2GetBodyFromRawId(world, shapeA->bodyId);
@@ -421,7 +418,7 @@ static void b2Collide(b2StepContext* context)
 		return;
 	}
 
-	b2Contact** contacts = b2AllocateStackItem(world->stackAllocator, contactCount * sizeof(b2Contact), "contacts");
+	b2Contact** contacts = b2AllocateStackItem(&world->stackAllocator, contactCount * sizeof(b2Contact), "contacts");
 
 	int contactIndex = 0;
 	for (int i = 0; i < b2_graphColorCount; ++i)
@@ -507,7 +504,7 @@ static void b2Collide(b2StepContext* context)
 			}
 			else if (flags & b2_contactStartedTouching)
 			{
-				B2_ASSERT(contact->islandIndex == B2_NULL_INDEX);
+				B2_ASSERT(contact->islandId == B2_NULL_INDEX);
 				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
 				{
 					if (shapeA->isSensor)
@@ -682,10 +679,10 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 
 	world->profile.step = b2GetMilliseconds(&stepTimer);
 
-	B2_ASSERT(b2GetStackAllocation(world->stackAllocator) == 0);
+	B2_ASSERT(b2GetStackAllocation(&world->stackAllocator) == 0);
 
 	// Ensure stack is large enough
-	b2GrowStack(world->stackAllocator);
+	b2GrowStack(&world->stackAllocator);
 
 	// Make sure all tasks that were started were also finished
 	B2_ASSERT(world->activeTaskCount == 0);
@@ -1216,18 +1213,18 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 	}
 
 	world->enableSleep = flag;
+	
+
 	if (flag == false)
 	{
-		int32_t count = world->islandPool.capacity;
-		for (int32_t i = 0; i < count; ++i)
+		int setCount = b2Array(world->solverSetArray).count;
+		for (int i = b2_firstSleepingSet; i < setCount; ++i)
 		{
-			b2Island* island = world->islands + i;
-			if (island->object.next != i)
+			b2SolverSet* set = world->solverSetArray + i;
+			if (set->bodies.count > 0)
 			{
-				continue;
+				b2WakeSolverSet(world, i);
 			}
-
-			b2WakeIsland(island);
 		}
 	}
 }
@@ -1296,11 +1293,11 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 	s.shapeCount = world->shapePool.count;
 	s.contactCount = b2GetIdCount(&world->contactIdPool);
 	s.jointCount = b2GetIdCount(&world->jointIdPool);
-	s.islandCount = world->islandPool.count;
+	s.islandCount = b2GetIdCount(&world->islandIdPool);
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
-	s.stackUsed = b2GetMaxStackAllocation(world->stackAllocator);
+	s.stackUsed = b2GetMaxStackAllocation(&world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	s.taskCount = world->taskCount;
 	for (int32_t i = 0; i <= b2_graphColorCount; ++i)

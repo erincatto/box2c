@@ -214,7 +214,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
 
 	// Create contact key and lookup
-	int contactKey = b2AllocateId(&world->contactIdPool);
+	int contactKey = b2AllocId(&world->contactIdPool);
 	if (contactKey == b2Array(world->contactLookupArray).count)
 	{
 		b2Array_Push(world->contactLookupArray, (b2ContactLookup){0});
@@ -258,7 +258,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	contact->tangentSpeed = 0.0f;
-	contact->islandIndex = B2_NULL_INDEX;
+	contact->islandId = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
 	contact->islandNext = B2_NULL_INDEX;
 	contact->isMarked = false;
@@ -375,7 +375,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	bodyB->contactCount -= 1;
 
-	if (contact->islandIndex != B2_NULL_INDEX)
+	if (contact->islandId != B2_NULL_INDEX)
 	{
 		b2UnlinkContact(world, contact);
 	}

@@ -65,24 +65,18 @@ b2BodyState* b2GetBodyState(b2World* world, int bodyId)
 	return NULL;
 }
 
-static void b2CreateIslandForBody(b2World* world, b2Body* body, bool isAwake)
+static void b2CreateIslandForBody(b2World* world, int setIndex, b2Body* body)
 {
-	B2_ASSERT(body->islandIndex == B2_NULL_INDEX);
+	B2_ASSERT(body->islandId == B2_NULL_INDEX);
 	B2_ASSERT(body->islandPrev == B2_NULL_INDEX);
 	B2_ASSERT(body->islandNext == B2_NULL_INDEX);
 
-	if (body->type == b2_staticBody)
-	{
-		return;
-	}
+	B2_ASSERT(body->type != b2_staticBody && body->isEnabled == true);
+	B2_ASSERT(setIndex != b2_staticSet && setIndex != b2_disabledSet);
 
-	// Every new body gets a new island. Islands get merged during simulation.
-	b2Island* island = (b2Island*)b2AllocObject(&world->islandPool);
-	world->islands = (b2Island*)world->islandPool.memory;
-	b2CreateIsland(island);
-	island->world = world;
+	b2Island* island = b2CreateIsland(world, setIndex);
 
-	body->islandIndex = island->object.index;
+	body->islandId = island->islandId;
 	island->headBody = body->bodyId;
 	island->tailBody = body->bodyId;
 	island->bodyCount = 1;
@@ -90,14 +84,14 @@ static void b2CreateIslandForBody(b2World* world, b2Body* body, bool isAwake)
 
 static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 {
-	if (body->islandIndex == B2_NULL_INDEX)
+	if (body->islandId == B2_NULL_INDEX)
 	{
 		B2_ASSERT(body->islandPrev == B2_NULL_INDEX);
 		B2_ASSERT(body->islandNext == B2_NULL_INDEX);
 		return;
 	}
 
-	b2Island* island = world->islands + body->islandIndex;
+	b2Island* island = b2GetIsland(world, body->islandId);
 
 	// Fix the island's linked list of bodies
 	if (body->islandPrev != B2_NULL_INDEX)
@@ -129,7 +123,7 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 			B2_ASSERT(island->jointCount == 0);
 
 			// Free the island
-			b2DestroyIsland(island);
+			b2DestroyIsland(world, island->islandId);
 			islandDestroyed = true;
 		}
 	}
@@ -140,11 +134,11 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 
 	if (islandDestroyed == false)
 	{
-		b2WakeIsland(island);
-		b2ValidateIsland(island, true);
+		b2WakeIsland(world, island);
+		b2ValidateIsland(world, island, true);
 	}
 
-	body->islandIndex = B2_NULL_INDEX;
+	body->islandId = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
 }
@@ -265,7 +259,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	else
 	{
 		// new set for a sleeping body in its own island
-		setIndex = b2AllocateId(&world->solverSetIdPool);
+		setIndex = b2AllocId(&world->solverSetIdPool);
 		if (setIndex == b2Array(world->solverSetArray).count)
 		{
 			b2Array_Push(world->solverSetArray, (b2SolverSet){0});
@@ -282,7 +276,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		state = b2AddBodyState(&world->blockAllocator, &set->states);
 	}
 
-	int bodyId = b2AllocateId(&world->bodyIdPool);
+	int bodyId = b2AllocId(&world->bodyIdPool);
 
 	B2_ASSERT(0 <= def->type && def->type < b2_bodyTypeCount);
 	B2_ASSERT(b2Vec2_IsValid(def->position));
@@ -331,7 +325,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->enlargeAABB = false;
 	body->isFast = false;
 	body->isSpeedCapped = false;
-	body->islandIndex = B2_NULL_INDEX;
+	body->islandId = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
 
@@ -347,14 +341,14 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	// should have an islands so they can be quickly made awake.
 	if (setIndex != b2_disabledSet && setIndex != b2_staticSet)
 	{
-		b2CreateIslandForBody(world, body, isAwake);
+		b2CreateIslandForBody(world, setIndex, body);
 	}
 
 	uint16_t revision = 0;
 	if (bodyId == b2Array(world->bodyLookupArray).count)
 	{
 		b2BodyLookup lookup = {setIndex, set->bodies.count - 1, revision};
-		b2Array_Push(world->bodyLookupArray, lookup);
+		b2Array_Push(world->bodyLookupArray, (b2BodyLookup){0});
 	}
 	else
 	{

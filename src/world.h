@@ -10,6 +10,7 @@
 #include "id_pool.h"
 #include "island.h"
 #include "pool.h"
+#include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
@@ -45,9 +46,9 @@ typedef struct b2TaskContext
 typedef struct b2World
 {
 	b2BlockAllocator blockAllocator;
-	struct b2StackAllocator* stackAllocator;
-
+	b2StackAllocator stackAllocator;
 	b2BroadPhase broadPhase;
+	b2ConstraintGraph constraintGraph;
 
 	// The body id pool is used to allocate and recycle body ids. Body ids
 	// provide a stable identifier for users, but incur caches misses when used
@@ -55,7 +56,7 @@ typedef struct b2World
 	b2IdPool bodyIdPool;
 
 	// This is a sparse array that maps body ids to the body data
-	// stored in body sets. As bodies move within a set or across set.
+	// stored in solver sets. As bodies move within a set or across set.
 	// Indices come from id pool.
 	struct b2BodyLookup* bodyLookupArray;
 
@@ -63,34 +64,36 @@ typedef struct b2World
 	b2IdPool solverSetIdPool;
 
 	// Solvers sets allow bodies to be stored in contiguous arrays. The first
-	// set is all static bodies. The second set is active bodies. The remaining
-	// sets are sleeping islands.
+	// set is all static bodies. The second set is active bodies. The third set is disabled
+	// bodies. The remaining sets are sleeping islands.
 	struct b2SolverSet* solverSetArray;
-
-	b2ConstraintGraph constraintGraph;
 
 	// Used to create stable ids for joints
 	b2IdPool jointIdPool;
 
 	// This is a sparse array that maps joint ids to the joint data stored in the constraint graph
-	// or in the simulation sets.
+	// or in the solver sets.
 	struct b2JointLookup* jointLookupArray;
 
 	// Used to create stable ids for contacts
 	b2IdPool contactIdPool;
 
 	// This is a sparse array that maps contact ids to the contact data stored in the constraint graph
-	// or in the simulation sets.
+	// or in the solver sets.
 	struct b2ContactLookup* contactLookupArray;
+
+	// Used to create stable ids for islands
+	b2IdPool islandIdPool;
+
+	// This is a sparse array that maps island ids to the island data stored in the solver sets.
+	struct b2IslandLookup* islandLookupArray;
 
 	b2Pool shapePool;
 	b2Pool chainPool;
-	b2Pool islandPool;
 
 	// These are sparse arrays that point into the pools above
 	struct b2Shape* shapes;
 	struct b2ChainShape* chains;
-	struct b2Island* islands;
 
 	// Per thread storage
 	b2TaskContext* taskContextArray;
@@ -110,7 +113,7 @@ typedef struct b2World
 	_Atomic int bulletBodyCount;
 
 	// Id that is incremented every time step
-	uint64_t stepId;
+	uint64_t stepIndex;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;
@@ -133,13 +136,10 @@ typedef struct b2World
 	b2FinishTaskCallback* finishTaskFcn;
 	b2FinishPinnedTaskCallback* finishPinnedTaskFcn;
 	void* userTaskContext;
-
 	void* userTreeTask;
 
 	// Remember type step used for reporting forces and torques
 	float inv_h;
-
-	int32_t splitIslandIndex;
 
 	int32_t activeTaskCount;
 	int32_t taskCount;

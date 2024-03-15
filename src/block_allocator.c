@@ -172,3 +172,24 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* memory, int size)
 	block->next = allocator->freeLists[index];
 	allocator->freeLists[index] = block;
 }
+
+bool b2ValidateBlockAllocator(b2BlockAllocator* allocator)
+{
+	for (int i = 0; i < b2_blockPowerCount; ++i)
+	{
+		int count = 0;
+		b2Block* block = allocator->freeLists[i];
+		while (block != NULL)
+		{
+			block = block->next;
+			count += 1;
+
+			if (count == 10000000)
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
+}

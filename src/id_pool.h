@@ -14,7 +14,7 @@ typedef struct b2IdPool
 b2IdPool b2CreateIdPool();
 void b2DestroyIdPool(b2IdPool* pool);
 
-int b2AllocateId(b2IdPool* pool);
+int b2AllocId(b2IdPool* pool);
 void b2FreeId(b2IdPool* pool, int id);
 
 inline int b2GetIdCount(b2IdPool* pool)
