@@ -22,7 +22,7 @@
 // cause horrible cache stalls. To make this feasible I would need a way to block these writes.
 
 // This is used for debugging by making all constraints be assigned to overflow.
-#define B2_FORCE_OVERFLOW 0
+#define B2_FORCE_OVERFLOW 1
 
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity)
 {
@@ -31,9 +31,6 @@ void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bo
 	*graph = (b2ConstraintGraph){0};
 
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
-	int contactCapacity = 16;
-	int jointCapacity = 16;
-
 	for (int32_t i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
@@ -43,9 +40,6 @@ void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bo
 			color->bodySet = b2CreateBitSet(bodyCapacity);
 			b2SetBitCountAndClear(&color->bodySet, bodyCapacity);
 		}
-
-		color->contacts = b2CreateContactArray(allocator, contactCapacity);
-		color->joints = b2CreateJointArray(allocator, jointCapacity);
 	}
 }
 
@@ -161,17 +155,14 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		movedContact->localIndex = colorSubIndex;
 
 		// Fix contact lookup for moved contact
-		int movedKey = movedContact->contactId;
-		B2_ASSERT(0 <= movedKey && movedKey < b2Array(world->contactLookupArray).count);
-		b2ContactLookup* lookup = world->contactLookupArray + movedKey;
+		int movedId = movedContact->contactId;
+		B2_ASSERT(0 <= movedId && movedId < b2Array(world->contactLookupArray).count);
+		b2ContactLookup* lookup = world->contactLookupArray + movedId;
 		B2_ASSERT(lookup->setIndex == b2_awakeSet);
 		B2_ASSERT(lookup->colorIndex == colorIndex);
 		B2_ASSERT(lookup->contactIndex == movedIndex);
 		lookup->contactIndex = colorSubIndex;
 	}
-
-	contact->colorIndex = B2_NULL_INDEX;
-	contact->localIndex = B2_NULL_INDEX;
 }
 
 b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)

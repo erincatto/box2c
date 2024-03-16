@@ -194,7 +194,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 
 	for (int32_t i = startIndex; i < endIndex; ++i)
 	{
-		const b2BodyState* state = states + i;
+		b2BodyState* state = states + i;
 		b2Body* body = bodies + i;
 
 		b2Vec2 v = state->linearVelocity;
@@ -208,6 +208,11 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		body->position = b2Add(body->position, state->deltaPosition);
 		body->rotation = b2MulRot(state->deltaRotation, body->rotation);
 		body->rotation = b2NormalizeRot(body->rotation);
+
+		// reset state deltas
+		state->deltaPosition = b2Vec2_zero;
+		state->deltaRotation = b2Rot_identity;
+
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
 		moveEvents[i].transform = b2MakeTransform(body);
@@ -226,19 +231,20 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 			body->sleepTime = 0.0f;
 
 			const float saftetyFactor = 0.5f;
-			if (enableContinuous && (b2Length(v) + B2_ABS(w) * body->maxExtent) * timeStep > saftetyFactor * body->minExtent)
+			// todo continuous disabled
+			if (enableContinuous && (b2Length(v) + B2_ABS(w) * body->maxExtent) * timeStep > saftetyFactor * body->minExtent && 0)
 			{
 				// Store in fast array for the continuous collision stage
 				// This is deterministic because the order of TOI sweeps doesn't matter
 				if (body->isBullet)
 				{
-					int bulletIndex = atomic_fetch_add(&world->bulletBodyCount, 1);
-					world->bulletBodies[bulletIndex] = i;
+					int bulletIndex = atomic_fetch_add(&context->bulletBodyCount, 1);
+					context->bulletBodies[bulletIndex] = i;
 				}
 				else
 				{
-					int fastIndex = atomic_fetch_add(&world->fastBodyCount, 1);
-					world->fastBodies[fastIndex] = i;
+					int fastIndex = atomic_fetch_add(&context->fastBodyCount, 1);
+					context->fastBodies[fastIndex] = i;
 				}
 
 				body->isFast = true;
@@ -719,6 +725,10 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	int awakeBodyCount = awakeSet->bodies.count;
+	B2_ASSERT(awakeBodyCount == awakeSet->states.count);
+
+	context->bodies = awakeSet->bodies.data;
+	context->states = awakeSet->states.data;
 
 	// count contacts, joints, and colors
 	int awakeContactCount = 0;
@@ -1180,10 +1190,10 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	B2_ASSERT(workerCount <= b2_maxWorkers);
 	b2WorkerContext workerContext[b2_maxWorkers];
 
-	context->world = world;
 	context->graph = graph;
 	context->joints = joints;
 	context->contacts = contacts;
+	context->simdContactConstraints = simdContactConstraints;
 	context->activeColorCount = activeColorCount;
 	context->workerCount = workerCount;
 	context->stageCount = stageCount;
@@ -1683,10 +1693,10 @@ void b2Solve(b2World* world, b2StepContext* context)
 	// Prepare buffers for continuous collision (fast bodies)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	int awakeBodyCount = awakeSet->bodies.count;
-	world->fastBodyCount = 0;
-	world->fastBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
-	world->bulletBodyCount = 0;
-	world->bulletBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
+	context->fastBodyCount = 0;
+	context->fastBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int32_t), "fast bodies");
+	context->bulletBodyCount = 0;
+	context->bulletBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int32_t), "bullet bodies");
 
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
@@ -1895,13 +1905,13 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneEnd(continuous_collision);
 
-	b2FreeStackItem(&world->stackAllocator, world->bulletBodies);
-	world->bulletBodies = NULL;
-	world->bulletBodyCount = 0;
+	b2FreeStackItem(&world->stackAllocator, context->bulletBodies);
+	context->bulletBodies = NULL;
+	context->bulletBodyCount = 0;
 
-	b2FreeStackItem(&world->stackAllocator, world->fastBodies);
-	world->fastBodies = NULL;
-	world->fastBodyCount = 0;
+	b2FreeStackItem(&world->stackAllocator, context->fastBodies);
+	context->fastBodies = NULL;
+	context->fastBodyCount = 0;
 
 	world->profile.continuous = b2GetMilliseconds(&timer);
 

@@ -101,6 +101,14 @@ typedef struct b2StepContext
 	// shortcut to bodies from awake set (no static bodies)
 	b2Body* bodies;
 
+	// Array of fast bodies that need continuous collision handling
+	int* fastBodies;
+	_Atomic int fastBodyCount;
+
+	// Array of bullet bodies that need continuous collision handling
+	int* bulletBodies;
+	_Atomic int bulletBodyCount;
+
 	// joint pointers for simplified parallel-for access.
 	b2Joint** joints;
 
@@ -111,7 +119,7 @@ typedef struct b2StepContext
 	// to constraint graph colors
 	b2Contact** contacts;
 
-	struct b2ContactConstraintSIMD* contactConstraints;
+	struct b2ContactConstraintSIMD* simdContactConstraints;
 	int activeColorCount;
 	int workerCount;
 

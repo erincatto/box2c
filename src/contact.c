@@ -411,12 +411,12 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2WakeBody(world, edgeB->bodyId);
 }
 
-b2Contact* b2GetContactFromRawId(b2World* world, int contactKey)
+b2Contact* b2GetContactFromRawId(b2World* world, int contactId)
 {
-	B2_ASSERT(0 <= contactKey && contactKey < b2Array(world->contactLookupArray).count);
-	b2ContactLookup lookup = world->contactLookupArray[contactKey];
+	B2_ASSERT(0 <= contactId && contactId < b2Array(world->contactLookupArray).count);
+	b2ContactLookup lookup = world->contactLookupArray[contactId];
 	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
-	if (lookup.setIndex == b2_awakeSet)
+	if (lookup.setIndex == b2_awakeSet && lookup.colorIndex != B2_NULL_INDEX)
 	{
 		// contact lives in constraint graph
 		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
@@ -561,7 +561,7 @@ b2Contact* b2GetContact(b2World* world, b2ContactId contactId)
 
 b2ContactId b2Body_GetFirstContact(b2BodyId bodyId)
 {
-	b2World* world = b2GetWorldFromIndex(bodyId.world);
+	b2World* world = b2GetWorld(bodyId.world);
 	b2Body* body = b2GetBody(world, bodyId);
 
 	if (body->contactList == B2_NULL_INDEX)
@@ -576,7 +576,7 @@ b2ContactId b2Body_GetFirstContact(b2BodyId bodyId)
 
 b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId)
 {
-	b2World* world = b2GetWorldFromIndex(contactId.world);
+	b2World* world = b2GetWorld(contactId.world);
 	b2Body* body = b2GetBody(world, bodyId);
 	b2Contact* contact = b2GetContact(world, contactId);
 
@@ -607,7 +607,7 @@ b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId)
 
 b2ContactData b2Contact_GetData(b2ContactId contactId)
 {
-	b2World* world = b2GetWorldFromIndex(contactId.world);
+	b2World* world = b2GetWorld(contactId.world);
 	b2Contact* contact = b2GetContact(world, contactId);
 	b2Shape* shapeA = world->shapes + contact->shapeIndexA;
 	b2Shape* shapeB = world->shapes + contact->shapeIndexB;

@@ -50,7 +50,7 @@ b2World* b2GetWorldFromId(b2WorldId id)
 	return world;
 }
 
-b2World* b2GetWorldFromIndex(int index)
+b2World* b2GetWorld(int index)
 {
 	B2_ASSERT(0 <= index && index < b2_maxWorlds);
 	b2World* world = b2_worlds + index;
@@ -58,7 +58,7 @@ b2World* b2GetWorldFromIndex(int index)
 	return world;
 }
 
-b2World* b2GetWorldFromIndexLocked(int index)
+b2World* b2GetWorldLocked(int index)
 {
 	B2_ASSERT(0 <= index && index < b2_maxWorlds);
 	b2World* world = b2_worlds + index;
@@ -95,27 +95,30 @@ static void* b2DefaultAddPinnedTaskFcn(b2PinnedTaskFcn* task, int32_t threadInde
 
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
-	int32_t index = 0;
-	for (int16_t i = 0; i < b2_maxWorlds; ++i)
+	_Static_assert(b2_maxWorlds < UINT16_MAX, "b2_maxWorlds limit exceeded");
+
+	int worldId = B2_NULL_INDEX;
+	for (int i = 0; i < b2_maxWorlds; ++i)
 	{
-		if (b2_worlds[i].worldId == 0)
+		if (b2_worlds[i].inUse == false)
 		{
-			index = i + 1;
+			worldId = i;
 			break;
 		}
 	}
 
-	if (index == 0)
+	if (worldId == B2_NULL_INDEX)
 	{
 		return (b2WorldId){0};
 	}
 
 	b2InitializeContactRegisters();
 
-	b2World* world = b2_worlds + index;
+	b2World* world = b2_worlds + worldId;
 	*world = (b2World){0};
 
-	world->worldId = index;
+	world->worldId = (uint16_t)worldId;
+	world->inUse = true;
 
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(def->stackAllocatorCapacity);
@@ -196,7 +199,8 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
-	return (b2WorldId){(uint16_t)index, world->revision};
+	// add one to worldId so that 0 represents a null b2WorldId
+	return (b2WorldId){(uint16_t)(worldId + 1), world->revision};
 }
 
 void b2DestroyWorld(b2WorldId worldId)
@@ -302,7 +306,7 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 		if (overlap == false)
 		{
 			contact->flags |= b2_contactDisjoint;
-			b2SetBit(&taskContext->contactStateBitSet, i);
+			b2SetBit(&taskContext->contactStateBitSet, contact->contactId);
 		}
 		else
 		{
@@ -320,12 +324,12 @@ static void b2CollideTask(int32_t startIndex, int32_t endIndex, uint32_t threadI
 			if (touching == true && wasTouching == false)
 			{
 				contact->flags |= b2_contactStartedTouching;
-				b2SetBit(&taskContext->contactStateBitSet, i);
+				b2SetBit(&taskContext->contactStateBitSet, contact->contactId);
 			}
 			else if (touching == false && wasTouching == true)
 			{
 				contact->flags |= b2_contactStoppedTouching;
-				b2SetBit(&taskContext->contactStateBitSet, i);
+				b2SetBit(&taskContext->contactStateBitSet, contact->contactId);
 			}
 		}
 	}
@@ -446,6 +450,7 @@ static void b2Collide(b2StepContext* context)
 
 	context->contacts = contacts;
 
+	// Contact bit set on ids because contact pointers are unstable as they move between touching and not touching.
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].contactStateBitSet, contactCount);
@@ -453,12 +458,16 @@ static void b2Collide(b2StepContext* context)
 
 	// Task should take at least 40us on a 4GHz CPU (10K cycles)
 	int32_t minRange = 64;
-	void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, contactCount, minRange, world, world->userTaskContext);
+	void* userCollideTask = world->enqueueTaskFcn(&b2CollideTask, contactCount, minRange, context, world->userTaskContext);
 	world->taskCount += 1;
 	if (userCollideTask != NULL)
 	{
 		world->finishTaskFcn(userCollideTask, world->userTaskContext);
 	}
+
+	b2FreeStackItem(&world->stackAllocator, contacts);
+	context->contacts = NULL;
+	contacts = NULL;
 
 	// Serially update contact state
 	b2TracyCZoneNC(contact_state, "Contact State", b2_colorCoral, true);
@@ -480,10 +489,11 @@ static void b2Collide(b2StepContext* context)
 		while (bits != 0)
 		{
 			uint32_t ctz = b2CTZ64(bits);
-			contactIndex = (int)(64 * k + ctz);
-			B2_ASSERT(contactIndex < contactCount);
+			int contactId = (int)(64 * k + ctz);
 
-			b2Contact* contact = contacts[contactIndex];
+			// todo optimize this access
+			b2Contact* contact = b2GetContactFromRawId(world, contactId);
+
 			const b2Shape* shapeA = shapes + contact->shapeIndexA;
 			const b2Shape* shapeB = shapes + contact->shapeIndexB;
 			b2ShapeId shapeIdA = {shapeA->object.index + 1, worldId, shapeA->object.revision};
@@ -529,11 +539,11 @@ static void b2Collide(b2StepContext* context)
 
 					B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
 					int localIndex = contact->localIndex;
-					b2Contact* newContact = b2AddContactToGraph(world, contact);
+					B2_ASSERT(0 <= localIndex && localIndex < world->solverSetArray[b2_awakeSet].contacts.count);
+					contact = b2AddContactToGraph(world, contact);
 					b2RemoveNonTouchingContact(world, b2_awakeSet, localIndex);
-					b2SyncContactLookup(world, newContact, b2_awakeSet);
-					b2LinkContact(world, newContact);
-					contacts[contactIndex] = newContact;
+					b2SyncContactLookup(world, contact, b2_awakeSet);
+					b2LinkContact(world, contact);
 				}
 
 				contact->flags &= ~b2_contactStartedTouching;
@@ -570,7 +580,6 @@ static void b2Collide(b2StepContext* context)
 					newContact->colorIndex = B2_NULL_INDEX;
 					newContact->localIndex = storageIndex;
 					b2SyncContactLookup(world, newContact, b2_awakeSet);
-					contacts[contactIndex] = newContact;
 				}
 
 				contact->flags &= ~b2_contactStoppedTouching;

@@ -27,6 +27,8 @@ b2Island* b2CreateIsland(b2World* world, int setIndex)
 
 	b2SolverSet* set = world->solverSetArray + setIndex;
 	b2Island* island = b2AddIsland(&world->blockAllocator, &set->islands);
+	*island = (b2Island){0};
+
 	int islandId = b2AllocId(&world->islandIdPool);
 
 	if (islandId == b2Array(world->islandLookupArray).count)
@@ -216,7 +218,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	if (islandIdB != B2_NULL_INDEX)
 	{
 		islandB = b2GetIsland(world, islandIdB);
-		int parentId = islandA->parentIsland;
+		int parentId = islandB->parentIsland;
 		b2WakeIsland(world, islandB);
 		while (islandB->parentIsland != B2_NULL_INDEX)
 		{

@@ -348,7 +348,7 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 {
 	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
 
-	b2World* world = b2GetWorldFromIndex(jointId.world0);
+	b2World* world = b2GetWorld(jointId.world0);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{

@@ -104,14 +104,6 @@ typedef struct b2World
 	struct b2ContactBeginTouchEvent* contactBeginArray;
 	struct b2ContactEndTouchEvent* contactEndArray;
 
-	// Array of fast bodies that need continuous collision handling
-	int32_t* fastBodies;
-	_Atomic int fastBodyCount;
-
-	// Array of bullet bodies that need continuous collision handling
-	int32_t* bulletBodies;
-	_Atomic int bulletBodyCount;
-
 	// Id that is incremented every time step
 	uint64_t stepIndex;
 
@@ -150,8 +142,9 @@ typedef struct b2World
 	bool locked;
 	bool enableWarmStarting;
 	bool enableContinuous;
+	bool inUse;
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);
-b2World* b2GetWorldFromIndex(int index);
-b2World* b2GetWorldFromIndexLocked(int index);
+b2World* b2GetWorld(int index);
+b2World* b2GetWorldLocked(int index);

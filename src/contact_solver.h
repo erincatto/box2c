@@ -25,7 +25,6 @@ typedef struct b2ContactConstraintPoint
 
 typedef struct b2ContactConstraint
 {
-	b2Contact* contact;
 	int32_t indexA;
 	int32_t indexB;
 	b2ContactConstraintPoint points[2];

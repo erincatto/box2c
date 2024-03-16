@@ -45,11 +45,13 @@ typedef struct b2JointArray
 	int capacity;
 } b2JointArray;
 
+#if 0
 b2BodyArray b2CreateBodyArray(b2BlockAllocator* allocator, int capacity);
 b2BodyStateArray b2CreateBodyStateArray(b2BlockAllocator* allocator, int capacity);
 b2ContactArray b2CreateContactArray(b2BlockAllocator* allocator, int capacity);
 b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity);
 b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity);
+#endif
 
 void b2DestroyBodyArray(b2BlockAllocator* allocator, b2BodyArray* array);
 void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* array);

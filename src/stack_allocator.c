@@ -35,7 +35,6 @@ void b2DestroyStackAllocator(b2StackAllocator* allocator)
 {
 	b2DestroyArray(allocator->entries, sizeof(b2StackEntry));
 	b2Free(allocator->data, allocator->capacity);
-	b2Free(allocator, sizeof(b2StackAllocator));
 }
 
 void* b2AllocateStackItem(b2StackAllocator* alloc, int size, const char* name)

@@ -47,7 +47,7 @@ int main(void)
 	RUN_TEST(CollisionTest);
 	//RUN_TEST(DeterminismTest);
 	RUN_TEST(DistanceTest);
-	//RUN_TEST(WorldTest);
+	RUN_TEST(WorldTest);
 	RUN_TEST(ShapeTest);
 	RUN_TEST(TableTest);
 	RUN_TEST(BitSetTest);

@@ -36,6 +36,7 @@ typedef struct b2BroadPhase
 
 	// These are the results from the pair query and are used to create new contacts
 	// in deterministic order.
+	// todo these could be in the step context
 	b2MoveResult* moveResults;
 	b2MovePair* movePairs;
 	int32_t movePairCapacity;

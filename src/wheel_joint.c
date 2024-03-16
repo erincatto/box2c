@@ -109,7 +109,7 @@ float b2WheelJoint_GetMotorSpeed(b2JointId jointId)
 
 float b2WheelJoint_GetMotorTorque(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world0);
+	b2World* world = b2GetWorld(jointId.world0);
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_wheelJoint);
 
@@ -130,7 +130,7 @@ float b2WheelJoint_GetMaxMotorTorque(b2JointId jointId)
 
 b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world0);
+	b2World* world = b2GetWorld(jointId.world0);
 	b2Joint* base = b2GetJoint(world, jointId);
 	B2_ASSERT(base->type == b2_wheelJoint);
 
@@ -149,7 +149,7 @@ b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId)
 
 float b2WheelJoint_GetConstraintTorque(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world0);
+	b2World* world = b2GetWorld(jointId.world0);
 	b2Joint* joint = b2GetJoint(world, jointId);
 	B2_ASSERT(joint->type == b2_wheelJoint);
 

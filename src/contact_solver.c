@@ -40,7 +40,6 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
 
-	float h = context->h;
 	float warmStartScale = world->enableWarmStarting ? 1.0f : 0.0f;
 
 	for (int32_t i = 0; i < contactCount; ++i)
@@ -59,7 +58,6 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 		int indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
 
 		b2ContactConstraint* constraint = constraints + i;
-		constraint->contact = contact;
 		constraint->indexA = indexA;
 		constraint->indexB = indexB;
 		constraint->normal = manifold->normal;
@@ -174,10 +172,8 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 
 		b2Vec2 vA = stateA->linearVelocity;
 		float wA = stateA->angularVelocity;
-		b2Rot dqA = stateA->deltaRotation;
 		b2Vec2 vB = stateB->linearVelocity;
 		float wB = stateB->angularVelocity;
-		b2Rot dqB = stateB->deltaRotation;
 
 		float mA = constraint->invMassA;
 		float iA = constraint->invIA;
@@ -444,12 +440,13 @@ void b2StoreOverflowImpulses(b2StepContext* context)
 	b2ConstraintGraph* graph = context->graph;
 	b2GraphColor* color = graph->colors + b2_overflowIndex;
 	b2ContactConstraint* constraints = color->overflowConstraints;
+	b2Contact* contacts = color->contacts.data;
 	int32_t contactCount = color->contacts.count;
 
 	for (int i = 0; i < contactCount; ++i)
 	{
 		const b2ContactConstraint* constraint = constraints + i;
-		b2Contact* contact = constraint->contact;
+		b2Contact* contact = contacts + i;
 		b2Manifold* manifold = &contact->manifold;
 		int pointCount = manifold->pointCount;
 
@@ -593,7 +590,7 @@ void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* 
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 	b2World* world = context->world;
 	b2Contact** contacts = context->contacts;
-	b2ContactConstraintSIMD* constraints = context->contactConstraints;
+	b2ContactConstraintSIMD* constraints = context->simdContactConstraints;
 	b2Body* bodies = context->bodies;
 	b2BodyState* states = context->states;
 	b2BodyLookup* lookups = world->bodyLookupArray;
@@ -1170,7 +1167,7 @@ void b2StoreImpulsesTask(int startIndex, int endIndex, b2StepContext* context)
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
 	b2Contact** contacts = context->contacts;
-	const b2ContactConstraintSIMD* constraints = context->contactConstraints;
+	const b2ContactConstraintSIMD* constraints = context->simdContactConstraints;
 
 	b2Manifold dummy = {0};
 
