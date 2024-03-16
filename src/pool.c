@@ -5,10 +5,9 @@
 
 #include "allocate.h"
 #include "core.h"
-#include "math.h"
-#include "box2d/math.h"
+#include "util.h"
 
-#include "box2d/types.h"
+#include "box2d/math.h"
 
 #include <string.h>
 

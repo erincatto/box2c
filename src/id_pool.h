@@ -21,3 +21,8 @@ inline int b2GetIdCount(b2IdPool* pool)
 {
 	return pool->nextIndex - b2Array(pool->freeArray).count;
 }
+
+inline int b2GetIdCapacity(b2IdPool* pool)
+{
+	return pool->nextIndex;
+}

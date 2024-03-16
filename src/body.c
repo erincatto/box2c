@@ -345,10 +345,10 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		b2CreateIslandForBody(world, setIndex, body);
 	}
 
-	uint16_t revision = 0;
 	if (bodyId == b2Array(world->bodyLookupArray).count)
 	{
-		b2BodyLookup lookup = {setIndex, set->bodies.count - 1, revision};
+		body->revision = 0;
+		b2BodyLookup lookup = {setIndex, set->bodies.count - 1, 0};
 		b2Array_Push(world->bodyLookupArray, lookup);
 	}
 	else
@@ -359,10 +359,12 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		lookup->setIndex = setIndex;
 		lookup->bodyIndex = set->bodies.count - 1;
 		lookup->revision += 1;
-		revision = lookup->revision;
+		body->revision = lookup->revision;
 	}
 
-	b2BodyId id = {bodyId + 1, world->worldId, revision};
+	b2ValidateWorld(world);
+
+	b2BodyId id = {bodyId + 1, world->worldId, body->revision};
 	return id;
 }
 
@@ -449,6 +451,8 @@ static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	lookup->setIndex = B2_NULL_INDEX;
 	lookup->bodyIndex = B2_NULL_INDEX;
 	b2FreeId(&world->bodyIdPool, bodyId);
+
+	b2ValidateWorld(world);
 }
 
 void b2DestroyBody(b2BodyId bodyId)

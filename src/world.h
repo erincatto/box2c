@@ -148,3 +148,4 @@ typedef struct b2World
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorld(int index);
 b2World* b2GetWorldLocked(int index);
+void b2ValidateWorld(b2World* world);

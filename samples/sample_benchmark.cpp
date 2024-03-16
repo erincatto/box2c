@@ -14,7 +14,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-// Note: reseting the scene is non-deterministic because the world uses freelists
+// Note: resetting the scene is non-deterministic because the world uses freelists
 class BenchmarkBarrel : public Sample
 {
 public:
@@ -33,7 +33,7 @@ public:
 		e_maxRows = 130,
 	};
 
-	BenchmarkBarrel(Settings& settings)
+	explicit BenchmarkBarrel(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -253,7 +253,7 @@ static int benchmarkBarrel = RegisterSample("Benchmark", "Barrel", BenchmarkBarr
 class BenchmarkTumbler : public Sample
 {
 public:
-	BenchmarkTumbler(Settings& settings)
+	explicit BenchmarkTumbler(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -363,7 +363,7 @@ static int benchmarkTumbler = RegisterSample("Benchmark", "Tumbler", BenchmarkTu
 class BenchmarkManyTumblers : public Sample
 {
 public:
-	BenchmarkManyTumblers(Settings& settings)
+	explicit BenchmarkManyTumblers(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -589,7 +589,7 @@ static int benchmarkManyTumblers = RegisterSample("Benchmark", "Many Tumblers", 
 class BenchmarkPyramid : public Sample
 {
 public:
-	BenchmarkPyramid(Settings& settings)
+	explicit BenchmarkPyramid(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -601,10 +601,10 @@ public:
 		m_extent = 0.5f;
 		m_round = 0.0f;
 		m_baseCount = 10;
-		//m_rowCount = g_sampleDebug ? 4 : 14;
-		//m_columnCount = g_sampleDebug ? 4 : 13;
-		m_rowCount = 14;
-		m_columnCount = 13;
+		m_rowCount = g_sampleDebug ? 4 : 14;
+		m_columnCount = g_sampleDebug ? 4 : 13;
+		//m_rowCount = 14;
+		//m_columnCount = 13;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;

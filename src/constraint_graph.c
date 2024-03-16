@@ -22,7 +22,7 @@
 // cause horrible cache stalls. To make this feasible I would need a way to block these writes.
 
 // This is used for debugging by making all constraints be assigned to overflow.
-#define B2_FORCE_OVERFLOW 1
+#define B2_FORCE_OVERFLOW 0
 
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity)
 {
@@ -228,7 +228,7 @@ b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	b2Joint* joint = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
 	memset(joint, 0, sizeof(b2Joint));
 	joint->colorIndex = colorIndex;
-	joint->colorSubIndex = graph->colors[colorIndex].joints.count - 1;
+	joint->localIndex = graph->colors[colorIndex].joints.count - 1;
 	return joint;
 }
 
@@ -249,13 +249,13 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 		b2ClearBit(&color->bodySet, bodyKeyB);
 	}
 
-	int colorSubIndex = joint->colorSubIndex;
+	int colorSubIndex = joint->localIndex;
 	int movedIndex = b2RemoveJoint(&world->blockAllocator, &color->joints, colorSubIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix index on swapped contact
 		b2Joint* movedJoint = color->joints.data + colorSubIndex;
-		movedJoint->colorSubIndex = colorSubIndex;
+		movedJoint->localIndex = colorSubIndex;
 
 		// Fix contact lookup for moved contact
 		int key = movedJoint->jointId;
@@ -268,5 +268,5 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 	}
 
 	joint->colorIndex = B2_NULL_INDEX;
-	joint->colorSubIndex = B2_NULL_INDEX;
+	joint->localIndex = B2_NULL_INDEX;
 }

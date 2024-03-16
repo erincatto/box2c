@@ -141,7 +141,7 @@ b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
 
 	b2Joint* element = array->data + array->count;
 	element->colorIndex = B2_NULL_INDEX;
-	element->colorSubIndex = array->count;
+	element->localIndex = array->count;
 	array->count += 1;
 	return element;
 }

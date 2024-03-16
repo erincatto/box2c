@@ -1227,7 +1227,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	context->splitIslandIndex = B2_NULL_INDEX;
 
 	// Finish solve
-	for (int32_t i = 0; i < workerCount; ++i)
+	for (int i = 0; i < workerCount; ++i)
 	{
 		if (workerContext[i].userTask != NULL)
 		{
@@ -1237,12 +1237,12 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	}
 
 	// Prepare contact, shape, and island bit sets used in body finalization.
-	int32_t shapeCapacity = world->shapePool.capacity;
-	int32_t islandCount = awakeSet->islands.count;
-	for (uint32_t i = 0; i < world->workerCount; ++i)
+	int shapeIdCapacity = world->shapePool.capacity;
+	int islandIdCapacity = b2GetIdCapacity(&world->islandIdPool);
+	for (int i = 0; i < world->workerCount; ++i)
 	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeCapacity);
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandCount);
+		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeIdCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandIdCapacity);
 	}
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.

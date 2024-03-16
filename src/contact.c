@@ -342,9 +342,9 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		nextEdge->prevKey = edgeA->prevKey;
 	}
 
-	int contactKey = contact->contactId;
+	int contactId = contact->contactId;
 
-	int32_t edgeKeyA = (contactKey << 1) | 0;
+	int32_t edgeKeyA = (contactId << 1) | 0;
 	if (bodyA->contactList == edgeKeyA)
 	{
 		bodyA->contactList = edgeA->nextKey;
@@ -367,7 +367,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		nextEdge->prevKey = edgeB->prevKey;
 	}
 
-	int32_t edgeKeyB = (contactKey << 1) | 1;
+	int32_t edgeKeyB = (contactId << 1) | 1;
 	if (bodyB->contactList == edgeKeyB)
 	{
 		bodyB->contactList = edgeB->nextKey;
@@ -381,16 +381,18 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	}
 
 	// Remove contact from the array that owns it
-	b2ContactLookup* lookup = world->contactLookupArray + contactKey;
+	b2ContactLookup* lookup = world->contactLookupArray + contactId;
 
 	if (contact->colorIndex != B2_NULL_INDEX)
 	{
 		// contact is an active constraint
+		B2_ASSERT(lookup->setIndex == b2_awakeSet);
 		b2RemoveContactFromGraph(world, contact);
 	}
 	else
 	{
-		// contact is not touching or sleeping
+		// contact is non-touching or is sleeping
+		B2_ASSERT(lookup->setIndex != b2_awakeSet || contact->manifold.pointCount == 0);
 		b2SolverSet* set = world->solverSetArray + lookup->setIndex;
 		int movedIndex = b2RemoveContact(&world->blockAllocator, &set->contacts, lookup->contactIndex);
 		if (movedIndex != B2_NULL_INDEX)
@@ -407,8 +409,12 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	lookup->colorIndex = B2_NULL_INDEX;
 	lookup->contactIndex = B2_NULL_INDEX;
 
+	b2FreeId(&world->contactIdPool, contactId);
+
 	b2WakeBody(world, edgeA->bodyId);
 	b2WakeBody(world, edgeB->bodyId);
+
+	b2ValidateWorld(world);
 }
 
 b2Contact* b2GetContactFromRawId(b2World* world, int contactId)

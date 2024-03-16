@@ -226,7 +226,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	b2JointLookup* lookup = world->jointLookupArray + jointId;
 	lookup->setIndex = setIndex;
 	lookup->colorIndex = joint->colorIndex;
-	lookup->jointIndex = joint->colorSubIndex;
+	lookup->jointIndex = joint->localIndex;
 	lookup->revision += 1;
 
 	joint->jointId = jointId;

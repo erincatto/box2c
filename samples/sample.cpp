@@ -129,11 +129,11 @@ Sample::Sample(Settings& settings)
 	}
 
 	b2WorldDef worldDef = b2DefaultWorldDef();
-	//worldDef.workerCount = settings.workerCount;
-	//worldDef.enqueueTask = EnqueueTask;
-	//worldDef.finishTask = FinishTask;
-	//worldDef.addPinnedTask = AddPinnedTask;
-	//worldDef.finishPinnedTask = FinishPinnedTask;
+	worldDef.workerCount = settings.workerCount;
+	worldDef.enqueueTask = EnqueueTask;
+	worldDef.finishTask = FinishTask;
+	worldDef.addPinnedTask = AddPinnedTask;
+	worldDef.finishPinnedTask = FinishPinnedTask;
 	worldDef.userTaskContext = this;
 	worldDef.enableSleep = settings.enableSleep;
 

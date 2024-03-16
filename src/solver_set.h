@@ -35,10 +35,10 @@ typedef struct b2SolverSet
 	// The awake set has an array of islands. Sleeping sets have a single islands.
 	// The static and disabled sets have no islands.
 	b2IslandArray islands;
+
+	// Aligns with b2World::solverSetIdPool. Used to create a stable id for body/contact/joint/island lookups.
+	int solverSetId;
 } b2SolverSet;
 
 void b2WakeSolverSet(b2World* world, int setIndex);
 void b2MergeSolverSets(b2World* world, int setIndex1, int setIndex2);
-
-void b2ValidateSet(b2World* world, int setIndex);
-void b2ValidateSets(b2World* world);

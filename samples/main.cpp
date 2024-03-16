@@ -67,6 +67,7 @@ void* AllocFcn(uint32_t size, int32_t alignment)
 	assert(IsPowerOfTwo(alignment));
 	size_t sizeAligned = ((size - 1) | (alignment - 1)) + 1;
 	assert((sizeAligned & (alignment - 1)) == 0);
+
 #if defined(_WIN64)
 	void* ptr = _aligned_malloc(sizeAligned, alignment);
 #else

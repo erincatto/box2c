@@ -6,16 +6,13 @@
 #include "array.h"
 #include "core.h"
 #include "ctz.h"
-#include "util.h"
 
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
 
 #define b2_minChunkSize (1 << 15)
-#define b2_minBlockPower 8
-#define b2_maxBlockPower 18
-#define b2_maxBlockSize (1 << b2_maxBlockPower)
+#define b2_maxBlockSize (1 << 24)
 
 // This is a helper struct for building a linked list of memory blocks
 typedef struct b2Block
@@ -40,6 +37,8 @@ b2BlockAllocator b2CreateBlockAllocator(void)
 {
 	_Static_assert(b2_blockPowerCount == b2_maxBlockPower - b2_minBlockPower + 1, "wrong size");
 	_Static_assert(b2_minChunkSize <= b2_maxBlockSize, "wrong size");
+	_Static_assert(b2_maxBlockSize <= (1 << b2_maxBlockPower), "wrong size");
+	_Static_assert(b2_maxBlockSize >= (1 << b2_minBlockPower), "wrong size");
 
 	b2BlockAllocator allocator = {0};
 	allocator.chunkArray = b2CreateArray(sizeof(b2Chunk), 128);
@@ -70,8 +69,8 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int size)
 
 	if (size > b2_maxBlockSize)
 	{
-		// block too large, fallback system
-		return b2Alloc(size);
+		B2_ASSERT(false);
+		return NULL;
 	}
 
 	int power = b2BoundingPowerOf2(size);
@@ -126,11 +125,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* memory, int size)
 		return;
 	}
 
-	if (size > b2_maxBlockSize)
-	{
-		b2Free(memory, size);
-		return;
-	}
+	B2_ASSERT(size <= b2_maxBlockSize);
 
 	int power = b2BoundingPowerOf2(size);
 	power = power < b2_minBlockPower ? b2_minBlockPower : power;

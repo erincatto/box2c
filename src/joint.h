@@ -221,7 +221,7 @@ typedef struct b2Joint
 	int colorIndex;
 
 	// Index of joint within color
-	int colorSubIndex;
+	int localIndex;
 
 	// Anchors relative to body origin
 	b2Vec2 localOriginAnchorA;
