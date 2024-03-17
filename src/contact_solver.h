@@ -25,8 +25,8 @@ typedef struct b2ContactConstraintPoint
 
 typedef struct b2ContactConstraint
 {
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2ContactConstraintPoint points[2];
 	b2Vec2 normal;
 	float invMassA, invMassB;
@@ -34,7 +34,7 @@ typedef struct b2ContactConstraint
 	float friction;
 	float restitution;
 	b2Softness softness;
-	int32_t pointCount;
+	int pointCount;
 } b2ContactConstraint;
 
 // Wide float
@@ -54,25 +54,29 @@ typedef struct b2RotW
 
 typedef struct b2ContactConstraintSIMD
 {
-	int32_t indexA[8];
-	int32_t indexB[8];
+	int indexA[8];
+	int indexB[8];
 
 	b2FloatW invMassA, invMassB;
 	b2FloatW invIA, invIB;
 	b2Vec2W normal;
 	b2FloatW friction;
-	b2FloatW restitution;
 	b2FloatW biasRate;
 	b2FloatW massScale;
 	b2FloatW impulseScale;
 	b2Vec2W anchorA1, anchorB1;
-	b2Vec2W anchorA2, anchorB2;
-	b2FloatW baseSeparation1, baseSeparation2;
-	b2FloatW normalImpulse1, normalImpulse2;
-	b2FloatW tangentImpulse1, tangentImpulse2;
-	b2FloatW maxNormalImpulse1, maxNormalImpulse2;
 	b2FloatW normalMass1, tangentMass1;
+	b2FloatW baseSeparation1;
+	b2FloatW normalImpulse1;
+	b2FloatW maxNormalImpulse1;
+	b2FloatW tangentImpulse1;
+	b2Vec2W anchorA2, anchorB2;
+	b2FloatW baseSeparation2;
+	b2FloatW normalImpulse2;
+	b2FloatW maxNormalImpulse2;
+	b2FloatW tangentImpulse2;
 	b2FloatW normalMass2, tangentMass2;
+	b2FloatW restitution;
 	b2FloatW relativeVelocity1, relativeVelocity2;
 } b2ContactConstraintSIMD;
 
@@ -84,8 +88,8 @@ void b2ApplyOverflowRestitution(b2StepContext* context);
 void b2StoreOverflowImpulses(b2StepContext* context);
 
 // Contacts that live within the constraint graph coloring
-void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context);
-void b2WarmStartContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex);
-void b2SolveContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex, bool useBias);
-void b2ApplyRestitutionTask(int32_t startIndex, int32_t endIndex, b2StepContext* context, int32_t colorIndex);
-void b2StoreImpulsesTask(int32_t startIndex, int32_t endIndex, b2StepContext* context);
+void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context);
+void b2WarmStartContactsTask(int startIndex, int endIndex, b2StepContext* context, int colorIndex);
+void b2SolveContactsTask(int startIndex, int endIndex, b2StepContext* context, int colorIndex, bool useBias);
+void b2ApplyRestitutionTask(int startIndex, int endIndex, b2StepContext* context, int colorIndex);
+void b2StoreImpulsesTask(int startIndex, int endIndex, b2StepContext* context);

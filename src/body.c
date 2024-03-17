@@ -274,6 +274,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	if (setIndex == b2_awakeSet)
 	{
 		state = b2AddBodyState(&world->blockAllocator, &set->states);
+		B2_ASSERT(((uintptr_t)state & 0x3F) == 0);
 	}
 
 	int bodyId = b2AllocId(&world->bodyIdPool);

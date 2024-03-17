@@ -24,7 +24,7 @@ typedef struct Benchmark
 } Benchmark;
 
 #define MAX_TASKS 128
-#define THREAD_LIMIT 16
+#define THREAD_LIMIT 32
 
 typedef struct TaskData
 {
@@ -80,8 +80,8 @@ static void* EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange,
 	}
 	else
 	{
+		printf("MAX_TASKS exceeded!!!\n");
 		box2dTask(0, itemCount, 0, box2dContext);
-
 		return NULL;
 	}
 }
@@ -98,7 +98,7 @@ static void* AddPinnedTask(b2PinnedTaskFcn* box2dTask, int32_t threadIndex, void
 	PinnedTaskData* data = pinnedTaskData + threadIndex;
 	if (data->inUse == false)
 	{
-		enkiPinnedTask* task = pinnedTasks[taskCount];
+		enkiPinnedTask* task = pinnedTasks[threadIndex];
 		data->box2dPinnedTask = box2dTask;
 		data->box2dContext = box2dContext;
 		data->threadIndex = threadIndex;
@@ -109,6 +109,7 @@ static void* AddPinnedTask(b2PinnedTaskFcn* box2dTask, int32_t threadIndex, void
 	}
 	else
 	{
+		printf("MAX_TASKS exceeded!!!\n");
 		box2dTask(threadIndex, box2dContext);
 		return NULL;
 	}
@@ -145,7 +146,9 @@ int main(int argc, char** argv)
 {
 	int maxThreadCount = 16;
 	int runCount = 4;
-	int stepCount = 500;
+	int stepCount = 200;
+	b2Counters counters = {0};
+	bool countersAcquired = false;
 	bool enableContinuous = true;
 
 	assert(maxThreadCount <= THREAD_LIMIT);
@@ -203,7 +206,6 @@ int main(int argc, char** argv)
 				// Initial step can be expensive and skew benchmark
 				b2World_Step(worldId, timeStep, subStepCount);
 
-				float totalTime = 0.0f;
 				b2Timer timer = b2CreateTimer();
 
 				for (int step = 0; step < stepCount; ++step)
@@ -218,9 +220,11 @@ int main(int argc, char** argv)
 
 				maxFps[threadCount - 1] = B2_MAX(maxFps[threadCount - 1], fps);
 
-				//b2Counters counters = b2World_GetCounters(worldId);
-				//printf("body %d / shape %d / contact %d / joint %d / stack %d\n", counters.bodyCapacity, counters.shapeCapacity,
-				//	   counters.contactCapacity, counters.jointCapacity, counters.stackUsed);
+				if (countersAcquired == false)
+				{
+					counters = b2World_GetCounters(worldId);
+					countersAcquired = true;
+				}
 
 				b2DestroyWorld(worldId);
 
@@ -242,6 +246,9 @@ int main(int argc, char** argv)
 				scheduler = NULL;
 			}
 		}
+
+		printf("body %d / shape %d / contact %d / joint %d / stack %d\n", counters.bodyCount, counters.shapeCount,
+			   counters.contactCount, counters.jointCount, counters.stackUsed);
 
 		char fileName[64] = {0};
 		snprintf(fileName, 64, "%s.csv", benchmarks[benchmarkIndex].name);

@@ -507,7 +507,7 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2StepContext* context, uin
 	}
 	else
 	{
-		atomic_store(&context->syncBits, syncBits);
+		atomic_store(&context->atomicSyncBits, syncBits);
 
 		int syncIndex = (syncBits >> 16) & 0xFFFF;
 		B2_ASSERT(syncIndex > 0);
@@ -535,6 +535,7 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 	b2StepContext* context = workerContext->context;
 	int32_t activeColorCount = context->activeColorCount;
 	b2SolverStage* stages = context->stages;
+	b2Profile* profile = &context->world->profile;
 
 	if (workerIndex == 0)
 	{
@@ -557,6 +558,8 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 		b2_stageRestitution,
 		b2_stageStoreImpulses
 		*/
+
+		b2Timer timer = b2CreateTimer();
 
 		int32_t bodySyncIndex = 1;
 		int32_t stageIndex = 0;
@@ -583,6 +586,8 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 		b2PrepareOverflowJoints(context);
 		b2PrepareOverflowContacts(context);
 
+		profile->prepareConstraints += b2GetMillisecondsAndReset(&timer);
+
 		int32_t subStepCount = context->subStepCount;
 		for (int32_t i = 0; i < subStepCount; ++i)
 		{
@@ -597,6 +602,8 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 			iterStageIndex += 1;
 			bodySyncIndex += 1;
 
+			profile->integrateVelocities += b2GetMillisecondsAndReset(&timer);
+
 			// warm start constraints
 			b2WarmStartOverflowJoints(context);
 			b2WarmStartOverflowContacts(context);
@@ -609,6 +616,8 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
+
+			profile->warmStart += b2GetMillisecondsAndReset(&timer);
 
 			// solve constraints
 			bool useBias = true;
@@ -624,12 +633,16 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 			}
 			graphSyncIndex += 1;
 
+			profile->solveVelocities += b2GetMillisecondsAndReset(&timer);
+
 			// integrate positions
 			B2_ASSERT(stages[iterStageIndex].type == b2_stageIntegratePositions);
 			syncBits = (bodySyncIndex << 16) | iterStageIndex;
 			b2ExecuteMainStage(stages + iterStageIndex, context, syncBits);
 			iterStageIndex += 1;
 			bodySyncIndex += 1;
+
+			profile->integratePositions += b2GetMillisecondsAndReset(&timer);
 
 			// relax constraints
 			useBias = false;
@@ -644,6 +657,8 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 				iterStageIndex += 1;
 			}
 			graphSyncIndex += 1;
+
+			profile->relaxVelocities += b2GetMillisecondsAndReset(&timer);
 		}
 
 		// advance the stage according to the sub-stepping tasks just completed
@@ -666,31 +681,50 @@ static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
 			stageIndex += activeColorCount;
 		}
 
+		profile->applyRestitution += b2GetMillisecondsAndReset(&timer);
+
 		b2StoreOverflowImpulses(context);
 
 		syncBits = (contactSyncIndex << 16) | stageIndex;
 		B2_ASSERT(stages[stageIndex].type == b2_stageStoreImpulses);
 		b2ExecuteMainStage(stages + stageIndex, context, syncBits);
 
+		profile->storeImpulses += b2GetMillisecondsAndReset(&timer);
+
 		// Signal workers to finish
-		atomic_store(&context->syncBits, UINT_MAX);
+		atomic_store(&context->atomicSyncBits, UINT_MAX);
 
 		B2_ASSERT(stageIndex + 1 == context->stageCount);
 		return;
 	}
 
-	// Worker
+	// Worker spins and waits for work
 	uint32_t lastSyncBits = 0;
-
+	uint64_t maxSpinTime = 10;
 	while (true)
 	{
 		// Spin until main thread bumps changes the sync bits
 		// todo consider using the cycle counter as well
-		uint32_t syncBits = atomic_load(&context->syncBits);
-		while (syncBits == lastSyncBits)
+		uint32_t syncBits;
+		int spinCount = 0;
+		while ((syncBits = atomic_load(&context->atomicSyncBits)) == lastSyncBits)
 		{
-			simde_mm_pause();
-			syncBits = atomic_load(&context->syncBits);
+			if (spinCount >= 3)
+			{
+				b2SleepMilliseconds(0);
+			}
+			else
+			{
+				uint64_t prev = __rdtsc();
+				do
+				{
+					_mm_pause();
+				}
+				while ((__rdtsc() - prev) < maxSpinTime);
+				maxSpinTime += 10;
+			}
+
+			spinCount += 1;
 		}
 
 		if (syncBits == UINT_MAX)
@@ -1198,14 +1232,14 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	context->workerCount = workerCount;
 	context->stageCount = stageCount;
 	context->stages = stages;
-	context->syncBits = 0;
+	context->atomicSyncBits = 0;
 
 	world->profile.prepareTasks = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneEnd(prepare_stages);
 
 	// Must use worker index because thread 0 can be assigned multiple tasks by enkiTS
-	for (int32_t i = 0; i < workerCount; ++i)
+	for (int i = 0; i < workerCount; ++i)
 	{
 		workerContext[i].context = context;
 		workerContext[i].workerIndex = i;
@@ -1236,6 +1270,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		}
 	}
 
+	world->profile.solverTasks = b2GetMillisecondsAndReset(&timer);
+
 	// Prepare contact, shape, and island bit sets used in body finalization.
 	int shapeIdCapacity = world->shapePool.capacity;
 	int islandIdCapacity = b2GetIdCapacity(&world->islandIdPool);
@@ -1253,6 +1289,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		world->finishTaskFcn(finalizeBodiesTask, world->userTaskContext);
 	}
 
+	world->profile.finalizeBodies = b2GetMillisecondsAndReset(&timer);
+
 	b2FreeStackItem(&world->stackAllocator, graphBlocks);
 	b2FreeStackItem(&world->stackAllocator, jointBlocks);
 	b2FreeStackItem(&world->stackAllocator, contactBlocks);
@@ -1262,8 +1300,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2FreeStackItem(&world->stackAllocator, simdContactConstraints);
 	b2FreeStackItem(&world->stackAllocator, joints);
 	b2FreeStackItem(&world->stackAllocator, contacts);
-
-	world->profile.solverTasks = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneNC(awake_islands, "Awake Islands", b2_colorGainsboro, true);
 

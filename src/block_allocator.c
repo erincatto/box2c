@@ -11,8 +11,8 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define b2_minChunkSize (1 << 15)
-#define b2_maxBlockSize (1 << 24)
+#define b2_targetChunkSize (1 << 18)
+#define b2_maxBlockSize (1 << b2_maxBlockPower)
 
 // This is a helper struct for building a linked list of memory blocks
 typedef struct b2Block
@@ -36,9 +36,8 @@ typedef struct b2Chunk
 b2BlockAllocator b2CreateBlockAllocator(void)
 {
 	_Static_assert(b2_blockPowerCount == b2_maxBlockPower - b2_minBlockPower + 1, "wrong size");
-	_Static_assert(b2_minChunkSize <= b2_maxBlockSize, "wrong size");
-	_Static_assert(b2_maxBlockSize <= (1 << b2_maxBlockPower), "wrong size");
-	_Static_assert(b2_maxBlockSize >= (1 << b2_minBlockPower), "wrong size");
+	_Static_assert(b2_targetChunkSize <= (1 << b2_maxBlockPower), "wrong size");
+	_Static_assert(b2_targetChunkSize >= (1 << b2_minBlockPower), "wrong size");
 
 	b2BlockAllocator allocator = {0};
 	allocator.chunkArray = b2CreateArray(sizeof(b2Chunk), 128);
@@ -90,7 +89,14 @@ void* b2AllocBlock(b2BlockAllocator* allocator, int size)
 	b2Chunk chunk;
 	chunk.blockSize = (1 << power);
 	// if the block size is very large then the chunk will hold a single block
-	chunk.totalSize = chunk.blockSize > b2_maxBlockSize ? chunk.blockSize : b2_maxBlockSize;
+	if (chunk.blockSize > b2_targetChunkSize)
+	{
+		chunk.totalSize = chunk.blockSize;
+	}
+	else
+	{
+		chunk.totalSize = b2_targetChunkSize;
+	}
 	chunk.blockList = b2Alloc(chunk.totalSize);
 
 #if B2_DEBUG

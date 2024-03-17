@@ -281,6 +281,15 @@ typedef struct b2Profile
 	float solveConstraints;
 	float prepareTasks;
 	float solverTasks;
+	float prepareConstraints;
+	float integrateVelocities;
+	float warmStart;
+	float solveVelocities;
+	float integratePositions;
+	float relaxVelocities;
+	float applyRestitution;
+	float storeImpulses;
+	float finalizeBodies;
 	float awakeUpdate;
 	float broadphase;
 	float continuous;

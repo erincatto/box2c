@@ -631,6 +631,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	b2Array_Clear(world->contactBeginArray);
 	b2Array_Clear(world->contactEndArray);
 
+	world->profile = (b2Profile){0};
+
 	if (timeStep == 0.0f)
 	{
 		// todo would be useful to still process collision while paused
@@ -640,7 +642,6 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 	b2TracyCZoneNC(world_step, "Step", b2_colorChartreuse, true);
 
 	world->locked = true;
-	world->profile = (b2Profile){0};
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
 
@@ -653,7 +654,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount)
 		world->profile.pairs = b2GetMilliseconds(&timer);
 	}
 
-	b2StepContext context = {0};
+	_Alignas(64) b2StepContext context = {0};
 	context.world = world;
 	context.dt = timeStep;
 	context.subStepCount = B2_MAX(1, subStepCount);

@@ -499,20 +499,20 @@ typedef struct b2SimdBody
 } b2SimdBody;
 
 // This is a load and 8x8 transpose
-static b2SimdBody b2GatherBodies(const b2BodyState* restrict bodies, int32_t* restrict indices)
+static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int32_t* restrict indices)
 {
-	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
-	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
+	_Static_assert(sizeof(b2BodyState) == 64, "b2BodyState not 32 bytes");
+	B2_ASSERT(((uintptr_t)states & 0x3F) == 0);
 	// static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 	b2FloatW identity = simde_mm256_setr_ps(0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, 1.0f);
-	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[0]));
-	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[1]));
-	b2FloatW b2 = indices[2] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[2]));
-	b2FloatW b3 = indices[3] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[3]));
-	b2FloatW b4 = indices[4] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[4]));
-	b2FloatW b5 = indices[5] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[5]));
-	b2FloatW b6 = indices[6] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[6]));
-	b2FloatW b7 = indices[7] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(bodies + indices[7]));
+	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[0]));
+	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[1]));
+	b2FloatW b2 = indices[2] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[2]));
+	b2FloatW b3 = indices[3] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[3]));
+	b2FloatW b4 = indices[4] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[4]));
+	b2FloatW b5 = indices[5] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[5]));
+	b2FloatW b6 = indices[6] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[6]));
+	b2FloatW b7 = indices[7] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[7]));
 
 	b2FloatW t0 = simde_mm256_unpacklo_ps(b0, b1);
 	b2FloatW t1 = simde_mm256_unpackhi_ps(b0, b1);
@@ -544,10 +544,10 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict bodies, int32_t* re
 }
 
 // This writes everything back to the solver bodies but only the velocities change
-static void b2ScatterBodies(b2BodyState* restrict bodies, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
+static void b2ScatterBodies(b2BodyState* restrict states, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
 {
-	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
-	B2_ASSERT(((uintptr_t)bodies & 0x1F) == 0);
+	_Static_assert(sizeof(b2BodyState) == 64, "b2BodyState not 32 bytes");
+	B2_ASSERT(((uintptr_t)states & 0x3F) == 0);
 	b2FloatW t0 = simde_mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
 	b2FloatW t1 = simde_mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
 	b2FloatW t2 = simde_mm256_unpacklo_ps(simdBody->w, simdBody->flags);
@@ -568,21 +568,21 @@ static void b2ScatterBodies(b2BodyState* restrict bodies, int32_t* restrict indi
 	// I don't use any dummy body in the body array because this will lead to multi-threaded sharing and the
 	// associated cache flushing.
 	if (indices[0] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[0]), simde_mm256_permute2f128_ps(tt0, tt4, 0x20));
+		simde_mm256_store_ps((float*)(states + indices[0]), simde_mm256_permute2f128_ps(tt0, tt4, 0x20));
 	if (indices[1] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[1]), simde_mm256_permute2f128_ps(tt1, tt5, 0x20));
+		simde_mm256_store_ps((float*)(states + indices[1]), simde_mm256_permute2f128_ps(tt1, tt5, 0x20));
 	if (indices[2] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[2]), simde_mm256_permute2f128_ps(tt2, tt6, 0x20));
+		simde_mm256_store_ps((float*)(states + indices[2]), simde_mm256_permute2f128_ps(tt2, tt6, 0x20));
 	if (indices[3] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[3]), simde_mm256_permute2f128_ps(tt3, tt7, 0x20));
+		simde_mm256_store_ps((float*)(states + indices[3]), simde_mm256_permute2f128_ps(tt3, tt7, 0x20));
 	if (indices[4] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[4]), simde_mm256_permute2f128_ps(tt0, tt4, 0x31));
+		simde_mm256_store_ps((float*)(states + indices[4]), simde_mm256_permute2f128_ps(tt0, tt4, 0x31));
 	if (indices[5] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[5]), simde_mm256_permute2f128_ps(tt1, tt5, 0x31));
+		simde_mm256_store_ps((float*)(states + indices[5]), simde_mm256_permute2f128_ps(tt1, tt5, 0x31));
 	if (indices[6] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[6]), simde_mm256_permute2f128_ps(tt2, tt6, 0x31));
+		simde_mm256_store_ps((float*)(states + indices[6]), simde_mm256_permute2f128_ps(tt2, tt6, 0x31));
 	if (indices[7] != B2_NULL_INDEX)
-		simde_mm256_store_ps((float*)(bodies + indices[7]), simde_mm256_permute2f128_ps(tt3, tt7, 0x31));
+		simde_mm256_store_ps((float*)(states + indices[7]), simde_mm256_permute2f128_ps(tt3, tt7, 0x31));
 }
 
 void b2PrepareContactsTask(int32_t startIndex, int32_t endIndex, b2StepContext* context)

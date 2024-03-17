@@ -9,7 +9,7 @@ add_executable(benchmark
     # benchmark_smash.c
 )
 
-set_target_properties(test PROPERTIES
+set_target_properties(benchmark PROPERTIES
 	C_STANDARD 17
     C_STANDARD_REQUIRED YES
     C_EXTENSIONS NO

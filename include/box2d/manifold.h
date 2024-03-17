@@ -49,7 +49,7 @@ typedef struct b2Manifold
 {
 	b2ManifoldPoint points[2];
 	b2Vec2 normal;
-	int32_t pointCount;
+	int pointCount;
 } b2Manifold;
 
 /// Use this to initialize your manifold

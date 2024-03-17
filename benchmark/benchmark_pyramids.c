@@ -33,13 +33,13 @@ b2WorldId BenchmarkPyramids(b2WorldDef* worldDef)
 {
 	int baseCount = 10;
 	float extent = 0.5f;
-	int rowCount = 14;
-	int columnCount = 13;
+	int rowCount = 30;
+	int columnCount = 30;
 
-	worldDef->bodyCapacity = 10011;
-	worldDef->shapeCapacity = 10024;
-	worldDef->contactCapacity = 27310;
-	worldDef->stackAllocatorCapacity = 5000000;
+	worldDef->bodyCapacity = columnCount * rowCount * ((baseCount + 1) * baseCount)/2 + rowCount;
+	worldDef->shapeCapacity = worldDef->bodyCapacity;
+	worldDef->contactCapacity = 4 * worldDef->bodyCapacity;
+	worldDef->stackAllocatorCapacity = 25000000;
 
 	b2WorldId worldId = b2CreateWorld(worldDef);
 

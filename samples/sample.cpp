@@ -350,6 +350,15 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.solveConstraints = B2_MAX(m_maxProfile.solveConstraints, p.solveConstraints);
 		m_maxProfile.prepareTasks = B2_MAX(m_maxProfile.prepareTasks, p.prepareTasks);
 		m_maxProfile.solverTasks = B2_MAX(m_maxProfile.solverTasks, p.solverTasks);
+		m_maxProfile.prepareConstraints = B2_MAX(m_maxProfile.prepareConstraints, p.prepareConstraints);
+		m_maxProfile.integrateVelocities = B2_MAX(m_maxProfile.integrateVelocities, p.integrateVelocities);
+		m_maxProfile.warmStart = B2_MAX(m_maxProfile.warmStart, p.warmStart);
+		m_maxProfile.solveVelocities = B2_MAX(m_maxProfile.solveVelocities, p.solveVelocities);
+		m_maxProfile.integratePositions = B2_MAX(m_maxProfile.integratePositions, p.integratePositions);
+		m_maxProfile.relaxVelocities = B2_MAX(m_maxProfile.relaxVelocities, p.relaxVelocities);
+		m_maxProfile.applyRestitution = B2_MAX(m_maxProfile.applyRestitution, p.applyRestitution);
+		m_maxProfile.storeImpulses = B2_MAX(m_maxProfile.storeImpulses, p.storeImpulses);
+		m_maxProfile.finalizeBodies = B2_MAX(m_maxProfile.finalizeBodies, p.finalizeBodies);
 		m_maxProfile.awakeUpdate = B2_MAX(m_maxProfile.awakeUpdate, p.awakeUpdate);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
@@ -362,6 +371,15 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.solveConstraints += p.solveConstraints;
 		m_totalProfile.prepareTasks += p.prepareTasks;
 		m_totalProfile.solverTasks += p.solverTasks;
+		m_totalProfile.prepareConstraints += p.prepareConstraints;
+		m_totalProfile.integrateVelocities += p.integrateVelocities;
+		m_totalProfile.warmStart += p.warmStart;
+		m_totalProfile.solveVelocities += p.solveVelocities;
+		m_totalProfile.integratePositions += p.integratePositions;
+		m_totalProfile.relaxVelocities += p.relaxVelocities;
+		m_totalProfile.applyRestitution += p.applyRestitution;
+		m_totalProfile.storeImpulses += p.storeImpulses;
+		m_totalProfile.finalizeBodies += p.finalizeBodies;
 		m_totalProfile.awakeUpdate += p.awakeUpdate;
 		m_totalProfile.broadphase += p.broadphase;
 		m_totalProfile.continuous += p.continuous;
@@ -384,6 +402,15 @@ void Sample::Step(Settings& settings)
 			aveProfile.solveConstraints = scale * m_totalProfile.solveConstraints;
 			aveProfile.prepareTasks = scale * m_totalProfile.prepareTasks;
 			aveProfile.solverTasks = scale * m_totalProfile.solverTasks;
+			aveProfile.prepareConstraints = scale * m_totalProfile.prepareConstraints;
+			aveProfile.integrateVelocities = scale * m_totalProfile.integrateVelocities;
+			aveProfile.warmStart = scale * m_totalProfile.warmStart;
+			aveProfile.solveVelocities = scale * m_totalProfile.solveVelocities;
+			aveProfile.integratePositions = scale * m_totalProfile.integratePositions;
+			aveProfile.relaxVelocities = scale * m_totalProfile.relaxVelocities;
+			aveProfile.applyRestitution = scale * m_totalProfile.applyRestitution;
+			aveProfile.storeImpulses = scale * m_totalProfile.storeImpulses;
+			aveProfile.finalizeBodies = scale * m_totalProfile.finalizeBodies;
 			aveProfile.awakeUpdate = scale * m_totalProfile.awakeUpdate;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 			aveProfile.continuous = scale * m_totalProfile.continuous;
@@ -411,6 +438,33 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "solver tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solverTasks,
 						  aveProfile.solverTasks, m_maxProfile.solverTasks);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "prepare constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.prepareConstraints,
+						  aveProfile.prepareConstraints, m_maxProfile.prepareConstraints);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "integrate velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.integrateVelocities,
+						  aveProfile.integrateVelocities, m_maxProfile.integrateVelocities);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "warm start [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.warmStart,
+						  aveProfile.warmStart, m_maxProfile.warmStart);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "solve velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveVelocities,
+						  aveProfile.solveVelocities, m_maxProfile.solveVelocities);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "integrate positions [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.integratePositions,
+						  aveProfile.integratePositions, m_maxProfile.integratePositions);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "relax velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.relaxVelocities,
+						  aveProfile.relaxVelocities, m_maxProfile.relaxVelocities);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "apply restitution [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.applyRestitution,
+						  aveProfile.applyRestitution, m_maxProfile.applyRestitution);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "store impulses [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.storeImpulses,
+						  aveProfile.storeImpulses, m_maxProfile.storeImpulses);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "finalize bodies [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.finalizeBodies,
+						  aveProfile.finalizeBodies, m_maxProfile.finalizeBodies);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "awake update [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.awakeUpdate,
 						  aveProfile.awakeUpdate, m_maxProfile.awakeUpdate);

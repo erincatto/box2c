@@ -67,7 +67,9 @@ typedef struct b2SolverStage
 	b2SolverBlock* blocks;
 	int blockCount;
 	int colorIndex;
-	_Atomic int completionCount;
+	int dummy1[128];
+	_Alignas(64) _Atomic int completionCount;
+	int dummy2[128];
 } b2SolverStage;
 
 // Context for a time step. Recreated each time step.
@@ -126,11 +128,15 @@ typedef struct b2StepContext
 	b2SolverStage* stages;
 	int stageCount;
 	int splitIslandIndex;
+	bool enableWarmStarting;
+
+	int dummy1[64];
 
 	// sync index (16-bits) | stage type (16-bits)
-	_Atomic unsigned int syncBits;
+	_Alignas(64) _Atomic unsigned int atomicSyncBits;
 
-	bool enableWarmStarting;
+	int dummy2[64];
+
 } b2StepContext;
 
 static inline b2Softness b2MakeSoft(float hertz, float zeta, float h)
