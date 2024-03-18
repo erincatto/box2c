@@ -29,7 +29,7 @@ static void CreatePyramid(b2WorldId worldId, int baseCount, float extent, float 
 	}
 }
 
-b2WorldId BenchmarkPyramids(b2WorldDef* worldDef)
+b2WorldId ManyPyramids(b2WorldDef* worldDef)
 {
 	int baseCount = 10;
 	float extent = 0.5f;

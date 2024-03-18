@@ -274,7 +274,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	if (setIndex == b2_awakeSet)
 	{
 		state = b2AddBodyState(&world->blockAllocator, &set->states);
-		B2_ASSERT(((uintptr_t)state & 0x3F) == 0);
+		B2_ASSERT(((uintptr_t)state & 0x1F) == 0);
 	}
 
 	int bodyId = b2AllocId(&world->bodyIdPool);
@@ -491,7 +491,7 @@ void b2DestroyBodyAndJoints(b2BodyId bodyId)
 		int32_t jointKey = edgeKey >> 1;
 		int32_t edgeIndex = edgeKey & 1;
 
-		b2Joint* joint = b2GetJointFromKey(world, jointKey);
+		b2Joint* joint = b2GetJoint(world, jointKey);
 		edgeKey = joint->edges[edgeIndex].nextKey;
 
 		// Careful because this modifies the list being traversed
@@ -1708,11 +1708,11 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	while (jointKey != B2_NULL_INDEX)
 	{
-		int32_t jointIndex = jointKey >> 1;
+		int32_t jointId = jointKey >> 1;
 		int32_t edgeIndex = jointKey & 1;
 		int32_t otherEdgeIndex = edgeIndex ^ 1;
 
-		b2Joint* joint = b2GetJointFromKey(world, jointKey);
+		b2Joint* joint = b2GetJoint(world, jointId);
 		if (joint->collideConnected == false && joint->edges[otherEdgeIndex].bodyId == otherBodyId)
 		{
 			return false;

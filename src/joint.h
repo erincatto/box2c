@@ -57,8 +57,8 @@ typedef struct b2DistanceJoint
 	float lowerImpulse;
 	float upperImpulse;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -76,8 +76,8 @@ typedef struct b2MotorJoint
 	float maxTorque;
 	float correctionFactor;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -97,7 +97,7 @@ typedef struct b2MouseJoint
 
 	b2Softness linearSoftness;
 	b2Softness angularSoftness;
-	int32_t indexB;
+	int indexB;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
 	b2Mat22 linearMass;
@@ -249,8 +249,8 @@ typedef struct b2Joint
 	bool collideConnected;
 } b2Joint;
 
-b2Joint* b2GetJointFromKey(b2World* world, int32_t jointKey);
-b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
+b2Joint* b2GetJoint(b2World* world, int jointId);
+b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId);
 b2Joint* b2GetJointCheckType(b2JointId jointId, b2JointType type);
 void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
 

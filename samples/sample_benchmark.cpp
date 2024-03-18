@@ -67,7 +67,7 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_compoundShape;
+		m_shapeType = e_boxShape;
 
 		CreateScene();
 	}
@@ -93,14 +93,14 @@ public:
 
 		if (m_shapeType == e_compoundShape)
 		{
-			if (g_sampleDebug == false)
+			if constexpr (g_sampleDebug == false)
 			{
 				m_columnCount = 20;
 			}
 		}
 		else if (m_shapeType == e_humanShape)
 		{
-			if (g_sampleDebug)
+			if constexpr (g_sampleDebug)
 			{
 				m_rowCount = 10;
 				m_columnCount = 10;
@@ -114,7 +114,7 @@ public:
 
 		float rad = 0.5f;
 
-		float shift = 1.0f;
+		float shift = 1.15f;
 		float centerx = shift * m_columnCount / 2.0f;
 		float centery = shift / 2.0f;
 
@@ -146,7 +146,7 @@ public:
 		// b2Polygon leftLeg = b2MakeOffsetBox(0.2f, 0.5f, {-0.6f, 0.5f}, 0.0f);
 		// b2Polygon rightLeg = b2MakeOffsetBox(0.2f, 0.5f, {0.6f, 0.5f}, 0.0f);
 
-		float side = -0.05f;
+		float side = -0.1f;
 		float extray = 0.0f;
 		if (m_shapeType == e_capsuleShape)
 		{
@@ -586,10 +586,73 @@ public:
 
 static int benchmarkManyTumblers = RegisterSample("Benchmark", "Many Tumblers", BenchmarkManyTumblers::Create);
 
-class BenchmarkPyramid : public Sample
+class BenchmarkLargePyramid : public Sample
 {
 public:
-	explicit BenchmarkPyramid(Settings& settings)
+	explicit BenchmarkLargePyramid(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 50.0f};
+			g_camera.m_zoom = 2.2f;
+		}
+
+#ifdef NDEBUG
+		int baseCount = 100;
+#else
+		int baseCount = 40;
+#endif
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {0.0f, -1.0f};
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(100.0f, 1.0f);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+
+		float h = 0.5f;
+		b2Polygon box = b2MakeSquare(h);
+
+		float shift = 1.0f * h;
+
+		for (int i = 0; i < baseCount; ++i)
+		{
+			float y = (2.0f * i + 1.0f) * shift;
+
+			for (int j = i; j < baseCount; ++j)
+			{
+				float x = (i + 1.0f) * shift + 2.0f * (j - i) * shift - h * baseCount;
+
+				bodyDef.position = {x, y};
+
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(bodyId, &shapeDef, &box);
+			}
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new BenchmarkLargePyramid(settings);
+	}
+};
+
+static int benchmarkLargePyramid = RegisterSample("Benchmark", "Large Pyramid", BenchmarkLargePyramid::Create);
+
+class BenchmarkManyPyramids : public Sample
+{
+public:
+	explicit BenchmarkManyPyramids(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -610,19 +673,10 @@ public:
 		m_bodyCount = 0;
 		m_bodyIndex = 0;
 
-		m_collideRange = 169;
-		m_islandRange = 1;
-
-		m_bestCollideRange = 1;
-		m_minCollide = FLT_MAX;
-
-		m_bestIslandRange = 1;
-		m_minIsland = FLT_MAX;
-
 		CreateScene();
 	}
 
-	~BenchmarkPyramid() override
+	~BenchmarkManyPyramids() override
 	{
 		free(m_bodyIds);
 	}
@@ -733,52 +787,9 @@ public:
 		ImGui::End();
 	}
 
-	void Step(Settings& settings) override
-	{
-		// b2_collideMinRange = m_collideRange;
-		// b2_islandMinRange = m_islandRange;
-
-		Sample::Step(settings);
-
-		b2Profile profile = b2World_GetProfile(m_worldId);
-
-		if (m_stepCount > 100000000)
-		{
-			if (profile.collide < m_minCollide)
-			{
-				m_minCollide = profile.collide;
-				m_bestCollideRange = m_collideRange;
-			}
-
-			if (profile.solveConstraints < m_minIsland)
-			{
-				m_minIsland = profile.solveConstraints;
-				m_bestIslandRange = m_islandRange;
-			}
-
-			g_draw.DrawString(5, m_textLine, "collide range (best) = %d (%d)", m_collideRange, m_bestCollideRange);
-			m_textLine += m_textIncrement;
-
-			g_draw.DrawString(5, m_textLine, "island range (best) = %d (%d)", m_islandRange, m_bestIslandRange);
-			m_textLine += m_textIncrement;
-
-			// m_collideRange += 1;
-			// if (m_collideRange > 300)
-			//{
-			//	m_collideRange = 32;
-			// }
-
-			// m_islandRange += 1;
-			// if (m_islandRange > 4)
-			//{
-			//	m_islandRange = 1;
-			// }
-		}
-	}
-
 	static Sample* Create(Settings& settings)
 	{
-		return new BenchmarkPyramid(settings);
+		return new BenchmarkManyPyramids(settings);
 	}
 
 	b2BodyId m_groundId;
@@ -790,18 +801,9 @@ public:
 	int32_t m_columnCount;
 	float m_round;
 	float m_extent;
-
-	int m_collideRange;
-	int m_islandRange;
-
-	int32_t m_bestCollideRange;
-	float m_minCollide;
-
-	int32_t m_bestIslandRange;
-	float m_minIsland;
 };
 
-static int benchmarkPyramid = RegisterSample("Benchmark", "Pyramid", BenchmarkPyramid::Create);
+static int benchmarkManyPyramids = RegisterSample("Benchmark", "Many Pyramids", BenchmarkManyPyramids::Create);
 
 class BenchmarkCreateDestroy : public Sample
 {

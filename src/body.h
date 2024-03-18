@@ -44,8 +44,6 @@ typedef struct b2BodyState
 	// Using delta rotation because I cannot access the full rotation on static bodies in
 	// the solver and must use zero delta rotation for static bodies (s,c) = (0,1)
 	b2Rot deltaRotation; // 8
-
-	char pad[32];
 } b2BodyState;
 
 // Identity body state, notice the deltaRotation is {0, 1}

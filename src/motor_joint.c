@@ -258,7 +258,7 @@ float b2MotorJoint_GetCorrectionFactor(b2JointId jointId)
 b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* base = b2GetJoint(world, jointId);
+	b2Joint* base = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(base->type == b2_motorJoint);
 
 	b2MotorJoint* joint = &base->motorJoint;
@@ -269,7 +269,7 @@ b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 float b2MotorJoint_GetConstraintTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_motorJoint);
 
 	return world->inv_h * joint->motorJoint.angularImpulse;

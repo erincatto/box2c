@@ -15,12 +15,14 @@
 #define MAYBE_UNUSED(x) ((void)(x))
 
 typedef b2WorldId CreateBenchmarkFcn(b2WorldDef* worldDef);
-extern b2WorldId BenchmarkPyramids(b2WorldDef* worldDef);
+extern b2WorldId ManyPyramids(b2WorldDef* worldDef);
+extern b2WorldId LargePyramid(b2WorldDef* worldDef);
 
 typedef struct Benchmark
 {
 	const char* name;
 	CreateBenchmarkFcn* createFcn;
+	int stepCount;
 } Benchmark;
 
 #define MAX_TASKS 128
@@ -144,9 +146,8 @@ static void FinishPinnedTask(void* userTask, void* userContext)
 
 int main(int argc, char** argv)
 {
-	int maxThreadCount = 16;
+	int maxThreadCount = 8;
 	int runCount = 4;
-	int stepCount = 200;
 	b2Counters counters = {0};
 	bool countersAcquired = false;
 	bool enableContinuous = true;
@@ -154,7 +155,8 @@ int main(int argc, char** argv)
 	assert(maxThreadCount <= THREAD_LIMIT);
 
 	Benchmark benchmarks[] = {
-		{"pyramids", BenchmarkPyramids},
+		//{"many_pyramids", ManyPyramids, 200},
+		{"large_pyramids", LargePyramid, 500},
 	};
 
 	int benchmarkCount = ARRAY_COUNT(benchmarks);
@@ -164,7 +166,13 @@ int main(int argc, char** argv)
 
 	for (int benchmarkIndex = 0; benchmarkIndex < benchmarkCount; ++benchmarkIndex)
 	{
-		printf("benchmark: %s\n", benchmarks[benchmarkIndex].name);
+#ifdef NDEBUG
+		int stepCount = benchmarks[benchmarkIndex].stepCount;
+#else
+		int stepCount = 10;
+#endif
+
+		printf("benchmark: %s, steps = %d\n", benchmarks[benchmarkIndex].name, stepCount);
 
 		float maxFps[THREAD_LIMIT] = {0};
 

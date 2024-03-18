@@ -72,7 +72,7 @@ b2WheelJointDef b2DefaultWheelJointDef()
 	return def;
 }
 
-b2Joint* b2GetJointFromKey(b2World* world, int jointId)
+b2Joint* b2GetJoint(b2World* world, int jointId)
 {
 	B2_ASSERT(0 <= jointId && jointId < b2Array(world->jointLookupArray).count);
 
@@ -97,7 +97,7 @@ b2Joint* b2GetJointFromKey(b2World* world, int jointId)
 	return joint;
 }
 
-b2Joint* b2GetJoint(b2World* world, b2JointId jointId)
+b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId)
 {
 	int id = jointId.index1 - 1;
 	b2JointLookup lookup = world->jointLookupArray[id];
@@ -133,7 +133,7 @@ b2Joint* b2GetJointCheckType(b2JointId jointId, b2JointType type)
 		return NULL;
 	}
 
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == type);
 	return joint;
 }
@@ -240,7 +240,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	int32_t keyA = (jointId << 1) | 0;
 	if (bodyA->jointList != B2_NULL_INDEX)
 	{
-		b2Joint* jointA = b2GetJointFromKey(world, bodyA->jointList >> 1);
+		b2Joint* jointA = b2GetJoint(world, bodyA->jointList >> 1);
 		b2JointEdge* edgeA = jointA->edges + (bodyA->jointList & 1);
 		edgeA->prevKey = keyA;
 	}
@@ -255,7 +255,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	int32_t keyB = (jointId << 1) | 1;
 	if (bodyB->jointList != B2_NULL_INDEX)
 	{
-		b2Joint* jointB = b2GetJointFromKey(world, bodyB->jointList >> 1);
+		b2Joint* jointB = b2GetJoint(world, bodyB->jointList >> 1);
 		b2JointEdge* edgeB = jointB->edges + (bodyB->jointList & 1);
 		edgeB->prevKey = keyB;
 	}
@@ -631,14 +631,14 @@ void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies)
 	// Remove from body A
 	if (edgeA->prevKey != B2_NULL_INDEX)
 	{
-		b2Joint* prevJoint = b2GetJointFromKey(world, edgeA->prevKey >> 1);
+		b2Joint* prevJoint = b2GetJoint(world, edgeA->prevKey >> 1);
 		b2JointEdge* prevEdge = prevJoint->edges + (edgeA->prevKey & 1);
 		prevEdge->nextKey = edgeA->nextKey;
 	}
 
 	if (edgeA->nextKey != B2_NULL_INDEX)
 	{
-		b2Joint* nextJoint = b2GetJointFromKey(world, edgeA->nextKey >> 1);
+		b2Joint* nextJoint = b2GetJoint(world, edgeA->nextKey >> 1);
 		b2JointEdge* nextEdge = nextJoint->edges + (edgeA->nextKey & 1);
 		nextEdge->prevKey = edgeA->prevKey;
 	}
@@ -654,14 +654,14 @@ void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies)
 	// Remove from body B
 	if (edgeB->prevKey != B2_NULL_INDEX)
 	{
-		b2Joint* prevJoint = b2GetJointFromKey(world, edgeB->prevKey >> 1);
+		b2Joint* prevJoint = b2GetJoint(world, edgeB->prevKey >> 1);
 		b2JointEdge* prevEdge = prevJoint->edges + (edgeB->prevKey & 1);
 		prevEdge->nextKey = edgeB->nextKey;
 	}
 
 	if (edgeB->nextKey != B2_NULL_INDEX)
 	{
-		b2Joint* nextJoint = b2GetJointFromKey(world, edgeB->nextKey >> 1);
+		b2Joint* nextJoint = b2GetJoint(world, edgeB->nextKey >> 1);
 		b2JointEdge* nextEdge = nextJoint->edges + (edgeB->nextKey & 1);
 		nextEdge->prevKey = edgeB->prevKey;
 	}
@@ -724,7 +724,7 @@ void b2DestroyJoint(b2JointId jointId)
 		return;
 	}
 
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 
 	b2DestroyJointInternal(world, joint, true);
 }
@@ -732,35 +732,35 @@ void b2DestroyJoint(b2JointId jointId)
 b2JointType b2Joint_GetType(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return joint->type;
 }
 
 b2BodyId b2Joint_GetBodyA(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return b2MakeBodyId(world, joint->edges[0].bodyId);
 }
 
 b2BodyId b2Joint_GetBodyB(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return b2MakeBodyId(world, joint->edges[1].bodyId);
 }
 
 b2Vec2 b2Joint_GetLocalAnchorA(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return joint->localOriginAnchorA;
 }
 
 b2Vec2 b2Joint_GetLocalAnchorB(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return joint->localOriginAnchorB;
 }
 
@@ -772,7 +772,7 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 		return;
 	}
 
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	if (joint->collideConnected == shouldCollide)
 	{
 		return;
@@ -839,21 +839,21 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 bool b2Joint_GetCollideConnected(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return joint->collideConnected;
 }
 
 void b2Joint_SetUserData(b2JointId jointId, void* userData)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	joint->userData = userData;
 }
 
 void* b2Joint_GetUserData(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	return joint->userData;
 }
 
@@ -865,7 +865,7 @@ void b2Joint_WakeBodies(b2JointId jointId)
 		return;
 	}
 
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	int idA = joint->edges[0].bodyId;
 	int idB = joint->edges[1].bodyId;
 
@@ -1073,7 +1073,7 @@ b2JointId b2Body_GetFirstJoint(b2BodyId bodyId)
 		return (b2JointId){0};
 	}
 
-	b2Joint* joint = b2GetJointFromKey(world, body->jointList);
+	b2Joint* joint = b2GetJoint(world, body->jointList);
 	b2JointId id = {joint->jointId + 1, bodyId.world0, joint->revision};
 	return id;
 }
@@ -1082,7 +1082,7 @@ b2JointId b2Body_GetNextJoint(b2BodyId bodyId, b2JointId jointId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBody(world, bodyId);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 
 	if (joint->edges[0].bodyId == body->bodyId)
 	{
@@ -1091,7 +1091,7 @@ b2JointId b2Body_GetNextJoint(b2BodyId bodyId, b2JointId jointId)
 			return (b2JointId){0};
 		}
 
-		joint = b2GetJointFromKey(world, joint->edges[0].nextKey >> 1);
+		joint = b2GetJoint(world, joint->edges[0].nextKey >> 1);
 	}
 	else
 	{
@@ -1102,7 +1102,7 @@ b2JointId b2Body_GetNextJoint(b2BodyId bodyId, b2JointId jointId)
 			return (b2JointId){0};
 		}
 
-		joint = b2GetJointFromKey(world, joint->edges[1].nextKey >> 1);
+		joint = b2GetJoint(world, joint->edges[1].nextKey >> 1);
 	}
 
 	b2JointId id = {joint->jointId + 1, bodyId.world0, joint->revision};

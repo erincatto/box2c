@@ -501,8 +501,8 @@ typedef struct b2SimdBody
 // This is a load and 8x8 transpose
 static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int32_t* restrict indices)
 {
-	_Static_assert(sizeof(b2BodyState) == 64, "b2BodyState not 32 bytes");
-	B2_ASSERT(((uintptr_t)states & 0x3F) == 0);
+	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
+	B2_ASSERT(((uintptr_t)states & 0x1F) == 0);
 	// static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 	b2FloatW identity = simde_mm256_setr_ps(0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, 1.0f);
 	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[0]));
@@ -546,8 +546,8 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int32_t* re
 // This writes everything back to the solver bodies but only the velocities change
 static void b2ScatterBodies(b2BodyState* restrict states, int32_t* restrict indices, const b2SimdBody* restrict simdBody)
 {
-	_Static_assert(sizeof(b2BodyState) == 64, "b2BodyState not 32 bytes");
-	B2_ASSERT(((uintptr_t)states & 0x3F) == 0);
+	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
+	B2_ASSERT(((uintptr_t)states & 0x1F) == 0);
 	b2FloatW t0 = simde_mm256_unpacklo_ps(simdBody->v.X, simdBody->v.Y);
 	b2FloatW t1 = simde_mm256_unpackhi_ps(simdBody->v.X, simdBody->v.Y);
 	b2FloatW t2 = simde_mm256_unpacklo_ps(simdBody->w, simdBody->flags);

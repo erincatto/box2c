@@ -88,7 +88,7 @@ float b2RevoluteJoint_GetMotorSpeed(b2JointId jointId)
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
 	return world->inv_h * joint->revoluteJoint.motorImpulse;
@@ -109,7 +109,7 @@ float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId)
 b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
 	b2Vec2 force = b2MulSV(world->inv_h, joint->revoluteJoint.linearImpulse);
@@ -119,7 +119,7 @@ b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
 float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
 	const b2RevoluteJoint* revolute = &joint->revoluteJoint;

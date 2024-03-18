@@ -307,7 +307,7 @@ static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
 	if (island->headJoint != B2_NULL_INDEX)
 	{
 		joint->islandNext = island->headJoint;
-		b2Joint* headJoint = b2GetJointFromKey(world, island->headJoint);
+		b2Joint* headJoint = b2GetJoint(world, island->headJoint);
 		headJoint->islandPrev = joint->jointId;
 	}
 
@@ -413,14 +413,14 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 
 	if (joint->islandPrev != B2_NULL_INDEX)
 	{
-		b2Joint* prevJoint = b2GetJointFromKey(world, joint->islandPrev);
+		b2Joint* prevJoint = b2GetJoint(world, joint->islandPrev);
 		B2_ASSERT(prevJoint->islandNext == joint->jointId);
 		prevJoint->islandNext = joint->islandNext;
 	}
 
 	if (joint->islandNext != B2_NULL_INDEX)
 	{
-		b2Joint* nextJoint = b2GetJointFromKey(world, joint->islandNext);
+		b2Joint* nextJoint = b2GetJoint(world, joint->islandNext);
 		B2_ASSERT(nextJoint->islandPrev == joint->jointId);
 		nextJoint->islandPrev = joint->islandPrev;
 	}
@@ -477,7 +477,7 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 	int jointId = island->headJoint;
 	while (jointId != B2_NULL_INDEX)
 	{
-		b2Joint* joint = b2GetJointFromKey(world, jointId);
+		b2Joint* joint = b2GetJoint(world, jointId);
 		joint->islandId = rootId;
 		jointId = joint->islandNext;
 	}
@@ -537,11 +537,11 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 		B2_ASSERT(island->tailJoint != B2_NULL_INDEX && island->jointCount > 0);
 		B2_ASSERT(rootIsland->tailJoint != B2_NULL_INDEX && rootIsland->jointCount > 0);
 
-		b2Joint* tailJoint = b2GetJointFromKey(world, rootIsland->tailJoint);
+		b2Joint* tailJoint = b2GetJoint(world, rootIsland->tailJoint);
 		B2_ASSERT(tailJoint->islandNext == B2_NULL_INDEX);
 		tailJoint->islandNext = island->headJoint;
 
-		b2Joint* headJoint = b2GetJointFromKey(world, island->headJoint);
+		b2Joint* headJoint = b2GetJoint(world, island->headJoint);
 		B2_ASSERT(headJoint->islandPrev == B2_NULL_INDEX);
 		headJoint->islandPrev = rootIsland->tailJoint;
 

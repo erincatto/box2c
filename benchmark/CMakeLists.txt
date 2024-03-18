@@ -2,7 +2,8 @@
 
 add_executable(benchmark 
     main.c
-    benchmark_pyramids.c
+    many_pyramids.c
+    large_pyramid.c
     # benchamrk_tumbler.c
     # benchmark_barrel.c
     # benchmark_joint_grid.c
