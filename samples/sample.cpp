@@ -40,29 +40,6 @@ static void* EnqueueTask(b2TaskCallback* task, int32_t itemCount, int32_t minRan
 	}
 }
 
-static void* AddPinnedTask(b2PinnedTaskFcn* box2dTask, int32_t threadIndex, void* box2dContext, void* userContext)
-{
-	assert(threadIndex < maxThreads);
-	Sample* sample = static_cast<Sample*>(userContext);
-
-	SamplePinnedTask& pinnedTask = sample->m_pinnedTasks[threadIndex];
-	if (pinnedTask.m_inUse == false)
-	{
-		assert(pinnedTask.threadNum == threadIndex);
-		pinnedTask.m_pinnedTask = box2dTask;
-		pinnedTask.m_box2DContext = box2dContext;
-		pinnedTask.m_inUse = true;
-		sample->m_scheduler.AddPinnedTask(&pinnedTask);
-		return &pinnedTask;
-	}
-	else
-	{
-		assert(false);
-		box2dTask(threadIndex, box2dContext);
-		return nullptr;
-	}
-}
-
 static void FinishTask(void* taskPtr, void* userContext)
 {
 	if (taskPtr != nullptr)
@@ -70,19 +47,6 @@ static void FinishTask(void* taskPtr, void* userContext)
 		SampleTask* sampleTask = static_cast<SampleTask*>(taskPtr);
 		Sample* sample = static_cast<Sample*>(userContext);
 		sample->m_scheduler.WaitforTask(sampleTask);
-	}
-}
-
-static void FinishPinnedTask(void* taskPtr, void* userContext)
-{
-	if (taskPtr != nullptr)
-	{
-		SamplePinnedTask* pinnedTask = static_cast<SamplePinnedTask*>(taskPtr);
-		Sample* sample = static_cast<Sample*>(userContext);
-		sample->m_scheduler.WaitforTask(pinnedTask);
-		pinnedTask->m_pinnedTask = nullptr;
-		pinnedTask->m_box2DContext = nullptr;
-		pinnedTask->m_inUse = false;
 	}
 }
 
@@ -123,17 +87,10 @@ Sample::Sample(Settings& settings)
 
 	m_threadCount = 1 + settings.workerCount;
 
-	for (int i = 0; i < m_threadCount; ++i)
-	{
-		m_pinnedTasks[i].threadNum = i;
-	}
-
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = settings.workerCount;
 	worldDef.enqueueTask = EnqueueTask;
 	worldDef.finishTask = FinishTask;
-	worldDef.addPinnedTask = AddPinnedTask;
-	worldDef.finishPinnedTask = FinishPinnedTask;
 	worldDef.userTaskContext = this;
 	worldDef.enableSleep = settings.enableSleep;
 

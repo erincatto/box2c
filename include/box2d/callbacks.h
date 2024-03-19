@@ -25,8 +25,6 @@ typedef struct b2Manifold b2Manifold;
 ///	}
 typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t workerIndex, void* taskContext);
 
-typedef void b2PinnedTaskFcn(int32_t threadIndex, void* taskContext);
-
 /// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
 /// Returns a pointer to the user's task object. May be nullptr. A nullptr indicates to Box2D that the work was executed
 ///	serially within the callback and there is no need to call b2FinishTaskCallback.
@@ -40,11 +38,8 @@ typedef void b2PinnedTaskFcn(int32_t threadIndex, void* taskContext);
 typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext,
 									void* userContext);
 
-typedef void* b2AddPinnedTaskCallback(b2PinnedTaskFcn* task, int32_t threadIndex, void* taskContext, void* userContext);
-
 /// Finishes a user task object that wraps a Box2D task.
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
-typedef void b2FinishPinnedTaskCallback(void* userTask, void* userContext);
 
 /// Prototype for a pre-solve callback.
 /// This is called after a contact is updated. This allows you to inspect a

@@ -34,21 +34,10 @@ typedef struct TaskData
 	void* box2dContext;
 } TaskData;
 
-typedef struct PinnedTaskData
-{
-	b2PinnedTaskFcn* box2dPinnedTask;
-	void* box2dContext;
-	int threadIndex;
-	bool inUse;
-} PinnedTaskData;
-
 enkiTaskScheduler* scheduler;
 enkiTaskSet* tasks[MAX_TASKS];
 TaskData taskData[MAX_TASKS];
 int taskCount;
-
-enkiPinnedTask* pinnedTasks[THREAD_LIMIT];
-PinnedTaskData pinnedTaskData[THREAD_LIMIT];
 
 void ExecuteRangeTask(uint32_t start, uint32_t end, uint32_t threadIndex, void* context)
 {
@@ -88,60 +77,12 @@ static void* EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange,
 	}
 }
 
-static void PinnedTaskFunc(void* args)
-{
-	PinnedTaskData* data = args;
-	data->box2dPinnedTask(data->threadIndex, data->box2dContext);
-}
-
-static void* AddPinnedTask(b2PinnedTaskFcn* box2dTask, int32_t threadIndex, void* box2dContext, void* userContext)
-{
-	assert(threadIndex < THREAD_LIMIT);
-	PinnedTaskData* data = pinnedTaskData + threadIndex;
-	if (data->inUse == false)
-	{
-		enkiPinnedTask* task = pinnedTasks[threadIndex];
-		data->box2dPinnedTask = box2dTask;
-		data->box2dContext = box2dContext;
-		data->threadIndex = threadIndex;
-		data->inUse = true;
-
-		enkiAddPinnedTaskArgs(scheduler, task, data);
-		return task;
-	}
-	else
-	{
-		printf("MAX_TASKS exceeded!!!\n");
-		box2dTask(threadIndex, box2dContext);
-		return NULL;
-	}
-}
-
 static void FinishTask(void* userTask, void* userContext)
 {
 	MAYBE_UNUSED(userContext);
 
 	enkiTaskSet* task = userTask;
 	enkiWaitForTaskSet(scheduler, task);
-}
-
-static void FinishPinnedTask(void* userTask, void* userContext)
-{
-	MAYBE_UNUSED(userContext);
-
-	enkiPinnedTask* task = userTask;
-	enkiWaitForPinnedTask(scheduler, task);
-
-	for (int i = 0; i < THREAD_LIMIT; ++i)
-	{
-		if (task == pinnedTasks[i])
-		{
-			pinnedTaskData[i] = (PinnedTaskData){0};
-			return;
-		}
-	}
-
-	assert(false);
 }
 
 int main(int argc, char** argv)
@@ -155,7 +96,7 @@ int main(int argc, char** argv)
 	assert(maxThreadCount <= THREAD_LIMIT);
 
 	Benchmark benchmarks[] = {
-		//{"many_pyramids", ManyPyramids, 200},
+		{"many_pyramids", ManyPyramids, 200},
 		{"large_pyramids", LargePyramid, 500},
 	};
 
@@ -192,18 +133,11 @@ int main(int argc, char** argv)
 					tasks[taskIndex] = enkiCreateTaskSet(scheduler, ExecuteRangeTask);
 				}
 
-				for (int threadIndex = 0; threadIndex < threadCount; ++threadIndex)
-				{
-					pinnedTasks[threadIndex] = enkiCreatePinnedTask(scheduler, PinnedTaskFunc, threadIndex);
-				}
-
 				b2WorldDef worldDef = b2DefaultWorldDef();
 				worldDef.enableSleep = false;
 				worldDef.enableContinous = enableContinuous;
 				worldDef.enqueueTask = EnqueueTask;
 				worldDef.finishTask = FinishTask;
-				worldDef.addPinnedTask = AddPinnedTask;
-				worldDef.finishPinnedTask = FinishPinnedTask;
 				worldDef.workerCount = threadCount;
 
 				b2WorldId worldId = benchmarks[benchmarkIndex].createFcn(&worldDef);
@@ -241,13 +175,6 @@ int main(int argc, char** argv)
 					enkiDeleteTaskSet(scheduler, tasks[taskIndex]);
 					tasks[taskIndex] = NULL;
 					taskData[taskIndex] = (TaskData){0};
-				}
-
-				for (int threadIndex = 0; threadIndex < threadCount; ++threadIndex)
-				{
-					enkiDeletePinnedTask(scheduler, pinnedTasks[threadIndex]);
-					pinnedTasks[threadIndex] = NULL;
-					pinnedTaskData[threadIndex] = (PinnedTaskData){0};
 				}
 
 				enkiDeleteTaskScheduler(scheduler);

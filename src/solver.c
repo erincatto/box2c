@@ -526,8 +526,10 @@ static void b2ExecuteMainStage(b2SolverStage* stage, b2StepContext* context, uin
 }
 
 // This should not use the thread index because thread 0 can be called twice by enkiTS.
-static void b2SolverTask(int32_t threadIndexDontUse, void* taskContext)
+void b2SolverTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndexDontUse, void* taskContext)
 {
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
 	B2_MAYBE_UNUSED(threadIndexDontUse);
 
 	b2WorkerContext* workerContext = taskContext;
@@ -1017,7 +1019,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	stageCount += 1;
 
 	b2SolverStage* stages = b2AllocateStackItem(&world->stackAllocator, stageCount * sizeof(b2SolverStage), "stages");
-	b2SolverBlock* bodyBlocks = b2AllocateStackItem(&world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
+	b2SolverBlock* bodyBlocks =
+		b2AllocateStackItem(&world->stackAllocator, bodyBlockCount * sizeof(b2SolverBlock), "body blocks");
 	b2SolverBlock* contactBlocks =
 		b2AllocateStackItem(&world->stackAllocator, contactBlockCount * sizeof(b2SolverBlock), "contact blocks");
 	b2SolverBlock* jointBlocks =
@@ -1243,7 +1246,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	{
 		workerContext[i].context = context;
 		workerContext[i].workerIndex = i;
-		workerContext[i].userTask = world->addPinnedTaskFcn(b2SolverTask, i, workerContext + i, world->userTaskContext);
+		workerContext[i].userTask = world->enqueueTaskFcn(b2SolverTask, 1, 1, workerContext + i, world->userTaskContext);
 		world->taskCount += 1;
 		world->activeTaskCount += workerContext[i].userTask == NULL ? 0 : 1;
 	}
@@ -1265,7 +1268,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	{
 		if (workerContext[i].userTask != NULL)
 		{
-			world->finishPinnedTaskFcn(workerContext[i].userTask, world->userTaskContext);
+			world->finishTaskFcn(workerContext[i].userTask, world->userTaskContext);
 			world->activeTaskCount -= 1;
 		}
 	}
@@ -1815,7 +1818,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(continuous_collision, "Continuous", b2_colorDarkGoldenrod, true);
 
-	#if 0
+#if 0
 	// #todo continuous
 	// Parallel continuous collision
 	{
@@ -1937,7 +1940,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 			}
 		}
 	}
-	#endif
+#endif
 
 	b2TracyCZoneEnd(continuous_collision);
 

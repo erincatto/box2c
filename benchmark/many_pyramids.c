@@ -33,10 +33,15 @@ b2WorldId ManyPyramids(b2WorldDef* worldDef)
 {
 	int baseCount = 10;
 	float extent = 0.5f;
-	int rowCount = 30;
-	int columnCount = 30;
+#ifdef NDEBUG
+	int rowCount = 20;
+	int columnCount = 20;
+#else
+	int rowCount = 5;
+	int columnCount = 5;
+#endif
 
-	worldDef->bodyCapacity = columnCount * rowCount * ((baseCount + 1) * baseCount)/2 + rowCount;
+	worldDef->bodyCapacity = columnCount * rowCount * ((baseCount + 1) * baseCount) / 2 + rowCount;
 	worldDef->shapeCapacity = worldDef->bodyCapacity;
 	worldDef->contactCapacity = 4 * worldDef->bodyCapacity;
 	worldDef->stackAllocatorCapacity = 25000000;

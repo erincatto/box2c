@@ -84,12 +84,8 @@ typedef struct b2WorldDef
 	/// function to spawn task
 	b2EnqueueTaskCallback* enqueueTask;
 
-	/// function to spawn a task pinned to a certain thread
-	b2AddPinnedTaskCallback* addPinnedTask;
-
 	/// function to finish a task
 	b2FinishTaskCallback* finishTask;
-	b2FinishPinnedTaskCallback* finishPinnedTask;
 
 	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;

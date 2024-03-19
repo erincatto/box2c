@@ -52,21 +52,6 @@ class SampleTask : public enki::ITaskSet
 	void* m_taskContext = nullptr;
 };
 
-class SamplePinnedTask : public enki::IPinnedTask
-{
-  public:
-	SamplePinnedTask() = default;
-
-	void Execute() override
-	{
-		m_pinnedTask(threadNum, m_box2DContext);
-	}
-
-	b2PinnedTaskFcn* m_pinnedTask = nullptr;
-	void* m_box2DContext = nullptr;
-	bool m_inUse = false;
-};
-
 constexpr int32_t maxTasks = 64;
 constexpr int32_t maxThreads = 64;
 
@@ -98,7 +83,6 @@ class Sample
 	enki::TaskScheduler m_scheduler;
 	SampleTask m_tasks[maxTasks];
 	int32_t m_taskCount;
-	SamplePinnedTask m_pinnedTasks[maxThreads];
 	int m_threadCount;
 
 	b2BodyId m_groundBodyId;

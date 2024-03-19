@@ -86,13 +86,6 @@ static void b2DefaultFinishTaskFcn(void* userTask, void* userContext)
 	B2_MAYBE_UNUSED(userContext);
 }
 
-static void* b2DefaultAddPinnedTaskFcn(b2PinnedTaskFcn* task, int threadIndex, void* taskContext, void* userContext)
-{
-	B2_MAYBE_UNUSED(userContext);
-	task(threadIndex, taskContext);
-	return NULL;
-}
-
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	_Static_assert(b2_maxWorlds < UINT16_MAX, "b2_maxWorlds limit exceeded");
@@ -185,8 +178,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
 		world->enqueueTaskFcn = def->enqueueTask;
 		world->finishTaskFcn = def->finishTask;
-		world->addPinnedTaskFcn = def->addPinnedTask;
-		world->finishPinnedTaskFcn = def->finishPinnedTask;
 		world->userTaskContext = def->userTaskContext;
 	}
 	else
@@ -194,8 +185,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->workerCount = 1;
 		world->enqueueTaskFcn = b2DefaultAddTaskFcn;
 		world->finishTaskFcn = b2DefaultFinishTaskFcn;
-		world->addPinnedTaskFcn = b2DefaultAddPinnedTaskFcn;
-		world->finishPinnedTaskFcn = b2DefaultFinishTaskFcn;
 		world->userTaskContext = NULL;
 	}
 

@@ -124,9 +124,7 @@ typedef struct b2World
 
 	uint32_t workerCount;
 	b2EnqueueTaskCallback* enqueueTaskFcn;
-	b2AddPinnedTaskCallback* addPinnedTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
-	b2FinishPinnedTaskCallback* finishPinnedTaskFcn;
 	void* userTaskContext;
 	void* userTreeTask;
 
