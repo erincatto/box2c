@@ -45,13 +45,13 @@ typedef struct b2JointArray
 	int capacity;
 } b2JointArray;
 
-#if 0
+// These provide a way to create an array with a specified capacity. If the capacity is not
+// known, you may use zero initialization.
 b2BodyArray b2CreateBodyArray(b2BlockAllocator* allocator, int capacity);
 b2BodyStateArray b2CreateBodyStateArray(b2BlockAllocator* allocator, int capacity);
 b2ContactArray b2CreateContactArray(b2BlockAllocator* allocator, int capacity);
 b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity);
 b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity);
-#endif
 
 void b2DestroyBodyArray(b2BlockAllocator* allocator, b2BodyArray* array);
 void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* array);
@@ -66,8 +66,8 @@ b2Island* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array);
 b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array);
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)
-int b2RemoveBody(b2BlockAllocator* allocator, b2BodyArray* array, int index);
-int b2RemoveBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array, int index);
-int b2RemoveContact(b2BlockAllocator* allocator, b2ContactArray* array, int index);
-int b2RemoveIsland(b2BlockAllocator* allocator, b2IslandArray* array, int index);
-int b2RemoveJoint(b2BlockAllocator* allocator, b2JointArray* array, int index);
+int b2RemoveBody(b2BodyArray* array, int index);
+int b2RemoveBodyState(b2BodyStateArray* array, int index);
+int b2RemoveContact(b2ContactArray* array, int index);
+int b2RemoveIsland(b2IslandArray* array, int index);
+int b2RemoveJoint(b2JointArray* array, int index);

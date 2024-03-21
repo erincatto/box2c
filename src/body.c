@@ -146,11 +146,11 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 static void b2DestroyBodyContacts(b2World* world, b2Body* body)
 {
 	// Destroy the attached contacts
-	int32_t edgeKey = body->contactList;
+	int edgeKey = body->contactList;
 	while (edgeKey != B2_NULL_INDEX)
 	{
-		int32_t contactKey = edgeKey >> 1;
-		int32_t edgeIndex = edgeKey & 1;
+		int contactKey = edgeKey >> 1;
+		int edgeIndex = edgeKey & 1;
 
 		b2Contact* contact = b2GetContactFromRawId(world, contactKey);
 		edgeKey = contact->edges[edgeIndex].nextKey;
@@ -163,7 +163,7 @@ static void b2EnableBody(b2World* world, b2Body* body)
 // todo
 #if 0
 	// Add shapes to broad-phase
-	int32_t shapeIndex = body->shapeList;
+	int shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
@@ -174,11 +174,11 @@ static void b2EnableBody(b2World* world, b2Body* body)
 
 	b2CreateIslandForBody(world, body, true);
 
-	int32_t jointKey = body->jointList;
+	int jointKey = body->jointList;
 	while (jointKey != B2_NULL_INDEX)
 	{
-		int32_t jointIndex = jointKey >> 1;
-		int32_t edgeIndex = jointKey & 1;
+		int jointIndex = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
 		b2Joint* joint = world->joints + jointIndex;
 		B2_ASSERT(joint->islandIndex == B2_NULL_INDEX);
 		b2Body* bodyA = b2GetBodyFromRawId(world, joint->edges[0].bodyKey);
@@ -201,7 +201,7 @@ static void b2DisableBody(b2World* world, b2Body* body)
 	b2RemoveBodyFromIsland(world, body);
 
 	// Remove shapes from broad-phase
-	int32_t shapeIndex = body->shapeList;
+	int shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
@@ -210,11 +210,11 @@ static void b2DisableBody(b2World* world, b2Body* body)
 		b2DestroyShapeProxy(shape, &world->broadPhase);
 	}
 
-	int32_t jointKey = body->jointList;
+	int jointKey = body->jointList;
 	while (jointKey != B2_NULL_INDEX)
 	{
-		int32_t jointIndex = jointKey >> 1;
-		int32_t edgeIndex = jointKey & 1;
+		int jointIndex = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
 		b2Joint* joint = world->joints + jointIndex;
 		if (joint->colorIndex != B2_NULL_INDEX)
 		{
@@ -399,7 +399,7 @@ static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	b2DestroyBodyContacts(world, body);
 
 	// Delete the attached shapes and their broad-phase proxies.
-	int32_t shapeIndex = body->shapeList;
+	int shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
@@ -410,13 +410,13 @@ static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	}
 
 	// Delete the attached chains. The associated shapes have already been deleted above.
-	int32_t chainIndex = body->chainList;
+	int chainIndex = body->chainList;
 	while (chainIndex != B2_NULL_INDEX)
 	{
 		b2ChainShape* chain = world->chains + chainIndex;
 		chainIndex = chain->nextIndex;
 
-		b2Free(chain->shapeIndices, chain->count * sizeof(int32_t));
+		b2Free(chain->shapeIndices, chain->count * sizeof(int));
 		chain->shapeIndices = NULL;
 		b2FreeObject(&world->chainPool, &chain->object);
 	}
@@ -429,7 +429,7 @@ static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	b2BodyLookup* lookup = world->bodyLookupArray + bodyId;
 	b2CheckIndex(world->solverSetArray, lookup->setIndex);
 	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-	int movedIndex = b2RemoveBody(&world->blockAllocator, &set->bodies, lookup->bodyIndex);
+	int movedIndex = b2RemoveBody(&set->bodies, lookup->bodyIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix lookup on moved body
@@ -443,7 +443,7 @@ static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 	// Only awake bodies have a body state
 	if (lookup->setIndex == b2_awakeSet)
 	{
-		int result = b2RemoveBodyState(&world->blockAllocator, &set->states, lookup->bodyIndex);
+		int result = b2RemoveBodyState(&set->states, lookup->bodyIndex);
 		B2_MAYBE_UNUSED(result);
 		B2_ASSERT(result == movedIndex);
 	}
@@ -485,11 +485,11 @@ void b2DestroyBodyAndJoints(b2BodyId bodyId)
 	b2Body* body = b2GetBodyFromRawId(world, rawBodyId);
 
 	// Destroy the attached joints
-	int32_t edgeKey = body->jointList;
+	int edgeKey = body->jointList;
 	while (edgeKey != B2_NULL_INDEX)
 	{
-		int32_t jointKey = edgeKey >> 1;
-		int32_t edgeIndex = edgeKey & 1;
+		int jointKey = edgeKey >> 1;
+		int edgeIndex = edgeKey & 1;
 
 		b2Joint* joint = b2GetJoint(world, jointKey);
 		edgeKey = joint->edges[edgeIndex].nextKey;
@@ -501,7 +501,7 @@ void b2DestroyBodyAndJoints(b2BodyId bodyId)
 	b2DestroyBodyInternal(world, body);
 }
 
-int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
+int b2Body_GetContactCapacity(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
 	if (world == NULL)
@@ -515,7 +515,7 @@ int32_t b2Body_GetContactCapacity(b2BodyId bodyId)
 	return body->contactCount;
 }
 
-int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity)
+int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capacity)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
 	if (world == NULL)
@@ -529,7 +529,7 @@ int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32
 	int index = 0;
 	while (contactKey != B2_NULL_INDEX && index < capacity)
 	{
-		int32_t edgeIndex = contactKey & 1;
+		int edgeIndex = contactKey & 1;
 
 		int contactId = contactKey >> 1;
 		b2Contact* contact = b2GetContactFromRawId(world, contactId);
@@ -601,7 +601,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 
 	// Accumulate mass over all shapes.
 	b2Vec2 localCenter = b2Vec2_zero;
-	int32_t shapeIndex = body->shapeList;
+	int shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		const b2Shape* s = world->shapes + shapeIndex;
@@ -734,6 +734,8 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 		b2UpdateBodyMassData(world, body);
 	}
 
+	b2ValidateWorld(world);
+
 	b2ShapeId id = {shape->object.index + 1, bodyId.world0, shape->object.revision};
 	return id;
 }
@@ -775,7 +777,7 @@ b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2S
 // Destroy a shape on a body. This doesn't need to be called when destroying a body.
 static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 {
-	int32_t shapeIndex = shape->object.index;
+	int shapeIndex = shape->object.index;
 	B2_ASSERT(shapeIndex == shape->object.next);
 	int bodyId = shape->bodyId;
 
@@ -812,11 +814,11 @@ static void b2DestroyShapeInternal(b2World* world, b2Shape* shape)
 	const float density = shape->density;
 
 	// Destroy any contacts associated with the shape
-	int32_t contactKey = body->contactList;
+	int contactKey = body->contactList;
 	while (contactKey != B2_NULL_INDEX)
 	{
-		int32_t contactId = contactKey >> 1;
-		int32_t edgeIndex = contactKey & 1;
+		int contactId = contactKey >> 1;
+		int edgeIndex = contactKey & 1;
 
 		b2Contact* contact = b2GetContactFromRawId(world, contactId);
 		contactKey = contact->edges[edgeIndex].nextKey;
@@ -873,7 +875,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	b2ChainShape* chainShape = (b2ChainShape*)b2AllocObject(&world->chainPool);
 	world->chains = (b2ChainShape*)world->chainPool.memory;
 
-	int32_t chainIndex = chainShape->object.index;
+	int chainIndex = chainShape->object.index;
 	chainShape->bodyId = body->bodyId;
 	chainShape->nextIndex = body->chainList;
 	body->chainList = chainShape->object.index;
@@ -886,18 +888,18 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	shapeDef.enableContactEvents = false;
 	shapeDef.enableSensorEvents = false;
 
-	int32_t n = def->count;
+	int n = def->count;
 	const b2Vec2* points = def->points;
 
 	if (def->isLoop)
 	{
 		chainShape->count = n;
-		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));
+		chainShape->shapeIndices = b2Alloc(n * sizeof(int));
 
 		b2SmoothSegment smoothSegment;
 
-		int32_t prevIndex = n - 1;
-		for (int32_t i = 0; i < n - 2; ++i)
+		int prevIndex = n - 1;
+		for (int i = 0; i < n - 2; ++i)
 		{
 			smoothSegment.ghost1 = points[prevIndex];
 			smoothSegment.segment.point1 = points[i];
@@ -933,11 +935,11 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	else
 	{
 		chainShape->count = n - 3;
-		chainShape->shapeIndices = b2Alloc(n * sizeof(int32_t));
+		chainShape->shapeIndices = b2Alloc(n * sizeof(int));
 
 		b2SmoothSegment smoothSegment;
 
-		for (int32_t i = 0; i < n - 3; ++i)
+		for (int i = 0; i < n - 3; ++i)
 		{
 			smoothSegment.ghost1 = points[i];
 			smoothSegment.segment.point1 = points[i + 1];
@@ -990,16 +992,16 @@ void b2DestroyChain(b2ChainId chainId)
 		return;
 	}
 
-	int32_t count = chain->count;
-	for (int32_t i = 0; i < count; ++i)
+	int count = chain->count;
+	for (int i = 0; i < count; ++i)
 	{
-		int32_t shapeIndex = chain->shapeIndices[i];
+		int shapeIndex = chain->shapeIndices[i];
 		B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.count);
 		b2Shape* shape = world->shapes + shapeIndex;
 		b2DestroyShapeInternal(world, shape);
 	}
 
-	b2Free(chain->shapeIndices, count * sizeof(int32_t));
+	b2Free(chain->shapeIndices, count * sizeof(int));
 	b2FreeObject(&world->chainPool, &chain->object);
 }
 
@@ -1081,7 +1083,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 	b2Transform transform = b2MakeTransform(body);
 	float margin = body->type == b2_staticBody ? b2_speculativeDistance : b2_aabbMargin;
 
-	int32_t shapeIndex = body->shapeList;
+	int shapeIndex = body->shapeList;
 	while (shapeIndex != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeIndex;
@@ -1661,34 +1663,59 @@ bool b2Body_IsBullet(b2BodyId bodyId)
 	return body->isBullet;
 }
 
-b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId)
+int b2Body_GetShapeCount(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBody(world, bodyId);
-
-	if (body->shapeList == B2_NULL_INDEX)
-	{
-		return (b2ShapeId){0};
-	}
-
-	b2Shape* shape = world->shapes + body->shapeList;
-	b2ShapeId id = {shape->object.index + 1, bodyId.world0, shape->object.revision};
-	return id;
+	return body->shapeCount;
 }
 
-b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId)
+void b2Body_GetShapes(b2BodyId bodyId, b2ShapeId* shapeArray, int capacity)
 {
-	b2World* world = b2GetWorld(shapeId.world0);
-	b2Shape* shape = b2GetShape(world, shapeId);
-
-	if (shape->nextShapeIndex == B2_NULL_INDEX)
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBody(world, bodyId);
+	int shapeIndex = body->shapeList;
+	int shapeCount = 0;
+	while (shapeIndex != B2_NULL_INDEX && shapeCount < capacity)
 	{
-		return (b2ShapeId){0};
-	}
+		b2Shape* shape = world->shapes + shapeIndex;
+		B2_ASSERT(b2IsValidObject(&shape->object));
 
-	shape = world->shapes + shape->nextShapeIndex;
-	b2ShapeId id = {shape->object.index + 1, shapeId.world0, shape->object.revision};
-	return id;
+		b2ShapeId id = {shape->object.index + 1, bodyId.world0, shape->object.revision};
+		shapeArray[shapeCount] = id;
+		shapeCount += 1;
+	
+		shapeIndex = shape->nextShapeIndex;
+	}
+}
+
+int b2Body_GetJointCount(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBody(world, bodyId);
+	return body->jointCount;
+}
+
+void b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBody(world, bodyId);
+	int jointKey = body->jointList;
+
+	int jointCount = 0;
+	while (jointKey != B2_NULL_INDEX && jointCount < capacity)
+	{
+		int jointId = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
+
+		b2Joint* joint = b2GetJoint(world, jointId);
+
+		b2JointId id = {jointId + 1, bodyId.world0, joint->revision};
+		jointArray[jointCount] = id;
+		jointCount += 1;
+	
+		jointKey = joint->edges[edgeIndex].nextKey;
+	}
 }
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
@@ -1708,9 +1735,9 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	while (jointKey != B2_NULL_INDEX)
 	{
-		int32_t jointId = jointKey >> 1;
-		int32_t edgeIndex = jointKey & 1;
-		int32_t otherEdgeIndex = edgeIndex ^ 1;
+		int jointId = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
+		int otherEdgeIndex = edgeIndex ^ 1;
 
 		b2Joint* joint = b2GetJoint(world, jointId);
 		if (joint->collideConnected == false && joint->edges[otherEdgeIndex].bodyId == otherBodyId)
@@ -1727,7 +1754,7 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 #if 0
 void b2Body_Dump(b2Body* b)
 {
-	int32_t bodyIndex = body->islandIndex;
+	int bodyIndex = body->islandIndex;
 
 	// %.9g is sufficient to save and load the same value using text
 	// FLT_DECIMAL_DIG == 9

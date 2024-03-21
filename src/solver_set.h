@@ -37,7 +37,7 @@ typedef struct b2SolverSet
 	b2IslandArray islands;
 
 	// Aligns with b2World::solverSetIdPool. Used to create a stable id for body/contact/joint/island lookups.
-	int solverSetId;
+	int setId;
 } b2SolverSet;
 
 void b2WakeSolverSet(b2World* world, int setIndex);

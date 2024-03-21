@@ -11,7 +11,6 @@
 
 #include <string.h>
 
-#if 0
 b2BodyArray b2CreateBodyArray(b2BlockAllocator* allocator, int capacity)
 {
 	// ensure memcpy works later
@@ -43,7 +42,6 @@ b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity)
 	B2_ASSERT(capacity > 0);
 	return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2Island)), 0, capacity};
 }
-#endif
 
 void b2DestroyBodyArray(b2BlockAllocator* allocator, b2BodyArray* array)
 {
@@ -166,7 +164,7 @@ b2Island* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array)
 }
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)
-int b2RemoveBody(b2BlockAllocator* allocator, b2BodyArray* array, int index)
+int b2RemoveBody(b2BodyArray* array, int index)
 {
 	B2_ASSERT(0 <= index && index < array->count);
 	if (index < array->count - 1)
@@ -181,7 +179,7 @@ int b2RemoveBody(b2BlockAllocator* allocator, b2BodyArray* array, int index)
 	return B2_NULL_INDEX;
 }
 
-int b2RemoveBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array, int index)
+int b2RemoveBodyState(b2BodyStateArray* array, int index)
 {
 	B2_ASSERT(0 <= index && index < array->count);
 	if (index < array->count - 1)
@@ -196,7 +194,7 @@ int b2RemoveBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array, int 
 	return B2_NULL_INDEX;
 }
 
-int b2RemoveContact(b2BlockAllocator* allocator, b2ContactArray* array, int index)
+int b2RemoveContact(b2ContactArray* array, int index)
 {
 	B2_ASSERT(0 <= index && index < array->count);
 	if (index < array->count - 1)
@@ -211,7 +209,7 @@ int b2RemoveContact(b2BlockAllocator* allocator, b2ContactArray* array, int inde
 	return B2_NULL_INDEX;
 }
 
-int b2RemoveJoint(b2BlockAllocator* allocator, b2JointArray* array, int index)
+int b2RemoveJoint(b2JointArray* array, int index)
 {
 	B2_ASSERT(0 <= index && index < array->count);
 	if (index < array->count - 1)
@@ -226,7 +224,7 @@ int b2RemoveJoint(b2BlockAllocator* allocator, b2JointArray* array, int index)
 	return B2_NULL_INDEX;
 }
 
-int b2RemoveIsland(b2BlockAllocator* allocator, b2IslandArray* array, int index)
+int b2RemoveIsland(b2IslandArray* array, int index)
 {
 	B2_ASSERT(0 <= index && index < array->count);
 	if (index < array->count - 1)

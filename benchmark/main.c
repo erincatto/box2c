@@ -87,7 +87,7 @@ static void FinishTask(void* userTask, void* userContext)
 
 int main(int argc, char** argv)
 {
-	int maxThreadCount = 8;
+	int maxThreadCount = 1;
 	int runCount = 4;
 	b2Counters counters = {0};
 	bool countersAcquired = false;
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
 	assert(maxThreadCount <= THREAD_LIMIT);
 
 	Benchmark benchmarks[] = {
-		{"many_pyramids", ManyPyramids, 200},
+		//{"many_pyramids", ManyPyramids, 200},
 		{"large_pyramids", LargePyramid, 500},
 	};
 
@@ -136,9 +136,9 @@ int main(int argc, char** argv)
 				b2WorldDef worldDef = b2DefaultWorldDef();
 				worldDef.enableSleep = false;
 				worldDef.enableContinous = enableContinuous;
-				worldDef.enqueueTask = EnqueueTask;
-				worldDef.finishTask = FinishTask;
-				worldDef.workerCount = threadCount;
+				//worldDef.enqueueTask = EnqueueTask;
+				//worldDef.finishTask = FinishTask;
+				//worldDef.workerCount = threadCount;
 
 				b2WorldId worldId = benchmarks[benchmarkIndex].createFcn(&worldDef);
 

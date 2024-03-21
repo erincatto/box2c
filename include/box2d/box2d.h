@@ -42,7 +42,7 @@ B2_API bool b2World_IsValid(b2WorldId id);
 /// @param timeStep the amount of time to simulate, this should not vary.
 /// @param velocityIterations for the velocity constraint solver.
 /// @param relaxIterations for reducing constraint bounce solver.
-B2_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount);
+B2_API void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount);
 
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
 B2_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw);
@@ -326,15 +326,23 @@ B2_API void b2Body_SetBullet(b2BodyId bodyId, bool flag);
 /// Is this body a bullet?
 B2_API bool b2Body_IsBullet(b2BodyId bodyId);
 
-/// Iterate over shapes on a body
-B2_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
-B2_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
+/// Get the number of shapes on this body
+B2_API int b2Body_GetShapeCount(b2BodyId bodyId);
+
+/// Get the shape ids for all shapes on this body, up to the provided capacity
+B2_API void b2Body_GetShapes(b2BodyId bodyId, b2ShapeId* shapeArray, int capacity);
+
+/// Get the number of joints on this body
+B2_API int b2Body_GetJointCount(b2BodyId bodyId);
+
+/// Get the joint ids for all joints on this body, up to the provided capacity
+B2_API void b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity);
 
 /// Get the maximum capacity required for retrieving all the touching contacts on a body
-B2_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
+B2_API int b2Body_GetContactCapacity(b2BodyId bodyId);
 
 /// Get the touching contact data for a body
-B2_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+B2_API int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capacity);
 
 /// Get the current world AABB that contains all the attached shapes. Note that this may not emcompass the body origin.
 ///	If there are no shapes attached then the returned AABB is empty and centered on the body origin.
@@ -475,10 +483,10 @@ B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon);
 B2_API b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId);
 
 /// Get the maximum capacity required for retrieving all the touching contacts on a shape
-B2_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
+B2_API int b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
-B2_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
+B2_API int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int capacity);
 
 /// Get the current world AABB
 B2_API b2AABB b2Shape_GetAABB(b2ShapeId shapeId);

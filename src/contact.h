@@ -19,13 +19,14 @@ typedef struct b2ContactLookup
 	// B2_NULL_INDEX when slot is free
 	int setIndex;
 
-	// index into the constraint graph color array, B2_NULL_INDEX for sleeping contacts
+	// index into the constraint graph color array
+	// B2_NULL_INDEX for non-touching or sleeping contacts
 	// B2_NULL_INDEX when slot is free
 	int colorIndex;
 
 	// contact index within set or graph color
 	// B2_NULL_INDEX when slot is free
-	int contactIndex;
+	int localIndex;
 } b2ContactLookup;
 
 // A contact edge is used to connect bodies and contacts together
@@ -81,10 +82,10 @@ typedef struct b2Contact
 	uint32_t flags;
 
 	// The color of this constraint in the graph coloring
-	int colorIndex;
+	//int colorIndex;
 
 	// Index of contact within color or within b2SolverSet contact array (non-touching or sleeping)
-	int localIndex;
+	//int localIndex;
 
 	b2ContactEdge edges[2];
 

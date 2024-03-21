@@ -26,7 +26,7 @@ typedef struct b2JointLookup
 
 	// joint index within set or graph color
 	// B2_NULL_INDEX when slot is free
-	int jointIndex;
+	int localIndex;
 
 	// This is monotonically advanced when a body is allocated in this slot
 	// Used to check for invalid b2JointId
@@ -216,12 +216,6 @@ typedef struct b2Joint
 	int islandId;
 	int islandPrev;
 	int islandNext;
-
-	// The color of this constraint in the graph coloring
-	int colorIndex;
-
-	// Index of joint within color
-	int localIndex;
 
 	// Anchors relative to body origin
 	b2Vec2 localOriginAnchorA;

@@ -126,14 +126,14 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	// add empty static, active, and disabled body sets
 	world->solverSetIdPool = b2CreateIdPool();
 	b2SolverSet set = {0};
-	set.solverSetId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.solverSetId == b2_staticSet);
+	set.setId = b2AllocId(&world->solverSetIdPool);
+	B2_ASSERT(set.setId == b2_staticSet);
 	b2Array_Push(world->solverSetArray, set);
-	set.solverSetId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.solverSetId == b2_awakeSet);
+	set.setId = b2AllocId(&world->solverSetIdPool);
+	B2_ASSERT(set.setId == b2_awakeSet);
 	b2Array_Push(world->solverSetArray, set);
-	set.solverSetId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.solverSetId == b2_disabledSet);
+	set.setId = b2AllocId(&world->solverSetIdPool);
+	B2_ASSERT(set.setId == b2_disabledSet);
 	b2Array_Push(world->solverSetArray, set);
 
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
@@ -355,7 +355,7 @@ static void b2SyncContactLookup(b2World* world, b2Contact* contact, int setIndex
 	b2ContactLookup* lookup = world->contactLookupArray + contact->contactId;
 	lookup->setIndex = setIndex;
 	lookup->colorIndex = contact->colorIndex;
-	lookup->contactIndex = contact->localIndex;
+	lookup->localIndex = contact->localIndex;
 }
 
 static b2Contact* b2AddNonTouchingContact(b2World* world, b2Contact* contact, int setIndex)
@@ -382,9 +382,9 @@ static void b2RemoveNonTouchingContact(b2World* world, int setIndex, int indexIn
 		B2_ASSERT(0 <= movedContact->contactId && movedContact->contactId < b2Array(world->contactLookupArray).count);
 		b2ContactLookup* lookup = world->contactLookupArray + movedContact->contactId;
 		B2_ASSERT(lookup->setIndex == setIndex);
-		B2_ASSERT(lookup->contactIndex == movedIndex);
+		B2_ASSERT(lookup->localIndex == movedIndex);
 		B2_ASSERT(lookup->colorIndex == B2_NULL_INDEX);
-		lookup->contactIndex = movedContact->localIndex;
+		lookup->localIndex = movedContact->localIndex;
 	}
 }
 
@@ -1195,7 +1195,7 @@ bool b2Joint_IsValid(b2JointId id)
 		return false;
 	}
 
-	B2_ASSERT(lookup.jointIndex != B2_NULL_INDEX);
+	B2_ASSERT(lookup.localIndex != B2_NULL_INDEX);
 
 	if (lookup.revision != id.revision)
 	{
@@ -1879,14 +1879,13 @@ void b2ValidateWorld(b2World* world)
 	for (int setIndex = 0; setIndex < b2Array(world->solverSetArray).count; ++setIndex)
 	{
 		b2SolverSet* set = world->solverSetArray + setIndex;
-		if (set->solverSetId != B2_NULL_INDEX)
+		if (set->setId != B2_NULL_INDEX)
 		{
 			activeSetCount += 1;
 
 			if (setIndex == b2_staticSet)
 			{
 				B2_ASSERT(set->contacts.count == 0);
-				B2_ASSERT(set->joints.count == 0);
 				B2_ASSERT(set->islands.count == 0);
 				B2_ASSERT(set->states.count == 0);
 			}
@@ -1942,7 +1941,7 @@ void b2ValidateWorld(b2World* world)
 					b2ContactLookup lookup = lookups[contact->contactId];
 					B2_ASSERT(lookup.setIndex == setIndex);
 					B2_ASSERT(lookup.colorIndex == B2_NULL_INDEX);
-					B2_ASSERT(lookup.contactIndex == i);
+					B2_ASSERT(lookup.localIndex == i);
 					B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
 					B2_ASSERT(contact->localIndex == i);
 
@@ -1962,7 +1961,7 @@ void b2ValidateWorld(b2World* world)
 					b2JointLookup lookup = lookups[joint->jointId];
 					B2_ASSERT(lookup.setIndex == setIndex);
 					B2_ASSERT(lookup.colorIndex == B2_NULL_INDEX);
-					B2_ASSERT(lookup.jointIndex == i);
+					B2_ASSERT(lookup.localIndex == i);
 					B2_ASSERT(joint->colorIndex == B2_NULL_INDEX);
 					B2_ASSERT(joint->localIndex == i);
 
@@ -2024,7 +2023,7 @@ void b2ValidateWorld(b2World* world)
 				b2ContactLookup lookup = lookups[contact->contactId];
 				B2_ASSERT(lookup.setIndex == b2_awakeSet);
 				B2_ASSERT(lookup.colorIndex == colorIndex);
-				B2_ASSERT(lookup.contactIndex == i);
+				B2_ASSERT(lookup.localIndex == i);
 				B2_ASSERT(contact->colorIndex == colorIndex);
 				B2_ASSERT(contact->localIndex == i);
 			}
@@ -2042,7 +2041,7 @@ void b2ValidateWorld(b2World* world)
 				b2JointLookup lookup = lookups[joint->jointId];
 				B2_ASSERT(lookup.setIndex == b2_awakeSet);
 				B2_ASSERT(lookup.colorIndex == colorIndex);
-				B2_ASSERT(lookup.jointIndex == i);
+				B2_ASSERT(lookup.localIndex == i);
 				B2_ASSERT(joint->colorIndex == colorIndex);
 				B2_ASSERT(joint->localIndex == i);
 			}
@@ -2054,6 +2053,45 @@ void b2ValidateWorld(b2World* world)
 
 	int jointIdCount = b2GetIdCount(&world->jointIdPool);
 	B2_ASSERT(totalJointCount == jointIdCount);
+
+	for (int shapeIndex = 0; shapeIndex < world->shapePool.capacity; shapeIndex += 1)
+	{
+		b2Shape* shape = world->shapes + shapeIndex;
+		if (b2IsValidObject(&shape->object) == false)
+		{
+			continue;
+		}
+
+		B2_ASSERT(0 <= shape->bodyId && shape->bodyId < b2Array(world->bodyLookupArray).count);
+
+		b2BodyLookup lookup = world->bodyLookupArray[shape->bodyId];
+		B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
+
+		b2SolverSet* set = world->solverSetArray + lookup.setIndex;
+		B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex < set->bodies.count);
+
+		b2Body* body = set->bodies.data + lookup.bodyIndex;
+		B2_ASSERT(body->revision == lookup.revision);
+
+		bool found = false;
+		int shapeCount = 0;
+		int index = body->shapeList;
+		while (index != B2_NULL_INDEX)
+		{
+			B2_ASSERT(0 <= index && index < world->shapePool.capacity);
+			b2Shape* s = world->shapes + index;
+			if (index == shapeIndex)
+			{
+				found = true;
+			}
+
+			index = s->nextShapeIndex;
+			shapeCount += 1;
+		}
+
+		B2_ASSERT(found);
+		B2_ASSERT(shapeCount == body->shapeCount);
+	}
 }
 #else
 	void b2ValidateWorld(b2World * world)

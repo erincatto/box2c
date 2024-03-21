@@ -13,6 +13,7 @@ typedef struct b2Joint b2Joint;
 typedef struct b2Contact b2Contact;
 
 // map from b2BodyId/int to solver set and index
+// todo consider moving island graph stuff to lookups
 typedef struct b2BodyLookup
 {
 	// index of solver set stored in b2World
@@ -50,7 +51,7 @@ typedef struct b2BodyState
 static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 
 // A rigid body
-// todo perhaps split out the transform
+// todo perhaps split out the transform which is accessed frequently
 typedef struct b2Body
 {
 	void* userData;

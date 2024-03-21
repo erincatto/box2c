@@ -84,14 +84,14 @@ b2Joint* b2GetJoint(b2World* world, int jointId)
 	{
 		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
 		b2GraphColor* color = world->constraintGraph.colors + lookup.colorIndex;
-		B2_ASSERT(0 <= lookup.jointIndex && lookup.jointIndex < color->joints.count);
-		joint = color->joints.data + lookup.jointIndex;
+		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < color->joints.count);
+		joint = color->joints.data + lookup.localIndex;
 	}
 	else
 	{
 		b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-		B2_ASSERT(0 <= lookup.jointIndex && lookup.jointIndex < set->joints.count);
-		joint = set->joints.data + lookup.jointIndex;
+		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < set->joints.count);
+		joint = set->joints.data + lookup.localIndex;
 	}
 
 	return joint;
@@ -109,14 +109,14 @@ b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId)
 	{
 		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
 		b2GraphColor* color = world->constraintGraph.colors + lookup.colorIndex;
-		B2_ASSERT(0 <= lookup.jointIndex && lookup.jointIndex < color->joints.count);
-		joint = color->joints.data + lookup.jointIndex;
+		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < color->joints.count);
+		joint = color->joints.data + lookup.localIndex;
 	}
 	else
 	{
 		b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-		B2_ASSERT(0 <= lookup.jointIndex && lookup.jointIndex < set->joints.count);
-		joint = set->joints.data + lookup.jointIndex;
+		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < set->joints.count);
+		joint = set->joints.data + lookup.localIndex;
 	}
 
 	return joint;
@@ -226,7 +226,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	b2JointLookup* lookup = world->jointLookupArray + jointId;
 	lookup->setIndex = setIndex;
 	lookup->colorIndex = joint->colorIndex;
-	lookup->jointIndex = joint->localIndex;
+	lookup->localIndex = joint->localIndex;
 	lookup->revision += 1;
 
 	joint->jointId = jointId;
@@ -689,21 +689,21 @@ void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies)
 	else
 	{
 		b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-		int movedIndex = b2RemoveJoint(&world->blockAllocator, &set->joints, lookup->jointIndex);
+		int movedIndex = b2RemoveJoint(&world->blockAllocator, &set->joints, lookup->localIndex);
 		if (movedIndex != B2_NULL_INDEX)
 		{
 			// Fix lookup on moved joint
-			b2Joint* movedJoint = set->joints.data + lookup->jointIndex;
+			b2Joint* movedJoint = set->joints.data + lookup->localIndex;
 			int movedId = movedJoint->jointId;
 			b2JointLookup* movedLookup = world->jointLookupArray + movedId;
-			B2_ASSERT(movedLookup->jointIndex == movedIndex);
-			movedLookup->jointIndex = lookup->jointIndex;
+			B2_ASSERT(movedLookup->localIndex == movedIndex);
+			movedLookup->localIndex = lookup->localIndex;
 		}
 	}
 
 	// Free lookup and id (preserve lookup revision)
 	lookup->setIndex = B2_NULL_INDEX;
-	lookup->jointIndex = B2_NULL_INDEX;
+	lookup->localIndex = B2_NULL_INDEX;
 	b2FreeId(&world->jointIdPool, jointId);
 
 	if (wakeBodies)
@@ -712,6 +712,8 @@ void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies)
 		b2WakeBody(world, idA);
 		b2WakeBody(world, idB);
 	}
+
+	b2ValidateWorld(world);
 }
 
 void b2DestroyJoint(b2JointId jointId)
@@ -796,7 +798,7 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 		int shapeCountA = bodyA->shapeCount;
 		int shapeCountB = bodyB->shapeCount;
 
-		int shapeIndex = bodyA->shapeCount < bodyB->shapeCount ? bodyA->shapeList : bodyB->shapeList;
+		int shapeIndex = shapeCountA < shapeCountB ? bodyA->shapeList : bodyB->shapeList;
 		while (shapeIndex != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeIndex;
