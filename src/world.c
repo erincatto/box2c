@@ -158,6 +158,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->contactEndArray = b2CreateArray(sizeof(b2ContactEndTouchEvent), 4);
 
 	world->stepIndex = 0;
+	world->splitIslandId = B2_NULL_INDEX;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
 	world->gravity = def->gravity;
@@ -1980,7 +1981,7 @@ void b2ValidateWorld(b2World* world)
 					B2_ASSERT(0 <= island->islandId && island->islandId < lookupCount);
 					b2IslandLookup lookup = lookups[island->islandId];
 					B2_ASSERT(lookup.setIndex == setIndex);
-					B2_ASSERT(lookup.islandIndex == i);
+					B2_ASSERT(lookup.localIndex == i);
 
 					// todo: validate body - contact - joint graph
 				}

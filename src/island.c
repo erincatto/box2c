@@ -40,9 +40,9 @@ b2Island* b2CreateIsland(b2World* world, int setIndex)
 	{
 		b2CheckIndex(world->islandLookupArray, islandId);
 		b2IslandLookup* lookup = world->islandLookupArray + islandId;
-		B2_ASSERT(lookup->setIndex == B2_NULL_INDEX && lookup->islandIndex == B2_NULL_INDEX);
+		B2_ASSERT(lookup->setIndex == B2_NULL_INDEX && lookup->localIndex == B2_NULL_INDEX);
 		lookup->setIndex = setIndex;
-		lookup->islandIndex = set->islands.count - 1;
+		lookup->localIndex = set->islands.count - 1;
 	}
 
 	island->islandId = islandId;
@@ -68,20 +68,20 @@ void b2DestroyIsland(b2World* world, int islandId)
 	b2IslandLookup* lookup = world->islandLookupArray + islandId;
 	b2CheckIndex(world->solverSetArray, lookup->setIndex);
 	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-	int movedIndex = b2RemoveIsland(&world->blockAllocator, &set->islands, lookup->islandIndex);
+	int movedIndex = b2RemoveIsland(&world->blockAllocator, &set->islands, lookup->localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix lookup on moved element
-		b2Island* movedElement = set->islands.data + lookup->islandIndex;
+		b2Island* movedElement = set->islands.data + lookup->localIndex;
 		int movedId = movedElement->islandId;
 		b2IslandLookup* movedLookup = world->islandLookupArray + movedId;
-		B2_ASSERT(movedLookup->islandIndex == movedIndex);
-		movedLookup->islandIndex = lookup->islandIndex;
+		B2_ASSERT(movedLookup->localIndex == movedIndex);
+		movedLookup->localIndex = lookup->localIndex;
 	}
 
 	// Free lookup and id (preserve lookup revision)
 	lookup->setIndex = B2_NULL_INDEX;
-	lookup->islandIndex = B2_NULL_INDEX;
+	lookup->localIndex = B2_NULL_INDEX;
 	b2FreeId(&world->islandIdPool, islandId);
 }
 
@@ -91,8 +91,8 @@ b2Island* b2GetIsland(b2World* world, int islandId)
 	b2IslandLookup* lookup = world->islandLookupArray + islandId;
 	b2CheckIndex(world->solverSetArray, lookup->setIndex);
 	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-	B2_ASSERT(0 <= lookup->islandIndex && lookup->islandIndex < set->islands.count);
-	return set->islands.data + lookup->islandIndex;
+	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < set->islands.count);
+	return set->islands.data + lookup->localIndex;
 }
 
 static void b2AddContactToIsland(b2World* world, b2Island* island, b2Contact* contact)
@@ -575,7 +575,7 @@ void b2MergeAwakeIslands(b2World* world)
 		b2Island* rootIsland = island;
 		while (rootIsland->parentIsland != B2_NULL_INDEX)
 		{
-			b2Island* parent = islands + lookup[rootIsland->parentIsland].islandIndex;
+			b2Island* parent = islands + lookup[rootIsland->parentIsland].localIndex;
 			if (parent->parentIsland != B2_NULL_INDEX)
 			{
 				// path compression
@@ -882,6 +882,8 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 	b2FreeStackItem(alloc, bodyIndices);
 	b2FreeStackItem(alloc, stack);
+
+	// todo look for the next island to split
 
 	b2TracyCZoneEnd(split);
 }

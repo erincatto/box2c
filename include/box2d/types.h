@@ -92,7 +92,7 @@ typedef struct b2WorldDef
 } b2WorldDef;
 
 /// The body type.
-/// static: zero mass, zero velocity, may be manually moved
+/// static: zero mass, zero velocity, may not be moved
 /// kinematic: zero mass, non-zero velocity set by user, moved by solver
 /// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
 typedef enum b2BodyType
@@ -102,6 +102,19 @@ typedef enum b2BodyType
 	b2_dynamicBody = 2,
 	b2_bodyTypeCount
 } b2BodyType;
+
+typedef struct b2StaticBodyDef
+{
+	/// The world position of the body. Avoid creating bodies at the origin
+	/// since this can lead to many overlapping shapes.
+	b2Vec2 position;
+
+	/// The world angle of the body in radians.
+	float angle;
+
+	/// Use this to store application specific body data.
+	void* userData;
+} b2StaticBodyDef;
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
@@ -294,6 +307,7 @@ typedef struct b2Profile
 /// Counters that give details of the simulation size
 typedef struct b2Counters
 {
+	int staticBodyCount;
 	int bodyCount;
 	int shapeCount;
 	int contactCount;
@@ -308,6 +322,9 @@ typedef struct b2Counters
 
 /// Use this to initialize your world definition
 B2_API b2WorldDef b2DefaultWorldDef();
+
+/// Use this to initialize your static body definition
+B2_API b2StaticBodyDef b2DefaultStaticBodyDef();
 
 /// Use this to initialize your body definition
 B2_API b2BodyDef b2DefaultBodyDef();

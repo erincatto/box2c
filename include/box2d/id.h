@@ -24,7 +24,15 @@ typedef struct b2WorldId
 	uint16_t revision;
 } b2WorldId;
 
-/// Body identifier
+/// Static body identifier
+typedef struct b2StaticBodyId
+{
+	int32_t index1;
+	uint16_t world0;
+	uint16_t revision;
+} b2StaticBodyId;
+
+/// Dynamic or kinematic body identifier
 typedef struct b2BodyId
 {
 	int32_t index1;
@@ -59,6 +67,7 @@ typedef struct b2ChainId
 /// Use these to make your identifiers null.
 /// You may also use zero initialization to get null.
 static const b2WorldId b2_nullWorldId = B2_ZERO_INIT;
+static const b2StaticBodyId b2_nullStaticBodyId = B2_ZERO_INIT;
 static const b2BodyId b2_nullBodyId = B2_ZERO_INIT;
 static const b2ShapeId b2_nullShapeId = B2_ZERO_INIT;
 static const b2JointId b2_nullJointId = B2_ZERO_INIT;

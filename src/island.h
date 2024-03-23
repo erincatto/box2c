@@ -33,7 +33,7 @@ typedef struct b2IslandLookup
 
 	// island index within set
 	// may be B2_NULL_INDEX
-	int islandIndex;
+	int localIndex;
 } b2IslandLookup;
 
 // Persistent island for awake bodies, joints, and contacts

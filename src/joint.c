@@ -148,20 +148,29 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	b2BodyLookup lookupB = world->bodyLookupArray[bodyKeyB];
 	int maxSetIndex = B2_MAX(lookupA.setIndex, lookupB.setIndex);
 
+	// Create joint id and lookup
+	int jointId = b2AllocId(&world->jointIdPool);
+	if (jointId == b2Array(world->jointLookupArray).count)
+	{
+		b2Array_Push(world->jointLookupArray, (b2JointLookup){0});
+	}
+
+	b2JointLookup* lookup = world->jointLookupArray + jointId;
+	lookup->revision += 1;
+
 	b2Joint* joint;
-	int setIndex;
 
 	if (lookupA.setIndex == b2_disabledSet || lookupB.setIndex == b2_disabledSet)
 	{
 		// if either body is disabled, create in disabled set
 		b2SolverSet* set = world->solverSetArray + b2_disabledSet;
 		joint = b2AddJoint(&world->blockAllocator, &set->joints);
-		setIndex = b2_disabledSet;
+		lookup->setIndex = b2_disabledSet;
 	}
 	else if (lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet)
 	{
-		joint = b2AddJointToGraph(world, bodyA, bodyB);
-		setIndex = b2_awakeSet;
+		joint = b2AddJointToGraph(world, bodyA, bodyB, lookup);
+		lookup->setIndex = b2_awakeSet;
 
 		// if either body is sleeping, wake it
 		if (maxSetIndex >= b2_firstSleepingSet)
@@ -216,18 +225,6 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 		setIndex = lookupA.setIndex;
 	}
 
-	// Create joint key and lookup
-	int jointId = b2AllocId(&world->jointIdPool);
-	if (jointId == b2Array(world->jointLookupArray).count)
-	{
-		b2Array_Push(world->jointLookupArray, (b2JointLookup){0});
-	}
-
-	b2JointLookup* lookup = world->jointLookupArray + jointId;
-	lookup->setIndex = setIndex;
-	lookup->colorIndex = joint->colorIndex;
-	lookup->localIndex = joint->localIndex;
-	lookup->revision += 1;
 
 	joint->jointId = jointId;
 	joint->revision = lookup->revision;

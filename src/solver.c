@@ -182,6 +182,8 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 	uint16_t worldId = world->worldId;
 	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
 
+	b2IslandLookup* islandLookups = world->islandLookupArray;
+
 	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
 	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
 	bool enableContinuous = world->enableContinuous;
@@ -267,7 +269,8 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		// Any single body in an island can keep it awake
 		if (body->sleepTime < b2_timeToSleep)
 		{
-			b2SetBit(awakeIslandBitSet, body->islandId);
+			int islandIndex = islandLookups[body->islandId].localIndex;
+			b2SetBit(awakeIslandBitSet, islandIndex);
 		}
 
 		// Update shapes AABBs
@@ -1030,7 +1033,6 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 // Split an awake island. This modifies:
 // - stack allocator
-// - awake island array
 // - island pool
 // - island indices on bodies, contacts, and joints
 // I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
@@ -1277,11 +1279,11 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	// Prepare contact, shape, and island bit sets used in body finalization.
 	int shapeIdCapacity = world->shapePool.capacity;
-	int islandIdCapacity = b2GetIdCapacity(&world->islandIdPool);
+	int awakeIslandCount = awakeSet->islands.count;
 	for (int i = 0; i < world->workerCount; ++i)
 	{
 		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeIdCapacity);
-		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, islandIdCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, awakeIslandCount);
 	}
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
@@ -1316,16 +1318,17 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 		b2Island* islands = awakeSet->islands.data;
 		int count = awakeSet->islands.count;
-		for (int islandIndex = 0; islandIndex < count; islandIndex += 1)
+		for (int islandIndex = count - 1; islandIndex >= 0; islandIndex -= 1)
 		{
 			b2Island* island = islands + islandIndex;
-			int islandId = island->islandId;
 
-			if (b2GetBit(awakeIslandBitSet, islandId) == true)
+			if (b2GetBit(awakeIslandBitSet, islandIndex) == true)
 			{
 				// this island is still awake
 				continue;
 			}
+
+			int islandId = island->islandId;
 
 			// cannot put an island to sleep while it has a pending split
 			B2_ASSERT(island->constraintRemoveCount == 0);
@@ -1430,25 +1433,25 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 						// other body is static or in the same island, so move the non-touching contact
 						// to the sleeping set
+						B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contact->manifold.pointCount == 0);
 
-						// Is contact touching?
-						if (contact->flags & b2_contactTouchingFlag)
+						int contactLocalIndex = contactLookup->localIndex;
+						contactLookup->localIndex = sleepSet->contacts.count;
+						b2Contact* sleepContact = b2AddContact(&world->blockAllocator, &sleepSet->contacts);
+						memcpy(sleepContact, contact, sizeof(b2Contact));
+
+						int movedContactIndex = b2RemoveContact(&awakeSet->contacts, contactLocalIndex);
+						if (movedContactIndex != B2_NULL_INDEX)
 						{
-							b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-							b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-
-							contactData[index].shapeIdA =
-								(b2ShapeId){shapeA->object.index + 1, bodyId.world0, shapeA->object.revision};
-							contactData[index].shapeIdB =
-								(b2ShapeId){shapeB->object.index + 1, bodyId.world0, shapeB->object.revision};
-							contactData[index].manifold = contact->manifold;
-							index += 1;
+							// fix lookup on moved element
+							b2Contact* movedContact = awakeSet->contacts.data + contactLocalIndex;
+							int movedContactId = movedContact->contactId;
+							b2CheckIndex(contactLookups, movedContactId);
+							b2ContactLookup* movedContactLookup = contactLookups + movedContactId;
+							B2_ASSERT(movedContactLookup->localIndex == movedContactIndex);
+							movedContactLookup->localIndex = contactLocalIndex;
 						}
-
-						contactKey = contact->edges[edgeIndex].nextKey;
 					}
-
-
 
 					bodyId = sleepBody->islandNext;
 				}
@@ -1559,7 +1562,28 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			}
 
 			// move island struct
-			// todo any reason to store islands is solver set? just store in world
+			b2CheckIndex(world->islandLookupArray, islandId);
+			b2IslandLookup* islandLookup = world->islandLookupArray + islandId;
+			B2_ASSERT(islandLookup->setIndex == b2_awakeSet);
+			B2_ASSERT(islandLookup->localIndex == islandIndex);
+
+			b2Island* sleepIsland = b2AddIsland(&world->blockAllocator, &sleepSet->islands);
+			memcpy(sleepIsland, island, sizeof(b2Island));
+			
+			int movedIslandIndex = b2RemoveIsland(&awakeSet->islands, islandIndex);
+			if (movedIslandIndex != B2_NULL_INDEX)
+			{
+				// fix lookup on moved element
+				b2Island* movedIsland = awakeSet->islands.data + islandIndex;
+				int movedIslandId = movedIsland->islandId;
+				b2CheckIndex(world->islandLookupArray, movedIslandId);
+				b2IslandLookup* movedIslandLookup = world->islandLookupArray + movedIslandId;
+				B2_ASSERT(movedIslandLookup->localIndex == movedIslandIndex);
+				movedIslandLookup->localIndex = islandIndex;
+			}
+
+			islandLookup->setIndex = sleepSetId;
+			islandLookup->localIndex = 0;
 		}
 	}
 

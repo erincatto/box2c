@@ -12,6 +12,7 @@ typedef struct b2Contact b2Contact;
 typedef struct b2ContactConstraint b2ContactConstraint;
 typedef struct b2ContactConstraintSIMD b2ContactConstraintSIMD;
 typedef struct b2Joint b2Joint;
+typedef struct b2JointLookup b2JointLookup;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
@@ -21,6 +22,7 @@ typedef struct b2World b2World;
 
 typedef struct b2GraphColor
 {
+	// todo this is allowing static bodies too
 	b2BitSet bodySet;
 
 	// cache friendly arrays
@@ -47,5 +49,5 @@ void b2DestroyGraph(b2ConstraintGraph* graph);
 b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB);
+b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB, b2JointLookup* lookup);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint);

@@ -21,20 +21,19 @@ typedef struct b2Contact b2Contact;
 
 enum b2SetType
 {
-	b2_staticSet = 0,
-	b2_awakeSet = 1,
-	b2_disabledSet = 2,
-	b2_firstSleepingSet = 3,
+	b2_awakeSet = 0,
+	b2_disabledSet = 1,
+	b2_firstSleepingSet = 2,
 };
 
 // Per thread task storage
 typedef struct b2TaskContext
 {
-	// These bits align with the b2ConstraingGraph::contactBlocks and signal a change in contact status
+	// These bits align with the b2ConstraintGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
 
-	// Used to sort shapes that have enlarged AABBs
-	b2BitSet shapeBitSet;
+	// Used to indicate bodies with shapes that have enlarged AABBs
+	b2BitSet enlargedBodyBitSet;
 
 	// Used to wake islands
 	b2BitSet awakeIslandBitSet;
@@ -88,10 +87,12 @@ typedef struct b2World
 	// This is a sparse array that maps island ids to the island data stored in the solver sets.
 	struct b2IslandLookup* islandLookupArray;
 
+	b2Pool staticBodyPool;
 	b2Pool shapePool;
 	b2Pool chainPool;
 
 	// These are sparse arrays that point into the pools above
+	struct b2StaticBody* staticBodies;
 	struct b2Shape* shapes;
 	struct b2ChainShape* chains;
 
@@ -107,6 +108,7 @@ typedef struct b2World
 	// Id that is incremented every time step
 	uint64_t stepIndex;
 
+	int splitIslandId;
 	b2Vec2 gravity;
 	float restitutionThreshold;
 	float contactPushoutVelocity;

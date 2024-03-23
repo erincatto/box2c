@@ -53,6 +53,8 @@ set(BOX2D_SOURCE_FILES
 	solver_set.h
 	stack_allocator.c
 	stack_allocator.h
+	static_body.c
+	static_body.h
 	table.c
 	table.h
 	timer.c

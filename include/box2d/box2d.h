@@ -132,6 +132,34 @@ B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
 /** @} */
 
 /**
+ * \defgroup StaticBodyAPI Static Bodies
+ * This is the static body API.
+ * @{
+ */
+
+/// Create a static rigid body given a definition. No reference to the definition is retained.
+/// @warning This function is locked during callbacks.
+B2_API b2StaticBodyId b2CreateStaticBody(b2WorldId worldId, const b2StaticBodyDef* def);
+
+/// Destroy a static rigid body given an id. This destroys all shapes and joints attached to the body.
+/// @warning This function is locked during callbacks.
+B2_API void b2DestroyStaticBody(b2StaticBodyId staticBodyId);
+
+/// Body identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2StaticBody_IsValid(b2StaticBodyId id);
+
+/// Set the user data for a body
+B2_API void b2StaticBody_SetUserData(b2StaticBodyId bodyId, void* userData);
+
+/// Get the user data stored in a body
+B2_API void* b2StaticBody_GetUserData(b2StaticBodyId bodyId);
+
+/// Get the world transform of a static body.
+B2_API b2Transform b2StaticBody_GetTransform(b2StaticBodyId bodyId);
+
+/** @} */
+
+/**
  * \defgroup BodyAPI Bodies
  * This is the body API.
  * @{
@@ -171,9 +199,6 @@ B2_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 
 /// Get the world rotation of a body as a sine/cosine pair.
 B2_API b2Rot b2Body_GetRotation(b2BodyId bodyId);
-
-/// Get the world angle of a body in radians.
-B2_API float b2Body_GetAngle(b2BodyId bodyId);
 
 /// Get the world transform of a body.
 B2_API b2Transform b2Body_GetTransform(b2BodyId bodyId);
@@ -359,11 +384,13 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 /// Create a circle shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateCircleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Circle* circle);
 B2_API b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 
 /// Create a line segment shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 
 /// Create a capsule shape and attach it to a body. The shape definition and geometry are fully cloned.

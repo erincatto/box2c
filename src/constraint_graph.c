@@ -167,9 +167,12 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		B2_ASSERT(movedLookup->localIndex == movedIndex);
 		movedLookup->localIndex = colorSubIndex;
 	}
+
+	lookup->colorIndex = B2_NULL_INDEX;
+	lookup->localIndex = B2_NULL_INDEX;
 }
 
-b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
+b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB, b2JointLookup* lookup)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
@@ -231,16 +234,18 @@ b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	b2Joint* joint = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
 	memset(joint, 0, sizeof(b2Joint));
-	joint->colorIndex = colorIndex;
-	joint->localIndex = graph->colors[colorIndex].joints.count - 1;
+	lookup->colorIndex = colorIndex;
+	lookup->localIndex = graph->colors[colorIndex].joints.count - 1;
 	return joint;
 }
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
+	b2CheckIndex(world->jointLookupArray, joint->jointId);
+	b2JointLookup* lookup = world->jointLookupArray + joint->jointId;
 
-	int colorIndex = joint->colorIndex;
+	int colorIndex = lookup->colorIndex;
 	B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 	b2GraphColor* color = graph->colors + colorIndex;
 
@@ -251,19 +256,21 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 		b2ClearBit(&color->bodySet, joint->edges[1].bodyId);
 	}
 
-	int localIndex = joint->localIndex;
+	int localIndex = lookup->localIndex;
 	int movedIndex = b2RemoveJoint(&color->joints, localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// fix lookup on swapped element
 		b2Joint* movedJoint = color->joints.data + localIndex;
-		movedJoint->localIndex = localIndex;
 		int movedId = movedJoint->jointId;
 		b2CheckIndex(world->jointLookupArray, movedId);
-		b2JointLookup* lookup = world->jointLookupArray + movedId;
-		B2_ASSERT(lookup->setIndex == b2_awakeSet);
-		B2_ASSERT(lookup->colorIndex == colorIndex);
-		B2_ASSERT(lookup->localIndex == movedIndex);
-		lookup->localIndex = localIndex;
+		b2JointLookup* movedLookup = world->jointLookupArray + movedId;
+		B2_ASSERT(movedLookup->setIndex == b2_awakeSet);
+		B2_ASSERT(movedLookup->colorIndex == colorIndex);
+		B2_ASSERT(movedLookup->localIndex == movedIndex);
+		movedLookup->localIndex = localIndex;
 	}
+
+	lookup->colorIndex = B2_NULL_INDEX;
+	lookup->localIndex = B2_NULL_INDEX;
 }

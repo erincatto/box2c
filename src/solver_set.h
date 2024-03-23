@@ -27,18 +27,22 @@ typedef struct b2SolverSet
 	// This holds sleeping/disabled joints. Empty for static/active set.
 	b2JointArray joints;
 
-	// This holds sleeping contacts for sleeping sets.
-	// For the awake set this holds the non-touching awake contacts.
-	// For the
+	// This holds all contacts for sleeping sets.
+	// This holds non-touching contacts for the awake set.
 	b2ContactArray contacts;
 
 	// The awake set has an array of islands. Sleeping sets have a single islands.
 	// The static and disabled sets have no islands.
+	// It is important to store the awake islands contiguously here to efficiently identify
+	// islands for splitting and sleeping.
 	b2IslandArray islands;
 
 	// Aligns with b2World::solverSetIdPool. Used to create a stable id for body/contact/joint/island lookups.
 	int setId;
 } b2SolverSet;
 
-void b2WakeSolverSet(b2World* world, int setIndex);
+void b2WakeSolverSet(b2World* world, int setId);
 void b2MergeSolverSets(b2World* world, int setIndex1, int setIndex2);
+
+void b2MoveBody(b2World* world, int jointId, int targetSetIndex);
+void b2MoveJoint(b2World* world, int jointId, int targetSetIndex);
