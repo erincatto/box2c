@@ -49,6 +49,9 @@ typedef struct b2World
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;
 
+	b2IdPool staticBodyIdPool;
+	struct b2StaticBody* staticBodyArray;
+
 	// The body id pool is used to allocate and recycle body ids. Body ids
 	// provide a stable identifier for users, but incur caches misses when used
 	// to access body data. Aligns with b2BodyLookup.
@@ -87,12 +90,10 @@ typedef struct b2World
 	// This is a sparse array that maps island ids to the island data stored in the solver sets.
 	struct b2IslandLookup* islandLookupArray;
 
-	b2Pool staticBodyPool;
 	b2Pool shapePool;
 	b2Pool chainPool;
 
 	// These are sparse arrays that point into the pools above
-	struct b2StaticBody* staticBodies;
 	struct b2Shape* shapes;
 	struct b2ChainShape* chains;
 

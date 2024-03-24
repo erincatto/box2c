@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "contact_list.h"
+
 #include "box2d/distance.h"
 #include "box2d/id.h"
 #include "box2d/math.h"
@@ -56,8 +58,6 @@ typedef struct b2Body
 {
 	void* userData;
 
-	enum b2BodyType type;
-
 	// the body origin (not center of mass)
 	b2Vec2 origin;
 
@@ -77,17 +77,15 @@ typedef struct b2Body
 	b2Vec2 force;
 	float torque;
 
-	int shapeList;
-	int shapeCount;
+	b2ShapeList shapeList;
 
 	int chainList;
 
 	// This is a key: [jointIndex:31, edgeIndex:1]
-	int jointList;
+	int jointKey;
 	int jointCount;
 
-	int contactList;
-	int contactCount;
+	b2ContactList contactList;
 
 	// A non-static body is always in an island. B2_NULL_INDEX for static and disabled bodies.
 	int islandId;
@@ -112,6 +110,7 @@ typedef struct b2Body
 	int bodyId;
 	uint16_t revision;
 	int16_t world;
+	enum b2BodyType type;
 
 	bool enableSleep;
 	bool fixedRotation;
@@ -127,8 +126,10 @@ typedef struct b2Body
 } b2Body;
 
 b2Body* b2GetBody(b2World* world, b2BodyId bodyId);
-b2Body* b2GetBodyFromRawId(b2World* world, int bodyKey);
-b2BodyId b2MakeBodyId(b2World* world, int bodyKey);
+b2Body* b2GetBodyFromRawId(b2World* world, int bodyId);
+b2Transform b2GetBodyTransform(b2World* world, int bodyId);
+
+b2BodyId b2MakeBodyId(b2World* world, int bodyId);
 b2BodyState* b2GetBodyState(b2World* world, int bodyId);
 
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);

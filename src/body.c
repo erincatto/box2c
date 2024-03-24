@@ -21,10 +21,10 @@
 #include "box2d/event_types.h"
 #include "box2d/id.h"
 
-b2Body* b2GetBodyFromRawId(b2World* world, int bodyKey)
+b2Body* b2GetBodyFromRawId(b2World* world, int bodyId)
 {
-	b2CheckIndex(world->bodyLookupArray, bodyKey);
-	b2BodyLookup lookup = world->bodyLookupArray[bodyKey];
+	b2CheckIndex(world->bodyLookupArray, bodyId);
+	b2BodyLookup lookup = world->bodyLookupArray[bodyId];
 	b2CheckIndex(world->solverSetArray, lookup.setIndex);
 	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
 	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->bodies.count);
@@ -40,6 +40,17 @@ b2Body* b2GetBody(b2World* world, b2BodyId bodyId)
 
 	// id index starts at one so that zero can represent null
 	return b2GetBodyFromRawId(world, bodyId.index1 - 1);
+}
+
+b2Transform b2GetBodyTransform(b2World* world, int bodyId)
+{
+	b2CheckIndex(world->bodyLookupArray, bodyId);
+	b2BodyLookup lookup = world->bodyLookupArray[bodyId];
+	b2CheckIndex(world->solverSetArray, lookup.setIndex);
+	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
+	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->bodies.count);
+	b2Body* body = set->bodies.data + lookup.bodyIndex;
+	return b2MakeTransform(body);
 }
 
 // Create a b2BodyId from a key.
@@ -146,13 +157,13 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 static void b2DestroyBodyContacts(b2World* world, b2Body* body)
 {
 	// Destroy the attached contacts
-	int edgeKey = body->contactList;
+	int edgeKey = body->contactList.headContactKey;
 	while (edgeKey != B2_NULL_INDEX)
 	{
-		int contactKey = edgeKey >> 1;
+		int contactId = edgeKey >> 1;
 		int edgeIndex = edgeKey & 1;
 
-		b2Contact* contact = b2GetContactFromRawId(world, contactKey);
+		b2Contact* contact = b2GetContactFromRawId(world, contactId);
 		edgeKey = contact->edges[edgeIndex].nextKey;
 		b2DestroyContact(world, contact);
 	}
@@ -701,7 +712,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 			break;
 	}
 
-	shape->bodyId = body->bodyId;
+	shape->bodyKey= body->bodyId << 1 | 1;
 	shape->type = shapeType;
 	shape->density = def->density;
 	shape->friction = def->friction;

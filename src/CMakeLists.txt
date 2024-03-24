@@ -19,6 +19,7 @@ set(BOX2D_SOURCE_FILES
 	constraint_graph.h
 	contact.c
 	contact.h
+	contact_list.h
 	contact_solver.c
 	contact_solver.h
 	core.c

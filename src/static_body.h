@@ -3,8 +3,14 @@
 
 #pragma once
 
-#include "box2d/distance.h"
+#include "contact_list.h"
+#include "pool.h"
+
 #include "box2d/math.h"
+
+#include <stdint.h>
+
+typedef struct b2World b2World;
 
 // A static rigid body
 typedef struct b2StaticBody
@@ -17,24 +23,25 @@ typedef struct b2StaticBody
 	// origin in world space
 	b2Vec2 origin;
 
-	// shapeId
-	int shapeList;
-	int shapeCount;
+	b2ShapeList shapeList;
 
 	// chainId
 	int chainList;
 	int chainCount;
 
-	// This is a key: [jointId:31, edgeIndex:1]
-	int jointList;
-	int jointCount;
+	b2ContactList contactList;
 
-	// This is a key: [contactId:31, edgeIndex:1]
-	int contactList;
-	int contactCount;
-
-	// body data can be moved around, the id is stable (used in b2StaticBodyId)
-	int staticBodyId;
+	int bodyId;
 	uint16_t revision;
-	int16_t world;
+	int16_t worldId;
 } b2StaticBody;
+
+
+inline b2Transform b2MakeStaticTransform(b2StaticBody* staticBody)
+{
+	return (b2Transform){staticBody->origin, staticBody->rotation};
+}
+
+b2StaticBody* b2GetStaticBody(b2World* world, int bodyId);
+b2Transform b2GetStaticBodyTransform(b2World* world, int bodyId);
+

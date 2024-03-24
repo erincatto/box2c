@@ -11,6 +11,7 @@
 #include "table.h"
 #include "util.h"
 #include "solver_set.h"
+#include "static_body.h"
 #include "world.h"
 
 #include "box2d/distance.h"
@@ -177,6 +178,19 @@ void b2InitializeContactRegisters(void)
 	}
 }
 
+b2ContactList* b2GetContactList(b2World* world, int bodyKey)
+{
+	int bodyId = bodyKey >> 1;
+	if (bodyKey & 1)
+	{
+		b2Body* body = b2GetBodyFromRawId(world, bodyId);
+		return &body->contactList;
+	}
+
+	b2StaticBody* body = b2GetStaticBody(world, bodyId);
+	return &body->contactList;
+}
+
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 {
 	b2ShapeType type1 = shapeA->type;
@@ -198,18 +212,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		return;
 	}
 
-	int bodyIdA = shapeA->bodyId;
-	int bodyIdB = shapeB->bodyId;
-	B2_ASSERT(0 <= bodyIdA && bodyIdA < b2Array(world->bodyLookupArray).count);
-	B2_ASSERT(0 <= bodyIdB && bodyIdB < b2Array(world->bodyLookupArray).count);
-	b2BodyLookup lookupA = world->bodyLookupArray[bodyIdA];
-	b2BodyLookup lookupB = world->bodyLookupArray[bodyIdB];
-
-	// Contacts should only be created from an awake body
-	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
-
-	b2Body* bodyA = b2GetBodyFromRawId(world, shapeA->bodyId);
-	b2Body* bodyB = b2GetBodyFromRawId(world, shapeB->bodyId);
+	b2ContactList* listA = b2GetContactList(world, shapeA->bodyKey);
+	b2ContactList* listB = b2GetContactList(world, shapeB->bodyKey);
 
 	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
 
@@ -265,36 +269,36 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	// Connect to body A
 	{
-		contact->edges[0].bodyId = bodyIdA;
+		contact->edges[0].bodyKey = shapeA->bodyKey;
 		contact->edges[0].prevKey = B2_NULL_INDEX;
-		contact->edges[0].nextKey = bodyA->contactList;
+		contact->edges[0].nextKey = listA->headContactKey;
 
-		int32_t keyA = (contactKey << 1) | 0;
-		if (bodyA->contactList != B2_NULL_INDEX)
+		int keyA = (contactKey << 1) | 0;
+		if (listA->headContactKey != B2_NULL_INDEX)
 		{
-			b2Contact* contactA = b2GetContactFromRawId(world, bodyA->contactList >> 1);
-			b2ContactEdge* edgeA = contactA->edges + (bodyA->contactList & 1);
+			b2Contact* contactA = b2GetContactFromRawId(world, listA->headContactKey >> 1);
+			b2ContactEdge* edgeA = contactA->edges + (listA->headContactKey & 1);
 			edgeA->prevKey = keyA;
 		}
-		bodyA->contactList = keyA;
-		bodyA->contactCount += 1;
+		listA->headContactKey = keyA;
+		listA->contactCount += 1;
 	}
 
 	// Connect to body B
 	{
-		contact->edges[1].bodyId = bodyIdB;
+		contact->edges[1].bodyKey = shapeB->bodyKey;
 		contact->edges[1].prevKey = B2_NULL_INDEX;
-		contact->edges[1].nextKey = bodyB->contactList;
+		contact->edges[1].nextKey = listB->headContactKey;
 
-		int32_t keyB = (contactKey << 1) | 1;
-		if (bodyB->contactList != B2_NULL_INDEX)
+		int keyB = (contactKey << 1) | 1;
+		if (listB->headContactKey != B2_NULL_INDEX)
 		{
-			b2Contact* contactB = b2GetContactFromRawId(world, bodyB->contactList >> 1);
-			b2ContactEdge* edgeB = contactB->edges + (bodyB->contactList & 1);
+			b2Contact* contactB = b2GetContactFromRawId(world, listB->headContactKey >> 1);
+			b2ContactEdge* edgeB = contactB->edges + (listB->headContactKey & 1);
 			edgeB->prevKey = keyB;
 		}
-		bodyB->contactList = keyB;
-		bodyB->contactCount += 1;
+		listB->headContactKey = keyB;
+		listB->contactCount += 1;
 	}
 
 	// Add to pair set for fast lookup
@@ -319,8 +323,8 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 	b2ContactEdge* edgeA = contact->edges + 0;
 	b2ContactEdge* edgeB = contact->edges + 1;
 
-	b2Body* bodyA = b2GetBodyFromRawId(world, edgeA->bodyId);
-	b2Body* bodyB = b2GetBodyFromRawId(world, edgeB->bodyId);
+	b2ContactList* listA = b2GetContactList(world, edgeA->bodyKey);
+	b2ContactList* listB = b2GetContactList(world, edgeB->bodyKey);
 
 	// if (contactListener && contact->IsTouching())
 	//{
@@ -344,13 +348,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	int contactId = contact->contactId;
 
-	int32_t edgeKeyA = (contactId << 1) | 0;
-	if (bodyA->contactList == edgeKeyA)
+	int edgeKeyA = (contactId << 1) | 0;
+	if (listA->headContactKey == edgeKeyA)
 	{
-		bodyA->contactList = edgeA->nextKey;
+		listA->headContactKey = edgeA->nextKey;
 	}
 
-	bodyA->contactCount -= 1;
+	listA->headContactKey -= 1;
 
 	// Remove from body B
 	if (edgeB->prevKey != B2_NULL_INDEX)
@@ -367,13 +371,13 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		nextEdge->prevKey = edgeB->prevKey;
 	}
 
-	int32_t edgeKeyB = (contactId << 1) | 1;
-	if (bodyB->contactList == edgeKeyB)
+	int edgeKeyB = (contactId << 1) | 1;
+	if (listB->headContactKey == edgeKeyB)
 	{
-		bodyB->contactList = edgeB->nextKey;
+		listB->headContactKey = edgeB->nextKey;
 	}
 
-	bodyB->contactCount -= 1;
+	listB->contactCount -= 1;
 
 	if (contact->islandId != B2_NULL_INDEX)
 	{
@@ -394,11 +398,10 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 		// contact is non-touching or is sleeping
 		B2_ASSERT(lookup->setIndex != b2_awakeSet || contact->manifold.pointCount == 0);
 		b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-		int movedIndex = b2RemoveContact(&world->blockAllocator, &set->contacts, lookup->localIndex);
+		int movedIndex = b2RemoveContact(&set->contacts, lookup->localIndex);
 		if (movedIndex != B2_NULL_INDEX)
 		{
 			b2Contact* movedContact = set->contacts.data + lookup->localIndex;
-			movedContact->localIndex = lookup->localIndex;
 			int movedKey = movedContact->contactId;
 			b2ContactLookup* movedLookup = world->contactLookupArray + movedKey;
 			movedLookup->localIndex = lookup->localIndex;
@@ -411,8 +414,15 @@ void b2DestroyContact(b2World* world, b2Contact* contact)
 
 	b2FreeId(&world->contactIdPool, contactId);
 
-	b2WakeBody(world, edgeA->bodyId);
-	b2WakeBody(world, edgeB->bodyId);
+	if (edgeA->bodyKey & 1)
+	{
+		b2WakeBody(world, edgeA->bodyKey);
+	}
+
+	if (edgeB->bodyKey & 1)
+	{
+		b2WakeBody(world, edgeB->bodyKey);
+	}
 
 	b2ValidateWorld(world);
 }
@@ -502,7 +512,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
-		for (int32_t i = 0; i < contact->manifold.pointCount; ++i)
+		for (int i = 0; i < contact->manifold.pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
 
@@ -519,7 +529,7 @@ void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body
 
 			uint16_t id2 = mp2->id;
 
-			for (int32_t j = 0; j < oldManifold.pointCount; ++j)
+			for (int j = 0; j < oldManifold.pointCount; ++j)
 			{
 				b2ManifoldPoint* mp1 = oldManifold.points + j;
 

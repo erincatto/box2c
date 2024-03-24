@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "allocate.h"
+#include "contact.h"
+#include "shape.h"
 #include "static_body.h"
 #include "world.h"
 
@@ -13,6 +16,30 @@ b2StaticBodyDef b2DefaultStaticBodyDef()
 	return (b2StaticBodyDef){0};
 }
 
+b2StaticBody* b2GetStaticBodyFullId(b2World* world, b2StaticBodyId bodyId)
+{
+	int id = bodyId.index1 - 1;
+	b2CheckIndex(world->staticBodyArray, id);
+	b2StaticBody* body = world->staticBodyArray + id;
+	B2_ASSERT(body->bodyId == id);
+	B2_ASSERT(body->revision == bodyId.revision);
+	return body;
+}
+
+b2StaticBody* b2GetStaticBody(b2World* world, int bodyId)
+{
+	b2CheckIndex(world->staticBodyArray, bodyId);
+	b2StaticBody* body = world->staticBodyArray + bodyId;
+	B2_ASSERT(body->bodyId == bodyId);
+	return body;
+}
+
+b2Transform b2GetStaticBodyTransform(b2World* world, int bodyId)
+{
+	b2StaticBody* body = b2GetStaticBody(world, bodyId);
+	return b2MakeStaticTransform(body);
+}
+
 b2StaticBodyId b2CreateStaticBody(b2WorldId worldId, const b2StaticBodyDef* def)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -23,148 +50,76 @@ b2StaticBodyId b2CreateStaticBody(b2WorldId worldId, const b2StaticBodyDef* def)
 		return b2_nullStaticBodyId;
 	}
 
-	b2Body* body = b2AddBody(&world->blockAllocator, &set->bodies);
-	b2BodyState* state = NULL;
-	if (setIndex == b2_awakeSet)
+	int bodyId = b2AllocId(&world->staticBodyIdPool);
+	if (bodyId == b2Array(world->staticBodyArray).count)
 	{
-		state = b2AddBodyState(&world->blockAllocator, &set->states);
-		B2_ASSERT(((uintptr_t)state & 0x1F) == 0);
-	}
-
-	int bodyId = b2AllocId(&world->bodyIdPool);
-
-	B2_ASSERT(0 <= def->type && def->type < b2_bodyTypeCount);
-	B2_ASSERT(b2Vec2_IsValid(def->position));
-	B2_ASSERT(b2IsValid(def->angle));
-	B2_ASSERT(b2Vec2_IsValid(def->linearVelocity));
-	B2_ASSERT(b2IsValid(def->angularVelocity));
-	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
-	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
-	B2_ASSERT(b2IsValid(def->gravityScale));
-
-	*body = (b2Body){0};
-	body->bodyId = bodyId;
-	body->type = def->type;
-	body->origin = def->position;
-	body->rotation = b2MakeRot(def->angle);
-	body->position = def->position;
-	body->rotation0 = body->rotation;
-	body->position0 = body->position;
-	body->localCenter = b2Vec2_zero;
-	body->force = b2Vec2_zero;
-	body->torque = 0.0f;
-	body->shapeList = B2_NULL_INDEX;
-	body->shapeCount = 0;
-	body->chainList = B2_NULL_INDEX;
-	body->jointList = B2_NULL_INDEX;
-	body->jointCount = 0;
-	body->contactList = B2_NULL_INDEX;
-	body->contactCount = 0;
-	body->mass = 0.0f;
-	body->invMass = 0.0f;
-	body->I = 0.0f;
-	body->invI = 0.0f;
-	body->minExtent = b2_huge;
-	body->maxExtent = 0.0f;
-	body->linearDamping = def->linearDamping;
-	body->angularDamping = def->angularDamping;
-	body->gravityScale = def->gravityScale;
-	body->sleepTime = 0.0f;
-	body->userData = def->userData;
-	body->world = world->worldId;
-	body->enableSleep = def->enableSleep;
-	body->fixedRotation = def->fixedRotation;
-	body->isBullet = def->isBullet;
-	body->isEnabled = def->isEnabled;
-	body->isMarked = false;
-	body->enlargeAABB = false;
-	body->isFast = false;
-	body->isSpeedCapped = false;
-	body->islandId = B2_NULL_INDEX;
-	body->islandPrev = B2_NULL_INDEX;
-	body->islandNext = B2_NULL_INDEX;
-
-	if (state != NULL)
-	{
-		*state = (b2BodyState){0};
-		state->linearVelocity = def->linearVelocity;
-		state->angularVelocity = def->angularVelocity;
-		state->deltaRotation = b2Rot_identity;
-	}
-
-	// All disabled bodies are packed together in a single array where islands
-	// have no meaning. Static bodies are never in islands. Sleeping solver sets
-	// should have an islands so they can be quickly made awake.
-	if (setIndex != b2_disabledSet && setIndex != b2_staticSet)
-	{
-		b2CreateIslandForBody(world, setIndex, body);
-	}
-
-	if (bodyId == b2Array(world->bodyLookupArray).count)
-	{
-		body->revision = 0;
-		b2BodyLookup lookup = {setIndex, set->bodies.count - 1, 0};
-		b2Array_Push(world->bodyLookupArray, lookup);
+		b2Array_Push(world->staticBodyArray, (b2StaticBody){0});
 	}
 	else
 	{
-		b2CheckIndex(world->bodyLookupArray, bodyId);
-		b2BodyLookup* lookup = world->bodyLookupArray + bodyId;
-		B2_ASSERT(lookup->setIndex == B2_NULL_INDEX && lookup->bodyIndex == B2_NULL_INDEX);
-		lookup->setIndex = setIndex;
-		lookup->bodyIndex = set->bodies.count - 1;
-		lookup->revision += 1;
-		body->revision = lookup->revision;
+		B2_ASSERT(world->staticBodyArray[bodyId].bodyId == B2_NULL_INDEX);
 	}
+	
+	b2StaticBody* body = world->staticBodyArray + bodyId;
+	body->revision += 1;
+	
+	B2_ASSERT(b2Vec2_IsValid(def->position));
+	B2_ASSERT(b2IsValid(def->angle));
 
-	b2ValidateWorld(world);
+	*body = (b2StaticBody){0};
+	body->origin = def->position;
+	body->rotation = b2MakeRot(def->angle);
+	body->shapeList.headShapeId = B2_NULL_INDEX;
+	body->shapeList.shapeCount = 0;
+	body->chainList = B2_NULL_INDEX;
+	body->contactList.headContactKey = B2_NULL_INDEX;
+	body->contactList.contactCount = 0;
+	body->userData = def->userData;
+	body->worldId = world->worldId;
 
-	b2BodyId id = {bodyId + 1, world->worldId, body->revision};
+	b2StaticBodyId id = {bodyId + 1, world->worldId, body->revision};
 	return id;
 }
 
-bool b2IsBodyAwake(b2World* world, int bodyId)
+void b2DestroyStaticBody(b2StaticBodyId staticBodyId)
 {
-	b2CheckIndex(world->bodyLookupArray, bodyId);
-	b2BodyLookup lookup = world->bodyLookupArray[bodyId];
-	return lookup.setIndex == b2_awakeSet;
-}
-
-bool b2WakeBody(b2World* world, int bodyId)
-{
-	b2CheckIndex(world->bodyLookupArray, bodyId);
-	b2BodyLookup lookup = world->bodyLookupArray[bodyId];
-	B2_ASSERT(lookup.setIndex != b2_disabledSet);
-
-	if (lookup.setIndex >= b2_firstSleepingSet)
+	b2World* world = b2GetWorldLocked(staticBodyId.world0);
+	if (world == NULL)
 	{
-		b2WakeSolverSet(world, lookup.setIndex);
-		return true;
+		return;
 	}
 
-	return false;
-}
+	int id = staticBodyId.index1 - 1;
+	b2CheckIndex(world->staticBodyArray, id);
+	b2StaticBody* staticBody = world->staticBodyArray + id;
+	B2_ASSERT(staticBody->bodyId == id);
+	B2_ASSERT(staticBody->revision == staticBodyId.revision);
 
-static void b2DestroyBodyInternal(b2World* world, b2Body* body)
-{
-	// User must destroy joints before destroying bodies
-	B2_ASSERT(body->jointList == B2_NULL_INDEX && body->jointCount == 0);
+	// Destroy the attached contacts
+	int edgeKey = staticBody->contactList.headContactKey;
+	while (edgeKey != B2_NULL_INDEX)
+	{
+		int contactId = edgeKey >> 1;
+		int edgeIndex = edgeKey & 1;
 
-	b2DestroyBodyContacts(world, body);
+		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		edgeKey = contact->edges[edgeIndex].nextKey;
+		b2DestroyContact(world, contact);
+	}
 
 	// Delete the attached shapes and their broad-phase proxies.
-	int shapeIndex = body->shapeList;
-	while (shapeIndex != B2_NULL_INDEX)
+	int shapeId = staticBody->shapeList.headShapeId;
+	while (shapeId != B2_NULL_INDEX)
 	{
-		b2Shape* shape = world->shapes + shapeIndex;
-		shapeIndex = shape->nextShapeIndex;
+		b2Shape* shape = world->shapes + shapeId;
+		shapeId = shape->nextShapeIndex;
 
 		b2DestroyShapeProxy(shape, &world->broadPhase);
 		b2FreeObject(&world->shapePool, &shape->object);
 	}
 
 	// Delete the attached chains. The associated shapes have already been deleted above.
-	int chainIndex = body->chainList;
+	int chainIndex = staticBody->chainList;
 	while (chainIndex != B2_NULL_INDEX)
 	{
 		b2ChainShape* chain = world->chains + chainIndex;
@@ -175,251 +130,23 @@ static void b2DestroyBodyInternal(b2World* world, b2Body* body)
 		b2FreeObject(&world->chainPool, &chain->object);
 	}
 
-	b2RemoveBodyFromIsland(world, body);
-
-	// Remove body from solver set that owns it
-	int bodyId = body->bodyId;
-	b2CheckIndex(world->bodyLookupArray, bodyId);
-	b2BodyLookup* lookup = world->bodyLookupArray + bodyId;
-	b2CheckIndex(world->solverSetArray, lookup->setIndex);
-	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-	int movedIndex = b2RemoveBody(&set->bodies, lookup->bodyIndex);
-	if (movedIndex != B2_NULL_INDEX)
-	{
-		// Fix lookup on moved body
-		b2Body* movedBody = set->bodies.data + lookup->bodyIndex;
-		int movedId = movedBody->bodyId;
-		b2BodyLookup* movedLookup = world->bodyLookupArray + movedId;
-		B2_ASSERT(movedLookup->bodyIndex == movedIndex);
-		movedLookup->bodyIndex = lookup->bodyIndex;
-	}
-
-	// Only awake bodies have a body state
-	if (lookup->setIndex == b2_awakeSet)
-	{
-		int result = b2RemoveBodyState(&set->states, lookup->bodyIndex);
-		B2_MAYBE_UNUSED(result);
-		B2_ASSERT(result == movedIndex);
-	}
-
-	// Free lookup and id (preserve lookup revision)
-	lookup->setIndex = B2_NULL_INDEX;
-	lookup->bodyIndex = B2_NULL_INDEX;
-	b2FreeId(&world->bodyIdPool, bodyId);
+	// return to free list
+	staticBody->bodyId = B2_NULL_INDEX;
+	b2FreeId(&world->staticBodyIdPool, id);
 
 	b2ValidateWorld(world);
 }
 
-void b2DestroyBody(b2BodyId bodyId)
-{
-	b2World* world = b2GetWorldLocked(bodyId.world0);
-	if (world == NULL)
-	{
-		return;
-	}
-
-	b2Body* body = b2GetBody(world, bodyId);
-	b2DestroyBodyInternal(world, body);
-}
-
-void b2DestroyBodyAndJoints(b2BodyId bodyId)
-{
-	b2World* world = b2GetWorldLocked(bodyId.world0);
-	if (world == NULL)
-	{
-		return;
-	}
-
-	// Wake body before destroying, this way we don't need to wake
-	// bodies attached to joints and contacts when they are destroyed
-	B2_ASSERT(b2Body_IsValid(bodyId));
-	int rawBodyId = bodyId.index1 - 1;
-	b2WakeBody(world, rawBodyId);
-
-	b2Body* body = b2GetBodyFromRawId(world, rawBodyId);
-
-	// Destroy the attached joints
-	int edgeKey = body->jointList;
-	while (edgeKey != B2_NULL_INDEX)
-	{
-		int jointKey = edgeKey >> 1;
-		int edgeIndex = edgeKey & 1;
-
-		b2Joint* joint = b2GetJoint(world, jointKey);
-		edgeKey = joint->edges[edgeIndex].nextKey;
-
-		// Careful because this modifies the list being traversed
-		b2DestroyJointInternal(world, joint, true);
-	}
-
-	b2DestroyBodyInternal(world, body);
-}
-
-int b2Body_GetContactCapacity(b2BodyId bodyId)
-{
-	b2World* world = b2GetWorldLocked(bodyId.world0);
-	if (world == NULL)
-	{
-		return 0;
-	}
-
-	b2Body* body = b2GetBody(world, bodyId);
-
-	// Conservative and fast
-	return body->contactCount;
-}
-
-int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capacity)
-{
-	b2World* world = b2GetWorldLocked(bodyId.world0);
-	if (world == NULL)
-	{
-		return 0;
-	}
-
-	b2Body* body = b2GetBody(world, bodyId);
-
-	int contactKey = body->contactList;
-	int index = 0;
-	while (contactKey != B2_NULL_INDEX && index < capacity)
-	{
-		int edgeIndex = contactKey & 1;
-
-		int contactId = contactKey >> 1;
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
-
-		// Is contact touching?
-		if (contact->flags & b2_contactTouchingFlag)
-		{
-			b2Shape* shapeA = world->shapes + contact->shapeIndexA;
-			b2Shape* shapeB = world->shapes + contact->shapeIndexB;
-
-			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, bodyId.world0, shapeA->object.revision};
-			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, bodyId.world0, shapeB->object.revision};
-			contactData[index].manifold = contact->manifold;
-			index += 1;
-		}
-
-		contactKey = contact->edges[edgeIndex].nextKey;
-	}
-
-	B2_ASSERT(index < capacity);
-
-	return index;
-}
-
-b2AABB b2Body_ComputeAABB(b2BodyId bodyId)
-{
-	b2World* world = b2GetWorldLocked(bodyId.world0);
-	if (world == NULL)
-	{
-		return (b2AABB){0};
-	}
-
-	b2Body* body = b2GetBody(world, bodyId);
-	if (body->shapeList == B2_NULL_INDEX)
-	{
-		return (b2AABB){body->origin, body->origin};
-	}
-
-	b2Shape* shape = world->shapes + body->shapeList;
-	b2AABB aabb = shape->aabb;
-	while (shape->nextShapeIndex != B2_NULL_INDEX)
-	{
-		shape = world->shapes + shape->nextShapeIndex;
-		aabb = b2AABB_Union(aabb, shape->aabb);
-	}
-
-	return aabb;
-}
-
-void b2UpdateBodyMassData(b2World* world, b2Body* body)
-{
-	// Compute mass data from shapes. Each shape has its own density.
-	body->mass = 0.0f;
-	body->invMass = 0.0f;
-	body->I = 0.0f;
-	body->invI = 0.0f;
-	body->localCenter = b2Vec2_zero;
-	body->minExtent = b2_huge;
-	body->maxExtent = 0.0f;
-
-	// Static and kinematic bodies have zero mass.
-	if (body->type == b2_staticBody || body->type == b2_kinematicBody)
-	{
-		body->position = body->origin;
-		return;
-	}
-
-	B2_ASSERT(body->type == b2_dynamicBody);
-
-	// Accumulate mass over all shapes.
-	b2Vec2 localCenter = b2Vec2_zero;
-	int shapeIndex = body->shapeList;
-	while (shapeIndex != B2_NULL_INDEX)
-	{
-		const b2Shape* s = world->shapes + shapeIndex;
-		shapeIndex = s->nextShapeIndex;
-
-		if (s->density == 0.0f)
-		{
-			continue;
-		}
-
-		b2MassData massData = b2ComputeShapeMass(s);
-		body->mass += massData.mass;
-		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
-		body->I += massData.I;
-
-		b2ShapeExtent extent = b2ComputeShapeExtent(s);
-		body->minExtent = B2_MIN(body->minExtent, extent.minExtent);
-		body->maxExtent = B2_MAX(body->maxExtent, extent.maxExtent);
-	}
-
-	// Compute center of mass.
-	if (body->mass > 0.0f)
-	{
-		body->invMass = 1.0f / body->mass;
-		localCenter = b2MulSV(body->invMass, localCenter);
-	}
-
-	if (body->I > 0.0f && body->fixedRotation == false)
-	{
-		// Center the inertia about the center of mass.
-		body->I -= body->mass * b2Dot(localCenter, localCenter);
-		B2_ASSERT(body->I > 0.0f);
-		body->invI = 1.0f / body->I;
-	}
-	else
-	{
-		body->I = 0.0f;
-		body->invI = 0.0f;
-	}
-
-	// Move center of mass.
-	b2Vec2 oldCenter = body->position;
-	body->localCenter = localCenter;
-	body->position = b2Add(b2RotateVector(body->rotation, body->localCenter), body->origin);
-
-	// Update center of mass velocity
-	b2BodyState* state = b2GetBodyState(world, body->bodyId);
-	if (state != NULL)
-	{
-		b2Vec2 deltaLinear = b2CrossSV(state->angularVelocity, b2Sub(body->position, oldCenter));
-		state->linearVelocity = b2Add(state->linearVelocity, deltaLinear);
-	}
-}
-
-static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const void* geometry, b2ShapeType shapeType)
+static b2ShapeId b2CreateStaticShape(b2StaticBodyId bodyId, const b2ShapeDef* def, const void* geometry, b2ShapeType shapeType)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
-		return b2_nullShapeId;
+		return (b2ShapeId){0};
 	}
 
-	b2Body* body = b2GetBody(world, bodyId);
+	b2StaticBody* body = b2GetStaticBodyFullId(world, bodyId);
 
 	b2Shape* shape = (b2Shape*)b2AllocObject(&world->shapePool);
 	world->shapes = (b2Shape*)world->shapePool.memory;
@@ -455,7 +182,7 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 			break;
 	}
 
-	shape->bodyId = body->bodyId;
+	shape->bodyKey = body->bodyId << 1 | 0;
 	shape->type = shapeType;
 	shape->density = def->density;
 	shape->friction = def->friction;
@@ -473,20 +200,12 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	shape->aabb = (b2AABB){b2Vec2_zero, b2Vec2_zero};
 	shape->fatAABB = (b2AABB){b2Vec2_zero, b2Vec2_zero};
 
-	if (body->isEnabled)
-	{
-		b2CreateShapeProxy(shape, &world->broadPhase, body->type, b2MakeTransform(body));
-	}
+	b2CreateShapeProxy(shape, &world->broadPhase, b2_staticBody, b2MakeStaticTransform(body));
 
 	// Add to shape linked list
-	shape->nextShapeIndex = body->shapeList;
-	body->shapeList = shape->object.index;
-	body->shapeCount += 1;
-
-	if (shape->density > 0.0f)
-	{
-		b2UpdateBodyMassData(world, body);
-	}
+	shape->nextShapeIndex = body->shapeList.headShapeId;
+	body->shapeList.headShapeId = shape->object.index;
+	body->shapeList.shapeCount += 1;
 
 	b2ValidateWorld(world);
 
@@ -494,12 +213,12 @@ static b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const voi
 	return id;
 }
 
-b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle)
+b2ShapeId b2CreateStaticCircleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Circle* circle)
 {
-	return b2CreateShape(bodyId, def, circle, b2_circleShape);
+	return b2CreateStaticShape(staticBodyId, def, circle, b2_circleShape);
 }
 
-b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule)
+b2ShapeId b2CreateStaticCapsuleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Capsule* capsule)
 {
 	float lengthSqr = b2DistanceSquared(capsule->point1, capsule->point2);
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
@@ -508,15 +227,15 @@ b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2C
 		return (b2ShapeId){0};
 	}
 
-	return b2CreateShape(bodyId, def, capsule, b2_capsuleShape);
+	return b2CreateStaticShape(staticBodyId, def, capsule, b2_capsuleShape);
 }
 
-b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon)
+b2ShapeId b2CreateStaticPolygonShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Polygon* polygon)
 {
-	return b2CreateShape(bodyId, def, polygon, b2_polygonShape);
+	return b2CreateStaticShape(staticBodyId, def, polygon, b2_polygonShape);
 }
 
-b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment)
+b2ShapeId b2CreateStaticSegmentShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Segment* segment)
 {
 	float lengthSqr = b2DistanceSquared(segment->point1, segment->point2);
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
@@ -525,7 +244,7 @@ b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2S
 		return b2_nullShapeId;
 	}
 
-	return b2CreateShape(bodyId, def, segment, b2_segmentShape);
+	return b2CreateStaticShape(staticBodyId, def, segment, b2_segmentShape);
 }
 
 // Destroy a shape on a body. This doesn't need to be called when destroying a body.

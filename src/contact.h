@@ -10,6 +10,7 @@
 #include "box2d/types.h"
 
 typedef struct b2Body b2Body;
+typedef struct b2ContactList b2ContactList;
 typedef struct b2Shape b2Shape;
 typedef struct b2World b2World;
 
@@ -36,9 +37,12 @@ typedef struct b2ContactLookup
 // edges, one for each attached body.
 typedef struct b2ContactEdge
 {
-	int32_t bodyId;
-	int32_t prevKey;
-	int32_t nextKey;
+	// can be a static or dynamic body
+	// [31 : bodyId, 1 : type]
+	// where type is 0 for a static body or 1 for a dynamic/kinematic body
+	int bodyKey;
+	int prevKey;
+	int nextKey;
 } b2ContactEdge;
 
 // Flags stored in b2Contact::flags
@@ -116,6 +120,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact);
 
 b2Contact* b2GetContactFromRawId(b2World* world, int contactKey);
+b2ContactList* b2GetContactList(b2World* world, int bodyKey)
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

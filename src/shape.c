@@ -6,6 +6,7 @@
 #include "body.h"
 #include "broad_phase.h"
 #include "contact.h"
+#include "static_body.h"
 #include "world.h"
 
 // needed for dll export
@@ -19,6 +20,17 @@ b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
 	B2_ASSERT(b2IsValidObject(&shape->object));
 	B2_ASSERT(shape->object.revision == shapeId.revision);
 	return shape;
+}
+
+b2Transform b2GetOwnerTransform(b2World* world, b2Shape* shape)
+{
+	int bodyId = shape->bodyKey >> 1;
+	if (shape->bodyKey & 1)
+	{
+		return b2GetBodyTransform(world, bodyId);
+	}
+
+	return b2GetStaticBodyTransform(world, bodyId);
 }
 
 static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
@@ -271,7 +283,12 @@ b2BodyId b2Shape_GetBody(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorld(shapeId.world0);
 	b2Shape* shape = b2GetShape(world, shapeId);
-	return b2MakeBodyId(world, shape->bodyId);
+	if (shape->bodyKey & 1)
+	{
+		return b2MakeBodyId(world, shape->bodyKey >> 1);
+	}
+
+	return (b2BodyId){0};
 }
 
 void b2Shape_SetUserData(b2ShapeId shapeId, void* userData)
@@ -300,8 +317,8 @@ bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point)
 	b2World* world = b2GetWorld(shapeId.world0);
 	b2Shape* shape = b2GetShape(world, shapeId);
 
-	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
-	b2Vec2 localPoint = b2InvTransformPoint(b2MakeTransform(body), point);
+	b2Transform transform = b2GetOwnerTransform(world, shape);
+	b2Vec2 localPoint = b2InvTransformPoint(transform, point);
 
 	switch (shape->type)
 	{
@@ -324,8 +341,7 @@ b2CastOutput b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translatio
 	b2World* world = b2GetWorld(shapeId.world0);
 	b2Shape* shape = b2GetShape(world, shapeId);
 
-	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
-	b2Transform transform = b2MakeTransform(body);
+	b2Transform transform = b2GetOwnerTransform(world, shape);
 
 	// input in local coordinates
 	b2RayCastInput input;
@@ -452,9 +468,8 @@ static void b2ResetContactsAndProxy(b2World* world, b2Shape* shape)
 {
 	int32_t shapeIndex = shape->object.index;
 
-	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
-
 	// Destroy any contacts associated with the shape
+	b2ContactList* b2GetContactList()
 	int32_t contactKey = body->contactList;
 	while (contactKey != B2_NULL_INDEX)
 	{
