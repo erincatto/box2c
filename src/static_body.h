@@ -4,9 +4,8 @@
 #pragma once
 
 #include "contact_list.h"
-#include "pool.h"
 
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <stdint.h>
 
@@ -17,18 +16,9 @@ typedef struct b2StaticBody
 {
 	void* userData;
 
-	// rotation in world space
-	b2Rot rotation;
-
-	// origin in world space
-	b2Vec2 origin;
-
+	b2Transform transform;
 	b2ShapeList shapeList;
-
-	// chainId
-	int chainList;
-	int chainCount;
-
+	b2ChainList chainList;
 	b2ContactList contactList;
 
 	int bodyId;
@@ -37,11 +27,8 @@ typedef struct b2StaticBody
 } b2StaticBody;
 
 
-inline b2Transform b2MakeStaticTransform(b2StaticBody* staticBody)
-{
-	return (b2Transform){staticBody->origin, staticBody->rotation};
-}
-
+b2StaticBody* b2GetStaticBodyFullId(b2World* world, b2StaticBodyId bodyId);
 b2StaticBody* b2GetStaticBody(b2World* world, int bodyId);
 b2Transform b2GetStaticBodyTransform(b2World* world, int bodyId);
 
+void b2DestroyStaticShape(b2World* world, b2Shape* shape);

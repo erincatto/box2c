@@ -7,12 +7,13 @@
 
 #include "box2d/distance.h"
 #include "box2d/id.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
 typedef struct b2Joint b2Joint;
 typedef struct b2Contact b2Contact;
+typedef struct b2Shape b2Shape;
 
 // map from b2BodyId/int to solver set and index
 // todo consider moving island graph stuff to lookups
@@ -58,6 +59,8 @@ typedef struct b2Body
 {
 	void* userData;
 
+	// todo combine into b2Transform
+	// 
 	// the body origin (not center of mass)
 	b2Vec2 origin;
 
@@ -78,16 +81,15 @@ typedef struct b2Body
 	float torque;
 
 	b2ShapeList shapeList;
-
-	int chainList;
-
-	// This is a key: [jointIndex:31, edgeIndex:1]
-	int jointKey;
-	int jointCount;
-
+	b2ChainList chainList;
 	b2ContactList contactList;
 
-	// A non-static body is always in an island. B2_NULL_INDEX for static and disabled bodies.
+	// This is a key: [jointIndex:31, edgeIndex:1]
+	int headJointKey;
+	int jointCount;
+
+	// All enabled bodies are in an island.
+	// B2_NULL_INDEX disabled bodies.
 	int islandId;
 
 	// Doubly linked island list
@@ -110,14 +112,14 @@ typedef struct b2Body
 	int bodyId;
 	uint16_t revision;
 	int16_t world;
-	enum b2BodyType type;
 
 	bool enableSleep;
 	bool fixedRotation;
 
 	// todo redundant with body set index
 	bool isEnabled;
-
+	bool isKinematic;
+	// todo eliminate
 	bool isMarked;
 	bool isFast;
 	bool isBullet;
@@ -125,8 +127,8 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
-b2Body* b2GetBody(b2World* world, b2BodyId bodyId);
-b2Body* b2GetBodyFromRawId(b2World* world, int bodyId);
+b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
+b2Body* b2GetBody(b2World* world, int bodyId);
 b2Transform b2GetBodyTransform(b2World* world, int bodyId);
 
 b2BodyId b2MakeBodyId(b2World* world, int bodyId);
@@ -148,21 +150,10 @@ static inline b2Transform b2MakeTransform(const b2Body* body)
 static inline b2Sweep b2MakeSweep(const b2Body* body)
 {
 	b2Sweep s;
-	if (body->type == b2_staticBody)
-	{
-		s.c1 = body->position;
-		s.c2 = body->position;
-		s.q1 = body->rotation;
-		s.q2 = body->rotation;
-	}
-	else
-	{
-		s.c1 = body->position0;
-		s.c2 = body->position;
-		s.q1 = body->rotation0;
-		s.q2 = body->rotation;
-	}
-
+	s.c1 = body->position0;
+	s.c2 = body->position;
+	s.q1 = body->rotation0;
+	s.q2 = body->rotation;
 	s.localCenter = body->localCenter;
 	return s;
 }

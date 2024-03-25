@@ -32,10 +32,12 @@ typedef struct b2TaskContext
 	// These bits align with the b2ConstraintGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
 
-	// Used to indicate bodies with shapes that have enlarged AABBs
+	// Used to track bodies with shapes that have enlarged AABBs. This avoids having a bit array
+	// that is very large when there are many static shapes.
 	b2BitSet enlargedBodyBitSet;
+	int enlargedShapeCount;
 
-	// Used to wake islands
+	// Used to put islands to sleep
 	b2BitSet awakeIslandBitSet;
 } b2TaskContext;
 
@@ -150,3 +152,9 @@ b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorld(int index);
 b2World* b2GetWorldLocked(int index);
 void b2ValidateWorld(b2World* world);
+
+void b2CheckStaticBodyId(b2StaticBodyId staticBodyId);
+void b2CheckBodyId(b2BodyId bodyId);
+void b2CheckJointId(b2JointId jointId);
+void b2CheckShapeId(b2ShapeId shapeId);
+void b2CheckChainId(b2ChainId chainId);

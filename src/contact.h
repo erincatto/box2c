@@ -93,8 +93,8 @@ typedef struct b2Contact
 
 	b2ContactEdge edges[2];
 
-	int shapeIndexA;
-	int shapeIndexB;
+	int shapeIdA;
+	int shapeIdB;
 
 	b2DistanceCache cache;
 	b2Manifold manifold;
@@ -117,11 +117,13 @@ typedef struct b2Contact
 void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
-void b2DestroyContact(b2World* world, b2Contact* contact);
+void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies);
 
 b2Contact* b2GetContactFromRawId(b2World* world, int contactKey);
-b2ContactList* b2GetContactList(b2World* world, int bodyKey)
+b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup lookup);
+b2ContactList* b2GetContactList(b2World* world, int bodyKey);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
-void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Body* bodyA, b2Shape* shapeB, b2Body* bodyB);
+void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
+					 b2Transform transformB);

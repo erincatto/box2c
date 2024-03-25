@@ -31,7 +31,7 @@ void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bo
 	*graph = (b2ConstraintGraph){0};
 
 	bodyCapacity = B2_MAX(bodyCapacity, 8);
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
 
@@ -45,7 +45,7 @@ void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bo
 
 void b2DestroyGraph(b2ConstraintGraph* graph)
 {
-	for (int32_t i = 0; i < b2_graphColorCount; ++i)
+	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
 		b2DestroyBitSet(&color->bodySet);
@@ -56,24 +56,24 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 
 // Contacts are always created as non-touching. They get cloned into the constraint
 // graph once they are found to be touching.
+// todo kinematic bodies should not go into graph
 b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyIdA = contact->edges[0].bodyId;
-	int bodyIdB = contact->edges[1].bodyId;
-	b2CheckIndex(world->bodyLookupArray, bodyIdA);
-	b2CheckIndex(world->bodyLookupArray, bodyIdB);
-	b2BodyLookup lookupA = world->bodyLookupArray[bodyIdA];
-	b2BodyLookup lookupB = world->bodyLookupArray[bodyIdB];
-	bool staticA = lookupA.setIndex == b2_staticSet;
-	bool staticB = lookupB.setIndex == b2_staticSet;
+	int bodyKeyA = contact->edges[0].bodyKey;
+	int bodyKeyB = contact->edges[1].bodyKey;
+	bool staticA = (bodyKeyA & 1) == 0;
+	bool staticB = (bodyKeyB & 1) == 0;
 	B2_ASSERT(staticA == false || staticB == false);
 
 	if (staticA == false && staticB == false)
 	{
+		int bodyIdA = bodyKeyA >> 1;
+		int bodyIdB = bodyKeyB >> 1;
+
 		for (int i = 0; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
@@ -90,6 +90,8 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 	else if (staticA == false)
 	{
+		int bodyIdA = bodyKeyA >> 1;
+
 		// No static contacts in color 0
 		for (int i = 1; i < b2_overflowIndex; ++i)
 		{
@@ -106,6 +108,8 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 	else if (staticB == false)
 	{
+		int bodyIdB = bodyKeyB >> 1;
+
 		// No static contacts in color 0
 		for (int i = 1; i < b2_overflowIndex; ++i)
 		{
@@ -145,10 +149,17 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	if (colorIndex != b2_overflowIndex)
 	{
 		// might clear a bit for a static body, but this has no effect
-		int bodyIdA = contact->edges[0].bodyId;
-		int bodyIdB = contact->edges[1].bodyId;
-		b2ClearBit(&color->bodySet, bodyIdA);
-		b2ClearBit(&color->bodySet, bodyIdB);
+		int bodyKeyA = contact->edges[0].bodyKey;
+		if (bodyKeyA & 1)
+		{
+			b2ClearBit(&color->bodySet, bodyKeyA >> 1);
+		}
+
+		int bodyKeyB = contact->edges[1].bodyKey;
+		if (bodyKeyB & 1)
+		{
+			b2ClearBit(&color->bodySet, bodyKeyB >> 1);
+		}
 	}
 
 	int colorSubIndex = lookup->localIndex;
@@ -172,60 +183,56 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	lookup->localIndex = B2_NULL_INDEX;
 }
 
-b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB, b2JointLookup* lookup)
+// todo pass B2_NULL_INDEX for kinematic bodies
+// but we have to avoid writing to the kinematics in workers
+b2Joint* b2AddJointToGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLookup* lookup)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int32_t bodyKeyA = bodyA->bodyId;
-	int32_t bodyKeyB = bodyB->bodyId;
-	b2BodyType typeA = bodyA->type;
-	b2BodyType typeB = bodyB->type;
-	B2_ASSERT(typeA != b2_staticBody || typeB != b2_staticBody);
-
-	if (typeA == b2_dynamicBody && typeB == b2_dynamicBody)
+	if (bodyIdA != B2_NULL_INDEX && bodyIdB != B2_NULL_INDEX)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		for (int i = 0; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyKeyA) || b2GetBit(&color->bodySet, bodyKeyB))
+			if (b2GetBit(&color->bodySet, bodyIdA) || b2GetBit(&color->bodySet, bodyIdB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyKeyA);
-			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			b2SetBitGrow(&color->bodySet, bodyIdA);
+			b2SetBitGrow(&color->bodySet, bodyIdB);
 			colorIndex = i;
 			break;
 		}
 	}
-	else if (typeA == b2_dynamicBody)
+	else if (bodyIdA != B2_NULL_INDEX)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		for (int i = 0; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyKeyA))
+			if (b2GetBit(&color->bodySet, bodyIdA))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyKeyA);
+			b2SetBitGrow(&color->bodySet, bodyIdA);
 			colorIndex = i;
 			break;
 		}
 	}
-	else if (typeB == b2_dynamicBody)
+	else if (bodyIdB != B2_NULL_INDEX)
 	{
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		for (int i = 0; i < b2_graphColorCount; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
-			if (b2GetBit(&color->bodySet, bodyKeyB))
+			if (b2GetBit(&color->bodySet, bodyIdB))
 			{
 				continue;
 			}
 
-			b2SetBitGrow(&color->bodySet, bodyKeyB);
+			b2SetBitGrow(&color->bodySet, bodyIdB);
 			colorIndex = i;
 			break;
 		}

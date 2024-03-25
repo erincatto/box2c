@@ -9,7 +9,7 @@
 
 #include "box2d/distance.h"
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <float.h>
 

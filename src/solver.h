@@ -103,6 +103,10 @@ typedef struct b2StepContext
 	// shortcut to bodies from awake set (no static bodies)
 	b2Body* bodies;
 
+	// array of all shape ids for shapes that have enlarged AABBs
+	int* enlargedShapes;
+	int enlargedShapeCount;
+
 	// Array of fast bodies that need continuous collision handling
 	int* fastBodies;
 	_Atomic int fastBodyCount;

@@ -146,16 +146,22 @@ B2_API b2StaticBodyId b2CreateStaticBody(b2WorldId worldId, const b2StaticBodyDe
 B2_API void b2DestroyStaticBody(b2StaticBodyId staticBodyId);
 
 /// Body identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2StaticBody_IsValid(b2StaticBodyId id);
+B2_API bool b2StaticBody_IsValid(b2StaticBodyId staticBodyId);
 
 /// Set the user data for a body
-B2_API void b2StaticBody_SetUserData(b2StaticBodyId bodyId, void* userData);
+B2_API void b2StaticBody_SetUserData(b2StaticBodyId staticBodyId, void* userData);
 
 /// Get the user data stored in a body
-B2_API void* b2StaticBody_GetUserData(b2StaticBodyId bodyId);
+B2_API void* b2StaticBody_GetUserData(b2StaticBodyId staticBodyId);
 
 /// Get the world transform of a static body.
-B2_API b2Transform b2StaticBody_GetTransform(b2StaticBodyId bodyId);
+B2_API b2Transform b2StaticBody_GetTransform(b2StaticBodyId staticBodyId);
+
+/// Get the number of shapes on this body
+B2_API int b2StaticBody_GetShapeCount(b2StaticBodyId staticBodyId);
+
+/// Get the shape ids for all shapes on this body, up to the provided capacity
+B2_API void b2StaticBody_GetShapes(b2StaticBodyId staticBodyId, b2ShapeId* shapeArray, int capacity);
 
 /** @} */
 
@@ -182,11 +188,11 @@ B2_API bool b2Body_IsValid(b2BodyId id);
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBodyAndJoints(b2BodyId bodyId);
 
-/// Get the type of a body
-B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
+/// Is this a kinematic body
+B2_API bool b2Body_IsKinematic(b2BodyId bodyId);
 
-/// Set the type of a body. This has a similar cost to re-creating the body.
-B2_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+/// Set this body to be kinematic
+B2_API void b2Body_Kinematic(b2BodyId bodyId, bool kinematic);
 
 /// Set the user data for a body
 B2_API void b2Body_SetUserData(b2BodyId bodyId, void* userData);
@@ -384,23 +390,25 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 /// Create a circle shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
-B2_API b2ShapeId b2CreateCircleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Circle* circle);
+B2_API b2ShapeId b2CreateStaticCircleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Circle* circle);
 B2_API b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 
 /// Create a line segment shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
-B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
+B2_API b2ShapeId b2CreateStaticSegmentShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Segment* segment);
 B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 
 /// Create a capsule shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateStaticCapsuleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 B2_API b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 
 /// Create a polygon shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateStaticPolygonShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 B2_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
 /// Destroy any shape type
@@ -477,20 +485,20 @@ B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 B2_API b2CastOutput b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translation);
 
 /// Access the circle geometry of a shape. Asserts the type is correct.
-B2_API const b2Circle b2Shape_GetCircle(b2ShapeId shapeId);
+B2_API b2Circle b2Shape_GetCircle(b2ShapeId shapeId);
 
 /// Access the line segment geometry of a shape. Asserts the type is correct.
-B2_API const b2Segment b2Shape_GetSegment(b2ShapeId shapeId);
+B2_API b2Segment b2Shape_GetSegment(b2ShapeId shapeId);
 
 /// Access the smooth line segment geometry of a shape. These come from chain shapes.
 /// Asserts the type is correct.
-B2_API const b2SmoothSegment b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+B2_API b2SmoothSegment b2Shape_GetSmoothSegment(b2ShapeId shapeId);
 
 /// Access the capsule geometry of a shape. Asserts the type is correct.
-B2_API const b2Capsule b2Shape_GetCapsule(b2ShapeId shapeId);
+B2_API b2Capsule b2Shape_GetCapsule(b2ShapeId shapeId);
 
 /// Access the convex polygon geometry of a shape. Asserts the type is correct.
-B2_API const b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
+B2_API b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
 
 /// Allows you to change a shape to be a circle or update the current circle.
 /// This does not modify the mass properties.

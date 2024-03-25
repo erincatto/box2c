@@ -4,7 +4,7 @@
 #include "draw.h"
 
 #include "box2d/constants.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <stdarg.h>
 #include <stdio.h>

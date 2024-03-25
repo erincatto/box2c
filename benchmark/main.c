@@ -4,7 +4,7 @@
 #include "TaskScheduler_c.h"
 
 #include "box2d/box2d.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/timer.h"
 
 #include <assert.h>

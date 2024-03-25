@@ -7,7 +7,7 @@
 #include "core.h"
 #include "util.h"
 
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <string.h>
 

@@ -355,8 +355,8 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 		return 0.0f;
 	}
 
-	b2Body* bodyA = b2GetBodyFromRawId(world, base->edges[0].bodyId);
-	b2Body* bodyB = b2GetBodyFromRawId(world, base->edges[1].bodyId);
+	b2Body* bodyA = b2GetBody(world, base->edges[0].bodyId);
+	b2Body* bodyB = b2GetBody(world, base->edges[1].bodyId);
 	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localOriginAnchorB);
 	b2Vec2 d = b2Sub(pB, pA);

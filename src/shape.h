@@ -23,7 +23,7 @@ typedef struct b2Shape
 	// (bodyId | type)
 	// where type is 0 for a static body or 1 for a dynamic/kinematic body
 	int bodyKey;
-	int nextShapeIndex;
+	int nextShapeId;
 	b2ShapeType type;
 	float density;
 	float friction;
@@ -57,7 +57,12 @@ typedef struct b2Shape
 typedef struct b2ChainShape
 {
 	b2Object object;
-	int bodyId;
+
+	// body key is split into bits
+	// (31 | 1)
+	// (bodyId | type)
+	// where type is 0 for a static body or 1 for a dynamic/kinematic body
+	int bodyKey;
 	int nextIndex;
 	int* shapeIndices;
 	int count;
@@ -70,7 +75,7 @@ typedef struct b2ShapeExtent
 } b2ShapeExtent;
 
 
-void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform xf);
 void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp);
 
 b2MassData b2ComputeShapeMass(const b2Shape* shape);

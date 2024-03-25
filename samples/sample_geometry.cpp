@@ -6,7 +6,7 @@
 #include "settings.h"
 
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 

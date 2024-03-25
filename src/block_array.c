@@ -118,8 +118,6 @@ b2Contact* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
 	}
 
 	b2Contact* element = array->data + array->count;
-	element->colorIndex = B2_NULL_INDEX;
-	element->localIndex = array->count;
 	array->count += 1;
 	return element;
 }
@@ -138,8 +136,6 @@ b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
 	}
 
 	b2Joint* element = array->data + array->count;
-	element->colorIndex = B2_NULL_INDEX;
-	element->localIndex = array->count;
 	array->count += 1;
 	return element;
 }

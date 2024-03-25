@@ -91,18 +91,6 @@ typedef struct b2WorldDef
 	void* userTaskContext;
 } b2WorldDef;
 
-/// The body type.
-/// static: zero mass, zero velocity, may not be moved
-/// kinematic: zero mass, non-zero velocity set by user, moved by solver
-/// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
-typedef enum b2BodyType
-{
-	b2_staticBody = 0,
-	b2_kinematicBody = 1,
-	b2_dynamicBody = 2,
-	b2_bodyTypeCount
-} b2BodyType;
-
 typedef struct b2StaticBodyDef
 {
 	/// The world position of the body. Avoid creating bodies at the origin
@@ -120,10 +108,6 @@ typedef struct b2StaticBodyDef
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 typedef struct b2BodyDef
 {
-	/// The body type: static, kinematic, or dynamic.
-	/// Note: if a dynamic body would have zero mass, the mass is set to one.
-	b2BodyType type;
-
 	/// The world position of the body. Avoid creating bodies at the origin
 	/// since this can lead to many overlapping shapes.
 	b2Vec2 position;
@@ -169,6 +153,11 @@ typedef struct b2BodyDef
 
 	/// Does this body start out enabled?
 	bool isEnabled;
+
+	/// Is this a kinematic body?
+	/// kinematic: zero mass, non-zero velocity set by user, moved by solver
+	/// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
+	bool isKinematic;
 } b2BodyDef;
 
 /// This holds contact filtering data.

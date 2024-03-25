@@ -38,10 +38,9 @@ set(BOX2D_SOURCE_FILES
 	joint.c
 	joint.h
 	manifold.c
-	math.c
+	math_functions.c
 	motor_joint.c
 	mouse_joint.c
-	polygon_shape.h
 	pool.c
 	pool.h
 	prismatic_joint.c
@@ -83,7 +82,7 @@ set(BOX2D_API_FILES
 	../include/box2d/id.h
 	../include/box2d/joint_types.h
 	../include/box2d/manifold.h
-	../include/box2d/math.h
+	../include/box2d/math_functions.h
 	../include/box2d/math_cpp.h
 	../include/box2d/math_types.h
 	../include/box2d/timer.h

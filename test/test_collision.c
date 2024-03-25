@@ -4,7 +4,7 @@
 #include "aabb.h"
 #include "test_macros.h"
 
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 static int AABBTest(void)
 {

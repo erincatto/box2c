@@ -68,7 +68,7 @@ void b2DestroyIsland(b2World* world, int islandId)
 	b2IslandLookup* lookup = world->islandLookupArray + islandId;
 	b2CheckIndex(world->solverSetArray, lookup->setIndex);
 	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-	int movedIndex = b2RemoveIsland(&world->blockAllocator, &set->islands, lookup->localIndex);
+	int movedIndex = b2RemoveIsland(&set->islands, lookup->localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix lookup on moved element
@@ -171,16 +171,25 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	B2_ASSERT(contact->manifold.pointCount > 0);
 
 	// todo can assume body is either awake or static
+	int bodyKeyA = contact->edges[0].bodyKey;
+	int bodyKeyB = contact->edges[1].bodyKey;
+	int islandIdA = B2_NULL_INDEX;
+	int islandIdB = B2_NULL_INDEX;
 
-	b2Body* bodyA = b2GetBodyFromRawId(world, contact->edges[0].bodyId);
-	b2Body* bodyB = b2GetBodyFromRawId(world, contact->edges[1].bodyId);
+	if (bodyKeyA & 1)
+	{
+		int bodyIdA = bodyKeyA >> 1;
+		b2Body* bodyA = b2GetBody(world, bodyIdA);
+		islandIdA = bodyA->islandId;
+	}
 
-	int islandIdA = bodyA->islandId;
-	int islandIdB = bodyB->islandId;
+	if (bodyKeyB & 1)
+	{
+		int bodyIdB = bodyKeyB >> 1;
+		b2Body* bodyB = b2GetBody(world, bodyIdB);
+		islandIdB = bodyB->islandId;
+	}
 
-	// Static bodies have null island indices
-	B2_ASSERT(bodyA->type != b2_staticBody || islandIdA == B2_NULL_INDEX);
-	B2_ASSERT(bodyB->type != b2_staticBody || islandIdB == B2_NULL_INDEX);
 	B2_ASSERT(islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX);
 
 	if (islandIdA == islandIdB)
@@ -325,16 +334,13 @@ static void b2AddJointToIsland(b2World* world, b2Island* island, b2Joint* joint)
 
 void b2LinkJoint(b2World* world, b2Joint* joint)
 {
-	b2Body* bodyA = b2GetBodyFromRawId(world, joint->edges[0].bodyId);
-	b2Body* bodyB = b2GetBodyFromRawId(world, joint->edges[1].bodyId);
+	b2Body* bodyA = b2GetBody(world, joint->edges[0].bodyId);
+	b2Body* bodyB = b2GetBody(world, joint->edges[1].bodyId);
 
 	int islandIdA = bodyA->islandId;
 	int islandIdB = bodyB->islandId;
 
-	// Static bodies have null island indices
-	B2_ASSERT(bodyA->type != b2_staticBody || islandIdA == B2_NULL_INDEX);
-	B2_ASSERT(bodyB->type != b2_staticBody || islandIdB == B2_NULL_INDEX);
-	B2_ASSERT(islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX);
+	B2_ASSERT(islandIdA != B2_NULL_INDEX && islandIdB != B2_NULL_INDEX);
 
 	if (islandIdA == islandIdB)
 	{
@@ -461,7 +467,7 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 	int bodyId = island->headBody;
 	while (bodyId != B2_NULL_INDEX)
 	{
-		b2Body* body = b2GetBodyFromRawId(world, bodyId);
+		b2Body* body = b2GetBody(world, bodyId);
 		body->islandId = rootId;
 		bodyId = body->islandNext;
 	}
@@ -484,12 +490,12 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 
 	// connect body lists
 	B2_ASSERT(rootIsland->tailBody != B2_NULL_INDEX);
-	b2Body* tailBody = b2GetBodyFromRawId(world, rootIsland->tailBody);
+	b2Body* tailBody = b2GetBody(world, rootIsland->tailBody);
 	B2_ASSERT(tailBody->islandNext == B2_NULL_INDEX);
 	tailBody->islandNext = island->headBody;
 
 	B2_ASSERT(island->headBody != B2_NULL_INDEX);
-	b2Body* headBody = b2GetBodyFromRawId(world, island->headBody);
+	b2Body* headBody = b2GetBody(world, island->headBody);
 	B2_ASSERT(headBody->islandPrev == B2_NULL_INDEX);
 	headBody->islandPrev = rootIsland->tailBody;
 

@@ -184,7 +184,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 
 	b2IslandLookup* islandLookups = world->islandLookupArray;
 
-	b2BitSet* shapeBitSet = &world->taskContextArray[threadIndex].shapeBitSet;
+	b2BitSet* enlargedBodyBitSet = &world->taskContextArray[threadIndex].enlargedBodyBitSet;
 	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
 	bool enableContinuous = world->enableContinuous;
 
@@ -194,10 +194,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 	const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
 	const float angTolSqr = b2_angularSleepTolerance * b2_angularSleepTolerance;
 
-	for (int i = startIndex; i < endIndex; ++i)
+	for (int bodyIndex = startIndex; bodyIndex < endIndex; ++bodyIndex)
 	{
-		b2BodyState* state = states + i;
-		b2Body* body = bodies + i;
+		b2BodyState* state = states + bodyIndex;
+		b2Body* body = bodies + bodyIndex;
 
 		b2Vec2 v = state->linearVelocity;
 		float w = state->angularVelocity;
@@ -217,10 +217,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 
 		body->origin = b2Sub(body->position, b2RotateVector(body->rotation, body->localCenter));
 
-		moveEvents[i].transform = b2MakeTransform(body);
-		moveEvents[i].bodyId = (b2BodyId){body->bodyId + 1, worldId, body->revision};
-		moveEvents[i].userData = body->userData;
-		moveEvents[i].fellAsleep = false;
+		moveEvents[bodyIndex].transform = b2MakeTransform(body);
+		moveEvents[bodyIndex].bodyId = (b2BodyId){body->bodyId + 1, worldId, body->revision};
+		moveEvents[bodyIndex].userData = body->userData;
+		moveEvents[bodyIndex].fellAsleep = false;
 
 		// reset applied force and torque
 		body->force = b2Vec2_zero;
@@ -241,12 +241,12 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 				if (body->isBullet)
 				{
 					int bulletIndex = atomic_fetch_add(&context->bulletBodyCount, 1);
-					context->bulletBodies[bulletIndex] = i;
+					context->bulletBodies[bulletIndex] = bodyIndex;
 				}
 				else
 				{
 					int fastIndex = atomic_fetch_add(&context->fastBodyCount, 1);
-					context->fastBodies[fastIndex] = i;
+					context->fastBodies[fastIndex] = bodyIndex;
 				}
 
 				body->isFast = true;
@@ -276,10 +276,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		// Update shapes AABBs
 		b2Transform transform = b2MakeTransform(body);
 		bool isFast = body->isFast;
-		int shapeIndex = body->shapeList;
-		while (shapeIndex != B2_NULL_INDEX)
+		int shapeId = body->shapeList.headShapeId;
+		while (shapeId != B2_NULL_INDEX)
 		{
-			b2Shape* shape = world->shapes + shapeIndex;
+			b2Shape* shape = world->shapes + shapeId;
 
 			B2_ASSERT(shape->isFast == false);
 
@@ -290,7 +290,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 				shape->isFast = true;
 
 				// Bit-set to keep the move array sorted
-				b2SetBit(shapeBitSet, shapeIndex);
+				b2SetBit(enlargedBodyBitSet, bodyIndex);
 			}
 			else
 			{
@@ -311,11 +311,11 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 					shape->fatAABB = fatAABB;
 
 					// Bit-set to keep the move array sorted
-					b2SetBit(shapeBitSet, shapeIndex);
+					b2SetBit(enlargedBodyBitSet, bodyIndex);
 				}
 			}
 
-			shapeIndex = shape->nextShapeIndex;
+			shapeId = shape->nextShapeId;
 		}
 	}
 
@@ -1277,12 +1277,11 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	world->profile.solverTasks = b2GetMillisecondsAndReset(&timer);
 
-	// Prepare contact, shape, and island bit sets used in body finalization.
-	int shapeIdCapacity = world->shapePool.capacity;
+	// Prepare contact, enlarged body, and island bit sets used in body finalization.
 	int awakeIslandCount = awakeSet->islands.count;
 	for (int i = 0; i < world->workerCount; ++i)
 	{
-		b2SetBitCountAndClear(&world->taskContextArray[i].shapeBitSet, shapeIdCapacity);
+		b2SetBitCountAndClear(&world->taskContextArray[i].enlargedBodyBitSet, awakeBodyCount);
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, awakeIslandCount);
 	}
 
@@ -1308,6 +1307,10 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 	b2TracyCZoneNC(awake_islands, "Island Sleeping", b2_colorGainsboro, true);
 
+	// todo this doesn't work with enlargedBodyBitset
+	// perhaps I could build an array of enlarged shape id here for later processing?
+	// need to update broad-phase first
+
 	// island sleeping
 	{
 		b2BitSet* awakeIslandBitSet = &world->taskContextArray[0].awakeIslandBitSet;
@@ -1316,6 +1319,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			b2InPlaceUnion(awakeIslandBitSet, &world->taskContextArray[i].awakeIslandBitSet);
 		}
 
+		// Need to process in reverse because this moves islands to sleeping solver sets.
 		b2Island* islands = awakeSet->islands.data;
 		int count = awakeSet->islands.count;
 		for (int islandIndex = count - 1; islandIndex >= 0; islandIndex -= 1)
@@ -1354,6 +1358,8 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			sleepSet->bodies = b2CreateBodyArray(&world->blockAllocator, island->bodyCount);
 			sleepSet->contacts = b2CreateContactArray(&world->blockAllocator, island->contactCount);
 			sleepSet->joints = b2CreateJointArray(&world->blockAllocator, island->jointCount);
+
+			b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
 
 			// move bodies
 			// this shuffles around bodies in the awake set until they are all moved
@@ -1394,9 +1400,10 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 					lookup->setIndex = sleepSetId;
 					lookup->bodyIndex = sleepBodyIndex;
 
-					// look for non-touching contacts with bodies in the same island or versus static
-					// that should be moved to the sleeping set
-					int contactKey = sleepBody->contactList;
+					// todo this is wrong, all sleeping and non-touching contacts and should go to the disabled set
+					// because non-touching contacts may exist between sleeping islands and there is
+					// no clear ownership
+					int contactKey = sleepBody->contactList.headContactKey;
 					while (contactKey != B2_NULL_INDEX)
 					{
 						int edgeIndex = contactKey & 1;
@@ -1405,40 +1412,31 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 						b2CheckIndex(contactLookups, contactId);
 						b2ContactLookup* contactLookup = contactLookups + contactId;
 						B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+
 						b2Contact* contact = b2GetContactFromRawId(world, contactId);
-
 						contactKey = contact->edges[edgeIndex].nextKey;
-
-						if (contactLookups->setIndex != b2_awakeSet)
+						
+						if (contactLookup->setIndex != b2_awakeSet)
 						{
-							// already moved
+							// already in a different set
 							B2_ASSERT(contactLookup->setIndex == sleepSetId);
 							continue;
 						}
 
 						if (contactLookup->colorIndex != B2_NULL_INDEX)
 						{
-							// contact must be touching, which is handled separately
-							B2_ASSERT(contact->flags == b2_contactTouchingFlag && contact->manifold.pointCount > 0);
+							// contact is touching and will be moved separately
+							B2_ASSERT((contact->flags & b2_contactTouchingFlag) != 0 && contact->manifold.pointCount > 0);
 							continue;
 						}
 
-						int otherEdgeIndex = edgeIndex ^ 1;
-						b2Body* otherBody = b2GetBodyFromRawId(world, contact->edges[otherEdgeIndex].bodyId);
-						if (otherBody->type != b2_staticBody && otherBody->islandId != sleepBody->islandId)
-						{
-							// different island
-							continue;
-						}
-
-						// other body is static or in the same island, so move the non-touching contact
-						// to the sleeping set
+						// move the non-touching contact to the disabled set
 						B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contact->manifold.pointCount == 0);
 
 						int contactLocalIndex = contactLookup->localIndex;
-						contactLookup->localIndex = sleepSet->contacts.count;
-						b2Contact* sleepContact = b2AddContact(&world->blockAllocator, &sleepSet->contacts);
-						memcpy(sleepContact, contact, sizeof(b2Contact));
+						contactLookup->localIndex = disabledSet->contacts.count;
+						b2Contact* disabledContact = b2AddContact(&world->blockAllocator, &disabledSet->contacts);
+						memcpy(disabledContact, contact, sizeof(b2Contact));
 
 						int movedContactIndex = b2RemoveContact(&awakeSet->contacts, contactLocalIndex);
 						if (movedContactIndex != B2_NULL_INDEX)
@@ -1457,7 +1455,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 				}
 			}
 
-			// move contacts
+			// move touching contacts
 			{
 				b2ContactLookup* contactLookups = world->contactLookupArray;
 				int contactId = island->headContact;
@@ -1480,9 +1478,21 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 
 					if (colorIndex != b2_overflowIndex)
 					{
-						// might clear a bit for a static body, but this has no effect
-						b2ClearBit(&color->bodySet, awakeContact->edges[0].bodyId);
-						b2ClearBit(&color->bodySet, awakeContact->edges[1].bodyId);
+						int bodyKeyA = awakeContact->edges[0].bodyKey;
+						if (bodyKeyA & 1)
+						{
+							// body is non-static
+							int bodyIdA = bodyKeyA >> 1;
+							b2ClearBit(&color->bodySet, bodyIdA);
+						}
+
+						int bodyKeyB = awakeContact->edges[1].bodyKey;
+						if (bodyKeyB & 1)
+						{
+							// body is non-static
+							int bodyIdB = bodyKeyB >> 1;
+							b2ClearBit(&color->bodySet, bodyIdB);
+						}
 					}
 
 					int sleepContactIndex = sleepSet->contacts.count;
@@ -1761,7 +1771,7 @@ static void b2SolveContinuous(b2World* world, int bodyIndex)
 			b2DynamicTree_Query(dynamicTree, box, b2ContinuousQueryCallback, &context);
 		}
 
-		shapeIndex = fastShape->nextShapeIndex;
+		shapeIndex = fastShape->nextShapeId;
 	}
 
 	if (context.fraction < 1.0f)
@@ -1807,7 +1817,7 @@ static void b2SolveContinuous(b2World* world, int bodyIndex)
 				fastBody->enlargeAABB = true;
 			}
 
-			shapeIndex = shape->nextShapeIndex;
+			shapeIndex = shape->nextShapeId;
 		}
 	}
 	else
@@ -1839,7 +1849,7 @@ static void b2SolveContinuous(b2World* world, int bodyIndex)
 				fastBody->enlargeAABB = true;
 			}
 
-			shapeIndex = shape->nextShapeIndex;
+			shapeIndex = shape->nextShapeId;
 		}
 	}
 }
@@ -1941,10 +1951,10 @@ void b2Solve(b2World* world, b2StepContext* context)
 		b2BroadPhase* broadPhase = &world->broadPhase;
 
 		// Gather bits for all shapes that have enlarged AABBs
-		b2BitSet* bitSet = &world->taskContextArray[0].shapeBitSet;
+		b2BitSet* bitSet = &world->taskContextArray[0].enlargedBodyBitSet;
 		for (uint32_t i = 1; i < world->workerCount; ++i)
 		{
-			b2InPlaceUnion(bitSet, &world->taskContextArray[i].shapeBitSet);
+			b2InPlaceUnion(bitSet, &world->taskContextArray[i].enlargedBodyBitSet);
 		}
 
 		// Apply shape AABB changes to broadphase. This also create the move array which must be
@@ -2042,7 +2052,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 				b2Shape* shape = shapes + shapeIndex;
 				if (shape->enlargedAABB == false)
 				{
-					shapeIndex = shape->nextShapeIndex;
+					shapeIndex = shape->nextShapeId;
 					continue;
 				}
 
@@ -2058,7 +2068,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
 
-				shapeIndex = shape->nextShapeIndex;
+				shapeIndex = shape->nextShapeId;
 			}
 		}
 	}
@@ -2090,7 +2100,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 				b2Shape* shape = shapes + shapeIndex;
 				if (shape->enlargedAABB == false)
 				{
-					shapeIndex = shape->nextShapeIndex;
+					shapeIndex = shape->nextShapeId;
 					continue;
 				}
 
@@ -2106,7 +2116,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 				b2DynamicTree_EnlargeProxy(tree, proxyId, shape->fatAABB);
 
-				shapeIndex = shape->nextShapeIndex;
+				shapeIndex = shape->nextShapeId;
 			}
 		}
 	}

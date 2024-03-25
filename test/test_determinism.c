@@ -3,7 +3,7 @@
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/types.h"
 #include "test_macros.h"
 

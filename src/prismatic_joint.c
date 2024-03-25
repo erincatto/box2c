@@ -110,7 +110,7 @@ b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
 	B2_ASSERT(base->type == b2_prismaticJoint);
 
 	int idA = base->edges[0].bodyId;
-	b2Body* bodyA = b2GetBodyFromRawId(world, idA);
+	b2Body* bodyA = b2GetBody(world, idA);
 
 	b2PrismaticJoint* joint = &base->prismaticJoint;
 

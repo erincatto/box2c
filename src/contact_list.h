@@ -16,3 +16,8 @@ typedef struct b2ShapeList
 	int shapeCount;
 } b2ShapeList;
 
+typedef struct b2ChainList
+{
+	int headChainId;
+} b2ChainList;
+

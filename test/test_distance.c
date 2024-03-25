@@ -3,7 +3,7 @@
 
 #include "box2d/constants.h"
 #include "box2d/distance.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "test_macros.h"
 
 #include <float.h>

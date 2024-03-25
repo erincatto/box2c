@@ -29,6 +29,8 @@
 
 void b2CreateBroadPhase(b2BroadPhase* bp)
 {
+	_Static_assert(b2_proxyTypeCount == 2, "must be only two proxy types");
+
 	// if (s_file == NULL)
 	//{
 	//	s_file = fopen("pairs01.txt", "a");
@@ -39,7 +41,7 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 
 	// TODO_ERIN initial size in b2WorldDef?
 	bp->moveSet = b2CreateSet(16);
-	bp->moveArray = b2CreateArray(sizeof(int32_t), 16);
+	bp->moveArray = b2CreateArray(sizeof(int), 16);
 
 	bp->moveResults = NULL;
 	bp->movePairs = NULL;
@@ -49,7 +51,7 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 	// TODO_ERIN initial size from b2WorldDef
 	bp->pairSet = b2CreateSet(32);
 
-	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		bp->trees[i] = b2DynamicTree_Create();
 	}
@@ -57,13 +59,13 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 
 void b2DestroyBroadPhase(b2BroadPhase* bp)
 {
-	for (int32_t i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_Destroy(bp->trees + i);
 	}
 
 	b2DestroySet(&bp->moveSet);
-	b2DestroyArray(bp->moveArray, sizeof(int32_t));
+	b2DestroyArray(bp->moveArray, sizeof(int));
 	b2DestroySet(&bp->pairSet);
 
 	memset(bp, 0, sizeof(b2BroadPhase));
@@ -75,15 +77,15 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 	// }
 }
 
-static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
+static inline void b2UnBufferMove(b2BroadPhase* bp, int proxyKey)
 {
 	bool found = b2RemoveKey(&bp->moveSet, proxyKey + 1);
 
 	if (found)
 	{
 		// Purge from move buffer. Linear search.
-		int32_t count = b2Array(bp->moveArray).count;
-		for (int32_t i = 0; i < count; ++i)
+		int count = b2Array(bp->moveArray).count;
+		for (int i = 0; i < count; ++i)
 		{
 			if (bp->moveArray[i] == proxyKey)
 			{
@@ -94,51 +96,51 @@ static inline void b2UnBufferMove(b2BroadPhase* bp, int32_t proxyKey)
 	}
 }
 
-int32_t b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType bodyType, b2AABB aabb, uint32_t categoryBits, int32_t shapeIndex)
+int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType bodyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex)
 {
-	B2_ASSERT(0 <= bodyType && bodyType < b2_bodyTypeCount);
-	int32_t proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex);
-	int32_t proxyKey = B2_PROXY_KEY(proxyId, bodyType);
-	if (bodyType != b2_staticBody)
+	B2_ASSERT(0 <= bodyType && bodyType < b2_proxyTypeCount);
+	int proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex);
+	int proxyKey = B2_PROXY_KEY(proxyId, bodyType);
+	if (bodyType != b2_staticProxy)
 	{
 		b2BufferMove(bp, proxyKey);
 	}
 	return proxyKey;
 }
 
-void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int32_t proxyKey)
+void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey)
 {
-	B2_ASSERT(b2Array(bp->moveArray).count == (int32_t)bp->moveSet.count);
+	B2_ASSERT(b2Array(bp->moveArray).count == (int)bp->moveSet.count);
 	b2UnBufferMove(bp, proxyKey);
 
 	--bp->proxyCount;
 
-	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
-	int32_t proxyId = B2_PROXY_ID(proxyKey);
+	int typeIndex = B2_PROXY_TYPE(proxyKey);
+	int proxyId = B2_PROXY_ID(proxyKey);
 
-	B2_ASSERT(0 <= typeIndex && typeIndex <= b2_bodyTypeCount);
+	B2_ASSERT(0 <= typeIndex && typeIndex <= b2_proxyTypeCount);
 	b2DynamicTree_DestroyProxy(bp->trees + typeIndex, proxyId);
 }
 
-void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
 {
-	b2BodyType bodyType = B2_PROXY_TYPE(proxyKey);
-	int32_t proxyId = B2_PROXY_ID(proxyKey);
+	b2ProxyType bodyType = B2_PROXY_TYPE(proxyKey);
+	int proxyId = B2_PROXY_ID(proxyKey);
 
 	b2DynamicTree_MoveProxy(bp->trees + bodyType, proxyId, aabb);
-	if (bodyType != b2_staticBody)
+	if (bodyType != b2_staticProxy)
 	{
 		b2BufferMove(bp, proxyKey);
 	}
 }
 
-void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
 {
 	B2_ASSERT(proxyKey != B2_NULL_INDEX);
-	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
-	int32_t proxyId = B2_PROXY_ID(proxyKey);
+	int typeIndex = B2_PROXY_TYPE(proxyKey);
+	int proxyId = B2_PROXY_ID(proxyKey);
 
-	B2_ASSERT(typeIndex == b2_dynamicBody || typeIndex == b2_kinematicBody);
+	B2_ASSERT(typeIndex == b2_movableProxy);
 
 	b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb);
 	b2BufferMove(bp, proxyKey);
@@ -146,8 +148,8 @@ void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int32_t proxyKey, b2AABB aabb)
 
 typedef struct b2MovePair
 {
-	int32_t shapeIndexA;
-	int32_t shapeIndexB;
+	int shapeIndexA;
+	int shapeIndexB;
 	b2MovePair* next;
 	bool heap;
 } b2MovePair;
@@ -161,18 +163,18 @@ typedef struct b2QueryPairContext
 {
 	b2World* world;
 	b2MoveResult* moveResult;
-	b2BodyType queryTreeType;
-	int32_t queryProxyKey;
-	int32_t queryShapeIndex;
+	b2ProxyType queryTreeType;
+	int queryProxyKey;
+	int queryShapeIndex;
 } b2QueryPairContext;
 
 // This is called from b2DynamicTree::Query when we are gathering pairs.
-static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* context)
+static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
 {
 	b2QueryPairContext* queryContext = context;
 	b2BroadPhase* bp = &queryContext->world->broadPhase;
 
-	int32_t proxyKey = B2_PROXY_KEY(proxyId, queryContext->queryTreeType);
+	int proxyKey = B2_PROXY_KEY(proxyId, queryContext->queryTreeType);
 
 	// A proxy cannot form a pair with itself.
 	if (proxyKey == queryContext->queryProxyKey)
@@ -194,7 +196,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	int32_t shapeIndexA, shapeIndexB;
+	int shapeIndexA, shapeIndexB;
 	if (proxyKey < queryContext->queryProxyKey)
 	{
 		shapeIndexA = shapeIndex;
@@ -214,8 +216,11 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	b2Shape* shapeA = world->shapes + shapeIndexA;
 	b2Shape* shapeB = world->shapes + shapeIndexB;
 
+	int bodyKeyA = shapeA->bodyKey;
+	int bodyKeyB = shapeB->bodyKey;
+
 	// Are the shapes on the same body?
-	if (shapeA->bodyId == shapeB->bodyId)
+	if (bodyKeyA == bodyKeyB)
 	{
 		return true;
 	}
@@ -225,16 +230,19 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 		return true;
 	}
 
-	int32_t bodyIdA = shapeA->bodyId;
-	int32_t bodyIdB = shapeB->bodyId;
-	b2Body* bodyA = b2GetBodyFromRawId(world, bodyIdA);
-	b2Body* bodyB = b2GetBodyFromRawId(world, bodyIdB);
-
-	// Does a joint override collision? Is at least one body dynamic?
-	// #todo this could be a hash set
-	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
+	// Does a joint override collision? Skip kinematic vs kinematic.
+	if ((bodyKeyA & 1) == 1 && (bodyKeyB & 1) == 1)
 	{
-		return true;
+		int bodyIdA = bodyKeyA >> 1;
+		int bodyIdB = bodyKeyB >> 1;
+
+		b2Body* bodyA = b2GetBody(world, bodyIdA);
+		b2Body* bodyB = b2GetBody(world, bodyIdB);
+
+		if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
+		{
+			return true;
+		}
 	}
 
 	// #todo per thread to eliminate atomic?
@@ -261,7 +269,7 @@ static bool b2PairQueryCallback(int32_t proxyId, int32_t shapeIndex, void* conte
 	return true;
 }
 
-void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context)
+void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* context)
 {
 	b2TracyCZoneNC(pair_task, "Pair Task", b2_colorAquamarine3, true);
 
@@ -273,21 +281,23 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 	b2QueryPairContext queryContext;
 	queryContext.world = world;
 
-	for (int32_t i = startIndex; i < endIndex; ++i)
+	for (int i = startIndex; i < endIndex; ++i)
 	{
 		// Initialize move result for this moved proxy
 		queryContext.moveResult = bp->moveResults + i;
 		queryContext.moveResult->pairList = NULL;
 
-		int32_t proxyKey = bp->moveArray[i];
+		int proxyKey = bp->moveArray[i];
 		if (proxyKey == B2_NULL_INDEX)
 		{
 			// proxy was destroyed after it moved
 			continue;
 		}
 
-		b2BodyType proxyType = B2_PROXY_TYPE(proxyKey);
-		int32_t proxyId = B2_PROXY_ID(proxyKey);
+		b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
+		B2_ASSERT(proxyType == b2_movableProxy);
+
+		int proxyId = B2_PROXY_ID(proxyKey);
 		queryContext.queryProxyKey = proxyKey;
 
 		const b2DynamicTree* baseTree = bp->trees + proxyType;
@@ -298,20 +308,10 @@ void b2FindPairsTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex,
 		queryContext.queryShapeIndex = b2DynamicTree_GetUserData(baseTree, proxyId);
 
 		// Query trees
-		if (proxyType == b2_dynamicBody)
-		{
-			queryContext.queryTreeType = b2_staticBody;
-			b2DynamicTree_Query(bp->trees + b2_staticBody, fatAABB, b2PairQueryCallback, &queryContext);
-			queryContext.queryTreeType = b2_kinematicBody;
-			b2DynamicTree_Query(bp->trees + b2_kinematicBody, fatAABB, b2PairQueryCallback, &queryContext);
-			queryContext.queryTreeType = b2_dynamicBody;
-			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
-		}
-		else if (proxyType == b2_kinematicBody)
-		{
-			queryContext.queryTreeType = b2_dynamicBody;
-			b2DynamicTree_Query(bp->trees + b2_dynamicBody, fatAABB, b2PairQueryCallback, &queryContext);
-		}
+		queryContext.queryTreeType = b2_staticProxy;
+		b2DynamicTree_Query(bp->trees + b2_staticProxy, fatAABB, b2PairQueryCallback, &queryContext);
+		queryContext.queryTreeType = b2_movableProxy;
+		b2DynamicTree_Query(bp->trees + b2_movableProxy, fatAABB, b2PairQueryCallback, &queryContext);
 	}
 
 	b2TracyCZoneEnd(pair_task);
@@ -321,8 +321,8 @@ void b2UpdateBroadPhasePairs(b2World* world)
 {
 	b2BroadPhase* bp = &world->broadPhase;
 
-	int32_t moveCount = b2Array(bp->moveArray).count;
-	B2_ASSERT(moveCount == (int32_t)bp->moveSet.count);
+	int moveCount = b2Array(bp->moveArray).count;
+	B2_ASSERT(moveCount == (int)bp->moveSet.count);
 
 	if (moveCount == 0)
 	{
@@ -339,7 +339,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	bp->movePairs = b2AllocateStackItem(alloc, bp->movePairCapacity * sizeof(b2MovePair), "move pairs");
 	bp->movePairIndex = 0;
 
-	int32_t minRange = 64;
+	int minRange = 64;
 	void* userPairTask = world->enqueueTaskFcn(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
 	world->finishTaskFcn(userPairTask, world->userTaskContext);
 	world->taskCount += 1;
@@ -351,9 +351,9 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	// - Create contacts in deterministic order
 	b2Shape* shapes = world->shapes;
 
-	// int32_t pairCount = 0;
+	// int pairCount = 0;
 
-	for (int32_t i = 0; i < moveCount; ++i)
+	for (int i = 0; i < moveCount; ++i)
 	{
 		b2MoveResult* result = bp->moveResults + i;
 		b2MovePair* pair = result->pairList;
@@ -365,12 +365,12 @@ void b2UpdateBroadPhasePairs(b2World* world)
 			//	return;
 			//}
 
-			int32_t shapeIndexA = pair->shapeIndexA;
-			int32_t shapeIndexB = pair->shapeIndexB;
+			int shapeIndexA = pair->shapeIndexA;
+			int shapeIndexB = pair->shapeIndexB;
 
 			// if (s_file != NULL)
 			//{
-			//	fprintf(s_file, "%d %d\n", shapeIndexA, shapeIndexB);
+			//	fprintf(s_file, "%d %d\n", shapeIdA, shapeIdB);
 			// }
 
 			//++pairCount;
@@ -417,12 +417,12 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	b2TracyCZoneEnd(update_pairs);
 }
 
-bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t proxyKeyB)
+bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int proxyKeyA, int proxyKeyB)
 {
-	int32_t typeIndexA = B2_PROXY_TYPE(proxyKeyA);
-	int32_t proxyIdA = B2_PROXY_ID(proxyKeyA);
-	int32_t typeIndexB = B2_PROXY_TYPE(proxyKeyB);
-	int32_t proxyIdB = B2_PROXY_ID(proxyKeyB);
+	int typeIndexA = B2_PROXY_TYPE(proxyKeyA);
+	int proxyIdA = B2_PROXY_ID(proxyKeyA);
+	int typeIndexB = B2_PROXY_TYPE(proxyKeyB);
+	int proxyIdB = B2_PROXY_ID(proxyKeyB);
 
 	b2AABB aabbA = b2DynamicTree_GetAABB(bp->trees + typeIndexA, proxyIdA);
 	b2AABB aabbB = b2DynamicTree_GetAABB(bp->trees + typeIndexB, proxyIdB);
@@ -431,22 +431,20 @@ bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int32_t proxyKeyA, int32_t
 
 void b2BroadPhase_RebuildTrees(b2BroadPhase* bp)
 {
-	b2DynamicTree_Rebuild(bp->trees + b2_dynamicBody, false);
-	b2DynamicTree_Rebuild(bp->trees + b2_kinematicBody, false);
+	b2DynamicTree_Rebuild(bp->trees + b2_movableProxy, false);
 }
 
-int32_t b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int32_t proxyKey)
+int b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int proxyKey)
 {
-	int32_t typeIndex = B2_PROXY_TYPE(proxyKey);
-	int32_t proxyId = B2_PROXY_ID(proxyKey);
+	int typeIndex = B2_PROXY_TYPE(proxyKey);
+	int proxyId = B2_PROXY_ID(proxyKey);
 
 	return b2DynamicTree_GetUserData(bp->trees + typeIndex, proxyId);
 }
 
 void b2ValidateBroadphase(const b2BroadPhase* bp)
 {
-	b2DynamicTree_Validate(bp->trees + b2_dynamicBody);
-	b2DynamicTree_Validate(bp->trees + b2_kinematicBody);
+	b2DynamicTree_Validate(bp->trees + b2_movableProxy);
 
 	// TODO_ERIN validate every shape AABB is contained in tree AABB
 }
@@ -454,12 +452,12 @@ void b2ValidateBroadphase(const b2BroadPhase* bp)
 void b2ValidateNoEnlarged(const b2BroadPhase* bp)
 {
 #if B2_VALIDATE == 1
-	for (int32_t j = 0; j < b2_bodyTypeCount; ++j)
+	for (int j = 0; j < b2_proxyTypeCount; ++j)
 	{
 		const b2DynamicTree* tree = bp->trees + j;
-		int32_t capacity = tree->nodeCapacity;
+		int capacity = tree->nodeCapacity;
 		const b2TreeNode* nodes = tree->nodes;
-		for (int32_t i = 0; i < capacity; ++i)
+		for (int i = 0; i < capacity; ++i)
 		{
 			const b2TreeNode* node = nodes + i;
 			if (node->height < 0)

@@ -49,5 +49,5 @@ void b2DestroyGraph(b2ConstraintGraph* graph);
 b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-b2Joint* b2AddJointToGraph(b2World* world, b2Body* bodyA, b2Body* bodyB, b2JointLookup* lookup);
+b2Joint* b2AddJointToGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLookup* lookup);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint);

@@ -126,8 +126,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	// add empty static, active, and disabled body sets
 	world->solverSetIdPool = b2CreateIdPool();
 	b2SolverSet set = {0};
-	set.setId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.setId == b2_staticSet);
 	b2Array_Push(world->solverSetArray, set);
 	set.setId = b2AllocId(&world->solverSetIdPool);
 	B2_ASSERT(set.setId == b2_awakeSet);
@@ -193,7 +191,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
-		world->taskContextArray[i].shapeBitSet = b2CreateBitSet(def->shapeCapacity);
+		world->taskContextArray[i].enlargedBodyBitSet = b2CreateBitSet(def->bodyCapacity);
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
@@ -208,7 +206,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
-		b2DestroyBitSet(&world->taskContextArray[i].shapeBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].enlargedBodyBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].awakeIslandBitSet);
 	}
 
@@ -277,28 +275,28 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 	{
 		b2Contact* contact = contacts[i];
 
-		// Reset contact awake index. Contacts must be added to the awake contact array
-		// each time step in the island solver.
+		b2Shape* shapeA = shapes + contact->shapeIdA;
+		b2Shape* shapeB = shapes + contact->shapeIdB;
 
-		b2Shape* shapeA = shapes + contact->shapeIndexA;
-		b2Shape* shapeB = shapes + contact->shapeIndexB;
+		//b2BodyLookup lookupA = bodyLookup[shapeA->bodyId];
+		//b2BodyLookup lookupB = bodyLookup[shapeB->bodyId];
 
-		b2BodyLookup lookupA = bodyLookup[shapeA->bodyId];
-		b2BodyLookup lookupB = bodyLookup[shapeB->bodyId];
+		//if (lookupA.setIndex != b2_awakeSet && lookupB.setIndex != b2_awakeSet)
+		//{
+		//	B2_ASSERT(lookupA.setIndex != b2_disabledSet);
+		//	B2_ASSERT(lookupB.setIndex != b2_disabledSet);
+		//	B2_ASSERT(lookupA.setIndex >= b2_firstSleepingSet || lookupB.setIndex >= b2_firstSleepingSet);
+		//	// contact needs to be moved to sleeping set, but what if both bodies are sleeping in different sets?
+		//	// perhaps there should be a separate place for sleeping non-touching contacts
+		//	// certainly when a non-touching contact is woken up, it should not go into the constraint graph
+		//	// but we are iterating contacts in the constraint graph, so where should awake non-touching contacts go?
+		//	// perhaps the world should hold an array of non-touching awake contacts and non-touching sleeping contacts
+		//	// the non-touching sleeping contacts should be moved to the non-touching awake contacts whenever either body
+		//	// becomes awake
 
-		if (lookupA.setIndex != b2_awakeSet && lookupB.setIndex != b2_awakeSet)
-		{
-			B2_ASSERT(lookupA.setIndex != b2_disabledSet);
-			B2_ASSERT(lookupB.setIndex != b2_disabledSet);
-			B2_ASSERT(lookupA.setIndex >= b2_firstSleepingSet || lookupB.setIndex >= b2_firstSleepingSet);
-			// contact needs to be moved to sleeping set, but what if both bodies are sleeping in different sets?
-			// perhaps there should be a separate place for sleeping non-touching contacts
-			// certainly when a non-touching contact is woken up, it should not go into the constraint graph
-			// but we are iterating contacts in the constraint graph, so where should awake non-touching contacts go?
-			// perhaps the world should hold an array of non-touching awake contacts and non-touching sleeping contacts
-			// the non-touching sleeping contacts should be moved to the non-touching awake contacts whenever either body
-			// becomes awake
-		}
+		//	// perhaps non-touching sleeping contacts should go into the disabled set, then any set that wakes
+		//	// can move the disabled contact into the awake set
+		//}
 
 		// Do proxies still overlap?
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
@@ -313,9 +311,9 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 			B2_ASSERT(wasTouching || contact->islandId == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
-			b2Body* bodyA = b2GetBodyFromRawId(world, shapeA->bodyId);
-			b2Body* bodyB = b2GetBodyFromRawId(world, shapeB->bodyId);
-			b2UpdateContact(world, contact, shapeA, bodyA, shapeB, bodyB);
+			b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
+			b2Body* bodyB = b2GetBody(world, shapeB->bodyId);
+			b2UpdateContact(world, contact, shapeA, transformA, shapeB, transformB);
 
 			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
 
@@ -494,8 +492,8 @@ static void b2Collide(b2StepContext* context)
 			// todo optimize this access
 			b2Contact* contact = b2GetContactFromRawId(world, contactId);
 
-			const b2Shape* shapeA = shapes + contact->shapeIndexA;
-			const b2Shape* shapeB = shapes + contact->shapeIndexB;
+			const b2Shape* shapeA = shapes + contact->shapeIdA;
+			const b2Shape* shapeB = shapes + contact->shapeIdB;
 			b2ShapeId shapeIdA = {shapeA->object.index + 1, worldId, shapeA->object.revision};
 			b2ShapeId shapeIdB = {shapeB->object.index + 1, worldId, shapeB->object.revision};
 			uint32_t flags = contact->flags;
@@ -843,7 +841,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					}
 
 					b2DrawShape(draw, shape, xf, color);
-					shapeIndex = shape->nextShapeIndex;
+					shapeIndex = shape->nextShapeId;
 				}
 			}
 		}
@@ -897,7 +895,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 
 					draw->DrawPolygon(vs, 4, color, draw->context);
 
-					shapeIndex = shape->nextShapeIndex;
+					shapeIndex = shape->nextShapeId;
 				}
 			}
 		}
@@ -1114,9 +1112,21 @@ bool b2Body_IsValid(b2BodyId id)
 	return true;
 }
 
+void b2CheckShapeId(b2ShapeId shapeId)
+{
+	B2_ASSERT(shapeId.world0 <= b2_maxWorlds);
+	b2World* world = b2_worlds + shapeId.world0;
+	B2_ASSERT(world->worldId == shapeId.world0);
+	int id = shapeId.index1 - 1;
+	B2_ASSERT(0 <= id && id < world->shapePool.capacity);
+	b2Shape* shape = world->shapes + id;
+	b2CheckValidObject(&shape->object);
+	B2_ASSERT(shapeId.revision == shape->object.revision);
+}
+
 bool b2Shape_IsValid(b2ShapeId id)
 {
-	if (id.world0 < 0 || b2_maxWorlds <= id.world0)
+	if (b2_maxWorlds <= id.world0)
 	{
 		return false;
 	}
@@ -1140,6 +1150,18 @@ bool b2Shape_IsValid(b2ShapeId id)
 	}
 
 	return id.revision == shape->object.revision;
+}
+
+void b2CheckChainId(b2ChainId chainId)
+{
+	B2_ASSERT(chainId.world0 <= b2_maxWorlds);
+	b2World* world = b2_worlds + chainId.world0;
+	B2_ASSERT(world->worldId == chainId.world0);
+	int id = chainId.index1 - 1;
+	B2_ASSERT(0 <= id && id < world->chainPool.capacity);
+	b2ChainShape* chain = world->chains + id;
+	b2CheckValidObject(&chain->object);
+	B2_ASSERT(chainId.revision == chain->object.revision);
 }
 
 bool b2Chain_IsValid(b2ChainId id)
@@ -1397,7 +1419,7 @@ static bool TreeOverlapCallback(int proxyId, int shapeIndex, void* context)
 
 	B2_ASSERT(shape->object.index == shape->object.next);
 
-	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
+	b2Body* body = b2GetBody(world, shape->bodyId);
 
 	b2DistanceInput input;
 	input.proxyA = worldContext->proxy;
@@ -1518,7 +1540,7 @@ static float RayCastCallback(const b2RayCastInput* input, int proxyId, int shape
 		return input->maxFraction;
 	}
 
-	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
+	b2Body* body = b2GetBody(world, shape->bodyId);
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2RayCastShape(input, shape, transform);
@@ -1626,7 +1648,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int proxyId, int s
 		return input->maxFraction;
 	}
 
-	b2Body* body = b2GetBodyFromRawId(world, shape->bodyId);
+	b2Body* body = b2GetBody(world, shape->bodyId);
 
 	b2Transform transform = b2MakeTransform(body);
 	b2CastOutput output = b2ShapeCastShape(input, shape, transform);
@@ -2086,7 +2108,7 @@ void b2ValidateWorld(b2World* world)
 				found = true;
 			}
 
-			index = s->nextShapeIndex;
+			index = s->nextShapeId;
 			shapeCount += 1;
 		}
 

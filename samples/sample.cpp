@@ -10,7 +10,7 @@
 #include "box2d/callbacks.h"
 #include "box2d/hull.h"
 #include "box2d/manifold.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/math_cpp.h"
 
 #include <GLFW/glfw3.h>
