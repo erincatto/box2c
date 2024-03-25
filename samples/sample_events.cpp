@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "donut.h"
+#include "draw.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"
@@ -9,7 +10,7 @@
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -559,6 +560,7 @@ public:
 		}
 
 		// Attach debris to player body
+		b2ShapeId shapeBuffer[4];
 		for (int i = 0; i < attachCount; ++i)
 		{
 			int index = debrisToAttach[i];
@@ -572,7 +574,15 @@ public:
 			b2Transform debrisTransform = b2Body_GetTransform(debrisId);
 			b2Transform relativeTransform = b2InvMulTransforms(playerTransform, debrisTransform);
 
-			b2ShapeId shapeId = b2Body_GetFirstShape(debrisId);
+			int shapeCount = b2Body_GetShapeCount(debrisId);
+			if (shapeCount == 0)
+			{
+				continue;
+			}
+
+			b2ShapeId shapeId;
+			b2Body_GetShapes(debrisId, &shapeId, 1);
+
 			b2ShapeType type = b2Shape_GetType(shapeId);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();

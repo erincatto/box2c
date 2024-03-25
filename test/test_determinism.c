@@ -3,7 +3,7 @@
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/types.h"
 #include "test_macros.h"
 
@@ -47,7 +47,7 @@ void ExecuteRangeTask(uint32_t start, uint32_t end, uint32_t threadIndex, void* 
 
 static void* EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange, void* box2dContext, void* userContext)
 {
-	B2_MAYBE_UNUSED(userContext);
+	MAYBE_UNUSED(userContext);
 
 	if (taskCount < e_maxTasks)
 	{
@@ -79,7 +79,7 @@ static void* EnqueueTask(b2TaskCallback* box2dTask, int itemCount, int minRange,
 
 static void FinishTask(void* userTask, void* userContext)
 {
-	B2_MAYBE_UNUSED(userContext);
+	MAYBE_UNUSED(userContext);
 
 	enkiTaskSet* task = userTask;
 	enkiWaitForTaskSet(scheduler, task);
@@ -158,6 +158,7 @@ void TiltedStacks(int testIndex, int workerCount)
 	for (int i = 0; i < 100; ++i)
 	{
 		b2World_Step(worldId, timeStep, subStepCount);
+		taskCount = 0;
 		TracyCFrameMark;
 	}
 

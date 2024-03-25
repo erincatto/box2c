@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "array.h"
+#include "core.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -13,18 +13,18 @@
 // Any pooled struct must have this as the first member.
 typedef struct b2Object
 {
-	int32_t index;
-	int32_t next;	
+	int index;
+	int next;	
 	uint16_t revision;
 } b2Object;
 
 typedef struct b2Pool
 {
 	char* memory;
-	int32_t objectSize;
-	int32_t capacity;
-	int32_t count;
-	int32_t freeList;
+	int objectSize;
+	int capacity;
+	int count;
+	int freeList;
 } b2Pool;
 
 b2Pool b2CreatePool(int32_t objectSize, int32_t capacity);
@@ -41,3 +41,8 @@ static inline bool b2IsValidObject(const b2Object* object)
 	return object->index == object->next;
 }
 
+static inline void b2CheckValidObject(const b2Object* object)
+{
+	// this means the object is not on the free list
+	B2_ASSERT(object->index == object->next);
+}

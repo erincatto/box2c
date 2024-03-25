@@ -4,7 +4,7 @@
 #pragma once
 
 #include "box2d/constants.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/geometry.h"
 
 // Ray cast an AABB

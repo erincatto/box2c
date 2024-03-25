@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "draw.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -10,7 +11,7 @@
 #include "box2d/dynamic_tree.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -3608,8 +3609,8 @@ public:
 
 	b2Vec2 m_verticesA[4] = {{-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 5.0f}, {-1.0f, 5.0f}};
 	b2Vec2 m_verticesB[4] = {{-0.5f, -4.0f}, {0.0f, -4.0f}, {0.0f, 0.0f}, {-0.5f, 0.0f}};
-	int32_t m_countA = B2_ARRAY_COUNT(m_verticesA);
-	int32_t m_countB = B2_ARRAY_COUNT(m_verticesB);
+	int32_t m_countA = ARRAY_COUNT(m_verticesA);
+	int32_t m_countB = ARRAY_COUNT(m_verticesB);
 };
 
 static int sampleTimeOfImpact = RegisterSample("Collision", "Time of Impact", TimeOfImpact::Create);

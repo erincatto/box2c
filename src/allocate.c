@@ -34,7 +34,7 @@
 static b2AllocFcn* b2_allocFcn = NULL;
 static b2FreeFcn* b2_freeFcn = NULL;
 
-static _Atomic uint32_t b2_byteCount;
+static _Atomic int b2_byteCount;
 
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn)
 {
@@ -104,7 +104,7 @@ void b2Free(void* mem, uint32_t size)
 	atomic_fetch_sub_explicit(&b2_byteCount, size, memory_order_relaxed);
 }
 
-uint32_t b2GetByteCount(void)
+int b2GetByteCount(void)
 {
 	return atomic_load_explicit(&b2_byteCount, memory_order_relaxed);
 }

@@ -18,14 +18,7 @@
 #include "math_types.h"
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
-
-/// Returns the number of elements of an array
-#define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
-
-/// Used to prevent the compiler from warning about unused variables
-#define B2_MAYBE_UNUSED(x) ((void)(x))
 
 /// Result from b2World_RayCastClosest
 typedef struct b2RayResult
@@ -98,26 +91,23 @@ typedef struct b2WorldDef
 	void* userTaskContext;
 } b2WorldDef;
 
-/// The body type.
-/// static: zero mass, zero velocity, may be manually moved
-/// kinematic: zero mass, non-zero velocity set by user, moved by solver
-/// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
-typedef enum b2BodyType
+typedef struct b2StaticBodyDef
 {
-	b2_staticBody = 0,
-	b2_kinematicBody = 1,
-	b2_dynamicBody = 2,
-	b2_bodyTypeCount
-} b2BodyType;
+	/// The world position of the body. Avoid creating bodies at the origin
+	/// since this can lead to many overlapping shapes.
+	b2Vec2 position;
+
+	/// The world angle of the body in radians.
+	float angle;
+
+	/// Use this to store application specific body data.
+	void* userData;
+} b2StaticBodyDef;
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 typedef struct b2BodyDef
 {
-	/// The body type: static, kinematic, or dynamic.
-	/// Note: if a dynamic body would have zero mass, the mass is set to one.
-	b2BodyType type;
-
 	/// The world position of the body. Avoid creating bodies at the origin
 	/// since this can lead to many overlapping shapes.
 	b2Vec2 position;
@@ -163,6 +153,11 @@ typedef struct b2BodyDef
 
 	/// Does this body start out enabled?
 	bool isEnabled;
+
+	/// Is this a kinematic body?
+	/// kinematic: zero mass, non-zero velocity set by user, moved by solver
+	/// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
+	bool isKinematic;
 } b2BodyDef;
 
 /// This holds contact filtering data.
@@ -282,6 +277,18 @@ typedef struct b2Profile
 	float solve;
 	float buildIslands;
 	float solveConstraints;
+	float prepareTasks;
+	float solverTasks;
+	float prepareConstraints;
+	float integrateVelocities;
+	float warmStart;
+	float solveVelocities;
+	float integratePositions;
+	float relaxVelocities;
+	float applyRestitution;
+	float storeImpulses;
+	float finalizeBodies;
+	float awakeUpdate;
 	float broadphase;
 	float continuous;
 } b2Profile;
@@ -289,22 +296,24 @@ typedef struct b2Profile
 /// Counters that give details of the simulation size
 typedef struct b2Counters
 {
-	int32_t islandCount;
-	int32_t bodyCount;
-	int32_t contactCount;
-	int32_t jointCount;
-	int32_t proxyCount;
-	int32_t pairCount;
-	int32_t treeHeight;
-	int32_t stackCapacity;
-	int32_t stackUsed;
-	int32_t byteCount;
-	int32_t taskCount;
-	int32_t colorCounts[b2_graphColorCount + 1];
+	int staticBodyCount;
+	int bodyCount;
+	int shapeCount;
+	int contactCount;
+	int jointCount;
+	int islandCount;
+	int stackUsed;
+	int treeHeight;
+	int byteCount;
+	int taskCount;
+	int colorCounts[b2_graphColorCount];
 } b2Counters;
 
 /// Use this to initialize your world definition
 B2_API b2WorldDef b2DefaultWorldDef();
+
+/// Use this to initialize your static body definition
+B2_API b2StaticBodyDef b2DefaultStaticBodyDef();
 
 /// Use this to initialize your body definition
 B2_API b2BodyDef b2DefaultBodyDef();

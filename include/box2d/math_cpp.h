@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "math.h"
+#include "math_functions.h"
 
 // You can include this file if you are using C++ and you want math operator overloads
 

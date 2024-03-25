@@ -42,10 +42,10 @@ B2_API bool b2World_IsValid(b2WorldId id);
 /// @param timeStep the amount of time to simulate, this should not vary.
 /// @param velocityIterations for the velocity constraint solver.
 /// @param relaxIterations for reducing constraint bounce solver.
-B2_API void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount);
+B2_API void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount);
 
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
-B2_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* debugDraw);
+B2_API void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw);
 
 /// Get the body events for the current time step. The event data is transient. Do not store a reference to this data.
 B2_API b2BodyEvents b2World_GetBodyEvents(b2WorldId worldId);
@@ -110,6 +110,12 @@ B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 /// Register the pre-solve callback. This is optional.
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
+/// Set the gravity vector for the entire world. Typically in m/s^2
+B2_API void b2World_SetGravity(b2WorldId worldId, b2Vec2 gravity);
+
+/// @return the gravity vector
+B2_API b2Vec2 b2World_GetGravity(b2WorldId worldId);
+
 /// Adjust contact tuning parameters:
 /// - hertz is the contact stiffness (cycles per second)
 /// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)
@@ -122,6 +128,40 @@ B2_API b2Profile b2World_GetProfile(b2WorldId worldId);
 
 /// Get counters and sizes
 B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
+
+/** @} */
+
+/**
+ * \defgroup StaticBodyAPI Static Bodies
+ * This is the static body API.
+ * @{
+ */
+
+/// Create a static rigid body given a definition. No reference to the definition is retained.
+/// @warning This function is locked during callbacks.
+B2_API b2StaticBodyId b2CreateStaticBody(b2WorldId worldId, const b2StaticBodyDef* def);
+
+/// Destroy a static rigid body given an id. This destroys all shapes and joints attached to the body.
+/// @warning This function is locked during callbacks.
+B2_API void b2DestroyStaticBody(b2StaticBodyId staticBodyId);
+
+/// Body identifier validation. Provides validation for up to 64K allocations.
+B2_API bool b2StaticBody_IsValid(b2StaticBodyId staticBodyId);
+
+/// Set the user data for a body
+B2_API void b2StaticBody_SetUserData(b2StaticBodyId staticBodyId, void* userData);
+
+/// Get the user data stored in a body
+B2_API void* b2StaticBody_GetUserData(b2StaticBodyId staticBodyId);
+
+/// Get the world transform of a static body.
+B2_API b2Transform b2StaticBody_GetTransform(b2StaticBodyId staticBodyId);
+
+/// Get the number of shapes on this body
+B2_API int b2StaticBody_GetShapeCount(b2StaticBodyId staticBodyId);
+
+/// Get the shape ids for all shapes on this body, up to the provided capacity
+B2_API void b2StaticBody_GetShapes(b2StaticBodyId staticBodyId, b2ShapeId* shapeArray, int capacity);
 
 /** @} */
 
@@ -148,11 +188,11 @@ B2_API bool b2Body_IsValid(b2BodyId id);
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBodyAndJoints(b2BodyId bodyId);
 
-/// Get the type of a body
-B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
+/// Is this a kinematic body
+B2_API bool b2Body_IsKinematic(b2BodyId bodyId);
 
-/// Set the type of a body. This has a similar cost to re-creating the body.
-B2_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
+/// Set this body to be kinematic
+B2_API void b2Body_Kinematic(b2BodyId bodyId, bool kinematic);
 
 /// Set the user data for a body
 B2_API void b2Body_SetUserData(b2BodyId bodyId, void* userData);
@@ -165,9 +205,6 @@ B2_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 
 /// Get the world rotation of a body as a sine/cosine pair.
 B2_API b2Rot b2Body_GetRotation(b2BodyId bodyId);
-
-/// Get the world angle of a body in radians.
-B2_API float b2Body_GetAngle(b2BodyId bodyId);
 
 /// Get the world transform of a body.
 B2_API b2Transform b2Body_GetTransform(b2BodyId bodyId);
@@ -320,15 +357,23 @@ B2_API void b2Body_SetBullet(b2BodyId bodyId, bool flag);
 /// Is this body a bullet?
 B2_API bool b2Body_IsBullet(b2BodyId bodyId);
 
-/// Iterate over shapes on a body
-B2_API b2ShapeId b2Body_GetFirstShape(b2BodyId bodyId);
-B2_API b2ShapeId b2Body_GetNextShape(b2ShapeId shapeId);
+/// Get the number of shapes on this body
+B2_API int b2Body_GetShapeCount(b2BodyId bodyId);
+
+/// Get the shape ids for all shapes on this body, up to the provided capacity
+B2_API void b2Body_GetShapes(b2BodyId bodyId, b2ShapeId* shapeArray, int capacity);
+
+/// Get the number of joints on this body
+B2_API int b2Body_GetJointCount(b2BodyId bodyId);
+
+/// Get the joint ids for all joints on this body, up to the provided capacity
+B2_API void b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity);
 
 /// Get the maximum capacity required for retrieving all the touching contacts on a body
-B2_API int32_t b2Body_GetContactCapacity(b2BodyId bodyId);
+B2_API int b2Body_GetContactCapacity(b2BodyId bodyId);
 
 /// Get the touching contact data for a body
-B2_API int32_t b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int32_t capacity);
+B2_API int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capacity);
 
 /// Get the current world AABB that contains all the attached shapes. Note that this may not emcompass the body origin.
 ///	If there are no shapes attached then the returned AABB is empty and centered on the body origin.
@@ -345,21 +390,25 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 /// Create a circle shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateStaticCircleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Circle* circle);
 B2_API b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 
 /// Create a line segment shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateStaticSegmentShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Segment* segment);
 B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 
 /// Create a capsule shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateStaticCapsuleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 B2_API b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 
 /// Create a polygon shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
+B2_API b2ShapeId b2CreateStaticPolygonShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 B2_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
 /// Destroy any shape type
@@ -436,20 +485,20 @@ B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
 B2_API b2CastOutput b2Shape_RayCast(b2ShapeId shapeId, b2Vec2 origin, b2Vec2 translation);
 
 /// Access the circle geometry of a shape. Asserts the type is correct.
-B2_API const b2Circle b2Shape_GetCircle(b2ShapeId shapeId);
+B2_API b2Circle b2Shape_GetCircle(b2ShapeId shapeId);
 
 /// Access the line segment geometry of a shape. Asserts the type is correct.
-B2_API const b2Segment b2Shape_GetSegment(b2ShapeId shapeId);
+B2_API b2Segment b2Shape_GetSegment(b2ShapeId shapeId);
 
 /// Access the smooth line segment geometry of a shape. These come from chain shapes.
 /// Asserts the type is correct.
-B2_API const b2SmoothSegment b2Shape_GetSmoothSegment(b2ShapeId shapeId);
+B2_API b2SmoothSegment b2Shape_GetSmoothSegment(b2ShapeId shapeId);
 
 /// Access the capsule geometry of a shape. Asserts the type is correct.
-B2_API const b2Capsule b2Shape_GetCapsule(b2ShapeId shapeId);
+B2_API b2Capsule b2Shape_GetCapsule(b2ShapeId shapeId);
 
 /// Access the convex polygon geometry of a shape. Asserts the type is correct.
-B2_API const b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
+B2_API b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
 
 /// Allows you to change a shape to be a circle or update the current circle.
 /// This does not modify the mass properties.
@@ -469,10 +518,10 @@ B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon);
 B2_API b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId);
 
 /// Get the maximum capacity required for retrieving all the touching contacts on a shape
-B2_API int32_t b2Shape_GetContactCapacity(b2ShapeId shapeId);
+B2_API int b2Shape_GetContactCapacity(b2ShapeId shapeId);
 
 /// Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
-B2_API int32_t b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int32_t capacity);
+B2_API int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int capacity);
 
 /// Get the current world AABB
 B2_API b2AABB b2Shape_GetAABB(b2ShapeId shapeId);

@@ -3,14 +3,18 @@
 
 #pragma once
 
+#include "block_array.h"
+
 #include "box2d/constants.h"
 
+//#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdatomic.h>
 
+typedef struct b2Body b2Body;
 typedef struct b2BodyState b2BodyState;
-typedef struct b2BodyParam b2BodyParam;
+typedef struct b2Contact b2Contact;
+typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
 
 typedef struct b2Softness
@@ -49,7 +53,7 @@ typedef enum b2SolverBlockType
 // increases monotonically.
 typedef struct b2SolverBlock
 {
-	int32_t startIndex;
+	int startIndex;
 	int16_t count;
 	int16_t blockType; // b2SolverBlockType
 	_Atomic int syncIndex;
@@ -61,9 +65,11 @@ typedef struct b2SolverStage
 {
 	b2SolverStageType type;
 	b2SolverBlock* blocks;
-	int32_t blockCount;
-	int32_t colorIndex;
-	_Atomic int completionCount;
+	int blockCount;
+	int colorIndex;
+	int dummy1[128];
+	_Alignas(64) _Atomic int completionCount;
+	int dummy2[128];
 } b2SolverStage;
 
 // Context for a time step. Recreated each time step.
@@ -79,7 +85,7 @@ typedef struct b2StepContext
 	float h;
 	float inv_h;
 
-	int32_t subStepCount;
+	int subStepCount;
 
 	b2Softness jointSoftness;
 	b2Softness contactSoftness;
@@ -88,34 +94,53 @@ typedef struct b2StepContext
 	float restitutionThreshold;
 	float maxBiasVelocity;
 
-	// #todo for joints
-	struct b2Body* bodies;
-	int32_t bodyCapacity;
-
-	// Map from body state to world body
-	const int32_t* solverToBodyMap;
-
-	b2BodyState* bodyStates;
-	b2BodyParam* bodyParams;
-	int32_t solverBodyCount;
-
 	struct b2World* world;
 	struct b2ConstraintGraph* graph;
 
-	int32_t* jointIndices;
-	int32_t* contactIndices;
+	// shortcut to body states from awake set
+	b2BodyState* states;
 
-	struct b2ContactConstraintSIMD* contactConstraints;
-	int32_t activeColorCount;
-	int32_t workerCount;
+	// shortcut to bodies from awake set (no static bodies)
+	b2Body* bodies;
+
+	// array of all shape ids for shapes that have enlarged AABBs
+	int* enlargedShapes;
+	int enlargedShapeCount;
+
+	// Array of fast bodies that need continuous collision handling
+	int* fastBodies;
+	_Atomic int fastBodyCount;
+
+	// Array of bullet bodies that need continuous collision handling
+	int* bulletBodies;
+	_Atomic int bulletBodyCount;
+
+	// joint pointers for simplified parallel-for access.
+	b2Joint** joints;
+
+	// contact pointers for simplified parallel-for access.
+	// - parallel-for collide with no gaps
+	// - parallel-for prepare and store contacts with NULL gaps for SIMD remainders
+	// despite being an array of pointers, these are contiguous sub-arrays corresponding
+	// to constraint graph colors
+	b2Contact** contacts;
+
+	struct b2ContactConstraintSIMD* simdContactConstraints;
+	int activeColorCount;
+	int workerCount;
 
 	b2SolverStage* stages;
-	int32_t stageCount;
+	int stageCount;
+	int splitIslandIndex;
+	bool enableWarmStarting;
+
+	int dummy1[64];
 
 	// sync index (16-bits) | stage type (16-bits)
-	_Atomic unsigned int syncBits;
+	_Alignas(64) _Atomic unsigned int atomicSyncBits;
 
-	bool enableWarmStarting;
+	int dummy2[64];
+
 } b2StepContext;
 
 static inline b2Softness b2MakeSoft(float hertz, float zeta, float h)

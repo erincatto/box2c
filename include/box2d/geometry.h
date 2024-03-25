@@ -75,7 +75,7 @@ typedef struct b2Polygon
 	b2Vec2 normals[b2_maxPolygonVertices];
 	b2Vec2 centroid;
 	float radius;
-	int32_t count;
+	int count;
 } b2Polygon;
 
 /// A line segment with two-sided collision.

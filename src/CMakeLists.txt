@@ -7,9 +7,10 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
-	bitset.inl
 	block_allocator.c
 	block_allocator.h
+	block_array.c
+	block_array.h
 	body.c
 	body.h
 	broad_phase.c
@@ -18,25 +19,28 @@ set(BOX2D_SOURCE_FILES
 	constraint_graph.h
 	contact.c
 	contact.h
+	contact_list.h
 	contact_solver.c
 	contact_solver.h
 	core.c
 	core.h
+	ctz.h
 	distance.c
 	distance_joint.c
 	dynamic_tree.c
 	geometry.c
 	hull.c
+	id_pool.c
+	id_pool.h
 	implementation.c
 	island.c
 	island.h
 	joint.c
 	joint.h
 	manifold.c
-	math.c
+	math_functions.c
 	motor_joint.c
 	mouse_joint.c
-	polygon_shape.h
 	pool.c
 	pool.h
 	prismatic_joint.c
@@ -45,13 +49,18 @@ set(BOX2D_SOURCE_FILES
 	shape.h
 	solver.c
 	solver.h
+	solver_set.c
+	solver_set.h
 	stack_allocator.c
 	stack_allocator.h
+	static_body.c
+	static_body.h
 	table.c
 	table.h
 	timer.c
 	types.c
 	user_constants.h.in
+	util.h
 	weld_joint.c
 	wheel_joint.c
 	world.c
@@ -73,7 +82,7 @@ set(BOX2D_API_FILES
 	../include/box2d/id.h
 	../include/box2d/joint_types.h
 	../include/box2d/manifold.h
-	../include/box2d/math.h
+	../include/box2d/math_functions.h
 	../include/box2d/math_cpp.h
 	../include/box2d/math_types.h
 	../include/box2d/timer.h

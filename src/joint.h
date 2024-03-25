@@ -13,6 +13,26 @@ typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
+// map from b2JointId to b2Joint in the solver sets
+typedef struct b2JointLookup
+{
+	// index of simulation set stored in b2World
+	// B2_NULL_INDEX when slot is free
+	int setIndex;
+
+	// index into the constraint graph color array, may be B2_NULL_INDEX for sleeping/disabled joints
+	// B2_NULL_INDEX when slot is free
+	int colorIndex;
+
+	// joint index within set or graph color
+	// B2_NULL_INDEX when slot is free
+	int localIndex;
+
+	// This is monotonically advanced when a body is allocated in this slot
+	// Used to check for invalid b2JointId
+	int revision;
+} b2JointLookup;
+
 /// A joint edge is used to connect bodies and joints together
 /// in a joint graph where each body is a node and each joint
 /// is an edge. A joint edge belongs to a doubly linked list
@@ -20,9 +40,9 @@ typedef struct b2World b2World;
 /// nodes, one for each attached body.
 typedef struct b2JointEdge
 {
-	int32_t bodyIndex;
-	int32_t prevKey;
-	int32_t nextKey;
+	int bodyId;
+	int prevKey;
+	int nextKey;
 } b2JointEdge;
 
 typedef struct b2DistanceJoint
@@ -37,8 +57,8 @@ typedef struct b2DistanceJoint
 	float lowerImpulse;
 	float upperImpulse;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -56,8 +76,8 @@ typedef struct b2MotorJoint
 	float maxTorque;
 	float correctionFactor;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -77,7 +97,7 @@ typedef struct b2MouseJoint
 
 	b2Softness linearSoftness;
 	b2Softness angularSoftness;
-	int32_t indexB;
+	int indexB;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
 	b2Mat22 linearMass;
@@ -98,8 +118,8 @@ typedef struct b2PrismaticJoint
 	float lowerTranslation;
 	float upperTranslation;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
@@ -122,8 +142,8 @@ typedef struct b2RevoluteJoint
 	float lowerAngle;
 	float upperAngle;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -144,8 +164,8 @@ typedef struct b2WeldJoint
 	b2Vec2 linearImpulse;
 	float angularImpulse;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -172,8 +192,8 @@ typedef struct b2WheelJoint
 	bool enableLimit;
 
 	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
@@ -188,19 +208,14 @@ typedef struct b2WheelJoint
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
 {
-	b2Object object;
+	int jointId;
+
 	b2JointType type;
 	b2JointEdge edges[2];
 
-	int32_t islandIndex;
-	int32_t islandPrev;
-	int32_t islandNext;
-
-	// The color of this constraint in the graph coloring
-	int32_t colorIndex;
-
-	// Index of joint within color
-	int32_t colorSubIndex;
+	int islandId;
+	int islandPrev;
+	int islandNext;
 
 	// Anchors relative to body origin
 	b2Vec2 localOriginAnchorA;
@@ -223,13 +238,15 @@ typedef struct b2Joint
 	void* userData;
 
 	float drawSize;
+	uint16_t revision;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
 
-b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
-b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
-void b2DestroyJointInternal(b2World* world, b2Joint* joint);
+b2Joint* b2GetJoint(b2World* world, int jointId);
+b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId);
+b2Joint* b2GetJointCheckType(b2JointId jointId, b2JointType type);
+void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);

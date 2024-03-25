@@ -3,211 +3,161 @@
 
 #include "block_allocator.h"
 #include "allocate.h"
+#include "array.h"
 #include "core.h"
+#include "ctz.h"
 
 #include <limits.h>
+#include <stdbool.h>
 #include <string.h>
 
-#define b2_chunkSize (16 * 1024)
-#define b2_maxBlockSize 640
-#define b2_chunkArrayIncrement 128
+#define b2_targetChunkSize (1 << 18)
+#define b2_maxBlockSize (1 << b2_maxBlockPower)
 
-// These are the supported object sizes. Actual allocations are rounded up the next size.
-static const int32_t b2_blockSizes[] = {
-	16,	 // 0
-	32,	 // 1
-	64,	 // 2
-	96,	 // 3
-	128, // 4
-	160, // 5
-	192, // 6
-	224, // 7
-	256, // 8
-	320, // 9
-	384, // 10
-	448, // 11
-	512, // 12
-	640, // 13
-};
-
-#define b2_blockSizeCount B2_ARRAY_COUNT(b2_blockSizes)
-
-// This maps an arbitrary allocation size to a suitable slot in b2_blockSizes.
-typedef struct b2SizeMap
-{
-	uint8_t values[b2_maxBlockSize + 1];
-} b2SizeMap;
-
-static b2SizeMap b2_sizeMap;
-
-static void b2InitializeSizeMap(void)
-{
-	int32_t j = 0;
-	b2_sizeMap.values[0] = 0;
-	for (int32_t i = 1; i <= b2_maxBlockSize; ++i)
-	{
-		B2_ASSERT(j < b2_blockSizeCount);
-		if (i <= b2_blockSizes[j])
-		{
-			b2_sizeMap.values[i] = (uint8_t)j;
-		}
-		else
-		{
-			++j;
-			b2_sizeMap.values[i] = (uint8_t)j;
-		}
-	}
-}
-
-static bool b2_sizeMapInitialized = false;
-
-typedef struct b2Chunk
-{
-	int32_t blockSize;
-	struct b2Block* blocks;
-} b2Chunk;
-
+// This is a helper struct for building a linked list of memory blocks
 typedef struct b2Block
 {
 	struct b2Block* next;
 } b2Block;
 
-// This is a small object allocator used for allocating small objects that persist for more than one time step.
-// See: http://www.codeproject.com/useritems/Small_Block_Allocator.asp
-typedef struct b2BlockAllocator
+// This holds a contiguous block list from a single malloc call. The blocks are all of a the same size (a power of 2).
+// When a chunk is allocated, its blocks are installed in the block allocator free list for the specific power of 2 size.
+typedef struct b2Chunk
 {
-	b2Chunk* chunks;
-	int32_t chunkCount;
-	int32_t chunkSpace;
+	b2Block* blockList;
 
-	b2Block* freeLists[b2_blockSizeCount];
-} b2BlockAllocator;
+	// size of each block
+	int blockSize;
 
-b2BlockAllocator* b2CreateBlockAllocator(void)
+	// size of the entire list
+	int totalSize;
+} b2Chunk;
+
+b2BlockAllocator b2CreateBlockAllocator(void)
 {
-	if (b2_sizeMapInitialized == false)
-	{
-		b2InitializeSizeMap();
-		b2_sizeMapInitialized = true;
-	}
+	_Static_assert(b2_blockPowerCount == b2_maxBlockPower - b2_minBlockPower + 1, "wrong size");
+	_Static_assert(b2_targetChunkSize <= (1 << b2_maxBlockPower), "wrong size");
+	_Static_assert(b2_targetChunkSize >= (1 << b2_minBlockPower), "wrong size");
 
-	_Static_assert(b2_blockSizeCount < UCHAR_MAX, "block size too large");
-
-	b2BlockAllocator* allocator = (b2BlockAllocator*)b2Alloc(sizeof(b2BlockAllocator));
-	allocator->chunkSpace = b2_chunkArrayIncrement;
-	allocator->chunkCount = 0;
-	allocator->chunks = (b2Chunk*)b2Alloc(allocator->chunkSpace * sizeof(b2Chunk));
-
-	memset(allocator->chunks, 0, allocator->chunkSpace * sizeof(b2Chunk));
-	memset(allocator->freeLists, 0, sizeof(allocator->freeLists));
-
+	b2BlockAllocator allocator = {0};
+	allocator.chunkArray = b2CreateArray(sizeof(b2Chunk), 128);
+	memset(allocator.chunkArray, 0, b2Array(allocator.chunkArray).capacity * sizeof(b2Chunk));
 	return allocator;
 }
 
 void b2DestroyBlockAllocator(b2BlockAllocator* allocator)
 {
-	for (int32_t i = 0; i < allocator->chunkCount; ++i)
+	int chunkCount = b2Array(allocator->chunkArray).count;
+	for (int32_t i = 0; i < chunkCount; ++i)
 	{
-		b2Free(allocator->chunks[i].blocks, b2_chunkSize);
+		b2Chunk* chunk = allocator->chunkArray + i;
+		b2Free(chunk->blockList, chunk->totalSize);
 	}
 
-	b2Free(allocator->chunks, allocator->chunkSpace * sizeof(b2Chunk));
-	b2Free(allocator, sizeof(b2BlockAllocator));
+	b2DestroyArray(allocator->chunkArray, sizeof(b2Chunk));
 }
 
-void* b2AllocBlock(b2BlockAllocator* allocator, int32_t size)
+void* b2AllocBlock(b2BlockAllocator* allocator, int size)
 {
+	B2_ASSERT(size >= 0);
+
 	if (size == 0)
 	{
 		return NULL;
 	}
 
-	B2_ASSERT(0 < size);
-
 	if (size > b2_maxBlockSize)
 	{
-		return b2Alloc(size);
+		B2_ASSERT(false);
+		return NULL;
 	}
 
-	int32_t index = b2_sizeMap.values[size];
-	B2_ASSERT(0 <= index && index < b2_blockSizeCount);
+	int power = b2BoundingPowerOf2(size);
+	power = power < b2_minBlockPower ? b2_minBlockPower : power;
 
-	if (allocator->freeLists[index])
+	int index = power - b2_minBlockPower;
+	B2_ASSERT(0 <= index && index < b2_blockPowerCount);
+
+	if (allocator->freeLists[index] != NULL)
 	{
 		b2Block* block = allocator->freeLists[index];
 		allocator->freeLists[index] = block->next;
 		return block;
 	}
+
+	// free list is empty, allocate more blocks for this power
+	b2Chunk chunk;
+	chunk.blockSize = (1 << power);
+	// if the block size is very large then the chunk will hold a single block
+	if (chunk.blockSize > b2_targetChunkSize)
+	{
+		chunk.totalSize = chunk.blockSize;
+	}
 	else
 	{
-		if (allocator->chunkCount == allocator->chunkSpace)
-		{
-			b2Chunk* oldChunks = allocator->chunks;
-			int32_t oldSize = allocator->chunkSpace * sizeof(b2Chunk);
-			allocator->chunkSpace += b2_chunkArrayIncrement;
-			allocator->chunks = (b2Chunk*)b2Alloc(allocator->chunkSpace * sizeof(b2Chunk));
-			memcpy(allocator->chunks, oldChunks, allocator->chunkCount * sizeof(b2Chunk));
-			memset(allocator->chunks + allocator->chunkCount, 0, b2_chunkArrayIncrement * sizeof(b2Chunk));
-			b2Free(oldChunks, oldSize);
-		}
-
-		b2Chunk* chunk = allocator->chunks + allocator->chunkCount;
-		chunk->blocks = (b2Block*)b2Alloc(b2_chunkSize);
-#if B2_DEBUG
-		memset(chunk->blocks, 0xcd, b2_chunkSize);
-#endif
-		int32_t blockSize = b2_blockSizes[index];
-		chunk->blockSize = blockSize;
-		int32_t blockCount = b2_chunkSize / blockSize;
-		B2_ASSERT(blockCount * blockSize <= b2_chunkSize);
-		for (int32_t i = 0; i < blockCount - 1; ++i)
-		{
-			b2Block* block = (b2Block*)((int8_t*)chunk->blocks + blockSize * i);
-			b2Block* next = (b2Block*)((int8_t*)chunk->blocks + blockSize * (i + 1));
-			block->next = next;
-		}
-		b2Block* last = (b2Block*)((int8_t*)chunk->blocks + blockSize * (blockCount - 1));
-		last->next = NULL;
-
-		allocator->freeLists[index] = chunk->blocks->next;
-		++allocator->chunkCount;
-
-		return chunk->blocks;
+		chunk.totalSize = b2_targetChunkSize;
 	}
+	chunk.blockList = b2Alloc(chunk.totalSize);
+
+#if B2_DEBUG
+	memset(chunk.blockList, 0xcd, chunk.totalSize);
+#endif
+
+	// build linked list
+	int blockCount = chunk.totalSize / chunk.blockSize;
+	B2_ASSERT(blockCount * chunk.blockSize == chunk.totalSize);
+	for (int i = 0; i < blockCount - 1; ++i)
+	{
+		b2Block* block = (b2Block*)((int8_t*)chunk.blockList + chunk.blockSize * i);
+		b2Block* next = (b2Block*)((int8_t*)chunk.blockList + chunk.blockSize * (i + 1));
+		block->next = next;
+	}
+	b2Block* last = (b2Block*)((int8_t*)chunk.blockList + chunk.blockSize * (blockCount - 1));
+	last->next = NULL;
+
+	allocator->freeLists[index] = chunk.blockList->next;
+
+	b2Array_Push(allocator->chunkArray, chunk);
+
+	return chunk.blockList;
 }
 
-void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
+void b2FreeBlock(b2BlockAllocator* allocator, void* memory, int size)
 {
+	B2_ASSERT(size >= 0);
+
 	if (size == 0)
 	{
 		return;
 	}
 
-	B2_ASSERT(0 < size);
+	B2_ASSERT(size <= b2_maxBlockSize);
 
-	if (size > b2_maxBlockSize)
-	{
-		b2Free(p, size);
-		return;
-	}
+	int power = b2BoundingPowerOf2(size);
+	power = power < b2_minBlockPower ? b2_minBlockPower : power;
 
-	int32_t index = b2_sizeMap.values[size];
-	B2_ASSERT(0 <= index && index < b2_blockSizeCount);
+	int index = power - b2_minBlockPower;
+	B2_ASSERT(0 <= index && index < b2_blockPowerCount);
 
-#if B2_DEBUG
-	// Verify the memory address and size is valid.
-	int32_t blockSize = b2_blockSizes[index];
+#if B2_VALIDATE
+	// verify the memory address and size are valid
+	int blockSize = (1 << power);
 	bool found = false;
-	for (int32_t i = 0; i < allocator->chunkCount; ++i)
+	int chunkCount = b2Array(allocator->chunkArray).count;
+	for (int i = 0; i < chunkCount; ++i)
 	{
-		b2Chunk* chunk = allocator->chunks + i;
+		b2Chunk* chunk = allocator->chunkArray + i;
 		if (chunk->blockSize != blockSize)
 		{
-			B2_ASSERT((int8_t*)p + blockSize <= (int8_t*)chunk->blocks || (int8_t*)chunk->blocks + b2_chunkSize <= (int8_t*)p);
+			// this chunk is not the right size, so make sure it does not overlap the freed memory
+			B2_ASSERT((int8_t*)memory + blockSize <= (int8_t*)chunk->blockList ||
+					  (int8_t*)chunk->blockList + chunk->totalSize <= (int8_t*)memory);
 		}
 		else
 		{
-			if ((int8_t*)chunk->blocks <= (int8_t*)p && (int8_t*)p + blockSize <= (int8_t*)chunk->blocks + b2_chunkSize)
+			// does the freed memory overlap this chunk's block list?
+			if ((int8_t*)chunk->blockList <= (int8_t*)memory &&
+				(int8_t*)memory + blockSize <= (int8_t*)chunk->blockList + chunk->totalSize)
 			{
 				found = true;
 			}
@@ -215,11 +165,32 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* p, int32_t size)
 	}
 
 	B2_ASSERT(found);
-
-	memset(p, 0xfd, blockSize);
+	memset(memory, 0xfd, blockSize);
 #endif
 
-	b2Block* block = (b2Block*)p;
+	// add to free list
+	b2Block* block = memory;
 	block->next = allocator->freeLists[index];
 	allocator->freeLists[index] = block;
+}
+
+bool b2ValidateBlockAllocator(b2BlockAllocator* allocator)
+{
+	for (int i = 0; i < b2_blockPowerCount; ++i)
+	{
+		int count = 0;
+		b2Block* block = allocator->freeLists[i];
+		while (block != NULL)
+		{
+			block = block->next;
+			count += 1;
+
+			if (count == 10000000)
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
 }

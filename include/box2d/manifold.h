@@ -22,7 +22,7 @@ typedef struct b2ManifoldPoint
 	/// subject to precision loss at large coordinates
 	b2Vec2 point;
 
-	/// location of contact point relative to body center of mass in world space
+	/// location of contact point relative to body origin in world space
 	b2Vec2 anchorA, anchorB;
 
 	/// the separation of the contact point, negative if penetrating
@@ -49,7 +49,7 @@ typedef struct b2Manifold
 {
 	b2ManifoldPoint points[2];
 	b2Vec2 normal;
-	int32_t pointCount;
+	int pointCount;
 } b2Manifold;
 
 /// Use this to initialize your manifold

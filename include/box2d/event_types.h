@@ -41,7 +41,6 @@ typedef struct b2ContactBeginTouchEvent
 {
 	b2ShapeId shapeIdA;
 	b2ShapeId shapeIdB;
-	b2Manifold manifold;
 } b2ContactBeginTouchEvent;
 
 /// An end touch event is generated when two shapes stop touching.
@@ -50,6 +49,21 @@ typedef struct b2ContactEndTouchEvent
 	b2ShapeId shapeIdA;
 	b2ShapeId shapeIdB;
 } b2ContactEndTouchEvent;
+
+/// A hit touch event is generated when two shapes collide with a speed faster than the hit speed threshold.
+typedef struct b2ContactHitEvent
+{
+	b2ShapeId shapeIdA;
+	b2ShapeId shapeIdB;
+
+	// point where the shapes hit
+	b2Vec2 point;
+
+	// normal vector pointing from shape A to shape B
+	b2Vec2 normal;
+
+	float approachSpeed;
+} b2ContactHitEvent;
 
 /// Contact events are buffered in the Box2D world and are available
 ///	as event arrays after the time step is complete.

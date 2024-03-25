@@ -3,11 +3,14 @@
 
 #pragma once
 
+#include "block_allocator.h"
 #include "bitset.h"
 #include "broad_phase.h"
 #include "constraint_graph.h"
+#include "id_pool.h"
 #include "island.h"
 #include "pool.h"
+#include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
 #include "box2d/timer.h"
@@ -16,20 +19,25 @@
 
 typedef struct b2Contact b2Contact;
 
+enum b2SetType
+{
+	b2_awakeSet = 0,
+	b2_disabledSet = 1,
+	b2_firstSleepingSet = 2,
+};
+
 // Per thread task storage
 typedef struct b2TaskContext
 {
-	// These bits align with the awake contact array and signal change in contact status
-	// that affects the island graph.
+	// These bits align with the b2ConstraintGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
 
-	// Used to prevent duplicate awake contacts
-	b2BitSet awakeContactBitSet;
+	// Used to track bodies with shapes that have enlarged AABBs. This avoids having a bit array
+	// that is very large when there are many static shapes.
+	b2BitSet enlargedBodyBitSet;
+	int enlargedShapeCount;
 
-	// Used to sort shapes that have enlarged AABBs
-	b2BitSet shapeBitSet;
-
-	// Used to wake islands
+	// Used to put islands to sleep
 	b2BitSet awakeIslandBitSet;
 } b2TaskContext;
 
@@ -38,43 +46,61 @@ typedef struct b2TaskContext
 /// management facilities.
 typedef struct b2World
 {
-	struct b2BlockAllocator* blockAllocator;
-	struct b2StackAllocator* stackAllocator;
-
+	b2BlockAllocator blockAllocator;
+	b2StackAllocator stackAllocator;
 	b2BroadPhase broadPhase;
-	b2ConstraintGraph graph;
+	b2ConstraintGraph constraintGraph;
 
-	b2Pool bodyPool;
-	b2Pool contactPool;
-	b2Pool jointPool;
+	b2IdPool staticBodyIdPool;
+	struct b2StaticBody* staticBodyArray;
+
+	// The body id pool is used to allocate and recycle body ids. Body ids
+	// provide a stable identifier for users, but incur caches misses when used
+	// to access body data. Aligns with b2BodyLookup.
+	b2IdPool bodyIdPool;
+
+	// This is a sparse array that maps body ids to the body data
+	// stored in solver sets. As bodies move within a set or across set.
+	// Indices come from id pool.
+	struct b2BodyLookup* bodyLookupArray;
+
+	// Provides free list for solver sets.
+	b2IdPool solverSetIdPool;
+
+	// Solvers sets allow bodies to be stored in contiguous arrays. The first
+	// set is all static bodies. The second set is active bodies. The third set is disabled
+	// bodies. The remaining sets are sleeping islands.
+	struct b2SolverSet* solverSetArray;
+
+	// Used to create stable ids for joints
+	b2IdPool jointIdPool;
+
+	// This is a sparse array that maps joint ids to the joint data stored in the constraint graph
+	// or in the solver sets.
+	struct b2JointLookup* jointLookupArray;
+
+	// Used to create stable ids for contacts
+	b2IdPool contactIdPool;
+
+	// This is a sparse array that maps contact ids to the contact data stored in the constraint graph
+	// or in the solver sets.
+	struct b2ContactLookup* contactLookupArray;
+
+	// Used to create stable ids for islands
+	b2IdPool islandIdPool;
+
+	// This is a sparse array that maps island ids to the island data stored in the solver sets.
+	struct b2IslandLookup* islandLookupArray;
+
 	b2Pool shapePool;
 	b2Pool chainPool;
-	b2Pool islandPool;
 
 	// These are sparse arrays that point into the pools above
-	struct b2Body* bodies;
-	struct b2Contact* contacts;
-	struct b2Joint* joints;
 	struct b2Shape* shapes;
 	struct b2ChainShape* chains;
-	struct b2Island* islands;
 
 	// Per thread storage
 	b2TaskContext* taskContextArray;
-
-	// Awake island array holds indices into the island array (islandPool).
-	// This is a dense array that is rebuilt every time step.
-	int32_t* awakeIslandArray;
-
-	// Awake contact array holds contacts that should be updated.
-	// This is a dense array that is rebuilt every time step. Order doesn't matter for determinism
-	// but a bit set is used to prevent duplicates
-	int32_t* awakeContactArray;
-
-	// Hot data split from b2Contact. Used when a contact is destroyed and needs to be removed from the awake contact array.
-	// A contact is destroyed when a shape/body is destroyed or when the shape AABBs stop overlapping.
-	// TODO_ERIN use a bit array somehow?
-	int32_t* contactAwakeIndexArray;
 
 	struct b2BodyMoveEvent* bodyMoveEventArray;
 	struct b2SensorBeginTouchEvent* sensorBeginEventArray;
@@ -82,21 +108,10 @@ typedef struct b2World
 	struct b2ContactBeginTouchEvent* contactBeginArray;
 	struct b2ContactEndTouchEvent* contactEndArray;
 
-	// Array of fast bodies that need continuous collision handling
-	int32_t* fastBodies;
-	_Atomic int fastBodyCount;
-
-	// Array of bullet bodies that need continuous collision handling
-	int32_t* bulletBodies;
-	_Atomic int bulletBodyCount;
-
 	// Id that is incremented every time step
-	uint64_t stepId;
+	uint64_t stepIndex;
 
-	// sub-step info from the most recent time step
-	int32_t subStepCount;
-	float inv_h;
-
+	int splitIslandId;
 	b2Vec2 gravity;
 	float restitutionThreshold;
 	float contactPushoutVelocity;
@@ -116,24 +131,30 @@ typedef struct b2World
 	b2EnqueueTaskCallback* enqueueTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
 	void* userTaskContext;
-
 	void* userTreeTask;
 
-	int32_t splitIslandIndex;
+	// Remember type step used for reporting forces and torques
+	float inv_h;
 
 	int32_t activeTaskCount;
 	int32_t taskCount;
 
-	uint16_t poolIndex;
+	uint16_t worldId;
 
 	bool enableSleep;
 	bool locked;
 	bool enableWarmStarting;
 	bool enableContinuous;
+	bool inUse;
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);
-b2World* b2GetWorldFromIndex(uint16_t index);
-b2World* b2GetWorldFromIndexLocked(uint16_t index);
+b2World* b2GetWorld(int index);
+b2World* b2GetWorldLocked(int index);
+void b2ValidateWorld(b2World* world);
 
-bool b2IsBodyIdValid(b2World* world, b2BodyId id);
+void b2CheckStaticBodyId(b2StaticBodyId staticBodyId);
+void b2CheckBodyId(b2BodyId bodyId);
+void b2CheckJointId(b2JointId jointId);
+void b2CheckShapeId(b2ShapeId shapeId);
+void b2CheckChainId(b2ChainId chainId);

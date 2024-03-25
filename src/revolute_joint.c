@@ -7,6 +7,7 @@
 #include "core.h"
 #include "joint.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "world.h"
 
 // needed for dll export
@@ -86,8 +87,8 @@ float b2RevoluteJoint_GetMotorSpeed(b2JointId jointId)
 
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2World* world = b2GetWorld(jointId.world0);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
 	return world->inv_h * joint->revoluteJoint.motorImpulse;
@@ -107,8 +108,8 @@ float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId)
 
 b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2World* world = b2GetWorld(jointId.world0);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
 	b2Vec2 force = b2MulSV(world->inv_h, joint->revoluteJoint.linearImpulse);
@@ -117,8 +118,8 @@ b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
 
 float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
+	b2World* world = b2GetWorld(jointId.world0);
+	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
 	B2_ASSERT(joint->type == b2_revoluteJoint);
 
 	const b2RevoluteJoint* revolute = &joint->revoluteJoint;
@@ -159,12 +160,31 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
-	int32_t indexA = base->edges[0].bodyIndex;
-	int32_t indexB = base->edges[1].bodyIndex;
-	b2Body* bodyA = context->bodies + indexA;
-	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(b2IsValidObject(&bodyA->object));
-	B2_ASSERT(b2IsValidObject(&bodyB->object));
+	// chase body id to the solver set where the body lives
+	int idA = base->edges[0].bodyId;
+	int idB = base->edges[1].bodyId;
+
+	b2World* world = context->world;
+	b2BodyLookup* lookup = world->bodyLookupArray;
+
+	b2CheckIndex(lookup, idA);
+	b2CheckIndex(lookup, idB);
+
+	b2BodyLookup lookupA = lookup[idA];
+	b2BodyLookup lookupB = lookup[idB];
+
+	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
+	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+
+	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
+	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+
+	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->bodies.count);
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+
+	b2Body* bodyA = setA->bodies.data + lookupA.bodyIndex;
+	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -178,8 +198,8 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	joint->indexA = bodyA->solverIndex;
-	joint->indexB = bodyB->solverIndex;
+	joint->indexA = lookupA.setIndex == b2_awakeSet ? lookupA.bodyIndex : B2_NULL_INDEX;
+	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
 
 	// initial anchors in world space
 	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
@@ -212,8 +232,8 @@ void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context)
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
-	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
 	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
 	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
@@ -241,8 +261,8 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
 	b2Vec2 vA = stateA->linearVelocity;
 	float wA = stateA->angularVelocity;

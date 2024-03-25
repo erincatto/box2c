@@ -23,41 +23,50 @@ typedef struct b2World b2World;
 // Reserve island jobs
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
-// Persistent island
+
+// map from int to solver set and index
+typedef struct b2IslandLookup
+{
+	// index of solver set stored in b2World
+	// may be B2_NULL_INDEX
+	int setIndex;
+
+	// island index within set
+	// may be B2_NULL_INDEX
+	int localIndex;
+} b2IslandLookup;
+
+// Persistent island for awake bodies, joints, and contacts
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
 typedef struct b2Island
 {
-	b2Object object;
+	int islandId;
 
-	struct b2World* world;
+	int headBody;
+	int tailBody;
+	int bodyCount;
 
-	int32_t headBody;
-	int32_t tailBody;
-	int32_t bodyCount;
+	int headContact;
+	int tailContact;
+	int contactCount;
 
-	int32_t headContact;
-	int32_t tailContact;
-	int32_t contactCount;
-
-	int32_t headJoint;
-	int32_t tailJoint;
-	int32_t jointCount;
+	int headJoint;
+	int tailJoint;
+	int jointCount;
 
 	// Union find
-	int32_t parentIsland;
-
-	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
-	int32_t awakeIndex;
+	int parentIsland;
 
 	// Keeps track of how many contacts have been removed from this island.
-	int32_t constraintRemoveCount;
+	// todo track islands close to sleep and make sure they are split first
+	int constraintRemoveCount;
 } b2Island;
 
-void b2CreateIsland(b2Island* island);
-void b2DestroyIsland(b2Island* island);
+b2Island* b2CreateIsland(b2World* world, int setIndex);
+void b2DestroyIsland(b2World* world, int islandId);
 
-void b2WakeIsland(b2Island* island);
+b2Island* b2GetIsland(b2World* world, int islandId);
 
 // Link contacts into the island graph when it starts having contact points
 void b2LinkContact(b2World* world, b2Contact* contact);
@@ -71,9 +80,12 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 // Unlink a joint from the island graph when it is destroyed
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
+void b2WakeIsland(b2World* world, b2Island* island);
+void b2SleepIsland(b2World* world, b2Island* island);
+
 void b2MergeAwakeIslands(b2World* world);
 
-void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context);
-void b2CompleteSplitIsland(b2Island* island);
+void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context);
+void b2CompleteSplitIsland(b2World* world, b2Island* island);
 
-void b2ValidateIsland(b2Island* island, bool checkSleep);
+void b2ValidateIsland(b2World* world, b2Island* island, bool checkSleep);

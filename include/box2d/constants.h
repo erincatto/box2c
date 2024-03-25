@@ -3,6 +3,9 @@
 
 #pragma once
 
+// todo temp
+#define B2_USE_PINNED_TASKS 1
+
 /// @file
 /// Constants used by box2d.
 /// box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless
@@ -79,7 +82,8 @@
 /// Maximum parallel workers. Used to size some static arrays.
 #define b2_maxWorkers 64
 
-/// Solver graph coloring
+/// Maximum number of colors in the constraint graph. Constraints that cannot
+///	find a color are added to the overflow set.
 #define b2_graphColorCount 12
 
 /// Version numbering scheme.
