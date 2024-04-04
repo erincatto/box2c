@@ -48,7 +48,6 @@ static int MyAllocHook(int allocType, void* userData, size_t size, int blockType
 GLFWwindow* g_mainWindow = nullptr;
 static int32_t s_selection = 0;
 static Sample* s_sample = nullptr;
-static Settings s_defaultSettings;
 static Settings s_settings;
 static bool s_rightMouseDown = false;
 static b2Vec2 s_clickPointWS = b2Vec2_zero;

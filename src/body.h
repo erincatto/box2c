@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "contact_list.h"
-
 #include "box2d/distance.h"
 #include "box2d/id.h"
 #include "box2d/math_functions.h"
@@ -14,23 +12,6 @@ typedef struct b2World b2World;
 typedef struct b2Joint b2Joint;
 typedef struct b2Contact b2Contact;
 typedef struct b2Shape b2Shape;
-
-// map from b2BodyId/int to solver set and index
-// todo consider moving island graph stuff to lookups
-typedef struct b2BodyLookup
-{
-	// index of solver set stored in b2World
-	// may be B2_NULL_INDEX
-	int setIndex;
-
-	// body index within set
-	// may be B2_NULL_INDEX
-	int bodyIndex;
-
-	// This is monotonically advanced when a body is allocated in this slot
-	// Used to check for invalid b2BodyId
-	int revision;
-} b2BodyLookup;
 
 // The body state is designed for fast conversion to and from SIMD via scatter-gather
 // Only awake dynamic and kinematic bodies have a body state.
@@ -57,22 +38,17 @@ static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0
 // todo perhaps split out the transform which is accessed frequently
 typedef struct b2Body
 {
-	void* userData;
+	//void* userData;
 
-	// todo combine into b2Transform
-	// 
-	// the body origin (not center of mass)
-	b2Vec2 origin;
-
-	// rotation
-	b2Rot rotation;
+	// transform for body origin
+	b2Transform transform;
 
 	// center of mass position in world
-	b2Vec2 position;
+	b2Vec2 center;
 
-	// previous rotation and position for TOI
+	// previous rotation and COM for TOI
 	b2Rot rotation0;
-	b2Vec2 position0;
+	b2Vec2 center0;
 
 	// location of center of mass relative to the body origin
 	b2Vec2 localCenter;
@@ -80,22 +56,22 @@ typedef struct b2Body
 	b2Vec2 force;
 	float torque;
 
-	b2ShapeList shapeList;
-	b2ChainList chainList;
-	b2ContactList contactList;
+	//b2ShapeList shapeList;
+	//b2ChainList chainList;
+	//b2ContactList contactList;
 
-	// This is a key: [jointIndex:31, edgeIndex:1]
-	int headJointKey;
-	int jointCount;
+	//// This is a key: [jointIndex:31, edgeIndex:1]
+	//int headJointKey;
+	//int jointCount;
 
-	// All enabled bodies are in an island.
-	// B2_NULL_INDEX disabled bodies.
-	int islandId;
+	//// All enabled bodies are in an island.
+	//// B2_NULL_INDEX disabled bodies.
+	//int islandId;
 
-	// Doubly linked island list
-	int islandPrev;
-	int islandNext;
-	
+	//// Doubly linked island list
+	//int islandPrev;
+	//int islandNext;
+	//
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.
@@ -108,17 +84,19 @@ typedef struct b2Body
 	float gravityScale;
 	float sleepTime;
 
+	// stable id for graph coloring, B2_NULL_INDEX for static bodies
+	int graphColorId;
+
 	// body data can be moved around, the id is stable (used in b2BodyId)
 	int bodyId;
-	uint16_t revision;
-	int16_t world;
+
+	b2BodyType type;
 
 	bool enableSleep;
 	bool fixedRotation;
 
 	// todo redundant with body set index
 	bool isEnabled;
-	bool isKinematic;
 	// todo eliminate
 	bool isMarked;
 	bool isFast;
@@ -127,33 +105,21 @@ typedef struct b2Body
 	bool enlargeAABB;
 } b2Body;
 
-b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
-b2Body* b2GetBody(b2World* world, int bodyId);
-b2Transform b2GetBodyTransform(b2World* world, int bodyId);
-
-b2BodyId b2MakeBodyId(b2World* world, int bodyId);
+b2Body* b2GetBodySim(b2World* world, int bodyId);
 b2BodyState* b2GetBodyState(b2World* world, int bodyId);
-
-bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
-bool b2IsBodyAwake(b2World* world, int bodyId);
 
 // careful calling this because it can invalidate body, state, joint, and contact pointers
 bool b2WakeBody(b2World* world, int bodyId);
 
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
-static inline b2Transform b2MakeTransform(const b2Body* body)
-{
-	return (b2Transform){body->origin, body->rotation};
-}
-
 static inline b2Sweep b2MakeSweep(const b2Body* body)
 {
 	b2Sweep s;
-	s.c1 = body->position0;
-	s.c2 = body->position;
+	s.c1 = body->center0;
+	s.c2 = body->center;
 	s.q1 = body->rotation0;
-	s.q2 = body->rotation;
+	s.q2 = body->transform.q;
 	s.localCenter = body->localCenter;
 	return s;
 }

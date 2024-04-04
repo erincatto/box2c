@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "contact_list.h"
+#include "base_body.h"
 
 #include "box2d/math_functions.h"
 
@@ -14,16 +14,7 @@ typedef struct b2World b2World;
 // A static rigid body
 typedef struct b2StaticBody
 {
-	void* userData;
-
 	b2Transform transform;
-	b2ShapeList shapeList;
-	b2ChainList chainList;
-	b2ContactList contactList;
-
-	int bodyId;
-	uint16_t revision;
-	int16_t worldId;
 } b2StaticBody;
 
 

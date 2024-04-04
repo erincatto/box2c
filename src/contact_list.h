@@ -21,3 +21,10 @@ typedef struct b2ChainList
 	int headChainId;
 } b2ChainList;
 
+typedef struct b2JointList
+{
+	// [31 : contactId | 1 : edgeIndex]
+	int headJointKey;
+	int jointCount;
+} b2JointList;
+

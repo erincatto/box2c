@@ -91,23 +91,26 @@ typedef struct b2WorldDef
 	void* userTaskContext;
 } b2WorldDef;
 
-typedef struct b2StaticBodyDef
+/// The body type.
+/// static: zero mass, zero velocity, may be manually moved
+/// kinematic: zero mass, non-zero velocity set by user, moved by solver
+/// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
+typedef enum b2BodyType
 {
-	/// The world position of the body. Avoid creating bodies at the origin
-	/// since this can lead to many overlapping shapes.
-	b2Vec2 position;
-
-	/// The world angle of the body in radians.
-	float angle;
-
-	/// Use this to store application specific body data.
-	void* userData;
-} b2StaticBodyDef;
+	b2_staticBody = 0,
+	b2_kinematicBody = 1,
+	b2_dynamicBody = 2,
+	b2_bodyTypeCount
+} b2BodyType;
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 typedef struct b2BodyDef
 {
+/// The body type: static, kinematic, or dynamic.
+	/// Note: if a dynamic body would have zero mass, the mass is set to one.
+	b2BodyType type;
+
 	/// The world position of the body. Avoid creating bodies at the origin
 	/// since this can lead to many overlapping shapes.
 	b2Vec2 position;
@@ -153,11 +156,6 @@ typedef struct b2BodyDef
 
 	/// Does this body start out enabled?
 	bool isEnabled;
-
-	/// Is this a kinematic body?
-	/// kinematic: zero mass, non-zero velocity set by user, moved by solver
-	/// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
-	bool isKinematic;
 } b2BodyDef;
 
 /// This holds contact filtering data.
@@ -311,9 +309,6 @@ typedef struct b2Counters
 
 /// Use this to initialize your world definition
 B2_API b2WorldDef b2DefaultWorldDef();
-
-/// Use this to initialize your static body definition
-B2_API b2StaticBodyDef b2DefaultStaticBodyDef();
 
 /// Use this to initialize your body definition
 B2_API b2BodyDef b2DefaultBodyDef();

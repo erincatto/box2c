@@ -13,17 +13,15 @@
 #include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
-#include "box2d/timer.h"
-
-#define B2_GRAPH_COLOR 1
 
 typedef struct b2Contact b2Contact;
 
 enum b2SetType
 {
-	b2_awakeSet = 0,
+	b2_staticSet = 0,
 	b2_disabledSet = 1,
-	b2_firstSleepingSet = 2,
+	b2_awakeSet = 2,
+	b2_firstSleepingSet = 3,
 };
 
 // Per thread task storage
@@ -50,9 +48,6 @@ typedef struct b2World
 	b2StackAllocator stackAllocator;
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;
-
-	b2IdPool staticBodyIdPool;
-	struct b2StaticBody* staticBodyArray;
 
 	// The body id pool is used to allocate and recycle body ids. Body ids
 	// provide a stable identifier for users, but incur caches misses when used

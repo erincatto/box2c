@@ -5,6 +5,7 @@
 
 #include "bitset.h"
 #include "block_array.h"
+#include "id_pool.h"
 
 #include "box2d/constants.h"
 
@@ -41,6 +42,10 @@ typedef struct b2ConstraintGraph
 {
 	// including overflow at the end
 	b2GraphColor colors[b2_graphColorCount];
+
+	// used to assign stable graph color ids to dynamic bodies
+	b2IdPool colorIdPool;
+
 } b2ConstraintGraph;
 
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity);
@@ -49,5 +54,5 @@ void b2DestroyGraph(b2ConstraintGraph* graph);
 b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
-b2Joint* b2AddJointToGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLookup* lookup);
+b2Joint* b2AddJointToGraph(b2World* world, int bodyColorIdA, int bodyColorIdB, b2JointLookup* lookup);
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint);
