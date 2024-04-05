@@ -31,15 +31,20 @@ b2BodyLookup* b2GetBodyFullId(b2World* world, b2BodyId bodyId)
 	return b2GetBody(world, bodyId.index1 - 1);
 }
 
+b2Transform b2GetBodyTransformQuick(b2World* world, b2BodyLookup* body)
+{
+	b2CheckIndex(world->solverSetArray, body->setIndex);
+	b2SolverSet* set = world->solverSetArray + body->setIndex;
+	B2_ASSERT(0 <= body->localIndex && body->localIndex <= set->bodies.count);
+	b2Body* bodySim = set->bodies.data + body->localIndex;
+	return bodySim->transform;
+}
+
 b2Transform b2GetBodyTransform(b2World* world, int bodyId)
 {
 	b2CheckIndex(world->bodyLookupArray, bodyId);
-	b2BodyLookup lookup = world->bodyLookupArray[bodyId];
-	b2CheckIndex(world->solverSetArray, lookup.setIndex);
-	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-	B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex <= set->bodies.count);
-	b2Body* body = set->bodies.data + lookup.bodyIndex;
-	return body->transform;
+	b2BodyLookup* body = world->bodyLookupArray + bodyId;
+	return b2GetBodyTransformQuick(world, body);
 }
 
 // Create a b2BodyId from a key.

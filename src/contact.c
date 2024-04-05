@@ -606,7 +606,7 @@ b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId)
 	b2Body* body = b2GetBody(world, bodyId);
 	b2Contact* contact = b2GetContact(world, contactId);
 
-	if (contact->edges[0].bodyIndex == body->object.index)
+	if (contact->edges[0].localIndex == body->object.index)
 	{
 		if (contact->edges[0].nextKey == B2_NULL_INDEX)
 		{
@@ -617,7 +617,7 @@ b2ContactId b2Body_GetNextContact(b2BodyId bodyId, b2ContactId contactId)
 	}
 	else
 	{
-		B2_ASSERT(contact->edges[1].bodyIndex == body->object.index);
+		B2_ASSERT(contact->edges[1].localIndex == body->object.index);
 
 		if (contact->edges[1].nextKey == B2_NULL_INDEX)
 		{

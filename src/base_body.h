@@ -13,7 +13,7 @@
 
 typedef struct b2World b2World;
 
-// Body details that not used in the solver. Applies to all body types.
+// Body organizational details that are not used in the solver.
 typedef struct b2BodyLookup
 {
 	void* userData;
@@ -22,9 +22,9 @@ typedef struct b2BodyLookup
 	// may be B2_NULL_INDEX
 	int setIndex;
 
-	// body index within set
+	// body sim and state index within set
 	// may be B2_NULL_INDEX
-	int bodyIndex;
+	int localIndex;
 
 	// [31 : contactId | 1 : edgeIndex]
 	int headContactKey;
@@ -40,13 +40,13 @@ typedef struct b2BodyLookup
 	int jointCount;
 
 	// All enabled dynamic and kinematic bodies are in an island.
-	// B2_NULL_INDEX disabled bodies.
 	int islandId;
 
 	// doubly-linked island list
 	int islandPrev;
 	int islandNext;
 
+	// todo maybe remove this
 	int bodyId;
 
 	// This is monotonically advanced when a body is allocated in this slot
@@ -65,6 +65,7 @@ b2BodyLookup* b2GetBody(b2World* world, int bodyId);
 // todo remove this function and instead use B2_ASSERT(b2Body_IsValid(bodyId))
 b2BodyLookup* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
 
+b2Transform b2GetBodyTransformQuick(b2World* world, b2BodyLookup* body);
 b2Transform b2GetBodyTransform(b2World* world, int bodyId);
 
 // Create a b2BodyId from a key.
