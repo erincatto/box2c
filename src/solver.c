@@ -763,10 +763,10 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	b2GraphColor* colors = graph->colors;
 
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
-	int awakeBodyCount = awakeSet->bodies.count;
+	int awakeBodyCount = awakeSet->sims.count;
 	B2_ASSERT(awakeBodyCount == awakeSet->states.count);
 
-	context->bodies = awakeSet->bodies.data;
+	context->bodies = awakeSet->sims.data;
 	context->states = awakeSet->states.data;
 
 	// count contacts, joints, and colors
@@ -814,7 +814,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 	const int blocksPerWorker = 4;
 	const int maxBlockCount = blocksPerWorker * workerCount;
 
-	// Configure blocks for tasks that parallel-for bodies
+	// Configure blocks for tasks that parallel-for sims
 	int bodyBlockSize = 1 << 5;
 	int bodyBlockCount;
 	if (awakeBodyCount > bodyBlockSize * maxBlockCount)
@@ -1034,7 +1034,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 // Split an awake island. This modifies:
 // - stack allocator
 // - island pool
-// - island indices on bodies, contacts, and joints
+// - island indices on sims, contacts, and joints
 // I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
 // Note: cannot split islands in parallel with FinalizeBodies
 #if 0
@@ -1285,7 +1285,7 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 		b2SetBitCountAndClear(&world->taskContextArray[i].awakeIslandBitSet, awakeIslandCount);
 	}
 
-	// Finalize bodies. Must happen after the constraint solver and after island splitting.
+	// Finalize sims. Must happen after the constraint solver and after island splitting.
 	void* finalizeBodiesTask = world->enqueueTaskFcn(b2FinalizeBodiesTask, awakeBodyCount, 64, context, world->userTaskContext);
 	world->taskCount += 1;
 	if (finalizeBodiesTask != NULL)
@@ -1352,49 +1352,49 @@ static bool b2SolveConstraintGraph(b2World* world, b2StepContext* context)
 			}
 
 			b2SolverSet* sleepSet = world->solverSetArray + sleepSetId;
-			B2_ASSERT(sleepSet->bodies.count == 0 && sleepSet->setId == B2_NULL_INDEX);
+			B2_ASSERT(sleepSet->sims.count == 0 && sleepSet->setId == B2_NULL_INDEX);
 			sleepSet->setId = sleepSetId;
 
-			sleepSet->bodies = b2CreateBodyArray(&world->blockAllocator, island->bodyCount);
+			sleepSet->sims = b2CreateBodyArray(&world->blockAllocator, island->bodyCount);
 			sleepSet->contacts = b2CreateContactArray(&world->blockAllocator, island->contactCount);
 			sleepSet->joints = b2CreateJointArray(&world->blockAllocator, island->jointCount);
 
 			b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
 
-			// move bodies
-			// this shuffles around bodies in the awake set until they are all moved
+			// move sims
+			// this shuffles around sims in the awake set until they are all moved
 			{
-				b2BodyLookup* bodyLookups = world->bodyLookupArray;
+				b2Body* bodyLookups = world->bodyArray;
 				b2ContactLookup* contactLookups = world->contactLookupArray;
 				int bodyId = island->headBody;
 				while (bodyId != B2_NULL_INDEX)
 				{
 					b2CheckIndex(bodyLookups, bodyId);
-					b2BodyLookup* lookup = bodyLookups + bodyId;
+					b2Body* lookup = bodyLookups + bodyId;
 					B2_ASSERT(lookup->setIndex == b2_awakeSet);
 					int awakeBodyIndex = lookup->bodyIndex;
-					B2_ASSERT(0 <= awakeBodyIndex && awakeBodyIndex < awakeSet->bodies.count);
+					B2_ASSERT(0 <= awakeBodyIndex && awakeBodyIndex < awakeSet->sims.count);
 
-					b2Body* awakeBody = awakeSet->bodies.data + awakeBodyIndex;
+					b2Body* awakeBody = awakeSet->sims.data + awakeBodyIndex;
 					B2_ASSERT(awakeBody->islandId == islandId);
 
-					int sleepBodyIndex = sleepSet->bodies.count;
-					b2Body* sleepBody = b2AddBody(&world->blockAllocator, &sleepSet->bodies);
+					int sleepBodyIndex = sleepSet->sims.count;
+					b2Body* sleepBody = b2AddBody(&world->blockAllocator, &sleepSet->sims);
 					memcpy(sleepBody, awakeBody, sizeof(b2Body));
 
-					int movedIndex = b2RemoveBody(&awakeSet->bodies, awakeBodyIndex);
+					int movedIndex = b2RemoveBody(&awakeSet->sims, awakeBodyIndex);
 					if (movedIndex != B2_NULL_INDEX)
 					{
 						// fix lookup on moved element
-						b2Body* movedBody = awakeSet->bodies.data + awakeBodyIndex;
+						b2Body* movedBody = awakeSet->sims.data + awakeBodyIndex;
 						int movedId = movedBody->bodyId;
 						b2CheckIndex(bodyLookups, movedId);
-						b2BodyLookup* movedLookup = bodyLookups + movedId;
+						b2Body* movedLookup = bodyLookups + movedId;
 						B2_ASSERT(movedLookup->bodyIndex == movedIndex);
 						movedLookup->bodyIndex = awakeBodyIndex;
 					}
 
-					// sleeping bodies don't have a body state (no velocity)
+					// sleeping sims don't have a body state (no velocity)
 					b2RemoveBodyState(&awakeSet->states, awakeBodyIndex);
 
 					lookup->setIndex = sleepSetId;
@@ -1650,7 +1650,7 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeIndex, void* context
 	}
 
 	B2_ASSERT(0 <= shape->bodyIndex && shape->bodyIndex < world->bodyPool.capacity);
-	b2Body* body = world->bodies + shape->bodyIndex;
+	b2Body* body = world->sims + shape->bodyIndex;
 	B2_ASSERT(body->type == b2_staticBody || continuousContext->fastBody->isBullet);
 
 	// Skip bullets
@@ -1659,7 +1659,7 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeIndex, void* context
 		return true;
 	}
 
-	// Skip filtered bodies
+	// Skip filtered sims
 	canCollide = b2ShouldBodiesCollide(world, continuousContext->fastBody, body);
 	if (canCollide == false)
 	{
@@ -1715,7 +1715,7 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeIndex, void* context
 // Continuous collision of dynamic versus static
 static void b2SolveContinuous(b2World* world, int bodyIndex)
 {
-	b2Body* fastBody = world->bodies + bodyIndex;
+	b2Body* fastBody = world->sims + bodyIndex;
 	B2_ASSERT(b2IsValidObject(&fastBody->object));
 	B2_ASSERT(fastBody->type == b2_dynamicBody && fastBody->isFast);
 
@@ -1910,20 +1910,20 @@ void b2Solve(b2World* world, b2StepContext* context)
 
 	world->profile.buildIslands = b2GetMillisecondsAndReset(&timer);
 
-	// Prepare buffers for continuous collision (fast bodies)
+	// Prepare buffers for continuous collision (fast sims)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
-	int awakeBodyCount = awakeSet->bodies.count;
+	int awakeBodyCount = awakeSet->sims.count;
 	context->fastBodyCount = 0;
-	context->fastBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int), "fast bodies");
+	context->fastBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int), "fast sims");
 	context->bulletBodyCount = 0;
-	context->bulletBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int), "bullet bodies");
+	context->bulletBodies = b2AllocateStackItem(&world->stackAllocator, awakeBodyCount * sizeof(int), "bullet sims");
 
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	// Solve constraints using graph coloring
-	// #todo handle no awake bodies better, I think there are some bitsets that get into a bad
-	// state if no bodies are awake. I should make these operate cleanly even when there are no awake
-	// bodies
+	// #todo handle no awake sims better, I think there are some bitsets that get into a bad
+	// state if no sims are awake. I should make these operate cleanly even when there are no awake
+	// sims
 	bool anyAwake = b2SolveConstraintGraph(world, context);
 
 	b2TracyCZoneEnd(graph_solver);
@@ -1945,7 +1945,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	b2TracyCZoneNC(enlarge_proxies, "Enlarge Proxies", b2_colorDarkTurquoise, true);
 
 	// Enlarge broad-phase proxies and build move array
-	// #todo this is a hack to deal with stale shapeBitSet when no bodies are awake because they were all destroyed
+	// #todo this is a hack to deal with stale shapeBitSet when no sims are awake because they were all destroyed
 	if (anyAwake)
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
@@ -2002,7 +2002,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	// #todo continuous
 	// Parallel continuous collision
 	{
-		// fast bodies
+		// fast sims
 		int minRange = 8;
 		void* userFastBodyTask =
 			world->enqueueTaskFcn(&b2FastBodyTask, world->fastBodyCount, minRange, world, world->userTaskContext);
@@ -2014,7 +2014,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	}
 
 	{
-		// bullet bodies
+		// bullet sims
 		int minRange = 8;
 		void* userBulletBodyTask =
 			world->enqueueTaskFcn(&b2BulletBodyTask, world->bulletBodyCount, minRange, world, world->userTaskContext);
@@ -2028,7 +2028,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	// Serially enlarge broad-phase proxies for fast shapes
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
-		b2Body* bodies = world->bodies;
+		b2Body* sims = world->sims;
 		b2Shape* shapes = world->shapes;
 		int* fastBodies = world->fastBodies;
 		int fastBodyCount = world->fastBodyCount;
@@ -2037,7 +2037,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 		// This loop has non-deterministic order but it shouldn't affect the result
 		for (int i = 0; i < fastBodyCount; ++i)
 		{
-			b2Body* fastBody = bodies + fastBodies[i];
+			b2Body* fastBody = sims + fastBodies[i];
 			if (fastBody->enlargeAABB == false)
 			{
 				continue;
@@ -2076,7 +2076,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 	// Serially enlarge broad-phase proxies for bullet shapes
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
-		b2Body* bodies = world->bodies;
+		b2Body* sims = world->sims;
 		b2Shape* shapes = world->shapes;
 		int* bulletBodies = world->bulletBodies;
 		int bulletBodyCount = world->bulletBodyCount;
@@ -2085,7 +2085,7 @@ void b2Solve(b2World* world, b2StepContext* context)
 		// This loop has non-deterministic order but it shouldn't affect the result
 		for (int i = 0; i < bulletBodyCount; ++i)
 		{
-			b2Body* bulletBody = bodies + bulletBodies[i];
+			b2Body* bulletBody = sims + bulletBodies[i];
 			if (bulletBody->enlargeAABB == false)
 			{
 				continue;

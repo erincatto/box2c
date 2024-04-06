@@ -26,7 +26,7 @@ typedef struct b2SensorEndTouchEvent
 
 /// Sensor events are buffered in the Box2D world and are available
 ///	as begin/end overlap event arrays after the time step is complete.
-///	Note: these may become invalid if bodies and/or shapes are destroyed
+///	Note: these may become invalid if sims and/or shapes are destroyed
 typedef struct b2SensorEvents
 {
 	b2SensorBeginTouchEvent* beginEvents;
@@ -67,7 +67,7 @@ typedef struct b2ContactHitEvent
 
 /// Contact events are buffered in the Box2D world and are available
 ///	as event arrays after the time step is complete.
-///	Note: these may become invalid if bodies and/or shapes are destroyed
+///	Note: these may become invalid if sims and/or shapes are destroyed
 typedef struct b2ContactEvents
 {
 	b2ContactBeginTouchEvent* beginEvents;
@@ -85,7 +85,7 @@ typedef struct b2ContactData
 	b2Manifold manifold;
 } b2ContactData;
 
-/// Triggered when a body moves from simulation. Not reported for bodies moved by the user.
+/// Triggered when a body moves from simulation. Not reported for sims moved by the user.
 /// This also has a flag to indicate that the body went to sleep so the application can also
 /// sleep that actor/entity/object associated with the body.
 /// On the other hand if the flag does not indicate the body went to sleep then the application
@@ -100,7 +100,7 @@ typedef struct b2BodyMoveEvent
 
 /// Body events are buffered in the Box2D world and are available
 ///	as event arrays after the time step is complete.
-///	Note: this date becomes invalid if bodies are destroyed
+///	Note: this date becomes invalid if sims are destroyed
 typedef struct b2BodyEvents
 {
 	b2BodyMoveEvent* moveEvents;

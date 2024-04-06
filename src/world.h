@@ -30,7 +30,7 @@ typedef struct b2TaskContext
 	// These bits align with the b2ConstraintGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
 
-	// Used to track bodies with shapes that have enlarged AABBs. This avoids having a bit array
+	// Used to track sims with shapes that have enlarged AABBs. This avoids having a bit array
 	// that is very large when there are many static shapes.
 	b2BitSet enlargedBodyBitSet;
 	int enlargedShapeCount;
@@ -51,20 +51,20 @@ typedef struct b2World
 
 	// The body id pool is used to allocate and recycle body ids. Body ids
 	// provide a stable identifier for users, but incur caches misses when used
-	// to access body data. Aligns with b2BodyLookup.
+	// to access body data. Aligns with b2Body.
 	b2IdPool bodyIdPool;
 
 	// This is a sparse array that maps body ids to the body data
-	// stored in solver sets. As bodies move within a set or across set.
+	// stored in solver sets. As sims move within a set or across set.
 	// Indices come from id pool.
-	struct b2BodyLookup* bodyLookupArray;
+	struct b2Body* bodyArray;
 
 	// Provides free list for solver sets.
 	b2IdPool solverSetIdPool;
 
-	// Solvers sets allow bodies to be stored in contiguous arrays. The first
-	// set is all static bodies. The second set is active bodies. The third set is disabled
-	// bodies. The remaining sets are sleeping islands.
+	// Solvers sets allow sims to be stored in contiguous arrays. The first
+	// set is all static sims. The second set is active sims. The third set is disabled
+	// sims. The remaining sets are sleeping islands.
 	struct b2SolverSet* solverSetArray;
 
 	// Used to create stable ids for joints

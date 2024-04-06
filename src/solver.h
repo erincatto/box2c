@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct b2Body b2Body;
+typedef struct b2BodySim b2BodySim;
 typedef struct b2BodyState b2BodyState;
 typedef struct b2Contact b2Contact;
 typedef struct b2Joint b2Joint;
@@ -100,18 +100,18 @@ typedef struct b2StepContext
 	// shortcut to body states from awake set
 	b2BodyState* states;
 
-	// shortcut to bodies from awake set (no static bodies)
-	b2Body* bodies;
+	// shortcut to body sims from awake set
+	b2BodySim* sims;
 
 	// array of all shape ids for shapes that have enlarged AABBs
 	int* enlargedShapes;
 	int enlargedShapeCount;
 
-	// Array of fast bodies that need continuous collision handling
+	// Array of fast sims that need continuous collision handling
 	int* fastBodies;
 	_Atomic int fastBodyCount;
 
-	// Array of bullet bodies that need continuous collision handling
+	// Array of bullet sims that need continuous collision handling
 	int* bulletBodies;
 	_Atomic int bulletBodyCount;
 

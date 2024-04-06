@@ -21,14 +21,14 @@ typedef struct b2Segment b2Segment;
 
 /**
  * \defgroup WorldAPI Worlds
- * These functions allow you to create a simulation world. You can then add bodies and
+ * These functions allow you to create a simulation world. You can then add sims and
  * joints to the world and run the simulation. You can get contact information to get contact points
  * and normals as well as events. You can query to world, checking for overlaps and casting rays or shapes.
  * There is also debugging information such as debug draw, timing information, and counters.
  * @{
  */
 
-/// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
+/// Create a world for rigid body simulation. This contains all the sims, shapes, and constraints.
 B2_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 
 /// Destroy a world.
@@ -37,11 +37,10 @@ B2_API void b2DestroyWorld(b2WorldId worldId);
 /// World identifier validation. Provides validation for up to 64K allocations.
 B2_API bool b2World_IsValid(b2WorldId id);
 
-/// Take a time step. This performs collision detection, integration,
-/// and constraint solution.
-/// @param timeStep the amount of time to simulate, this should not vary.
-/// @param velocityIterations for the velocity constraint solver.
-/// @param relaxIterations for reducing constraint bounce solver.
+/// Simulate a world for one time step. This performs collision detection, integration, and constraint solution.
+/// @param worldId the world to simulate
+/// @param timeStep the amount of time to simulate, this should be a fixed number. Typically 1/60.
+/// @param subStepCount the number of sub-steps, increasing the sub-step count can increase accuracy. Typically 4.
 B2_API void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount);
 
 /// Call this to draw shapes and other debug draw data. This is intentionally non-const.
@@ -128,40 +127,6 @@ B2_API b2Profile b2World_GetProfile(b2WorldId worldId);
 
 /// Get counters and sizes
 B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
-
-/** @} */
-
-/**
- * \defgroup StaticBodyAPI Static Bodies
- * This is the static body API.
- * @{
- */
-
-/// Create a static rigid body given a definition. No reference to the definition is retained.
-/// @warning This function is locked during callbacks.
-B2_API b2StaticBodyId b2CreateStaticBody(b2WorldId worldId, const b2StaticBodyDef* def);
-
-/// Destroy a static rigid body given an id. This destroys all shapes and joints attached to the body.
-/// @warning This function is locked during callbacks.
-B2_API void b2DestroyStaticBody(b2StaticBodyId staticBodyId);
-
-/// Body identifier validation. Provides validation for up to 64K allocations.
-B2_API bool b2StaticBody_IsValid(b2StaticBodyId staticBodyId);
-
-/// Set the user data for a body
-B2_API void b2StaticBody_SetUserData(b2StaticBodyId staticBodyId, void* userData);
-
-/// Get the user data stored in a body
-B2_API void* b2StaticBody_GetUserData(b2StaticBodyId staticBodyId);
-
-/// Get the world transform of a static body.
-B2_API b2Transform b2StaticBody_GetTransform(b2StaticBodyId staticBodyId);
-
-/// Get the number of shapes on this body
-B2_API int b2StaticBody_GetShapeCount(b2StaticBodyId staticBodyId);
-
-/// Get the shape ids for all shapes on this body, up to the provided capacity
-B2_API void b2StaticBody_GetShapes(b2StaticBodyId staticBodyId, b2ShapeId* shapeArray, int capacity);
 
 /** @} */
 
@@ -351,7 +316,7 @@ B2_API void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag);
 B2_API bool b2Body_IsFixedRotation(b2BodyId bodyId);
 
 /// Set this body to be a bullet. A bullet does continuous collision detection
-/// against dynamic bodies (but not other bullets).
+/// against dynamic sims (but not other bullets).
 B2_API void b2Body_SetBullet(b2BodyId bodyId, bool flag);
 
 /// Is this body a bullet?
@@ -360,14 +325,16 @@ B2_API bool b2Body_IsBullet(b2BodyId bodyId);
 /// Get the number of shapes on this body
 B2_API int b2Body_GetShapeCount(b2BodyId bodyId);
 
-/// Get the shape ids for all shapes on this body, up to the provided capacity
-B2_API void b2Body_GetShapes(b2BodyId bodyId, b2ShapeId* shapeArray, int capacity);
+/// Get the shape ids for all shapes on this body, up to the provided capacity.
+///	@returns the number of shape ids stored in the user array
+B2_API int b2Body_GetShapes(b2BodyId bodyId, b2ShapeId* shapeArray, int capacity);
 
 /// Get the number of joints on this body
 B2_API int b2Body_GetJointCount(b2BodyId bodyId);
 
 /// Get the joint ids for all joints on this body, up to the provided capacity
-B2_API void b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity);
+///	@returns the number of joint ids stored in the user array
+B2_API int b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity);
 
 /// Get the maximum capacity required for retrieving all the touching contacts on a body
 B2_API int b2Body_GetContactCapacity(b2BodyId bodyId);
@@ -459,19 +426,19 @@ B2_API b2Filter b2Shape_GetFilter(b2ShapeId shapeId);
 /// Set the current filter. This is almost as expensive as recreating the shape.
 B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 
-/// Enable sensor events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+/// Enable sensor events for this shape. Only applies to kinematic and dynamic sims. Ignored for sensors.
 B2_API void b2Shape_EnableSensorEvents(b2ShapeId shapeId, bool flag);
 
 /// @return are sensor events enabled?
 B2_API bool b2Shape_AreSensorEventsEnabled(b2ShapeId shapeId);
 
-/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+/// Enable contact events for this shape. Only applies to kinematic and dynamic sims. Ignored for sensors.
 B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId, bool flag);
 
 /// @return are contact events enabled?
 B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
 
-/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
+/// Enable pre-solve contact events for this shape. Only applies to dynamic sims. These are expensive
 ///	and must be carefully handled due to multi-threading. Ignored for sensors.
 B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag);
 
@@ -601,10 +568,10 @@ B2_API b2Vec2 b2Joint_GetLocalAnchorA(b2JointId jointId);
 /// Get local anchor on bodyB
 B2_API b2Vec2 b2Joint_GetLocalAnchorB(b2JointId jointId);
 
-/// Toggle collision between connected bodies
+/// Toggle collision between connected sims
 B2_API void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide);
 
-/// Is collision allowed between connected bodies?
+/// Is collision allowed between connected sims?
 B2_API bool b2Joint_GetCollideConnected(b2JointId jointId);
 
 /// Set the user data on a joint
@@ -613,7 +580,7 @@ B2_API void b2Joint_SetUserData(b2JointId jointId, void* userData);
 /// Get the user data on a joint
 B2_API void* b2Joint_GetUserData(b2JointId jointId);
 
-/// Wake the bodies connect to this joint
+/// Wake the sims connect to this joint
 B2_API void b2Joint_WakeBodies(b2JointId jointId);
 
 /// Distance Joint

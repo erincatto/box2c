@@ -9,7 +9,6 @@
 #include "island.h"
 #include "shape.h"
 #include "solver_set.h"
-#include "static_body.h"
 #include "table.h"
 #include "util.h"
 #include "world.h"
@@ -30,10 +29,10 @@
 // - These results are ordered according to the order of the broad-phase move array
 // - The move array is ordered according to the shape creation order using a bitset.
 // - The island/shape/body order is determined by creation order
-// - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
+// - Logically contacts are only created for awake sims, so they are immediately added to the awake contact array (serially)
 //
 // Island linking:
-// - The awake contact array is built from the body-contact graph for all awake bodies in awake islands.
+// - The awake contact array is built from the body-contact graph for all awake sims in awake islands.
 // - Awake contacts are solved in parallel and they generate contact state changes.
 // - These state changes may link islands together using union find.
 // - The state changes are ordered using a bit array that encompasses all contacts
@@ -180,19 +179,6 @@ void b2InitializeContactRegisters(void)
 	}
 }
 
-b2ContactList* b2GetContactList(b2World* world, int bodyKey)
-{
-	int bodyId = bodyKey >> 1;
-	if (bodyKey & 1)
-	{
-		b2Body* body = b2GetBody(world, bodyId);
-		return &body->contactList;
-	}
-
-	b2StaticBody* body = b2GetStaticBody(world, bodyId);
-	return &body->contactList;
-}
-
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 {
 	b2ShapeType type1 = shapeA->type;
@@ -214,8 +200,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		return;
 	}
 
-	b2ContactList* listA = b2GetContactList(world, shapeA->bodyKey);
-	b2ContactList* listB = b2GetContactList(world, shapeB->bodyKey);
+	b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
+	b2Body* bodyB = b2GetBody(world, shapeB->bodyId);
 
 	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
 
@@ -271,36 +257,36 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	// Connect to body A
 	{
-		contact->edges[0].bodyKey = shapeA->bodyKey;
+		contact->edges[0].bodyId = shapeA->bodyId;
 		contact->edges[0].prevKey = B2_NULL_INDEX;
-		contact->edges[0].nextKey = listA->headContactKey;
+		contact->edges[0].nextKey = bodyA->headContactKey;
 
 		int keyA = (contactKey << 1) | 0;
-		if (listA->headContactKey != B2_NULL_INDEX)
+		if (bodyA->headContactKey != B2_NULL_INDEX)
 		{
-			b2Contact* contactA = b2GetContactFromRawId(world, listA->headContactKey >> 1);
-			b2ContactEdge* edgeA = contactA->edges + (listA->headContactKey & 1);
+			b2Contact* contactA = b2GetContactFromRawId(world, bodyA->headContactKey >> 1);
+			b2ContactEdge* edgeA = contactA->edges + (bodyA->headContactKey & 1);
 			edgeA->prevKey = keyA;
 		}
-		listA->headContactKey = keyA;
-		listA->contactCount += 1;
+		bodyA->headContactKey = keyA;
+		bodyA->contactCount += 1;
 	}
 
 	// Connect to body B
 	{
-		contact->edges[1].bodyKey = shapeB->bodyKey;
+		contact->edges[1].bodyId = shapeB->bodyId;
 		contact->edges[1].prevKey = B2_NULL_INDEX;
-		contact->edges[1].nextKey = listB->headContactKey;
+		contact->edges[1].nextKey = bodyB->headContactKey;
 
 		int keyB = (contactKey << 1) | 1;
-		if (listB->headContactKey != B2_NULL_INDEX)
+		if (bodyB->headContactKey != B2_NULL_INDEX)
 		{
-			b2Contact* contactB = b2GetContactFromRawId(world, listB->headContactKey >> 1);
-			b2ContactEdge* edgeB = contactB->edges + (listB->headContactKey & 1);
+			b2Contact* contactB = b2GetContactFromRawId(world, bodyB->headContactKey >> 1);
+			b2ContactEdge* edgeB = contactB->edges + (bodyB->headContactKey & 1);
 			edgeB->prevKey = keyB;
 		}
-		listB->headContactKey = keyB;
-		listB->contactCount += 1;
+		bodyB->headContactKey = keyB;
+		bodyB->contactCount += 1;
 	}
 
 	// Add to pair set for fast lookup
@@ -325,8 +311,8 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 	b2ContactEdge* edgeA = contact->edges + 0;
 	b2ContactEdge* edgeB = contact->edges + 1;
 
-	b2ContactList* listA = b2GetContactList(world, edgeA->bodyKey);
-	b2ContactList* listB = b2GetContactList(world, edgeB->bodyKey);
+	b2Body* bodyA = b2GetBody(world, edgeA->bodyId);
+	b2Body* bodyB = b2GetBody(world, edgeB->bodyId);
 
 	// if (contactListener && contact->IsTouching())
 	//{
@@ -351,12 +337,12 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 	int contactId = contact->contactId;
 
 	int edgeKeyA = (contactId << 1) | 0;
-	if (listA->headContactKey == edgeKeyA)
+	if (bodyA->headContactKey == edgeKeyA)
 	{
-		listA->headContactKey = edgeA->nextKey;
+		bodyA->headContactKey = edgeA->nextKey;
 	}
 
-	listA->headContactKey -= 1;
+	bodyA->headContactKey -= 1;
 
 	// Remove from body B
 	if (edgeB->prevKey != B2_NULL_INDEX)
@@ -374,12 +360,12 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 	}
 
 	int edgeKeyB = (contactId << 1) | 1;
-	if (listB->headContactKey == edgeKeyB)
+	if (bodyB->headContactKey == edgeKeyB)
 	{
-		listB->headContactKey = edgeB->nextKey;
+		bodyB->headContactKey = edgeB->nextKey;
 	}
 
-	listB->contactCount -= 1;
+	bodyB->contactCount -= 1;
 
 	if (contact->islandId != B2_NULL_INDEX)
 	{
@@ -416,14 +402,10 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 
 	b2FreeId(&world->contactIdPool, contactId);
 
-	if (wakeBodies && (edgeA->bodyKey & 1) == 1)
+	if (wakeBodies)
 	{
-		b2WakeBody(world, edgeA->bodyKey);
-	}
-
-	if (wakeBodies && (edgeB->bodyKey & 1) == 1)
-	{
-		b2WakeBody(world, edgeB->bodyKey);
+		b2WakeBody(world, bodyA);
+		b2WakeBody(world, bodyB);
 	}
 
 	b2ValidateWorld(world);

@@ -3,14 +3,10 @@
 
 #pragma once
 
-#include "pool.h"
-
 #include "box2d/distance.h"
 #include "box2d/manifold.h"
 #include "box2d/types.h"
 
-typedef struct b2Body b2Body;
-typedef struct b2ContactList b2ContactList;
 typedef struct b2Shape b2Shape;
 typedef struct b2World b2World;
 
@@ -30,17 +26,14 @@ typedef struct b2ContactLookup
 	int localIndex;
 } b2ContactLookup;
 
-// A contact edge is used to connect bodies and contacts together
+// A contact edge is used to connect sims and contacts together
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list
 // maintained in each attached body. Each contact has two contact
 // edges, one for each attached body.
 typedef struct b2ContactEdge
 {
-	// can be a static or dynamic body
-	// [31 : bodyId, 1 : type]
-	// where type is 0 for a static body or 1 for a dynamic/kinematic body
-	int bodyKey;
+	int bodyId;
 	int prevKey;
 	int nextKey;
 } b2ContactEdge;
@@ -121,7 +114,6 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies);
 
 b2Contact* b2GetContactFromRawId(b2World* world, int contactKey);
 b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup lookup);
-b2ContactList* b2GetContactList(b2World* world, int bodyKey);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

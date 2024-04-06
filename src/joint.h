@@ -33,7 +33,7 @@ typedef struct b2JointLookup
 	int revision;
 } b2JointLookup;
 
-/// A joint edge is used to connect bodies and joints together
+/// A joint edge is used to connect sims and joints together
 /// in a joint graph where each body is a node and each joint
 /// is an edge. A joint edge belongs to a doubly linked list
 /// maintained in each attached body. Each joint has two joint
@@ -204,7 +204,7 @@ typedef struct b2WheelJoint
 	b2Softness springSoftness;
 } b2WheelJoint;
 
-/// The base joint class. Joints are used to constraint two bodies together in
+/// The base joint class. Joints are used to constraint two sims together in
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2Joint
 {

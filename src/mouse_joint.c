@@ -50,20 +50,20 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2BodyLookup* lookup = world->bodyLookupArray;
+	b2Body* lookup = world->bodyArray;
 
 	b2CheckIndex(lookup, idB);
 
-	b2BodyLookup lookupB = lookup[idB];
+	b2Body lookupB = lookup[idB];
 
 	B2_ASSERT(lookupB.setIndex == b2_awakeSet);
 	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
 
 	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
 
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
 
-	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
+	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
 
 	base->invMassB = bodyB->invMass;
 	base->invIB = bodyB->invI;

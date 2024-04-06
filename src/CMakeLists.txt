@@ -5,8 +5,6 @@ set(BOX2D_SOURCE_FILES
 	allocate.h
 	array.c
 	array.h
-	base_body.c
-	base_body.h
 	bitset.c
 	bitset.h
 	block_allocator.c
@@ -55,8 +53,6 @@ set(BOX2D_SOURCE_FILES
 	solver_set.h
 	stack_allocator.c
 	stack_allocator.h
-	static_body.c
-	static_body.h
 	table.c
 	table.h
 	timer.c

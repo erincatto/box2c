@@ -127,12 +127,12 @@ void b2WakeIsland(b2World* world, b2Island* island)
 	b2WakeSolverSet(world, lookup->setIndex);
 
 	#if 0
-	// Reset sleep timers on bodies
+	// Reset sleep timers on sims
 	// TODO_ERIN make this parallel somehow?
 	int bodyIndex = island->headBody;
 	while (bodyIndex != B2_NULL_INDEX)
 	{
-		b2Body* body = world->bodies + bodyIndex;
+		b2Body* body = world->sims + bodyIndex;
 		B2_ASSERT(body->islandIndex == islandIndex);
 		body->sleepTime = 0.0f;
 		bodyIndex = body->islandNext;
@@ -628,8 +628,8 @@ void b2MergeAwakeIslands(b2World* world)
 // Split an island because some contacts and/or joints have been removed.
 // This is called during the constraint solve while islands are not being touched. This uses DFS and touches a lot of memory,
 // so it can be quite slow.
-// Note: contacts/joints connected to static bodies must belong to an island but don't affect island connectivity
-// Note: static bodies are never in an island
+// Note: contacts/joints connected to static sims must belong to an island but don't affect island connectivity
+// Note: static sims are never in an island
 // Note: this task interacts with some allocators without locks under the assumption that no other tasks
 // are interacting with these data structures.
 #if 0
@@ -651,7 +651,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 	int bodyCount = baseIsland->bodyCount;
 
-	b2Body* bodies = world->bodies;
+	b2Body* sims = world->sims;
 	b2Contact* contacts = world->contacts;
 	b2Joint* joints = world->joints;
 
@@ -662,13 +662,13 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 	int* bodyIndices = b2AllocateStackItem(alloc, bodyCount * sizeof(int), "body indices");
 
 	// Build array containing all body indices from base island. These
-	// serve as seed bodies for the depth first search (DFS).
+	// serve as seed sims for the depth first search (DFS).
 	int index = 0;
 	int nextBody = baseIsland->headBody;
 	while (nextBody != B2_NULL_INDEX)
 	{
 		bodyIndices[index++] = nextBody;
-		b2Body* body = bodies + nextBody;
+		b2Body* body = sims + nextBody;
 
 		// Clear visitation mark
 		body->isMarked = false;
@@ -704,7 +704,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 	for (int i = 0; i < bodyCount; ++i)
 	{
 		int seedIndex = bodyIndices[i];
-		b2Body* seed = bodies + seedIndex;
+		b2Body* seed = sims + seedIndex;
 		B2_ASSERT(seed->object.next == seedIndex);
 		B2_ASSERT(seed->isEnabled);
 		B2_ASSERT(seed->type != b2_staticBody);
@@ -735,7 +735,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 		{
 			// Grab the next body off the stack and add it to the island.
 			int bodyIndex = stack[--stackCount];
-			b2Body* body = bodies + bodyIndex;
+			b2Body* body = sims + bodyIndex;
 			B2_ASSERT(body->type != b2_staticBody);
 			B2_ASSERT(body->isMarked == true);
 
@@ -743,7 +743,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 			body->islandIndex = islandIndex;
 			if (island->tailBody != B2_NULL_INDEX)
 			{
-				bodies[island->tailBody].islandNext = bodyIndex;
+				sims[island->tailBody].islandNext = bodyIndex;
 			}
 			body->islandPrev = island->tailBody;
 			body->islandNext = B2_NULL_INDEX;
@@ -791,7 +791,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 				int otherEdgeIndex = edgeIndex ^ 1;
 				int otherBodyIndex = contact->edges[otherEdgeIndex].bodyIndex;
-				b2Body* otherBody = world->bodies + otherBodyIndex;
+				b2Body* otherBody = world->sims + otherBodyIndex;
 
 				// Maybe add other body to stack
 				if (otherBody->isMarked == false && otherBody->type != b2_staticBody)
@@ -842,9 +842,9 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 				int otherEdgeIndex = edgeIndex ^ 1;
 				int otherBodyIndex = joint->edges[otherEdgeIndex].bodyIndex;
-				b2Body* otherBody = world->bodies + otherBodyIndex;
+				b2Body* otherBody = world->sims + otherBodyIndex;
 
-				// Don't simulate joints connected to disabled bodies.
+				// Don't simulate joints connected to disabled sims.
 				if (otherBody->isEnabled == false)
 				{
 					continue;
@@ -879,7 +879,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 		// For consistency, this island must be added to the awake island array. This should
 		// be safe because no other task is accessing this and the solver has already gathered
-		// all awake bodies.
+		// all awake sims.
 		island->awakeIndex = b2Array(world->awakeIslandArray).count;
 		b2Array_Push(world->awakeIslandArray, islandIndex);
 
@@ -914,7 +914,7 @@ void b2ValidateIsland(b2World* world, b2Island* island, bool checkSleep)
 	B2_ASSERT(island->headBody != B2_NULL_INDEX);
 
 	{
-		b2Body* bodies = world->bodies;
+		b2Body* sims = world->sims;
 		B2_ASSERT(island->tailBody != B2_NULL_INDEX);
 		B2_ASSERT(island->bodyCount > 0);
 		if (island->bodyCount > 1)
@@ -927,7 +927,7 @@ void b2ValidateIsland(b2World* world, b2Island* island, bool checkSleep)
 		int bodyIndex = island->headBody;
 		while (bodyIndex != B2_NULL_INDEX)
 		{
-			b2Body* body = bodies + bodyIndex;
+			b2Body* body = sims + bodyIndex;
 			B2_ASSERT(body->islandIndex == islandIndex);
 			count += 1;
 

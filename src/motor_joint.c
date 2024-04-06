@@ -35,13 +35,13 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2BodyLookup* lookup = world->bodyLookupArray;
+	b2Body* lookup = world->bodyArray;
 
 	b2CheckIndex(lookup, idA);
 	b2CheckIndex(lookup, idB);
 
-	b2BodyLookup lookupA = lookup[idA];
-	b2BodyLookup lookupB = lookup[idB];
+	b2Body lookupA = lookup[idA];
+	b2Body lookupB = lookup[idB];
 
 	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
 	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
@@ -50,11 +50,11 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
 	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
 
-	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->bodies.count);
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->sims.count);
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
 
-	b2Body* bodyA = setA->bodies.data + lookupA.bodyIndex;
-	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
+	b2Body* bodyA = setA->sims.data + lookupA.bodyIndex;
+	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -104,7 +104,7 @@ void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 
 	b2MotorJoint* joint = &base->motorJoint;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
@@ -128,7 +128,7 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2MotorJoint* joint = &base->motorJoint;
@@ -282,8 +282,8 @@ void b2DumpMotorJoint()
 	int32 indexB = m_bodyB->m_islandIndex;
 
 	b2Dump("  b2MotorJointDef jd;\n");
-	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
-	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
+	b2Dump("  jd.bodyA = sims[%d];\n", indexA);
+	b2Dump("  jd.bodyB = sims[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", m_collideConnected);
 	b2Dump("  jd.localAnchorA.Set(%.9g, %.9g);\n", m_localAnchorA.x, m_localAnchorA.y);
 	b2Dump("  jd.localAnchorB.Set(%.9g, %.9g);\n", m_localAnchorB.x, m_localAnchorB.y);

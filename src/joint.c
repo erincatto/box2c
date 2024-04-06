@@ -142,11 +142,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 {
 	int bodyIdA = bodyA->bodyId;
 	int bodyIdB = bodyB->bodyId;
-	B2_ASSERT(0 <= bodyIdA && bodyIdA < b2Array(world->bodyLookupArray).count);
-	B2_ASSERT(0 <= bodyIdB && bodyIdB < b2Array(world->bodyLookupArray).count);
-	b2BodyLookup* lookupA = world->bodyLookupArray + bodyIdA;
-	b2BodyLookup* lookupB = world->bodyLookupArray + bodyIdB;
-	int maxSetIndex = B2_MAX(lookupA->setIndex, lookupB->setIndex);
+	int maxSetIndex = B2_MAX(bodyA->setIndex, bodyB->setIndex);
 
 	// Create joint id and lookup
 	int jointId = b2AllocId(&world->jointIdPool);
@@ -160,14 +156,14 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 
 	b2Joint* joint;
 
-	if (lookupA->setIndex == b2_disabledSet || lookupB->setIndex == b2_disabledSet)
+	if (bodyA->setIndex == b2_disabledSet || bodyB->setIndex == b2_disabledSet)
 	{
 		// if either body is disabled, create in disabled set
 		b2SolverSet* set = world->solverSetArray + b2_disabledSet;
 		joint = b2AddJoint(&world->blockAllocator, &set->joints);
 		lookup->setIndex = b2_disabledSet;
 	}
-	else if (lookupA->setIndex == b2_awakeSet || lookupB->setIndex == b2_awakeSet)
+	else if (bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet)
 	{
 		joint = b2AddJointToGraph(world, bodyIdA, bodyIdB, lookup);
 		lookup->setIndex = b2_awakeSet;
@@ -176,42 +172,23 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 		if (maxSetIndex >= b2_firstSleepingSet)
 		{
 			b2WakeSolverSet(world, maxSetIndex);
-
-			// body pointers are now invalid, fix them
-			B2_ASSERT(lookupA->setIndex == b2_awakeSet);
-			B2_ASSERT(lookupB->setIndex == b2_awakeSet);
-			b2SolverSet* set = world->solverSetArray + b2_awakeSet;
-			B2_ASSERT(0 <= lookupA->bodyIndex && lookupA->bodyIndex < set->bodies.count);
-			B2_ASSERT(0 <= lookupB->bodyIndex && lookupB->bodyIndex < set->bodies.count);
-			bodyA = set->bodies.data + lookupA->bodyIndex;
-			bodyB = set->bodies.data + lookupB->bodyIndex;
 		}
 	}
 	else
 	{
 		// joint connected between sleeping bodies
-		B2_ASSERT(lookupA->setIndex >= b2_firstSleepingSet && lookupB->setIndex >= b2_firstSleepingSet);
-		b2SolverSet* set;
-		if (lookupA->setIndex != lookupB->setIndex)
+		B2_ASSERT(bodyA->setIndex >= b2_firstSleepingSet && bodyB->setIndex >= b2_firstSleepingSet);
+		if (bodyA->setIndex != bodyB->setIndex)
 		{
-			b2MergeSolverSets(world, lookupA->setIndex, lookupB->setIndex);
-
-			// body pointers are now invalid, fix them
-			B2_ASSERT(lookupA->setIndex == lookupB->setIndex);
-			set = world->solverSetArray + lookupA->setIndex;
-			B2_ASSERT(0 <= lookupA->bodyIndex && lookupA->bodyIndex < set->bodies.count);
-			B2_ASSERT(0 <= lookupB->bodyIndex && lookupB->bodyIndex < set->bodies.count);
-			bodyA = set->bodies.data + lookupA->bodyIndex;
-			bodyB = set->bodies.data + lookupB->bodyIndex;
-		}
-		else
-		{
-			B2_ASSERT(0 <= lookupA->setIndex && lookupA->setIndex < b2Array(world->solverSetArray).count);
-			set = world->solverSetArray + lookupA->setIndex;
+			b2MergeSolverSets(world, bodyA->setIndex, bodyB->setIndex);
 		}
 
+		B2_ASSERT(bodyA->setIndex == bodyB->setIndex);
+		B2_ASSERT(0 <= bodyA->setIndex && bodyA->setIndex < b2Array(world->solverSetArray).count);
+		
+		b2SolverSet* set = world->solverSetArray + bodyA->setIndex;
 		joint = b2AddJoint(&world->blockAllocator, &set->joints);
-		lookup->setIndex = lookupA->setIndex;
+		lookup->setIndex = bodyA->setIndex;
 	}
 
 	joint->jointId = jointId;
@@ -269,19 +246,16 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 	int otherBodyId;
 
 	// use the smaller of the two contact lists
-	if (bodyA->contactList.contactCount < bodyB->contactList.contactCount)
+	if (bodyA->contactCount < bodyB->contactCount)
 	{
-		contactKey = bodyA->contactList.headContactKey;
+		contactKey = bodyA->headContactKey;
 		otherBodyId = bodyB->bodyId;
 	}
 	else
 	{
-		contactKey = bodyB->contactList.headContactKey;
+		contactKey = bodyB->headContactKey;
 		otherBodyId = bodyA->bodyId;
 	}
-
-	// form a non-static body key
-	int otherBodyKey = (otherBodyId << 1) | 1;
 
 	// no need to wake bodies when a joint removes collision between them
 	bool wakeBodies = false;
@@ -296,7 +270,7 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 		contactKey = contact->edges[edgeIndex].nextKey;
 
 		int otherEdgeIndex = edgeIndex ^ 1;
-		if (contact->edges[otherEdgeIndex].bodyKey == otherBodyKey)
+		if (contact->edges[otherEdgeIndex].bodyId == otherBodyId)
 		{
 			// Careful, this removes the contact from the current doubly linked list
 			b2DestroyContact(world, contact, wakeBodies);
@@ -340,7 +314,7 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 	joint->distanceJoint.lowerImpulse = 0.0f;
 	joint->distanceJoint.upperImpulse = 0.0f;
 
-	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	// If the joint prevents collisions, then destroy all contacts between attached sims
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -379,7 +353,7 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 	joint->motorJoint.maxTorque = def->maxTorque;
 	joint->motorJoint.correctionFactor = B2_CLAMP(def->correctionFactor, 0.0f, 1.0f);
 
-	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	// If the joint prevents collisions, then destroy all contacts between attached sims
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -403,11 +377,14 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 	b2Body* bodyA = b2GetBodyFullId(world, def->bodyIdA);
 	b2Body* bodyB = b2GetBodyFullId(world, def->bodyIdB);
 
+	b2Transform transformA = b2GetBodyTransformQuick(world, bodyA);
+	b2Transform transformB = b2GetBodyTransformQuick(world, bodyB);
+
 	b2Joint* joint = b2CreateJoint(world, bodyA, bodyB);
 
 	joint->type = b2_mouseJoint;
-	joint->localOriginAnchorA = b2InvTransformPoint(b2MakeTransform(bodyA), def->target);
-	joint->localOriginAnchorB = b2InvTransformPoint(b2MakeTransform(bodyB), def->target);
+	joint->localOriginAnchorA = b2InvTransformPoint(transformA, def->target);
+	joint->localOriginAnchorB = b2InvTransformPoint(transformB, def->target);
 	joint->collideConnected = true;
 	joint->userData = def->userData;
 
@@ -460,7 +437,7 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
 
-	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	// If the joint prevents collisions, then destroy all contacts between attached sims
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -509,7 +486,7 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 	joint->prismaticJoint.enableLimit = def->enableLimit;
 	joint->prismaticJoint.enableMotor = def->enableMotor;
 
-	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	// If the joint prevents collisions, then destroy all contacts between attached sims
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -551,7 +528,7 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	joint->weldJoint.linearImpulse = b2Vec2_zero;
 	joint->weldJoint.angularImpulse = 0.0f;
 
-	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	// If the joint prevents collisions, then destroy all contacts between attached sims
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -601,7 +578,7 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	joint->wheelJoint.enableLimit = def->enableLimit;
 	joint->wheelJoint.enableMotor = def->enableMotor;
 
-	// If the joint prevents collisions, then destroy all contacts between attached bodies
+	// If the joint prevents collisions, then destroy all contacts between attached sims
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -701,9 +678,8 @@ void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies)
 
 	if (wakeBodies)
 	{
-		// careful because calling these invalidates pointers
-		b2WakeBody(world, idA);
-		b2WakeBody(world, idB);
+		b2WakeBody(world, bodyA);
+		b2WakeBody(world, bodyB);
 	}
 
 	b2ValidateWorld(world);
@@ -781,11 +757,11 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 	if (shouldCollide)
 	{
 		// need to tell the broadphase to look for new pairs for one of the
-		// two bodies. Pick the one with the fewest shapes.
-		int shapeCountA = bodyA->shapeList.shapeCount;
-		int shapeCountB = bodyB->shapeList.shapeCount;
+		// two sims. Pick the one with the fewest shapes.
+		int shapeCountA = bodyA->shapeCount;
+		int shapeCountB = bodyB->shapeCount;
 
-		int shapeId = shapeCountA < shapeCountB ? bodyA->shapeList.headShapeId : bodyB->shapeList.headShapeId;
+		int shapeId = shapeCountA < shapeCountB ? bodyA->headShapeId : bodyB->headShapeId;
 		while (shapeId != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapes + shapeId;
@@ -834,12 +810,11 @@ void b2Joint_WakeBodies(b2JointId jointId)
 	}
 
 	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
-	int idA = joint->edges[0].bodyId;
-	int idB = joint->edges[1].bodyId;
+	b2Body* bodyA = world->bodyArray + joint->edges[0].bodyId;
+	b2Body* bodyB = world->bodyArray + joint->edges[1].bodyId;
 
-	// careful because calling these invalidates pointers
-	b2WakeBody(world, idA);
-	b2WakeBody(world, idB);
+	b2WakeBody(world, bodyA);
+	b2WakeBody(world, bodyB);
 }
 
 extern void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context);
@@ -1040,13 +1015,13 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
 	b2Body* bodyA = b2GetBody(world, joint->edges[0].bodyId);
 	b2Body* bodyB = b2GetBody(world, joint->edges[1].bodyId);
-	if (bodyA->isEnabled == false || bodyB->isEnabled == false)
+	if (bodyA->setIndex == b2_disabledSet || bodyB->setIndex == b2_disabledSet)
 	{
 		return;
 	}
 
-	b2Transform transformA = b2MakeTransform(bodyA);
-	b2Transform transformB = b2MakeTransform(bodyB);
+	b2Transform transformA = b2GetBodyTransformQuick(world, bodyA);
+	b2Transform transformB = b2GetBodyTransformQuick(world, bodyB);
 	b2Vec2 pA = b2TransformPoint(transformA, joint->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, joint->localOriginAnchorB);
 

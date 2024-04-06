@@ -5,21 +5,17 @@
 
 #include "block_array.h"
 
-typedef struct b2Body b2Body;
-typedef struct b2BodyState b2BodyState;
-typedef struct b2Contact b2Contact;
-typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
 
 // This holds solver set data. The following sets are used:
-// - static set for all static bodies (no contacts or joints)
-// - active set for all active bodies with body states (no contacts or joints)
-// - disabled set for disabled bodies and their joints
+// - static set for all static sims (no contacts or joints)
+// - active set for all active sims with body states (no contacts or joints)
+// - disabled set for disabled sims and their joints
 // - all further sets are sleeping island sets along with their contacts and joints
 typedef struct b2SolverSet
 {
 	// Body array. Empty for unused set.
-	b2BodyArray bodies;
+	b2BodySimArray sims;
 
 	// Body state only exists for active set
 	b2BodyStateArray states;

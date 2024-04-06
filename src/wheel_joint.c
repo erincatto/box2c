@@ -181,13 +181,13 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2BodyLookup* lookup = world->bodyLookupArray;
+	b2Body* lookup = world->bodyArray;
 
 	b2CheckIndex(lookup, idA);
 	b2CheckIndex(lookup, idB);
 
-	b2BodyLookup lookupA = lookup[idA];
-	b2BodyLookup lookupB = lookup[idB];
+	b2Body lookupA = lookup[idA];
+	b2Body lookupB = lookup[idB];
 
 	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
 	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
@@ -196,11 +196,11 @@ void b2PrepareWheelJoint(b2Joint* base, b2StepContext* context)
 	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
 	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
 	
-	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->bodies.count);
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->sims.count);
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
 
-	b2Body* bodyA = setA->bodies.data + lookupA.bodyIndex;
-	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
+	b2Body* bodyA = setA->sims.data + lookupA.bodyIndex;
+	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -267,7 +267,7 @@ void b2WarmStartWheelJoint(b2Joint* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2WheelJoint* joint = &base->wheelJoint;
@@ -308,12 +308,12 @@ void b2SolveWheelJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2WheelJoint* joint = &base->wheelJoint;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	// This is a dummy body to represent a static body since static sims don't have a solver body.
 	b2BodyState dummyBody = {0};
 
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
@@ -498,8 +498,8 @@ void b2WheelJoint_Dump()
 	int32 indexB = joint->bodyB->joint->islandIndex;
 
 	b2Dump("  b2WheelJointDef jd;\n");
-	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
-	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
+	b2Dump("  jd.bodyA = sims[%d];\n", indexA);
+	b2Dump("  jd.bodyB = sims[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", joint->collideConnected);
 	b2Dump("  jd.localAnchorA.Set(%.9g, %.9g);\n", joint->localAnchorA.x, joint->localAnchorA.y);
 	b2Dump("  jd.localAnchorB.Set(%.9g, %.9g);\n", joint->localAnchorB.x, joint->localAnchorB.y);

@@ -55,13 +55,13 @@ typedef struct b2WorldDef
 	/// Joint bounciness. Non-dimensional.
 	float jointDampingRatio;
 
-	/// Can bodies go to sleep to improve performance
+	/// Can sims go to sleep to improve performance
 	bool enableSleep;
 
 	/// Enable continuous collision
 	bool enableContinous;
 
-	/// Capacity for bodies. This may not be exceeded.
+	/// Capacity for sims. This may not be exceeded.
 	int32_t bodyCapacity;
 
 	/// initial capacity for shapes
@@ -111,7 +111,7 @@ typedef struct b2BodyDef
 	/// Note: if a dynamic body would have zero mass, the mass is set to one.
 	b2BodyType type;
 
-	/// The world position of the body. Avoid creating bodies at the origin
+	/// The world position of the body. Avoid creating sims at the origin
 	/// since this can lead to many overlapping shapes.
 	b2Vec2 position;
 
@@ -151,7 +151,7 @@ typedef struct b2BodyDef
 	bool fixedRotation;
 
 	/// Treat this body as high speed object that performs continuous collision detection
-	/// against dynamic and kinematic bodies, but not other bullet bodies.
+	/// against dynamic and kinematic sims, but not other bullet sims.
 	bool isBullet;
 
 	/// Does this body start out enabled?
@@ -217,13 +217,13 @@ typedef struct b2ShapeDef
 	/// A sensor shape collects contact information but never generates a collision response.
 	bool isSensor;
 
-	/// Enable sensor events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	/// Enable sensor events for this shape. Only applies to kinematic and dynamic sims. Ignored for sensors.
 	bool enableSensorEvents;
 
-	/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	/// Enable contact events for this shape. Only applies to kinematic and dynamic sims. Ignored for sensors.
 	bool enableContactEvents;
 
-	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
+	/// Enable pre-solve contact events for this shape. Only applies to dynamic sims. These are expensive
 	///	and must be carefully handled due to multi-threading. Ignored for sensors.
 	bool enablePreSolveEvents;
 
@@ -232,7 +232,7 @@ typedef struct b2ShapeDef
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
 ///	- DO NOT use chain shapes unless you understand the limitations. This is an advanced feature!
 ///	- chains are one-sided
-///	- chains have no mass and should be used on static bodies
+///	- chains have no mass and should be used on static sims
 ///	- the front side of the chain points the right of the point sequence
 ///	- chains are either a loop or open
 /// - a chain must have at least 4 points

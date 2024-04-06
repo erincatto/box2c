@@ -120,7 +120,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	// pools
 	world->bodyIdPool = b2CreateIdPool();
-	world->bodyLookupArray = b2CreateArray(sizeof(b2BodyLookup), def->bodyCapacity);
+	world->bodyArray = b2CreateArray(sizeof(b2Body), def->bodyCapacity);
 	world->solverSetArray = b2CreateArray(sizeof(b2SolverSet), 8);
 
 	// add empty static, active, and disabled body sets
@@ -236,7 +236,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	b2DestroyIdPool(&world->jointIdPool);
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroyIdPool(&world->solverSetIdPool);
-	b2DestroyArray(world->bodyLookupArray, sizeof(b2BodyLookup));
+	b2DestroyArray(world->bodyArray, sizeof(b2Body));
 	b2DestroyArray(world->contactLookupArray, sizeof(b2ContactLookup));
 	b2DestroyArray(world->jointLookupArray, sizeof(b2JointLookup));
 	b2DestroyArray(world->islandLookupArray, sizeof(b2IslandLookup));
@@ -267,7 +267,7 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
 	b2Contact** contacts = stepContext->contacts;
 	b2Shape* shapes = world->shapes;
-	b2BodyLookup* bodyLookup = world->bodyLookupArray;
+	b2Body* bodyLookup = world->bodyArray;
 
 	B2_ASSERT(startIndex < endIndex);
 
@@ -278,15 +278,15 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 		b2Shape* shapeA = shapes + contact->shapeIdA;
 		b2Shape* shapeB = shapes + contact->shapeIdB;
 
-		//b2BodyLookup lookupA = bodyLookup[shapeA->bodyId];
-		//b2BodyLookup lookupB = bodyLookup[shapeB->bodyId];
+		//b2Body lookupA = bodyLookup[shapeA->bodyId];
+		//b2Body lookupB = bodyLookup[shapeB->bodyId];
 
 		//if (lookupA.setIndex != b2_awakeSet && lookupB.setIndex != b2_awakeSet)
 		//{
 		//	B2_ASSERT(lookupA.setIndex != b2_disabledSet);
 		//	B2_ASSERT(lookupB.setIndex != b2_disabledSet);
 		//	B2_ASSERT(lookupA.setIndex >= b2_firstSleepingSet || lookupB.setIndex >= b2_firstSleepingSet);
-		//	// contact needs to be moved to sleeping set, but what if both bodies are sleeping in different sets?
+		//	// contact needs to be moved to sleeping set, but what if both sims are sleeping in different sets?
 		//	// perhaps there should be a separate place for sleeping non-touching contacts
 		//	// certainly when a non-touching contact is woken up, it should not go into the constraint graph
 		//	// but we are iterating contacts in the constraint graph, so where should awake non-touching contacts go?
@@ -397,7 +397,7 @@ static void b2Collide(b2StepContext* context)
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
 	// Tasks that can be done in parallel with the narrow-phase
-	// - rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good
+	// - rebuild the collision tree for dynamic and kinematic sims to keep their query performance good
 	world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
 	world->taskCount += 1;
 	world->activeTaskCount += world->userTreeTask == NULL ? 0 : 1;
@@ -791,10 +791,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		{
 			bool isAwake = (setIndex == b2_awakeSet);
 			b2SolverSet* set = world->solverSetArray + setIndex;
-			int bodyCount = set->bodies.count;
+			int bodyCount = set->sims.count;
 			for (int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
-				b2Body* body = set->bodies.data + bodyIndex;
+				b2Body* body = set->sims.data + bodyIndex;
 				b2Transform xf = b2MakeTransform(body);
 				int shapeIndex = body->shapeList;
 				while (shapeIndex != B2_NULL_INDEX)
@@ -873,10 +873,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
 			b2SolverSet* set = world->solverSetArray + setIndex;
-			int bodyCount = set->bodies.count;
+			int bodyCount = set->sims.count;
 			for (int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
-				b2Body* body = set->bodies.data + bodyIndex;
+				b2Body* body = set->sims.data + bodyIndex;
 
 				char buffer[32];
 				snprintf(buffer, 32, "%d", body->bodyId);
@@ -908,10 +908,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
 			b2SolverSet* set = world->solverSetArray + setIndex;
-			int bodyCount = set->bodies.count;
+			int bodyCount = set->sims.count;
 			for (int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
 			{
-				b2Body* body = set->bodies.data + bodyIndex;
+				b2Body* body = set->sims.data + bodyIndex;
 
 				b2Transform transform = {body->position, body->rotation};
 				draw->DrawTransform(transform, draw->context);
@@ -1088,13 +1088,13 @@ bool b2Body_IsValid(b2BodyId id)
 		return false;
 	}
 
-	if (id.index1 < 1 || b2Array(world->bodyLookupArray).count < id.index1)
+	if (id.index1 < 1 || b2Array(world->bodyArray).count < id.index1)
 	{
 		// invalid index
 		return false;
 	}
 
-	b2BodyLookup lookup = world->bodyLookupArray[id.index1 - 1];
+	b2Body lookup = world->bodyArray[id.index1 - 1];
 	if (lookup.setIndex == B2_NULL_INDEX)
 	{
 		// this was freed
@@ -1251,7 +1251,7 @@ void b2World_EnableSleeping(b2WorldId worldId, bool flag)
 		for (int i = b2_firstSleepingSet; i < setCount; ++i)
 		{
 			b2SolverSet* set = world->solverSetArray + i;
-			if (set->bodies.count > 0)
+			if (set->sims.count > 0)
 			{
 				b2WakeSolverSet(world, i);
 			}
@@ -1813,7 +1813,7 @@ void b2World_Dump()
 	b2Dump("b2Vec2 g(%.9g, %.9g);\n", m_gravity.x, m_gravity.y);
 	b2Dump("m_world->SetGravity(g);\n");
 
-	b2Dump("b2Body** bodies = (b2Body**)b2Alloc(%d * sizeof(b2Body*));\n", m_bodyCount);
+	b2Dump("b2Body** sims = (b2Body**)b2Alloc(%d * sizeof(b2Body*));\n", m_bodyCount);
 	b2Dump("b2Joint** joints = (b2Joint**)b2Alloc(%d * sizeof(b2Joint*));\n", m_jointCount);
 
 	int32 i = 0;
@@ -1858,9 +1858,9 @@ void b2World_Dump()
 	}
 
 	b2Dump("b2Free(joints);\n");
-	b2Dump("b2Free(bodies);\n");
+	b2Dump("b2Free(sims);\n");
 	b2Dump("joints = nullptr;\n");
-	b2Dump("bodies = nullptr;\n");
+	b2Dump("sims = nullptr;\n");
 
 	b2CloseDump();
 }
@@ -1888,7 +1888,7 @@ b2Vec2 b2World_GetGravity(b2WorldId worldId)
 #if B2_VALIDATE
 void b2ValidateWorld(b2World* world)
 {
-	B2_ASSERT(b2GetIdCapacity(&world->bodyIdPool) == b2Array(world->bodyLookupArray).count);
+	B2_ASSERT(b2GetIdCapacity(&world->bodyIdPool) == b2Array(world->bodyArray).count);
 	B2_ASSERT(b2GetIdCapacity(&world->contactIdPool) == b2Array(world->contactLookupArray).count);
 	B2_ASSERT(b2GetIdCapacity(&world->jointIdPool) == b2Array(world->jointLookupArray).count);
 	B2_ASSERT(b2GetIdCapacity(&world->islandIdPool) == b2Array(world->islandLookupArray).count);
@@ -1914,7 +1914,7 @@ void b2ValidateWorld(b2World* world)
 			}
 			else if (setIndex == b2_awakeSet)
 			{
-				B2_ASSERT(set->bodies.count == set->states.count);
+				B2_ASSERT(set->sims.count == set->states.count);
 				B2_ASSERT(set->joints.count == 0);
 			}
 			else if (setIndex == b2_disabledSet)
@@ -1929,15 +1929,15 @@ void b2ValidateWorld(b2World* world)
 			}
 
 			{
-				b2BodyLookup* lookups = world->bodyLookupArray;
+				b2Body* lookups = world->bodyArray;
 				int lookupCount = b2Array(lookups).count;
-				B2_ASSERT(set->bodies.count >= 0);
-				totalBodyCount += set->bodies.count;
-				for (int i = 0; i < set->bodies.count; ++i)
+				B2_ASSERT(set->sims.count >= 0);
+				totalBodyCount += set->sims.count;
+				for (int i = 0; i < set->sims.count; ++i)
 				{
-					b2Body* body = set->bodies.data + i;
+					b2Body* body = set->sims.data + i;
 					B2_ASSERT(0 <= body->bodyId && body->bodyId < lookupCount);
-					b2BodyLookup lookup = lookups[body->bodyId];
+					b2Body lookup = lookups[body->bodyId];
 					B2_ASSERT(lookup.setIndex == setIndex);
 					B2_ASSERT(lookup.bodyIndex == i);
 					B2_ASSERT(lookup.revision == body->revision);
@@ -2011,7 +2011,7 @@ void b2ValidateWorld(b2World* world)
 		}
 		else
 		{
-			B2_ASSERT(set->bodies.count == 0);
+			B2_ASSERT(set->sims.count == 0);
 			B2_ASSERT(set->contacts.count == 0);
 			B2_ASSERT(set->joints.count == 0);
 			B2_ASSERT(set->islands.count == 0);
@@ -2085,15 +2085,15 @@ void b2ValidateWorld(b2World* world)
 			continue;
 		}
 
-		B2_ASSERT(0 <= shape->bodyId && shape->bodyId < b2Array(world->bodyLookupArray).count);
+		B2_ASSERT(0 <= shape->bodyId && shape->bodyId < b2Array(world->bodyArray).count);
 
-		b2BodyLookup lookup = world->bodyLookupArray[shape->bodyId];
+		b2Body lookup = world->bodyArray[shape->bodyId];
 		B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
 
 		b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-		B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex < set->bodies.count);
+		B2_ASSERT(0 <= lookup.bodyIndex && lookup.bodyIndex < set->sims.count);
 
-		b2Body* body = set->bodies.data + lookup.bodyIndex;
+		b2Body* body = set->sims.data + lookup.bodyIndex;
 		B2_ASSERT(body->revision == lookup.revision);
 
 		bool found = false;

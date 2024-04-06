@@ -4,7 +4,6 @@
 #pragma once
 
 #include "api.h"
-#include "types.h"
 
 #include <stdint.h>
 
@@ -26,20 +25,3 @@ B2_API int64_t b2GetTicks(b2Timer* timer);
 B2_API float b2GetMilliseconds(const b2Timer* timer);
 B2_API float b2GetMillisecondsAndReset(b2Timer* timer);
 B2_API void b2SleepMilliseconds(float milliseconds);
-
-/// Tracy profiler instrumentation
-///	https://github.com/wolfpld/tracy
-#ifdef BOX2D_PROFILE
-
-#include <tracy/TracyC.h>
-#define b2TracyCZoneC(ctx, color, active) TracyCZoneC(ctx, color, active)
-#define b2TracyCZoneNC(ctx, name, color, active) TracyCZoneNC(ctx, name, color, active)
-#define b2TracyCZoneEnd(ctx) TracyCZoneEnd(ctx)
-
-#else
-
-#define b2TracyCZoneC(ctx, color, active)
-#define b2TracyCZoneNC(ctx, name, color, active)
-#define b2TracyCZoneEnd(ctx)
-
-#endif

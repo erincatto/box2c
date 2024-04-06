@@ -14,7 +14,7 @@
 void b2DestroySolverSet(b2World* world, int setId)
 {
 	b2SolverSet* set = world->solverSetArray + setId;
-	b2DestroyBodyArray(&world->blockAllocator, &set->bodies);
+	b2DestroyBodyArray(&world->blockAllocator, &set->sims);
 	b2DestroyBodyStateArray(&world->blockAllocator, &set->states);
 	b2DestroyContactArray(&world->blockAllocator, &set->contacts);
 	b2DestroyJointArray(&world->blockAllocator, &set->joints);
@@ -31,17 +31,17 @@ void b2WakeSolverSet(b2World* world, int setId)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 
 	b2BlockAllocator* alloc = &world->blockAllocator;
-	b2BodyLookup* bodyLookups = world->bodyLookupArray;
+	b2Body* bodyLookups = world->bodyArray;
 	b2ContactLookup* contactLookups = world->contactLookupArray;
 	b2JointLookup* jointLookups = world->jointLookupArray;
 	b2IslandLookup* islandLookups = world->islandLookupArray;
 
-	int bodyCount = set->bodies.count;
+	int bodyCount = set->sims.count;
 	for (int i = 0; i < bodyCount; ++i)
 	{
-		b2Body* body1 = set->bodies.data + i;
-		b2Body* body2 = b2AddBody(alloc, &awakeSet->bodies);
-		b2BodyLookup* lookup = bodyLookups->
+		b2Body* body1 = set->sims.data + i;
+		b2Body* body2 = b2AddBody(alloc, &awakeSet->sims);
+		b2Body* lookup = bodyLookups->
 	}
 
 	b2DestroySolverSet(world, setId);

@@ -78,7 +78,7 @@ static inline void b2BufferMove(b2BroadPhase* bp, int proxyKey)
 {
 	// Why only mobile proxies? Because we need to be able insert a large number of static shapes
 	// without triggering a large number of pair updates that do nothing.
-	// If you need to spawn non-moving shapes close to dynamic bodies then use kinematic bodies.
+	// If you need to spawn non-moving shapes close to dynamic sims then use kinematic sims.
 	b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
 	if (proxyType != b2_movableProxy)
 	{

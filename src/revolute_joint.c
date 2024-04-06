@@ -141,19 +141,19 @@ float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
 // K = invI1 + invI2
 
 // Body State
-// The solver operates on the body state. The body state array does not hold static bodies. Static bodies are shared
+// The solver operates on the body state. The body state array does not hold static sims. Static sims are shared
 // across worker threads. It would be okay to read their states, but writing to them would cause cache thrashing across
 // workers, even if the values don't change.
 // This causes some trouble when computing anchors. I rotate the anchors using the body rotation every sub-step. For static
-// bodies the anchor doesn't rotate. Body A or B could be static and this can lead to lots of branching. This branching
+// sims the anchor doesn't rotate. Body A or B could be static and this can lead to lots of branching. This branching
 // should be minimized.
 // 
 // Solution 1:
-// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static bodies will be identity.
-// Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if bodies move fast.
+// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static sims will be identity.
+// Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if sims move fast.
 //
 // Solution 2:
-// Use full rotation. The anchors for static bodies will be in world space while the anchors for dynamic bodies will be in local space.
+// Use full rotation. The anchors for static sims will be in world space while the anchors for dynamic sims will be in local space.
 // Potentially confusing and bug prone.
 
 void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
@@ -165,13 +165,13 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2BodyLookup* lookup = world->bodyLookupArray;
+	b2Body* lookup = world->bodyArray;
 
 	b2CheckIndex(lookup, idA);
 	b2CheckIndex(lookup, idB);
 
-	b2BodyLookup lookupA = lookup[idA];
-	b2BodyLookup lookupB = lookup[idB];
+	b2Body lookupA = lookup[idA];
+	b2Body lookupB = lookup[idB];
 
 	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
 	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
@@ -180,11 +180,11 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
 	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
 
-	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->bodies.count);
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->bodies.count);
+	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->sims.count);
+	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
 
-	b2Body* bodyA = setA->bodies.data + lookupA.bodyIndex;
-	b2Body* bodyB = setB->bodies.data + lookupB.bodyIndex;
+	b2Body* bodyA = setA->sims.data + lookupA.bodyIndex;
+	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
 
 	float mA = bodyA->invMass;
 	float iA = bodyA->invI;
@@ -228,7 +228,7 @@ void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
@@ -256,7 +256,7 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
@@ -410,8 +410,8 @@ void b2RevoluteJoint::Dump()
 	int32 indexB = joint->bodyB->joint->islandIndex;
 
 	b2Dump("  b2RevoluteJointDef jd;\n");
-	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
-	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
+	b2Dump("  jd.bodyA = sims[%d];\n", indexA);
+	b2Dump("  jd.bodyB = sims[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", joint->collideConnected);
 	b2Dump("  jd.localAnchorA.Set(%.9g, %.9g);\n", joint->localAnchorA.x, joint->localAnchorA.y);
 	b2Dump("  jd.localAnchorB.Set(%.9g, %.9g);\n", joint->localAnchorB.x, joint->localAnchorB.y);

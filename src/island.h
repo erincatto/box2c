@@ -36,7 +36,7 @@ typedef struct b2IslandLookup
 	int localIndex;
 } b2IslandLookup;
 
-// Persistent island for awake bodies, joints, and contacts
+// Persistent island for awake sims, joints, and contacts
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
 typedef struct b2Island

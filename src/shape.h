@@ -17,12 +17,7 @@ typedef struct b2World b2World;
 typedef struct b2Shape
 {
 	b2Object object;
-
-	// body key is split into bits
-	// (31 | 1)
-	// (bodyId | type)
-	// where type is 0 for a static body or 1 for a dynamic/kinematic body
-	int bodyKey;
+	int bodyId;
 	int nextShapeId;
 	b2ShapeType type;
 	float density;
@@ -57,12 +52,7 @@ typedef struct b2Shape
 typedef struct b2ChainShape
 {
 	b2Object object;
-
-	// body key is split into bits
-	// (31 | 1)
-	// (bodyId | type)
-	// where type is 0 for a static body or 1 for a dynamic/kinematic body
-	int bodyKey;
+	int bodyId;
 	int nextIndex;
 	int* shapeIndices;
 	int count;

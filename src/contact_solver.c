@@ -31,11 +31,9 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 	b2ContactConstraint* constraints = color->overflowConstraints;
 	int contactCount = color->contacts.count;
 	b2Contact* contacts = color->contacts.data;
-	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
-	B2_ASSERT(awakeSet->bodies.count == awakeSet->states.count);
-	b2Body* awakeBodies = awakeSet->bodies.data;
-	b2BodyState* awakeStates = awakeSet->states.data;
-	b2BodyLookup* lookups = world->bodyLookupArray;
+	b2BodySim* awakeSims = context->sims;
+	b2BodyState* awakeStates = context->states;
+	b2Body* bodies = world->bodyArray;
 
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
@@ -51,22 +49,12 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 		B2_ASSERT(0 < pointCount && pointCount <= 2);
 
-		int bodyKeyA = contact->edges[0].bodyKey;
-		int bodyKeyB = contact->edges[1].bodyKey;
-		int indexA = B2_NULL_INDEX;
-		int indexB = B2_NULL_INDEX;
+		// body index is null for static bodies
+		b2Body* bodyA = bodies + contact->edges[0].bodyId;
+		int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 
-		if (bodyKeyA & 1)
-		{
-			b2BodyLookup lookupA = lookups[bodyKeyA >> 1];
-			indexA = lookupA.bodyIndex;
-		}
-
-		if (bodyKeyB & 1)
-		{
-			b2BodyLookup lookupB = lookups[bodyKeyB >> 1];
-			indexB = lookupB.bodyIndex;
-		}
+		b2Body* bodyB = bodies + contact->edges[1].bodyId;
+		int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 		b2ContactConstraint* constraint = constraints + i;
 		constraint->indexA = indexA;
@@ -81,14 +69,13 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 		float wA = 0.0f, mA = 0.0f, iA = 0.0f;
 		if (indexA != B2_NULL_INDEX)
 		{
-			B2_ASSERT(0 <= indexA && indexA < awakeSet->bodies.count);
 			b2BodyState* stateA = awakeStates + indexA;
 			vA = stateA->linearVelocity;
 			wA = stateA->angularVelocity;
-			b2Body* bodyA = awakeBodies + indexA;
-			mA = bodyA->invMass;
-			iA = bodyA->invI;
-			centerA = b2RotateVector(bodyA->rotation, bodyA->localCenter);
+			b2BodySim* bodySimA = awakeSims + indexA;
+			mA = bodySimA->invMass;
+			iA = bodySimA->invI;
+			centerA = b2RotateVector(bodySimA->transform.q, bodySimA->localCenter);
 		}
 
 		b2Vec2 vB = b2Vec2_zero;
@@ -96,17 +83,16 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 		float wB = 0.0f, mB = 0.0f, iB = 0.0f;
 		if (indexB != B2_NULL_INDEX)
 		{
-			B2_ASSERT(0 <= indexB && indexB < awakeSet->bodies.count);
 			b2BodyState* stateB = awakeStates + indexB;
 			vB = stateB->linearVelocity;
 			wB = stateB->angularVelocity;
-			b2Body* bodyB = awakeBodies + indexB;
-			mB = bodyB->invMass;
-			iB = bodyB->invI;
-			centerB = b2RotateVector(bodyB->rotation, bodyB->localCenter);
+			b2BodySim* bodySimB = awakeSims + indexB;
+			mB = bodySimB->invMass;
+			iB = bodySimB->invI;
+			centerB = b2RotateVector(bodySimB->transform.q, bodySimB->localCenter);
 		}
 
-		// Stiffer for static contacts to avoid bodies getting pushed through the ground
+		// Stiffer for static contacts to avoid sims getting pushed through the ground
 		if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
 		{
 			constraint->softness = staticSoftness;
@@ -172,7 +158,7 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 	b2SolverSet* awakeSet = context->world->solverSetArray + b2_awakeSet;
 	b2BodyState* states = awakeSet->states.data;
 
-	// This is a dummy state to represent a static body because static bodies don't have a solver body.
+	// This is a dummy state to represent a static body because static sims don't have a solver body.
 	b2BodyState dummyState = b2_identityBodyState;
 
 	for (int i = 0; i < contactCount; ++i)
@@ -195,7 +181,7 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 		float mB = constraint->invMassB;
 		float iB = constraint->invIB;
 
-		// Stiffer for static contacts to avoid bodies getting pushed through the ground
+		// Stiffer for static contacts to avoid sims getting pushed through the ground
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(constraint->normal);
 		int pointCount = constraint->pointCount;
@@ -238,7 +224,7 @@ void b2SolveOverflowContacts(b2StepContext* context, bool useBias)
 	float inv_h = context->inv_h;
 	const float pushout = context->world->contactPushoutVelocity;
 
-	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	// This is a dummy body to represent a static body since static sims don't have a solver body.
 	b2BodyState dummyState = b2_identityBodyState;
 
 	for (int i = 0; i < contactCount; ++i)
@@ -558,7 +544,7 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int* restri
 	return simdBody;
 }
 
-// This writes everything back to the solver bodies but only the velocities change
+// This writes everything back to the solver sims but only the velocities change
 static void b2ScatterBodies(b2BodyState* restrict states, int* restrict indices, const b2SimdBody* restrict simdBody)
 {
 	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
@@ -606,9 +592,9 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 	b2World* world = context->world;
 	b2Contact** contacts = context->contacts;
 	b2ContactConstraintSIMD* constraints = context->simdContactConstraints;
-	b2Body* bodies = context->bodies;
-	b2BodyState* states = context->states;
-	b2BodyLookup* lookups = world->bodyLookupArray;
+	b2BodySim* awakeSims = context->sims;
+	b2BodyState* awakeStates = context->states;
+	b2Body* bodies = world->bodyArray;
 
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
@@ -628,22 +614,12 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 			{
 				const b2Manifold* manifold = &contact->manifold;
 
-				int bodyKeyA = contact->edges[0].bodyKey;
-				int bodyKeyB = contact->edges[1].bodyKey;
-				int indexA = B2_NULL_INDEX;
-				int indexB = B2_NULL_INDEX;
+				// body index is null for static bodies
+				b2Body* bodyA = bodies + contact->edges[0].bodyId;
+				int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 
-				if (bodyKeyA & 1)
-				{
-					b2BodyLookup lookupA = lookups[bodyKeyA >> 1];
-					indexA = lookupA.bodyIndex;
-				}
-
-				if (bodyKeyB & 1)
-				{
-					b2BodyLookup lookupB = lookups[bodyKeyB >> 1];
-					indexB = lookupB.bodyIndex;
-				}
+				b2Body* bodyB = bodies + contact->edges[1].bodyId;
+				int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 				constraint->indexA[j] = indexA;
 				constraint->indexB[j] = indexB;
@@ -653,13 +629,13 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 				float wA = 0.0f, mA = 0.0f, iA = 0.0f;
 				if (indexA != B2_NULL_INDEX)
 				{
-					b2BodyState* stateA = states + indexA;
+					b2BodyState* stateA = awakeStates + indexA;
 					vA = stateA->linearVelocity;
 					wA = stateA->angularVelocity;
-					b2Body* bodyA = bodies + indexA;
-					mA = bodyA->invMass;
-					iA = bodyA->invI;
-					centerA = b2RotateVector(bodyA->rotation, bodyA->localCenter);
+					b2BodySim* bodySimA = awakeSims + indexA;
+					mA = bodySimA->invMass;
+					iA = bodySimA->invI;
+					centerA = b2RotateVector(bodySimA->transform.q, bodySimA->localCenter);
 				}
 
 				b2Vec2 vB = b2Vec2_zero;
@@ -667,13 +643,13 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 				float wB = 0.0f, mB = 0.0f, iB = 0.0f;
 				if (indexB != B2_NULL_INDEX)
 				{
-					b2BodyState* stateB = states + indexB;
+					b2BodyState* stateB = awakeStates + indexB;
 					vB = stateB->linearVelocity;
 					wB = stateB->angularVelocity;
-					b2Body* bodyB = bodies + indexB;
-					mB = bodyB->invMass;
-					iB = bodyB->invI;
-					centerB = b2RotateVector(bodyB->rotation, bodyB->localCenter);
+					b2BodySim* bodySimB = awakeSims + indexB;
+					mB = bodySimB->invMass;
+					iB = bodySimB->invI;
+					centerB = b2RotateVector(bodySimB->transform.q, bodySimB->localCenter);
 				}
 
 				((float*)&constraint->invMassA)[j] = mA;
@@ -683,7 +659,7 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 
 				b2Softness soft = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? staticSoftness : contactSoftness;
 
-				// Stiffer for static contacts to avoid bodies getting pushed through the ground
+				// Stiffer for static contacts to avoid sims getting pushed through the ground
 
 				b2Vec2 normal = manifold->normal;
 				((float*)&constraint->normal.X)[j] = normal.x;

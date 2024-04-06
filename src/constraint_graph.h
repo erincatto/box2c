@@ -18,12 +18,12 @@ typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
 // This holds constraints that cannot fit the graph color limit. This happens when a single dynamic body
-// is touching many other bodies.
+// is touching many other sims.
 #define b2_overflowIndex b2_graphColorCount - 1
 
 typedef struct b2GraphColor
 {
-	// todo this is allowing static bodies too
+	// todo this is allowing static sims too
 	b2BitSet bodySet;
 
 	// cache friendly arrays
@@ -43,7 +43,7 @@ typedef struct b2ConstraintGraph
 	// including overflow at the end
 	b2GraphColor colors[b2_graphColorCount];
 
-	// used to assign stable graph color ids to dynamic bodies
+	// used to assign stable graph color ids to dynamic sims
 	b2IdPool colorIdPool;
 
 } b2ConstraintGraph;
