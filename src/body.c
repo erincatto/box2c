@@ -65,7 +65,7 @@ b2BodySim* b2GetBodySim(b2World* world, b2Body* body)
 {
 	b2CheckIndex(world->solverSetArray, body->setIndex);
 	b2SolverSet* set = world->solverSetArray + body->setIndex;
-	B2_ASSERT(0 <= body->localIndex && body->localIndex < set->states.count);
+	B2_ASSERT(0 <= body->localIndex && body->localIndex < set->sims.count);
 	return set->sims.data + body->localIndex;
 }
 
@@ -361,6 +361,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandId = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
+	body->bodyId = bodyId;
 	body->worldId = world->worldId;
 
 	// dynamic and kinematic bodies that are enabled need a island

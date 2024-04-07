@@ -32,7 +32,7 @@ typedef struct b2TaskContext
 
 	// Used to track sims with shapes that have enlarged AABBs. This avoids having a bit array
 	// that is very large when there are many static shapes.
-	b2BitSet enlargedBodyBitSet;
+	b2BitSet enlargedSimBitSet;
 	int enlargedShapeCount;
 
 	// Used to put islands to sleep

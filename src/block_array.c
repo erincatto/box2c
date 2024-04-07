@@ -13,34 +13,52 @@
 
 b2BodySimArray b2CreateBodySimArray(b2BlockAllocator* allocator, int capacity)
 {
-	// ensure memcpy works later
-	B2_ASSERT(capacity > 0);
-	return (b2BodySimArray){b2AllocBlock(allocator, capacity * sizeof(b2BodySim)), 0, capacity};
+	if (capacity > 0)
+	{
+		return (b2BodySimArray){b2AllocBlock(allocator, capacity * sizeof(b2BodySim)), 0, capacity};
+	}
+
+	return (b2BodySimArray){0};
 }
 
 b2BodyStateArray b2CreateBodyStateArray(b2BlockAllocator* allocator, int capacity)
 {
-	// ensure memcpy works later
-	B2_ASSERT(capacity > 0);
-	return (b2BodyStateArray){b2AllocBlock(allocator, capacity * sizeof(b2BodyState)), 0, capacity};
+	if (capacity > 0)
+	{
+		return (b2BodyStateArray){b2AllocBlock(allocator, capacity * sizeof(b2BodyState)), 0, capacity};
+	}
+
+	return (b2BodyStateArray){0};
 }
 
 b2ContactArray b2CreateContactArray(b2BlockAllocator* allocator, int capacity)
 {
-	B2_ASSERT(capacity > 0);
-	return (b2ContactArray){b2AllocBlock(allocator, capacity * sizeof(b2Contact)), 0, capacity};
+	if (capacity > 0)
+	{
+		return (b2ContactArray){b2AllocBlock(allocator, capacity * sizeof(b2Contact)), 0, capacity};
+	}
+
+	return (b2ContactArray){0};
 }
 
 b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity)
 {
-	B2_ASSERT(capacity > 0);
-	return (b2JointArray){b2AllocBlock(allocator, capacity * sizeof(b2Joint)), 0, capacity};
+	if (capacity > 0)
+	{
+		return (b2JointArray){b2AllocBlock(allocator, capacity * sizeof(b2Joint)), 0, capacity};
+	}
+
+	return (b2JointArray){0};
 }
 
 b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity)
 {
-	B2_ASSERT(capacity > 0);
-	return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2Island)), 0, capacity};
+	if (capacity > 0)
+	{
+		return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2Island)), 0, capacity};
+	}
+
+	return (b2IslandArray){0};
 }
 
 void b2DestroyBodySimArray(b2BlockAllocator* allocator, b2BodySimArray* array)

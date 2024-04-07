@@ -23,7 +23,6 @@ typedef struct b2World b2World;
 // Reserve island jobs
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
-
 // map from int to solver set and index
 typedef struct b2IslandLookup
 {

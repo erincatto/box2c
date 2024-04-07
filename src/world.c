@@ -126,13 +126,21 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	// add empty static, active, and disabled body sets
 	world->solverSetIdPool = b2CreateIdPool();
 	b2SolverSet set = {0};
+
+	// static set
 	b2Array_Push(world->solverSetArray, set);
 	set.setId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.setId == b2_awakeSet);
+	B2_ASSERT(set.setId == b2_staticSet);
+
+	// disabled set
 	b2Array_Push(world->solverSetArray, set);
 	set.setId = b2AllocId(&world->solverSetIdPool);
 	B2_ASSERT(set.setId == b2_disabledSet);
+
+	// awake set
 	b2Array_Push(world->solverSetArray, set);
+	set.setId = b2AllocId(&world->solverSetIdPool);
+	B2_ASSERT(set.setId == b2_awakeSet);
 
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
@@ -191,7 +199,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		world->taskContextArray[i].contactStateBitSet = b2CreateBitSet(def->contactCapacity);
-		world->taskContextArray[i].enlargedBodyBitSet = b2CreateBitSet(def->bodyCapacity);
+		world->taskContextArray[i].enlargedSimBitSet = b2CreateBitSet(def->bodyCapacity);
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
@@ -206,7 +214,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	for (uint32_t i = 0; i < world->workerCount; ++i)
 	{
 		b2DestroyBitSet(&world->taskContextArray[i].contactStateBitSet);
-		b2DestroyBitSet(&world->taskContextArray[i].enlargedBodyBitSet);
+		b2DestroyBitSet(&world->taskContextArray[i].enlargedSimBitSet);
 		b2DestroyBitSet(&world->taskContextArray[i].awakeIslandBitSet);
 	}
 
@@ -1394,7 +1402,7 @@ void b2World_OverlapAABB(b2WorldId worldId, b2AABB aabb, b2QueryFilter filter, b
 
 	WorldQueryContext worldContext = {world, fcn, filter, context};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeQueryCallback, &worldContext);
 	}

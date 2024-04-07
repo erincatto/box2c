@@ -40,12 +40,12 @@ static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
 static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform transform,
 							  const b2ShapeDef* def, const void* geometry, b2ShapeType shapeType)
 {
-	b2Shape* shape = (b2Shape*)b2AllocObject(&world->shapePool);
-	world->shapes = (b2Shape*)world->shapePool.memory;
-
 	B2_ASSERT(b2IsValid(def->density) && def->density >= 0.0f);
 	B2_ASSERT(b2IsValid(def->friction) && def->friction >= 0.0f);
 	B2_ASSERT(b2IsValid(def->restitution) && def->restitution >= 0.0f);
+
+	b2Shape* shape = (b2Shape*)b2AllocObject(&world->shapePool);
+	world->shapes = (b2Shape*)world->shapePool.memory;
 
 	switch (shapeType)
 	{
