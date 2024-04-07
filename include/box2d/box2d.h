@@ -140,19 +140,13 @@ B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
 /// @warning This function is locked during callbacks.
 B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
 
-/// Destroy a rigid body given an id. This destroys all shapes attached to the body
-/// but does not destroy the joints.
+/// Destroy a rigid body given an id. This destroys all shapes and joints attached to the body.
+///	Do not keep references to the associated shapes and joints.
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBody(b2BodyId bodyId);
 
 /// Body identifier validation. Provides validation for up to 64K allocations.
 B2_API bool b2Body_IsValid(b2BodyId id);
-
-/// Destroy a rigid body given an id. Destroys all joints attached to the body. Be careful
-///	because this may invalidate some b2JointId that you have stored.
-/// @warning This function is locked during callbacks.
-///	todo make this the only function
-B2_API void b2DestroyBodyAndJoints(b2BodyId bodyId);
 
 /// Get the body type: static, kinematic, or dynamic
 B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);

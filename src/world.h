@@ -148,7 +148,6 @@ b2World* b2GetWorld(int index);
 b2World* b2GetWorldLocked(int index);
 void b2ValidateWorld(b2World* world);
 
-void b2CheckStaticBodyId(b2StaticBodyId staticBodyId);
 void b2CheckBodyId(b2BodyId bodyId);
 void b2CheckJointId(b2JointId jointId);
 void b2CheckShapeId(b2ShapeId shapeId);

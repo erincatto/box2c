@@ -550,7 +550,7 @@ static void b2Collide(b2StepContext* context)
 					}
 
 
-					contact = b2AddContactToGraph(world, contactLookup, contact);
+					contact = b2AddContactToGraph(world, contact, contactLookup);
 					b2RemoveNonTouchingContact(world, b2_awakeSet, localIndex);
 					b2LinkContact(world, contact);
 					contact = NULL;

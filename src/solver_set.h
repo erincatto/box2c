@@ -40,7 +40,7 @@ typedef struct b2SolverSet
 void b2WakeSolverSet(b2World* world, int setId);
 void b2SleepIsland(b2World* world, int islandId);
 
-void b2MergeSolverSets(b2World* world, int setIndex1, int setIndex2);
+void b2MergeSolverSets(b2World* world, int setId1, int setId2);
 
 void b2MoveBody(b2World* world, int jointId, int targetSetIndex);
 void b2MoveJoint(b2World* world, int jointId, int targetSetIndex);

@@ -57,7 +57,7 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 // Contacts are always created as non-touching. They get cloned into the constraint
 // graph once they are found to be touching.
 // todo maybe kinematic bodies should not go into graph
-b2Contact* b2AddContactToGraph(b2World* world, b2ContactLookup* contactLookup, b2Contact* contact)
+b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
@@ -169,9 +169,9 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	lookup->localIndex = B2_NULL_INDEX;
 }
 
-// todo pass B2_NULL_INDEX for kinematic bodies
+// todo pass B2_NULL_INDEX for kinematic bodies?
 // but we have to avoid writing to the kinematics in workers
-b2Joint* b2AddJointToGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLookup* lookup)
+b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLookup* jointLookup)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
@@ -227,9 +227,18 @@ b2Joint* b2AddJointToGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLook
 
 	b2Joint* joint = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
 	memset(joint, 0, sizeof(b2Joint));
-	lookup->colorIndex = colorIndex;
-	lookup->localIndex = graph->colors[colorIndex].joints.count - 1;
+	jointLookup->colorIndex = colorIndex;
+	jointLookup->localIndex = graph->colors[colorIndex].joints.count - 1;
 	return joint;
+}
+
+void b2AddJointToGraph(b2World* world, b2Joint* joint, b2JointLookup* jointLookup)
+{
+	int bodyIdA = joint->edges[0].bodyId;
+	int bodyIdB = joint->edges[1].bodyId;
+
+	b2Joint* jointDst = b2CreateJointInGraph(world, bodyIdA, bodyIdB, jointLookup);
+	memcpy(jointDst, joint, sizeof(b2Joint));
 }
 
 void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)

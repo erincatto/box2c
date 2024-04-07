@@ -165,7 +165,7 @@ static b2Joint* b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB)
 	}
 	else if (bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet)
 	{
-		joint = b2AddJointToGraph(world, bodyIdA, bodyIdB, lookup);
+		joint = b2CreateJointInGraph(world, bodyIdA, bodyIdB, lookup);
 		lookup->setIndex = b2_awakeSet;
 
 		// if either body is sleeping, wake it
