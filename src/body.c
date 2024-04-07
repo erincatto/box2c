@@ -149,8 +149,7 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 
 	if (islandDestroyed == false)
 	{
-		b2WakeIsland(world, island);
-		b2ValidateIsland(world, island, true);
+		b2WakeSolverSet(world, body->setIndex);
 	}
 
 	body->islandId = B2_NULL_INDEX;
@@ -295,7 +294,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	int bodyId = b2AllocId(&world->bodyIdPool);
 
 	b2SolverSet* set = world->solverSetArray + setIndex;
-	b2BodySim* bodySim = b2AddBody(&world->blockAllocator, &set->sims);
+	b2BodySim* bodySim = b2AddBodySim(&world->blockAllocator, &set->sims);
 	*bodySim = (b2BodySim){0};
 	bodySim->transform.p = def->position;
 	bodySim->transform.q = b2MakeRot(def->angle);
@@ -324,15 +323,6 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->enlargeAABB = false;
 	bodySim->isFast = false;
 	bodySim->isSpeedCapped = false;
-
-	if (bodySim->type == b2_staticBody || def->isEnabled == false)
-	{
-		bodySim->graphColorId = B2_NULL_INDEX;
-	}
-	else
-	{
-		bodySim->graphColorId = b2AllocId(&world->constraintGraph.colorIdPool);
-	}
 
 	if (setIndex == b2_awakeSet)
 	{
@@ -461,7 +451,7 @@ void b2DestroyBody(b2BodyId bodyId)
 	// Remove body sim from solver set that owns it
 	b2CheckIndex(world->solverSetArray, body->setIndex);
 	b2SolverSet* set = world->solverSetArray + body->setIndex;
-	int movedIndex = b2RemoveBody(&set->sims, body->localIndex);
+	int movedIndex = b2RemoveBodySim(&set->sims, body->localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix moved body index

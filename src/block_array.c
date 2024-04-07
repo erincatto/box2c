@@ -11,11 +11,11 @@
 
 #include <string.h>
 
-b2BodyArray b2CreateBodyArray(b2BlockAllocator* allocator, int capacity)
+b2BodySimArray b2CreateBodySimArray(b2BlockAllocator* allocator, int capacity)
 {
 	// ensure memcpy works later
 	B2_ASSERT(capacity > 0);
-	return (b2BodyArray){b2AllocBlock(allocator, capacity * sizeof(b2Body)), 0, capacity};
+	return (b2BodySimArray){b2AllocBlock(allocator, capacity * sizeof(b2BodySim)), 0, capacity};
 }
 
 b2BodyStateArray b2CreateBodyStateArray(b2BlockAllocator* allocator, int capacity)
@@ -43,9 +43,9 @@ b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity)
 	return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2Island)), 0, capacity};
 }
 
-void b2DestroyBodyArray(b2BlockAllocator* allocator, b2BodyArray* array)
+void b2DestroyBodySimArray(b2BlockAllocator* allocator, b2BodySimArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Body));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2BodySim));
 }
 
 void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* array)
@@ -68,20 +68,20 @@ void b2DestroyIslandArray(b2BlockAllocator* allocator, b2IslandArray* array)
 	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Island));
 }
 
-b2Body* b2AddBody(b2BlockAllocator* allocator, b2BodyArray* array)
+b2BodySim* b2AddBodySim(b2BlockAllocator* allocator, b2BodySimArray* array)
 {
 	if (array->count == array->capacity)
 	{
-		int elementSize = sizeof(b2Body);
+		int elementSize = sizeof(b2BodySim);
 		int newCapacity = B2_MAX(16, 2 * array->capacity);
-		b2Body* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2BodySim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
 		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Body* element = array->data + array->count;
+	b2BodySim* element = array->data + array->count;
 	array->count += 1;
 	return element;
 }
@@ -160,7 +160,7 @@ b2Island* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array)
 }
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)
-int b2RemoveBody(b2BodyArray* array, int index)
+int b2RemoveBodySim(b2BodySimArray* array, int index)
 {
 	B2_ASSERT(0 <= index && index < array->count);
 	if (index < array->count - 1)

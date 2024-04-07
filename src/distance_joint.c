@@ -41,31 +41,31 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2Body* lookup = world->bodyArray;
+	b2Body* bodies = world->bodyArray;
 
-	b2CheckIndex(lookup, idA);
-	b2CheckIndex(lookup, idB);
+	b2CheckIndex(bodies, idA);
+	b2CheckIndex(bodies, idB);
 
-	b2Body lookupA = lookup[idA];
-	b2Body lookupB = lookup[idB];
+	b2Body* bodyA = bodies + idA;
+	b2Body* bodyB = bodies + idB;
 
-	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
-	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
-	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
 
-	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
-	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
 
-	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->sims.count);
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
+	B2_ASSERT(0 <= bodyA->localIndex && bodyA->localIndex <= setA->sims.count);
+	B2_ASSERT(0 <= bodyB->localIndex && bodyB->localIndex <= setB->sims.count);
 
-	b2Body* bodyA = setA->sims.data + lookupA.bodyIndex;
-	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
+	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
+	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
 
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	float mA = bodySimA->invMass;
+	float iA = bodySimA->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	base->invMassA = mA;
 	base->invMassB = mB;
@@ -74,13 +74,13 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	joint->indexA = lookupA.setIndex == b2_awakeSet ? lookupA.bodyIndex : B2_NULL_INDEX;
-	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
+	joint->indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 	// initial anchors in world space
-	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
-	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
+	joint->deltaCenter = b2Sub(bodySimB->center, bodySimA->center);
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
@@ -355,10 +355,11 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 		return 0.0f;
 	}
 
-	b2Body* bodyA = b2GetBody(world, base->edges[0].bodyId);
-	b2Body* bodyB = b2GetBody(world, base->edges[1].bodyId);
-	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localOriginAnchorB);
+	b2Transform transformA = b2GetBodyTransform(world, base->edges[0].bodyId);
+	b2Transform transformB = b2GetBodyTransform(world, base->edges[1].bodyId);
+
+	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 	b2Vec2 d = b2Sub(pB, pA);
 	float length = b2Length(d);
 	return length;
@@ -407,16 +408,14 @@ void b2DistanceJoint::Dump()
 }
 #endif
 
-void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB)
+void b2DrawDistanceJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Transform xfA = b2MakeTransform(bodyA);
-	b2Transform xfB = b2MakeTransform(bodyB);
-	b2Vec2 pA = b2TransformPoint(xfA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(xfB, base->localOriginAnchorB);
+	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 
 	b2Vec2 axis = b2Normalize(b2Sub(pB, pA));
 

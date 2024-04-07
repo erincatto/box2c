@@ -159,37 +159,44 @@ void b2WakeIsland(b2World* world, b2Island* island)
 	#endif
 }
 
-void b2SleepIsland(b2World* world, b2Island* island)
-{
-	B2_ASSERT(island->constraintRemoveCount == 0);
-	// todo
-}
-
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
 {
 	B2_ASSERT(contact->manifold.pointCount > 0);
 
-	// todo can assume body is either awake or static
-	int bodyKeyA = contact->edges[0].bodyKey;
-	int bodyKeyB = contact->edges[1].bodyKey;
-	int islandIdA = B2_NULL_INDEX;
-	int islandIdB = B2_NULL_INDEX;
+	int bodyIdA = contact->edges[0].bodyId;
+	int bodyIdB = contact->edges[1].bodyId;
 
-	if (bodyKeyA & 1)
+	b2Body* bodyA = b2GetBody(world, bodyIdA);
+	b2Body* bodyB = b2GetBody(world, bodyIdB);
+
+	// At least one body must be awake
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+
+	// ensure body bodies are awake or static
+	if (bodyA->setIndex >= b2_firstSleepingSet)
 	{
-		int bodyIdA = bodyKeyA >> 1;
-		b2Body* bodyA = b2GetBody(world, bodyIdA);
-		islandIdA = bodyA->islandId;
+		b2WakeSolverSet(world, bodyA->setIndex);
 	}
 
-	if (bodyKeyB & 1)
+	if (bodyB->setIndex >= b2_firstSleepingSet)
 	{
-		int bodyIdB = bodyKeyB >> 1;
-		b2Body* bodyB = b2GetBody(world, bodyIdB);
-		islandIdB = bodyB->islandId;
+		b2WakeSolverSet(world, bodyB->setIndex);
 	}
 
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyA->setIndex == b2_staticSet);
+	B2_ASSERT(bodyB->setIndex == b2_awakeSet || bodyB->setIndex == b2_staticSet);
+
+	int islandIdA = bodyA->islandId;
+	int islandIdB = bodyB->islandId;
+	b2CheckIndex(world->islandLookupArray, islandIdA);
+	b2CheckIndex(world->islandLookupArray, islandIdB);
+
+	b2IslandLookup* islandLookupA = world->islandLookupArray + islandIdA;
+	b2IslandLookup* islandLookupB = world->islandLookupArray + islandIdB;
+
+	// Both islands must already be awake.
+	B2_ASSERT(islandLookupA->setIndex == b2_awakeSet && islandLookupB->setIndex == b2_awakeSet);
 	B2_ASSERT(islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX);
 
 	if (islandIdA == islandIdB)
@@ -206,7 +213,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	{
 		islandA = b2GetIsland(world, islandIdA);
 		int parentId = islandA->parentIsland;
-		b2WakeIsland(world, islandA);
 		while (parentId != B2_NULL_INDEX)
 		{
 			b2Island* parent = b2GetIsland(world, parentId);
@@ -218,7 +224,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 
 			islandA = parent;
 			parentId = islandA->parentIsland;
-			b2WakeIsland(world, islandA);
 		}
 	}
 
@@ -228,7 +233,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	{
 		islandB = b2GetIsland(world, islandIdB);
 		int parentId = islandB->parentIsland;
-		b2WakeIsland(world, islandB);
 		while (islandB->parentIsland != B2_NULL_INDEX)
 		{
 			b2Island* parent = b2GetIsland(world, parentId);
@@ -240,7 +244,6 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 
 			islandB = parent;
 			parentId = islandB->parentIsland;
-			b2WakeIsland(world, islandB);
 		}
 	}
 
@@ -567,6 +570,8 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 // and returned to the pool.
 void b2MergeAwakeIslands(b2World* world)
 {
+	b2TracyCZoneNC(merge_islands, "Merge Islands", b2_colorMediumTurquoise, true);
+
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	b2Island* islands = awakeSet->islands.data;
 	int awakeIslandCount = awakeSet->islands.count;
@@ -613,7 +618,6 @@ void b2MergeAwakeIslands(b2World* world)
 		int mergedBodyCount = b2MergeIsland(world, island);
 		maxBodyCount = B2_MAX(maxBodyCount, mergedBodyCount);
 
-		// todo destroy directly in awake set
 		b2DestroyIsland(world, island->islandId);
 	}
 
@@ -621,6 +625,8 @@ void b2MergeAwakeIslands(b2World* world)
 	// todo anything to do here?
 	//b2GrowPool(&world->islandPool, world->islandPool.count + maxBodyCount);
 	//world->islands = (b2Island*)world->islandPool.memory;
+
+	b2TracyCZoneEnd(merge_islands);
 }
 
 #define B2_CONTACT_REMOVE_THRESHOLD 1

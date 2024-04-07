@@ -50,7 +50,7 @@ typedef struct b2TreeNode
 /// with an AABB. These are used to hold a user collision object, such as a reference to a b2Shape.
 /// Nodes are pooled and relocatable, so I use node indices rather than pointers.
 ///	The dynamic tree is made available for advanced users that would like to use it to organize
-///	spatial game data besides rigid sims.
+///	spatial game data besides rigid bodies.
 typedef struct b2DynamicTree
 {
 	b2TreeNode* nodes;

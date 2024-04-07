@@ -92,7 +92,7 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 			centerB = b2RotateVector(bodySimB->transform.q, bodySimB->localCenter);
 		}
 
-		// Stiffer for static contacts to avoid sims getting pushed through the ground
+		// Stiffer for static contacts to avoid bodies getting pushed through the ground
 		if (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX)
 		{
 			constraint->softness = staticSoftness;
@@ -158,7 +158,7 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 	b2SolverSet* awakeSet = context->world->solverSetArray + b2_awakeSet;
 	b2BodyState* states = awakeSet->states.data;
 
-	// This is a dummy state to represent a static body because static sims don't have a solver body.
+	// This is a dummy state to represent a static body because static bodies don't have a solver body.
 	b2BodyState dummyState = b2_identityBodyState;
 
 	for (int i = 0; i < contactCount; ++i)
@@ -181,7 +181,7 @@ void b2WarmStartOverflowContacts(b2StepContext* context)
 		float mB = constraint->invMassB;
 		float iB = constraint->invIB;
 
-		// Stiffer for static contacts to avoid sims getting pushed through the ground
+		// Stiffer for static contacts to avoid bodies getting pushed through the ground
 		b2Vec2 normal = constraint->normal;
 		b2Vec2 tangent = b2RightPerp(constraint->normal);
 		int pointCount = constraint->pointCount;
@@ -224,7 +224,7 @@ void b2SolveOverflowContacts(b2StepContext* context, bool useBias)
 	float inv_h = context->inv_h;
 	const float pushout = context->world->contactPushoutVelocity;
 
-	// This is a dummy body to represent a static body since static sims don't have a solver body.
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2BodyState dummyState = b2_identityBodyState;
 
 	for (int i = 0; i < contactCount; ++i)
@@ -544,7 +544,7 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int* restri
 	return simdBody;
 }
 
-// This writes everything back to the solver sims but only the velocities change
+// This writes everything back to the solver bodies but only the velocities change
 static void b2ScatterBodies(b2BodyState* restrict states, int* restrict indices, const b2SimdBody* restrict simdBody)
 {
 	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
@@ -659,7 +659,7 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 
 				b2Softness soft = (indexA == B2_NULL_INDEX || indexB == B2_NULL_INDEX) ? staticSoftness : contactSoftness;
 
-				// Stiffer for static contacts to avoid sims getting pushed through the ground
+				// Stiffer for static contacts to avoid bodies getting pushed through the ground
 
 				b2Vec2 normal = manifold->normal;
 				((float*)&constraint->normal.X)[j] = normal.x;

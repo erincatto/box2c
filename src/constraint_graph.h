@@ -5,11 +5,11 @@
 
 #include "bitset.h"
 #include "block_array.h"
-#include "id_pool.h"
 
 #include "box2d/constants.h"
 
 typedef struct b2Contact b2Contact;
+typedef struct b2ContactLookup b2ContactLookup;
 typedef struct b2ContactConstraint b2ContactConstraint;
 typedef struct b2ContactConstraintSIMD b2ContactConstraintSIMD;
 typedef struct b2Joint b2Joint;
@@ -23,7 +23,8 @@ typedef struct b2World b2World;
 
 typedef struct b2GraphColor
 {
-	// todo this is allowing static sims too
+	// base on bodyId so this is over-sized to encompass static bodies
+	// however I never traverse these bits or use the bit count for anything
 	b2BitSet bodySet;
 
 	// cache friendly arrays
@@ -42,16 +43,12 @@ typedef struct b2ConstraintGraph
 {
 	// including overflow at the end
 	b2GraphColor colors[b2_graphColorCount];
-
-	// used to assign stable graph color ids to dynamic sims
-	b2IdPool colorIdPool;
-
 } b2ConstraintGraph;
 
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity);
 void b2DestroyGraph(b2ConstraintGraph* graph);
 
-b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact);
+b2Contact* b2AddContactToGraph(b2World* world, b2ContactLookup* contactLookup, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, b2Contact* contact);
 
 b2Joint* b2AddJointToGraph(b2World* world, int bodyColorIdA, int bodyColorIdB, b2JointLookup* lookup);

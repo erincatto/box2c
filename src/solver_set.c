@@ -9,12 +9,13 @@
 #include "island.h"
 #include "joint.h"
 #include "world.h"
-#include "util.h"
+
+#include <string.h>
 
 void b2DestroySolverSet(b2World* world, int setId)
 {
 	b2SolverSet* set = world->solverSetArray + setId;
-	b2DestroyBodyArray(&world->blockAllocator, &set->sims);
+	b2DestroyBodySimArray(&world->blockAllocator, &set->sims);
 	b2DestroyBodyStateArray(&world->blockAllocator, &set->states);
 	b2DestroyContactArray(&world->blockAllocator, &set->contacts);
 	b2DestroyJointArray(&world->blockAllocator, &set->joints);
@@ -22,6 +23,7 @@ void b2DestroySolverSet(b2World* world, int setId)
 	b2FreeId(&world->solverSetIdPool, setId);
 }
 
+// Wake a solver set. Does not merge islands.
 void b2WakeSolverSet(b2World* world, int setId)
 {
 	B2_ASSERT(setId >= b2_firstSleepingSet);
@@ -31,22 +33,310 @@ void b2WakeSolverSet(b2World* world, int setId)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 
 	b2BlockAllocator* alloc = &world->blockAllocator;
-	b2Body* bodyLookups = world->bodyArray;
-	b2ContactLookup* contactLookups = world->contactLookupArray;
-	b2JointLookup* jointLookups = world->jointLookupArray;
-	b2IslandLookup* islandLookups = world->islandLookupArray;
+	b2Body* bodies = world->bodyArray;
 
 	int bodyCount = set->sims.count;
 	for (int i = 0; i < bodyCount; ++i)
 	{
-		b2Body* body1 = set->sims.data + i;
-		b2Body* body2 = b2AddBody(alloc, &awakeSet->sims);
-		b2Body* lookup = bodyLookups->
+		b2BodySim* simSrc = set->sims.data + i;
+		
+		b2Body* body = bodies + simSrc->bodyId;
+		body->setIndex = b2_awakeSet;
+		body->localIndex = awakeSet->sims.count;
+
+		b2BodySim* simDst = b2AddBodySim(alloc, &awakeSet->sims);
+		memcpy(simDst, simSrc, sizeof(b2BodySim));
+
+		b2BodyState* state = b2AddBodyState(alloc, &awakeSet->states);
+		*state = b2_identityBodyState;
 	}
+
+	b2ContactLookup* contactLookups = world->contactLookupArray;
+	// transfer contacts from sleeping set to awake set
+
+
+	b2JointLookup* jointLookups = world->jointLookupArray;
+	// transfer joints from sleeping set to awake set
+
+	b2IslandLookup* islandLookups = world->islandLookupArray;
+	b2Island* island = NULL;
+
+	// transfer island from sleeping set to awake set
+
+	// transfer associated disabled contacts to the awake set
+	// these are non-touching contacts between different sleeping islands
+	int bodyId = island->headBody;
+	while (bodyId != B2_NULL_INDEX)
+	{
+		b2Body* body = bodies + bodyId;
+		bodyId = body->islandNext;
+
+
+		
+	}
+
 
 	b2DestroySolverSet(world, setId);
 }
 
+void b2SleepIsland(b2World* world, int islandId)
+{
+	b2CheckIndex(world->islandLookupArray, islandId);
+	b2IslandLookup* islandLookup = world->islandLookupArray + islandId;
+	B2_ASSERT(islandLookup->setIndex == b2_awakeSet);
+
+	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+	B2_ASSERT(0 <= islandLookup->localIndex && islandLookup->localIndex < awakeSet->islands.count);
+	b2Island* island = awakeSet->islands.data + islandLookup->localIndex;
+
+	// cannot put an island to sleep while it has a pending split
+	B2_ASSERT(island->constraintRemoveCount == 0);
+
+	// island is sleeping
+	// - create new sleeping solver set
+	// - move island to sleeping solver set
+	// - identify non-touching contacts that should move to sleeping solver set or disabled set
+	// - remove old island
+	// - fix island lookup
+	int sleepSetId = b2AllocId(&world->solverSetIdPool);
+	if (sleepSetId == b2Array(world->solverSetArray).count)
+	{
+		b2SolverSet set = {0};
+		set.setId = B2_NULL_INDEX;
+		b2Array_Push(world->solverSetArray, set);
+	}
+
+	b2SolverSet* sleepSet = world->solverSetArray + sleepSetId;
+	B2_ASSERT(sleepSet->sims.count == 0 && sleepSet->setId == B2_NULL_INDEX);
+	sleepSet->setId = sleepSetId;
+
+	sleepSet->sims = b2CreateBodySimArray(&world->blockAllocator, island->bodyCount);
+	sleepSet->contacts = b2CreateContactArray(&world->blockAllocator, island->contactCount);
+	sleepSet->joints = b2CreateJointArray(&world->blockAllocator, island->jointCount);
+
+	// move touching contacts
+	// this shuffles contacts in the awake set
+	{
+		b2ContactLookup* contactLookups = world->contactLookupArray;
+		int contactId = island->headContact;
+		while (contactId != B2_NULL_INDEX)
+		{
+			b2CheckIndex(contactLookups, contactId);
+			b2ContactLookup* contactLookup = contactLookups + contactId;
+			B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+			int colorIndex = contactLookup->colorIndex;
+			int awakeContactIndex = contactLookup->localIndex;
+
+			B2_ASSERT(0 < colorIndex && colorIndex < b2_graphColorCount);
+
+			b2GraphColor* color = world->constraintGraph.colors + colorIndex;
+
+			B2_ASSERT(0 <= awakeContactIndex && awakeContactIndex < color->contacts.count);
+
+			b2Contact* awakeContact = color->contacts.data + awakeContactIndex;
+			B2_ASSERT(awakeContact->islandId == islandId);
+
+			// Remove bodies from graph coloring associated with this constraint
+			if (colorIndex != b2_overflowIndex)
+			{
+				// might clear a bit for a static body, but this has no effect
+				b2ClearBit(&color->bodySet, awakeContact->edges[0].bodyId);
+				b2ClearBit(&color->bodySet, awakeContact->edges[1].bodyId);
+			}
+
+			int sleepContactIndex = sleepSet->contacts.count;
+			b2Contact* sleepContact = b2AddContact(&world->blockAllocator, &sleepSet->contacts);
+			memcpy(sleepContact, awakeContact, sizeof(b2Contact));
+
+			int movedIndex = b2RemoveContact(&color->contacts, awakeContactIndex);
+			if (movedIndex != B2_NULL_INDEX)
+			{
+				// fix lookup on moved element
+				b2Contact* movedContact = color->contacts.data + awakeContactIndex;
+				int movedId = movedContact->contactId;
+				b2CheckIndex(contactLookups, movedId);
+				b2ContactLookup* movedLookup = contactLookups + movedId;
+				B2_ASSERT(movedLookup->localIndex == movedIndex);
+				movedLookup->localIndex = awakeContactIndex;
+			}
+
+			contactLookup->setIndex = sleepSetId;
+			contactLookup->colorIndex = B2_NULL_INDEX;
+			contactLookup->localIndex = sleepContactIndex;
+
+			contactId = sleepContact->islandNext;
+		}
+	}
+
+	// move joints
+	// this shuffles joints in the awake set
+	{
+		b2JointLookup* jointLookups = world->jointLookupArray;
+		int jointId = island->headJoint;
+		while (jointId != B2_NULL_INDEX)
+		{
+			b2CheckIndex(jointLookups, jointId);
+			b2JointLookup* jointLookup = jointLookups + jointId;
+			B2_ASSERT(jointLookup->setIndex == b2_awakeSet);
+			int colorIndex = jointLookup->colorIndex;
+			int awakeJointIndex = jointLookup->localIndex;
+
+			B2_ASSERT(0 < colorIndex && colorIndex < b2_graphColorCount);
+
+			b2GraphColor* color = world->constraintGraph.colors + colorIndex;
+
+			B2_ASSERT(0 <= awakeJointIndex && awakeJointIndex < color->joints.count);
+
+			b2Joint* awakeJoint = color->joints.data + awakeJointIndex;
+			B2_ASSERT(awakeJoint->islandId == islandId);
+
+			if (colorIndex != b2_overflowIndex)
+			{
+				// might clear a bit for a static body, but this has no effect
+				b2ClearBit(&color->bodySet, awakeJoint->edges[0].bodyId);
+				b2ClearBit(&color->bodySet, awakeJoint->edges[1].bodyId);
+			}
+
+			int sleepJointIndex = sleepSet->joints.count;
+			b2Joint* sleepJoint = b2AddJoint(&world->blockAllocator, &sleepSet->joints);
+			memcpy(sleepJoint, awakeJoint, sizeof(b2Joint));
+
+			int movedIndex = b2RemoveJoint(&color->joints, awakeJointIndex);
+			if (movedIndex != B2_NULL_INDEX)
+			{
+				// fix lookup on moved element
+				b2Joint* movedJoint = color->joints.data + awakeJointIndex;
+				int movedId = movedJoint->jointId;
+				b2CheckIndex(jointLookups, movedId);
+				b2JointLookup* movedLookup = jointLookups + movedId;
+				B2_ASSERT(movedLookup->localIndex == movedIndex);
+				movedLookup->localIndex = awakeJointIndex;
+			}
+
+			jointLookup->setIndex = sleepSetId;
+			jointLookup->colorIndex = B2_NULL_INDEX;
+			jointLookup->localIndex = sleepJointIndex;
+
+			jointId = sleepJoint->islandNext;
+		}
+	}
+
+	// move awake bodies to sleeping set
+	// this shuffles around bodies in the awake set
+	{
+		b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
+		b2Body* bodies = world->bodyArray;
+		b2ContactLookup* contactLookups = world->contactLookupArray;
+		int bodyId = island->headBody;
+		while (bodyId != B2_NULL_INDEX)
+		{
+			b2CheckIndex(bodies, bodyId);
+			b2Body* body = bodies + bodyId;
+			B2_ASSERT(body->setIndex == b2_awakeSet);
+			B2_ASSERT(body->islandId == islandId);
+			int awakeBodyIndex = body->localIndex;
+			B2_ASSERT(0 <= awakeBodyIndex && awakeBodyIndex < awakeSet->sims.count);
+
+			b2BodySim* awakeSim = awakeSet->sims.data + awakeBodyIndex;
+
+			// move body sim to sleep set
+			int sleepBodyIndex = sleepSet->sims.count;
+			b2BodySim* sleepBody = b2AddBodySim(&world->blockAllocator, &sleepSet->sims);
+			memcpy(sleepBody, awakeSim, sizeof(b2Body));
+
+			int movedIndex = b2RemoveBodySim(&awakeSet->sims, awakeBodyIndex);
+			if (movedIndex != B2_NULL_INDEX)
+			{
+				// fix local index on moved element
+				b2BodySim* movedSim = awakeSet->sims.data + awakeBodyIndex;
+				int movedId = movedSim->bodyId;
+				b2CheckIndex(bodies, movedId);
+				b2Body* movedBody = bodies + movedId;
+				B2_ASSERT(movedBody->localIndex == movedIndex);
+				movedBody->localIndex = awakeBodyIndex;
+			}
+
+			// destroy state, no need to clone
+			b2RemoveBodyState(&awakeSet->states, awakeBodyIndex);
+
+			body->setIndex = sleepSetId;
+			body->localIndex = sleepBodyIndex;
+
+			// Move non-touching contacts to the disabled set.
+			// Non-touching contacts may exist between sleeping islands and there is no clear ownership.
+			int contactKey = body->headContactKey;
+			while (contactKey != B2_NULL_INDEX)
+			{
+				int edgeIndex = contactKey & 1;
+				int contactId = contactKey >> 1;
+
+				b2CheckIndex(contactLookups, contactId);
+				b2ContactLookup* contactLookup = contactLookups + contactId;
+				B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+
+				b2Contact* contact = b2GetContactFromRawId(world, contactId);
+				contactKey = contact->edges[edgeIndex].nextKey;
+
+				if (contactLookup->colorIndex != B2_NULL_INDEX)
+				{
+					// contact is touching and will be moved separately
+					B2_ASSERT((contact->flags & b2_contactTouchingFlag) != 0 && contact->manifold.pointCount > 0);
+					continue;
+				}
+
+				// move the non-touching contact to the disabled set
+				B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contact->manifold.pointCount == 0);
+
+				int contactLocalIndex = contactLookup->localIndex;
+				contactLookup->localIndex = disabledSet->contacts.count;
+				b2Contact* disabledContact = b2AddContact(&world->blockAllocator, &disabledSet->contacts);
+				memcpy(disabledContact, contact, sizeof(b2Contact));
+
+				int movedContactIndex = b2RemoveContact(&awakeSet->contacts, contactLocalIndex);
+				if (movedContactIndex != B2_NULL_INDEX)
+				{
+					// fix lookup on moved element
+					b2Contact* movedContact = awakeSet->contacts.data + contactLocalIndex;
+					int movedContactId = movedContact->contactId;
+					b2CheckIndex(contactLookups, movedContactId);
+					b2ContactLookup* movedContactLookup = contactLookups + movedContactId;
+					B2_ASSERT(movedContactLookup->localIndex == movedContactIndex);
+					movedContactLookup->localIndex = contactLocalIndex;
+				}
+			}
+
+			bodyId = body->islandNext;
+		}
+	}
+
+	// move island struct
+	{
+		B2_ASSERT(islandLookup->setIndex == b2_awakeSet);
+
+		int islandIndex = islandLookup->localIndex;
+		b2Island* sleepIsland = b2AddIsland(&world->blockAllocator, &sleepSet->islands);
+		memcpy(sleepIsland, island, sizeof(b2Island));
+
+		int movedIslandIndex = b2RemoveIsland(&awakeSet->islands, islandIndex);
+		if (movedIslandIndex != B2_NULL_INDEX)
+		{
+			// fix lookup on moved element
+			b2Island* movedIsland = awakeSet->islands.data + islandIndex;
+			int movedIslandId = movedIsland->islandId;
+			b2CheckIndex(world->islandLookupArray, movedIslandId);
+			b2IslandLookup* movedIslandLookup = world->islandLookupArray + movedIslandId;
+			B2_ASSERT(movedIslandLookup->localIndex == movedIslandIndex);
+			movedIslandLookup->localIndex = islandIndex;
+		}
+
+		islandLookup->setIndex = sleepSetId;
+		islandLookup->localIndex = 0;
+	}
+}
+
+// This is called when joints are created between sets. I want to allow the sets
+// to continue sleeping if both are asleep. Otherwise one set is waked.
+// The islands need to be merged as well.
 void b2MergeSolverSets(b2World* world, int setIndex1, int setIndex2)
 {
 

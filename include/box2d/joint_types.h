@@ -17,7 +17,7 @@ typedef enum b2JointType
 } b2JointType;
 
 /// Distance joint definition. This requires defining an anchor point on both
-/// sims and the non-zero distance of the distance joint. The definition uses
+/// bodies and the non-zero distance of the distance joint. The definition uses
 /// local anchor points so that the initial configuration can violate the
 /// constraint slightly. This helps when saving and loading a game.
 typedef struct b2DistanceJointDef
@@ -49,7 +49,7 @@ typedef struct b2DistanceJointDef
 	/// The linear damping ratio (non-dimensional)
 	float dampingRatio;
 
-	/// Set this flag to true if the attached sims should collide.
+	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
 
 	/// User data pointer
@@ -61,7 +61,7 @@ typedef struct b2DistanceJointDef
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef();
 
 /// A motor joint is used to control the relative motion
-/// between two sims. A typical usage is to control the movement
+/// between two bodies. A typical usage is to control the movement
 /// of a dynamic body with respect to the ground.
 typedef struct b2MotorJointDef
 {
@@ -86,7 +86,7 @@ typedef struct b2MotorJointDef
 	/// Position correction factor in the range [0,1].
 	float correctionFactor;
 
-	/// Set this flag to true if the attached sims should collide.
+	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
 
 	/// User data pointer

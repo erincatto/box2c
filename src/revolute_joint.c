@@ -141,19 +141,19 @@ float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
 // K = invI1 + invI2
 
 // Body State
-// The solver operates on the body state. The body state array does not hold static sims. Static sims are shared
+// The solver operates on the body state. The body state array does not hold static bodies. Static bodies are shared
 // across worker threads. It would be okay to read their states, but writing to them would cause cache thrashing across
 // workers, even if the values don't change.
 // This causes some trouble when computing anchors. I rotate the anchors using the body rotation every sub-step. For static
-// sims the anchor doesn't rotate. Body A or B could be static and this can lead to lots of branching. This branching
+// bodies the anchor doesn't rotate. Body A or B could be static and this can lead to lots of branching. This branching
 // should be minimized.
 // 
 // Solution 1:
-// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static sims will be identity.
-// Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if sims move fast.
+// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static bodies will be identity.
+// Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if bodies move fast.
 //
 // Solution 2:
-// Use full rotation. The anchors for static sims will be in world space while the anchors for dynamic sims will be in local space.
+// Use full rotation. The anchors for static bodies will be in world space while the anchors for dynamic bodies will be in local space.
 // Potentially confusing and bug prone.
 
 void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
@@ -165,31 +165,34 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2Body* lookup = world->bodyArray;
+	b2Body* bodies = world->bodyArray;
 
-	b2CheckIndex(lookup, idA);
-	b2CheckIndex(lookup, idB);
+	b2CheckIndex(bodies, idA);
+	b2CheckIndex(bodies, idB);
 
-	b2Body lookupA = lookup[idA];
-	b2Body lookupB = lookup[idB];
+	b2Body* bodyA = bodies + idA;
+	b2Body* bodyB = bodies + idB;
 
-	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
-	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
-	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
 
-	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
-	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
 
-	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->sims.count);
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
+	int localIndexA = bodyA->localIndex;
+	int localIndexB = bodyB->localIndex;
 
-	b2Body* bodyA = setA->sims.data + lookupA.bodyIndex;
-	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
+	B2_ASSERT(0 <= localIndexA && localIndexA <= setA->sims.count);
+	B2_ASSERT(0 <= localIndexB && localIndexB <= setB->sims.count);
 
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
+	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
+
+	float mA = bodySimA->invMass;
+	float iA = bodySimA->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	base->invMassA = mA;
 	base->invMassB = mB;
@@ -198,14 +201,14 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	joint->indexA = lookupA.setIndex == b2_awakeSet ? lookupA.bodyIndex : B2_NULL_INDEX;
-	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
+	joint->indexA = bodyA->setIndex == b2_awakeSet ? localIndexA : B2_NULL_INDEX;
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
 
 	// initial anchors in world space
-	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
-	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
-	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->referenceAngle;
+	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
+	joint->deltaCenter = b2Sub(bodySimB->center, bodySimA->center);
+	joint->deltaAngle = b2RelativeAngle(bodySimB->transform.q, bodySimA->transform.q) - joint->referenceAngle;
 
 	float k = iA + iB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
@@ -228,7 +231,7 @@ void b2WarmStartRevoluteJoint(b2Joint* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
@@ -256,7 +259,7 @@ void b2SolveRevoluteJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
@@ -410,8 +413,8 @@ void b2RevoluteJoint::Dump()
 	int32 indexB = joint->bodyB->joint->islandIndex;
 
 	b2Dump("  b2RevoluteJointDef jd;\n");
-	b2Dump("  jd.bodyA = sims[%d];\n", indexA);
-	b2Dump("  jd.bodyB = sims[%d];\n", indexB);
+	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
+	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", joint->collideConnected);
 	b2Dump("  jd.localAnchorA.Set(%.9g, %.9g);\n", joint->localAnchorA.x, joint->localAnchorA.y);
 	b2Dump("  jd.localAnchorB.Set(%.9g, %.9g);\n", joint->localAnchorB.x, joint->localAnchorB.y);
@@ -426,16 +429,14 @@ void b2RevoluteJoint::Dump()
 }
 #endif
 
-void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB)
+void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	b2Transform xfA = b2MakeTransform(bodyA);
-	b2Transform xfB = b2MakeTransform(bodyB);
-	b2Vec2 pA = b2TransformPoint(xfA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(xfB, base->localOriginAnchorB);
+	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 
 	b2Color c1 = {0.7f, 0.7f, 0.7f, 1.0f};
 	b2Color c2 = {0.3f, 0.9f, 0.3f, 1.0f};
@@ -446,7 +447,7 @@ void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 	draw->DrawPoint(pA, 5.0f, c4, draw->context);
 	draw->DrawPoint(pB, 5.0f, c5, draw->context);
 
-	float angle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->referenceAngle;
+	float angle = b2RelativeAngle(transformB.q, transformA.q) - joint->referenceAngle;
 
 	const float L = base->drawSize;
 	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
@@ -463,9 +464,9 @@ void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bod
 	}
 
 	b2Color color = {0.5f, 0.8f, 0.8f, 1.0f};
-	draw->DrawSegment(xfA.p, pA, color, draw->context);
+	draw->DrawSegment(transformA.p, pA, color, draw->context);
 	draw->DrawSegment(pA, pB, color, draw->context);
-	draw->DrawSegment(xfB.p, pB, color, draw->context);
+	draw->DrawSegment(transformB.p, pB, color, draw->context);
 
 	// char buffer[32];
 	// sprintf(buffer, "%.1f", b2Length(joint->impulse));

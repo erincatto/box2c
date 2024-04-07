@@ -50,27 +50,28 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2Body* lookup = world->bodyArray;
+	b2Body* bodies = world->bodyArray;
 
-	b2CheckIndex(lookup, idB);
+	b2CheckIndex(bodies, idB);
 
-	b2Body lookupB = lookup[idB];
+	b2Body* bodyB = bodies + idB;
 
-	B2_ASSERT(lookupB.setIndex == b2_awakeSet);
-	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+	B2_ASSERT(bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
 
-	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
 
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
+	int localIndexB = bodyB->localIndex;
+	B2_ASSERT(0 <= localIndexB && localIndexB <= setB->sims.count);
 
-	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
+	b2BodySim* bodySimB = setB->sims.data + localIndexB;
 
-	base->invMassB = bodyB->invMass;
-	base->invIB = bodyB->invI;
+	base->invMassB = bodySimB->invMass;
+	base->invIB = bodySimB->invI;
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
 
 	joint->linearSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
 
@@ -78,10 +79,9 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	float angularDampingRatio = 0.1f;
 	joint->angularSoftness = b2MakeSoft(angularHertz, angularDampingRatio, context->h);
 
-	b2Rot qB = bodyB->rotation;
 	b2Vec2 rB = joint->anchorB;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	// K = [(1/m1 + 1/m2) * eye(2) - skew(r1) * invI1 * skew(r1) - skew(r2) * invI2 * skew(r2)]
 	//   = [1/m1+1/m2     0    ] + invI1 * [r1.y*r1.y -r1.x*r1.y] + invI2 * [r1.y*r1.y -r1.x*r1.y]
@@ -93,7 +93,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	K.cy.y = mB + iB * rB.x * rB.x;
 
 	joint->linearMass = b2GetInverse22(K);
-	joint->deltaCenter = b2Sub(bodyB->position, joint->targetA);
+	joint->deltaCenter = b2Sub(bodySimB->center, joint->targetA);
 
 	if (context->enableWarmStarting == false)
 	{

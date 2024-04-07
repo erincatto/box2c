@@ -21,14 +21,14 @@ typedef struct b2Segment b2Segment;
 
 /**
  * \defgroup WorldAPI Worlds
- * These functions allow you to create a simulation world. You can then add sims and
+ * These functions allow you to create a simulation world. You can then add bodies and
  * joints to the world and run the simulation. You can get contact information to get contact points
  * and normals as well as events. You can query to world, checking for overlaps and casting rays or shapes.
  * There is also debugging information such as debug draw, timing information, and counters.
  * @{
  */
 
-/// Create a world for rigid body simulation. This contains all the sims, shapes, and constraints.
+/// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
 B2_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 
 /// Destroy a world.
@@ -151,13 +151,14 @@ B2_API bool b2Body_IsValid(b2BodyId id);
 /// Destroy a rigid body given an id. Destroys all joints attached to the body. Be careful
 ///	because this may invalidate some b2JointId that you have stored.
 /// @warning This function is locked during callbacks.
+///	todo make this the only function
 B2_API void b2DestroyBodyAndJoints(b2BodyId bodyId);
 
-/// Is this a kinematic body
-B2_API bool b2Body_IsKinematic(b2BodyId bodyId);
+/// Get the body type: static, kinematic, or dynamic
+B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 
-/// Set this body to be kinematic
-B2_API void b2Body_Kinematic(b2BodyId bodyId, bool kinematic);
+/// Change the body type. This is an expensive operation.
+B2_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
 
 /// Set the user data for a body
 B2_API void b2Body_SetUserData(b2BodyId bodyId, void* userData);
@@ -170,6 +171,9 @@ B2_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 
 /// Get the world rotation of a body as a sine/cosine pair.
 B2_API b2Rot b2Body_GetRotation(b2BodyId bodyId);
+
+/// Get the body angle in radians in the range [-pi, pi]
+B2_API float b2Body_GetAngle(b2BodyId bodyId);
 
 /// Get the world transform of a body.
 B2_API b2Transform b2Body_GetTransform(b2BodyId bodyId);
@@ -316,7 +320,7 @@ B2_API void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag);
 B2_API bool b2Body_IsFixedRotation(b2BodyId bodyId);
 
 /// Set this body to be a bullet. A bullet does continuous collision detection
-/// against dynamic sims (but not other bullets).
+/// against dynamic bodies (but not other bullets).
 B2_API void b2Body_SetBullet(b2BodyId bodyId, bool flag);
 
 /// Is this body a bullet?
@@ -357,25 +361,21 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 /// Create a circle shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
-B2_API b2ShapeId b2CreateStaticCircleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Circle* circle);
 B2_API b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle);
 
 /// Create a line segment shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
-B2_API b2ShapeId b2CreateStaticSegmentShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Segment* segment);
 B2_API b2ShapeId b2CreateSegmentShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment);
 
 /// Create a capsule shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
-B2_API b2ShapeId b2CreateStaticCapsuleShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 B2_API b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule);
 
 /// Create a polygon shape and attach it to a body. The shape definition and geometry are fully cloned.
 /// Contacts are not created until the next time step.
 ///	@return the shape id for accessing the shape
-B2_API b2ShapeId b2CreateStaticPolygonShape(b2StaticBodyId staticBodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 B2_API b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon);
 
 /// Destroy any shape type
@@ -426,19 +426,19 @@ B2_API b2Filter b2Shape_GetFilter(b2ShapeId shapeId);
 /// Set the current filter. This is almost as expensive as recreating the shape.
 B2_API void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter);
 
-/// Enable sensor events for this shape. Only applies to kinematic and dynamic sims. Ignored for sensors.
+/// Enable sensor events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
 B2_API void b2Shape_EnableSensorEvents(b2ShapeId shapeId, bool flag);
 
 /// @return are sensor events enabled?
 B2_API bool b2Shape_AreSensorEventsEnabled(b2ShapeId shapeId);
 
-/// Enable contact events for this shape. Only applies to kinematic and dynamic sims. Ignored for sensors.
+/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
 B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId, bool flag);
 
 /// @return are contact events enabled?
 B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
 
-/// Enable pre-solve contact events for this shape. Only applies to dynamic sims. These are expensive
+/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 ///	and must be carefully handled due to multi-threading. Ignored for sensors.
 B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag);
 
@@ -568,10 +568,10 @@ B2_API b2Vec2 b2Joint_GetLocalAnchorA(b2JointId jointId);
 /// Get local anchor on bodyB
 B2_API b2Vec2 b2Joint_GetLocalAnchorB(b2JointId jointId);
 
-/// Toggle collision between connected sims
+/// Toggle collision between connected bodies
 B2_API void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide);
 
-/// Is collision allowed between connected sims?
+/// Is collision allowed between connected bodies?
 B2_API bool b2Joint_GetCollideConnected(b2JointId jointId);
 
 /// Set the user data on a joint
@@ -580,7 +580,7 @@ B2_API void b2Joint_SetUserData(b2JointId jointId, void* userData);
 /// Get the user data on a joint
 B2_API void* b2Joint_GetUserData(b2JointId jointId);
 
-/// Wake the sims connect to this joint
+/// Wake the bodies connect to this joint
 B2_API void b2Joint_WakeBodies(b2JointId jointId);
 
 /// Distance Joint

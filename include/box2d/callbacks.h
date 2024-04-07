@@ -48,7 +48,7 @@ typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 /// Notes:
 ///	- this function must be thread-safe
 ///	- this is only called if the shape has enabled presolve events
-/// - this is called only for awake dynamic sims
+/// - this is called only for awake dynamic bodies
 /// - this is not called for sensors
 /// - the supplied manifold has impulse values from the previous step
 ///	Return false if you want to disable the contact this step

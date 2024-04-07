@@ -80,9 +80,6 @@ void b2LinkJoint(b2World* world, b2Joint* joint);
 // Unlink a joint from the island graph when it is destroyed
 void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
-void b2WakeIsland(b2World* world, b2Island* island);
-void b2SleepIsland(b2World* world, b2Island* island);
-
 void b2MergeAwakeIslands(b2World* world);
 
 void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context);

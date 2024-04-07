@@ -35,11 +35,11 @@ typedef struct b2Body
 
 	int headChainId;
 
-	// [31 : contactId | 1 : edgeIndex]
+	// [31 : jointId | 1 : edgeIndex]
 	int headJointKey;
 	int jointCount;
 
-	// All enabled dynamic and kinematic sims are in an island.
+	// All enabled dynamic and kinematic bodies are in an island.
 	int islandId;
 
 	// doubly-linked island list
@@ -58,7 +58,7 @@ typedef struct b2Body
 } b2Body;
 
 // The body state is designed for fast conversion to and from SIMD via scatter-gather.
-// Only awake dynamic and kinematic sims have a body state.
+// Only awake dynamic and kinematic bodies have a body state.
 // This is used in the performance critical constraint solver
 //
 // 32 bytes
@@ -71,8 +71,8 @@ typedef struct b2BodyState
 	// Using delta position reduces round-off error far from the origin
 	b2Vec2 deltaPosition; // 8
 
-	// Using delta rotation because I cannot access the full rotation on static sims in
-	// the solver and must use zero delta rotation for static sims (s,c) = (0,1)
+	// Using delta rotation because I cannot access the full rotation on static bodies in
+	// the solver and must use zero delta rotation for static bodies (s,c) = (0,1)
 	b2Rot deltaRotation; // 8
 } b2BodyState;
 
@@ -83,6 +83,7 @@ static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0
 // Transform data used for collision and solver preparation.
 typedef struct b2BodySim
 {
+	// todo better to have transform in sim or in base body? Try both!
 	// transform for body origin
 	b2Transform transform;
 
@@ -110,9 +111,6 @@ typedef struct b2BodySim
 	float angularDamping;
 	float gravityScale;
 	float sleepTime;
-
-	// stable id for graph coloring, B2_NULL_INDEX for static sims
-	int graphColorId;
 
 	// body data can be moved around, the id is stable (used in b2BodyId)
 	int bodyId;

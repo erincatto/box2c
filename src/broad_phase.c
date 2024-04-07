@@ -216,11 +216,11 @@ static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
 	b2Shape* shapeA = world->shapes + shapeIndexA;
 	b2Shape* shapeB = world->shapes + shapeIndexB;
 
-	int bodyKeyA = shapeA->bodyKey;
-	int bodyKeyB = shapeB->bodyKey;
+	int bodyIdA = shapeA->bodyId;
+	int bodyIdB = shapeB->bodyId;
 
 	// Are the shapes on the same body?
-	if (bodyKeyA == bodyKeyB)
+	if (bodyIdA == bodyIdB)
 	{
 		return true;
 	}
@@ -230,19 +230,12 @@ static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
 		return true;
 	}
 
-	// Does a joint override collision? Skip kinematic vs kinematic.
-	if ((bodyKeyA & 1) == 1 && (bodyKeyB & 1) == 1)
+	// Does a joint override collision?
+	b2Body* bodyA = b2GetBody(world, bodyIdA);
+	b2Body* bodyB = b2GetBody(world, bodyIdB);
+	if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
 	{
-		int bodyIdA = bodyKeyA >> 1;
-		int bodyIdB = bodyKeyB >> 1;
-
-		b2Body* bodyA = b2GetBody(world, bodyIdA);
-		b2Body* bodyB = b2GetBody(world, bodyIdB);
-
-		if (b2ShouldBodiesCollide(world, bodyA, bodyB) == false)
-		{
-			return true;
-		}
+		return true;
 	}
 
 	// #todo per thread to eliminate atomic?

@@ -35,31 +35,34 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	int idB = base->edges[1].bodyId;
 
 	b2World* world = context->world;
-	b2Body* lookup = world->bodyArray;
+	b2Body* bodies = world->bodyArray;
 
-	b2CheckIndex(lookup, idA);
-	b2CheckIndex(lookup, idB);
+	b2CheckIndex(bodies, idA);
+	b2CheckIndex(bodies, idB);
 
-	b2Body lookupA = lookup[idA];
-	b2Body lookupB = lookup[idB];
+	b2Body* bodyA = bodies + idA;
+	b2Body* bodyB = bodies + idB;
 
-	B2_ASSERT(lookupA.setIndex == b2_awakeSet || lookupB.setIndex == b2_awakeSet);
-	b2CheckIndex(world->solverSetArray, lookupA.setIndex);
-	b2CheckIndex(world->solverSetArray, lookupB.setIndex);
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
 
-	b2SolverSet* setA = world->solverSetArray + lookupA.setIndex;
-	b2SolverSet* setB = world->solverSetArray + lookupB.setIndex;
+	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
 
-	B2_ASSERT(0 <= lookupA.bodyIndex && lookupA.bodyIndex <= setA->sims.count);
-	B2_ASSERT(0 <= lookupB.bodyIndex && lookupB.bodyIndex <= setB->sims.count);
+	int localIndexA = bodyA->localIndex;
+	int localIndexB = bodyB->localIndex;
 
-	b2Body* bodyA = setA->sims.data + lookupA.bodyIndex;
-	b2Body* bodyB = setB->sims.data + lookupB.bodyIndex;
+	B2_ASSERT(0 <= localIndexA && localIndexA <= setA->sims.count);
+	B2_ASSERT(0 <= localIndexB && localIndexB <= setB->sims.count);
 
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
+	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
+
+	float mA = bodySimA->invMass;
+	float iA = bodySimA->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	base->invMassA = mA;
 	base->invMassB = mB;
@@ -67,13 +70,13 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	base->invIB = iB;
 
 	b2MotorJoint* joint = &base->motorJoint;
-	joint->indexA = lookupA.setIndex == b2_awakeSet ? lookupA.bodyIndex : B2_NULL_INDEX;
-	joint->indexB = lookupB.setIndex == b2_awakeSet ? lookupB.bodyIndex : B2_NULL_INDEX;
+	joint->indexA = bodyA->setIndex == b2_awakeSet ? localIndexA : B2_NULL_INDEX;
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
 
-	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
-	joint->deltaCenter = b2Sub(b2Sub(bodyB->position, bodyA->position), joint->linearOffset);
-	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->angularOffset;
+	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
+	joint->deltaCenter = b2Sub(b2Sub(bodySimB->center, bodySimA->center), joint->linearOffset);
+	joint->deltaAngle = b2RelativeAngle(bodySimB->transform.q, bodySimA->transform.q) - joint->angularOffset;
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;

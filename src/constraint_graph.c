@@ -56,24 +56,25 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 
 // Contacts are always created as non-touching. They get cloned into the constraint
 // graph once they are found to be touching.
-// todo kinematic bodies should not go into graph
-b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
+// todo maybe kinematic bodies should not go into graph
+b2Contact* b2AddContactToGraph(b2World* world, b2ContactLookup* contactLookup, b2Contact* contact)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyKeyA = contact->edges[0].bodyKey;
-	int bodyKeyB = contact->edges[1].bodyKey;
-	bool staticA = (bodyKeyA & 1) == 0;
-	bool staticB = (bodyKeyB & 1) == 0;
-	B2_ASSERT(staticA == false || staticB == false);
+	int bodyIdA = contact->edges[0].bodyId;
+	int bodyIdB = contact->edges[1].bodyId;
+	b2CheckIndex(world->bodyArray, bodyIdA);
+	b2CheckIndex(world->bodyArray, bodyIdB);
+
+	b2Body* bodyA = world->bodyArray + bodyIdA;
+	b2Body* bodyB = world->bodyArray + bodyIdB;
+	bool staticA = bodyA->setIndex == b2_staticSet;
+	bool staticB = bodyB->setIndex == b2_staticSet;
 
 	if (staticA == false && staticB == false)
 	{
-		int bodyIdA = bodyKeyA >> 1;
-		int bodyIdB = bodyKeyB >> 1;
-
 		for (int i = 0; i < b2_overflowIndex; ++i)
 		{
 			b2GraphColor* color = graph->colors + i;
@@ -90,8 +91,6 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 	else if (staticA == false)
 	{
-		int bodyIdA = bodyKeyA >> 1;
-
 		// No static contacts in color 0
 		for (int i = 1; i < b2_overflowIndex; ++i)
 		{
@@ -108,8 +107,6 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 	else if (staticB == false)
 	{
-		int bodyIdB = bodyKeyB >> 1;
-
 		// No static contacts in color 0
 		for (int i = 1; i < b2_overflowIndex; ++i)
 		{
@@ -126,13 +123,11 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact)
 	}
 #endif
 
-	b2CheckIndex(world->contactLookupArray, contact->contactId);
-	b2ContactLookup* lookup = world->contactLookupArray + contact->contactId;
+	contactLookup->colorIndex = colorIndex;
+	contactLookup->localIndex = graph->colors[colorIndex].contacts.count;
 
 	b2Contact* newContact = b2AddContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
 	memcpy(newContact, contact, sizeof(b2Contact));
-	lookup->colorIndex = colorIndex;
-	lookup->localIndex = graph->colors[colorIndex].contacts.count - 1;
 	return newContact;
 }
 
@@ -149,17 +144,8 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 	if (colorIndex != b2_overflowIndex)
 	{
 		// might clear a bit for a static body, but this has no effect
-		int bodyKeyA = contact->edges[0].bodyKey;
-		if (bodyKeyA & 1)
-		{
-			b2ClearBit(&color->bodySet, bodyKeyA >> 1);
-		}
-
-		int bodyKeyB = contact->edges[1].bodyKey;
-		if (bodyKeyB & 1)
-		{
-			b2ClearBit(&color->bodySet, bodyKeyB >> 1);
-		}
+		b2ClearBit(&color->bodySet, contact->edges[0].bodyId);
+		b2ClearBit(&color->bodySet, contact->edges[1].bodyId);
 	}
 
 	int colorSubIndex = lookup->localIndex;

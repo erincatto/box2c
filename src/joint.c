@@ -314,7 +314,7 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 	joint->distanceJoint.lowerImpulse = 0.0f;
 	joint->distanceJoint.upperImpulse = 0.0f;
 
-	// If the joint prevents collisions, then destroy all contacts between attached sims
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -353,7 +353,7 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 	joint->motorJoint.maxTorque = def->maxTorque;
 	joint->motorJoint.correctionFactor = B2_CLAMP(def->correctionFactor, 0.0f, 1.0f);
 
-	// If the joint prevents collisions, then destroy all contacts between attached sims
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -437,7 +437,7 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
 
-	// If the joint prevents collisions, then destroy all contacts between attached sims
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -486,7 +486,7 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 	joint->prismaticJoint.enableLimit = def->enableLimit;
 	joint->prismaticJoint.enableMotor = def->enableMotor;
 
-	// If the joint prevents collisions, then destroy all contacts between attached sims
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -528,7 +528,7 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 	joint->weldJoint.linearImpulse = b2Vec2_zero;
 	joint->weldJoint.angularImpulse = 0.0f;
 
-	// If the joint prevents collisions, then destroy all contacts between attached sims
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -578,7 +578,7 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	joint->wheelJoint.enableLimit = def->enableLimit;
 	joint->wheelJoint.enableMotor = def->enableMotor;
 
-	// If the joint prevents collisions, then destroy all contacts between attached sims
+	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
 	{
 		b2DestroyContactsBetweenBodies(world, bodyA, bodyB);
@@ -756,8 +756,8 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 
 	if (shouldCollide)
 	{
-		// need to tell the broadphase to look for new pairs for one of the
-		// two sims. Pick the one with the fewest shapes.
+		// need to tell the broad-phase to look for new pairs for one of the
+		// two bodies. Pick the one with the fewest shapes.
 		int shapeCountA = bodyA->shapeCount;
 		int shapeCountB = bodyB->shapeCount;
 
@@ -1006,9 +1006,9 @@ void b2SolveOverflowJoints(b2StepContext* context, bool useBias)
 	b2TracyCZoneEnd(solve_joints);
 }
 
-extern void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
-extern void b2DrawPrismatic(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
-extern void b2DrawRevolute(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
+extern void b2DrawDistanceJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB);
+extern void b2DrawPrismaticJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
+extern void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 extern void b2DrawWheelJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
@@ -1030,7 +1030,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 	switch (joint->type)
 	{
 		case b2_distanceJoint:
-			b2DrawDistance(draw, joint, bodyA, bodyB);
+			b2DrawDistanceJoint(draw, joint, transformA, transformB);
 			break;
 
 		case b2_mouseJoint:
@@ -1047,11 +1047,11 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		break;
 
 		case b2_prismaticJoint:
-			b2DrawPrismatic(draw, joint, bodyA, bodyB);
+			b2DrawPrismaticJoint(draw, joint, bodyA, bodyB);
 			break;
 
 		case b2_revoluteJoint:
-			b2DrawRevolute(draw, joint, bodyA, bodyB);
+			b2DrawRevoluteJoint(draw, joint, bodyA, bodyB);
 			break;
 
 		case b2_wheelJoint:
