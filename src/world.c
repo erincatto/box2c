@@ -862,23 +862,21 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		}
 	}
 
-#if 0
-	// #todo
 	if (draw->drawJoints)
 	{
-		int count = world->jointPool.capacity;
+		int count = b2Array(world->jointLookupArray).count;
 		for (int i = 0; i < count; ++i)
 		{
-			b2Joint* joint = world->joints + i;
-			if (joint->object.next != i)
+			b2JointLookup* lookup = world->jointLookupArray + i;
+			if (lookup->setIndex == B2_NULL_INDEX)
 			{
 				continue;
 			}
 
+			b2Joint* joint = b2GetJointQuick(world, lookup);
 			b2DrawJoint(draw, world, joint);
 		}
 	}
-#endif
 
 	if (draw->drawAABBs)
 	{

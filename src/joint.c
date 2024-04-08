@@ -72,54 +72,62 @@ b2WheelJointDef b2DefaultWheelJointDef()
 	return def;
 }
 
+b2Joint* b2GetJointQuick(b2World* world, b2JointLookup* lookup)
+{
+	b2CheckIndex(world->solverSetArray, lookup->setIndex);
+
+	if (lookup->setIndex == b2_awakeSet)
+	{
+		B2_ASSERT(0 <= lookup->colorIndex && lookup->colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + lookup->colorIndex;
+		B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < color->joints.count);
+		return color->joints.data + lookup->localIndex;
+	}
+
+	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
+	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < set->joints.count);
+	return set->joints.data + lookup->localIndex;
+}
+
 b2Joint* b2GetJoint(b2World* world, int jointId)
 {
-	B2_ASSERT(0 <= jointId && jointId < b2Array(world->jointLookupArray).count);
+	b2CheckIndex(world->jointLookupArray, jointId);
+	b2JointLookup* lookup = world->jointLookupArray + jointId;
 
-	b2JointLookup lookup = world->jointLookupArray[jointId];
-	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
+	b2CheckIndex(world->solverSetArray, lookup->setIndex);
 
-	b2Joint* joint;
-	if (lookup.setIndex == b2_awakeSet)
+	if (lookup->setIndex == b2_awakeSet)
 	{
-		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
-		b2GraphColor* color = world->constraintGraph.colors + lookup.colorIndex;
-		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < color->joints.count);
-		joint = color->joints.data + lookup.localIndex;
-	}
-	else
-	{
-		b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < set->joints.count);
-		joint = set->joints.data + lookup.localIndex;
+		B2_ASSERT(0 <= lookup->colorIndex && lookup->colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + lookup->colorIndex;
+		B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < color->joints.count);
+		return color->joints.data + lookup->localIndex;
 	}
 
-	return joint;
+	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
+	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < set->joints.count);
+	return set->joints.data + lookup->localIndex;
 }
 
 b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId)
 {
 	int id = jointId.index1 - 1;
-	b2JointLookup lookup = world->jointLookupArray[id];
-	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
-	B2_ASSERT(lookup.revision == jointId.revision);
+	b2CheckIndex(world->jointLookupArray, id);
+	b2JointLookup* lookup = world->jointLookupArray + id;
+	b2CheckIndex(world->solverSetArray, lookup->setIndex);
+	B2_ASSERT(lookup->revision == jointId.revision);
 
-	b2Joint* joint;
-	if (lookup.setIndex == b2_awakeSet)
+	if (lookup->setIndex == b2_awakeSet)
 	{
-		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
-		b2GraphColor* color = world->constraintGraph.colors + lookup.colorIndex;
-		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < color->joints.count);
-		joint = color->joints.data + lookup.localIndex;
-	}
-	else
-	{
-		b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < set->joints.count);
-		joint = set->joints.data + lookup.localIndex;
+		B2_ASSERT(0 <= lookup->colorIndex && lookup->colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + lookup->colorIndex;
+		B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < color->joints.count);
+		return color->joints.data + lookup->localIndex;
 	}
 
-	return joint;
+	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
+	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < set->joints.count);
+	return set->joints.data + lookup->localIndex;
 }
 
 b2JointLookup* b2GetJointLookupFullId(b2World* world, b2JointId jointId)
@@ -1062,9 +1070,9 @@ void b2SolveOverflowJoints(b2StepContext* context, bool useBias)
 }
 
 extern void b2DrawDistanceJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB);
-extern void b2DrawPrismaticJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
-extern void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
-extern void b2DrawWheelJoint(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB);
+extern void b2DrawPrismaticJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB);
+extern void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base,  b2Transform transformA, b2Transform transformB);
+extern void b2DrawWheelJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB);
 
 void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 {
@@ -1102,15 +1110,15 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		break;
 
 		case b2_prismaticJoint:
-			b2DrawPrismaticJoint(draw, joint, bodyA, bodyB);
+			b2DrawPrismaticJoint(draw, joint, transformA, transformB);
 			break;
 
 		case b2_revoluteJoint:
-			b2DrawRevoluteJoint(draw, joint, bodyA, bodyB);
+			b2DrawRevoluteJoint(draw, joint, transformA, transformB);
 			break;
 
 		case b2_wheelJoint:
-			b2DrawWheelJoint(draw, joint, bodyA, bodyB);
+			b2DrawWheelJoint(draw, joint, transformA, transformB);
 			break;
 
 		default:

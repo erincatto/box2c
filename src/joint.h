@@ -241,6 +241,7 @@ typedef struct b2Joint
 
 b2JointLookup* b2GetJointLookup(b2World* world, int jointId);
 b2JointLookup* b2GetJointLookupFullId(b2World* world, b2JointId jointId);
+b2Joint* b2GetJointQuick(b2World* world, b2JointLookup* lookup);
 
 b2Joint* b2GetJoint(b2World* world, int jointId);
 b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId);
