@@ -131,13 +131,10 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLook
 	return newContact;
 }
 
-void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
+void b2RemoveContactFromGraph(b2World* world, b2Contact* contact, int colorIndex, int localIndex)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 
-	b2CheckIndex(world->contactLookupArray, contact->contactId);
-	b2ContactLookup* lookup = world->contactLookupArray + contact->contactId;
-	int colorIndex = lookup->colorIndex;
 	B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 	b2GraphColor* color = graph->colors + colorIndex;
 
@@ -148,25 +145,21 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact)
 		b2ClearBit(&color->bodySet, contact->edges[1].bodyId);
 	}
 
-	int colorSubIndex = lookup->localIndex;
-	int movedIndex = b2RemoveContact(&color->contacts, colorSubIndex);
+	int movedIndex = b2RemoveContact(&color->contacts, localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix index on swapped contact
-		b2Contact* movedContact = color->contacts.data + colorSubIndex;
+		b2Contact* movedContact = color->contacts.data + localIndex;
 
 		// Fix contact lookup for moved contact
 		int movedId = movedContact->contactId;
-		B2_ASSERT(0 <= movedId && movedId < b2Array(world->contactLookupArray).count);
+		b2CheckIndex(world->contactLookupArray, movedId);
 		b2ContactLookup* movedLookup = world->contactLookupArray + movedId;
 		B2_ASSERT(movedLookup->setIndex == b2_awakeSet);
 		B2_ASSERT(movedLookup->colorIndex == colorIndex);
 		B2_ASSERT(movedLookup->localIndex == movedIndex);
-		movedLookup->localIndex = colorSubIndex;
+		movedLookup->localIndex = localIndex;
 	}
-
-	lookup->colorIndex = B2_NULL_INDEX;
-	lookup->localIndex = B2_NULL_INDEX;
 }
 
 // todo pass B2_NULL_INDEX for kinematic bodies?

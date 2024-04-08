@@ -2,12 +2,9 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "pool.h"
 #include "solver.h"
 
 #include "box2d/joint_types.h"
-
-#include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;
@@ -16,6 +13,8 @@ typedef struct b2World b2World;
 // map from b2JointId to b2Joint in the solver sets
 typedef struct b2JointLookup
 {
+	void* userData;
+
 	// index of simulation set stored in b2World
 	// B2_NULL_INDEX when slot is free
 	int setIndex;
@@ -235,13 +234,13 @@ typedef struct b2Joint
 		b2WheelJoint wheelJoint;
 	};
 
-	void* userData;
-
 	float drawSize;
-	uint16_t revision;
 	bool isMarked;
 	bool collideConnected;
 } b2Joint;
+
+b2JointLookup* b2GetJointLookup(b2World* world, int jointId);
+b2JointLookup* b2GetJointLookupFullId(b2World* world, b2JointId jointId);
 
 b2Joint* b2GetJoint(b2World* world, int jointId);
 b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId);

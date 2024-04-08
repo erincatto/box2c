@@ -21,6 +21,8 @@ void b2DestroySolverSet(b2World* world, int setId)
 	b2DestroyJointArray(&world->blockAllocator, &set->joints);
 	b2DestroyIslandArray(&world->blockAllocator, &set->islands);
 	b2FreeId(&world->solverSetIdPool, setId);
+	*set = (b2SolverSet){0};
+	set->setId = B2_NULL_INDEX;
 }
 
 // Wake a solver set. Does not merge islands.
@@ -147,18 +149,17 @@ void b2WakeSolverSet(b2World* world, int setId)
 	b2DestroySolverSet(world, setId);
 }
 
-void b2SleepIsland(b2World* world, int islandId)
+void b2TrySleepIsland(b2World* world, int islandId)
 {
 	b2CheckIndex(world->islandLookupArray, islandId);
 	b2IslandLookup* islandLookup = world->islandLookupArray + islandId;
 	B2_ASSERT(islandLookup->setIndex == b2_awakeSet);
 
-	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
-	B2_ASSERT(0 <= islandLookup->localIndex && islandLookup->localIndex < awakeSet->islands.count);
-	b2Island* island = awakeSet->islands.data + islandLookup->localIndex;
-
 	// cannot put an island to sleep while it has a pending split
-	B2_ASSERT(island->constraintRemoveCount == 0);
+	if (islandLookup->constraintRemoveCount > 0)
+	{
+		return;
+	}
 
 	// island is sleeping
 	// - create new sleeping solver set
@@ -176,6 +177,11 @@ void b2SleepIsland(b2World* world, int islandId)
 
 	b2SolverSet* sleepSet = world->solverSetArray + sleepSetId;
 	*sleepSet = (b2SolverSet){0};
+
+	// grab awake set after creating the sleep set because the solver set array may have been resized
+	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+	B2_ASSERT(0 <= islandLookup->localIndex && islandLookup->localIndex < awakeSet->islands.count);
+	b2Island* island = awakeSet->islands.data + islandLookup->localIndex;
 
 	sleepSet->setId = sleepSetId;
 	sleepSet->sims = b2CreateBodySimArray(&world->blockAllocator, island->bodyCount);
@@ -233,10 +239,17 @@ void b2SleepIsland(b2World* world, int islandId)
 
 				b2CheckIndex(contactLookups, contactId);
 				b2ContactLookup* contactLookup = contactLookups + contactId;
-				B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+
+				B2_ASSERT(contactLookup->setIndex == b2_awakeSet || contactLookup->setIndex == b2_disabledSet);
 
 				b2Contact* contact = b2GetContactFromRawId(world, contactId);
 				contactKey = contact->edges[edgeIndex].nextKey;
+
+				if (contactLookup->setIndex == b2_disabledSet)
+				{
+					// already disabled by another body in the island
+					continue;
+				}
 
 				if (contactLookup->colorIndex != B2_NULL_INDEX)
 				{
@@ -249,6 +262,7 @@ void b2SleepIsland(b2World* world, int islandId)
 				B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contact->manifold.pointCount == 0);
 
 				int contactLocalIndex = contactLookup->localIndex;
+				contactLookup->setIndex = b2_disabledSet;
 				contactLookup->localIndex = disabledSet->contacts.count;
 				b2Contact* disabledContact = b2AddContact(&world->blockAllocator, &disabledSet->contacts);
 				memcpy(disabledContact, contact, sizeof(b2Contact));
@@ -283,7 +297,7 @@ void b2SleepIsland(b2World* world, int islandId)
 			int colorIndex = contactLookup->colorIndex;
 			int awakeContactIndex = contactLookup->localIndex;
 
-			B2_ASSERT(0 < colorIndex && colorIndex < b2_graphColorCount);
+			B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 
 			b2GraphColor* color = world->constraintGraph.colors + colorIndex;
 
@@ -337,7 +351,7 @@ void b2SleepIsland(b2World* world, int islandId)
 			int colorIndex = jointLookup->colorIndex;
 			int awakeJointIndex = jointLookup->localIndex;
 
-			B2_ASSERT(0 < colorIndex && colorIndex < b2_graphColorCount);
+			B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 
 			b2GraphColor* color = world->constraintGraph.colors + colorIndex;
 

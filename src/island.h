@@ -24,6 +24,7 @@ typedef struct b2World b2World;
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
 // map from int to solver set and index
+// todo track islands close to sleep and make sure they are split first
 typedef struct b2IslandLookup
 {
 	// index of solver set stored in b2World
@@ -33,6 +34,9 @@ typedef struct b2IslandLookup
 	// island index within set
 	// may be B2_NULL_INDEX
 	int localIndex;
+
+	// Keeps track of how many contacts have been removed from this island.
+	int constraintRemoveCount;
 } b2IslandLookup;
 
 // Persistent island for awake sims, joints, and contacts
@@ -57,9 +61,6 @@ typedef struct b2Island
 	// Union find
 	int parentIsland;
 
-	// Keeps track of how many contacts have been removed from this island.
-	// todo track islands close to sleep and make sure they are split first
-	int constraintRemoveCount;
 } b2Island;
 
 b2Island* b2CreateIsland(b2World* world, int setIndex);

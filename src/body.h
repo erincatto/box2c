@@ -30,6 +30,7 @@ typedef struct b2Body
 	int headContactKey;
 	int contactCount;
 
+	// todo maybe move this to the body sim
 	int headShapeId;
 	int shapeCount;
 
@@ -46,7 +47,7 @@ typedef struct b2Body
 	int islandPrev;
 	int islandNext;
 
-	// todo maybe remove this
+	// todo this should be B2_NULL_INDEX when not in use
 	int bodyId;
 
 	// This is monotonically advanced when a body is allocated in this slot

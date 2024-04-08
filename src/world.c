@@ -592,7 +592,7 @@ static void b2Collide(b2StepContext* context)
 
 					b2UnlinkContact(world, contact);
 					b2AddNonTouchingContact(world, contactLookup, contact);
-					b2RemoveContactFromGraph(world, contact);
+					b2RemoveContactFromGraph(world, contact, colorIndex, localIndex);
 					contact = NULL;
 				}
 			}
@@ -932,13 +932,13 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 			{
 				b2BodySim* bodySim = set->sims.data + bodyIndex;
 
-				b2Transform transform = bodySim->transform;
+				b2Transform transform = {bodySim->center, bodySim->transform.q};
 				draw->DrawTransform(transform, draw->context);
 
 				b2Vec2 p = b2TransformPoint(transform, offset);
 
 				char buffer[32];
-				snprintf(buffer, 32, "%.2f", bodySim->mass);
+				snprintf(buffer, 32, "  %.2f", bodySim->mass);
 				draw->DrawString(p, buffer, draw->context);
 			}
 		}
@@ -1344,7 +1344,7 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 	s.jointCount = b2GetIdCount(&world->jointIdPool);
 	s.islandCount = b2GetIdCount(&world->islandIdPool);
 
-	b2DynamicTree* tree = world->broadPhase.trees + b2_dynamicBody;
+	b2DynamicTree* tree = world->broadPhase.trees + b2_movableProxy;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
 	s.stackUsed = b2GetMaxStackAllocation(&world->stackAllocator);
 	s.byteCount = b2GetByteCount();
@@ -1479,7 +1479,7 @@ void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transfor
 		world, fcn, filter, b2MakeProxy(&circle->point, 1, circle->radius), transform, context,
 	};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
 	}
@@ -1503,7 +1503,7 @@ void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Trans
 		world, fcn, filter, b2MakeProxy(&capsule->point1, 2, capsule->radius), transform, context,
 	};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
 	}
@@ -1527,7 +1527,7 @@ void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Trans
 		world, fcn, filter, b2MakeProxy(polygon->vertices, polygon->count, polygon->radius), transform, context,
 	};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
 	}
@@ -1592,7 +1592,7 @@ void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2Que
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
 
@@ -1634,7 +1634,7 @@ b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 tran
 	b2RayCastInput input = {origin, translation, 1.0f};
 	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
 
@@ -1705,7 +1705,7 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
@@ -1742,7 +1742,7 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
@@ -1781,7 +1781,7 @@ void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transfor
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_bodyTypeCount; ++i)
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
 		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
@@ -1937,7 +1937,6 @@ void b2ValidateWorld(b2World* world)
 			}
 			else if (setIndex == b2_disabledSet)
 			{
-				B2_ASSERT(set->contacts.count == 0);
 				B2_ASSERT(set->islands.count == 0);
 				B2_ASSERT(set->states.count == 0);
 			}

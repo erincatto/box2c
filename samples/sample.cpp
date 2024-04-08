@@ -287,8 +287,7 @@ void Sample::Step(Settings& settings)
 			offset += snprintf(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
 			totalCount += s.colorCounts[i];
 		}
-		totalCount += s.colorCounts[b2_graphColorCount];
-		snprintf(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
+		snprintf(buffer + offset, 256 - offset, "[%d]", totalCount);
 		g_draw.DrawString(5, m_textLine, buffer);
 		m_textLine += m_textIncrement;
 

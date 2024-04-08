@@ -624,7 +624,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	// Move center of mass.
 	b2Vec2 oldCenter = bodySim->center;
 	bodySim->localCenter = localCenter;
-	bodySim->transform.p = b2TransformPoint(bodySim->transform, bodySim->localCenter);
+	bodySim->center = b2TransformPoint(bodySim->transform, bodySim->localCenter);
 
 	// Update center of mass velocity
 	b2BodyState* state = b2GetBodyState(world, body);
@@ -954,10 +954,17 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	{
 		// scope for pointer safety
 		b2BodySim* bodySim = b2GetBodySim(world, body);
+
 		b2BodyType originalType = bodySim->type;
 
 		if (originalType == type)
 		{
+			return;
+		}
+
+		if (bodySim->type == b2_staticBody || type == b2_staticBody)
+		{
+			// todo not supported yet
 			return;
 		}
 
@@ -966,10 +973,12 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		if (originalType == b2_staticBody)
 		{
 			// todo move body to awake set
+			// todo there may be static joints
 		}
 		else if (type == b2_staticBody)
 		{
 			// todo move body to static set
+			// todo may move joints to static set
 		}
 	}
 
@@ -1338,9 +1347,10 @@ int b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity)
 		int jointId = headJointKey >> 1;
 		int edgeIndex = headJointKey & 1;
 
+		b2JointLookup* jointLookup = b2GetJointLookup(world, jointId);
 		b2Joint* joint = b2GetJoint(world, jointId);
 
-		b2JointId id = {jointId + 1, bodyId.world0, joint->revision};
+		b2JointId id = {jointId + 1, bodyId.world0, jointLookup->revision};
 		jointArray[jointCount] = id;
 		jointCount += 1;
 	

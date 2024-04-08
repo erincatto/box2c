@@ -30,13 +30,17 @@ typedef struct b2TaskContext
 	// These bits align with the b2ConstraintGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
 
-	// Used to track sims with shapes that have enlarged AABBs. This avoids having a bit array
+	// Used to track bodies with shapes that have enlarged AABBs. This avoids having a bit array
 	// that is very large when there are many static shapes.
 	b2BitSet enlargedSimBitSet;
-	int enlargedShapeCount;
 
 	// Used to put islands to sleep
 	b2BitSet awakeIslandBitSet;
+
+	// Per worker split island candidate
+	float splitSleepTime;
+	int splitIslandId;
+
 } b2TaskContext;
 
 /// The world class manages all physics entities, dynamic simulation,
@@ -86,7 +90,7 @@ typedef struct b2World
 
 	// This is a sparse array that maps island ids to the island data stored in the solver sets.
 	struct b2IslandLookup* islandLookupArray;
-
+	
 	b2Pool shapePool;
 	b2Pool chainPool;
 
@@ -106,7 +110,15 @@ typedef struct b2World
 	// Id that is incremented every time step
 	uint64_t stepIndex;
 
+	// Identify islands for splitting as follows:
+	// - I want to split islands so smaller islands can sleep
+	// - when a body comes to rest and its sleep timer trips, I can look at the island and flag it for splitting
+	//   if it has removed constraints
+	// - islands that have removed constraints must be put split first because I don't want to wake bodies incorrectly
+	// - otherwise I can use the awake islands that have bodies wanting to sleep as the splitting candidates
+	// - if no bodies want to sleep then there is no reason to perform island splitting
 	int splitIslandId;
+
 	b2Vec2 gravity;
 	float restitutionThreshold;
 	float contactPushoutVelocity;

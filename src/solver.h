@@ -56,6 +56,7 @@ typedef struct b2SolverBlock
 	int startIndex;
 	int16_t count;
 	int16_t blockType; // b2SolverBlockType
+	// todo consider false sharing of this atomic
 	_Atomic int syncIndex;
 } b2SolverBlock;
 
@@ -67,9 +68,8 @@ typedef struct b2SolverStage
 	b2SolverBlock* blocks;
 	int blockCount;
 	int colorIndex;
-	int dummy1[128];
-	_Alignas(64) _Atomic int completionCount;
-	int dummy2[128];
+	// todo consider false sharing of this atomic
+	_Atomic int completionCount;
 } b2SolverStage;
 
 // Context for a time step. Recreated each time step.
@@ -131,15 +131,15 @@ typedef struct b2StepContext
 
 	b2SolverStage* stages;
 	int stageCount;
-	int splitIslandIndex;
 	bool enableWarmStarting;
 
-	int dummy1[64];
+	// todo padding to prevent false sharing
+	char dummy1[64];
 
 	// sync index (16-bits) | stage type (16-bits)
-	_Alignas(64) _Atomic unsigned int atomicSyncBits;
+	_Atomic unsigned int atomicSyncBits;
 
-	int dummy2[64];
+	char dummy2[64];
 
 } b2StepContext;
 

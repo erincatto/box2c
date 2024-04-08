@@ -206,13 +206,13 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
 
 	// Create contact key and lookup
-	int contactKey = b2AllocId(&world->contactIdPool);
-	if (contactKey == b2Array(world->contactLookupArray).count)
+	int contactId = b2AllocId(&world->contactIdPool);
+	if (contactId == b2Array(world->contactLookupArray).count)
 	{
 		b2Array_Push(world->contactLookupArray, (b2ContactLookup){0});
 	}
 
-	b2ContactLookup* lookup = world->contactLookupArray + contactKey;
+	b2ContactLookup* lookup = world->contactLookupArray + contactId;
 	lookup->setIndex = b2_awakeSet;
 	lookup->colorIndex = B2_NULL_INDEX;
 	lookup->localIndex = set->contacts.count;
@@ -220,7 +220,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	// Contacts are created as non-touching. Later if they are found to be touching
 	// they will link islands and be moved into the constraint graph.
 	b2Contact* contact = b2AddContact(&world->blockAllocator, &set->contacts);
-	contact->contactId = contactKey;
+	contact->contactId = contactId;
 	contact->flags = 0;
 
 	if (shapeA->isSensor || shapeB->isSensor)
@@ -261,7 +261,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->edges[0].prevKey = B2_NULL_INDEX;
 		contact->edges[0].nextKey = bodyA->headContactKey;
 
-		int keyA = (contactKey << 1) | 0;
+		int keyA = (contactId << 1) | 0;
 		if (bodyA->headContactKey != B2_NULL_INDEX)
 		{
 			b2Contact* contactA = b2GetContactFromRawId(world, bodyA->headContactKey >> 1);
@@ -278,7 +278,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->edges[1].prevKey = B2_NULL_INDEX;
 		contact->edges[1].nextKey = bodyB->headContactKey;
 
-		int keyB = (contactKey << 1) | 1;
+		int keyB = (contactId << 1) | 1;
 		if (bodyB->headContactKey != B2_NULL_INDEX)
 		{
 			b2Contact* contactB = b2GetContactFromRawId(world, bodyB->headContactKey >> 1);
@@ -342,7 +342,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 		bodyA->headContactKey = edgeA->nextKey;
 	}
 
-	bodyA->headContactKey -= 1;
+	bodyA->contactCount -= 1;
 
 	// Remove from body B
 	if (edgeB->prevKey != B2_NULL_INDEX)
@@ -379,7 +379,7 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 	{
 		// contact is an active constraint
 		B2_ASSERT(lookup->setIndex == b2_awakeSet);
-		b2RemoveContactFromGraph(world, contact);
+		b2RemoveContactFromGraph(world, contact, lookup->colorIndex, lookup->localIndex);
 	}
 	else
 	{
@@ -414,20 +414,20 @@ void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 b2Contact* b2GetContactFromRawId(b2World* world, int contactId)
 {
 	B2_ASSERT(0 <= contactId && contactId < b2Array(world->contactLookupArray).count);
-	b2ContactLookup lookup = world->contactLookupArray[contactId];
-	B2_ASSERT(0 <= lookup.setIndex && lookup.setIndex < b2Array(world->solverSetArray).count);
-	if (lookup.setIndex == b2_awakeSet && lookup.colorIndex != B2_NULL_INDEX)
+	b2ContactLookup* lookup = world->contactLookupArray + contactId;
+	b2CheckIndex(world->solverSetArray, lookup->setIndex);
+	if (lookup->setIndex == b2_awakeSet && lookup->colorIndex != B2_NULL_INDEX)
 	{
 		// contact lives in constraint graph
-		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
-		b2GraphColor* color = world->constraintGraph.colors + lookup.colorIndex;
-		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < color->contacts.count);
-		return color->contacts.data + lookup.localIndex;
+		B2_ASSERT(0 <= lookup->colorIndex && lookup->colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + lookup->colorIndex;
+		B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < color->contacts.count);
+		return color->contacts.data + lookup->localIndex;
 	}
 
-	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-	B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex <= set->contacts.count);
-	return set->contacts.data + lookup.localIndex;
+	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
+	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex <= set->contacts.count);
+	return set->contacts.data + lookup->localIndex;
 }
 
 b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup lookup)

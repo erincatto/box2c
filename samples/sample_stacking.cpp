@@ -519,7 +519,7 @@ static int sampleCliff = RegisterSample("Stacking", "Cliff", Cliff::Create);
 class Arch : public Sample
 {
 public:
-	Arch(Settings& settings)
+	explicit Arch(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

@@ -29,16 +29,17 @@ b2Island* b2CreateIsland(b2World* world, int setIndex)
 
 	if (islandId == b2Array(world->islandLookupArray).count)
 	{
-		b2IslandLookup lookup = {setIndex, set->islands.count - 1};
+		b2IslandLookup lookup = {setIndex, set->islands.count - 1, 0};
 		b2Array_Push(world->islandLookupArray, lookup);
 	}
 	else
 	{
 		b2CheckIndex(world->islandLookupArray, islandId);
 		b2IslandLookup* lookup = world->islandLookupArray + islandId;
-		B2_ASSERT(lookup->setIndex == B2_NULL_INDEX && lookup->localIndex == B2_NULL_INDEX);
+		B2_ASSERT(lookup->setIndex == B2_NULL_INDEX);
 		lookup->setIndex = setIndex;
 		lookup->localIndex = set->islands.count - 1;
+		lookup->constraintRemoveCount = 0;
 	}
 
 	island->islandId = islandId;
@@ -52,8 +53,6 @@ b2Island* b2CreateIsland(b2World* world, int setIndex)
 	island->tailJoint = B2_NULL_INDEX;
 	island->jointCount = 0;
 	island->parentIsland = B2_NULL_INDEX;
-	island->constraintRemoveCount = 0;
-
 	return island;
 }
 
@@ -226,6 +225,8 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 	B2_ASSERT(contact->islandId != B2_NULL_INDEX);
 
 	// remove from island
+	b2CheckIndex(world->islandLookupArray, contact->islandId);
+	b2IslandLookup* islandLookup = world->islandLookupArray + contact->islandId;
 	b2Island* island = b2GetIsland(world, contact->islandId);
 
 	if (contact->islandPrev != B2_NULL_INDEX)
@@ -254,7 +255,7 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 
 	B2_ASSERT(island->contactCount > 0);
 	island->contactCount -= 1;
-	island->constraintRemoveCount += 1;
+	islandLookup->constraintRemoveCount += 1;
 
 	contact->islandId = B2_NULL_INDEX;
 	contact->islandPrev = B2_NULL_INDEX;
@@ -305,7 +306,7 @@ void b2LinkJoint(b2World* world, b2Joint* joint)
 	int islandIdA = bodyA->islandId;
 	int islandIdB = bodyB->islandId;
 
-	B2_ASSERT(islandIdA != B2_NULL_INDEX && islandIdB != B2_NULL_INDEX);
+	B2_ASSERT(islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX);
 
 	if (islandIdA == islandIdB)
 	{
@@ -376,6 +377,8 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 	B2_ASSERT(joint->islandId != B2_NULL_INDEX);
 
 	// remove from island
+	b2CheckIndex(world->islandLookupArray, joint->islandId);
+	b2IslandLookup* islandLookup = world->islandLookupArray + joint->islandId;
 	b2Island* island = b2GetIsland(world, joint->islandId);
 
 	if (joint->islandPrev != B2_NULL_INDEX)
@@ -404,7 +407,7 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 
 	B2_ASSERT(island->jointCount > 0);
 	island->jointCount -= 1;
-	island->constraintRemoveCount += 1;
+	islandLookup->constraintRemoveCount += 1;
 
 	joint->islandId = B2_NULL_INDEX;
 	joint->islandPrev = B2_NULL_INDEX;
@@ -421,6 +424,8 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 	B2_ASSERT(island->parentIsland != B2_NULL_INDEX);
 
 	int rootId = island->parentIsland;
+	b2CheckIndex(world->islandLookupArray, rootId);
+	b2IslandLookup* rootLookup = world->islandLookupArray + rootId;
 	b2Island* rootIsland = b2GetIsland(world, rootId);
 	B2_ASSERT(rootIsland->parentIsland == B2_NULL_INDEX);
 
@@ -517,7 +522,9 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 	}
 
 	// Merging a dirty islands means that splitting may still be needed
-	rootIsland->constraintRemoveCount += island->constraintRemoveCount;
+	b2CheckIndex(world->islandLookupArray, island->islandId);
+	b2IslandLookup* islandLookup = world->islandLookupArray + island->islandId;
+	rootLookup->constraintRemoveCount += islandLookup->constraintRemoveCount;
 	b2ValidateIsland(world, rootIsland, true);
 
 	return rootIsland->bodyCount;
