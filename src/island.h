@@ -23,9 +23,12 @@ typedef struct b2World b2World;
 // Reserve island jobs
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
+// Persistent island for awake sims, joints, and contacts
+// https://en.wikipedia.org/wiki/Component_(graph_theory)
+// https://en.wikipedia.org/wiki/Dynamic_connectivity
 // map from int to solver set and index
 // todo track islands close to sleep and make sure they are split first
-typedef struct b2IslandLookup
+typedef struct b2Island
 {
 	// index of solver set stored in b2World
 	// may be B2_NULL_INDEX
@@ -35,15 +38,6 @@ typedef struct b2IslandLookup
 	// may be B2_NULL_INDEX
 	int localIndex;
 
-	// Keeps track of how many contacts have been removed from this island.
-	int constraintRemoveCount;
-} b2IslandLookup;
-
-// Persistent island for awake sims, joints, and contacts
-// https://en.wikipedia.org/wiki/Component_(graph_theory)
-// https://en.wikipedia.org/wiki/Dynamic_connectivity
-typedef struct b2Island
-{
 	int islandId;
 
 	int headBody;
@@ -61,7 +55,15 @@ typedef struct b2Island
 	// Union find
 	int parentIsland;
 
+	// Keeps track of how many contacts have been removed from this island.
+	int constraintRemoveCount;
 } b2Island;
+
+typedef struct b2IslandSim
+{
+	int islandId;
+
+} b2IslandSim;
 
 b2Island* b2CreateIsland(b2World* world, int setIndex);
 void b2DestroyIsland(b2World* world, int islandId);
@@ -83,6 +85,5 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint);
 void b2MergeAwakeIslands(b2World* world);
 
 void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context);
-void b2CompleteSplitIsland(b2World* world, b2Island* island);
 
-void b2ValidateIsland(b2World* world, b2Island* island, bool checkSleep);
+void b2ValidateIsland(b2World* world, int islandId);

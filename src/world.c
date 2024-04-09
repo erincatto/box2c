@@ -155,7 +155,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->jointLookupArray = b2CreateArray(sizeof(b2JointLookup), 16);
 
 	world->islandIdPool = b2CreateIdPool();
-	world->islandLookupArray = b2CreateArray(sizeof(b2IslandLookup), 8);
+	world->islandArray = b2CreateArray(sizeof(b2Island), 8);
 
 	world->bodyMoveEventArray = b2CreateArray(sizeof(b2BodyMoveEvent), 4);
 	world->sensorBeginEventArray = b2CreateArray(sizeof(b2SensorBeginTouchEvent), 4);
@@ -247,7 +247,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	b2DestroyArray(world->bodyArray, sizeof(b2Body));
 	b2DestroyArray(world->contactLookupArray, sizeof(b2ContactLookup));
 	b2DestroyArray(world->jointLookupArray, sizeof(b2JointLookup));
-	b2DestroyArray(world->islandLookupArray, sizeof(b2IslandLookup));
+	b2DestroyArray(world->islandArray, sizeof(b2Island));
 
 	// The data in the body sets all comes from the block allocator so no
 	// need to destroy the set contents.
@@ -1907,7 +1907,7 @@ void b2ValidateWorld(b2World* world)
 	B2_ASSERT(b2GetIdCapacity(&world->bodyIdPool) == b2Array(world->bodyArray).count);
 	B2_ASSERT(b2GetIdCapacity(&world->contactIdPool) == b2Array(world->contactLookupArray).count);
 	B2_ASSERT(b2GetIdCapacity(&world->jointIdPool) == b2Array(world->jointLookupArray).count);
-	B2_ASSERT(b2GetIdCapacity(&world->islandIdPool) == b2Array(world->islandLookupArray).count);
+	B2_ASSERT(b2GetIdCapacity(&world->islandIdPool) == b2Array(world->islandArray).count);
 	B2_ASSERT(b2GetIdCapacity(&world->solverSetIdPool) == b2Array(world->solverSetArray).count);
 
 	int activeSetCount = 0;
@@ -2004,17 +2004,17 @@ void b2ValidateWorld(b2World* world)
 			}
 
 			{
-				b2IslandLookup* lookups = world->islandLookupArray;
-				int lookupCount = b2Array(lookups).count;
+				b2Island* islands = world->islandArray;
+				int islandCount = b2Array(islands).count;
 				B2_ASSERT(set->islands.count >= 0);
 				totalIslandCount += set->islands.count;
 				for (int i = 0; i < set->islands.count; ++i)
 				{
-					b2Island* island = set->islands.data + i;
-					B2_ASSERT(0 <= island->islandId && island->islandId < lookupCount);
-					b2IslandLookup* lookup = lookups + island->islandId;
-					B2_ASSERT(lookup->setIndex == setIndex);
-					B2_ASSERT(lookup->localIndex == i);
+					b2IslandSim* islandSim = set->islands.data + i;
+					b2CheckIndex(islands, islandSim->islandId);
+					b2Island* island = islands + islandSim->islandId;
+					B2_ASSERT(island->setIndex == setIndex);
+					B2_ASSERT(island->localIndex == i);
 
 					// todo: validate body - contact - joint graph
 				}

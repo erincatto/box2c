@@ -55,7 +55,7 @@ b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2Island)), 0, capacity};
+		return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2IslandSim)), 0, capacity};
 	}
 
 	return (b2IslandArray){0};
@@ -83,7 +83,7 @@ void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array)
 
 void b2DestroyIslandArray(b2BlockAllocator* allocator, b2IslandArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Island));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2IslandSim));
 }
 
 b2BodySim* b2AddBodySim(b2BlockAllocator* allocator, b2BodySimArray* array)
@@ -158,20 +158,20 @@ b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
 	return element;
 }
 
-b2Island* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array)
+b2IslandSim* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array)
 {
 	if (array->count == array->capacity)
 	{
-		int elementSize = sizeof(b2Island);
+		int elementSize = sizeof(b2IslandSim);
 		int newCapacity = B2_MAX(16, 2 * array->capacity);
-		b2Island* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2IslandSim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
 		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Island* element = array->data + array->count;
+	b2IslandSim* element = array->data + array->count;
 	element->islandId = B2_NULL_INDEX;
 	array->count += 1;
 	return element;

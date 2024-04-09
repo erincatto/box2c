@@ -7,7 +7,7 @@ typedef struct b2BlockAllocator b2BlockAllocator;
 typedef struct b2BodySim b2BodySim;
 typedef struct b2BodyState b2BodyState;
 typedef struct b2Contact b2Contact;
-typedef struct b2Island b2Island;
+typedef struct b2IslandSim b2IslandSim;
 typedef struct b2Joint b2Joint;
 
 typedef struct b2BodySimArray
@@ -33,7 +33,7 @@ typedef struct b2ContactArray
 
 typedef struct b2IslandArray
 {
-	b2Island* data;
+	b2IslandSim* data;
 	int count;
 	int capacity;
 } b2IslandArray;
@@ -62,7 +62,7 @@ void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array);
 b2BodySim* b2AddBodySim(b2BlockAllocator* allocator, b2BodySimArray* array);
 b2BodyState* b2AddBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array);
 b2Contact* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array);
-b2Island* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array);
+b2IslandSim* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array);
 b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array);
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)

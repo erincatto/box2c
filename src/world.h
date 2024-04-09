@@ -89,7 +89,7 @@ typedef struct b2World
 	b2IdPool islandIdPool;
 
 	// This is a sparse array that maps island ids to the island data stored in the solver sets.
-	struct b2IslandLookup* islandLookupArray;
+	struct b2Island* islandArray;
 	
 	b2Pool shapePool;
 	b2Pool chainPool;

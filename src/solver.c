@@ -184,7 +184,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 	uint16_t worldId = world->worldId;
 	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
 
-	b2IslandLookup* islandLookups = world->islandLookupArray;
+	b2Island* islands = world->islandArray;
 
 	b2BitSet* enlargedSimBitSet = &world->taskContextArray[threadIndex].enlargedSimBitSet;
 	b2BitSet* awakeIslandBitSet = &world->taskContextArray[threadIndex].awakeIslandBitSet;
@@ -272,15 +272,15 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		}
 
 		// Any single body in an island can keep it awake
-		b2CheckIndex(islandLookups, body->islandId);
-		b2IslandLookup* islandLookup = islandLookups + body->islandId;
+		b2CheckIndex(islands, body->islandId);
+		b2Island* island = islands + body->islandId;
 		if (sim->sleepTime < b2_timeToSleep)
 		{
 			// keep island awake
-			int islandIndex = islandLookup->localIndex;
+			int islandIndex = island->localIndex;
 			b2SetBit(awakeIslandBitSet, islandIndex);
 		}
-		else if (islandLookup->constraintRemoveCount > 0)
+		else if (island->constraintRemoveCount > 0)
 		{
 			// body wants to sleep but its island needs splitting first
 			if (sim->sleepTime > taskContext->splitSleepTime)
@@ -1103,11 +1103,6 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	b2TracyCZoneNC(graph_solver, "Graph", b2_colorSeaGreen, true);
 
 	// Solve constraints using graph coloring
-	// todo handle no awake bodies better, I think there are some bitsets that get into a bad
-	// state if no bodies are awake. I should make these operate cleanly even when there are no awake
-	// bodies.
-	// bool anyAwake = b2SolveConstraintGraph(world, context);
-
 	{
 		b2TracyCZoneNC(prepare_stages, "Prepare Stages", b2_colorDarkOrange, true);
 
@@ -1358,20 +1353,17 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 		// Split an awake island. This modifies:
 		// - stack allocator
-		// - island pool
+		// - world island array and solver set
 		// - island indices on bodies, contacts, and joints
 		// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
 		// Note: cannot split islands in parallel with FinalizeBodies
-#if 0
-		world->splitIslandIndex = splitIslandIndex;
 		void* splitIslandTask = NULL;
-		if (splitIslandIndex != B2_NULL_INDEX)
+		if (world->splitIslandId != B2_NULL_INDEX)
 		{
 			splitIslandTask = world->enqueueTaskFcn(&b2SplitIslandTask, 1, 1, world, world->userTaskContext);
 			world->taskCount += 1;
 			world->activeTaskCount += splitIslandTask == NULL ? 0 : 1;
 		}
-#endif
 
 		// Prepare body work blocks
 		for (int i = 0; i < bodyBlockCount; ++i)
@@ -1579,14 +1571,12 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		}
 
 		// Finish island split
-#if 0
-		// todo island split
 		if (splitIslandTask != NULL)
 		{
 			world->finishTaskFcn(splitIslandTask, world->userTaskContext);
 			world->activeTaskCount -= 1;
 		}
-#endif
+		world->splitIslandId = B2_NULL_INDEX;
 
 		// Finish constraint solve
 		for (int i = 0; i < workerCount; ++i)
@@ -1859,7 +1849,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	b2TracyCZoneNC(awake_islands, "Island Sleeping", b2_colorGainsboro, true);
 
 	// Collect split island candidate for the next time step
-	world->splitIslandId = B2_NULL_INDEX;
+	B2_ASSERT(world->splitIslandId == B2_NULL_INDEX);
 	float splitSleepTimer = 0.0f;
 	for (uint32_t i = 1; i < world->workerCount; ++i)
 	{
@@ -1881,7 +1871,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		}
 
 		// Need to process in reverse because this moves islands to sleeping solver sets.
-		b2Island* islands = awakeSet->islands.data;
+		b2IslandSim* islands = awakeSet->islands.data;
 		int count = awakeSet->islands.count;
 		for (int islandIndex = count - 1; islandIndex >= 0; islandIndex -= 1)
 		{
@@ -1891,7 +1881,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 				continue;
 			}
 
-			b2Island* island = islands + islandIndex;
+			b2IslandSim* island = islands + islandIndex;
 			int islandId = island->islandId;
 
 			b2TrySleepIsland(world, islandId);

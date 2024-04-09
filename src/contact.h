@@ -113,7 +113,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
 void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies);
 
 b2Contact* b2GetContactFromRawId(b2World* world, int contactId);
-b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup lookup);
+b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 

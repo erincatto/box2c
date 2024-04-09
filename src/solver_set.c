@@ -131,32 +131,34 @@ void b2WakeSolverSet(b2World* world, int setId)
 	// that joints are created between sleeping islands and they
 	// are moved to the same sleeping set.
 	{
-		b2IslandLookup* islandLookups = world->islandLookupArray;
+		b2Island* islands = world->islandArray;
 		int islandCount = set->islands.count;
 		for (int i = 0; i < islandCount; ++i)
 		{
-			b2Island* islandSrc = set->islands.data + i;
-			b2CheckIndex(islandLookups, islandSrc->islandId);
-			b2IslandLookup* islandLookup = islandLookups + islandSrc->islandId;
+			b2IslandSim* islandSrc = set->islands.data + i;
+			b2CheckIndex(islands, islandSrc->islandId);
+			b2Island* islandLookup = islands + islandSrc->islandId;
 			islandLookup->setIndex = b2_awakeSet;
 			islandLookup->localIndex = awakeSet->islands.count;
-			b2Island* islandDst = b2AddIsland(alloc, &awakeSet->islands);
-			memcpy(islandDst, islandSrc, sizeof(b2Island));
+			b2IslandSim* islandDst = b2AddIsland(alloc, &awakeSet->islands);
+			memcpy(islandDst, islandSrc, sizeof(b2IslandSim));
 		}
 	}
 
 	// destroy the sleeping set
 	b2DestroySolverSet(world, setId);
+
+	b2ValidateWorld(world);
 }
 
 void b2TrySleepIsland(b2World* world, int islandId)
 {
-	b2CheckIndex(world->islandLookupArray, islandId);
-	b2IslandLookup* islandLookup = world->islandLookupArray + islandId;
-	B2_ASSERT(islandLookup->setIndex == b2_awakeSet);
+	b2CheckIndex(world->islandArray, islandId);
+	b2Island* island = world->islandArray + islandId;
+	B2_ASSERT(island->setIndex == b2_awakeSet);
 
 	// cannot put an island to sleep while it has a pending split
-	if (islandLookup->constraintRemoveCount > 0)
+	if (island->constraintRemoveCount > 0)
 	{
 		return;
 	}
@@ -180,8 +182,8 @@ void b2TrySleepIsland(b2World* world, int islandId)
 
 	// grab awake set after creating the sleep set because the solver set array may have been resized
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
-	B2_ASSERT(0 <= islandLookup->localIndex && islandLookup->localIndex < awakeSet->islands.count);
-	b2Island* island = awakeSet->islands.data + islandLookup->localIndex;
+	B2_ASSERT(0 <= island->localIndex && island->localIndex < awakeSet->islands.count);
+	b2IslandSim* islandSim = awakeSet->islands.data + island->localIndex;
 
 	sleepSet->setId = sleepSetId;
 	sleepSet->sims = b2CreateBodySimArray(&world->blockAllocator, island->bodyCount);
@@ -393,26 +395,26 @@ void b2TrySleepIsland(b2World* world, int islandId)
 
 	// move island struct
 	{
-		B2_ASSERT(islandLookup->setIndex == b2_awakeSet);
+		B2_ASSERT(island->setIndex == b2_awakeSet);
 
-		int islandIndex = islandLookup->localIndex;
-		b2Island* sleepIsland = b2AddIsland(&world->blockAllocator, &sleepSet->islands);
-		memcpy(sleepIsland, island, sizeof(b2Island));
+		int islandIndex = island->localIndex;
+		b2IslandSim* sleepIsland = b2AddIsland(&world->blockAllocator, &sleepSet->islands);
+		sleepIsland->islandId = islandId;
 
 		int movedIslandIndex = b2RemoveIsland(&awakeSet->islands, islandIndex);
 		if (movedIslandIndex != B2_NULL_INDEX)
 		{
-			// fix lookup on moved element
-			b2Island* movedIsland = awakeSet->islands.data + islandIndex;
-			int movedIslandId = movedIsland->islandId;
-			b2CheckIndex(world->islandLookupArray, movedIslandId);
-			b2IslandLookup* movedIslandLookup = world->islandLookupArray + movedIslandId;
-			B2_ASSERT(movedIslandLookup->localIndex == movedIslandIndex);
-			movedIslandLookup->localIndex = islandIndex;
+			// fix index on moved element
+			b2IslandSim* movedIslandSim = awakeSet->islands.data + islandIndex;
+			int movedIslandId = movedIslandSim->islandId;
+			b2CheckIndex(world->islandArray, movedIslandId);
+			b2Island* movedIsland = world->islandArray + movedIslandId;
+			B2_ASSERT(movedIsland->localIndex == movedIslandIndex);
+			movedIsland->localIndex = islandIndex;
 		}
 
-		islandLookup->setIndex = sleepSetId;
-		islandLookup->localIndex = 0;
+		island->setIndex = sleepSetId;
+		island->localIndex = 0;
 	}
 }
 
@@ -498,19 +500,20 @@ void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 
 	// transfer islands
 	{
-		b2IslandLookup* islandLookups = world->islandLookupArray;
+		b2Island* islandLookups = world->islandArray;
 		int islandCount = set2->islands.count;
 		for (int i = 0; i < islandCount; ++i)
 		{
-			b2Island* islandSrc = set2->islands.data + i;
+			b2IslandSim* islandSrc = set2->islands.data + i;
+			int islandId = islandSrc->islandId;
 
-			b2CheckIndex(islandLookups, islandSrc->islandId);
-			b2IslandLookup* islandLookup = islandLookups + islandSrc->islandId;
+			b2CheckIndex(islandLookups, islandId);
+			b2Island* islandLookup = islandLookups + islandId;
 			islandLookup->setIndex = setId1;
 			islandLookup->localIndex = set1->islands.count;
 			
-			b2Island* islandDst = b2AddIsland(alloc, &set1->islands);
-			memcpy(islandDst, islandSrc, sizeof(b2Island));
+			b2IslandSim* islandDst = b2AddIsland(alloc, &set1->islands);
+			islandDst->islandId = islandId;
 		}
 	}
 

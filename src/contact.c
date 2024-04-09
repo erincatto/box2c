@@ -430,20 +430,20 @@ b2Contact* b2GetContactFromRawId(b2World* world, int contactId)
 	return set->contacts.data + lookup->localIndex;
 }
 
-b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup lookup)
+b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup)
 {
-	if (lookup.setIndex == b2_awakeSet && lookup.colorIndex != B2_NULL_INDEX)
+	if (lookup->setIndex == b2_awakeSet && lookup->colorIndex != B2_NULL_INDEX)
 	{
 		// contact lives in constraint graph
-		B2_ASSERT(0 <= lookup.colorIndex && lookup.colorIndex < b2_graphColorCount);
-		b2GraphColor* color = world->constraintGraph.colors + lookup.colorIndex;
-		B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex < color->contacts.count);
-		return color->contacts.data + lookup.localIndex;
+		B2_ASSERT(0 <= lookup->colorIndex && lookup->colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + lookup->colorIndex;
+		B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < color->contacts.count);
+		return color->contacts.data + lookup->localIndex;
 	}
 
-	b2SolverSet* set = world->solverSetArray + lookup.setIndex;
-	B2_ASSERT(0 <= lookup.localIndex && lookup.localIndex <= set->contacts.count);
-	return set->contacts.data + lookup.localIndex;
+	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
+	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex <= set->contacts.count);
+	return set->contacts.data + lookup->localIndex;
 }
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)

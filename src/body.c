@@ -106,7 +106,9 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 		return;
 	}
 
-	b2Island* island = b2GetIsland(world, body->islandId);
+	int islandId = body->islandId;
+	b2CheckIndex(world->islandArray, islandId);
+	b2Island* island = world->islandArray + islandId;
 
 	// Fix the island's linked list of sims
 	if (body->islandPrev != B2_NULL_INDEX)
@@ -149,7 +151,7 @@ static void b2RemoveBodyFromIsland(b2World* world, b2Body* body)
 
 	if (islandDestroyed == false)
 	{
-		b2WakeSolverSet(world, body->setIndex);
+		b2ValidateIsland(world, islandId);
 	}
 
 	body->islandId = B2_NULL_INDEX;
@@ -319,7 +321,6 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->enableSleep = def->enableSleep;
 	bodySim->fixedRotation = def->fixedRotation;
 	bodySim->isBullet = def->isBullet;
-	bodySim->isMarked = false;
 	bodySim->enlargeAABB = false;
 	bodySim->isFast = false;
 	bodySim->isSpeedCapped = false;
@@ -363,6 +364,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandNext = B2_NULL_INDEX;
 	body->bodyId = bodyId;
 	body->worldId = world->worldId;
+	body->isMarked = false;
 
 	// dynamic and kinematic bodies that are enabled need a island
 	if (setIndex >= b2_awakeSet)
