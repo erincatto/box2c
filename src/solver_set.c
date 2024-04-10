@@ -33,6 +33,8 @@ void b2DestroySolverSet(b2World* world, int setId)
 // This handles contact types 1 and 3. Type 2 doesn't need any action.
 void b2WakeSolverSet(b2World* world, int setId)
 {
+	b2ValidateWorld(world);
+
 	B2_ASSERT(setId >= b2_firstSleepingSet);
 	b2CheckIndex(world->solverSetArray, setId);
 	b2SolverSet* set = world->solverSetArray + setId;
@@ -81,6 +83,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 			B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contact->manifold.pointCount == 0);
 
 			int contactLocalIndex = contactLookup->localIndex;
+			contactLookup->setIndex = b2_awakeSet;
 			contactLookup->localIndex = awakeSet->contacts.count;
 			b2Contact* awakeContact = b2AddContact(&world->blockAllocator, &awakeSet->contacts);
 			memcpy(awakeContact, contact, sizeof(b2Contact));
@@ -416,6 +419,8 @@ void b2TrySleepIsland(b2World* world, int islandId)
 		island->setIndex = sleepSetId;
 		island->localIndex = 0;
 	}
+
+	b2ValidateWorld(world);
 }
 
 // This is called when joints are created between sets. I want to allow the sets
@@ -519,4 +524,6 @@ void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 
 	// destroy the merged set
 	b2DestroySolverSet(world, setId2);
+
+	b2ValidateWorld(world);
 }
