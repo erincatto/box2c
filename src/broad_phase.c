@@ -96,12 +96,12 @@ static inline void b2UnBufferMove(b2BroadPhase* bp, int proxyKey)
 	}
 }
 
-int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType bodyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex)
+int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex)
 {
-	B2_ASSERT(0 <= bodyType && bodyType < b2_proxyTypeCount);
-	int proxyId = b2DynamicTree_CreateProxy(bp->trees + bodyType, aabb, categoryBits, shapeIndex);
-	int proxyKey = B2_PROXY_KEY(proxyId, bodyType);
-	if (bodyType != b2_staticProxy)
+	B2_ASSERT(0 <= proxyType && proxyType < b2_proxyTypeCount);
+	int proxyId = b2DynamicTree_CreateProxy(bp->trees + proxyType, aabb, categoryBits, shapeIndex);
+	int proxyKey = B2_PROXY_KEY(proxyId, proxyType);
+	if (proxyType != b2_staticProxy)
 	{
 		b2BufferMove(bp, proxyKey);
 	}
@@ -124,11 +124,11 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey)
 
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
 {
-	b2ProxyType bodyType = B2_PROXY_TYPE(proxyKey);
+	b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
 	int proxyId = B2_PROXY_ID(proxyKey);
 
-	b2DynamicTree_MoveProxy(bp->trees + bodyType, proxyId, aabb);
-	if (bodyType != b2_staticProxy)
+	b2DynamicTree_MoveProxy(bp->trees + proxyType, proxyId, aabb);
+	if (proxyType != b2_staticProxy)
 	{
 		b2BufferMove(bp, proxyKey);
 	}

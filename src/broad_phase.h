@@ -22,7 +22,7 @@ typedef enum b2ProxyType
 	b2_proxyTypeCount = 2
 } b2ProxyType;
 
-// Store the proxy type in the lower 1 bit of the proxy key. This leaves 28 bits for the id.
+// Store the proxy type in the lower 1 bit of the proxy key. This leaves 31 bits for the id.
 #define B2_PROXY_TYPE(KEY) ((b2ProxyType)((KEY) & 1))
 #define B2_PROXY_ID(KEY) ((KEY) >> 1)
 #define B2_PROXY_KEY(ID, TYPE) (((ID) << 1) | (TYPE))
