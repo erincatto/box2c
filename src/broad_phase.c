@@ -405,6 +405,8 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	b2FreeStackItem(alloc, bp->moveResults);
 	bp->moveResults = NULL;
 
+	b2ValidateWorld(world);
+
 	b2TracyCZoneEnd(create_contacts);
 
 	b2TracyCZoneEnd(update_pairs);

@@ -128,19 +128,19 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2SolverSet set = {0};
 
 	// static set
-	b2Array_Push(world->solverSetArray, set);
 	set.setId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.setId == b2_staticSet);
+	b2Array_Push(world->solverSetArray, set);
+	B2_ASSERT(world->solverSetArray[b2_staticSet].setId == b2_staticSet);
 
 	// disabled set
-	b2Array_Push(world->solverSetArray, set);
 	set.setId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.setId == b2_disabledSet);
+	b2Array_Push(world->solverSetArray, set);
+	B2_ASSERT(world->solverSetArray[b2_disabledSet].setId == b2_disabledSet);
 
 	// awake set
-	b2Array_Push(world->solverSetArray, set);
 	set.setId = b2AllocId(&world->solverSetIdPool);
-	B2_ASSERT(set.setId == b2_awakeSet);
+	b2Array_Push(world->solverSetArray, set);
+	B2_ASSERT(world->solverSetArray[b2_awakeSet].setId == b2_awakeSet);
 
 	world->shapePool = b2CreatePool(sizeof(b2Shape), B2_MAX(def->shapeCapacity, 1));
 	world->shapes = (b2Shape*)world->shapePool.memory;
@@ -1915,7 +1915,9 @@ void b2ValidateWorld(b2World* world)
 	int totalJointCount = 0;
 	int totalContactCount = 0;
 	int totalIslandCount = 0;
-	for (int setIndex = 0; setIndex < b2Array(world->solverSetArray).count; ++setIndex)
+
+	int setCount = b2Array(world->solverSetArray).count;
+	for (int setIndex = 0; setIndex < setCount; ++setIndex)
 	{
 		b2SolverSet* set = world->solverSetArray + setIndex;
 		if (set->setId != B2_NULL_INDEX)
@@ -1957,7 +1959,33 @@ void b2ValidateWorld(b2World* world)
 					B2_ASSERT(body->localIndex == i);
 					B2_ASSERT(body->revision == body->revision);
 
-					// todo: validate body - contact - joint graph
+					if (setIndex == b2_disabledSet)
+					{
+						B2_ASSERT(body->headContactKey == B2_NULL_INDEX);
+					}
+
+					int edgeKey = body->headContactKey;
+					while (edgeKey != B2_NULL_INDEX)
+					{
+						int contactId = edgeKey >> 1;
+						int edgeIndex = edgeKey & 1;
+
+						b2CheckIndex(world->contactLookupArray, contactId);
+						b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
+						B2_ASSERT(contactLookup->setIndex != b2_staticSet);
+
+						if (setIndex == b2_awakeSet)
+						{
+							B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+						}
+
+						b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
+						B2_ASSERT(contact->edges[edgeIndex].bodyId == bodySim->bodyId);
+
+						edgeKey = contact->edges[edgeIndex].nextKey;
+					}
+
+					// todo: validate body - joint graph
 				}
 			}
 
@@ -2080,6 +2108,7 @@ void b2ValidateWorld(b2World* world)
 
 	int contactIdCount = b2GetIdCount(&world->contactIdPool);
 	B2_ASSERT(totalContactCount == contactIdCount);
+	B2_ASSERT(totalContactCount == world->broadPhase.pairSet.count);
 
 	int jointIdCount = b2GetIdCount(&world->jointIdPool);
 	B2_ASSERT(totalJointCount == jointIdCount);

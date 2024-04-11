@@ -203,7 +203,23 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
 	b2Body* bodyB = b2GetBody(world, shapeB->bodyId);
 
-	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
+	B2_ASSERT(bodyA->setIndex != b2_disabledSet && bodyB->setIndex != b2_disabledSet);
+	B2_ASSERT(bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet);
+
+	int setIndex;
+	if (bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet)
+	{
+		setIndex = b2_awakeSet;
+	}
+	else
+	{
+		// sleeping and non-touching contacts live in the disabled set
+		// later if this set is found to be touching then the sleeping
+		// islands will be linked and the contact moved to the merged island
+		setIndex = b2_disabledSet;
+	}
+
+	b2SolverSet* set = world->solverSetArray + setIndex;
 
 	// Create contact key and lookup
 	int contactId = b2AllocId(&world->contactIdPool);
@@ -213,7 +229,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	}
 
 	b2ContactLookup* lookup = world->contactLookupArray + contactId;
-	lookup->setIndex = b2_awakeSet;
+	lookup->setIndex = setIndex;
 	lookup->colorIndex = B2_NULL_INDEX;
 	lookup->localIndex = set->contacts.count;
 

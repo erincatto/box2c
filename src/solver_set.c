@@ -263,6 +263,17 @@ void b2TrySleepIsland(b2World* world, int islandId)
 					continue;
 				}
 
+				// the other body may still be awake, it still may go to sleep and then it will be responsible
+				// for moving this contact to the disabled set.
+				int otherEdgeIndex = edgeIndex ^ 1;
+				int otherBodyId = contact->edges[otherEdgeIndex].bodyId;
+				b2CheckIndex(bodies, otherBodyId);
+				b2Body* otherBody = bodies + otherBodyId;
+				if (otherBody->setIndex == b2_awakeSet)
+				{
+					continue;
+				}
+
 				// move the non-touching contact to the disabled set
 				B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contact->manifold.pointCount == 0);
 

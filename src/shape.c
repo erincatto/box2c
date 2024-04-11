@@ -198,7 +198,13 @@ void b2DestroyShapeInternal(b2World* world, b2Shape* shape, b2Body* body, bool w
 
 	body->shapeCount -= 1;
 
-	// Destroy any contacts associated with the shape
+	// Remove from broad-phase.
+	b2DestroyShapeProxy(shape, &world->broadPhase);
+
+	// Return shape to free list.
+	b2FreeObject(&world->shapePool, &shape->object);
+
+	// Destroy any contacts associated with the shape.
 	int contactKey = body->headContactKey;
 	while (contactKey != B2_NULL_INDEX)
 	{
@@ -213,9 +219,6 @@ void b2DestroyShapeInternal(b2World* world, b2Shape* shape, b2Body* body, bool w
 			b2DestroyContact(world, contact, wakeBodies);
 		}
 	}
-
-	b2DestroyShapeProxy(shape, &world->broadPhase);
-	b2FreeObject(&world->shapePool, &shape->object);
 }
 
 void b2DestroyShape(b2ShapeId shapeId)

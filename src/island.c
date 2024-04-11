@@ -114,6 +114,8 @@ static void b2AddContactToIsland(b2World* world, int islandId, b2Contact* contac
 	b2ValidateIsland(world, islandId);
 }
 
+// Link a contact into an island.
+// This performs union-find and path compression to join islands.
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2Contact* contact)
 {
@@ -125,22 +127,20 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 	b2Body* bodyA = b2GetBody(world, bodyIdA);
 	b2Body* bodyB = b2GetBody(world, bodyIdB);
 
-	// At least one body must be awake.
-	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+	B2_ASSERT(bodyA->setIndex != b2_disabledSet && bodyB->setIndex != b2_disabledSet);
+	B2_ASSERT(bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet);
 
-	// Ensure both bodies are awake or static.
-	if (bodyA->setIndex >= b2_firstSleepingSet)
-	{
-		b2WakeSolverSet(world, bodyA->setIndex);
-	}
-
-	if (bodyB->setIndex >= b2_firstSleepingSet)
+	// Wake bodyB if bodyA is awake and bodyB is sleeping
+	if (bodyA->setIndex == b2_awakeSet && bodyB->setIndex >= b2_firstSleepingSet)
 	{
 		b2WakeSolverSet(world, bodyB->setIndex);
 	}
 
-	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyA->setIndex == b2_staticSet);
-	B2_ASSERT(bodyB->setIndex == b2_awakeSet || bodyB->setIndex == b2_staticSet);
+	// Wake bodyA if bodyB is awake and bodyA is sleeping
+	if (bodyB->setIndex == b2_awakeSet && bodyA->setIndex >= b2_firstSleepingSet)
+	{
+		b2WakeSolverSet(world, bodyA->setIndex);
+	}
 
 	int islandIdA = bodyA->islandId;
 	int islandIdB = bodyB->islandId;
