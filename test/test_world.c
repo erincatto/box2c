@@ -175,15 +175,27 @@ static int TestIsValid(void)
 {
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	b2WorldId worldId = b2CreateWorld(&worldDef);
-	b2BodyDef bodyDef = b2DefaultBodyDef();
-	b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
-	bool valid1 = b2Body_IsValid(bodyId);
-	ENSURE(valid1);
+	ENSURE(b2World_IsValid(worldId));
 
-	worldId = b2CreateWorld(&worldDef);
-	bodyId = b2CreateBody(worldId, &bodyDef);
-	bool valid2 = b2Body_IsValid(bodyId);
-	ENSURE(valid2);
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	
+	b2BodyId bodyId1 = b2CreateBody(worldId, &bodyDef);
+	ENSURE(b2Body_IsValid(bodyId1) == true);
+
+	b2BodyId bodyId2 = b2CreateBody(worldId, &bodyDef);
+	ENSURE(b2Body_IsValid(bodyId2) == true);
+
+	b2DestroyBody(bodyId1);
+	ENSURE(b2Body_IsValid(bodyId1) == false);
+
+	b2DestroyBody(bodyId2);
+	ENSURE(b2Body_IsValid(bodyId2) == false);
+
+	b2DestroyWorld(worldId);
+
+	ENSURE(b2World_IsValid(worldId) == false);
+	ENSURE(b2Body_IsValid(bodyId2) == false);
+	ENSURE(b2Body_IsValid(bodyId1) == false);
 
 	return 0;
 }

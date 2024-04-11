@@ -262,6 +262,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	// Wipe world but preserve revision
 	uint16_t revision = world->revision;
 	*world = (b2World){0};
+	world->worldId = B2_NULL_INDEX;
 	world->revision = revision + 1;
 }
 
