@@ -11,19 +11,19 @@
 
 // https://en.wikipedia.org/wiki/Find_first_set
 
-static inline uint32_t b2CTZ32(uint32_t block)
+inline uint32_t b2CTZ32(uint32_t block)
 {
 	unsigned long index;
 	_BitScanForward(&index, block);
 	return index;
 }
 
-static inline uint32_t b2CLZ32(uint32_t value)
+inline uint32_t b2CLZ32(uint32_t value)
 {
 	return __lzcnt(value);
 }
 
-static inline uint32_t b2CTZ64(uint64_t block)
+inline uint32_t b2CTZ64(uint64_t block)
 {
 	unsigned long index;
 
@@ -47,17 +47,17 @@ static inline uint32_t b2CTZ64(uint64_t block)
 
 #else
 
-static inline uint32_t b2CTZ32(uint32_t block)
+inline uint32_t b2CTZ32(uint32_t block)
 {
 	return __builtin_ctz(block);
 }
 
-static inline uint32_t b2CLZ32(uint32_t value)
+inline uint32_t b2CLZ32(uint32_t value)
 {
 	return __builtin_clz(value);
 }
 
-static inline uint32_t b2CTZ64(uint64_t block)
+inline uint32_t b2CTZ64(uint64_t block)
 {
 	return __builtin_ctzll(block);
 }
@@ -88,4 +88,3 @@ inline int b2RoundUpPowerOf2(int x)
 	
 	return 1 << (32 - (int)b2CLZ32((uint32_t)x - 1));
 }
-
