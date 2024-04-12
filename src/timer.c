@@ -136,7 +136,7 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 
 void b2SleepMilliseconds(float milliseconds)
 {
-	B2_MAYBE_UNUSED(milliseconds);
+	((void)(milliseconds));
 	// TODO couldn't get this to compile on gcc
 	// usleep((uint32_t)(1000.0f * milliseconds + 0.5f));
 }
@@ -151,19 +151,19 @@ b2Timer b2CreateTimer(void)
 
 float b2GetMilliseconds(const b2Timer* timer)
 {
-	B2_MAYBE_UNUSED(timer);
+	((void)(timer));
 	return 0.0f;
 }
 
 float b2GetMillisecondsAndReset(b2Timer* timer)
 {
-	B2_MAYBE_UNUSED(timer);
+	((void)(timer));
 	return 0.0f;
 }
 
 void b2SleepMilliseconds(float milliseconds)
 {
-	B2_MAYBE_UNUSED(milliseconds);
+	((void)(milliseconds));
 }
 
 #endif
