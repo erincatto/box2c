@@ -156,7 +156,7 @@ bool b2WakeBody(b2World* world, b2Body* body);
 
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
-inline b2Sweep b2MakeSweep(const b2BodySim* bodySim)
+static inline b2Sweep b2MakeSweep(const b2BodySim* bodySim)
 {
 	b2Sweep s;
 	s.c1 = bodySim->center0;
