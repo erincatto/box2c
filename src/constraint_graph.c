@@ -10,7 +10,7 @@
 #include "joint.h"
 #include "world.h"
 
-#include <stdatomic.h>
+#include <string.h>
 
 // Solver using graph coloring. Islands are only used for sleep.
 // High-Performance Physical Simulations on Next-Generation Architecture with Many Cores
