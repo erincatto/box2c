@@ -11,19 +11,19 @@
 
 // https://en.wikipedia.org/wiki/Find_first_set
 
-inline uint32_t b2CTZ32(uint32_t block)
+static inline uint32_t b2CTZ32(uint32_t block)
 {
 	unsigned long index;
 	_BitScanForward(&index, block);
 	return index;
 }
 
-inline uint32_t b2CLZ32(uint32_t value)
+static inline uint32_t b2CLZ32(uint32_t value)
 {
 	return __lzcnt(value);
 }
 
-inline uint32_t b2CTZ64(uint64_t block)
+static inline uint32_t b2CTZ64(uint64_t block)
 {
 	unsigned long index;
 
@@ -47,29 +47,29 @@ inline uint32_t b2CTZ64(uint64_t block)
 
 #else
 
-inline uint32_t b2CTZ32(uint32_t block)
+static inline uint32_t b2CTZ32(uint32_t block)
 {
 	return __builtin_ctz(block);
 }
 
-inline uint32_t b2CLZ32(uint32_t value)
+static inline uint32_t b2CLZ32(uint32_t value)
 {
 	return __builtin_clz(value);
 }
 
-inline uint32_t b2CTZ64(uint64_t block)
+static inline uint32_t b2CTZ64(uint64_t block)
 {
 	return __builtin_ctzll(block);
 }
 
 #endif
 
-inline bool b2IsPowerOf2(int x)
+static inline bool b2IsPowerOf2(int x)
 {
 	return (x & (x - 1)) == 0;
 }
 
-inline int b2BoundingPowerOf2(int x)
+static inline int b2BoundingPowerOf2(int x)
 {
 	if (x <= 1)
 	{
@@ -79,7 +79,7 @@ inline int b2BoundingPowerOf2(int x)
 	return 32 - (int)b2CLZ32((uint32_t)x - 1);
 }
 
-inline int b2RoundUpPowerOf2(int x)
+static inline int b2RoundUpPowerOf2(int x)
 {
 	if (x <= 1)
 	{
