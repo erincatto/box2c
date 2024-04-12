@@ -168,7 +168,7 @@ static void b2DestroyBodyContacts(b2World* world, b2Body* body, bool wakeBodies)
 		int contactId = edgeKey >> 1;
 		int edgeIndex = edgeKey & 1;
 
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		b2ContactLookup* contact = world->contactLookupArray + contactId;
 		edgeKey = contact->edges[edgeIndex].nextKey;
 		b2DestroyContact(world, contact, wakeBodies);
 	}
@@ -211,39 +211,7 @@ static void b2EnableBody(b2World* world, b2Body* body)
 
 static void b2DisableBody(b2World* world, b2Body* body)
 {
-// todo
-#if 0
-	b2DestroyBodyContacts(world, body);
-	b2RemoveBodyFromIsland(world, body);
 
-	// Remove shapes from broad-phase
-	int shapeIndex = body->shapeList;
-	while (shapeIndex != B2_NULL_INDEX)
-	{
-		b2Shape* shape = world->shapes + shapeIndex;
-		shapeIndex = shape->nextShapeId;
-
-		b2DestroyShapeProxy(shape, &world->broadPhase);
-	}
-
-	int headJointKey = body->jointList;
-	while (headJointKey != B2_NULL_INDEX)
-	{
-		int jointIndex = headJointKey >> 1;
-		int edgeIndex = headJointKey & 1;
-		b2Joint* joint = world->joints + jointIndex;
-		if (joint->colorIndex != B2_NULL_INDEX)
-		{
-			b2RemoveJointFromGraph(world, joint);
-		}
-
-		if (joint->islandIndex != B2_NULL_INDEX)
-		{
-			b2UnlinkJoint(world, joint);
-		}
-		headJointKey = joint->edges[edgeIndex].nextKey;
-	}
-#endif
 }
 
 b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
@@ -509,24 +477,28 @@ int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capac
 	int index = 0;
 	while (contactKey != B2_NULL_INDEX && index < capacity)
 	{
+		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		int contactId = contactKey >> 1;
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		b2CheckIndex(world->contactLookupArray, contactId);
+		b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
 
 		// Is contact touching?
-		if (contact->flags & b2_contactTouchingFlag)
+		if (contactLookup->flags & b2_contactTouchingFlag)
 		{
-			b2Shape* shapeA = world->shapes + contact->shapeIdA;
-			b2Shape* shapeB = world->shapes + contact->shapeIdB;
+			b2Shape* shapeA = world->shapes + contactLookup->shapeIdA;
+			b2Shape* shapeB = world->shapes + contactLookup->shapeIdB;
 
 			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, bodyId.world0, shapeA->object.revision};
 			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, bodyId.world0, shapeB->object.revision};
+
+			b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
 			contactData[index].manifold = contact->manifold;
+			
 			index += 1;
 		}
 
-		contactKey = contact->edges[edgeIndex].nextKey;
+		contactKey = contactLookup->edges[edgeIndex].nextKey;
 	}
 
 	B2_ASSERT(index < capacity);
@@ -1174,7 +1146,7 @@ bool b2Body_IsAwake(b2BodyId bodyId)
 	return body->setIndex == b2_awakeSet;
 }
 
-void b2Body_Wake(b2BodyId bodyId)
+void b2Body_SetAwake(b2BodyId bodyId, bool awake)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
 	if (world == NULL)
@@ -1183,7 +1155,22 @@ void b2Body_Wake(b2BodyId bodyId)
 	}
 
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2WakeBody(world, body);
+
+	if (awake && body->setIndex >= b2_firstSleepingSet)
+	{
+		b2WakeBody(world, body);
+	}
+	else if (awake == false && body->setIndex == b2_awakeSet)
+	{
+		b2CheckIndex(world->islandArray, body->islandId);
+		b2Island* island = world->islandArray + body->islandId;
+		if (island->constraintRemoveCount > 0)
+		{
+			b2SplitIsland(world, body->islandId);
+		}
+
+		b2TrySleepIsland(world, body->islandId);
+	}
 }
 
 bool b2Body_IsEnabled(b2BodyId bodyId)
@@ -1228,10 +1215,49 @@ void b2Body_Disable(b2BodyId bodyId)
 	}
 
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	if (body->setIndex != b2_disabledSet)
+	if (body->setIndex == b2_disabledSet)
 	{
-		b2DisableBody(world, body);
+		return;
 	}
+
+	#if 0
+	// Wake body and everything it is touching/attached to. This avoid floating bodies.
+	b2WakeBody(world, body);
+
+	bool wakeBodies = false;
+	b2DestroyBodyContacts(world, body, wakeBodies);
+
+	// Disabled bodies are not in an island.
+	b2RemoveBodyFromIsland(world, body);
+
+	// Remove shapes from broad-phase
+	int shapeIndex = body->headShapeId;
+	while (shapeIndex != B2_NULL_INDEX)
+	{
+		b2Shape* shape = world->shapes + shapeIndex;
+		shapeIndex = shape->nextShapeId;
+		b2DestroyShapeProxy(shape, &world->broadPhase);
+	}
+
+	// Disable joints
+	int headJointKey = body->headJointKey;
+	while (headJointKey != B2_NULL_INDEX)
+	{
+		int jointId = headJointKey >> 1;
+		int edgeIndex = headJointKey & 1;
+		b2JointLookup* joint = world->joints + jointIndex;
+		if (joint->colorIndex != B2_NULL_INDEX)
+		{
+			b2RemoveJointFromGraph(world, joint);
+		}
+
+		if (joint->islandIndex != B2_NULL_INDEX)
+		{
+			b2UnlinkJoint(world, joint);
+		}
+		headJointKey = joint->edges[edgeIndex].nextKey;
+	}
+	#endif
 }
 
 void b2Body_Enable(b2BodyId bodyId)

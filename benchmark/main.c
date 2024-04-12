@@ -96,7 +96,7 @@ int main(int argc, char** argv)
 	assert(maxThreadCount <= THREAD_LIMIT);
 
 	Benchmark benchmarks[] = {
-		//{"many_pyramids", ManyPyramids, 200},
+		{"many_pyramids", ManyPyramids, 200},
 		{"large_pyramids", LargePyramid, 500},
 	};
 

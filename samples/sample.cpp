@@ -187,7 +187,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			jd.dampingRatio = 0.7f;
 			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
 
-			b2Body_Wake(queryContext.bodyId);
+			b2Body_SetAwake(queryContext.bodyId, true);
 		}
 	}
 }
@@ -210,7 +210,7 @@ void Sample::MouseMove(b2Vec2 p)
 	{
 		b2MouseJoint_SetTarget(m_mouseJointId, p);
 		b2BodyId bodyIdB = b2Joint_GetBodyB(m_mouseJointId);
-		b2Body_Wake(bodyIdB);
+		b2Body_SetAwake(bodyIdB, true);
 	}
 }
 
@@ -315,7 +315,8 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.applyRestitution = B2_MAX(m_maxProfile.applyRestitution, p.applyRestitution);
 		m_maxProfile.storeImpulses = B2_MAX(m_maxProfile.storeImpulses, p.storeImpulses);
 		m_maxProfile.finalizeBodies = B2_MAX(m_maxProfile.finalizeBodies, p.finalizeBodies);
-		m_maxProfile.awakeUpdate = B2_MAX(m_maxProfile.awakeUpdate, p.awakeUpdate);
+		m_maxProfile.sleepIslands = B2_MAX(m_maxProfile.sleepIslands, p.sleepIslands);
+		m_maxProfile.splitIslands = B2_MAX(m_maxProfile.splitIslands, p.splitIslands);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
 
@@ -336,7 +337,8 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.applyRestitution += p.applyRestitution;
 		m_totalProfile.storeImpulses += p.storeImpulses;
 		m_totalProfile.finalizeBodies += p.finalizeBodies;
-		m_totalProfile.awakeUpdate += p.awakeUpdate;
+		m_totalProfile.sleepIslands += p.sleepIslands;
+		m_totalProfile.splitIslands += p.splitIslands;
 		m_totalProfile.broadphase += p.broadphase;
 		m_totalProfile.continuous += p.continuous;
 	}
@@ -367,7 +369,8 @@ void Sample::Step(Settings& settings)
 			aveProfile.applyRestitution = scale * m_totalProfile.applyRestitution;
 			aveProfile.storeImpulses = scale * m_totalProfile.storeImpulses;
 			aveProfile.finalizeBodies = scale * m_totalProfile.finalizeBodies;
-			aveProfile.awakeUpdate = scale * m_totalProfile.awakeUpdate;
+			aveProfile.sleepIslands = scale * m_totalProfile.sleepIslands;
+			aveProfile.splitIslands = scale * m_totalProfile.splitIslands;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 			aveProfile.continuous = scale * m_totalProfile.continuous;
 		}
@@ -422,8 +425,11 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "finalize bodies [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.finalizeBodies,
 						  aveProfile.finalizeBodies, m_maxProfile.finalizeBodies);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "awake update [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.awakeUpdate,
-						  aveProfile.awakeUpdate, m_maxProfile.awakeUpdate);
+		g_draw.DrawString(5, m_textLine, "sleep islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.sleepIslands,
+						  aveProfile.sleepIslands, m_maxProfile.sleepIslands);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "split islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.splitIslands,
+						  aveProfile.splitIslands, m_maxProfile.splitIslands);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);

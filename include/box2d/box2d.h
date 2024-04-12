@@ -290,7 +290,9 @@ B2_API float b2Body_GetGravityScale(b2BodyId bodyId);
 B2_API bool b2Body_IsAwake(b2BodyId bodyId);
 
 /// Wake a body from sleep. This wakes the entire island the body is touching.
-B2_API void b2Body_Wake(b2BodyId bodyId);
+///	Putting a body to sleep will put the entire island of bodies touching this body to sleep,
+///	which can be expensive.
+B2_API void b2Body_SetAwake(b2BodyId bodyId, bool awake);
 
 /// Enable or disable sleeping this body. If sleeping is disabled the body will wake.
 B2_API void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep);

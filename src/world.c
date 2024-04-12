@@ -274,6 +274,7 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 	b2World* world = stepContext->world;
 	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
+	b2ContactLookup* contactLookups = world->contactLookupArray;
 	b2Contact** contacts = stepContext->contacts;
 	b2Shape* shapes = world->shapes;
 	b2Body* bodies = world->bodyArray;
@@ -284,8 +285,12 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 	{
 		b2Contact* contact = contacts[i];
 
-		b2Shape* shapeA = shapes + contact->shapeIdA;
-		b2Shape* shapeB = shapes + contact->shapeIdB;
+		int contactId = contact->contactId;
+		b2CheckIndex(contactLookups, contactId);
+		b2ContactLookup* lookup = contactLookups + contactId;
+
+		b2Shape* shapeA = shapes + lookup->shapeIdA;
+		b2Shape* shapeB = shapes + lookup->shapeIdB;
 
 
 		//if (bodyA->setIndex != b2_awakeSet && bodyB->setIndex != b2_awakeSet)
@@ -309,33 +314,33 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
 		if (overlap == false)
 		{
-			contact->flags |= b2_contactDisjoint;
-			b2SetBit(&taskContext->contactStateBitSet, contact->contactId);
+			lookup->flags |= b2_contactDisjoint;
+			b2SetBit(&taskContext->contactStateBitSet, contactId);
 		}
 		else
 		{
-			bool wasTouching = (contact->flags & b2_contactTouchingFlag);
-			B2_ASSERT(wasTouching || contact->islandId == B2_NULL_INDEX);
+			bool wasTouching = (lookup->flags & b2_contactTouchingFlag);
+			B2_ASSERT(wasTouching || lookup->islandId == B2_NULL_INDEX);
 
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = bodies + shapeA->bodyId;
 			b2Body* bodyB = bodies + shapeB->bodyId;
 			b2BodySim* bodySimA = b2GetBodySim(world, bodyA);
 			b2BodySim* bodySimB = b2GetBodySim(world, bodyB);
-			b2UpdateContact(world, contact, shapeA, bodySimA->transform, shapeB, bodySimB->transform);
+			b2UpdateContact(world, lookup, contact, shapeA, bodySimA->transform, shapeB, bodySimB->transform);
 
-			bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
+			bool touching = (lookup->flags & b2_contactTouchingFlag) != 0;
 
 			// State changes that affect island connectivity
 			if (touching == true && wasTouching == false)
 			{
-				contact->flags |= b2_contactStartedTouching;
-				b2SetBit(&taskContext->contactStateBitSet, contact->contactId);
+				lookup->flags |= b2_contactStartedTouching;
+				b2SetBit(&taskContext->contactStateBitSet, contactId);
 			}
 			else if (touching == false && wasTouching == true)
 			{
-				contact->flags |= b2_contactStoppedTouching;
-				b2SetBit(&taskContext->contactStateBitSet, contact->contactId);
+				lookup->flags |= b2_contactStoppedTouching;
+				b2SetBit(&taskContext->contactStateBitSet, contactId);
 			}
 		}
 	}
@@ -512,11 +517,11 @@ static void b2Collide(b2StepContext* context)
 				contact = awakeSet->contacts.data + localIndex;
 			}
 
-			const b2Shape* shapeA = shapes + contact->shapeIdA;
-			const b2Shape* shapeB = shapes + contact->shapeIdB;
+			const b2Shape* shapeA = shapes + contactLookup->shapeIdA;
+			const b2Shape* shapeB = shapes + contactLookup->shapeIdB;
 			b2ShapeId shapeIdA = {shapeA->object.index + 1, worldId, shapeA->object.revision};
 			b2ShapeId shapeIdB = {shapeB->object.index + 1, worldId, shapeB->object.revision};
-			uint32_t flags = contact->flags;
+			uint32_t flags = contactLookup->flags;
 
 			if (flags & b2_contactDisjoint)
 			{
@@ -528,14 +533,14 @@ static void b2Collide(b2StepContext* context)
 				}
 
 				// Bounding boxes no longer overlap
-				b2DestroyContact(world, contact, false);
+				b2DestroyContact(world, contactLookup, false);
 				contact = NULL;
 			}
 			else if (flags & b2_contactStartedTouching)
 			{
-				contact->flags &= ~b2_contactStartedTouching;
+				contactLookup->flags &= ~b2_contactStartedTouching;
 
-				B2_ASSERT(contact->islandId == B2_NULL_INDEX);
+				B2_ASSERT(contactLookup->islandId == B2_NULL_INDEX);
 				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
 				{
 					if (shapeA->isSensor)
@@ -561,13 +566,13 @@ static void b2Collide(b2StepContext* context)
 
 					contact = b2AddContactToGraph(world, contact, contactLookup);
 					b2RemoveNonTouchingContact(world, b2_awakeSet, localIndex);
-					b2LinkContact(world, contact);
+					b2LinkContact(world, contactLookup);
 					contact = NULL;
 				}
 			}
-			else if (contact->flags & b2_contactStoppedTouching)
+			else if (contactLookup->flags & b2_contactStoppedTouching)
 			{
-				contact->flags &= ~b2_contactStoppedTouching;
+				contactLookup->flags &= ~b2_contactStoppedTouching;
 
 				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
 				{
@@ -585,15 +590,18 @@ static void b2Collide(b2StepContext* context)
 				}
 				else
 				{
-					if (contact->flags & b2_contactEnableContactEvents)
+					if (contactLookup->flags & b2_contactEnableContactEvents)
 					{
 						b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
 						b2Array_Push(world->contactEndArray, event);
 					}
 
-					b2UnlinkContact(world, contact);
+					b2UnlinkContact(world, contactLookup);
+					int bodyIdA = contactLookup->edges[0].bodyId;
+					int bodyIdB = contactLookup->edges[1].bodyId;
+
 					b2AddNonTouchingContact(world, contactLookup, contact);
-					b2RemoveContactFromGraph(world, contact, colorIndex, localIndex);
+					b2RemoveContactFromGraph(world, bodyIdA, bodyIdB, colorIndex, localIndex);
 					contact = NULL;
 				}
 			}
@@ -1979,11 +1987,14 @@ void b2ValidateWorld(b2World* world)
 						{
 							B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
 						}
+						B2_ASSERT(contactLookup->edges[edgeIndex].bodyId == bodySim->bodyId);
 
 						b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
-						B2_ASSERT(contact->edges[edgeIndex].bodyId == bodySim->bodyId);
+						B2_ASSERT(contact->contactId == contactId);
+						B2_ASSERT(contact->bodyIdA == contactLookup->edges[0].bodyId);
+						B2_ASSERT(contact->bodyIdB == contactLookup->edges[1].bodyId);
 
-						edgeKey = contact->edges[edgeIndex].nextKey;
+						edgeKey = contactLookup->edges[edgeIndex].nextKey;
 					}
 
 					// todo: validate body - joint graph
@@ -1998,17 +2009,17 @@ void b2ValidateWorld(b2World* world)
 				for (int i = 0; i < set->contacts.count; ++i)
 				{
 					b2Contact* contact = set->contacts.data + i;
-					B2_ASSERT(0 <= contact->contactId && contact->contactId < lookupCount);
+					b2CheckIndex(lookups, contact->contactId);
+					b2ContactLookup* lookup = lookups + contact->contactId;
 					if (setIndex == b2_awakeSet)
 					{
 						// contact should be non-touching if awake
 						// or it could be this contact hasn't been transferred yet
-						B2_ASSERT(contact->manifold.pointCount == 0 || (contact->flags & b2_contactStartedTouching) != 0);
+						B2_ASSERT(contact->manifold.pointCount == 0 || (lookup->flags & b2_contactStartedTouching) != 0);
 					}
-					b2ContactLookup lookup = lookups[contact->contactId];
-					B2_ASSERT(lookup.setIndex == setIndex);
-					B2_ASSERT(lookup.colorIndex == B2_NULL_INDEX);
-					B2_ASSERT(lookup.localIndex == i);
+					B2_ASSERT(lookup->setIndex == setIndex);
+					B2_ASSERT(lookup->colorIndex == B2_NULL_INDEX);
+					B2_ASSERT(lookup->localIndex == i);
 
 					// todo: validate body - contact - joint graph
 				}
@@ -2079,11 +2090,11 @@ void b2ValidateWorld(b2World* world)
 			for (int i = 0; i < color->contacts.count; ++i)
 			{
 				b2Contact* contact = color->contacts.data + i;
-				B2_ASSERT(0 <= contact->contactId && contact->contactId < lookupCount);
+				b2CheckIndex(lookups, contact->contactId);
+				b2ContactLookup* lookup = lookups + contact->contactId;
 				// contact should be touching in the constraint graph or awaiting transfer to non-touching
 				B2_ASSERT(contact->manifold.pointCount > 0 ||
-						  (contact->flags & (b2_contactStoppedTouching | b2_contactDisjoint)) != 0);
-				b2ContactLookup* lookup = lookups + contact->contactId;
+						  (lookup->flags & (b2_contactStoppedTouching | b2_contactDisjoint)) != 0);
 				B2_ASSERT(lookup->setIndex == b2_awakeSet);
 				B2_ASSERT(lookup->colorIndex == colorIndex);
 				B2_ASSERT(lookup->localIndex == i);

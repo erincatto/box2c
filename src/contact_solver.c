@@ -50,10 +50,10 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 		B2_ASSERT(0 < pointCount && pointCount <= 2);
 
 		// body index is null for static bodies
-		b2Body* bodyA = bodies + contact->edges[0].bodyId;
+		b2Body* bodyA = bodies + contact->bodyIdA;
 		int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 
-		b2Body* bodyB = bodies + contact->edges[1].bodyId;
+		b2Body* bodyB = bodies + contact->bodyIdB;
 		int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 		b2ContactConstraint* constraint = constraints + i;
@@ -615,10 +615,10 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 				const b2Manifold* manifold = &contact->manifold;
 
 				// body index is null for static bodies
-				b2Body* bodyA = bodies + contact->edges[0].bodyId;
+				b2Body* bodyA = bodies + contact->bodyIdA;
 				int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 
-				b2Body* bodyB = bodies + contact->edges[1].bodyId;
+				b2Body* bodyB = bodies + contact->bodyIdB;
 				int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 				constraint->indexA[j] = indexA;

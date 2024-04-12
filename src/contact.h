@@ -10,6 +10,18 @@
 typedef struct b2Shape b2Shape;
 typedef struct b2World b2World;
 
+// A contact edge is used to connect sims and contacts together
+// in a contact graph where each body is a node and each contact
+// is an edge. A contact edge belongs to a doubly linked list
+// maintained in each attached body. Each contact has two contact
+// edges, one for each attached body.
+typedef struct b2ContactEdge
+{
+	int bodyId;
+	int prevKey;
+	int nextKey;
+} b2ContactEdge;
+
 typedef struct b2ContactLookup
 {
 	// index of simulation set stored in b2World
@@ -24,19 +36,22 @@ typedef struct b2ContactLookup
 	// contact index within set or graph color
 	// B2_NULL_INDEX when slot is free
 	int localIndex;
-} b2ContactLookup;
 
-// A contact edge is used to connect sims and contacts together
-// in a contact graph where each body is a node and each contact
-// is an edge. A contact edge belongs to a doubly linked list
-// maintained in each attached body. Each contact has two contact
-// edges, one for each attached body.
-typedef struct b2ContactEdge
-{
-	int bodyId;
-	int prevKey;
-	int nextKey;
-} b2ContactEdge;
+	b2ContactEdge edges[2];
+	int shapeIdA;
+	int shapeIdB;
+
+	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
+	int islandPrev;
+	int islandNext;
+	int islandId;
+
+	int contactId;
+
+	uint32_t flags;
+
+	bool isMarked;
+} b2ContactLookup;
 
 // Flags stored in b2Contact::flags
 enum b2ContactFlags
@@ -76,26 +91,11 @@ typedef struct b2Contact
 {
 	int contactId;
 
-	uint32_t flags;
-
-	// The color of this constraint in the graph coloring
-	//int colorIndex;
-
-	// Index of contact within color or within b2SolverSet contact array (non-touching or sleeping)
-	//int localIndex;
-
-	b2ContactEdge edges[2];
-
-	int shapeIdA;
-	int shapeIdB;
+	int bodyIdA;
+	int bodyIdB;
 
 	b2DistanceCache cache;
 	b2Manifold manifold;
-
-	// A contact only belongs to an island if touching, otherwise B2_NULL_INDEX.
-	int islandPrev;
-	int islandNext;
-	int islandId;
 
 	// Mixed friction and restitution
 	float friction;
@@ -103,19 +103,16 @@ typedef struct b2Contact
 
 	// For conveyor belts
 	float tangentSpeed;
-
-	bool isMarked;
 } b2Contact;
 
 void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
-void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies);
+void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies);
 
-b2Contact* b2GetContactFromRawId(b2World* world, int contactId);
 b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
-void b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
-					 b2Transform transformB);
+void b2UpdateContact(b2World* world, b2ContactLookup* lookup, b2Contact* contact, b2Shape* shapeA, b2Transform transformA,
+					 b2Shape* shapeB, b2Transform transformB);

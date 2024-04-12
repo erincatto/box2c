@@ -285,7 +285,8 @@ typedef struct b2Profile
 	float applyRestitution;
 	float storeImpulses;
 	float finalizeBodies;
-	float awakeUpdate;
+	float splitIslands;
+	float sleepIslands;
 	float broadphase;
 	float continuous;
 } b2Profile;

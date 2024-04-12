@@ -27,8 +27,8 @@
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-#include <stddef.h>
-#include <string.h>
+//#include <stddef.h>
+//#include <string.h>
 
 typedef struct b2WorkerContext
 {
@@ -1843,7 +1843,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 	world->profile.continuous = b2GetMilliseconds(&timer);
 
-	b2TracyCZoneNC(awake_islands, "Island Sleeping", b2_colorGainsboro, true);
+	b2TracyCZoneNC(sleep_islands, "Island Sleep", b2_colorGainsboro, true);
 
 	// Collect split island candidate for the next time step
 	B2_ASSERT(world->splitIslandId == B2_NULL_INDEX);
@@ -1886,9 +1886,9 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 		b2ValidateWorld(world);
 
-		b2TracyCZoneEnd(awake_islands);
+		b2TracyCZoneEnd(sleep_islands);
 
-		world->profile.awakeUpdate = b2GetMilliseconds(&timer);
+		world->profile.sleepIslands = b2GetMilliseconds(&timer);
 
 		b2TracyCZoneEnd(solve);
 	}

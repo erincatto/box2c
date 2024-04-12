@@ -211,7 +211,8 @@ void b2DestroyShapeInternal(b2World* world, b2Shape* shape, b2Body* body, bool w
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		b2CheckIndex(world->contactLookupArray, contactId);
+		b2ContactLookup* contact = world->contactLookupArray + contactId;
 		contactKey = contact->edges[edgeIndex].nextKey;
 
 		if (contact->shapeIdA == shapeId || contact->shapeIdB == shapeId)
@@ -229,6 +230,8 @@ void b2DestroyShape(b2ShapeId shapeId)
 	b2Shape* shape = world->shapes + (shapeId.index1 - 1);
 
 	float density = shape->density;
+
+	// need to wake bodies because this might be a static body
 	bool wakeBodies = true;
 
 	b2Body* body = b2GetBody(world, shape->bodyId);
@@ -813,6 +816,7 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 	}
 
 	// waking the body above means contacts don't need to be waked
+	// todo what if this is shape is on a static body?
 	bool wakeContacts = false;
 
 	// destroy all contacts associated with this shape
@@ -822,7 +826,8 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		b2CheckIndex(world->contactLookupArray, contactId);
+		b2ContactLookup* contact = world->contactLookupArray + contactId;
 		contactKey = contact->edges[edgeIndex].nextKey;
 
 		if (contact->shapeIdA == shapeId || contact->shapeIdB == shapeId)
@@ -1122,22 +1127,25 @@ int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int ca
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		b2CheckIndex(world->contactLookupArray, contactId);
+		b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
 
 		// Does contact involve this shape and is it touching?
-		if ((contact->shapeIdA == shapeId.index1 - 1 || contact->shapeIdB == shapeId.index1 - 1) &&
-			(contact->flags & b2_contactTouchingFlag) != 0)
+		if ((contactLookup->shapeIdA == shapeId.index1 - 1 || contactLookup->shapeIdB == shapeId.index1 - 1) &&
+			(contactLookup->flags & b2_contactTouchingFlag) != 0)
 		{
-			b2Shape* shapeA = world->shapes + contact->shapeIdA;
-			b2Shape* shapeB = world->shapes + contact->shapeIdB;
+			b2Shape* shapeA = world->shapes + contactLookup->shapeIdA;
+			b2Shape* shapeB = world->shapes + contactLookup->shapeIdB;
 
 			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, shapeId.world0, shapeA->object.revision};
 			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, shapeId.world0, shapeB->object.revision};
+
+			b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
 			contactData[index].manifold = contact->manifold;
 			index += 1;
 		}
 
-		contactKey = contact->edges[edgeIndex].nextKey;
+		contactKey = contactLookup->edges[edgeIndex].nextKey;
 	}
 
 	B2_ASSERT(index < capacity);

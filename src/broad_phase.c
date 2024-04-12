@@ -17,7 +17,6 @@
 #include "world.h"
 
 #include "box2d/color.h"
-#include "box2d/timer.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -182,11 +181,15 @@ static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
 		return true;
 	}
 
-	bool moved = b2ContainsKey(&bp->moveSet, proxyKey + 1);
-	if (moved && proxyKey < queryContext->queryProxyKey)
+	// Is this proxy also moving?
+	if (queryContext->queryTreeType == b2_movableProxy)
 	{
-		// Both proxies are moving. Avoid duplicate pairs.
-		return true;
+		bool moved = b2ContainsKey(&bp->moveSet, proxyKey + 1);
+		if (moved && proxyKey < queryContext->queryProxyKey)
+		{
+			// Both proxies are moving. Avoid duplicate pairs.
+			return true;
+		}
 	}
 
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(shapeIndex, queryContext->queryShapeIndex);
@@ -331,6 +334,11 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	bp->movePairCapacity = 16 * moveCount;
 	bp->movePairs = b2AllocateStackItem(alloc, bp->movePairCapacity * sizeof(b2MovePair), "move pairs");
 	bp->movePairIndex = 0;
+	
+#ifndef NDEBUG
+	extern _Atomic int g_probeCount;
+	g_probeCount = 0;
+#endif
 
 	int minRange = 64;
 	void* userPairTask = world->enqueueTaskFcn(&b2FindPairsTask, moveCount, minRange, world, world->userTaskContext);
@@ -343,8 +351,6 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	// - Clear move flags
 	// - Create contacts in deterministic order
 	b2Shape* shapes = world->shapes;
-
-	// int pairCount = 0;
 
 	for (int i = 0; i < moveCount; ++i)
 	{

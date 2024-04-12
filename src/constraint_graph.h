@@ -49,7 +49,7 @@ void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bo
 void b2DestroyGraph(b2ConstraintGraph* graph);
 
 b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup);
-void b2RemoveContactFromGraph(b2World* world, b2Contact* contact, int colorIndex, int localIndex);
+void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex);
 
 b2Joint* b2CreateJointInGraph(b2World* world, int bodyColorIdA, int bodyColorIdB, b2JointLookup* jointLookup);
 void b2AddJointToGraph(b2World* world, b2Joint* joint, b2JointLookup* jointLookup);

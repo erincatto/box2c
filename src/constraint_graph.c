@@ -63,8 +63,8 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLook
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyIdA = contact->edges[0].bodyId;
-	int bodyIdB = contact->edges[1].bodyId;
+	int bodyIdA = contact->bodyIdA;
+	int bodyIdB = contact->bodyIdB;
 	b2CheckIndex(world->bodyArray, bodyIdA);
 	b2CheckIndex(world->bodyArray, bodyIdB);
 
@@ -123,15 +123,16 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLook
 	}
 #endif
 
+	b2GraphColor* color = graph->colors + colorIndex;
 	contactLookup->colorIndex = colorIndex;
-	contactLookup->localIndex = graph->colors[colorIndex].contacts.count;
+	contactLookup->localIndex = color->contacts.count;
 
-	b2Contact* newContact = b2AddContact(&world->blockAllocator, &graph->colors[colorIndex].contacts);
+	b2Contact* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
 	memcpy(newContact, contact, sizeof(b2Contact));
 	return newContact;
 }
 
-void b2RemoveContactFromGraph(b2World* world, b2Contact* contact, int colorIndex, int localIndex)
+void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 
@@ -141,8 +142,8 @@ void b2RemoveContactFromGraph(b2World* world, b2Contact* contact, int colorIndex
 	if (colorIndex != b2_overflowIndex)
 	{
 		// might clear a bit for a static body, but this has no effect
-		b2ClearBit(&color->bodySet, contact->edges[0].bodyId);
-		b2ClearBit(&color->bodySet, contact->edges[1].bodyId);
+		b2ClearBit(&color->bodySet, bodyIdA);
+		b2ClearBit(&color->bodySet, bodyIdB);
 	}
 
 	int movedIndex = b2RemoveContact(&color->contacts, localIndex);

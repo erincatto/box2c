@@ -62,7 +62,7 @@ public:
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
-		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
+		for (int i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
 			m_bodies[i] = b2_nullBodyId;
 		}
@@ -74,7 +74,7 @@ public:
 
 	void CreateScene()
 	{
-		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
+		for (int i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodies[i]))
 			{
@@ -167,13 +167,13 @@ public:
 			centerx = shift * m_columnCount / 2.0f;
 		}
 
-		int32_t index = 0;
+		int index = 0;
 
-		for (int32_t i = 0; i < m_columnCount; ++i)
+		for (int i = 0; i < m_columnCount; ++i)
 		{
 			float x = i * shift - centerx;
 
-			for (int32_t j = 0; j < m_rowCount; ++j)
+			for (int j = 0; j < m_rowCount; ++j)
 			{
 				float y = j * (shift + extray) + centery + 2.0f;
 
@@ -242,8 +242,8 @@ public:
 
 	b2BodyId m_bodies[e_maxRows * e_maxColumns];
 	Human m_humans[e_maxRows * e_maxColumns];
-	int32_t m_columnCount;
-	int32_t m_rowCount;
+	int m_columnCount;
+	int m_rowCount;
 
 	ShapeType m_shapeType;
 };
@@ -271,7 +271,7 @@ public:
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.enableSleep = false;
+			bodyDef.enableSleep = true;
 			bodyDef.position = {0.0f, 10.0f};
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -317,6 +317,11 @@ public:
 		if (ImGui::SliderFloat("Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
 		{
 			b2RevoluteJoint_SetMotorSpeed(m_jointId, (b2_pi / 180.0f) * m_motorSpeed);
+
+			if (m_motorSpeed > 0.0f)
+			{
+				b2Joint_WakeBodies(m_jointId);
+			}
 		}
 
 		ImGui::End();
@@ -327,7 +332,7 @@ public:
 		if (settings.pause == false || settings.singleStep == true)
 		{
 			float a = 0.125f;
-			for (int32_t i = 0; i < 5 && m_count < m_maxCount; ++i)
+			for (int i = 0; i < 5 && m_count < m_maxCount; ++i)
 			{
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
@@ -353,8 +358,8 @@ public:
 
 	b2JointId m_jointId;
 	float m_motorSpeed;
-	int32_t m_maxCount;
-	int32_t m_count;
+	int m_maxCount;
+	int m_count;
 };
 
 static int benchmarkTumbler = RegisterSample("Benchmark", "Tumbler", BenchmarkTumbler::Create);
@@ -394,7 +399,7 @@ public:
 		CreateScene();
 	}
 
-	~BenchmarkManyTumblers()
+	~BenchmarkManyTumblers() override
 	{
 		free(m_jointIds);
 		free(m_tumblerIds);
@@ -438,7 +443,7 @@ public:
 
 	void CreateScene()
 	{
-		for (int32_t i = 0; i < m_bodyCount; ++i)
+		for (int i = 0; i < m_bodyCount; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
@@ -446,7 +451,7 @@ public:
 			}
 		}
 
-		for (int32_t i = 0; i < m_tumblerCount; ++i)
+		for (int i = 0; i < m_tumblerCount; ++i)
 		{
 			b2DestroyJoint(m_jointIds[i]);
 			b2DestroyBody(m_tumblerIds[i]);
@@ -461,12 +466,12 @@ public:
 		m_jointIds = static_cast<b2JointId*>(malloc(m_tumblerCount * sizeof(b2JointId)));
 		m_positions = static_cast<b2Vec2*>(malloc(m_tumblerCount * sizeof(b2Vec2)));
 
-		int32_t index = 0;
+		int index = 0;
 		float x = -4.0f * m_rowCount;
-		for (int32_t i = 0; i < m_rowCount; ++i)
+		for (int i = 0; i < m_rowCount; ++i)
 		{
 			float y = -4.0f * m_columnCount;
-			for (int32_t j = 0; j < m_columnCount; ++j)
+			for (int j = 0; j < m_columnCount; ++j)
 			{
 				m_positions[index] = {x, y};
 				CreateTumbler(m_positions[index], index);
@@ -479,7 +484,7 @@ public:
 
 		free(m_bodyIds);
 
-		int32_t bodiesPerTumbler = g_sampleDebug ? 8 : 50;
+		int bodiesPerTumbler = g_sampleDebug ? 8 : 50;
 		m_bodyCount = bodiesPerTumbler * m_tumblerCount;
 
 		m_bodyIds = static_cast<b2BodyId*>(malloc(m_bodyCount * sizeof(b2BodyId)));
@@ -510,7 +515,7 @@ public:
 			for (int i = 0; i < m_tumblerCount; ++i)
 			{
 				b2RevoluteJoint_SetMotorSpeed(m_jointIds[i], (b2_pi / 180.0f) * m_motorSpeed);
-				b2Body_Wake(m_tumblerIds[i]);
+				b2Body_SetAwake(m_tumblerIds[i], true);
 			}
 		}
 
@@ -568,18 +573,18 @@ public:
 
 	b2BodyId m_groundId;
 
-	int32_t m_rowCount;
-	int32_t m_columnCount;
+	int m_rowCount;
+	int m_columnCount;
 
 	b2BodyId* m_tumblerIds;
 	b2JointId* m_jointIds;
 	b2Vec2* m_positions;
-	int32_t m_tumblerCount;
+	int m_tumblerCount;
 
 	b2BodyId* m_bodyIds;
-	int32_t m_bodyCount;
-	int32_t m_bodyIndex;
-	int32_t m_shapeType;
+	int m_bodyCount;
+	int m_bodyIndex;
+	int m_shapeType;
 
 	float m_motorSpeed;
 };
@@ -664,10 +669,8 @@ public:
 		m_extent = 0.5f;
 		m_round = 0.0f;
 		m_baseCount = 10;
-		m_rowCount = g_sampleDebug ? 4 : 14;
-		m_columnCount = g_sampleDebug ? 4 : 13;
-		//m_rowCount = 14;
-		//m_columnCount = 13;
+		m_rowCount = g_sampleDebug ? 4 : 20;
+		m_columnCount = g_sampleDebug ? 4 : 20;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
@@ -694,11 +697,11 @@ public:
 
 		float shift = 1.0f * h;
 
-		for (int32_t i = 0; i < m_baseCount; ++i)
+		for (int i = 0; i < m_baseCount; ++i)
 		{
 			float y = (2.0f * i + 1.0f) * shift + baseY;
 
-			for (int32_t j = i; j < m_baseCount; ++j)
+			for (int j = i; j < m_baseCount; ++j)
 			{
 				float x = (i + 1.0f) * shift + 2.0f * (j - i) * shift + centerX - 0.5f;
 
@@ -720,7 +723,7 @@ public:
 			b2DestroyBody(m_groundId);
 		}
 
-		for (int32_t i = 0; i < m_bodyCount; ++i)
+		for (int i = 0; i < m_bodyCount; ++i)
 		{
 			b2DestroyBody(m_bodyIds[i]);
 		}
@@ -740,7 +743,7 @@ public:
 
 		float groundY = 0.0f;
 
-		for (int32_t i = 0; i < m_rowCount; ++i)
+		for (int i = 0; i < m_rowCount; ++i)
 		{
 			// b2Segment segment = {{-0.5f * groundWidth, groundY}, {0.5f * groundWidth, groundY}};
 			b2Segment segment = {{-0.5f * 2.0f * groundWidth, groundY}, {0.5f * 2.0f * groundWidth, groundY}};
@@ -751,9 +754,9 @@ public:
 		float baseWidth = 2.0f * m_extent * m_baseCount;
 		float baseY = 0.0f;
 
-		for (int32_t i = 0; i < m_rowCount; ++i)
+		for (int i = 0; i < m_rowCount; ++i)
 		{
-			for (int32_t j = 0; j < m_columnCount; ++j)
+			for (int j = 0; j < m_columnCount; ++j)
 			{
 				float centerX = -0.5f * groundWidth + j * (baseWidth + 2.0f * m_extent) + m_extent;
 				CreatePyramid(centerX, baseY);
@@ -794,11 +797,11 @@ public:
 
 	b2BodyId m_groundId;
 	b2BodyId* m_bodyIds;
-	int32_t m_bodyCount;
-	int32_t m_bodyIndex;
-	int32_t m_baseCount;
-	int32_t m_rowCount;
-	int32_t m_columnCount;
+	int m_bodyCount;
+	int m_bodyIndex;
+	int m_baseCount;
+	int m_rowCount;
+	int m_columnCount;
 	float m_round;
 	float m_extent;
 };
@@ -814,7 +817,7 @@ public:
 		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
 	};
 
-	BenchmarkCreateDestroy(Settings& settings)
+	explicit BenchmarkCreateDestroy(Settings& settings)
 		: Sample(settings)
 	{
 		float groundSize = 100.0f;
@@ -826,7 +829,7 @@ public:
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		b2CreatePolygonShape(groundId, &shapeDef, &box);
 
-		for (int32_t i = 0; i < e_maxBodyCount; ++i)
+		for (int i = 0; i < e_maxBodyCount; ++i)
 		{
 			m_bodies[i] = b2_nullBodyId;
 		}
@@ -838,7 +841,7 @@ public:
 
 	void CreateScene()
 	{
-		for (int32_t i = 0; i < e_maxBodyCount; ++i)
+		for (int i = 0; i < e_maxBodyCount; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodies[i]))
 			{
@@ -847,7 +850,7 @@ public:
 			}
 		}
 
-		int32_t count = m_baseCount;
+		int count = m_baseCount;
 		float rad = 0.5f;
 		float shift = rad * 2.0f;
 		float centerx = shift * count / 2.0f;
@@ -863,13 +866,13 @@ public:
 		float h = 0.5f;
 		b2Polygon box = b2MakeRoundedBox(h, h, 0.0f);
 
-		int32_t index = 0;
+		int index = 0;
 
-		for (int32_t i = 0; i < count; ++i)
+		for (int i = 0; i < count; ++i)
 		{
 			float y = i * shift + centery;
 
-			for (int32_t j = i; j < count; ++j)
+			for (int j = i; j < count; ++j)
 			{
 				float x = 0.5f * i * shift + (j - i) * shift - centerx;
 				bodyDef.position = {x, y};
@@ -889,11 +892,18 @@ public:
 	{
 		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : float(0.0f);
 
-		for (int32_t i = 0; i < m_iterations; ++i)
+		b2Timer timer = b2CreateTimer();
+
+		for (int i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
 			b2World_Step(m_worldId, timeStep, settings.subStepCount);
 		}
+
+		float ms = b2GetMilliseconds(&timer);
+
+		g_draw.DrawString(5, m_textLine, "milliseconds = %g", ms);
+		m_textLine += m_textIncrement;
 
 		Sample::Step(settings);
 	}
@@ -904,17 +914,161 @@ public:
 	}
 
 	b2BodyId m_bodies[e_maxBodyCount];
-	int32_t m_bodyCount;
-	int32_t m_baseCount;
-	int32_t m_iterations;
+	int m_bodyCount;
+	int m_baseCount;
+	int m_iterations;
 };
 
 static int benchmarkCreateDestroy = RegisterSample("Benchmark", "CreateDestroy", BenchmarkCreateDestroy::Create);
 
+class BenchmarkSleep : public Sample
+{
+public:
+	enum
+	{
+		e_maxBaseCount = 100,
+		e_maxBodyCount = e_maxBaseCount * (e_maxBaseCount + 1) / 2
+	};
+
+	explicit BenchmarkSleep(Settings& settings)
+		: Sample(settings)
+	{
+		float groundSize = 100.0f;
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+		b2Polygon box = b2MakeBox(groundSize, 1.0f);
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+		for (int i = 0; i < e_maxBodyCount; ++i)
+		{
+			m_bodies[i] = b2_nullBodyId;
+		}
+
+		m_baseCount = g_sampleDebug ? 40 : 100;
+		m_iterations = g_sampleDebug ? 1 : 41;
+		m_bodyCount = 0;
+		m_awake = false;
+
+		m_wakeTotal = 0.0f;
+		m_wakeCount = 0;
+
+		m_sleepTotal = 0.0f;
+		m_sleepCount = 0;
+
+		CreateScene();
+	}
+
+	void CreateScene()
+	{
+		for (int i = 0; i < e_maxBodyCount; ++i)
+		{
+			if (B2_IS_NON_NULL(m_bodies[i]))
+			{
+				b2DestroyBody(m_bodies[i]);
+				m_bodies[i] = b2_nullBodyId;
+			}
+		}
+
+		int count = m_baseCount;
+		float rad = 0.5f;
+		float shift = rad * 2.0f;
+		float centerx = shift * count / 2.0f;
+		float centery = shift / 2.0f + 1.0f;
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.density = 1.0f;
+		shapeDef.friction = 0.5f;
+
+		float h = 0.5f;
+		b2Polygon box = b2MakeRoundedBox(h, h, 0.0f);
+
+		int index = 0;
+
+		for (int i = 0; i < count; ++i)
+		{
+			float y = i * shift + centery;
+
+			for (int j = i; j < count; ++j)
+			{
+				float x = 0.5f * i * shift + (j - i) * shift - centerx;
+				bodyDef.position = {x, y};
+
+				assert(index < e_maxBodyCount);
+				m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
+				b2CreatePolygonShape(m_bodies[index], &shapeDef, &box);
+
+				index += 1;
+			}
+		}
+
+		m_bodyCount = index;
+	}
+
+	void Step(Settings& settings) override
+	{
+		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : float(0.0f);
+
+		b2Timer timer = b2CreateTimer();
+
+		for (int i = 0; i < m_iterations; ++i)
+		{
+			b2Body_SetAwake(m_bodies[0], m_awake);
+			if (m_awake)
+			{
+				m_wakeTotal += b2GetMillisecondsAndReset(&timer);
+				m_wakeCount += 1;
+			}
+			else
+			{
+				m_sleepTotal += b2GetMillisecondsAndReset(&timer);
+				m_sleepCount += 1;
+			}
+			m_awake = !m_awake;
+		}
+
+		if (m_wakeCount > 0)
+		{
+			g_draw.DrawString(5, m_textLine, "wake ave = %g ms", m_wakeTotal / m_wakeCount);
+			m_textLine += m_textIncrement;
+		}
+
+		if (m_sleepCount > 0)
+		{
+			g_draw.DrawString(5, m_textLine, "sleep ave = %g ms", m_sleepTotal / m_sleepCount);
+			m_textLine += m_textIncrement;
+		}
+
+		Sample::Step(settings);
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new BenchmarkSleep(settings);
+	}
+
+	b2BodyId m_bodies[e_maxBodyCount];
+	int m_bodyCount;
+	int m_baseCount;
+	int m_iterations;
+	float m_wakeTotal;
+	float m_sleepTotal;
+	int m_wakeCount;
+	int m_sleepCount;
+	bool m_awake;
+};
+
+static int benchmarkSleep = RegisterSample("Benchmark", "Sleep", BenchmarkSleep::Create);
+
 class BenchmarkJointGrid : public Sample
 {
 public:
-	BenchmarkJointGrid(Settings& settings)
+	explicit BenchmarkJointGrid(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -924,13 +1078,13 @@ public:
 		}
 
 		constexpr float rad = 0.4f;
-		constexpr int32_t numi = g_sampleDebug ? 10 : 100;
-		constexpr int32_t numk = g_sampleDebug ? 10 : 100;
+		constexpr int numi = g_sampleDebug ? 10 : 100;
+		constexpr int numk = g_sampleDebug ? 10 : 100;
 		constexpr float shift = 1.0f;
 
 		// Allocate to avoid huge stack usage
 		b2BodyId* bodies = static_cast<b2BodyId*>(malloc(numi * numk * sizeof(b2BodyId)));
-		int32_t index = 0;
+		int index = 0;
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
@@ -942,9 +1096,9 @@ public:
 
 		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
 
-		for (int32_t k = 0; k < numk; ++k)
+		for (int k = 0; k < numk; ++k)
 		{
-			for (int32_t i = 0; i < numi; ++i)
+			for (int i = 0; i < numi; ++i)
 			{
 				float fk = (float)k;
 				float fi = (float)i;

@@ -13,8 +13,7 @@
 #include "world.h"
 
 #include "box2d/color.h"
-
-//#include <stdlib.h>
+#include "box2d/timer.h"
 
 b2Island* b2CreateIsland(b2World* world, int setIndex)
 {
@@ -86,7 +85,7 @@ b2Island* b2GetIsland(b2World* world, int islandId)
 	return world->islandArray + islandId;
 }
 
-static void b2AddContactToIsland(b2World* world, int islandId, b2Contact* contact)
+static void b2AddContactToIsland(b2World* world, int islandId, b2ContactLookup* contact)
 {
 	B2_ASSERT(contact->islandId == B2_NULL_INDEX);
 	B2_ASSERT(contact->islandPrev == B2_NULL_INDEX);
@@ -98,7 +97,8 @@ static void b2AddContactToIsland(b2World* world, int islandId, b2Contact* contac
 	if (island->headContact != B2_NULL_INDEX)
 	{
 		contact->islandNext = island->headContact;
-		b2Contact* headContact = b2GetContactFromRawId(world, island->headContact);
+		b2CheckIndex(world->contactLookupArray, island->headContact);
+		b2ContactLookup* headContact = world->contactLookupArray + island->headContact;
 		headContact->islandPrev = contact->contactId;
 	}
 
@@ -117,10 +117,8 @@ static void b2AddContactToIsland(b2World* world, int islandId, b2Contact* contac
 // Link a contact into an island.
 // This performs union-find and path compression to join islands.
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
-void b2LinkContact(b2World* world, b2Contact* contact)
+void b2LinkContact(b2World* world, b2ContactLookup* contact)
 {
-	B2_ASSERT(contact->manifold.pointCount > 0);
-
 	int bodyIdA = contact->edges[0].bodyId;
 	int bodyIdB = contact->edges[1].bodyId;
 
@@ -220,7 +218,7 @@ void b2LinkContact(b2World* world, b2Contact* contact)
 }
 
 // This is called when a contact no longer has contact points
-void b2UnlinkContact(b2World* world, b2Contact* contact)
+void b2UnlinkContact(b2World* world, b2ContactLookup* contact)
 {
 	B2_ASSERT(contact->islandId != B2_NULL_INDEX);
 
@@ -231,14 +229,16 @@ void b2UnlinkContact(b2World* world, b2Contact* contact)
 
 	if (contact->islandPrev != B2_NULL_INDEX)
 	{
-		b2Contact* prevContact = b2GetContactFromRawId(world, contact->islandPrev);
+		b2CheckIndex(world->contactLookupArray, contact->islandPrev);
+		b2ContactLookup* prevContact = world->contactLookupArray + contact->islandPrev;
 		B2_ASSERT(prevContact->islandNext == contact->contactId);
 		prevContact->islandNext = contact->islandNext;
 	}
 
 	if (contact->islandNext != B2_NULL_INDEX)
 	{
-		b2Contact* nextContact = b2GetContactFromRawId(world, contact->islandNext);
+		b2CheckIndex(world->contactLookupArray, contact->islandNext);
+		b2ContactLookup* nextContact = world->contactLookupArray + contact->islandNext;
 		B2_ASSERT(nextContact->islandPrev == contact->contactId);
 		nextContact->islandPrev = contact->islandPrev;
 	}
@@ -421,9 +421,8 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 }
 
 // Merge an island into its root island.
-// Returns the body count of the merged island.
 // todo we can assume all islands are awake here
-static int b2MergeIsland(b2World* world, b2Island* island)
+static void b2MergeIsland(b2World* world, b2Island* island)
 {
 	B2_ASSERT(island->parentIsland != B2_NULL_INDEX);
 
@@ -444,7 +443,8 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 	int contactId = island->headContact;
 	while (contactId != B2_NULL_INDEX)
 	{
-		b2Contact* contact = b2GetContactFromRawId(world, contactId);
+		b2CheckIndex(world->contactLookupArray, contactId);
+		b2ContactLookup* contact = world->contactLookupArray + contactId;
 		contact->islandId = rootId;
 		contactId = contact->islandNext;
 	}
@@ -486,11 +486,13 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 		B2_ASSERT(island->tailContact != B2_NULL_INDEX && island->contactCount > 0);
 		B2_ASSERT(rootIsland->tailContact != B2_NULL_INDEX && rootIsland->contactCount > 0);
 
-		b2Contact* tailContact = b2GetContactFromRawId(world, rootIsland->tailContact);
+		b2CheckIndex(world->contactLookupArray, rootIsland->tailContact);
+		b2ContactLookup* tailContact = world->contactLookupArray + rootIsland->tailContact;
 		B2_ASSERT(tailContact->islandNext == B2_NULL_INDEX);
 		tailContact->islandNext = island->headContact;
 
-		b2Contact* headContact = b2GetContactFromRawId(world, island->headContact);
+		b2CheckIndex(world->contactLookupArray, island->headContact);
+		b2ContactLookup* headContact = world->contactLookupArray + island->headContact;
 		B2_ASSERT(headContact->islandPrev == B2_NULL_INDEX);
 		headContact->islandPrev = rootIsland->tailContact;
 
@@ -528,8 +530,6 @@ static int b2MergeIsland(b2World* world, b2Island* island)
 	rootIsland->constraintRemoveCount += island->constraintRemoveCount;
 	
 	b2ValidateIsland(world, rootId);
-
-	return rootIsland->bodyCount;
 }
 
 // Iterate over all awake islands and merge any that need merging
@@ -578,7 +578,6 @@ void b2MergeAwakeIslands(b2World* world)
 
 	// Step 2: merge every awake island into its parent (which must be a root island)
 	// Reverse to support removal from awake array.
-	int maxBodyCount = 0;
 	for (int i = awakeIslandCount - 1; i >= 0; --i)
 	{
 		int islandId = islandSims[i].islandId;
@@ -587,60 +586,35 @@ void b2MergeAwakeIslands(b2World* world)
 
 		if (island->parentIsland == B2_NULL_INDEX)
 		{
-			maxBodyCount = B2_MAX(maxBodyCount, island->bodyCount);
 			continue;
 		}
 
-		int mergedBodyCount = b2MergeIsland(world, island);
-		maxBodyCount = B2_MAX(maxBodyCount, mergedBodyCount);
+		b2MergeIsland(world, island);
 
 		// this call does a remove swap from the end of the island sim array
 		b2DestroyIsland(world, islandId);
 	}
-
-	// Step 3: ensure island pool has sufficient space to split the largest island
-	// todo anything to do here?
-	//b2GrowPool(&world->islandPool, world->islandPool.count + maxBodyCount);
-	//world->islands = (b2Island*)world->islandPool.memory;
 
 	b2TracyCZoneEnd(merge_islands);
 }
 
 #define B2_CONTACT_REMOVE_THRESHOLD 1
 
-// Split an island because some contacts and/or joints have been removed.
-// This is called during the constraint solve while islands are not being touched. This uses DFS and touches a lot of memory,
-// so it can be quite slow.
-// Note: contacts/joints connected to static sims must belong to an island but don't affect island connectivity
-// Note: static sims are never in an island
-// Note: this task interacts with some allocators without locks under the assumption that no other tasks
-// are interacting with these data structures.
-void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context)
+void b2SplitIsland(b2World* world, int baseId)
 {
-	b2TracyCZoneNC(split, "Split Island", b2_colorHoneydew2, true);
-
-	B2_MAYBE_UNUSED(startIndex);
-	B2_MAYBE_UNUSED(endIndex);
-	B2_MAYBE_UNUSED(threadIndex);
-
-	b2World* world = context;
-
-	B2_ASSERT(world->splitIslandId != B2_NULL_INDEX);
-
-	int baseId = world->splitIslandId;
 	b2CheckIndex(world->islandArray, baseId);
 	b2Island* baseIsland = world->islandArray + baseId;
 	int setIndex = baseIsland->setIndex;
 
-	if (setIndex == B2_NULL_INDEX)
+	if (setIndex != b2_awakeSet)
 	{
-		// splitIslandId could be stale
+		// can only split awake island
 		return;
 	}
 
 	if (baseIsland->constraintRemoveCount == 0)
 	{
-		// likely the island got recycled
+		// this island doesn't need to be split
 		return;
 	}
 
@@ -649,6 +623,7 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 	int bodyCount = baseIsland->bodyCount;
 
 	b2Body* bodies = world->bodyArray;
+	b2ContactLookup* contactLookups = world->contactLookupArray;
 
 	b2StackAllocator* alloc = &world->stackAllocator;
 
@@ -674,13 +649,12 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 	// Clear contact island flags. Only need to consider contacts
 	// already in the base island.
-	int nextContact = baseIsland->headContact;
-	while (nextContact != B2_NULL_INDEX)
+	int nextContactId = baseIsland->headContact;
+	while (nextContactId != B2_NULL_INDEX)
 	{
-		// todo can assume awake set
-		b2Contact* contact = b2GetContactFromRawId(world, nextContact);
-		contact->isMarked = false;
-		nextContact = contact->islandNext;
+		b2ContactLookup* contactLookup = contactLookups + nextContactId;
+		contactLookup->isMarked = false;
+		nextContactId = contactLookup->islandNext;
 	}
 
 	// Clear joint island flags.
@@ -694,8 +668,6 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 	// Done with the base split island.
 	b2DestroyIsland(world, baseId);
-	baseIsland = NULL;
-	baseId = B2_NULL_INDEX;
 
 	// Each island is found as a depth first search starting from a seed body
 	for (int i = 0; i < bodyCount; ++i)
@@ -715,8 +687,8 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 		seed->isMarked = true;
 
 		// Create new island
-		// No lock needed because only a single island can split per time step. No islands are being used during the constraint solve.
-		// However, islands are touched during body finalization.
+		// No lock needed because only a single island can split per time step. No islands are being used during the constraint
+		// solve. However, islands are touched during body finalization.
 		b2Island* island = b2CreateIsland(world, setIndex);
 
 		int islandId = island->islandId;
@@ -754,7 +726,8 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 				int contactId = contactKey >> 1;
 				int edgeIndex = contactKey & 1;
 
-				b2Contact* contact = b2GetContactFromRawId(world, contactId);
+				b2CheckIndex(world->contactLookupArray, contactId);
+				b2ContactLookup* contact = world->contactLookupArray + contactId;
 				B2_ASSERT(contact->contactId == contactId);
 
 				// Next key
@@ -796,7 +769,8 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 				contact->islandId = islandId;
 				if (island->tailContact != B2_NULL_INDEX)
 				{
-					b2Contact* tailContact = b2GetContactFromRawId(world, island->tailContact);
+					b2CheckIndex(world->contactLookupArray, island->tailContact);
+					b2ContactLookup* tailContact = world->contactLookupArray + island->tailContact;
 					tailContact->islandNext = contactId;
 				}
 				contact->islandPrev = island->tailContact;
@@ -875,7 +849,31 @@ void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void*
 
 	b2FreeStackItem(alloc, bodyIds);
 	b2FreeStackItem(alloc, stack);
+}
 
+// Split an island because some contacts and/or joints have been removed.
+// This is called during the constraint solve while islands are not being touched. This uses DFS and touches a lot of memory,
+// so it can be quite slow.
+// Note: contacts/joints connected to static sims must belong to an island but don't affect island connectivity
+// Note: static sims are never in an island
+// Note: this task interacts with some allocators without locks under the assumption that no other tasks
+// are interacting with these data structures.
+void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context)
+{
+	b2TracyCZoneNC(split, "Split Island", b2_colorHoneydew2, true);
+
+	B2_MAYBE_UNUSED(startIndex);
+	B2_MAYBE_UNUSED(endIndex);
+	B2_MAYBE_UNUSED(threadIndex);
+
+	b2Timer timer = b2CreateTimer();
+	b2World* world = context;
+
+	B2_ASSERT(world->splitIslandId != B2_NULL_INDEX);
+
+	b2SplitIsland(world, world->splitIslandId);
+
+	world->profile.splitIslands += b2GetMilliseconds(&timer);
 	b2TracyCZoneEnd(split);
 }
 
@@ -935,8 +933,7 @@ void b2ValidateIsland(b2World* world, int islandId)
 			b2CheckIndex(world->contactLookupArray, contactId);
 			b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
 			B2_ASSERT(contactLookup->setIndex == island->setIndex);
-			b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
-			B2_ASSERT(contact->islandId == islandId);
+			B2_ASSERT(contactLookup->islandId == islandId);
 			count += 1;
 
 			if (count == island->contactCount)
@@ -944,7 +941,7 @@ void b2ValidateIsland(b2World* world, int islandId)
 				B2_ASSERT(contactId == island->tailContact);
 			}
 
-			contactId = contact->islandNext;
+			contactId = contactLookup->islandNext;
 		}
 		B2_ASSERT(count == island->contactCount);
 	}
@@ -997,6 +994,5 @@ void b2ValidateIsland(b2World* world, int islandId)
 {
 	B2_MAYBE_UNUSED(world);
 	B2_MAYBE_UNUSED(islandId);
-	B2_MAYBE_UNUSED(checkSleep);
 }
 #endif
