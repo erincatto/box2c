@@ -32,6 +32,7 @@ b2WorldId LargePyramid(b2WorldDef* worldDef)
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
+	bodyDef.enableSleep = false;
 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 	shapeDef.density = 1.0f;

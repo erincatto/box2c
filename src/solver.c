@@ -774,7 +774,6 @@ void b2SolverTask(int startIndex, int endIndex, uint32_t threadIndexDontUse, voi
 	}
 }
 
-// #todo continuous
 struct b2ContinuousContext
 {
 	b2World* world;
@@ -1843,24 +1842,25 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 	world->profile.continuous = b2GetMilliseconds(&timer);
 
-	b2TracyCZoneNC(sleep_islands, "Island Sleep", b2_colorGainsboro, true);
-
-	// Collect split island candidate for the next time step
-	B2_ASSERT(world->splitIslandId == B2_NULL_INDEX);
-	float splitSleepTimer = 0.0f;
-	for (uint32_t i = 1; i < world->workerCount; ++i)
-	{
-		b2TaskContext* taskContext = world->taskContextArray + i;
-		if (taskContext->splitIslandId != B2_NULL_INDEX && taskContext->splitSleepTime > splitSleepTimer)
-		{
-			world->splitIslandId = taskContext->splitIslandId;
-			splitSleepTimer = taskContext->splitSleepTime;
-		}
-	}
-
 	// Island sleeping
 	// This must be done last because putting islands to sleep invalidates the enlarged body bits.
+	if (world->enableSleep == true)
 	{
+		b2TracyCZoneNC(sleep_islands, "Island Sleep", b2_colorGainsboro, true);
+
+		// Collect split island candidate for the next time step. No need to split if sleeping is disabled.
+		B2_ASSERT(world->splitIslandId == B2_NULL_INDEX);
+		float splitSleepTimer = 0.0f;
+		for (uint32_t i = 1; i < world->workerCount; ++i)
+		{
+			b2TaskContext* taskContext = world->taskContextArray + i;
+			if (taskContext->splitIslandId != B2_NULL_INDEX && taskContext->splitSleepTime > splitSleepTimer)
+			{
+				world->splitIslandId = taskContext->splitIslandId;
+				splitSleepTimer = taskContext->splitSleepTime;
+			}
+		}
+
 		b2BitSet* awakeIslandBitSet = &world->taskContextArray[0].awakeIslandBitSet;
 		for (uint32_t i = 1; i < world->workerCount; ++i)
 		{
@@ -1887,9 +1887,8 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		b2ValidateWorld(world);
 
 		b2TracyCZoneEnd(sleep_islands);
-
-		world->profile.sleepIslands = b2GetMilliseconds(&timer);
-
-		b2TracyCZoneEnd(solve);
 	}
+
+	world->profile.sleepIslands = b2GetMilliseconds(&timer);
+	b2TracyCZoneEnd(solve);
 }

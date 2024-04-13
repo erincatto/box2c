@@ -121,6 +121,8 @@ static void b2AddContactToIsland(b2World* world, int islandId, b2ContactLookup* 
 // https://en.wikipedia.org/wiki/Disjoint-set_data_structure
 void b2LinkContact(b2World* world, b2ContactLookup* contact)
 {
+	B2_ASSERT((contact->flags & b2_contactTouchingFlag) != 0 && (contact->flags & b2_contactSensorFlag) == 0);
+
 	int bodyIdA = contact->edges[0].bodyId;
 	int bodyIdB = contact->edges[1].bodyId;
 
@@ -129,7 +131,6 @@ void b2LinkContact(b2World* world, b2ContactLookup* contact)
 
 	B2_ASSERT(bodyA->setIndex != b2_disabledSet && bodyB->setIndex != b2_disabledSet);
 	B2_ASSERT(bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet);
-
 	// Wake bodyB if bodyA is awake and bodyB is sleeping
 	if (bodyA->setIndex == b2_awakeSet && bodyB->setIndex >= b2_firstSleepingSet)
 	{
@@ -219,9 +220,10 @@ void b2LinkContact(b2World* world, b2ContactLookup* contact)
 	}
 }
 
-// This is called when a contact no longer has contact points
+// This is called when a contact no longer has contact points or when a contact is destroyed.
 void b2UnlinkContact(b2World* world, b2ContactLookup* contact)
 {
+	B2_ASSERT((contact->flags & b2_contactSensorFlag) == 0);
 	B2_ASSERT(contact->islandId != B2_NULL_INDEX);
 
 	// remove from island

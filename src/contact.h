@@ -65,23 +65,29 @@ enum b2ContactFlags
 	// One of the shapes is a sensor
 	b2_contactSensorFlag = 0x00000010,
 
-	// This contact no longer has overlapping AABBs
-	b2_contactDisjoint = 0x00000020,
-
-	// This contact started touching
-	b2_contactStartedTouching = 0x00000040,
-
-	// This contact stopped touching
-	b2_contactStoppedTouching = 0x00000080,
-
 	// This contact wants sensor events
 	b2_contactEnableSensorEvents = 0x00000100,
 
 	// This contact wants contact events
 	b2_contactEnableContactEvents = 0x00000200,
+};
+
+enum b2ContactSimFlags
+{
+	// Set when the shapes are touching.
+	b2_simTouchingFlag = 0x00000001,
+
+	// This contact no longer has overlapping AABBs
+	b2_simDisjoint = 0x00000020,
+
+	// This contact started touching
+	b2_simStartedTouching = 0x00000040,
+
+	// This contact stopped touching
+	b2_simStoppedTouching = 0x00000080,
 
 	// This contact wants presolve events
-	b2_contactEnablePreSolveEvents = 0x00000400,
+	b2_simEnablePreSolveEvents = 0x00000400,
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
@@ -94,7 +100,11 @@ typedef struct b2Contact
 	int bodyIdA;
 	int bodyIdB;
 
+	int shapeIdA;
+	int shapeIdB;
+
 	b2DistanceCache cache;
+
 	b2Manifold manifold;
 
 	// Mixed friction and restitution
@@ -103,6 +113,8 @@ typedef struct b2Contact
 
 	// For conveyor belts
 	float tangentSpeed;
+
+	uint32_t simFlags;
 } b2Contact;
 
 void b2InitializeContactRegisters(void);
@@ -114,5 +126,5 @@ b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
-void b2UpdateContact(b2World* world, b2ContactLookup* lookup, b2Contact* contact, b2Shape* shapeA, b2Transform transformA,
-					 b2Shape* shapeB, b2Transform transformB);
+bool b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
+					 b2Transform transformB);

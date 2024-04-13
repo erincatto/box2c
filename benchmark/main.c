@@ -15,8 +15,11 @@
 #define MAYBE_UNUSED(x) ((void)(x))
 
 typedef b2WorldId CreateBenchmarkFcn(b2WorldDef* worldDef);
-extern b2WorldId ManyPyramids(b2WorldDef* worldDef);
+extern b2WorldId JointGrid(b2WorldDef* worldDef);
 extern b2WorldId LargePyramid(b2WorldDef* worldDef);
+extern b2WorldId ManyPyramids(b2WorldDef* worldDef);
+extern b2WorldId Smash(b2WorldDef* worldDef);
+extern b2WorldId Tumbler(b2WorldDef* worldDef);
 
 typedef struct Benchmark
 {
@@ -87,7 +90,7 @@ static void FinishTask(void* userTask, void* userContext)
 
 int main(int argc, char** argv)
 {
-	int maxThreadCount = 1;
+	int maxThreadCount = 8;
 	int runCount = 4;
 	b2Counters counters = {0};
 	bool countersAcquired = false;
@@ -96,8 +99,11 @@ int main(int argc, char** argv)
 	assert(maxThreadCount <= THREAD_LIMIT);
 
 	Benchmark benchmarks[] = {
+		{"joint_grid", JointGrid, 500},
+		{"large_pyramid", LargePyramid, 500},
 		{"many_pyramids", ManyPyramids, 200},
-		{"large_pyramids", LargePyramid, 500},
+		{"smash", Smash, 300},
+		{"tumbler", Tumbler, 750},
 	};
 
 	int benchmarkCount = ARRAY_COUNT(benchmarks);
@@ -136,9 +142,9 @@ int main(int argc, char** argv)
 				b2WorldDef worldDef = b2DefaultWorldDef();
 				worldDef.enableSleep = false;
 				worldDef.enableContinous = enableContinuous;
-				//worldDef.enqueueTask = EnqueueTask;
-				//worldDef.finishTask = FinishTask;
-				//worldDef.workerCount = threadCount;
+				worldDef.enqueueTask = EnqueueTask;
+				worldDef.finishTask = FinishTask;
+				worldDef.workerCount = threadCount;
 
 				b2WorldId worldId = benchmarks[benchmarkIndex].createFcn(&worldDef);
 
@@ -194,10 +200,10 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		fprintf(file, "threads, fps\n");
+		fprintf(file, "threads, fps, scale\n");
 		for (int threadCount = 1; threadCount <= maxThreadCount; ++threadCount)
 		{
-			fprintf(file, "%d, %g\n", threadCount, maxFps[threadCount - 1]);
+			fprintf(file, "%d, %g, %g\n", threadCount, maxFps[threadCount - 1], maxFps[threadCount - 1] / maxFps[0]);
 		}
 
 		fclose(file);

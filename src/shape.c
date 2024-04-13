@@ -1103,6 +1103,11 @@ int b2Shape_GetContactCapacity(b2ShapeId shapeId)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
+	if (shape->isSensor)
+	{
+		return 0;
+	}
+
 	b2Body* body = b2GetBody(world, shape->bodyId);
 
 	// Conservative and fast
@@ -1118,6 +1123,10 @@ int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int ca
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
+	if (shape->isSensor)
+	{
+		return 0;
+	}
 
 	b2Body* body = b2GetBody(world, shape->bodyId);
 	int contactKey = body->headContactKey;

@@ -2,12 +2,11 @@
 
 add_executable(benchmark 
     main.c
-    many_pyramids.c
+    joint_grid.c
     large_pyramid.c
-    # benchamrk_tumbler.c
-    # benchmark_barrel.c
-    # benchmark_joint_grid.c
-    # benchmark_smash.c
+    many_pyramids.c
+    smash.c
+    tumbler.c
 )
 
 set_target_properties(benchmark PROPERTIES

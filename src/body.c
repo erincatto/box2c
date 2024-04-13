@@ -463,6 +463,7 @@ int b2Body_GetContactCapacity(b2BodyId bodyId)
 	return body->contactCount;
 }
 
+// todo what about sensors?
 int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capacity)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);

@@ -102,7 +102,7 @@ public:
 		{
 			if constexpr (g_sampleDebug)
 			{
-				m_rowCount = 10;
+				m_rowCount = 5;
 				m_columnCount = 10;
 			}
 			else
@@ -304,8 +304,29 @@ public:
 			m_jointId = b2CreateRevoluteJoint(m_worldId, &jd);
 		}
 
-		m_maxCount = g_sampleDebug ? 300 : 2000;
-		m_count = 0;
+		int gridCount = g_sampleDebug ? 20 : 45;
+		b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		float y = -0.2f * gridCount + 10.0f;
+		for (int i = 0; i < gridCount; ++i)
+		{
+			float x = -0.2f * gridCount;
+
+			for (int j = 0; j < gridCount; ++j)
+			{
+				bodyDef.position = {x, y};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+				b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
+
+				x += 0.4f;
+			}
+
+			y += 0.4f;
+		}
 	}
 
 	void UpdateUI() override
@@ -327,30 +348,6 @@ public:
 		ImGui::End();
 	}
 
-	void Step(Settings& settings) override
-	{
-		if (settings.pause == false || settings.singleStep == true)
-		{
-			float a = 0.125f;
-			for (int i = 0; i < 5 && m_count < m_maxCount; ++i)
-			{
-				b2BodyDef bodyDef = b2DefaultBodyDef();
-				bodyDef.type = b2_dynamicBody;
-				bodyDef.position = {5.0f * a + 2.0f * a * i, 10.0f + 2.0f * a * (m_stepCount % 5)};
-				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-
-				b2ShapeDef shapeDef = b2DefaultShapeDef();
-				shapeDef.density = 1.0f;
-
-				b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
-				b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
-				++m_count;
-			}
-		}
-
-		Sample::Step(settings);
-	}
-
 	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkTumbler(settings);
@@ -358,8 +355,6 @@ public:
 
 	b2JointId m_jointId;
 	float m_motorSpeed;
-	int m_maxCount;
-	int m_count;
 };
 
 static int benchmarkTumbler = RegisterSample("Benchmark", "Tumbler", BenchmarkTumbler::Create);
@@ -1077,13 +1072,10 @@ public:
 			g_camera.m_center = {60.0f, -57.0f};
 		}
 
-		constexpr float rad = 0.4f;
-		constexpr int numi = g_sampleDebug ? 10 : 100;
-		constexpr int numk = g_sampleDebug ? 10 : 100;
-		constexpr float shift = 1.0f;
+		constexpr int N = g_sampleDebug ? 10 : 100;
 
 		// Allocate to avoid huge stack usage
-		b2BodyId* bodies = static_cast<b2BodyId*>(malloc(numi * numk * sizeof(b2BodyId)));
+		b2BodyId* bodies = static_cast<b2BodyId*>(malloc(N * N * sizeof(b2BodyId)));
 		int index = 0;
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -1091,20 +1083,19 @@ public:
 		shapeDef.filter.categoryBits = 2;
 		shapeDef.filter.maskBits = ~2u;
 
-		b2Circle circle = {0};
-		circle.radius = rad;
+		b2Circle circle = {{0.0f, 0.0f}, 0.4f};
 
 		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+		b2BodyDef bodyDef = b2DefaultBodyDef();
 
-		for (int k = 0; k < numk; ++k)
+		for (int k = 0; k < N; ++k)
 		{
-			for (int i = 0; i < numi; ++i)
+			for (int i = 0; i < N; ++i)
 			{
 				float fk = (float)k;
 				float fi = (float)i;
 
-				b2BodyDef bodyDef = b2DefaultBodyDef();
-				if (k >= numk / 2 - 3 && k <= numk / 2 + 3 && i == 0)
+				if (k >= N / 2 - 3 && k <= N / 2 + 3 && i == 0)
 				{
 					bodyDef.type = b2_staticBody;
 				}
@@ -1113,7 +1104,7 @@ public:
 					bodyDef.type = b2_dynamicBody;
 				}
 
-				bodyDef.position = {fk * shift, -fi * shift};
+				bodyDef.position = {fk, -fi};
 
 				b2BodyId body = b2CreateBody(m_worldId, &bodyDef);
 
@@ -1123,17 +1114,17 @@ public:
 				{
 					jd.bodyIdA = bodies[index - 1];
 					jd.bodyIdB = body;
-					jd.localAnchorA = {0.0f, -0.5f * shift};
-					jd.localAnchorB = {0.0f, 0.5f * shift};
+					jd.localAnchorA = {0.0f, -0.5f};
+					jd.localAnchorB = {0.0f, 0.5f};
 					b2CreateRevoluteJoint(m_worldId, &jd);
 				}
 
 				if (k > 0)
 				{
-					jd.bodyIdA = bodies[index - numi];
+					jd.bodyIdA = bodies[index - N];
 					jd.bodyIdB = body;
-					jd.localAnchorA = {0.5f * shift, 0.0f};
-					jd.localAnchorB = {-0.5f * shift, 0.0f};
+					jd.localAnchorA = {0.5f, 0.0f};
+					jd.localAnchorB = {-0.5f, 0.0f};
 					b2CreateRevoluteJoint(m_worldId, &jd);
 				}
 
@@ -1155,7 +1146,7 @@ static int benchmarkJointGridIndex = RegisterSample("Benchmark", "Joint Grid", B
 class Smash : public Sample
 {
 public:
-	Smash(Settings& settings)
+	explicit Smash(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

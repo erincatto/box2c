@@ -59,6 +59,10 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 // todo maybe kinematic bodies should not go into graph
 b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup)
 {
+	B2_ASSERT(contact->manifold.pointCount > 0);
+	B2_ASSERT(contact->simFlags & b2_simTouchingFlag);
+	B2_ASSERT(contactLookup->flags & b2_contactTouchingFlag);
+
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 

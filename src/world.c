@@ -274,7 +274,6 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 	b2World* world = stepContext->world;
 	B2_ASSERT(threadIndex < world->workerCount);
 	b2TaskContext* taskContext = world->taskContextArray + threadIndex;
-	b2ContactLookup* contactLookups = world->contactLookupArray;
 	b2Contact** contacts = stepContext->contacts;
 	b2Shape* shapes = world->shapes;
 	b2Body* bodies = world->bodyArray;
@@ -286,60 +285,37 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 		b2Contact* contact = contacts[i];
 
 		int contactId = contact->contactId;
-		b2CheckIndex(contactLookups, contactId);
-		b2ContactLookup* lookup = contactLookups + contactId;
 
-		b2Shape* shapeA = shapes + lookup->shapeIdA;
-		b2Shape* shapeB = shapes + lookup->shapeIdB;
-
-
-		//if (bodyA->setIndex != b2_awakeSet && bodyB->setIndex != b2_awakeSet)
-		//{
-		//	B2_ASSERT(bodyA->setIndex != b2_disabledSet);
-		//	B2_ASSERT(bodyB->setIndex != b2_disabledSet);
-		//	B2_ASSERT(bodyA->setIndex >= b2_firstSleepingSet || bodyB->setIndex >= b2_firstSleepingSet);
-		//	// contact needs to be moved to sleeping set, but what if both sims are sleeping in different sets?
-		//	// perhaps there should be a separate place for sleeping non-touching contacts
-		//	// certainly when a non-touching contact is woken up, it should not go into the constraint graph
-		//	// but we are iterating contacts in the constraint graph, so where should awake non-touching contacts go?
-		//	// perhaps the world should hold an array of non-touching awake contacts and non-touching sleeping contacts
-		//	// the non-touching sleeping contacts should be moved to the non-touching awake contacts whenever either body
-		//	// becomes awake
-
-		//	// perhaps non-touching sleeping contacts should go into the disabled set, then any set that wakes
-		//	// can move the disabled contact into the awake set
-		//}
+		b2Shape* shapeA = shapes + contact->shapeIdA;
+		b2Shape* shapeB = shapes + contact->shapeIdB;
 
 		// Do proxies still overlap?
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
 		if (overlap == false)
 		{
-			lookup->flags |= b2_contactDisjoint;
+			contact->simFlags |= b2_simDisjoint;
 			b2SetBit(&taskContext->contactStateBitSet, contactId);
 		}
 		else
 		{
-			bool wasTouching = (lookup->flags & b2_contactTouchingFlag);
-			B2_ASSERT(wasTouching || lookup->islandId == B2_NULL_INDEX);
+			bool wasTouching = (contact->simFlags & b2_simTouchingFlag);
 
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = bodies + shapeA->bodyId;
 			b2Body* bodyB = bodies + shapeB->bodyId;
 			b2BodySim* bodySimA = b2GetBodySim(world, bodyA);
 			b2BodySim* bodySimB = b2GetBodySim(world, bodyB);
-			b2UpdateContact(world, lookup, contact, shapeA, bodySimA->transform, shapeB, bodySimB->transform);
-
-			bool touching = (lookup->flags & b2_contactTouchingFlag) != 0;
+			bool touching = b2UpdateContact(world, contact, shapeA, bodySimA->transform, shapeB, bodySimB->transform);
 
 			// State changes that affect island connectivity
 			if (touching == true && wasTouching == false)
 			{
-				lookup->flags |= b2_contactStartedTouching;
+				contact->simFlags |= b2_simStartedTouching;
 				b2SetBit(&taskContext->contactStateBitSet, contactId);
 			}
 			else if (touching == false && wasTouching == true)
 			{
-				lookup->flags |= b2_contactStoppedTouching;
+				contact->simFlags |= b2_simStoppedTouching;
 				b2SetBit(&taskContext->contactStateBitSet, contactId);
 			}
 		}
@@ -522,8 +498,9 @@ static void b2Collide(b2StepContext* context)
 			b2ShapeId shapeIdA = {shapeA->object.index + 1, worldId, shapeA->object.revision};
 			b2ShapeId shapeIdB = {shapeB->object.index + 1, worldId, shapeB->object.revision};
 			uint32_t flags = contactLookup->flags;
+			uint32_t simFlags = contact->simFlags;
 
-			if (flags & b2_contactDisjoint)
+			if (simFlags & b2_simDisjoint)
 			{
 				// Was touching?
 				if ((flags & b2_contactTouchingFlag) != 0 && (flags & b2_contactEnableContactEvents) != 0)
@@ -536,23 +513,27 @@ static void b2Collide(b2StepContext* context)
 				b2DestroyContact(world, contactLookup, false);
 				contact = NULL;
 			}
-			else if (flags & b2_contactStartedTouching)
+			else if (simFlags & b2_simStartedTouching)
 			{
-				contactLookup->flags &= ~b2_contactStartedTouching;
+				contact->simFlags &= ~b2_simStartedTouching;
+				contactLookup->flags |= b2_contactTouchingFlag;
 
 				B2_ASSERT(contactLookup->islandId == B2_NULL_INDEX);
-				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
+				if ((flags & b2_contactSensorFlag) != 0)
 				{
-					if (shapeA->isSensor)
+					if ((flags & b2_contactEnableSensorEvents) != 0)
 					{
-						b2SensorBeginTouchEvent event = {shapeIdA, shapeIdB};
-						b2Array_Push(world->sensorBeginEventArray, event);
-					}
+						if (shapeA->isSensor)
+						{
+							b2SensorBeginTouchEvent event = {shapeIdA, shapeIdB};
+							b2Array_Push(world->sensorBeginEventArray, event);
+						}
 
-					if (shapeB->isSensor)
-					{
-						b2SensorBeginTouchEvent event = {shapeIdB, shapeIdA};
-						b2Array_Push(world->sensorBeginEventArray, event);
+						if (shapeB->isSensor)
+						{
+							b2SensorBeginTouchEvent event = {shapeIdB, shapeIdA};
+							b2Array_Push(world->sensorBeginEventArray, event);
+						}
 					}
 				}
 				else
@@ -563,6 +544,7 @@ static void b2Collide(b2StepContext* context)
 						b2Array_Push(world->contactBeginArray, event);
 					}
 
+					B2_ASSERT(contact->manifold.pointCount > 0);
 
 					contact = b2AddContactToGraph(world, contact, contactLookup);
 					b2RemoveNonTouchingContact(world, b2_awakeSet, localIndex);
@@ -570,22 +552,26 @@ static void b2Collide(b2StepContext* context)
 					contact = NULL;
 				}
 			}
-			else if (contactLookup->flags & b2_contactStoppedTouching)
+			else if (simFlags & b2_simStoppedTouching)
 			{
-				contactLookup->flags &= ~b2_contactStoppedTouching;
+				contact->simFlags &= ~b2_simStoppedTouching;
+				contactLookup->flags &= ~b2_contactTouchingFlag;
 
-				if ((flags & b2_contactSensorFlag) != 0 && (flags & b2_contactEnableSensorEvents) != 0)
+				if ((flags & b2_contactSensorFlag) != 0)
 				{
-					if (shapeA->isSensor)
+					if ((flags & b2_contactEnableSensorEvents) != 0)
 					{
-						b2SensorEndTouchEvent event = {shapeIdA, shapeIdB};
-						b2Array_Push(world->sensorEndEventArray, event);
-					}
+						if (shapeA->isSensor)
+						{
+							b2SensorEndTouchEvent event = {shapeIdA, shapeIdB};
+							b2Array_Push(world->sensorEndEventArray, event);
+						}
 
-					if (shapeB->isSensor)
-					{
-						b2SensorEndTouchEvent event = {shapeIdB, shapeIdA};
-						b2Array_Push(world->sensorEndEventArray, event);
+						if (shapeB->isSensor)
+						{
+							b2SensorEndTouchEvent event = {shapeIdB, shapeIdA};
+							b2Array_Push(world->sensorEndEventArray, event);
+						}
 					}
 				}
 				else
@@ -595,6 +581,8 @@ static void b2Collide(b2StepContext* context)
 						b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
 						b2Array_Push(world->contactEndArray, event);
 					}
+
+					B2_ASSERT(contact->manifold.pointCount == 0);
 
 					b2UnlinkContact(world, contactLookup);
 					int bodyIdA = contactLookup->edges[0].bodyId;
@@ -607,7 +595,7 @@ static void b2Collide(b2StepContext* context)
 			}
 
 			{
-				// #todo hit events
+				// todo hit events
 			}
 
 			// Clear the smallest set bit
@@ -2003,7 +1991,6 @@ void b2ValidateWorld(b2World* world)
 
 			{
 				b2ContactLookup* lookups = world->contactLookupArray;
-				int lookupCount = b2Array(lookups).count;
 				B2_ASSERT(set->contacts.count >= 0);
 				totalContactCount += set->contacts.count;
 				for (int i = 0; i < set->contacts.count; ++i)
@@ -2015,7 +2002,7 @@ void b2ValidateWorld(b2World* world)
 					{
 						// contact should be non-touching if awake
 						// or it could be this contact hasn't been transferred yet
-						B2_ASSERT(contact->manifold.pointCount == 0 || (lookup->flags & b2_contactStartedTouching) != 0);
+						B2_ASSERT(contact->manifold.pointCount == 0 || (contact->simFlags & b2_simStartedTouching) != 0);
 					}
 					B2_ASSERT(lookup->setIndex == setIndex);
 					B2_ASSERT(lookup->colorIndex == B2_NULL_INDEX);
@@ -2084,7 +2071,6 @@ void b2ValidateWorld(b2World* world)
 		b2GraphColor* color = world->constraintGraph.colors + colorIndex;
 		{
 			b2ContactLookup* lookups = world->contactLookupArray;
-			int lookupCount = b2Array(lookups).count;
 			B2_ASSERT(color->contacts.count >= 0);
 			totalContactCount += color->contacts.count;
 			for (int i = 0; i < color->contacts.count; ++i)
@@ -2094,7 +2080,7 @@ void b2ValidateWorld(b2World* world)
 				b2ContactLookup* lookup = lookups + contact->contactId;
 				// contact should be touching in the constraint graph or awaiting transfer to non-touching
 				B2_ASSERT(contact->manifold.pointCount > 0 ||
-						  (lookup->flags & (b2_contactStoppedTouching | b2_contactDisjoint)) != 0);
+						  (contact->simFlags & (b2_simStoppedTouching | b2_simDisjoint)) != 0);
 				B2_ASSERT(lookup->setIndex == b2_awakeSet);
 				B2_ASSERT(lookup->colorIndex == colorIndex);
 				B2_ASSERT(lookup->localIndex == i);

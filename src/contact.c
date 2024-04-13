@@ -54,7 +54,7 @@ static inline float b2MixRestitution(float restitution1, float restitution2)
 }
 
 // todo make relative for all
-//typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache);
+// typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache);
 typedef b2Manifold b2ManifoldFcn(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 								 b2DistanceCache* cache);
 
@@ -239,11 +239,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	lookup->shapeIdA = shapeA->object.index;
 	lookup->shapeIdB = shapeB->object.index;
 	lookup->isMarked = false;
-
-	// Contacts are created as non-touching. Later if they are found to be touching
-	// they will link islands and be moved into the constraint graph.
-	b2Contact* contact = b2AddContact(&world->blockAllocator, &set->contacts);
-	contact->contactId = contactId;
 	lookup->flags = 0;
 
 	if (shapeA->isSensor || shapeB->isSensor)
@@ -261,20 +256,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		lookup->flags |= b2_contactEnableContactEvents;
 	}
 
-	if (shapeA->enablePreSolveEvents || shapeB->enablePreSolveEvents)
-	{
-		lookup->flags |= b2_contactEnablePreSolveEvents;
-	}
-
-	contact->bodyIdA = shapeA->bodyId;
-	contact->bodyIdB = shapeB->bodyId;
-	contact->cache = b2_emptyDistanceCache;
-	contact->manifold = b2_emptyManifold;
-	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
-	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
-	contact->tangentSpeed = 0.0f;
-
-	// Connect to body A
+		// Connect to body A
 	{
 		lookup->edges[0].bodyId = shapeA->bodyId;
 		lookup->edges[0].prevKey = B2_NULL_INDEX;
@@ -311,6 +293,27 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	// Add to pair set for fast lookup
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(lookup->shapeIdA, lookup->shapeIdB);
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
+
+	// Contacts are created as non-touching. Later if they are found to be touching
+	// they will link islands and be moved into the constraint graph.
+	b2Contact* contact = b2AddContact(&world->blockAllocator, &set->contacts);
+	contact->contactId = contactId;
+
+	contact->bodyIdA = shapeA->bodyId;
+	contact->bodyIdB = shapeB->bodyId;
+	contact->shapeIdA = shapeA->object.index;
+	contact->shapeIdB = shapeB->object.index;
+	contact->cache = b2_emptyDistanceCache;
+	contact->manifold = b2_emptyManifold;
+	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
+	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
+	contact->tangentSpeed = 0.0f;
+	contact->simFlags = 0;
+
+	if (shapeA->enablePreSolveEvents || shapeB->enablePreSolveEvents)
+	{
+		contact->simFlags |= b2_simEnablePreSolveEvents;
+	}
 }
 
 // A contact is destroyed when:
@@ -403,7 +406,8 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 	else
 	{
 		// contact is non-touching or is sleeping or is a sensor
-		B2_ASSERT(contact->setIndex != b2_awakeSet || (contact->flags & b2_contactTouchingFlag) == 0 || (contact->flags & b2_contactSensorFlag) != 0);
+		B2_ASSERT(contact->setIndex != b2_awakeSet || (contact->flags & b2_contactTouchingFlag) == 0 ||
+				  (contact->flags & b2_contactSensorFlag) != 0);
 		b2SolverSet* set = world->solverSetArray + contact->setIndex;
 		int movedIndex = b2RemoveContact(&set->contacts, contact->localIndex);
 		if (movedIndex != B2_NULL_INDEX)
@@ -472,43 +476,35 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 
 // Update the contact manifold and touching status.
 // Note: do not assume the shape AABBs are overlapping or are valid.
-void b2UpdateContact(b2World* world, b2ContactLookup* lookup, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
+bool b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
 					 b2Transform transformB)
 {
-	b2Manifold oldManifold = contact->manifold;
-
-	B2_ASSERT(shapeA->object.index == lookup->shapeIdA);
-	B2_ASSERT(shapeB->object.index == lookup->shapeIdB);
-
 	b2ShapeId shapeIdA = {shapeA->object.index, world->worldId, shapeA->object.revision};
 	b2ShapeId shapeIdB = {shapeB->object.index, world->worldId, shapeB->object.revision};
 
-	bool touching = false;
-	contact->manifold.pointCount = 0;
-
-	bool sensorA = shapeA->isSensor;
-	bool sensorB = shapeB->isSensor;
-	bool sensor = sensorA || sensorB;
+	bool touching;
 
 	// Is this contact a sensor?
-	if (sensor)
+	if (shapeA->isSensor || shapeB->isSensor)
 	{
-		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB);
-
 		// Sensors don't generate manifolds.
+		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB);
 	}
 	else
 	{
+		b2Manifold oldManifold = contact->manifold;
+
 		// Compute TOI
 		b2ManifoldFcn* fcn = s_registers[shapeA->type][shapeB->type].fcn;
 
 		contact->manifold = fcn(shapeA, transformA, shapeB, transformB, &contact->cache);
 
-		touching = contact->manifold.pointCount > 0;
+		int pointCount = contact->manifold.pointCount;
+		touching = pointCount > 0;
 
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
-		for (int i = 0; i < contact->manifold.pointCount; ++i)
+		for (int i = 0; i < pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
 
@@ -533,24 +529,26 @@ void b2UpdateContact(b2World* world, b2ContactLookup* lookup, b2Contact* contact
 			}
 		}
 
-		if (touching && world->preSolveFcn && (lookup->flags & b2_contactEnablePreSolveEvents) != 0)
+		if (touching && world->preSolveFcn && (contact->simFlags & b2_simEnablePreSolveEvents) != 0)
 		{
 			// this call assumes thread safety
-			bool collide = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
-			if (collide == false)
+			touching = world->preSolveFcn(shapeIdA, shapeIdB, &contact->manifold, world->preSolveContext);
+			if (touching == false)
 			{
 				// disable contact
-				touching = false;
+				contact->manifold.pointCount = 0;
 			}
 		}
 	}
 
 	if (touching)
 	{
-		lookup->flags |= b2_contactTouchingFlag;
+		contact->simFlags |= b2_simTouchingFlag;
 	}
 	else
 	{
-		lookup->flags &= ~b2_contactTouchingFlag;
+		contact->simFlags &= ~b2_simTouchingFlag;
 	}
+
+	return touching;
 }

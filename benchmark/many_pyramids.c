@@ -9,6 +9,7 @@ static void CreatePyramid(b2WorldId worldId, int baseCount, float extent, float 
 {
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
+	//bodyDef.enableSleep = false;
 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 
@@ -45,6 +46,7 @@ b2WorldId ManyPyramids(b2WorldDef* worldDef)
 	worldDef->shapeCapacity = worldDef->bodyCapacity;
 	worldDef->contactCapacity = 4 * worldDef->bodyCapacity;
 	worldDef->stackAllocatorCapacity = 25000000;
+	worldDef->enableSleep = false;
 
 	b2WorldId worldId = b2CreateWorld(worldDef);
 
