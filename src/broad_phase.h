@@ -37,7 +37,8 @@ typedef struct b2BroadPhase
 
 	// The move set and array are used to track shapes that have moved significantly
 	// and need a pair query for new contacts. The array has a deterministic order.
-	// #todo perhaps just a move set?
+	// todo perhaps just a move set?
+	// todo implement a 32bit hash set for faster lookup
 	b2HashSet moveSet;
 	int* moveArray;
 

@@ -16,7 +16,7 @@
 
 void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	if (enableLimit != joint->prismaticJoint.enableLimit)
 	{
 		joint->prismaticJoint.enableLimit = enableLimit;
@@ -27,25 +27,25 @@ void b2PrismaticJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 
 bool b2PrismaticJoint_IsLimitEnabled(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return joint->prismaticJoint.enableLimit;
 }
 
 float b2PrismaticJoint_GetLowerLimit(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return joint->prismaticJoint.lowerTranslation;
 }
 
 float b2PrismaticJoint_GetUpperLimit(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return joint->prismaticJoint.upperTranslation;
 }
 
 void b2PrismaticJoint_SetLimits(b2JointId jointId, float lower, float upper)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	if (lower != joint->prismaticJoint.lowerTranslation || upper != joint->prismaticJoint.upperTranslation)
 	{
 		joint->prismaticJoint.lowerTranslation = B2_MIN(lower, upper);
@@ -57,7 +57,7 @@ void b2PrismaticJoint_SetLimits(b2JointId jointId, float lower, float upper)
 
 void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	if (enableMotor != joint->prismaticJoint.enableMotor)
 	{
 		joint->prismaticJoint.enableMotor = enableMotor;
@@ -67,49 +67,47 @@ void b2PrismaticJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 
 bool b2PrismaticJoint_IsMotorEnabled(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return joint->prismaticJoint.enableMotor;
 }
 
 void b2PrismaticJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	joint->prismaticJoint.motorSpeed = motorSpeed;
 }
 
 float b2PrismaticJoint_GetMotorSpeed(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return joint->prismaticJoint.motorSpeed;
 }
 
 float b2PrismaticJoint_GetMotorForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* base = b2GetJointCheckRevision(world, jointId);
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	b2Joint* base = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return world->inv_h * base->prismaticJoint.motorImpulse;
 }
 
 void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	joint->prismaticJoint.maxMotorForce = force;
 }
 
 float b2PrismaticJoint_GetMaxMotorForce(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_prismaticJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return joint->prismaticJoint.maxMotorForce;
 }
 
 b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* base = b2GetJointCheckRevision(world, jointId);
-	B2_ASSERT(base->type == b2_prismaticJoint);
+	b2Joint* base = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 
-	int idA = base->edges[0].bodyId;
+	int idA = base->bodyIdA;
 	b2Transform transformA = b2GetBodyTransform(world, idA);
 
 	b2PrismaticJoint* joint = &base->prismaticJoint;
@@ -128,10 +126,8 @@ b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
 float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
-	B2_ASSERT(joint->type == b2_prismaticJoint);
-
-	return world->inv_h * joint->prismaticJoint.impulse.y;
+	b2Joint* base = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
+	return world->inv_h * base->prismaticJoint.impulse.y;
 }
 
 // Linear constraint (point-to-line)
@@ -184,8 +180,8 @@ void b2PreparePrismaticJoint(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(base->type == b2_prismaticJoint);
 
 	// chase body id to the solver set where the body lives
-	int idA = base->edges[0].bodyId;
-	int idB = base->edges[1].bodyId;
+	int idA = base->bodyIdA;
+	int idB = base->bodyIdB;
 
 	b2World* world = context->world;
 	b2Body* bodies = world->bodyArray;

@@ -18,7 +18,7 @@
 
 void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	if (enableLimit != joint->revoluteJoint.enableLimit)
 	{
 		joint->revoluteJoint.enableLimit = enableLimit;
@@ -29,25 +29,25 @@ void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 
 bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return joint->revoluteJoint.enableLimit;
 }
 
 float b2RevoluteJoint_GetLowerLimit(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return joint->revoluteJoint.lowerAngle;
 }
 
 float b2RevoluteJoint_GetUpperLimit(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return joint->revoluteJoint.upperAngle;
 }
 
 void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	if (lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle)
 	{
 		joint->revoluteJoint.lowerAngle = B2_MIN(lower, upper);
@@ -59,7 +59,7 @@ void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
 
 void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	if (enableMotor != joint->revoluteJoint.enableMotor)
 	{
 		joint->revoluteJoint.enableMotor = enableMotor;
@@ -69,49 +69,45 @@ void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
 
 bool b2RevoluteJoint_IsMotorEnabled(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return joint->revoluteJoint.enableMotor;
 }
 
 void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	joint->revoluteJoint.motorSpeed = motorSpeed;
 }
 
 float b2RevoluteJoint_GetMotorSpeed(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return joint->revoluteJoint.motorSpeed;
 }
 
 float b2RevoluteJoint_GetMotorTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
-
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return world->inv_h * joint->revoluteJoint.motorImpulse;
 }
 
 void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	joint->revoluteJoint.maxMotorTorque = torque;
 }
 
 float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_revoluteJoint);
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	return joint->revoluteJoint.maxMotorTorque;
 }
 
 b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
-
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	b2Vec2 force = b2MulSV(world->inv_h, joint->revoluteJoint.linearImpulse);
 	return force;
 }
@@ -119,9 +115,7 @@ b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
 float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* joint = b2GetJointCheckRevision(world, jointId);
-	B2_ASSERT(joint->type == b2_revoluteJoint);
-
+	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	const b2RevoluteJoint* revolute = &joint->revoluteJoint;
 	float torque = world->inv_h * (revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse);
 	return torque;
@@ -161,8 +155,8 @@ void b2PrepareRevoluteJoint(b2Joint* base, b2StepContext* context)
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
 	// chase body id to the solver set where the body lives
-	int idA = base->edges[0].bodyId;
-	int idB = base->edges[1].bodyId;
+	int idA = base->bodyIdA;
+	int idB = base->bodyIdB;
 
 	b2World* world = context->world;
 	b2Body* bodies = world->bodyArray;
@@ -429,7 +423,7 @@ void b2RevoluteJoint::Dump()
 }
 #endif
 
-void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB)
+void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB, float drawSize)
 {
 	B2_ASSERT(base->type == b2_revoluteJoint);
 
@@ -449,7 +443,7 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transform
 
 	float angle = b2RelativeAngle(transformB.q, transformA.q) - joint->referenceAngle;
 
-	const float L = base->drawSize;
+	const float L = drawSize;
 	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
 	draw->DrawSegment(pB, b2Add(pB, r), c1, draw->context);
 	draw->DrawCircle(pB, L, c1, draw->context);

@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "block_allocator.h"
 #include "block_array.h"
 
+#include "block_allocator.h"
 #include "body.h"
 #include "contact.h"
+#include "core.h"
 #include "island.h"
 #include "joint.h"
 

@@ -47,8 +47,9 @@ typedef struct b2Body
 	int islandPrev;
 	int islandNext;
 
-	// todo this should be B2_NULL_INDEX when not in use
 	int bodyId;
+
+	b2BodyType type;
 
 	// This is monotonically advanced when a body is allocated in this slot
 	// Used to check for invalid b2BodyId
@@ -116,8 +117,6 @@ typedef struct b2BodySim
 
 	// body data can be moved around, the id is stable (used in b2BodyId)
 	int bodyId;
-
-	b2BodyType type;
 
 	bool enableSleep;
 

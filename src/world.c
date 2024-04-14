@@ -546,7 +546,7 @@ static void b2Collide(b2StepContext* context)
 
 					B2_ASSERT(contact->manifold.pointCount > 0);
 
-					contact = b2AddContactToGraph(world, contact, contactLookup);
+					b2AddContactToGraph(world, contact, contactLookup);
 					b2RemoveNonTouchingContact(world, b2_awakeSet, localIndex);
 					b2LinkContact(world, contactLookup);
 					contact = NULL;
@@ -814,7 +814,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					b2Shape* shape = world->shapes + shapeIndex;
 					b2Color color;
 
-					if (bodySim->type == b2_dynamicBody && bodySim->mass == 0.0f)
+					if (body->type == b2_dynamicBody && bodySim->mass == 0.0f)
 					{
 						// Bad body
 						color = b2MakeColor(b2_colorRed);
@@ -835,11 +835,11 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					{
 						color = b2MakeColor(b2_colorSalmon);
 					}
-					else if (bodySim->type == b2_staticBody)
+					else if (body->type == b2_staticBody)
 					{
 						color = b2MakeColor(b2_colorPaleGreen);
 					}
-					else if (bodySim->type == b2_kinematicBody)
+					else if (body->type == b2_kinematicBody)
 					{
 						color = (b2Color){0.5f, 0.5f, 0.9f, 1.0f};
 					}
@@ -870,8 +870,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				continue;
 			}
 
-			b2Joint* joint = b2GetJointQuick(world, lookup);
-			b2DrawJoint(draw, world, joint);
+			b2DrawJoint(draw, world, lookup);
 		}
 	}
 
@@ -2102,6 +2101,9 @@ void b2ValidateWorld(b2World* world)
 				B2_ASSERT(lookup->localIndex == i);
 			}
 		}
+
+		// todo validate body set
+		color->bodySet;
 	}
 
 	int contactIdCount = b2GetIdCount(&world->contactIdPool);

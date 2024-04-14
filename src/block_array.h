@@ -66,6 +66,7 @@ b2IslandSim* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array);
 b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array);
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)
+// todo have these return the id directly?
 int b2RemoveBodySim(b2BodySimArray* array, int index);
 int b2RemoveBodyState(b2BodyStateArray* array, int index);
 int b2RemoveContact(b2ContactArray* array, int index);

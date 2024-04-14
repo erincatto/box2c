@@ -10,6 +10,18 @@ typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
+/// A joint edge is used to connect sims and joints together
+/// in a joint graph where each body is a node and each joint
+/// is an edge. A joint edge belongs to a doubly linked list
+/// maintained in each attached body. Each joint has two joint
+/// nodes, one for each attached body.
+typedef struct b2JointEdge
+{
+	int bodyId;
+	int prevKey;
+	int nextKey;
+} b2JointEdge;
+
 // map from b2JointId to b2Joint in the solver sets
 typedef struct b2JointLookup
 {
@@ -26,23 +38,25 @@ typedef struct b2JointLookup
 	// joint index within set or graph color
 	// B2_NULL_INDEX when slot is free
 	int localIndex;
+	
+	b2JointEdge edges[2];
+
+	int jointId;
+	int islandId;
+	int islandPrev;
+	int islandNext;
 
 	// This is monotonically advanced when a body is allocated in this slot
 	// Used to check for invalid b2JointId
 	int revision;
-} b2JointLookup;
 
-/// A joint edge is used to connect sims and joints together
-/// in a joint graph where each body is a node and each joint
-/// is an edge. A joint edge belongs to a doubly linked list
-/// maintained in each attached body. Each joint has two joint
-/// nodes, one for each attached body.
-typedef struct b2JointEdge
-{
-	int bodyId;
-	int prevKey;
-	int nextKey;
-} b2JointEdge;
+	float drawSize;
+
+	b2JointType type;
+	bool isMarked;
+	bool collideConnected;
+
+} b2JointLookup;
 
 typedef struct b2DistanceJoint
 {
@@ -209,12 +223,10 @@ typedef struct b2Joint
 {
 	int jointId;
 
-	b2JointType type;
-	b2JointEdge edges[2];
+	int bodyIdA;
+	int bodyIdB;
 
-	int islandId;
-	int islandPrev;
-	int islandNext;
+	b2JointType type;
 
 	// Anchors relative to body origin
 	b2Vec2 localOriginAnchorA;
@@ -233,20 +245,14 @@ typedef struct b2Joint
 		b2WeldJoint weldJoint;
 		b2WheelJoint wheelJoint;
 	};
-
-	float drawSize;
-	bool isMarked;
-	bool collideConnected;
 } b2Joint;
 
 b2JointLookup* b2GetJointLookup(b2World* world, int jointId);
 b2JointLookup* b2GetJointLookupFullId(b2World* world, b2JointId jointId);
-b2Joint* b2GetJointQuick(b2World* world, b2JointLookup* lookup);
+void b2DestroyJointInternal(b2World* world, b2JointLookup* joint, bool wakeBodies);
 
-b2Joint* b2GetJoint(b2World* world, int jointId);
-b2Joint* b2GetJointCheckRevision(b2World* world, b2JointId jointId);
-b2Joint* b2GetJointCheckType(b2JointId jointId, b2JointType type);
-void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
+b2Joint* b2GetJointSim(b2World* world, b2JointLookup* lookup);
+b2Joint* b2GetJointSimCheckType(b2JointId jointId, b2JointType type);
 
 void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
 void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
@@ -256,4 +262,4 @@ void b2PrepareOverflowJoints(b2StepContext* context);
 void b2WarmStartOverflowJoints(b2StepContext* context);
 void b2SolveOverflowJoints(b2StepContext* context, bool useBias);
 
-void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);
+void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2JointLookup* joint);

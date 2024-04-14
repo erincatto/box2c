@@ -3,11 +3,13 @@
 
 #include "solver_set.h"
 
-#include "core.h"
 #include "body.h"
+#include "constraint_graph.h"
 #include "contact.h"
+#include "core.h"
 #include "island.h"
 #include "joint.h"
+#include "util.h"
 #include "world.h"
 
 #include <string.h>
@@ -49,7 +51,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 	for (int i = 0; i < bodyCount; ++i)
 	{
 		b2BodySim* simSrc = set->sims.data + i;
-		
+
 		b2Body* body = bodies + simSrc->bodyId;
 		B2_ASSERT(body->setIndex == setId);
 		body->setIndex = b2_awakeSet;
@@ -362,46 +364,45 @@ void b2TrySleepIsland(b2World* world, int islandId)
 			b2CheckIndex(jointLookups, jointId);
 			b2JointLookup* jointLookup = jointLookups + jointId;
 			B2_ASSERT(jointLookup->setIndex == b2_awakeSet);
+			B2_ASSERT(jointLookup->islandId == islandId);
 			int colorIndex = jointLookup->colorIndex;
-			int awakeJointIndex = jointLookup->localIndex;
+			int localIndex = jointLookup->localIndex;
 
 			B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 
 			b2GraphColor* color = world->constraintGraph.colors + colorIndex;
 
-			B2_ASSERT(0 <= awakeJointIndex && awakeJointIndex < color->joints.count);
-
-			b2Joint* awakeJoint = color->joints.data + awakeJointIndex;
-			B2_ASSERT(awakeJoint->islandId == islandId);
+			B2_ASSERT(0 <= localIndex && localIndex < color->joints.count);
+			b2Joint* awakeJoint = color->joints.data + localIndex;
 
 			if (colorIndex != b2_overflowIndex)
 			{
 				// might clear a bit for a static body, but this has no effect
-				b2ClearBit(&color->bodySet, awakeJoint->edges[0].bodyId);
-				b2ClearBit(&color->bodySet, awakeJoint->edges[1].bodyId);
+				b2ClearBit(&color->bodySet, jointLookup->edges[0].bodyId);
+				b2ClearBit(&color->bodySet, jointLookup->edges[1].bodyId);
 			}
 
 			int sleepJointIndex = sleepSet->joints.count;
 			b2Joint* sleepJoint = b2AddJoint(&world->blockAllocator, &sleepSet->joints);
 			memcpy(sleepJoint, awakeJoint, sizeof(b2Joint));
 
-			int movedIndex = b2RemoveJoint(&color->joints, awakeJointIndex);
+			int movedIndex = b2RemoveJoint(&color->joints, localIndex);
 			if (movedIndex != B2_NULL_INDEX)
 			{
 				// fix lookup on moved element
-				b2Joint* movedJoint = color->joints.data + awakeJointIndex;
+				b2Joint* movedJoint = color->joints.data + localIndex;
 				int movedId = movedJoint->jointId;
 				b2CheckIndex(jointLookups, movedId);
 				b2JointLookup* movedLookup = jointLookups + movedId;
 				B2_ASSERT(movedLookup->localIndex == movedIndex);
-				movedLookup->localIndex = awakeJointIndex;
+				movedLookup->localIndex = localIndex;
 			}
 
 			jointLookup->setIndex = sleepSetId;
 			jointLookup->colorIndex = B2_NULL_INDEX;
 			jointLookup->localIndex = sleepJointIndex;
 
-			jointId = sleepJoint->islandNext;
+			jointId = jointLookup->islandNext;
 		}
 	}
 
@@ -484,7 +485,7 @@ void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 		for (int i = 0; i < contactCount; ++i)
 		{
 			b2Contact* contactSrc = set2->contacts.data + i;
-			
+
 			b2ContactLookup* contactLookup = contactLookups + contactSrc->contactId;
 			B2_ASSERT(contactLookup->setIndex == setId2);
 			contactLookup->setIndex = setId1;
@@ -526,7 +527,7 @@ void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 			b2Island* islandLookup = islandLookups + islandId;
 			islandLookup->setIndex = setId1;
 			islandLookup->localIndex = set1->islands.count;
-			
+
 			b2IslandSim* islandDst = b2AddIsland(alloc, &set1->islands);
 			islandDst->islandId = islandId;
 		}
@@ -536,4 +537,102 @@ void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 	b2DestroySolverSet(world, setId2);
 
 	b2ValidateWorld(world);
+}
+
+void b2TransferBodySim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body)
+{
+	B2_ASSERT(targetSet != sourceSet);
+
+	int sourceIndex = body->localIndex;
+	B2_ASSERT(0 <= sourceIndex && sourceIndex <= sourceSet->sims.count);
+	b2BodySim* sourceSim = sourceSet->sims.data + sourceIndex;
+
+	int targetIndex = targetSet->sims.count;
+	b2BodySim* targetSim = b2AddBodySim(&world->blockAllocator, &targetSet->sims);
+	memcpy(targetSim, sourceSim, sizeof(b2BodySim));
+
+	// Remove body sim from solver set that owns it
+	int movedIndex = b2RemoveBodySim(&sourceSet->sims, sourceIndex);
+	if (movedIndex != B2_NULL_INDEX)
+	{
+		// Fix moved body index
+		b2BodySim* movedSim = sourceSet->sims.data + sourceIndex;
+		int movedId = movedSim->bodyId;
+		b2Body* movedBody = world->bodyArray + movedId;
+		B2_ASSERT(movedBody->localIndex == movedIndex);
+		movedBody->localIndex = sourceIndex;
+	}
+
+	if (sourceSet->setId == b2_awakeSet)
+	{
+		b2RemoveBodyState(&sourceSet->states, sourceIndex);
+	}
+	else if (targetSet->setId == b2_awakeSet)
+	{
+		b2BodyState* state = b2AddBodyState(&world->blockAllocator, &targetSet->states);
+		*state = b2_identityBodyState;
+	}
+
+	body->setIndex = targetSet->setId;
+	body->localIndex = targetIndex;
+}
+
+void b2TransferJointSim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2JointLookup* joint)
+{
+	B2_ASSERT(targetSet != sourceSet);
+
+	int localIndex = joint->localIndex;
+	int colorIndex = joint->colorIndex;
+
+	// Retrieve source.
+	b2Joint* sourceSim;
+	if (sourceSet->setId == b2_awakeSet)
+	{
+		B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + colorIndex;
+
+		B2_ASSERT(0 <= localIndex && localIndex < color->joints.count);
+		sourceSim = color->joints.data + localIndex;
+	}
+	else
+	{
+		B2_ASSERT(colorIndex == B2_NULL_INDEX);
+		B2_ASSERT(0 <= localIndex && localIndex < sourceSet->joints.count);
+		sourceSim = sourceSet->joints.data + localIndex;
+	}
+
+	// Create target and copy. Fix lookup.
+	if (targetSet->setId == b2_awakeSet)
+	{
+		b2AddJointToGraph(world, sourceSim, joint);
+		joint->setIndex = b2_awakeSet;
+	}
+	else
+	{
+		joint->setIndex = targetSet->setId;
+		joint->localIndex = targetSet->joints.count;
+		joint->colorIndex = B2_NULL_INDEX;
+
+		b2Joint* targetSim = b2AddJoint(&world->blockAllocator, &targetSet->joints);
+		memcpy(targetSim, sourceSim, sizeof(b2Joint));
+	}
+
+	// Destroy source.
+	if (sourceSet->setId == b2_awakeSet)
+	{
+		b2RemoveJointFromGraph(world, joint->edges[0].bodyId, joint->edges[1].bodyId, colorIndex, localIndex);
+	}
+	else
+	{
+		int movedIndex = b2RemoveJoint(&sourceSet->joints, localIndex);
+		if (movedIndex != B2_NULL_INDEX)
+		{
+			// fix lookup on swapped element
+			b2Joint* movedJoint = sourceSet->joints.data + localIndex;
+			int movedId = movedJoint->jointId;
+			b2CheckIndex(world->jointLookupArray, movedId);
+			b2JointLookup* movedLookup = world->jointLookupArray + movedId;
+			movedLookup->localIndex = localIndex;
+		}
+	}
 }

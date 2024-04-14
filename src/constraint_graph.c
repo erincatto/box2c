@@ -57,7 +57,7 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 // Contacts are always created as non-touching. They get cloned into the constraint
 // graph once they are found to be touching.
 // todo maybe kinematic bodies should not go into graph
-b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup)
+void b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup)
 {
 	B2_ASSERT(contact->manifold.pointCount > 0);
 	B2_ASSERT(contact->simFlags & b2_simTouchingFlag);
@@ -133,7 +133,6 @@ b2Contact* b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLook
 
 	b2Contact* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
 	memcpy(newContact, contact, sizeof(b2Contact));
-	return newContact;
 }
 
 void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)
@@ -232,31 +231,27 @@ b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointL
 
 void b2AddJointToGraph(b2World* world, b2Joint* joint, b2JointLookup* jointLookup)
 {
-	int bodyIdA = joint->edges[0].bodyId;
-	int bodyIdB = joint->edges[1].bodyId;
+	int bodyIdA = jointLookup->edges[0].bodyId;
+	int bodyIdB = jointLookup->edges[1].bodyId;
 
 	b2Joint* jointDst = b2CreateJointInGraph(world, bodyIdA, bodyIdB, jointLookup);
 	memcpy(jointDst, joint, sizeof(b2Joint));
 }
 
-void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
+void b2RemoveJointFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
-	b2CheckIndex(world->jointLookupArray, joint->jointId);
-	b2JointLookup* lookup = world->jointLookupArray + joint->jointId;
 
-	int colorIndex = lookup->colorIndex;
 	B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 	b2GraphColor* color = graph->colors + colorIndex;
 
 	if (colorIndex != b2_overflowIndex)
 	{
 		// may clear static bodies, no effect
-		b2ClearBit(&color->bodySet, joint->edges[0].bodyId);
-		b2ClearBit(&color->bodySet, joint->edges[1].bodyId);
+		b2ClearBit(&color->bodySet, bodyIdA);
+		b2ClearBit(&color->bodySet, bodyIdB);
 	}
 
-	int localIndex = lookup->localIndex;
 	int movedIndex = b2RemoveJoint(&color->joints, localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
@@ -270,7 +265,4 @@ void b2RemoveJointFromGraph(b2World* world, b2Joint* joint)
 		B2_ASSERT(movedLookup->localIndex == movedIndex);
 		movedLookup->localIndex = localIndex;
 	}
-
-	lookup->colorIndex = B2_NULL_INDEX;
-	lookup->localIndex = B2_NULL_INDEX;
 }

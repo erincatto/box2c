@@ -819,7 +819,7 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeIndex, void* context
 	b2CheckIndex(world->bodyArray, shape->bodyId);
 	b2Body* body = world->bodyArray + shape->bodyId;
 	b2BodySim* bodySim = b2GetBodySim(world, body);
-	B2_ASSERT(bodySim->type == b2_staticBody || fastBodySim->isBullet);
+	B2_ASSERT(body->type == b2_staticBody || fastBodySim->isBullet);
 
 	// Skip bullets
 	if (bodySim->isBullet)
@@ -889,7 +889,7 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	B2_ASSERT(0 <= bodySimIndex && bodySimIndex < awakeSet->sims.count);
 	b2BodySim* fastBodySim = awakeSet->sims.data + bodySimIndex;
-	B2_ASSERT(fastBodySim->type == b2_dynamicBody && fastBodySim->isFast);
+	B2_ASSERT(fastBodySim->isFast);
 
 	b2Shape* shapes = world->shapes;
 

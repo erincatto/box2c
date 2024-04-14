@@ -200,6 +200,9 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		return;
 	}
 
+	int shapeIdA = shapeA->object.index;
+	int shapeIdB = shapeB->object.index;
+
 	b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
 	b2Body* bodyB = b2GetBody(world, shapeB->bodyId);
 
@@ -236,8 +239,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	lookup->islandPrev = B2_NULL_INDEX;
 	lookup->islandNext = B2_NULL_INDEX;
 	lookup->contactId = contactId;
-	lookup->shapeIdA = shapeA->object.index;
-	lookup->shapeIdB = shapeB->object.index;
+	lookup->shapeIdA = shapeIdA;
+	lookup->shapeIdB = shapeIdB;
 	lookup->isMarked = false;
 	lookup->flags = 0;
 
@@ -291,7 +294,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	}
 
 	// Add to pair set for fast lookup
-	uint64_t pairKey = B2_SHAPE_PAIR_KEY(lookup->shapeIdA, lookup->shapeIdB);
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(shapeIdA, shapeIdB);
 	b2AddKey(&world->broadPhase.pairSet, pairKey);
 
 	// Contacts are created as non-touching. Later if they are found to be touching
@@ -301,8 +304,8 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	contact->bodyIdA = shapeA->bodyId;
 	contact->bodyIdB = shapeB->bodyId;
-	contact->shapeIdA = shapeA->object.index;
-	contact->shapeIdB = shapeB->object.index;
+	contact->shapeIdA = shapeIdA;
+	contact->shapeIdB = shapeIdB;
 	contact->cache = b2_emptyDistanceCache;
 	contact->manifold = b2_emptyManifold;
 	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);

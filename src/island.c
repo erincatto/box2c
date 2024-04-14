@@ -268,7 +268,7 @@ void b2UnlinkContact(b2World* world, b2ContactLookup* contact)
 	b2ValidateIsland(world, islandId);
 }
 
-static void b2AddJointToIsland(b2World* world, int islandId, b2Joint* joint)
+static void b2AddJointToIsland(b2World* world, int islandId, b2JointLookup* joint)
 {
 	B2_ASSERT(joint->islandId == B2_NULL_INDEX);
 	B2_ASSERT(joint->islandPrev == B2_NULL_INDEX);
@@ -280,7 +280,7 @@ static void b2AddJointToIsland(b2World* world, int islandId, b2Joint* joint)
 	if (island->headJoint != B2_NULL_INDEX)
 	{
 		joint->islandNext = island->headJoint;
-		b2Joint* headJoint = b2GetJoint(world, island->headJoint);
+		b2JointLookup* headJoint = b2GetJointLookup(world, island->headJoint);
 		headJoint->islandPrev = joint->jointId;
 	}
 
@@ -296,7 +296,7 @@ static void b2AddJointToIsland(b2World* world, int islandId, b2Joint* joint)
 	b2ValidateIsland(world, islandId);
 }
 
-void b2LinkJoint(b2World* world, b2Joint* joint)
+void b2LinkJoint(b2World* world, b2JointLookup* joint)
 {
 	b2Body* bodyA = b2GetBody(world, joint->edges[0].bodyId);
 	b2Body* bodyB = b2GetBody(world, joint->edges[1].bodyId);
@@ -380,7 +380,7 @@ void b2LinkJoint(b2World* world, b2Joint* joint)
 	}
 }
 
-void b2UnlinkJoint(b2World* world, b2Joint* joint)
+void b2UnlinkJoint(b2World* world, b2JointLookup* joint)
 {
 	B2_ASSERT(joint->islandId != B2_NULL_INDEX);
 
@@ -391,14 +391,14 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint)
 
 	if (joint->islandPrev != B2_NULL_INDEX)
 	{
-		b2Joint* prevJoint = b2GetJoint(world, joint->islandPrev);
+		b2JointLookup* prevJoint = b2GetJointLookup(world, joint->islandPrev);
 		B2_ASSERT(prevJoint->islandNext == joint->jointId);
 		prevJoint->islandNext = joint->islandNext;
 	}
 
 	if (joint->islandNext != B2_NULL_INDEX)
 	{
-		b2Joint* nextJoint = b2GetJoint(world, joint->islandNext);
+		b2JointLookup* nextJoint = b2GetJointLookup(world, joint->islandNext);
 		B2_ASSERT(nextJoint->islandPrev == joint->jointId);
 		nextJoint->islandPrev = joint->islandPrev;
 	}
@@ -456,7 +456,7 @@ static void b2MergeIsland(b2World* world, b2Island* island)
 	int jointId = island->headJoint;
 	while (jointId != B2_NULL_INDEX)
 	{
-		b2Joint* joint = b2GetJoint(world, jointId);
+		b2JointLookup* joint = b2GetJointLookup(world, jointId);
 		joint->islandId = rootId;
 		jointId = joint->islandNext;
 	}
@@ -518,11 +518,11 @@ static void b2MergeIsland(b2World* world, b2Island* island)
 		B2_ASSERT(island->tailJoint != B2_NULL_INDEX && island->jointCount > 0);
 		B2_ASSERT(rootIsland->tailJoint != B2_NULL_INDEX && rootIsland->jointCount > 0);
 
-		b2Joint* tailJoint = b2GetJoint(world, rootIsland->tailJoint);
+		b2JointLookup* tailJoint = b2GetJointLookup(world, rootIsland->tailJoint);
 		B2_ASSERT(tailJoint->islandNext == B2_NULL_INDEX);
 		tailJoint->islandNext = island->headJoint;
 
-		b2Joint* headJoint = b2GetJoint(world, island->headJoint);
+		b2JointLookup* headJoint = b2GetJointLookup(world, island->headJoint);
 		B2_ASSERT(headJoint->islandPrev == B2_NULL_INDEX);
 		headJoint->islandPrev = rootIsland->tailJoint;
 
@@ -665,7 +665,7 @@ void b2SplitIsland(b2World* world, int baseId)
 	int nextJoint = baseIsland->headJoint;
 	while (nextJoint != B2_NULL_INDEX)
 	{
-		b2Joint* joint = b2GetJoint(world, nextJoint);
+		b2JointLookup* joint = b2GetJointLookup(world, nextJoint);
 		joint->isMarked = false;
 		nextJoint = joint->islandNext;
 	}
@@ -796,7 +796,7 @@ void b2SplitIsland(b2World* world, int baseId)
 				int jointId = jointKey >> 1;
 				int edgeIndex = jointKey & 1;
 
-				b2Joint* joint = b2GetJoint(world, jointId);
+				b2JointLookup* joint = b2GetJointLookup(world, jointId);
 				B2_ASSERT(joint->jointId == jointId);
 
 				// Next key
@@ -832,7 +832,7 @@ void b2SplitIsland(b2World* world, int baseId)
 				joint->islandId = islandId;
 				if (island->tailJoint != B2_NULL_INDEX)
 				{
-					b2Joint* tailJoint = b2GetJoint(world, island->tailJoint);
+					b2JointLookup* tailJoint = b2GetJointLookup(world, island->tailJoint);
 					tailJoint->islandNext = jointId;
 				}
 				joint->islandPrev = island->tailJoint;
@@ -972,8 +972,6 @@ void b2ValidateIsland(b2World* world, int islandId)
 			b2CheckIndex(world->jointLookupArray, jointId);
 			b2JointLookup* jointLookup = world->jointLookupArray + jointId;
 			B2_ASSERT(jointLookup->setIndex == island->setIndex);
-			b2Joint* joint = b2GetJoint(world, jointId);
-			B2_ASSERT(joint->islandId == islandId);
 			count += 1;
 
 			if (count == island->jointCount)
@@ -981,7 +979,7 @@ void b2ValidateIsland(b2World* world, int islandId)
 				B2_ASSERT(jointId == island->tailJoint);
 			}
 
-			jointId = joint->islandNext;
+			jointId = jointLookup->islandNext;
 		}
 		B2_ASSERT(count == island->jointCount);
 	}
