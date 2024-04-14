@@ -809,16 +809,6 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 
 	int shapeId = shape->object.index;
 
-	if (wakeBodies)
-	{
-		// Wake body first for simplicity
-		b2WakeBody(world, body);
-	}
-
-	// waking the body above means contacts don't need to be waked
-	// todo what if this is shape is on a static body?
-	bool wakeContacts = false;
-
 	// destroy all contacts associated with this shape
 	int contactKey = body->headContactKey;
 	while (contactKey != B2_NULL_INDEX)
@@ -832,7 +822,7 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 
 		if (contact->shapeIdA == shapeId || contact->shapeIdB == shapeId)
 		{
-			b2DestroyContact(world, contact, wakeContacts);
+			b2DestroyContact(world, contact, wakeBodies);
 		}
 	}
 

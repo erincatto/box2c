@@ -859,7 +859,7 @@ static int sampleIndex3 = RegisterSample("Shapes", "Friction", Friction::Create)
 class ModifyGeometry : public Sample
 {
 public:
-	ModifyGeometry(Settings& settings)
+	explicit ModifyGeometry(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

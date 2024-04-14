@@ -52,6 +52,9 @@ void b2WakeSolverSet(b2World* world, int setId)
 	{
 		b2BodySim* simSrc = set->sims.data + i;
 
+		// Reset sleep timer
+		simSrc->sleepTime = 0.0f;
+
 		b2Body* body = bodies + simSrc->bodyId;
 		B2_ASSERT(body->setIndex == setId);
 		body->setIndex = b2_awakeSet;
