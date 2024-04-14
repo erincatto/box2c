@@ -76,8 +76,6 @@ static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContex
 		v = b2MulAdd(linearVelocityDelta, linearDamping, v);
 		w = angularVelocityDelta + angularDamping * w;
 
-		sim->isSpeedCapped = false;
-
 		// Clamp to max linear speed
 		if (b2Dot(v, v) > maxLinearSpeedSquared)
 		{
@@ -231,6 +229,9 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		sim->force = b2Vec2_zero;
 		sim->torque = 0.0f;
 
+		body->isSpeedCapped = sim->isSpeedCapped;
+		sim->isSpeedCapped = false;
+		
 		sim->isFast = false;
 
 		if (enableSleep == false || sim->enableSleep == false || w * w > angTolSqr || b2Dot(v, v) > linTolSqr)
@@ -1700,7 +1701,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 	b2ValidateBroadphase(&world->broadPhase);
 
-	world->profile.broadphase = b2GetMilliseconds(&timer);
+	world->profile.broadphase = b2GetMillisecondsAndReset(&timer);
 
 	b2TracyCZoneEnd(broad_phase);
 
@@ -1840,7 +1841,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	stepContext->fastBodies = NULL;
 	stepContext->fastBodyCount = 0;
 
-	world->profile.continuous = b2GetMilliseconds(&timer);
+	world->profile.continuous = b2GetMillisecondsAndReset(&timer);
 
 	// Island sleeping
 	// This must be done last because putting islands to sleep invalidates the enlarged body bits.
@@ -1889,6 +1890,6 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		b2TracyCZoneEnd(sleep_islands);
 	}
 
-	world->profile.sleepIslands = b2GetMilliseconds(&timer);
+	world->profile.sleepIslands = b2GetMillisecondsAndReset(&timer);
 	b2TracyCZoneEnd(solve);
 }

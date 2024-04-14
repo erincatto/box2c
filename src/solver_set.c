@@ -436,7 +436,6 @@ void b2TrySleepIsland(b2World* world, int islandId)
 // This is called when joints are created between sets. I want to allow the sets
 // to continue sleeping if both are asleep. Otherwise one set is waked.
 // Islands will get merge when the set is waked.
-// todo ensure this is tested
 void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 {
 	B2_ASSERT(setId1 >= b2_firstSleepingSet);

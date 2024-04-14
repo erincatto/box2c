@@ -197,35 +197,41 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bool isAwake = (def->isAwake || def->enableSleep == false) && def->isEnabled;
 
 	// determine the solver set
-	int setIndex;
+	int setId;
 	if (def->isEnabled == false)
 	{
 		// any body type can be disabled
-		setIndex = b2_disabledSet;
+		setId = b2_disabledSet;
 	}
 	else if (def->type == b2_staticBody)
 	{
-		setIndex = b2_staticSet;
+		setId = b2_staticSet;
 	}
 	else if (isAwake == true )
 	{
-		setIndex = b2_awakeSet;
+		setId = b2_awakeSet;
 	}
 	else
 	{
 		// new set for a sleeping body in its own island
-		setIndex = b2AllocId(&world->solverSetIdPool);
-		if (setIndex == b2Array(world->solverSetArray).count)
+		setId = b2AllocId(&world->solverSetIdPool);
+		if (setId == b2Array(world->solverSetArray).count)
 		{
 			b2Array_Push(world->solverSetArray, (b2SolverSet){0});
 		}
+		else
+		{
+			B2_ASSERT(world->solverSetArray[setId].setId == B2_NULL_INDEX);
+		}
+
+		world->solverSetArray[setId].setId = setId;
 	}
 
-	B2_ASSERT(0 <= setIndex && setIndex < b2Array(world->solverSetArray).count);
+	B2_ASSERT(0 <= setId && setId < b2Array(world->solverSetArray).count);
 	
 	int bodyId = b2AllocId(&world->bodyIdPool);
 
-	b2SolverSet* set = world->solverSetArray + setIndex;
+	b2SolverSet* set = world->solverSetArray + setId;
 	b2BodySim* bodySim = b2AddBodySim(&world->blockAllocator, &set->sims);
 	*bodySim = (b2BodySim){0};
 	bodySim->transform.p = def->position;
@@ -254,7 +260,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->isFast = false;
 	bodySim->isSpeedCapped = false;
 
-	if (setIndex == b2_awakeSet)
+	if (setId == b2_awakeSet)
 	{
 		b2BodyState* bodyState = b2AddBodyState(&world->blockAllocator, &set->states);
 		B2_ASSERT(((uintptr_t)bodyState & 0x1F) == 0);
@@ -278,7 +284,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b2CheckIndex(world->bodyArray, bodyId);
 	b2Body* body = world->bodyArray + bodyId;
 	body->userData = def->userData;
-	body->setIndex = setIndex;
+	body->setIndex = setId;
 	body->localIndex = set->sims.count - 1;
 	body->revision += 1;
 	body->headShapeId = B2_NULL_INDEX;
@@ -294,12 +300,13 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->bodyId = bodyId;
 	body->worldId = world->worldId;
 	body->type = def->type;
+	body->isSpeedCapped = false;
 	body->isMarked = false;
 
 	// dynamic and kinematic bodies that are enabled need a island
-	if (setIndex >= b2_awakeSet)
+	if (setId >= b2_awakeSet)
 	{
-		b2CreateIslandForBody(world, setIndex, body);
+		b2CreateIslandForBody(world, setId, body);
 	}
 
 	b2ValidateWorld(world);
@@ -402,10 +409,11 @@ void b2DestroyBody(b2BodyId bodyId)
 	}
 
 	// Free body and id (preserve body revision)
+	b2FreeId(&world->bodyIdPool, body->bodyId);
+
 	body->setIndex = B2_NULL_INDEX;
 	body->localIndex = B2_NULL_INDEX;
 	body->bodyId = B2_NULL_INDEX;
-	b2FreeId(&world->bodyIdPool, body->bodyId);
 
 	b2ValidateWorld(world);
 }

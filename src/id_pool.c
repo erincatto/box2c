@@ -35,6 +35,7 @@ int b2AllocId(b2IdPool* pool)
 void b2FreeId(b2IdPool* pool, int id)
 {
 	B2_ASSERT(pool->nextIndex > 0);
+	B2_ASSERT(0 <= id && id < pool->nextIndex);
 
 	if (id == pool->nextIndex)
 	{

@@ -827,7 +827,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					{
 						color = b2MakeColor(b2_colorWheat);
 					}
-					else if (bodySim->isSpeedCapped)
+					else if (body->isSpeedCapped)
 					{
 						color = b2MakeColor(b2_colorYellow);
 					}

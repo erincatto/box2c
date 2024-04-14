@@ -30,16 +30,14 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 	shapeDef.friction = 0.2f;
-	//shapeDef.friction = 0.0f;
 	shapeDef.filter.groupIndex = -groupIndex;
 
 	b2ShapeDef footShapeDef = shapeDef;
 	footShapeDef.friction = 0.05f;
-	//footShapeDef.friction = 0.0f;
 
 	float s = scale;
 	float maxTorque = 0.05f * s;
-	bool enableMotor = false;
+	bool enableMotor = true;
 	bool enableLimit = true;
 	float drawSize = 0.05f;
 
@@ -84,7 +82,6 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		bone->jointId = b2CreateRevoluteJoint(worldId, &jointDef);
 	}
 
-	#if 1
 	// head
 	{
 		Bone* bone = m_bones + Bone::e_head;
@@ -257,7 +254,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		jointDef.lowerAngle = -0.05f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.25f * maxTorque;
+		jointDef.maxMotorTorque = 0.5f * maxTorque;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint(worldId, &jointDef);
@@ -311,7 +308,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		jointDef.lowerAngle = -0.05f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.25f * maxTorque;
+		jointDef.maxMotorTorque = 0.5f * maxTorque;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint(worldId, &jointDef);
@@ -343,7 +340,6 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 
 		bone->jointId = b2CreateRevoluteJoint(worldId, &jointDef);
 	}
-	#endif
 
 	m_isSpawned = true;
 }

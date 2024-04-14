@@ -657,8 +657,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {14.0f, 75.0f};
-			g_camera.m_zoom = 3.4f;
+			g_camera.m_center = {16.0f, 110.0f};
+			g_camera.m_zoom = 5.0f;
 		}
 
 		m_extent = 0.5f;
@@ -815,6 +815,12 @@ public:
 	explicit BenchmarkCreateDestroy(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 50.0f};
+			g_camera.m_zoom = 2.2f;
+		}
+
 		float groundSize = 100.0f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -928,6 +934,12 @@ public:
 	explicit BenchmarkSleep(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 50.0f};
+			g_camera.m_zoom = 2.2f;
+		}
+
 		float groundSize = 100.0f;
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();

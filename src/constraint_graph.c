@@ -223,7 +223,6 @@ b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointL
 #endif
 
 	b2Joint* joint = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
-	memset(joint, 0, sizeof(b2Joint));
 	jointLookup->colorIndex = colorIndex;
 	jointLookup->localIndex = graph->colors[colorIndex].joints.count - 1;
 	return joint;

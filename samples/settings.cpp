@@ -117,6 +117,18 @@ void Settings::Load()
 				drawShapes = false;
 			}
 		}
+		else if (jsoneq(data, &tokens[i], "drawJoints") == 0)
+		{
+			const char* s = data + tokens[i + 1].start;
+			if (strncmp(s, "true", 4) == 0)
+			{
+				drawJoints = true;
+			}
+			else if (strncmp(s, "false", 5) == 0)
+			{
+				drawJoints = false;
+			}
+		}
 	}
 
 	free(data);

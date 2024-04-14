@@ -201,6 +201,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		jointLookup->setIndex = setIndex;
 		jointLookup->localIndex = set->joints.count;
 		joint = b2AddJoint(&world->blockAllocator, &set->joints);
+		joint->jointId = jointId;
 
 		if (bodyA->setIndex != bodyB->setIndex &&
 			bodyA->setIndex >= b2_firstSleepingSet &&
@@ -212,6 +213,9 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 
 			// fix potentially invalid set index
 			setIndex = bodyA->setIndex;
+
+			// Careful! The joint sim pointer was orphaned by the set merge.
+			joint = world->solverSetArray[setIndex].joints.data + jointLookup->localIndex;
 		}
 
 		B2_ASSERT(jointLookup->setIndex == setIndex);

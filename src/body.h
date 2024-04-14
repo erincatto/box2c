@@ -57,6 +57,7 @@ typedef struct b2Body
 
 	int16_t worldId;
 
+	bool isSpeedCapped;
 	bool isMarked;
 } b2Body;
 
