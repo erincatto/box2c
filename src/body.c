@@ -1170,6 +1170,8 @@ void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep)
 	}
 }
 
+// Disabling a body requires a lot of detailed bookkeeping, but it is a valuable feature.
+// The most challenging aspect that joints may connect to bodies that are not disabled.
 void b2Body_Disable(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
@@ -1179,8 +1181,7 @@ void b2Body_Disable(b2BodyId bodyId)
 	}
 
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	int setIndex = body->setIndex;
-	if (setIndex == b2_disabledSet)
+	if (body->setIndex == b2_disabledSet)
 	{
 		return;
 	}
@@ -1203,14 +1204,14 @@ void b2Body_Disable(b2BodyId bodyId)
 	}
 
 	// Transfer simulation data to disabled set
-	b2CheckIndex(world->solverSetArray, setIndex);
-	b2SolverSet* set = world->solverSetArray + setIndex;
+	b2CheckIndex(world->solverSetArray, body->setIndex);
+	b2SolverSet* set = world->solverSetArray + body->setIndex;
 	b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
 
-	// Transfer body
+	// Transfer body sim
 	b2TransferBodySim(world, disabledSet, set, body);
 
-	// Disable joints and transfer
+	// Unlink joints and transfer
 	int jointKey = body->headJointKey;
 	while (jointKey != B2_NULL_INDEX)
 	{
@@ -1218,7 +1219,7 @@ void b2Body_Disable(b2BodyId bodyId)
 		int edgeIndex = jointKey & 1;
 
 		b2JointLookup* joint = world->jointLookupArray + jointId;
-		B2_ASSERT(joint->setIndex == setIndex);
+		B2_ASSERT(joint->setIndex == set->setId);
 
 		// Remove joint from island
 		if (joint->islandId != B2_NULL_INDEX)
@@ -1226,9 +1227,12 @@ void b2Body_Disable(b2BodyId bodyId)
 			b2UnlinkJoint(world, joint);
 		}
 
+		// Transfer joint to disabled set
 		b2TransferJointSim(world, disabledSet, set, joint);
 		jointKey = joint->edges[edgeIndex].nextKey;
 	}
+
+	b2ValidateWorld(world);
 }
 
 void b2Body_Enable(b2BodyId bodyId)
@@ -1246,25 +1250,25 @@ void b2Body_Enable(b2BodyId bodyId)
 	}
 
 	b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
-	b2BodyType type = body->type;
-	int setIndex = type == b2_staticBody ? b2_staticSet : b2_awakeSet;
-	b2SolverSet* targetSet = world->solverSetArray + setIndex;
+	int setId = body->type == b2_staticBody ? b2_staticSet : b2_awakeSet;
+	b2SolverSet* targetSet = world->solverSetArray + setId;
 
 	b2TransferBodySim(world, targetSet, disabledSet, body);
 
 	b2Transform transform = b2GetBodyTransformQuick(world, body);
 
 	// Add shapes to broad-phase
+	b2ProxyType proxyType = setId == b2_staticSet ? b2_staticProxy : b2_movableProxy;
 	int shapeId = body->headShapeId;
 	while (shapeId != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapes + shapeId;
 		shapeId = shape->nextShapeId;
 
-		b2CreateShapeProxy(shape, &world->broadPhase, type, transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
 	}
 
-	b2CreateIslandForBody(world, setIndex, body);
+	b2CreateIslandForBody(world, setId, body);
 
 	// Transfer joints. If the other body is disabled, don't transfer.
 	// If the other body is sleeping, wake it.
@@ -1289,13 +1293,17 @@ void b2Body_Enable(b2BodyId bodyId)
 			continue;
 		}
 
+		// Transfer joint first
+		b2TransferJointSim(world, targetSet, disabledSet, joint);
+
+		// Now that the joint is in the correct set, I can link the joint in the island.
 		if (bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet)
 		{
 			b2LinkJoint(world, joint);
 		}
-
-		b2TransferJointSim(world, targetSet, disabledSet, joint);
 	}
+
+	b2ValidateWorld(world);
 }
 
 void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag)
