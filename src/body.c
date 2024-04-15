@@ -881,61 +881,180 @@ b2BodyType b2Body_GetType(b2BodyId bodyId)
 	return body->type;
 }
 
-// a kinematic body only collides with dynamic sims
-// a dynamic body collides with everything
-// so I have to reset all contacts
 void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
 
+	// scope for pointer safety
+	//b2BodySim* bodySim = b2GetBodySim(world, body);
+
+	b2BodyType originalType = body->type;
+	if (originalType == type)
 	{
-		// scope for pointer safety
-		b2BodySim* bodySim = b2GetBodySim(world, body);
+		return;
+	}
 
-		b2BodyType originalType = body->type;
-
-		if (originalType == type)
-		{
-			return;
-		}
-
-		if (originalType == b2_staticBody || type == b2_staticBody)
-		{
-			// todo not supported yet
-			return;
-		}
-
+	if (body->setIndex == b2_disabledSet)
+	{
+		// If the body is disabled there is nothing to do
 		body->type = type;
+		return;
+	}
 
-		if (originalType == b2_staticBody)
+	// Destroy all contacts and wake touching bodies. This may wake
+	// the current body.
+	bool wakeBodies = true;
+	b2DestroyBodyContacts(world, body, wakeBodies);
+
+	body->type = type;
+
+	if (originalType == b2_staticBody)
+	{
+		// Body is going from static to dynamic or kinematic
+		B2_ASSERT(originalType == b2_staticBody && body->setIndex == b2_staticSet);
+
+		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
+		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+
+		// Transfer body to awake set
+		b2TransferBodySim(world, awakeSet, staticSet, body);
+
+		// Create island for body
+		b2CreateIslandForBody(world, b2_awakeSet, body);
+
+		// Transfer joints to awake set
+		int jointKey = body->headJointKey;
+		while (jointKey != B2_NULL_INDEX)
 		{
-			// todo move body to awake set
-			// todo there may be static joints
+			int jointId = jointKey >> 1;
+			int edgeIndex = jointKey & 1;
+
+			b2JointLookup* joint = world->jointLookupArray + jointId;
+			jointKey = joint->edges[edgeIndex].nextKey;
+
+			// Skip disabled joint or joint that is already awake
+			if (joint->setIndex == b2_disabledSet || joint->setIndex == b2_awakeSet)
+			{
+				// joint is disable, should be connected to a disabled body
+				continue;
+			}
+
+			if (joint->setIndex == b2_staticSet)
+			{
+				b2TransferJointSim(world, awakeSet, staticSet, joint);
+			}
+
+			// Link joint to island this also wakes the attached bodies/sets
+			if (joint->islandId == B2_NULL_INDEX)
+			{
+				b2LinkJoint(world, joint);
+			}
 		}
-		else if (type == b2_staticBody)
+
+		// Recreate shape proxies in movable tree.
+		b2Transform transform = b2GetBodyTransformQuick(world, body);
+		int shapeIndex = body->headShapeId;
+		while (shapeIndex != B2_NULL_INDEX)
 		{
-			// todo move body to static set
-			// todo may move joints to static set
+			b2Shape* shape = world->shapes + shapeIndex;
+			shapeIndex = shape->nextShapeId;
+			b2DestroyShapeProxy(shape, &world->broadPhase);
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_movableProxy, transform);
+		}
+	}
+	else if (type == b2_staticBody)
+	{
+		// body is going from dynamic/kinetic to static
+		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
+		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+
+		// Maybe transfer joints to static set. Joints first so they can be removed from the island.
+		int jointKey = body->headJointKey;
+		while (jointKey != B2_NULL_INDEX)
+		{
+			int jointId = jointKey >> 1;
+			int edgeIndex = jointKey & 1;
+
+			b2JointLookup* joint = world->jointLookupArray + jointId;
+			jointKey = joint->edges[edgeIndex].nextKey;
+
+			// Skip disabled joint
+			if (joint->setIndex == b2_disabledSet)
+			{
+				// Joint is disable, should be connected to a disabled body
+				continue;
+			}
+
+			// Remove joint from island.
+			if (joint->islandId != B2_NULL_INDEX)
+			{
+				b2UnlinkJoint(world, joint);
+			}
+
+			// Only transfer joint to static set if both bodies are static.
+			int otherEdgeIndex = edgeIndex ^ 1;
+			b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
+			if (otherBody->setIndex == b2_staticSet)
+			{
+				B2_ASSERT(joint->setIndex == b2_awakeSet);
+				b2TransferJointSim(world, staticSet, awakeSet, joint);
+			}
+		}
+		
+		// Transfer body to awake set
+		b2TransferBodySim(world, staticSet, awakeSet, body);
+
+		// Remove body from island.
+		b2RemoveBodyFromIsland(world, body);
+
+		// Recreate shape proxies in static tree.
+		b2Transform transform = b2GetBodyTransformQuick(world, body);
+		int shapeIndex = body->headShapeId;
+		while (shapeIndex != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeIndex;
+			shapeIndex = shape->nextShapeId;
+			b2DestroyShapeProxy(shape, &world->broadPhase);
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticProxy, transform);
+		}
+	}
+	else
+	{
+		B2_ASSERT(originalType == b2_dynamicBody || originalType == b2_kinematicBody);
+		B2_ASSERT(type == b2_dynamicBody || type == b2_kinematicBody);
+
+		// Converting between kinematic and dynamic is simpler
+
+		// Touch the broad-phase proxies to ensure the correct contacts get created
+		int shapeId = body->headShapeId;
+		while (shapeId != B2_NULL_INDEX)
+		{
+			b2Shape* shape = world->shapes + shapeId;
+			b2BufferMove(&world->broadPhase, shape->proxyKey);
+			shapeId = shape->nextShapeId;
 		}
 	}
 
-	b2WakeBody(world, body);
-
-	// destroy all contacts, even the valid ones
-	b2DestroyBodyContacts(world, body, false);
-
-	// touch the broad-phase proxies to ensure the correct contacts get created
-	int shapeId = body->headShapeId;
-	while (shapeId != B2_NULL_INDEX)
+	// Ensure everything connected is awake.
+	int jointKey = body->headJointKey;
+	while (jointKey != B2_NULL_INDEX)
 	{
-		b2Shape* shape = world->shapes + shapeId;
-		b2BufferMove(&world->broadPhase, shape->proxyKey);
-		shapeId = shape->nextShapeId;
+		int jointId = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
+
+		b2JointLookup* joint = world->jointLookupArray + jointId;
+		jointKey = joint->edges[edgeIndex].nextKey;
+
+		int otherEdgeIndex = edgeIndex ^ 1;
+		b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
+		b2WakeBody(world, otherBody);
 	}
 
 	// Body type affects the mass
 	b2UpdateBodyMassData(world, body);
+
+	b2ValidateWorld(world);
 }
 
 void b2Body_SetUserData(b2BodyId bodyId, void* userData)
