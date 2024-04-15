@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+</head>
+
+<body>
+    <div id="wrapper">
+        <canvas id="joint_grid"></canvas>
+    </div>
+
+    <div id="wrapper">
+        <canvas id="large_pyramid"></canvas>
+    </div>
+
+    <div id="wrapper">
+        <canvas id="many_pyramids"></canvas>
+    </div>
+
+    <div id="wrapper">
+        <canvas id="smash"></canvas>
+    </div>
+
+    <div id="wrapper">
+        <canvas id="tumbler"></canvas>
+    </div>
+</body>
+
+</html>
+
+<script>
+    function makeChart(csvData, divName, title) {
+        var threadLabels = csvData.map(function (d) {
+            return d.threads;
+        });
+        var fpsData = csvData.map(function (d) {
+            return +d.fps;
+        });
+
+        var idealData = [];
+        var count = fpsData.length;
+        idealData.push(fpsData[0]);
+        var i;
+        for (i = 1; i < count; ++i)
+        {
+            idealData.push(fpsData[0] * (i + 1));
+        }
+
+        var chart = new Chart(divName, {
+            type: "line",
+            data: {
+                labels: threadLabels,
+                datasets: [
+                    {
+                        fill: false,
+                        borderColor: 'rgb(75, 192, 192)',
+                        data: fpsData,
+                    },
+                    {
+                        fill: false,
+                        pointStyle: false,
+                        borderDash: [5, 5],
+                        //borderColor: 'rgb(75, 192, 192)',
+                        data: idealData,
+                    }
+                ]
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: title,
+                    },
+                    legend: {
+                        display: false
+                    },
+                },
+                responsive: true,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'thread count',
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'fps',
+                        }
+                    },
+                }
+            }
+        });
+    }
+
+    d3.csv("amd7950x/joint_grid.csv").get(function (data) {
+        console.log(data);
+        makeChart(data, 'joint_grid', 'Joint Grid: 10k Circles, 19800 Revolute Joints, CPU: AMD 7950x');
+    });
+
+    d3.csv("amd7950x/large_pyramid.csv").get(function (data) {
+        console.log(data);
+        makeChart(data, 'large_pyramid', 'Large Pyramid: 5050 boxes, CPU: AMD 7950x');
+    });
+
+    d3.csv("amd7950x/many_pyramids.csv").get(function (data) {
+        console.log(data);
+        makeChart(data, 'many_pyramids', 'Many Pyramids: 400 x 55 boxes, CPU: AMD 7950x');
+    });
+    
+    d3.csv("amd7950x/smash.csv").get(function (data) {
+        console.log(data);
+        makeChart(data, 'smash', 'Large Box Colliding with 9600 Small Boxes, CPU: AMD 7950x');
+    });
+    
+    d3.csv("amd7950x/tumbler.csv").get(function (data) {
+        console.log(data);
+        makeChart(data, 'tumbler', 'Tumbler: 2026 Small Boxes Tumbling in a Large Hollow Box, CPU: AMD 7950x');
+    });
+</script>
