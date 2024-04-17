@@ -158,9 +158,11 @@ typedef struct b2World
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorld(int index);
 b2World* b2GetWorldLocked(int index);
-void b2ValidateWorld(b2World* world);
 
 void b2CheckBodyId(b2BodyId bodyId);
 void b2CheckJointId(b2JointId jointId);
 void b2CheckShapeId(b2ShapeId shapeId);
 void b2CheckChainId(b2ChainId chainId);
+
+void b2ValidateConnectivity(b2World* world);
+void b2ValidateSolverSets(b2World* world);

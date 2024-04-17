@@ -432,7 +432,7 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 		b2WakeBody(world, bodyB);
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 }
 
 b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup)

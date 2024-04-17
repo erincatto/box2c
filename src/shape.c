@@ -103,7 +103,7 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 	body->headShapeId = shape->object.index;
 	body->shapeCount += 1;
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 
 	return shape;
 }
@@ -130,7 +130,7 @@ b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const void* geom
 		b2UpdateBodyMassData(world, body);
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 
 	b2ShapeId id = {shape->object.index + 1, bodyId.world0, shape->object.revision};
 	return id;

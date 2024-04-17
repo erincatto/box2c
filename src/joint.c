@@ -261,7 +261,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		b2LinkJoint(world, jointLookup);
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 
 	return (b2JointPair){jointLookup, joint};
 }
@@ -699,7 +699,7 @@ void b2DestroyJointInternal(b2World* world, b2JointLookup* joint, bool wakeBodie
 		b2WakeBody(world, bodyB);
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 }
 
 void b2DestroyJoint(b2JointId jointId)

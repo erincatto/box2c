@@ -131,6 +131,7 @@ void b2LinkContact(b2World* world, b2ContactLookup* contact)
 
 	B2_ASSERT(bodyA->setIndex != b2_disabledSet && bodyB->setIndex != b2_disabledSet);
 	B2_ASSERT(bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet);
+
 	// Wake bodyB if bodyA is awake and bodyB is sleeping
 	if (bodyA->setIndex == b2_awakeSet && bodyB->setIndex >= b2_firstSleepingSet)
 	{
@@ -307,7 +308,7 @@ void b2LinkJoint(b2World* world, b2JointLookup* joint)
 	}
 	else if (bodyB->setIndex == b2_awakeSet && bodyA->setIndex >= b2_firstSleepingSet)
 	{
-		b2WakeSolverSet(world, bodyB->setIndex);
+		b2WakeSolverSet(world, bodyA->setIndex);
 	}
 
 	int islandIdA = bodyA->islandId;
@@ -598,6 +599,8 @@ void b2MergeAwakeIslands(b2World* world)
 		// this call does a remove swap from the end of the island sim array
 		b2DestroyIsland(world, islandId);
 	}
+
+	b2ValidateConnectivity(world);
 
 	b2TracyCZoneEnd(merge_islands);
 }

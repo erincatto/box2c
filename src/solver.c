@@ -1885,7 +1885,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 			b2TrySleepIsland(world, islandId);
 		}
 
-		b2ValidateWorld(world);
+		b2ValidateSolverSets(world);
 
 		b2TracyCZoneEnd(sleep_islands);
 	}

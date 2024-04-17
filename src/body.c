@@ -309,7 +309,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		b2CreateIslandForBody(world, setId, body);
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 
 	b2BodyId id = {bodyId + 1, world->worldId, body->revision};
 	return id;
@@ -415,7 +415,7 @@ void b2DestroyBody(b2BodyId bodyId)
 	body->localIndex = B2_NULL_INDEX;
 	body->bodyId = B2_NULL_INDEX;
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 }
 
 int b2Body_GetContactCapacity(b2BodyId bodyId)
@@ -907,6 +907,24 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	bool wakeBodies = true;
 	b2DestroyBodyContacts(world, body, wakeBodies);
 
+	// Unlink all joints
+	{
+		int jointKey = body->headJointKey;
+		while (jointKey != B2_NULL_INDEX)
+		{
+			int jointId = jointKey >> 1;
+			int edgeIndex = jointKey & 1;
+
+			b2JointLookup* joint = world->jointLookupArray + jointId;
+			if (joint->islandId != B2_NULL_INDEX)
+			{
+				b2UnlinkJoint(world, joint);
+			}
+
+			jointKey = joint->edges[edgeIndex].nextKey;
+		}
+	}
+
 	body->type = type;
 
 	if (originalType == b2_staticBody)
@@ -944,12 +962,6 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			{
 				b2TransferJointSim(world, awakeSet, staticSet, joint);
 			}
-
-			// Link joint to island this also wakes the attached bodies/sets
-			if (joint->islandId == B2_NULL_INDEX)
-			{
-				b2LinkJoint(world, joint);
-			}
 		}
 
 		// Recreate shape proxies in movable tree.
@@ -969,7 +981,13 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
 		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 
-		// Maybe transfer joints to static set. Joints first so they can be removed from the island.
+		// Transfer body to awake set
+		b2TransferBodySim(world, staticSet, awakeSet, body);
+
+		// Remove body from island.
+		b2RemoveBodyFromIsland(world, body);
+
+		// Maybe transfer joints to static set.
 		int jointKey = body->headJointKey;
 		while (jointKey != B2_NULL_INDEX)
 		{
@@ -986,12 +1004,6 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 				continue;
 			}
 
-			// Remove joint from island.
-			if (joint->islandId != B2_NULL_INDEX)
-			{
-				b2UnlinkJoint(world, joint);
-			}
-
 			// Only transfer joint to static set if both bodies are static.
 			int otherEdgeIndex = edgeIndex ^ 1;
 			b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
@@ -1002,12 +1014,6 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			}
 		}
 		
-		// Transfer body to awake set
-		b2TransferBodySim(world, staticSet, awakeSet, body);
-
-		// Remove body from island.
-		b2RemoveBodyFromIsland(world, body);
-
 		// Recreate shape proxies in static tree.
 		b2Transform transform = b2GetBodyTransformQuick(world, body);
 		int shapeIndex = body->headShapeId;
@@ -1036,25 +1042,41 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		}
 	}
 
-	// Ensure everything connected is awake.
-	int jointKey = body->headJointKey;
-	while (jointKey != B2_NULL_INDEX)
+	// Relink all joints
 	{
-		int jointId = jointKey >> 1;
-		int edgeIndex = jointKey & 1;
+		int jointKey = body->headJointKey;
+		while (jointKey != B2_NULL_INDEX)
+		{
+			int jointId = jointKey >> 1;
+			int edgeIndex = jointKey & 1;
 
-		b2JointLookup* joint = world->jointLookupArray + jointId;
-		jointKey = joint->edges[edgeIndex].nextKey;
+			b2JointLookup* joint = world->jointLookupArray + jointId;
+			jointKey = joint->edges[edgeIndex].nextKey;
 
-		int otherEdgeIndex = edgeIndex ^ 1;
-		b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
-		b2WakeBody(world, otherBody);
+			int otherEdgeIndex = edgeIndex ^ 1;
+			int otherBodyId = joint->edges[otherEdgeIndex].bodyId;
+			b2CheckIndex(world->bodyArray, otherBodyId);
+			b2Body* otherBody = world->bodyArray + otherBodyId;
+
+			if (otherBody->setIndex == b2_disabledSet)
+			{
+				continue;
+			}
+
+			if (body->type == b2_staticBody && otherBody->type == b2_staticBody)
+			{
+				continue;
+			}
+
+			b2LinkJoint(world, joint);
+		}
 	}
-
+	
 	// Body type affects the mass
 	b2UpdateBodyMassData(world, body);
 
-	b2ValidateWorld(world);
+	b2ValidateConnectivity(world);
+	b2ValidateSolverSets(world);
 }
 
 void b2Body_SetUserData(b2BodyId bodyId, void* userData)
@@ -1338,7 +1360,15 @@ void b2Body_Disable(b2BodyId bodyId)
 		int edgeIndex = jointKey & 1;
 
 		b2JointLookup* joint = world->jointLookupArray + jointId;
-		B2_ASSERT(joint->setIndex == set->setId);
+		jointKey = joint->edges[edgeIndex].nextKey;
+
+		// joint may already be disabled by other body
+		if (joint->setIndex == b2_disabledSet)
+		{
+			continue;
+		}
+
+		B2_ASSERT(joint->setIndex == set->setId || set->setId == b2_staticSet);
 
 		// Remove joint from island
 		if (joint->islandId != B2_NULL_INDEX)
@@ -1348,10 +1378,9 @@ void b2Body_Disable(b2BodyId bodyId)
 
 		// Transfer joint to disabled set
 		b2TransferJointSim(world, disabledSet, set, joint);
-		jointKey = joint->edges[edgeIndex].nextKey;
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 }
 
 void b2Body_Enable(b2BodyId bodyId)
@@ -1422,7 +1451,7 @@ void b2Body_Enable(b2BodyId bodyId)
 		}
 	}
 
-	b2ValidateWorld(world);
+	b2ValidateSolverSets(world);
 }
 
 void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag)

@@ -24,7 +24,7 @@ typedef struct b2WorldId
 	uint16_t revision;
 } b2WorldId;
 
-/// Dynamic or kinematic body identifier
+/// Body identifier
 typedef struct b2BodyId
 {
 	int32_t index1;

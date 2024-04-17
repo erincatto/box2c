@@ -4,6 +4,7 @@
 #include "id_pool.h"
 
 #include "array.h"
+#include "util.h"
 
 b2IdPool b2CreateIdPool()
 {
@@ -45,3 +46,29 @@ void b2FreeId(b2IdPool* pool, int id)
 
 	b2Array_Push(pool->freeArray, id);
 }
+
+#if B2_VALIDATE
+
+void b2ValidateFreeId(b2IdPool* pool, int id)
+{
+	int freeCount = b2Array(pool->freeArray).count;
+	for (int i = 0; i < freeCount; ++i)
+	{
+		if (pool->freeArray[i] == id)
+		{
+			return;
+		}
+	}
+
+	B2_ASSERT(0);
+}
+
+#else
+
+void b2ValidateFreeId(b2IdPool* pool, int id)
+{
+	B2_MAYBE_UNUSED(pool);
+	B2_MAYBE_UNUSED(id);
+}
+
+#endif
