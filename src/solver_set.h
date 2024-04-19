@@ -47,5 +47,5 @@ void b2TrySleepIsland(b2World* world, int islandId);
 // Warning: any pointers into these sets will be orphaned.
 void b2MergeSolverSets(b2World* world, int setId1, int setId2);
 
-void b2TransferBodySim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body);
-void b2TransferJointSim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2JointLookup* joint);
+void b2TransferBody(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body);
+void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2JointLookup* joint);

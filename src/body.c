@@ -174,6 +174,8 @@ static void b2DestroyBodyContacts(b2World* world, b2Body* body, bool wakeBodies)
 		edgeKey = contact->edges[edgeIndex].nextKey;
 		b2DestroyContact(world, contact, wakeBodies);
 	}
+
+	b2ValidateSolverSets(world);
 }
 
 b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
@@ -886,9 +888,6 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
 
-	// scope for pointer safety
-	//b2BodySim* bodySim = b2GetBodySim(world, body);
-
 	b2BodyType originalType = body->type;
 	if (originalType == type)
 	{
@@ -897,13 +896,15 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 
 	if (body->setIndex == b2_disabledSet)
 	{
-		// If the body is disabled there is nothing to do
+		// Disabled bodies don't change solver sets or islands when they change type.
 		body->type = type;
+
+		// Body type affects the mass
+		b2UpdateBodyMassData(world, body);
 		return;
 	}
 
-	// Destroy all contacts and wake touching bodies. This may wake
-	// the current body.
+	// Destroy all contacts and wake touching bodies. This might wake the current body.
 	bool wakeBodies = true;
 	b2DestroyBodyContacts(world, body, wakeBodies);
 
@@ -930,13 +931,13 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	if (originalType == b2_staticBody)
 	{
 		// Body is going from static to dynamic or kinematic
-		B2_ASSERT(originalType == b2_staticBody && body->setIndex == b2_staticSet);
+		B2_ASSERT(body->setIndex == b2_staticSet);
 
 		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
 		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 
 		// Transfer body to awake set
-		b2TransferBodySim(world, awakeSet, staticSet, body);
+		b2TransferBody(world, awakeSet, staticSet, body);
 
 		// Create island for body
 		b2CreateIslandForBody(world, b2_awakeSet, body);
@@ -960,7 +961,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 
 			if (joint->setIndex == b2_staticSet)
 			{
-				b2TransferJointSim(world, awakeSet, staticSet, joint);
+				b2TransferJoint(world, awakeSet, staticSet, joint);
 			}
 		}
 
@@ -977,12 +978,17 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	}
 	else if (type == b2_staticBody)
 	{
-		// body is going from dynamic/kinetic to static
-		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
-		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+		int originalSetId = body->setIndex;
+		B2_ASSERT(originalSetId == b2_awakeSet || originalSetId >= b2_firstSleepingSet);
 
-		// Transfer body to awake set
-		b2TransferBodySim(world, staticSet, awakeSet, body);
+		// The body is going from dynamic/kinematic to static. It may be sleeping.
+		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
+
+		b2CheckIndex(world->solverSetArray, originalSetId);
+		b2SolverSet* originalSet = world->solverSetArray + originalSetId;
+
+		// Transfer body to static set
+		b2TransferBody(world, staticSet, originalSet, body);
 
 		// Remove body from island.
 		b2RemoveBodyFromIsland(world, body);
@@ -1009,8 +1015,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
 			if (otherBody->setIndex == b2_staticSet)
 			{
-				B2_ASSERT(joint->setIndex == b2_awakeSet);
-				b2TransferJointSim(world, staticSet, awakeSet, joint);
+				B2_ASSERT(joint->setIndex == originalSetId);
+				b2TransferJoint(world, staticSet, originalSet, joint);
 			}
 		}
 		
@@ -1350,7 +1356,7 @@ void b2Body_Disable(b2BodyId bodyId)
 	b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
 
 	// Transfer body sim
-	b2TransferBodySim(world, disabledSet, set, body);
+	b2TransferBody(world, disabledSet, set, body);
 
 	// Unlink joints and transfer
 	int jointKey = body->headJointKey;
@@ -1377,9 +1383,12 @@ void b2Body_Disable(b2BodyId bodyId)
 		}
 
 		// Transfer joint to disabled set
-		b2TransferJointSim(world, disabledSet, set, joint);
+		b2CheckIndex(world->solverSetArray, joint->setIndex);
+		b2SolverSet* jointSet = world->solverSetArray + joint->setIndex;
+		b2TransferJoint(world, disabledSet, jointSet, joint);
 	}
 
+	b2ValidateConnectivity(world);
 	b2ValidateSolverSets(world);
 }
 
@@ -1401,7 +1410,7 @@ void b2Body_Enable(b2BodyId bodyId)
 	int setId = body->type == b2_staticBody ? b2_staticSet : b2_awakeSet;
 	b2SolverSet* targetSet = world->solverSetArray + setId;
 
-	b2TransferBodySim(world, targetSet, disabledSet, body);
+	b2TransferBody(world, targetSet, disabledSet, body);
 
 	b2Transform transform = b2GetBodyTransformQuick(world, body);
 
@@ -1416,7 +1425,10 @@ void b2Body_Enable(b2BodyId bodyId)
 		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
 	}
 
-	b2CreateIslandForBody(world, setId, body);
+	if (setId != b2_staticSet)
+	{
+		b2CreateIslandForBody(world, setId, body);
+	}
 
 	// Transfer joints. If the other body is disabled, don't transfer.
 	// If the other body is sleeping, wake it.
@@ -1442,15 +1454,32 @@ void b2Body_Enable(b2BodyId bodyId)
 		}
 
 		// Transfer joint first
-		b2TransferJointSim(world, targetSet, disabledSet, joint);
+		int jointSetId;
+		if (bodyA->setIndex == b2_staticSet && bodyB->setIndex == b2_staticSet)
+		{
+			jointSetId = b2_staticSet;
+		}
+		else if (bodyA->setIndex == b2_staticSet)
+		{
+			jointSetId = bodyB->setIndex;
+		}
+		else
+		{
+			jointSetId = bodyA->setIndex;
+		}
+
+		b2CheckIndex(world->solverSetArray, jointSetId);
+		b2SolverSet* jointSet = world->solverSetArray + jointSetId;
+		b2TransferJoint(world, jointSet, disabledSet, joint);
 
 		// Now that the joint is in the correct set, I can link the joint in the island.
-		if (bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet)
+		if (jointSetId != b2_staticSet)
 		{
 			b2LinkJoint(world, joint);
 		}
 	}
 
+	b2ValidateConnectivity(world);
 	b2ValidateSolverSets(world);
 }
 

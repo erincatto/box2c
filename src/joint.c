@@ -303,6 +303,8 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 			b2DestroyContact(world, contact, wakeBodies);
 		}
 	}
+
+	b2ValidateSolverSets(world);
 }
 
 b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def)

@@ -220,6 +220,8 @@ void b2DestroyShapeInternal(b2World* world, b2Shape* shape, b2Body* body, bool w
 			b2DestroyContact(world, contact, wakeBodies);
 		}
 	}
+
+	b2ValidateSolverSets(world);
 }
 
 void b2DestroyShape(b2ShapeId shapeId)
@@ -832,6 +834,8 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 	{
 		b2BufferMove(&world->broadPhase, proxyKey);
 	}
+
+	b2ValidateSolverSets(world);
 }
 
 void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)

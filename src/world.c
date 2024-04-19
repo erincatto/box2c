@@ -294,6 +294,7 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 		if (overlap == false)
 		{
 			contact->simFlags |= b2_simDisjoint;
+			contact->simFlags &= ~b2_simTouchingFlag;
 			b2SetBit(&taskContext->contactStateBitSet, contactId);
 		}
 		else
@@ -510,6 +511,7 @@ static void b2Collide(b2StepContext* context)
 				}
 
 				// Bounding boxes no longer overlap
+				contactLookup->flags &= ~b2_contactTouchingFlag;
 				b2DestroyContact(world, contactLookup, false);
 				contact = NULL;
 			}
@@ -2008,6 +2010,7 @@ void b2ValidateConnectivity(b2World* world)
 }
 
 // Validates solver sets, but not island connectivity
+// todo and not contact touching status
 void b2ValidateSolverSets(b2World* world)
 {
 	B2_ASSERT(b2GetIdCapacity(&world->bodyIdPool) == b2Array(world->bodyArray).count);
@@ -2021,6 +2024,337 @@ void b2ValidateSolverSets(b2World* world)
 	int totalJointCount = 0;
 	int totalContactCount = 0;
 	int totalIslandCount = 0;
+
+	// Validate all solver sets
+	int setCount = b2Array(world->solverSetArray).count;
+	for (int setIndex = 0; setIndex < setCount; ++setIndex)
+	{
+		b2SolverSet* set = world->solverSetArray + setIndex;
+		if (set->setId != B2_NULL_INDEX)
+		{
+			activeSetCount += 1;
+
+			if (setIndex == b2_staticSet)
+			{
+				B2_ASSERT(set->contacts.count == 0);
+				B2_ASSERT(set->islands.count == 0);
+				B2_ASSERT(set->states.count == 0);
+			}
+			else if (setIndex == b2_awakeSet)
+			{
+				B2_ASSERT(set->sims.count == set->states.count);
+				B2_ASSERT(set->joints.count == 0);
+			}
+			else if (setIndex == b2_disabledSet)
+			{
+				B2_ASSERT(set->islands.count == 0);
+				B2_ASSERT(set->states.count == 0);
+			}
+			else
+			{
+				B2_ASSERT(set->states.count == 0);
+			}
+
+			// Validate bodies
+			{
+				b2Body* bodies = world->bodyArray;
+				B2_ASSERT(set->sims.count >= 0);
+				totalBodyCount += set->sims.count;
+				for (int i = 0; i < set->sims.count; ++i)
+				{
+					b2BodySim* bodySim = set->sims.data + i;
+					b2CheckIndex(bodies, bodySim->bodyId);
+					b2Body* body = bodies + bodySim->bodyId;
+					B2_ASSERT(body->setIndex == setIndex);
+					B2_ASSERT(body->localIndex == i);
+					B2_ASSERT(body->revision == body->revision);
+
+					if (setIndex == b2_disabledSet)
+					{
+						B2_ASSERT(body->headContactKey == B2_NULL_INDEX);
+					}
+
+					// Validate body contacts
+					int contactKey = body->headContactKey;
+					while (contactKey != B2_NULL_INDEX)
+					{
+						int contactId = contactKey >> 1;
+						int edgeIndex = contactKey & 1;
+
+						b2CheckIndex(world->contactLookupArray, contactId);
+						b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
+						B2_ASSERT(contactLookup->setIndex != b2_staticSet);
+
+						int otherEdgeIndex = edgeIndex ^ 1;
+
+						b2CheckIndex(world->bodyArray, contactLookup->edges[otherEdgeIndex].bodyId);
+						b2Body* otherBody = world->bodyArray + contactLookup->edges[otherEdgeIndex].bodyId;
+
+						B2_ASSERT(otherBody->setIndex != b2_disabledSet);
+
+						bool touching = (contactLookup->flags & b2_contactTouchingFlag) != 0;
+
+						if (setIndex == b2_awakeSet)
+						{
+							B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+
+							if (touching)
+							{
+								B2_ASSERT(0 <= contactLookup->colorIndex && contactLookup->colorIndex < b2_graphColorCount);
+							}
+							else
+							{
+								B2_ASSERT(contactLookup->colorIndex == B2_NULL_INDEX);
+							}
+						}
+						else if (otherBody->setIndex == b2_awakeSet)
+						{
+							B2_ASSERT(contactLookup->setIndex == b2_awakeSet);
+
+							if (touching)
+							{
+								B2_ASSERT(0 <= contactLookup->colorIndex && contactLookup->colorIndex < b2_graphColorCount);
+							}
+							else
+							{
+								B2_ASSERT(contactLookup->colorIndex == B2_NULL_INDEX);
+							}
+						}
+						else if (setIndex >= b2_firstSleepingSet)
+						{
+							if (touching)
+							{
+								B2_ASSERT(setIndex == contactLookup->setIndex);
+								B2_ASSERT(setIndex == otherBody->setIndex || otherBody->setIndex == b2_staticSet);
+							}
+							else
+							{
+								B2_ASSERT(setIndex == b2_disabledSet);
+							}
+						}
+
+						B2_ASSERT(contactLookup->edges[edgeIndex].bodyId == bodySim->bodyId);
+
+						b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
+						B2_ASSERT(contact->contactId == contactId);
+						B2_ASSERT(contact->bodyIdA == contactLookup->edges[0].bodyId);
+						B2_ASSERT(contact->bodyIdB == contactLookup->edges[1].bodyId);
+
+						bool simTouching = (contact->simFlags & b2_simTouchingFlag) != 0;
+						B2_ASSERT(touching == simTouching);
+						B2_ASSERT(simTouching == (contact->manifold.pointCount > 0));
+						B2_ASSERT(0 <= contact->manifold.pointCount && contact->manifold.pointCount <= 2);
+
+						contactKey = contactLookup->edges[edgeIndex].nextKey;
+					}
+
+					// Validate body joints
+					int jointKey = body->headJointKey;
+					while (jointKey != B2_NULL_INDEX)
+					{
+						int jointId = jointKey >> 1;
+						int edgeIndex = jointKey & 1;
+
+						b2CheckIndex(world->jointLookupArray, jointId);
+						b2JointLookup* jointLookup = world->jointLookupArray + jointId;
+
+						int otherEdgeIndex = edgeIndex ^ 1;
+
+						b2CheckIndex(world->bodyArray, jointLookup->edges[otherEdgeIndex].bodyId);
+						b2Body* otherBody = world->bodyArray + jointLookup->edges[otherEdgeIndex].bodyId;
+
+						if (setIndex == b2_disabledSet || otherBody->setIndex == b2_disabledSet)
+						{
+							B2_ASSERT(jointLookup->setIndex == b2_disabledSet);
+						}
+						else if (setIndex == b2_staticSet && otherBody->setIndex == b2_staticSet)
+						{
+							B2_ASSERT(jointLookup->setIndex == b2_staticSet);
+						}
+						else if (setIndex == b2_awakeSet)
+						{
+							B2_ASSERT(jointLookup->setIndex == b2_awakeSet);
+						}
+						else if (setIndex >= b2_firstSleepingSet)
+						{
+							B2_ASSERT(jointLookup->setIndex == setIndex);
+						}
+
+						b2Joint* joint = b2GetJointSim(world, jointLookup);
+						B2_ASSERT(joint->jointId == jointId);
+						B2_ASSERT(joint->bodyIdA == jointLookup->edges[0].bodyId);
+						B2_ASSERT(joint->bodyIdB == jointLookup->edges[1].bodyId);
+
+						jointKey = jointLookup->edges[edgeIndex].nextKey;
+					}
+				}
+			}
+
+			// Validate contacts
+			{
+				b2ContactLookup* contacts = world->contactLookupArray;
+				B2_ASSERT(set->contacts.count >= 0);
+				totalContactCount += set->contacts.count;
+				for (int i = 0; i < set->contacts.count; ++i)
+				{
+					b2Contact* contactSim = set->contacts.data + i;
+					b2CheckIndex(contacts, contactSim->contactId);
+					b2ContactLookup* contact = contacts + contactSim->contactId;
+					if (setIndex == b2_awakeSet)
+					{
+						// contact should be non-touching if awake
+						// or it could be this contact hasn't been transferred yet
+						B2_ASSERT(contactSim->manifold.pointCount == 0 || (contactSim->simFlags & b2_simStartedTouching) != 0);
+					}
+					B2_ASSERT(contact->setIndex == setIndex);
+					B2_ASSERT(contact->colorIndex == B2_NULL_INDEX);
+					B2_ASSERT(contact->localIndex == i);
+				}
+			}
+
+			// Validate joints
+			{
+				b2JointLookup* joints = world->jointLookupArray;
+				B2_ASSERT(set->joints.count >= 0);
+				totalJointCount += set->joints.count;
+				for (int i = 0; i < set->joints.count; ++i)
+				{
+					b2Joint* jointSim = set->joints.data + i;
+					b2CheckIndex(joints, jointSim->jointId);
+					b2JointLookup* joint = joints + jointSim->jointId;
+					B2_ASSERT(joint->setIndex == setIndex);
+					B2_ASSERT(joint->colorIndex == B2_NULL_INDEX);
+					B2_ASSERT(joint->localIndex == i);
+				}
+			}
+
+			// Validate islands
+			{
+				b2Island* islands = world->islandArray;
+				B2_ASSERT(set->islands.count >= 0);
+				totalIslandCount += set->islands.count;
+				for (int i = 0; i < set->islands.count; ++i)
+				{
+					b2IslandSim* islandSim = set->islands.data + i;
+					b2CheckIndex(islands, islandSim->islandId);
+					b2Island* island = islands + islandSim->islandId;
+					B2_ASSERT(island->setIndex == setIndex);
+					B2_ASSERT(island->localIndex == i);
+				}
+			}
+		}
+		else
+		{
+			B2_ASSERT(set->sims.count == 0);
+			B2_ASSERT(set->contacts.count == 0);
+			B2_ASSERT(set->joints.count == 0);
+			B2_ASSERT(set->islands.count == 0);
+			B2_ASSERT(set->states.count == 0);
+		}
+	}
+
+	int setIdCount = b2GetIdCount(&world->solverSetIdPool);
+	B2_ASSERT(activeSetCount == setIdCount);
+
+	int bodyIdCount = b2GetIdCount(&world->bodyIdPool);
+	B2_ASSERT(totalBodyCount == bodyIdCount);
+
+	int islandIdCount = b2GetIdCount(&world->islandIdPool);
+	B2_ASSERT(totalIslandCount == islandIdCount);
+
+	// Validate constraint graph
+	for (int colorIndex = 0; colorIndex < b2_graphColorCount; ++colorIndex)
+	{
+		b2GraphColor* color = world->constraintGraph.colors + colorIndex;
+		{
+			b2ContactLookup* lookups = world->contactLookupArray;
+			B2_ASSERT(color->contacts.count >= 0);
+			totalContactCount += color->contacts.count;
+			for (int i = 0; i < color->contacts.count; ++i)
+			{
+				b2Contact* contact = color->contacts.data + i;
+				b2CheckIndex(lookups, contact->contactId);
+				b2ContactLookup* lookup = lookups + contact->contactId;
+				// contact should be touching in the constraint graph or awaiting transfer to non-touching
+				B2_ASSERT(contact->manifold.pointCount > 0 ||
+						  (contact->simFlags & (b2_simStoppedTouching | b2_simDisjoint)) != 0);
+				B2_ASSERT(lookup->setIndex == b2_awakeSet);
+				B2_ASSERT(lookup->colorIndex == colorIndex);
+				B2_ASSERT(lookup->localIndex == i);
+			}
+		}
+
+		{
+			b2JointLookup* lookups = world->jointLookupArray;
+			int lookupCount = b2Array(lookups).count;
+			B2_ASSERT(color->joints.count >= 0);
+			totalJointCount += color->joints.count;
+			for (int i = 0; i < color->joints.count; ++i)
+			{
+				b2Joint* joint = color->joints.data + i;
+				B2_ASSERT(0 <= joint->jointId && joint->jointId < lookupCount);
+				b2JointLookup* lookup = lookups + joint->jointId;
+				B2_ASSERT(lookup->setIndex == b2_awakeSet);
+				B2_ASSERT(lookup->colorIndex == colorIndex);
+				B2_ASSERT(lookup->localIndex == i);
+			}
+		}
+
+		// todo validate body set
+		color->bodySet;
+	}
+
+	int contactIdCount = b2GetIdCount(&world->contactIdPool);
+	B2_ASSERT(totalContactCount == contactIdCount);
+	B2_ASSERT(totalContactCount == world->broadPhase.pairSet.count);
+
+	int jointIdCount = b2GetIdCount(&world->jointIdPool);
+	B2_ASSERT(totalJointCount == jointIdCount);
+
+	// Validate shapes
+	for (int shapeIndex = 0; shapeIndex < world->shapePool.capacity; shapeIndex += 1)
+	{
+		b2Shape* shape = world->shapes + shapeIndex;
+		if (b2IsValidObject(&shape->object) == false)
+		{
+			continue;
+		}
+
+		B2_ASSERT(0 <= shape->bodyId && shape->bodyId < b2Array(world->bodyArray).count);
+
+		b2Body* body = world->bodyArray + shape->bodyId;
+		B2_ASSERT(0 <= body->setIndex && body->setIndex < b2Array(world->solverSetArray).count);
+
+		b2SolverSet* set = world->solverSetArray + body->setIndex;
+		B2_ASSERT(0 <= body->localIndex && body->localIndex < set->sims.count);
+
+		b2BodySim* bodySim = set->sims.data + body->localIndex;
+		B2_ASSERT(bodySim->bodyId == shape->bodyId);
+
+		bool found = false;
+		int shapeCount = 0;
+		int index = body->headShapeId;
+		while (index != B2_NULL_INDEX)
+		{
+			B2_ASSERT(0 <= index && index < world->shapePool.capacity);
+			b2Shape* s = world->shapes + index;
+			if (index == shapeIndex)
+			{
+				found = true;
+			}
+
+			index = s->nextShapeId;
+			shapeCount += 1;
+		}
+
+		B2_ASSERT(found);
+		B2_ASSERT(shapeCount == body->shapeCount);
+	}
+}
+
+void b2ValidateContacts(b2World* world)
+{
+	int contactCapacity = b2Array(world->contactLookupArray).count;
 
 	// Validate all solver sets
 	int setCount = b2Array(world->solverSetArray).count;

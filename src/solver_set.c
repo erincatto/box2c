@@ -113,6 +113,9 @@ void b2WakeSolverSet(b2World* world, int setId)
 		{
 			b2Contact* contact = set->contacts.data + i;
 			b2ContactLookup* contactLookup = contactLookups + contact->contactId;
+			B2_ASSERT(contactLookup->flags & b2_contactTouchingFlag);
+			B2_ASSERT(contact->simFlags & b2_simTouchingFlag);
+			B2_ASSERT(contact->manifold.pointCount > 0);
 			B2_ASSERT(contactLookup->setIndex == setId);
 			b2AddContactToGraph(world, contact, contactLookup);
 			contactLookup->setIndex = b2_awakeSet;
@@ -539,7 +542,7 @@ void b2MergeSolverSets(b2World* world, int setId1, int setId2)
 	b2ValidateSolverSets(world);
 }
 
-void b2TransferBodySim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body)
+void b2TransferBody(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body)
 {
 	B2_ASSERT(targetSet != sourceSet);
 
@@ -577,7 +580,7 @@ void b2TransferBodySim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sour
 	body->localIndex = targetIndex;
 }
 
-void b2TransferJointSim(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2JointLookup* joint)
+void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2JointLookup* joint)
 {
 	B2_ASSERT(targetSet != sourceSet);
 
