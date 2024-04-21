@@ -166,3 +166,4 @@ void b2CheckChainId(b2ChainId chainId);
 
 void b2ValidateConnectivity(b2World* world);
 void b2ValidateSolverSets(b2World* world);
+void b2ValidateContacts(b2World* world);

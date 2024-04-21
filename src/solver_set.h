@@ -14,6 +14,8 @@ typedef struct b2World b2World;
 // - active set for all active sims with body states (no contacts or joints)
 // - disabled set for disabled sims and their joints
 // - all further sets are sleeping island sets along with their contacts and joints
+// The purpose of solver sets is to achieve high memory locality.
+// https://www.youtube.com/watch?v=nZNd5FjSquk
 typedef struct b2SolverSet
 {
 	// Body array. Empty for unused set.

@@ -883,6 +883,13 @@ b2BodyType b2Body_GetType(b2BodyId bodyId)
 	return body->type;
 }
 
+// Changing the body type is quite complex mainly due to joints.
+// Considerations:
+// - body and joints must be moved to the correct set
+// - islands must be updated
+// - graph coloring must be correct
+// - any body connected to a joint may be disabled
+// - joints between static bodies must go into the static set
 void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
@@ -904,11 +911,14 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		return;
 	}
 
-	// Destroy all contacts and wake touching bodies. This might wake the current body.
-	bool wakeBodies = true;
+	// Destroy all contacts but don't wake bodies. 
+	bool wakeBodies = false;
 	b2DestroyBodyContacts(world, body, wakeBodies);
 
-	// Unlink all joints
+	// Wake this body because we assume below that it is awake or static.
+	b2WakeBody(world, body);
+
+	// Unlink all joints and wake attached bodies.
 	{
 		int jointKey = body->headJointKey;
 		while (jointKey != B2_NULL_INDEX)
@@ -922,6 +932,14 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 				b2UnlinkJoint(world, joint);
 			}
 
+			// A body going from static to dynamic or kinematic goes to the awake set
+			// and other attached bodies must be awake as well. For consistency, this is
+			// done for all cases.
+			b2Body* bodyA = world->bodyArray + joint->edges[0].bodyId;
+			b2Body* bodyB = world->bodyArray + joint->edges[1].bodyId;
+			b2WakeBody(world, bodyA);
+			b2WakeBody(world, bodyB);
+
 			jointKey = joint->edges[edgeIndex].nextKey;
 		}
 	}
@@ -930,7 +948,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 
 	if (originalType == b2_staticBody)
 	{
-		// Body is going from static to dynamic or kinematic
+		// Body is going from static to dynamic or kinematic. It only makes sense to move it to the awake set.
 		B2_ASSERT(body->setIndex == b2_staticSet);
 
 		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
@@ -942,7 +960,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		// Create island for body
 		b2CreateIslandForBody(world, b2_awakeSet, body);
 
-		// Transfer joints to awake set
+		// Transfer static joints to awake set
 		int jointKey = body->headJointKey;
 		while (jointKey != B2_NULL_INDEX)
 		{
@@ -950,19 +968,30 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			int edgeIndex = jointKey & 1;
 
 			b2JointLookup* joint = world->jointLookupArray + jointId;
-			jointKey = joint->edges[edgeIndex].nextKey;
 
-			// Skip disabled joint or joint that is already awake
-			if (joint->setIndex == b2_disabledSet || joint->setIndex == b2_awakeSet)
-			{
-				// joint is disable, should be connected to a disabled body
-				continue;
-			}
-
+			// Transfer the joint if it is in the static set
 			if (joint->setIndex == b2_staticSet)
 			{
 				b2TransferJoint(world, awakeSet, staticSet, joint);
 			}
+			else if (joint->setIndex == b2_awakeSet)
+			{
+				// In this case the joint must be re-inserted into the constraint graph to ensure the correct
+				// graph color.
+
+				// First transfer to the static set.
+				b2TransferJoint(world, staticSet, awakeSet, joint);
+
+				// Now transfer it back to the awake set and into the graph coloring.
+				b2TransferJoint(world, awakeSet, staticSet, joint);
+			}
+			else
+			{
+				// Otherwise the joint must be disabled.
+				B2_ASSERT(joint->setIndex == b2_disabledSet);
+			}
+
+			jointKey = joint->edges[edgeIndex].nextKey;
 		}
 
 		// Recreate shape proxies in movable tree.
@@ -978,17 +1007,14 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 	}
 	else if (type == b2_staticBody)
 	{
-		int originalSetId = body->setIndex;
-		B2_ASSERT(originalSetId == b2_awakeSet || originalSetId >= b2_firstSleepingSet);
+		// The body is going from dynamic/kinematic to static. It should be awake.
+		B2_ASSERT(body->setIndex == b2_awakeSet);
 
-		// The body is going from dynamic/kinematic to static. It may be sleeping.
 		b2SolverSet* staticSet = world->solverSetArray + b2_staticSet;
-
-		b2CheckIndex(world->solverSetArray, originalSetId);
-		b2SolverSet* originalSet = world->solverSetArray + originalSetId;
+		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 
 		// Transfer body to static set
-		b2TransferBody(world, staticSet, originalSet, body);
+		b2TransferBody(world, staticSet, awakeSet, body);
 
 		// Remove body from island.
 		b2RemoveBodyFromIsland(world, body);
@@ -1003,20 +1029,41 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			b2JointLookup* joint = world->jointLookupArray + jointId;
 			jointKey = joint->edges[edgeIndex].nextKey;
 
+			int otherEdgeIndex = edgeIndex ^ 1;
+			b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
+
 			// Skip disabled joint
 			if (joint->setIndex == b2_disabledSet)
 			{
 				// Joint is disable, should be connected to a disabled body
+				B2_ASSERT(otherBody->setIndex == b2_disabledSet);
 				continue;
 			}
 
+			// Since the body was not static, the joint must be awake.
+			B2_ASSERT(joint->setIndex == b2_awakeSet);
+
 			// Only transfer joint to static set if both bodies are static.
-			int otherEdgeIndex = edgeIndex ^ 1;
-			b2Body* otherBody = world->bodyArray + joint->edges[otherEdgeIndex].bodyId;
 			if (otherBody->setIndex == b2_staticSet)
 			{
-				B2_ASSERT(joint->setIndex == originalSetId);
-				b2TransferJoint(world, staticSet, originalSet, joint);
+				b2TransferJoint(world, staticSet, awakeSet, joint);
+			}
+			else
+			{
+				// The other body must be awake.
+				B2_ASSERT(otherBody->setIndex == b2_awakeSet);
+
+				// The joint must live in a graph color.
+				B2_ASSERT(0 <= joint->colorIndex && joint->colorIndex < b2_graphColorCount);
+
+				// In this case the joint must be re-inserted into the constraint graph to ensure the correct
+				// graph color.
+
+				// First transfer to the static set.
+				b2TransferJoint(world, staticSet, awakeSet, joint);
+
+				// Now transfer it back to the awake set and into the graph coloring.
+				b2TransferJoint(world, awakeSet, staticSet, joint);
 			}
 		}
 		
@@ -1036,7 +1083,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		B2_ASSERT(originalType == b2_dynamicBody || originalType == b2_kinematicBody);
 		B2_ASSERT(type == b2_dynamicBody || type == b2_kinematicBody);
 
-		// Converting between kinematic and dynamic is simpler
+		// Converting between kinematic and dynamic is much simpler
 
 		// Touch the broad-phase proxies to ensure the correct contacts get created
 		int shapeId = body->headShapeId;

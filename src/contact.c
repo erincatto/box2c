@@ -232,13 +232,13 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	}
 
 	b2ContactLookup* lookup = world->contactLookupArray + contactId;
+	lookup->contactId = contactId;
 	lookup->setIndex = setIndex;
 	lookup->colorIndex = B2_NULL_INDEX;
 	lookup->localIndex = set->contacts.count;
 	lookup->islandId = B2_NULL_INDEX;
 	lookup->islandPrev = B2_NULL_INDEX;
 	lookup->islandNext = B2_NULL_INDEX;
-	lookup->contactId = contactId;
 	lookup->shapeIdA = shapeIdA;
 	lookup->shapeIdB = shapeIdB;
 	lookup->isMarked = false;
@@ -420,6 +420,7 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 		}
 	}
 
+	contact->contactId = B2_NULL_INDEX;
 	contact->setIndex = B2_NULL_INDEX;
 	contact->colorIndex = B2_NULL_INDEX;
 	contact->localIndex = B2_NULL_INDEX;
@@ -480,8 +481,8 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 bool b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
 					 b2Transform transformB)
 {
-	b2ShapeId shapeIdA = {shapeA->object.index, world->worldId, shapeA->object.revision};
-	b2ShapeId shapeIdB = {shapeB->object.index, world->worldId, shapeB->object.revision};
+	b2ShapeId shapeIdA = {shapeA->object.index + 1, world->worldId, shapeA->object.revision};
+	b2ShapeId shapeIdB = {shapeB->object.index + 1, world->worldId, shapeB->object.revision};
 
 	bool touching;
 

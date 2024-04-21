@@ -76,6 +76,7 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* co
 	b2Body* bodyB = world->bodyArray + bodyIdB;
 	bool staticA = bodyA->setIndex == b2_staticSet;
 	bool staticB = bodyB->setIndex == b2_staticSet;
+	B2_ASSERT(staticA == false || staticB == false);
 
 	if (staticA == false && staticB == false)
 	{
@@ -166,15 +167,12 @@ void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colo
 	}
 }
 
-// todo pass B2_NULL_INDEX for kinematic bodies?
-// but we have to avoid writing to the kinematics in workers
-b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointLookup* jointLookup)
+static int b2AssignJointColor(b2ConstraintGraph* graph, int bodyIdA, int bodyIdB, bool staticA, bool staticB)
 {
-	b2ConstraintGraph* graph = &world->constraintGraph;
-	int colorIndex = b2_overflowIndex;
+	B2_ASSERT(staticA == false || staticB == false);
 
 #if B2_FORCE_OVERFLOW == 0
-	if (bodyIdA != B2_NULL_INDEX && bodyIdB != B2_NULL_INDEX)
+	if (staticA == false && staticB == false)
 	{
 		for (int i = 0; i < b2_graphColorCount; ++i)
 		{
@@ -186,11 +184,10 @@ b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointL
 
 			b2SetBitGrow(&color->bodySet, bodyIdA);
 			b2SetBitGrow(&color->bodySet, bodyIdB);
-			colorIndex = i;
-			break;
+			return i;
 		}
 	}
-	else if (bodyIdA != B2_NULL_INDEX)
+	else if (staticA == false)
 	{
 		for (int i = 0; i < b2_graphColorCount; ++i)
 		{
@@ -201,11 +198,10 @@ b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointL
 			}
 
 			b2SetBitGrow(&color->bodySet, bodyIdA);
-			colorIndex = i;
-			break;
+			return i;
 		}
 	}
-	else if (bodyIdB != B2_NULL_INDEX)
+	else if (staticB == false)
 	{
 		for (int i = 0; i < b2_graphColorCount; ++i)
 		{
@@ -216,24 +212,39 @@ b2Joint* b2CreateJointInGraph(b2World* world, int bodyIdA, int bodyIdB, b2JointL
 			}
 
 			b2SetBitGrow(&color->bodySet, bodyIdB);
-			colorIndex = i;
-			break;
+			return i;
 		}
 	}
 #endif
 
-	b2Joint* joint = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
-	jointLookup->colorIndex = colorIndex;
-	jointLookup->localIndex = graph->colors[colorIndex].joints.count - 1;
-	return joint;
+	return b2_overflowIndex;
+}
+
+b2Joint* b2CreateJointInGraph(b2World* world, b2JointLookup* joint)
+{
+	b2ConstraintGraph* graph = &world->constraintGraph;
+
+	int bodyIdA = joint->edges[0].bodyId;
+	int bodyIdB = joint->edges[1].bodyId;
+	b2CheckIndex(world->bodyArray, bodyIdA);
+	b2CheckIndex(world->bodyArray, bodyIdB);
+
+	b2Body* bodyA = world->bodyArray + bodyIdA;
+	b2Body* bodyB = world->bodyArray + bodyIdB;
+	bool staticA = bodyA->setIndex == b2_staticSet;
+	bool staticB = bodyB->setIndex == b2_staticSet;
+
+	int colorIndex = b2AssignJointColor(graph, bodyIdA, bodyIdB, staticA, staticB);
+
+	b2Joint* jointSim = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
+	joint->colorIndex = colorIndex;
+	joint->localIndex = graph->colors[colorIndex].joints.count - 1;
+	return jointSim;
 }
 
 void b2AddJointToGraph(b2World* world, b2Joint* joint, b2JointLookup* jointLookup)
 {
-	int bodyIdA = jointLookup->edges[0].bodyId;
-	int bodyIdB = jointLookup->edges[1].bodyId;
-
-	b2Joint* jointDst = b2CreateJointInGraph(world, bodyIdA, bodyIdB, jointLookup);
+	b2Joint* jointDst = b2CreateJointInGraph(world, jointLookup);
 	memcpy(jointDst, joint, sizeof(b2Joint));
 }
 

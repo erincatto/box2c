@@ -731,6 +731,9 @@ public:
 	// does not try to access an values in the world that may be changing, such as contact data.
 	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold) const
 	{
+		assert(b2Shape_IsValid(shapeIdA));
+		assert(b2Shape_IsValid(shapeIdB));
+
 		b2ShapeId actorShapeId = b2_nullShapeId;
 		float sign = 0.0f;
 		if (B2_ID_EQUALS(shapeIdA, m_platformShapeId))
