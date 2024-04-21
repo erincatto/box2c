@@ -9,7 +9,7 @@
 
 #include "x86/avx.h"
 
-typedef struct b2Contact b2Contact;
+typedef struct b2ContactSim b2ContactSim;
 
 typedef struct b2ContactConstraintPoint
 {

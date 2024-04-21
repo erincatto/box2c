@@ -30,7 +30,7 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 	b2GraphColor* color = graph->colors + b2_overflowIndex;
 	b2ContactConstraint* constraints = color->overflowConstraints;
 	int contactCount = color->contacts.count;
-	b2Contact* contacts = color->contacts.data;
+	b2ContactSim* contacts = color->contacts.data;
 	b2BodySim* awakeSims = context->sims;
 	b2BodyState* awakeStates = context->states;
 	b2Body* bodies = world->bodyArray;
@@ -42,7 +42,7 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 	for (int i = 0; i < contactCount; ++i)
 	{
-		b2Contact* contact = contacts + i;
+		b2ContactSim* contact = contacts + i;
 
 		const b2Manifold* manifold = &contact->manifold;
 		int pointCount = manifold->pointCount;
@@ -441,13 +441,13 @@ void b2StoreOverflowImpulses(b2StepContext* context)
 	b2ConstraintGraph* graph = context->graph;
 	b2GraphColor* color = graph->colors + b2_overflowIndex;
 	b2ContactConstraint* constraints = color->overflowConstraints;
-	b2Contact* contacts = color->contacts.data;
+	b2ContactSim* contacts = color->contacts.data;
 	int contactCount = color->contacts.count;
 
 	for (int i = 0; i < contactCount; ++i)
 	{
 		const b2ContactConstraint* constraint = constraints + i;
-		b2Contact* contact = contacts + i;
+		b2ContactSim* contact = contacts + i;
 		b2Manifold* manifold = &contact->manifold;
 		int pointCount = manifold->pointCount;
 
@@ -590,7 +590,7 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(prepare_contact, "Prepare Contact", b2_colorYellow, true);
 	b2World* world = context->world;
-	b2Contact** contacts = context->contacts;
+	b2ContactSim** contacts = context->contacts;
 	b2ContactConstraintSIMD* constraints = context->simdContactConstraints;
 	b2BodySim* awakeSims = context->sims;
 	b2BodyState* awakeStates = context->states;
@@ -608,7 +608,7 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 
 		for (int j = 0; j < 8; ++j)
 		{
-			b2Contact* contact = contacts[8 * i + j];
+			b2ContactSim* contact = contacts[8 * i + j];
 
 			if (contact != NULL)
 			{
@@ -1173,7 +1173,7 @@ void b2StoreImpulsesTask(int startIndex, int endIndex, b2StepContext* context)
 {
 	b2TracyCZoneNC(store_impulses, "Store", b2_colorFirebrick, true);
 
-	b2Contact** contacts = context->contacts;
+	b2ContactSim** contacts = context->contacts;
 	const b2ContactConstraintSIMD* constraints = context->simdContactConstraints;
 
 	b2Manifold dummy = {0};

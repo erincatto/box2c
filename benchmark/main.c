@@ -200,10 +200,10 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		fprintf(file, "threads,fps,scale\n");
+		fprintf(file, "threads,fps\n");
 		for (int threadCount = 1; threadCount <= maxThreadCount; ++threadCount)
 		{
-			fprintf(file, "%d,%g,%g\n", threadCount, maxFps[threadCount - 1], maxFps[threadCount - 1] / maxFps[0]);
+			fprintf(file, "%d,%g\n", threadCount, maxFps[threadCount - 1]);
 		}
 
 		fclose(file);

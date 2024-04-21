@@ -6,7 +6,7 @@
 #include "block_array.h"
 
 typedef struct b2Body b2Body;
-typedef struct b2JointLookup b2JointLookup;
+typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
 
 // This holds solver set data. The following sets are used:
@@ -50,4 +50,4 @@ void b2TrySleepIsland(b2World* world, int islandId);
 void b2MergeSolverSets(b2World* world, int setId1, int setId2);
 
 void b2TransferBody(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body);
-void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2JointLookup* joint);
+void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Joint* joint);

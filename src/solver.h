@@ -13,8 +13,8 @@
 
 typedef struct b2BodySim b2BodySim;
 typedef struct b2BodyState b2BodyState;
-typedef struct b2Contact b2Contact;
-typedef struct b2Joint b2Joint;
+typedef struct b2ContactSim b2ContactSim;
+typedef struct b2JointSim b2JointSim;
 typedef struct b2World b2World;
 
 typedef struct b2Softness
@@ -116,14 +116,14 @@ typedef struct b2StepContext
 	_Atomic int bulletBodyCount;
 
 	// joint pointers for simplified parallel-for access.
-	b2Joint** joints;
+	b2JointSim** joints;
 
 	// contact pointers for simplified parallel-for access.
 	// - parallel-for collide with no gaps
 	// - parallel-for prepare and store contacts with NULL gaps for SIMD remainders
 	// despite being an array of pointers, these are contiguous sub-arrays corresponding
 	// to constraint graph colors
-	b2Contact** contacts;
+	b2ContactSim** contacts;
 
 	struct b2ContactConstraintSIMD* simdContactConstraints;
 	int activeColorCount;

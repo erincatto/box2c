@@ -57,18 +57,18 @@ void b2DestroyGraph(b2ConstraintGraph* graph)
 // Contacts are always created as non-touching. They get cloned into the constraint
 // graph once they are found to be touching.
 // todo maybe kinematic bodies should not go into graph
-void b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup)
+void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* contact)
 {
-	B2_ASSERT(contact->manifold.pointCount > 0);
-	B2_ASSERT(contact->simFlags & b2_simTouchingFlag);
-	B2_ASSERT(contactLookup->flags & b2_contactTouchingFlag);
+	B2_ASSERT(contactSim->manifold.pointCount > 0);
+	B2_ASSERT(contactSim->simFlags & b2_simTouchingFlag);
+	B2_ASSERT(contact->flags & b2_contactTouchingFlag);
 
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyIdA = contact->bodyIdA;
-	int bodyIdB = contact->bodyIdB;
+	int bodyIdA = contactSim->bodyIdA;
+	int bodyIdB = contactSim->bodyIdB;
 	b2CheckIndex(world->bodyArray, bodyIdA);
 	b2CheckIndex(world->bodyArray, bodyIdB);
 
@@ -129,11 +129,11 @@ void b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* co
 #endif
 
 	b2GraphColor* color = graph->colors + colorIndex;
-	contactLookup->colorIndex = colorIndex;
-	contactLookup->localIndex = color->contacts.count;
+	contact->colorIndex = colorIndex;
+	contact->localIndex = color->contacts.count;
 
-	b2Contact* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
-	memcpy(newContact, contact, sizeof(b2Contact));
+	b2ContactSim* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
+	memcpy(newContact, contactSim, sizeof(b2ContactSim));
 }
 
 void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)
@@ -154,16 +154,16 @@ void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colo
 	if (movedIndex != B2_NULL_INDEX)
 	{
 		// Fix index on swapped contact
-		b2Contact* movedContact = color->contacts.data + localIndex;
+		b2ContactSim* movedContactSim = color->contacts.data + localIndex;
 
-		// Fix contact lookup for moved contact
-		int movedId = movedContact->contactId;
-		b2CheckIndex(world->contactLookupArray, movedId);
-		b2ContactLookup* movedLookup = world->contactLookupArray + movedId;
-		B2_ASSERT(movedLookup->setIndex == b2_awakeSet);
-		B2_ASSERT(movedLookup->colorIndex == colorIndex);
-		B2_ASSERT(movedLookup->localIndex == movedIndex);
-		movedLookup->localIndex = localIndex;
+		// Fix moved contact
+		int movedId = movedContactSim->contactId;
+		b2CheckIndex(world->contactArray, movedId);
+		b2Contact* movedContact = world->contactArray + movedId;
+		B2_ASSERT(movedContact->setIndex == b2_awakeSet);
+		B2_ASSERT(movedContact->colorIndex == colorIndex);
+		B2_ASSERT(movedContact->localIndex == movedIndex);
+		movedContact->localIndex = localIndex;
 	}
 }
 
@@ -220,7 +220,7 @@ static int b2AssignJointColor(b2ConstraintGraph* graph, int bodyIdA, int bodyIdB
 	return b2_overflowIndex;
 }
 
-b2Joint* b2CreateJointInGraph(b2World* world, b2JointLookup* joint)
+b2JointSim* b2CreateJointInGraph(b2World* world, b2Joint* joint)
 {
 	b2ConstraintGraph* graph = &world->constraintGraph;
 
@@ -236,16 +236,16 @@ b2Joint* b2CreateJointInGraph(b2World* world, b2JointLookup* joint)
 
 	int colorIndex = b2AssignJointColor(graph, bodyIdA, bodyIdB, staticA, staticB);
 
-	b2Joint* jointSim = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
+	b2JointSim* jointSim = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
 	joint->colorIndex = colorIndex;
 	joint->localIndex = graph->colors[colorIndex].joints.count - 1;
 	return jointSim;
 }
 
-void b2AddJointToGraph(b2World* world, b2Joint* joint, b2JointLookup* jointLookup)
+void b2AddJointToGraph(b2World* world, b2JointSim* jointSim, b2Joint* joint)
 {
-	b2Joint* jointDst = b2CreateJointInGraph(world, jointLookup);
-	memcpy(jointDst, joint, sizeof(b2Joint));
+	b2JointSim* jointDst = b2CreateJointInGraph(world, joint);
+	memcpy(jointDst, jointSim, sizeof(b2JointSim));
 }
 
 void b2RemoveJointFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)
@@ -257,7 +257,7 @@ void b2RemoveJointFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorI
 
 	if (colorIndex != b2_overflowIndex)
 	{
-		// may clear static bodies, no effect
+		// May clear static bodies, no effect
 		b2ClearBit(&color->bodySet, bodyIdA);
 		b2ClearBit(&color->bodySet, bodyIdB);
 	}
@@ -265,14 +265,14 @@ void b2RemoveJointFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorI
 	int movedIndex = b2RemoveJoint(&color->joints, localIndex);
 	if (movedIndex != B2_NULL_INDEX)
 	{
-		// fix lookup on swapped element
-		b2Joint* movedJoint = color->joints.data + localIndex;
-		int movedId = movedJoint->jointId;
-		b2CheckIndex(world->jointLookupArray, movedId);
-		b2JointLookup* movedLookup = world->jointLookupArray + movedId;
-		B2_ASSERT(movedLookup->setIndex == b2_awakeSet);
-		B2_ASSERT(movedLookup->colorIndex == colorIndex);
-		B2_ASSERT(movedLookup->localIndex == movedIndex);
-		movedLookup->localIndex = localIndex;
+		// Fix moved joint
+		b2JointSim* movedJointSim = color->joints.data + localIndex;
+		int movedId = movedJointSim->jointId;
+		b2CheckIndex(world->jointArray, movedId);
+		b2Joint* movedJoint = world->jointArray + movedId;
+		B2_ASSERT(movedJoint->setIndex == b2_awakeSet);
+		B2_ASSERT(movedJoint->colorIndex == colorIndex);
+		B2_ASSERT(movedJoint->localIndex == movedIndex);
+		movedJoint->localIndex = localIndex;
 	}
 }

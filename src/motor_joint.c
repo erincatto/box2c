@@ -26,7 +26,7 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareMotorJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_motorJoint);
 
@@ -98,7 +98,7 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartMotorJoint(b2JointSim* base, b2StepContext* context)
 {
 	float mA = base->invMassA;
 	float mB = base->invMassB;
@@ -122,7 +122,7 @@ void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity += iB * (b2Cross(rB, joint->linearImpulse) + joint->angularImpulse);
 }
 
-void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias)
+void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_motorJoint);
 
@@ -200,68 +200,68 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 
 void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.linearOffset = linearOffset;
 }
 
 b2Vec2 b2MotorJoint_GetLinearOffset(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.linearOffset;
 }
 
 void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.angularOffset = angularOffset;
 }
 
 float b2MotorJoint_GetAngularOffset(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.angularOffset;
 }
 
 void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.maxForce = B2_MAX(0.0f, maxForce);
 }
 
 float b2MotorJoint_GetMaxForce(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.maxForce;
 }
 
 void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.maxTorque = B2_MAX(0.0f, maxTorque);
 }
 
 float b2MotorJoint_GetMaxTorque(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.maxTorque;
 }
 
 void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.correctionFactor = B2_CLAMP(correctionFactor, 0.0f, 1.0f);
 }
 
 float b2MotorJoint_GetCorrectionFactor(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.correctionFactor;
 }
 
 b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	b2MotorJoint* joint = &base->motorJoint;
 	b2Vec2 force = b2MulSV(world->inv_h, joint->linearImpulse);
 	return force;
@@ -270,7 +270,7 @@ b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 float b2MotorJoint_GetConstraintTorque(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return world->inv_h * base->motorJoint.angularImpulse;
 }
 

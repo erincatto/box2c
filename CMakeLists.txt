@@ -91,7 +91,6 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
 	if (BOX2D_BENCHMARK)
 		add_subdirectory(benchmark)
-		add_subdirectory(scaling_test)
 	endif()
 
 	if (BOX2D_DOCS)

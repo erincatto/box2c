@@ -22,8 +22,8 @@ typedef struct b2JointEdge
 	int nextKey;
 } b2JointEdge;
 
-// map from b2JointId to b2Joint in the solver sets
-typedef struct b2JointLookup
+// Map from b2JointId to b2Joint in the solver sets
+typedef struct b2Joint
 {
 	void* userData;
 
@@ -56,7 +56,7 @@ typedef struct b2JointLookup
 	bool isMarked;
 	bool collideConnected;
 
-} b2JointLookup;
+} b2Joint;
 
 typedef struct b2DistanceJoint
 {
@@ -219,7 +219,7 @@ typedef struct b2WheelJoint
 
 /// The base joint class. Joints are used to constraint two sims together in
 /// various fashions. Some joints also feature limits and motors.
-typedef struct b2Joint
+typedef struct b2JointSim
 {
 	int jointId;
 
@@ -245,21 +245,20 @@ typedef struct b2Joint
 		b2WeldJoint weldJoint;
 		b2WheelJoint wheelJoint;
 	};
-} b2Joint;
+} b2JointSim;
 
-b2JointLookup* b2GetJointLookup(b2World* world, int jointId);
-b2JointLookup* b2GetJointLookupFullId(b2World* world, b2JointId jointId);
-void b2DestroyJointInternal(b2World* world, b2JointLookup* joint, bool wakeBodies);
+b2Joint* b2GetJoint(b2World* world, int jointId);
+void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
 
-b2Joint* b2GetJointSim(b2World* world, b2JointLookup* lookup);
-b2Joint* b2GetJointSimCheckType(b2JointId jointId, b2JointType type);
+b2JointSim* b2GetJointSim(b2World* world, b2Joint* joint);
+b2JointSim* b2GetJointSimCheckType(b2JointId jointId, b2JointType type);
 
-void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
-void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
-void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias);
+void b2PrepareJoint(b2JointSim* joint, b2StepContext* context);
+void b2WarmStartJoint(b2JointSim* joint, b2StepContext* context);
+void b2SolveJoint(b2JointSim* joint, b2StepContext* context, bool useBias);
 
 void b2PrepareOverflowJoints(b2StepContext* context);
 void b2WarmStartOverflowJoints(b2StepContext* context);
 void b2SolveOverflowJoints(b2StepContext* context, bool useBias);
 
-void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2JointLookup* joint);
+void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);

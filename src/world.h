@@ -14,7 +14,7 @@
 
 #include "box2d/callbacks.h"
 
-typedef struct b2Contact b2Contact;
+typedef struct b2ContactSim b2ContactSim;
 
 enum b2SetType
 {
@@ -76,14 +76,14 @@ typedef struct b2World
 
 	// This is a sparse array that maps joint ids to the joint data stored in the constraint graph
 	// or in the solver sets.
-	struct b2JointLookup* jointLookupArray;
+	struct b2Joint* jointArray;
 
 	// Used to create stable ids for contacts
 	b2IdPool contactIdPool;
 
 	// This is a sparse array that maps contact ids to the contact data stored in the constraint graph
 	// or in the solver sets.
-	struct b2ContactLookup* contactLookupArray;
+	struct b2Contact* contactArray;
 
 	// Used to create stable ids for islands
 	b2IdPool islandIdPool;
@@ -134,7 +134,7 @@ typedef struct b2World
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;
 
-	uint32_t workerCount;
+	int workerCount;
 	b2EnqueueTaskCallback* enqueueTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
 	void* userTaskContext;
@@ -143,8 +143,8 @@ typedef struct b2World
 	// Remember type step used for reporting forces and torques
 	float inv_h;
 
-	int32_t activeTaskCount;
-	int32_t taskCount;
+	int activeTaskCount;
+	int taskCount;
 
 	uint16_t worldId;
 

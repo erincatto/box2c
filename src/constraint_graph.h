@@ -9,12 +9,12 @@
 #include "box2d/constants.h"
 
 typedef struct b2Body b2Body;
+typedef struct b2ContactSim b2ContactSim;
 typedef struct b2Contact b2Contact;
-typedef struct b2ContactLookup b2ContactLookup;
 typedef struct b2ContactConstraint b2ContactConstraint;
 typedef struct b2ContactConstraintSIMD b2ContactConstraintSIMD;
+typedef struct b2JointSim b2JointSim;
 typedef struct b2Joint b2Joint;
-typedef struct b2JointLookup b2JointLookup;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
@@ -49,9 +49,9 @@ typedef struct b2ConstraintGraph
 void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity);
 void b2DestroyGraph(b2ConstraintGraph* graph);
 
-void b2AddContactToGraph(b2World* world, b2Contact* contact, b2ContactLookup* contactLookup);
+void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* contact);
 void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex);
 
-b2Joint* b2CreateJointInGraph(b2World* world, b2JointLookup* jointLookup);
-void b2AddJointToGraph(b2World* world, b2Joint* joint, b2JointLookup* jointLookup);
+b2JointSim* b2CreateJointInGraph(b2World* world, b2Joint* joint);
+void b2AddJointToGraph(b2World* world, b2JointSim* jointSim, b2Joint* joint);
 void b2RemoveJointFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex);

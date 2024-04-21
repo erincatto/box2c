@@ -224,52 +224,52 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	b2SolverSet* set = world->solverSetArray + setIndex;
 
-	// Create contact key and lookup
+	// Create contact key and contact
 	int contactId = b2AllocId(&world->contactIdPool);
-	if (contactId == b2Array(world->contactLookupArray).count)
+	if (contactId == b2Array(world->contactArray).count)
 	{
-		b2Array_Push(world->contactLookupArray, (b2ContactLookup){0});
+		b2Array_Push(world->contactArray, (b2Contact){0});
 	}
 
-	b2ContactLookup* lookup = world->contactLookupArray + contactId;
-	lookup->contactId = contactId;
-	lookup->setIndex = setIndex;
-	lookup->colorIndex = B2_NULL_INDEX;
-	lookup->localIndex = set->contacts.count;
-	lookup->islandId = B2_NULL_INDEX;
-	lookup->islandPrev = B2_NULL_INDEX;
-	lookup->islandNext = B2_NULL_INDEX;
-	lookup->shapeIdA = shapeIdA;
-	lookup->shapeIdB = shapeIdB;
-	lookup->isMarked = false;
-	lookup->flags = 0;
+	b2Contact* contact = world->contactArray + contactId;
+	contact->contactId = contactId;
+	contact->setIndex = setIndex;
+	contact->colorIndex = B2_NULL_INDEX;
+	contact->localIndex = set->contacts.count;
+	contact->islandId = B2_NULL_INDEX;
+	contact->islandPrev = B2_NULL_INDEX;
+	contact->islandNext = B2_NULL_INDEX;
+	contact->shapeIdA = shapeIdA;
+	contact->shapeIdB = shapeIdB;
+	contact->isMarked = false;
+	contact->flags = 0;
 
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
-		lookup->flags |= b2_contactSensorFlag;
+		contact->flags |= b2_contactSensorFlag;
 	}
 
 	if (shapeA->enableSensorEvents || shapeB->enableSensorEvents)
 	{
-		lookup->flags |= b2_contactEnableSensorEvents;
+		contact->flags |= b2_contactEnableSensorEvents;
 	}
 
 	if (shapeA->enableContactEvents || shapeB->enableContactEvents)
 	{
-		lookup->flags |= b2_contactEnableContactEvents;
+		contact->flags |= b2_contactEnableContactEvents;
 	}
 
 		// Connect to body A
 	{
-		lookup->edges[0].bodyId = shapeA->bodyId;
-		lookup->edges[0].prevKey = B2_NULL_INDEX;
-		lookup->edges[0].nextKey = bodyA->headContactKey;
+		contact->edges[0].bodyId = shapeA->bodyId;
+		contact->edges[0].prevKey = B2_NULL_INDEX;
+		contact->edges[0].nextKey = bodyA->headContactKey;
 
 		int keyA = (contactId << 1) | 0;
 		int headContactKey = bodyA->headContactKey;
 		if (headContactKey != B2_NULL_INDEX)
 		{
-			b2ContactLookup* headContact = world->contactLookupArray + (headContactKey >> 1);
+			b2Contact* headContact = world->contactArray + (headContactKey >> 1);
 			headContact->edges[headContactKey & 1].prevKey = keyA;
 		}
 		bodyA->headContactKey = keyA;
@@ -278,15 +278,15 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	// Connect to body B
 	{
-		lookup->edges[1].bodyId = shapeB->bodyId;
-		lookup->edges[1].prevKey = B2_NULL_INDEX;
-		lookup->edges[1].nextKey = bodyB->headContactKey;
+		contact->edges[1].bodyId = shapeB->bodyId;
+		contact->edges[1].prevKey = B2_NULL_INDEX;
+		contact->edges[1].nextKey = bodyB->headContactKey;
 
 		int keyB = (contactId << 1) | 1;
 		int headContactKey = bodyB->headContactKey;
 		if (bodyB->headContactKey != B2_NULL_INDEX)
 		{
-			b2ContactLookup* headContact = world->contactLookupArray + (headContactKey >> 1);
+			b2Contact* headContact = world->contactArray + (headContactKey >> 1);
 			headContact->edges[headContactKey & 1].prevKey = keyB;
 		}
 		bodyB->headContactKey = keyB;
@@ -299,23 +299,23 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	// Contacts are created as non-touching. Later if they are found to be touching
 	// they will link islands and be moved into the constraint graph.
-	b2Contact* contact = b2AddContact(&world->blockAllocator, &set->contacts);
-	contact->contactId = contactId;
+	b2ContactSim* contactSim = b2AddContact(&world->blockAllocator, &set->contacts);
+	contactSim->contactId = contactId;
 
-	contact->bodyIdA = shapeA->bodyId;
-	contact->bodyIdB = shapeB->bodyId;
-	contact->shapeIdA = shapeIdA;
-	contact->shapeIdB = shapeIdB;
-	contact->cache = b2_emptyDistanceCache;
-	contact->manifold = b2_emptyManifold;
-	contact->friction = b2MixFriction(shapeA->friction, shapeB->friction);
-	contact->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
-	contact->tangentSpeed = 0.0f;
-	contact->simFlags = 0;
+	contactSim->bodyIdA = shapeA->bodyId;
+	contactSim->bodyIdB = shapeB->bodyId;
+	contactSim->shapeIdA = shapeIdA;
+	contactSim->shapeIdB = shapeIdB;
+	contactSim->cache = b2_emptyDistanceCache;
+	contactSim->manifold = b2_emptyManifold;
+	contactSim->friction = b2MixFriction(shapeA->friction, shapeB->friction);
+	contactSim->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
+	contactSim->tangentSpeed = 0.0f;
+	contactSim->simFlags = 0;
 
 	if (shapeA->enablePreSolveEvents || shapeB->enablePreSolveEvents)
 	{
-		contact->simFlags |= b2_simEnablePreSolveEvents;
+		contactSim->simFlags |= b2_simEnablePreSolveEvents;
 	}
 }
 
@@ -327,7 +327,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 // - a shape is destroyed
 // - contact filtering is modified
 // - a shape becomes a sensor (check this!!!)
-void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
+void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies)
 {
 	// Remove pair from set
 	uint64_t pairKey = B2_SHAPE_PAIR_KEY(contact->shapeIdA, contact->shapeIdB);
@@ -349,14 +349,14 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 	// Remove from body A
 	if (edgeA->prevKey != B2_NULL_INDEX)
 	{
-		b2ContactLookup* prevContact = world->contactLookupArray + (edgeA->prevKey >> 1);
+		b2Contact* prevContact = world->contactArray + (edgeA->prevKey >> 1);
 		b2ContactEdge* prevEdge = prevContact->edges + (edgeA->prevKey & 1);
 		prevEdge->nextKey = edgeA->nextKey;
 	}
 
 	if (edgeA->nextKey != B2_NULL_INDEX)
 	{
-		b2ContactLookup* nextContact = world->contactLookupArray + (edgeA->nextKey >> 1);
+		b2Contact* nextContact = world->contactArray + (edgeA->nextKey >> 1);
 		b2ContactEdge* nextEdge = nextContact->edges + (edgeA->nextKey & 1);
 		nextEdge->prevKey = edgeA->prevKey;
 	}
@@ -374,14 +374,14 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 	// Remove from body B
 	if (edgeB->prevKey != B2_NULL_INDEX)
 	{
-		b2ContactLookup* prevContact = world->contactLookupArray + (edgeB->prevKey >> 1);
+		b2Contact* prevContact = world->contactArray + (edgeB->prevKey >> 1);
 		b2ContactEdge* prevEdge = prevContact->edges + (edgeB->prevKey & 1);
 		prevEdge->nextKey = edgeB->nextKey;
 	}
 
 	if (edgeB->nextKey != B2_NULL_INDEX)
 	{
-		b2ContactLookup* nextContact = world->contactLookupArray + (edgeB->nextKey >> 1);
+		b2Contact* nextContact = world->contactArray + (edgeB->nextKey >> 1);
 		b2ContactEdge* nextEdge = nextContact->edges + (edgeB->nextKey & 1);
 		nextEdge->prevKey = edgeB->prevKey;
 	}
@@ -415,8 +415,8 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 		int movedIndex = b2RemoveContact(&set->contacts, contact->localIndex);
 		if (movedIndex != B2_NULL_INDEX)
 		{
-			b2Contact* movedContact = set->contacts.data + contact->localIndex;
-			world->contactLookupArray[movedContact->contactId].localIndex = contact->localIndex;
+			b2ContactSim* movedContact = set->contacts.data + contact->localIndex;
+			world->contactArray[movedContact->contactId].localIndex = contact->localIndex;
 		}
 	}
 
@@ -434,20 +434,20 @@ void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies)
 	}
 }
 
-b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup)
+b2ContactSim* b2GetContactSim(b2World* world, b2Contact* contact)
 {
-	if (lookup->setIndex == b2_awakeSet && lookup->colorIndex != B2_NULL_INDEX)
+	if (contact->setIndex == b2_awakeSet && contact->colorIndex != B2_NULL_INDEX)
 	{
 		// contact lives in constraint graph
-		B2_ASSERT(0 <= lookup->colorIndex && lookup->colorIndex < b2_graphColorCount);
-		b2GraphColor* color = world->constraintGraph.colors + lookup->colorIndex;
-		B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex < color->contacts.count);
-		return color->contacts.data + lookup->localIndex;
+		B2_ASSERT(0 <= contact->colorIndex && contact->colorIndex < b2_graphColorCount);
+		b2GraphColor* color = world->constraintGraph.colors + contact->colorIndex;
+		B2_ASSERT(0 <= contact->localIndex && contact->localIndex < color->contacts.count);
+		return color->contacts.data + contact->localIndex;
 	}
 
-	b2SolverSet* set = world->solverSetArray + lookup->setIndex;
-	B2_ASSERT(0 <= lookup->localIndex && lookup->localIndex <= set->contacts.count);
-	return set->contacts.data + lookup->localIndex;
+	b2SolverSet* set = world->solverSetArray + contact->setIndex;
+	B2_ASSERT(0 <= contact->localIndex && contact->localIndex <= set->contacts.count);
+	return set->contacts.data + contact->localIndex;
 }
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
@@ -478,7 +478,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 
 // Update the contact manifold and touching status.
 // Note: do not assume the shape AABBs are overlapping or are valid.
-bool b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
+bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
 					 b2Transform transformB)
 {
 	b2ShapeId shapeIdA = {shapeA->object.index + 1, world->worldId, shapeA->object.revision};

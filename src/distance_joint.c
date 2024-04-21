@@ -32,7 +32,7 @@
 // K = J * invM * JT
 //   = invMass1 + invI1 * cross(r1, u)^2 + invMass2 + invI2 * cross(r2, u)^2
 
-void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -103,7 +103,7 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartDistanceJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -135,7 +135,7 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	stateB->angularVelocity += iB * b2Cross(rB, P);
 }
 
-void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
+void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -292,7 +292,7 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	return (joint->impulse + joint->lowerImpulse - joint->upperImpulse) * inverseTimeStep;
@@ -300,7 +300,7 @@ float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeSte
 
 void b2DistanceJoint_SetLength(b2JointId jointId, float length)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	joint->length = B2_CLAMP(length, b2_linearSlop, b2_huge);
@@ -311,14 +311,14 @@ void b2DistanceJoint_SetLength(b2JointId jointId, float length)
 
 float b2DistanceJoint_GetLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->length;
 }
 
 void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	minLength = B2_CLAMP(minLength, b2_linearSlop, b2_huge);
@@ -332,21 +332,21 @@ void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float ma
 
 float b2DistanceJoint_GetMinLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->minLength;
 }
 
 float b2DistanceJoint_GetMaxLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->maxLength;
 }
 
 float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 
 	b2World* world = b2GetWorld(jointId.world0);
 	B2_ASSERT(world->locked == false);
@@ -367,7 +367,7 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 
 void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	joint->hertz = hertz;
 	joint->dampingRatio = dampingRatio;
@@ -375,14 +375,14 @@ void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRati
 
 float b2DistanceJoint_GetHertz(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->hertz;
 }
 
 float b2DistanceJoint_GetDampingRatio(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->dampingRatio;
 }
@@ -408,7 +408,7 @@ void b2DistanceJoint::Dump()
 }
 #endif
 
-void b2DrawDistanceJoint(b2DebugDraw* draw, b2Joint* base, b2Transform transformA, b2Transform transformB)
+void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transformA, b2Transform transformB)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 

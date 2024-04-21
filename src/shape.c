@@ -211,8 +211,8 @@ void b2DestroyShapeInternal(b2World* world, b2Shape* shape, b2Body* body, bool w
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2CheckIndex(world->contactLookupArray, contactId);
-		b2ContactLookup* contact = world->contactLookupArray + contactId;
+		b2CheckIndex(world->contactArray, contactId);
+		b2Contact* contact = world->contactArray + contactId;
 		contactKey = contact->edges[edgeIndex].nextKey;
 
 		if (contact->shapeIdA == shapeId || contact->shapeIdB == shapeId)
@@ -818,8 +818,8 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2CheckIndex(world->contactLookupArray, contactId);
-		b2ContactLookup* contact = world->contactLookupArray + contactId;
+		b2CheckIndex(world->contactArray, contactId);
+		b2Contact* contact = world->contactArray + contactId;
 		contactKey = contact->edges[edgeIndex].nextKey;
 
 		if (contact->shapeIdA == shapeId || contact->shapeIdB == shapeId)
@@ -1130,25 +1130,25 @@ int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int ca
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2CheckIndex(world->contactLookupArray, contactId);
-		b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
+		b2CheckIndex(world->contactArray, contactId);
+		b2Contact* contact = world->contactArray + contactId;
 
 		// Does contact involve this shape and is it touching?
-		if ((contactLookup->shapeIdA == shapeId.index1 - 1 || contactLookup->shapeIdB == shapeId.index1 - 1) &&
-			(contactLookup->flags & b2_contactTouchingFlag) != 0)
+		if ((contact->shapeIdA == shapeId.index1 - 1 || contact->shapeIdB == shapeId.index1 - 1) &&
+			(contact->flags & b2_contactTouchingFlag) != 0)
 		{
-			b2Shape* shapeA = world->shapes + contactLookup->shapeIdA;
-			b2Shape* shapeB = world->shapes + contactLookup->shapeIdB;
+			b2Shape* shapeA = world->shapes + contact->shapeIdA;
+			b2Shape* shapeB = world->shapes + contact->shapeIdB;
 
 			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, shapeId.world0, shapeA->object.revision};
 			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, shapeId.world0, shapeB->object.revision};
 
-			b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
-			contactData[index].manifold = contact->manifold;
+			b2ContactSim* contactSim = b2GetContactSim(world, contact);
+			contactData[index].manifold = contactSim->manifold;
 			index += 1;
 		}
 
-		contactKey = contactLookup->edges[edgeIndex].nextKey;
+		contactKey = contact->edges[edgeIndex].nextKey;
 	}
 
 	B2_ASSERT(index < capacity);

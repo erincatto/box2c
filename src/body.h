@@ -8,8 +8,8 @@
 
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
-typedef struct b2Joint b2Joint;
-typedef struct b2Contact b2Contact;
+typedef struct b2JointSim b2JointSim;
+typedef struct b2ContactSim b2ContactSim;
 typedef struct b2Shape b2Shape;
 typedef struct b2Body b2Body;
 

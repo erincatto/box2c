@@ -170,7 +170,7 @@ static void b2DestroyBodyContacts(b2World* world, b2Body* body, bool wakeBodies)
 		int contactId = edgeKey >> 1;
 		int edgeIndex = edgeKey & 1;
 
-		b2ContactLookup* contact = world->contactLookupArray + contactId;
+		b2Contact* contact = world->contactArray + contactId;
 		edgeKey = contact->edges[edgeIndex].nextKey;
 		b2DestroyContact(world, contact, wakeBodies);
 	}
@@ -353,7 +353,7 @@ void b2DestroyBody(b2BodyId bodyId)
 		int jointId = edgeKey >> 1;
 		int edgeIndex = edgeKey & 1;
 
-		b2JointLookup* joint = world->jointLookupArray + jointId;
+		b2Joint* joint = world->jointArray + jointId;
 		edgeKey = joint->edges[edgeIndex].nextKey;
 
 		// careful because this modifies the list being traversed
@@ -452,25 +452,25 @@ int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capac
 		int contactId = contactKey >> 1;
 		int edgeIndex = contactKey & 1;
 
-		b2CheckIndex(world->contactLookupArray, contactId);
-		b2ContactLookup* contactLookup = world->contactLookupArray + contactId;
+		b2CheckIndex(world->contactArray, contactId);
+		b2Contact* contact = world->contactArray + contactId;
 
 		// Is contact touching?
-		if (contactLookup->flags & b2_contactTouchingFlag)
+		if (contact->flags & b2_contactTouchingFlag)
 		{
-			b2Shape* shapeA = world->shapes + contactLookup->shapeIdA;
-			b2Shape* shapeB = world->shapes + contactLookup->shapeIdB;
+			b2Shape* shapeA = world->shapes + contact->shapeIdA;
+			b2Shape* shapeB = world->shapes + contact->shapeIdB;
 
 			contactData[index].shapeIdA = (b2ShapeId){shapeA->object.index + 1, bodyId.world0, shapeA->object.revision};
 			contactData[index].shapeIdB = (b2ShapeId){shapeB->object.index + 1, bodyId.world0, shapeB->object.revision};
 
-			b2Contact* contact = b2GetContactFromLookup(world, contactLookup);
-			contactData[index].manifold = contact->manifold;
+			b2ContactSim* contactSim = b2GetContactSim(world, contact);
+			contactData[index].manifold = contactSim->manifold;
 			
 			index += 1;
 		}
 
-		contactKey = contactLookup->edges[edgeIndex].nextKey;
+		contactKey = contact->edges[edgeIndex].nextKey;
 	}
 
 	B2_ASSERT(index < capacity);
@@ -861,7 +861,7 @@ void b2Body_ApplyAngularImpulse(b2BodyId bodyId, float impulse, bool wake)
 
 	if (wake && body->setIndex >= b2_firstSleepingSet)
 	{
-		// this will not invalidate lookup pointer
+		// this will not invalidate body pointer
 		b2WakeBody(world, body);
 	}
 
@@ -926,7 +926,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			int jointId = jointKey >> 1;
 			int edgeIndex = jointKey & 1;
 
-			b2JointLookup* joint = world->jointLookupArray + jointId;
+			b2Joint* joint = world->jointArray + jointId;
 			if (joint->islandId != B2_NULL_INDEX)
 			{
 				b2UnlinkJoint(world, joint);
@@ -967,7 +967,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			int jointId = jointKey >> 1;
 			int edgeIndex = jointKey & 1;
 
-			b2JointLookup* joint = world->jointLookupArray + jointId;
+			b2Joint* joint = world->jointArray + jointId;
 
 			// Transfer the joint if it is in the static set
 			if (joint->setIndex == b2_staticSet)
@@ -1026,7 +1026,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			int jointId = jointKey >> 1;
 			int edgeIndex = jointKey & 1;
 
-			b2JointLookup* joint = world->jointLookupArray + jointId;
+			b2Joint* joint = world->jointArray + jointId;
 			jointKey = joint->edges[edgeIndex].nextKey;
 
 			int otherEdgeIndex = edgeIndex ^ 1;
@@ -1103,7 +1103,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			int jointId = jointKey >> 1;
 			int edgeIndex = jointKey & 1;
 
-			b2JointLookup* joint = world->jointLookupArray + jointId;
+			b2Joint* joint = world->jointArray + jointId;
 			jointKey = joint->edges[edgeIndex].nextKey;
 
 			int otherEdgeIndex = edgeIndex ^ 1;
@@ -1412,7 +1412,7 @@ void b2Body_Disable(b2BodyId bodyId)
 		int jointId = jointKey >> 1;
 		int edgeIndex = jointKey & 1;
 
-		b2JointLookup* joint = world->jointLookupArray + jointId;
+		b2Joint* joint = world->jointArray + jointId;
 		jointKey = joint->edges[edgeIndex].nextKey;
 
 		// joint may already be disabled by other body
@@ -1485,7 +1485,7 @@ void b2Body_Enable(b2BodyId bodyId)
 		int jointId = jointKey >> 1;
 		int edgeIndex = jointKey & 1;
 
-		b2JointLookup* joint = world->jointLookupArray + jointId;
+		b2Joint* joint = world->jointArray + jointId;
 		B2_ASSERT(joint->setIndex == b2_disabledSet);
 		B2_ASSERT(joint->islandId == B2_NULL_INDEX);
 
@@ -1630,7 +1630,7 @@ int b2Body_GetJoints(b2BodyId bodyId, b2JointId* jointArray, int capacity)
 		int jointId = jointKey >> 1;
 		int edgeIndex = jointKey & 1;
 
-		b2JointLookup* joint = b2GetJointLookup(world, jointId);
+		b2Joint* joint = b2GetJoint(world, jointId);
 
 		b2JointId id = {jointId + 1, bodyId.world0, joint->revision};
 		jointArray[jointCount] = id;
@@ -1668,7 +1668,7 @@ bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB)
 		int edgeIndex = jointKey & 1;
 		int otherEdgeIndex = edgeIndex ^ 1;
 
-		b2JointLookup* joint = b2GetJointLookup(world, jointId);
+		b2Joint* joint = b2GetJoint(world, jointId);
 		if (joint->collideConnected == false && joint->edges[otherEdgeIndex].bodyId == otherBodyId)
 		{
 			return false;

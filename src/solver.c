@@ -103,11 +103,11 @@ static void b2PrepareJointsTask(int startIndex, int endIndex, b2StepContext* con
 {
 	b2TracyCZoneNC(prepare_joints, "PrepJoints", b2_colorOldLace, true);
 
-	b2Joint** joints = context->joints;
+	b2JointSim** joints = context->joints;
 
 	for (int i = startIndex; i < endIndex; ++i)
 	{
-		b2Joint* joint = joints[i];
+		b2JointSim* joint = joints[i];
 		b2PrepareJoint(joint, context);
 	}
 
@@ -119,13 +119,13 @@ static void b2WarmStartJointsTask(int startIndex, int endIndex, b2StepContext* c
 	b2TracyCZoneNC(warm_joints, "WarmJoints", b2_colorGold, true);
 
 	b2GraphColor* color = context->graph->colors + colorIndex;
-	b2Joint* joints = color->joints.data;
+	b2JointSim* joints = color->joints.data;
 	B2_ASSERT(0 <= startIndex && startIndex < color->joints.count);
 	B2_ASSERT(startIndex <= endIndex && endIndex <= color->joints.count);
 
 	for (int i = startIndex; i < endIndex; ++i)
 	{
-		b2Joint* joint = joints + i;
+		b2JointSim* joint = joints + i;
 		b2WarmStartJoint(joint, context);
 	}
 
@@ -137,13 +137,13 @@ static void b2SolveJointsTask(int startIndex, int endIndex, b2StepContext* conte
 	b2TracyCZoneNC(solve_joints, "SolveJoints", b2_colorLemonChiffon, true);
 
 	b2GraphColor* color = context->graph->colors + colorIndex;
-	b2Joint* joints = color->joints.data;
+	b2JointSim* joints = color->joints.data;
 	B2_ASSERT(0 <= startIndex && startIndex < color->joints.count);
 	B2_ASSERT(startIndex <= endIndex && endIndex <= color->joints.count);
 
 	for (int i = startIndex; i < endIndex; ++i)
 	{
-		b2Joint* joint = joints + i;
+		b2JointSim* joint = joints + i;
 		b2SolveJoint(joint, context, useBias);
 	}
 
@@ -1238,11 +1238,11 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		activeColorCount = c;
 
 		// Gather contact pointers for easy parallel-for traversal. Some may be NULL due to SIMD remainders.
-		b2Contact** contacts =
-			b2AllocateStackItem(&world->stackAllocator, 8 * simdContactCount * sizeof(b2Contact*), "contact pointers");
+		b2ContactSim** contacts =
+			b2AllocateStackItem(&world->stackAllocator, 8 * simdContactCount * sizeof(b2ContactSim*), "contact pointers");
 
 		// Gather joint pointers for easy parallel-for traversal.
-		b2Joint** joints = b2AllocateStackItem(&world->stackAllocator, awakeJointCount * sizeof(b2Joint*), "joint pointers");
+		b2JointSim** joints = b2AllocateStackItem(&world->stackAllocator, awakeJointCount * sizeof(b2JointSim*), "joint pointers");
 
 		b2ContactConstraintSIMD* simdContactConstraints =
 			b2AllocateStackItem(&world->stackAllocator, simdContactCount * sizeof(b2ContactConstraintSIMD), "contact constraint");
@@ -1641,7 +1641,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 	// Gather bits for all sim bodies that have enlarged AABBs
 	b2BitSet* simBitSet = &world->taskContextArray[0].enlargedSimBitSet;
-	for (uint32_t i = 1; i < world->workerCount; ++i)
+	for (int i = 1; i < world->workerCount; ++i)
 	{
 		b2InPlaceUnion(simBitSet, &world->taskContextArray[i].enlargedSimBitSet);
 	}
@@ -1852,7 +1852,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		// Collect split island candidate for the next time step. No need to split if sleeping is disabled.
 		B2_ASSERT(world->splitIslandId == B2_NULL_INDEX);
 		float splitSleepTimer = 0.0f;
-		for (uint32_t i = 1; i < world->workerCount; ++i)
+		for (int i = 1; i < world->workerCount; ++i)
 		{
 			b2TaskContext* taskContext = world->taskContextArray + i;
 			if (taskContext->splitIslandId != B2_NULL_INDEX && taskContext->splitSleepTime > splitSleepTimer)
@@ -1863,7 +1863,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		}
 
 		b2BitSet* awakeIslandBitSet = &world->taskContextArray[0].awakeIslandBitSet;
-		for (uint32_t i = 1; i < world->workerCount; ++i)
+		for (int i = 1; i < world->workerCount; ++i)
 		{
 			b2InPlaceUnion(awakeIslandBitSet, &world->taskContextArray[i].awakeIslandBitSet);
 		}

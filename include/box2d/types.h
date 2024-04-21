@@ -62,24 +62,24 @@ typedef struct b2WorldDef
 	bool enableContinous;
 
 	/// Capacity for bodies. This may not be exceeded.
-	int32_t bodyCapacity;
+	int bodyCapacity;
 
 	/// initial capacity for shapes
-	int32_t shapeCapacity;
+	int shapeCapacity;
 
 	/// Capacity for contacts. This may not be exceeded.
-	int32_t contactCapacity;
+	int contactCapacity;
 
 	/// Capacity for joints
-	int32_t jointCapacity;
+	int jointCapacity;
 
 	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
 	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
 	/// application.
-	int32_t stackAllocatorCapacity;
+	int stackAllocatorCapacity;
 
 	/// task system hookup
-	uint32_t workerCount;
+	int workerCount;
 
 	/// function to spawn task
 	b2EnqueueTaskCallback* enqueueTask;
@@ -247,7 +247,7 @@ typedef struct b2ChainDef
 	const b2Vec2* points;
 
 	/// The point count, must be 4 or more.
-	int32_t count;
+	int count;
 
 	/// Indicates a closed chain formed by connecting the first and last points
 	bool isLoop;

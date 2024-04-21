@@ -6,8 +6,8 @@
 #include <stdint.h>
 
 typedef struct b2Body b2Body;
-typedef struct b2ContactLookup b2ContactLookup;
-typedef struct b2JointLookup b2JointLookup;
+typedef struct b2Contact b2Contact;
+typedef struct b2Joint b2Joint;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
@@ -68,16 +68,16 @@ void b2DestroyIsland(b2World* world, int islandId);
 b2Island* b2GetIsland(b2World* world, int islandId);
 
 // Link contacts into the island graph when it starts having contact points
-void b2LinkContact(b2World* world, b2ContactLookup* contact);
+void b2LinkContact(b2World* world, b2Contact* contact);
 
 // Unlink contact from the island graph when it stops having contact points
-void b2UnlinkContact(b2World* world, b2ContactLookup* contact);
+void b2UnlinkContact(b2World* world, b2Contact* contact);
 
 // Link a joint into the island graph when it is created
-void b2LinkJoint(b2World* world, b2JointLookup* joint);
+void b2LinkJoint(b2World* world, b2Joint* joint);
 
 // Unlink a joint from the island graph when it is destroyed
-void b2UnlinkJoint(b2World* world, b2JointLookup* joint);
+void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
 

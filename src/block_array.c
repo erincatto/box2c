@@ -36,7 +36,7 @@ b2ContactArray b2CreateContactArray(b2BlockAllocator* allocator, int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2ContactArray){b2AllocBlock(allocator, capacity * sizeof(b2Contact)), 0, capacity};
+		return (b2ContactArray){b2AllocBlock(allocator, capacity * sizeof(b2ContactSim)), 0, capacity};
 	}
 
 	return (b2ContactArray){0};
@@ -46,7 +46,7 @@ b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2JointArray){b2AllocBlock(allocator, capacity * sizeof(b2Joint)), 0, capacity};
+		return (b2JointArray){b2AllocBlock(allocator, capacity * sizeof(b2JointSim)), 0, capacity};
 	}
 
 	return (b2JointArray){0};
@@ -74,12 +74,12 @@ void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* arra
 
 void b2DestroyContactArray(b2BlockAllocator* allocator, b2ContactArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Contact));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2ContactSim));
 }
 
 void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2Joint));
+	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2JointSim));
 }
 
 void b2DestroyIslandArray(b2BlockAllocator* allocator, b2IslandArray* array)
@@ -123,38 +123,38 @@ b2BodyState* b2AddBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array
 	return element;
 }
 
-b2Contact* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
+b2ContactSim* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
 {
 	if (array->count == array->capacity)
 	{
-		int elementSize = sizeof(b2Contact);
+		int elementSize = sizeof(b2ContactSim);
 		int newCapacity = B2_MAX(16, 2 * array->capacity);
-		b2Contact* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2ContactSim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
 		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Contact* element = array->data + array->count;
+	b2ContactSim* element = array->data + array->count;
 	array->count += 1;
 	return element;
 }
 
-b2Joint* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
+b2JointSim* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
 {
 	if (array->count == array->capacity)
 	{
-		int elementSize = sizeof(b2Joint);
+		int elementSize = sizeof(b2JointSim);
 		int newCapacity = B2_MAX(16, 2 * array->capacity);
-		b2Joint* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2JointSim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
 		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
 
-	b2Joint* element = array->data + array->count;
+	b2JointSim* element = array->data + array->count;
 	array->count += 1;
 	return element;
 }

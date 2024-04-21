@@ -10,6 +10,24 @@
 typedef struct b2Shape b2Shape;
 typedef struct b2World b2World;
 
+enum b2ContactFlags
+{
+	// Set when the shapes are touching.
+	b2_contactTouchingFlag = 0x00000002,
+
+	// Contact has a hit event
+	b2_contactHitEventFlag = 0x00000004,
+
+	// One of the shapes is a sensor
+	b2_contactSensorFlag = 0x00000010,
+
+	// This contact wants sensor events
+	b2_contactEnableSensorEvents = 0x00000100,
+
+	// This contact wants contact events
+	b2_contactEnableContactEvents = 0x00000200,
+};
+
 // A contact edge is used to connect sims and contacts together
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list
@@ -22,7 +40,9 @@ typedef struct b2ContactEdge
 	int nextKey;
 } b2ContactEdge;
 
-typedef struct b2ContactLookup
+// Cold contact data. Used as a persistent handle and for persistent island
+// connectivity.
+typedef struct b2Contact
 {
 	// index of simulation set stored in b2World
 	// B2_NULL_INDEX when slot is free
@@ -48,29 +68,11 @@ typedef struct b2ContactLookup
 
 	int contactId;
 
+	// b2ContactFlags
 	uint32_t flags;
 
 	bool isMarked;
-} b2ContactLookup;
-
-// Flags stored in b2Contact::flags
-enum b2ContactFlags
-{
-	// Set when the shapes are touching.
-	b2_contactTouchingFlag = 0x00000002,
-
-	// Contact has a hit event
-	b2_contactHitEventFlag = 0x00000004,
-
-	// One of the shapes is a sensor
-	b2_contactSensorFlag = 0x00000010,
-
-	// This contact wants sensor events
-	b2_contactEnableSensorEvents = 0x00000100,
-
-	// This contact wants contact events
-	b2_contactEnableContactEvents = 0x00000200,
-};
+} b2Contact;
 
 enum b2ContactSimFlags
 {
@@ -86,14 +88,14 @@ enum b2ContactSimFlags
 	// This contact stopped touching
 	b2_simStoppedTouching = 0x00000080,
 
-	// This contact wants presolve events
+	// This contact wants pre-solve events
 	b2_simEnablePreSolveEvents = 0x00000400,
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping
 /// AABB in the broad-phase (except if filtered). Therefore a contact object may exist
 /// that has no contact points.
-typedef struct b2Contact
+typedef struct b2ContactSim
 {
 	int contactId;
 
@@ -111,20 +113,21 @@ typedef struct b2Contact
 	float friction;
 	float restitution;
 
-	// For conveyor belts
+	// todo for conveyor belts
 	float tangentSpeed;
 
+	// b2ContactSimFlags
 	uint32_t simFlags;
-} b2Contact;
+} b2ContactSim;
 
 void b2InitializeContactRegisters(void);
 
 void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB);
-void b2DestroyContact(b2World* world, b2ContactLookup* contact, bool wakeBodies);
+void b2DestroyContact(b2World* world, b2Contact* contact, bool wakeBodies);
 
-b2Contact* b2GetContactFromLookup(b2World* world, b2ContactLookup* lookup);
+b2ContactSim* b2GetContactSim(b2World* world, b2Contact* contact);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
-bool b2UpdateContact(b2World* world, b2Contact* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
+bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
 					 b2Transform transformB);

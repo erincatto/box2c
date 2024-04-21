@@ -214,8 +214,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 500.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 100.0f));
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -492,9 +492,9 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
-		ImGui::Begin("Tumbler", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 500.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 120.0f));
+		ImGui::Begin("Many Tumblers", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
 		changed = changed || ImGui::SliderInt("Row Count", &m_rowCount, 1, 32);
@@ -765,8 +765,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 500.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 160.0f));
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -891,14 +891,11 @@ public:
 
 	void Step(Settings& settings) override
 	{
-		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : float(0.0f);
-
 		b2Timer timer = b2CreateTimer();
 
 		for (int i = 0; i < m_iterations; ++i)
 		{
 			CreateScene();
-			b2World_Step(m_worldId, timeStep, settings.subStepCount);
 		}
 
 		float ms = b2GetMilliseconds(&timer);
