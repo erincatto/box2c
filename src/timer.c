@@ -65,7 +65,13 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 
 void b2SleepMilliseconds(float milliseconds)
 {
+	// also SwitchToThread()
 	Sleep((DWORD)(milliseconds));
+}
+
+void b2Yield()
+{
+	SwitchToThread();
 }
 
 #elif defined(__linux__) || defined (__APPLE__)
@@ -136,9 +142,20 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 
 void b2SleepMilliseconds(float milliseconds)
 {
-	((void)(milliseconds));
-	// TODO couldn't get this to compile on gcc
-	// usleep((uint32_t)(1000.0f * milliseconds + 0.5f));
+	timespec sleepTime;
+	uint32_t remainder = milliseconds % 1000;
+	sleepTime.tv_sec = milliseconds - remainder;
+	sleepTime.tv_nsec = 1000000L * remainder;
+
+	while (nanosleep(&sleepTime, &sleepTime) == -1)
+	{
+		continue;
+	}
+}
+
+void b2Yield()
+{
+	sched_yield();
 }
 
 #else
@@ -164,6 +181,10 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 void b2SleepMilliseconds(float milliseconds)
 {
 	((void)(milliseconds));
+}
+
+void b2Yield()
+{
 }
 
 #endif

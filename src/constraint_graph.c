@@ -67,8 +67,8 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 	int colorIndex = b2_overflowIndex;
 
 #if B2_FORCE_OVERFLOW == 0
-	int bodyIdA = contactSim->bodyIdA;
-	int bodyIdB = contactSim->bodyIdB;
+	int bodyIdA = contact->edges[0].bodyId;
+	int bodyIdB = contact->edges[1].bodyId;
 	b2CheckIndex(world->bodyArray, bodyIdA);
 	b2CheckIndex(world->bodyArray, bodyIdB);
 
@@ -134,6 +134,9 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 
 	b2ContactSim* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
 	memcpy(newContact, contactSim, sizeof(b2ContactSim));
+
+	newContact->bodySimIndexA = staticA ? B2_NULL_INDEX : bodyA->localIndex;
+	newContact->bodySimIndexB = staticB ? B2_NULL_INDEX : bodyB->localIndex;
 }
 
 void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)

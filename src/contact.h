@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "core.h"
+
 #include "box2d/distance.h"
 #include "box2d/manifold.h"
 #include "box2d/types.h"
@@ -99,8 +101,13 @@ typedef struct b2ContactSim
 {
 	int contactId;
 
+#if B2_VALIDATE
 	int bodyIdA;
 	int bodyIdB;
+#endif
+
+	int bodySimIndexA;
+	int bodySimIndexB;
 
 	int shapeIdA;
 	int shapeIdB;

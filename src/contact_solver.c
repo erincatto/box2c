@@ -3,7 +3,6 @@
 
 #include "contact_solver.h"
 
-#include "array.h"
 #include "body.h"
 #include "constraint_graph.h"
 #include "contact.h"
@@ -33,7 +32,10 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 	b2ContactSim* contacts = color->contacts.data;
 	b2BodySim* awakeSims = context->sims;
 	b2BodyState* awakeStates = context->states;
+
+#if B2_VALIDATE
 	b2Body* bodies = world->bodyArray;
+#endif
 
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
@@ -49,12 +51,25 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 		B2_ASSERT(0 < pointCount && pointCount <= 2);
 
-		// body index is null for static bodies
+		//// body index is null for static bodies
+		// b2Body* bodyA = bodies + contact->bodyIdA;
+		// int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+
+		// b2Body* bodyB = bodies + contact->bodyIdB;
+		// int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+
+		int indexA = contact->bodySimIndexA;
+		int indexB = contact->bodySimIndexB;
+
+#if B2_VALIDATE
 		b2Body* bodyA = bodies + contact->bodyIdA;
-		int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+		int validIndexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+		B2_ASSERT(indexA == validIndexA);
 
 		b2Body* bodyB = bodies + contact->bodyIdB;
-		int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+		int validIndexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+		B2_ASSERT(indexB == validIndexB);
+#endif
 
 		b2ContactConstraint* constraint = constraints + i;
 		constraint->indexA = indexA;
@@ -594,7 +609,9 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 	b2ContactConstraintSIMD* constraints = context->simdContactConstraints;
 	b2BodySim* awakeSims = context->sims;
 	b2BodyState* awakeStates = context->states;
+#if B2_VALIDATE
 	b2Body* bodies = world->bodyArray;
+#endif
 
 	b2Softness contactSoftness = context->contactSoftness;
 	b2Softness staticSoftness = context->staticSoftness;
@@ -615,11 +632,24 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 				const b2Manifold* manifold = &contact->manifold;
 
 				// body index is null for static bodies
-				b2Body* bodyA = bodies + contact->bodyIdA;
-				int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+				// b2Body* bodyA = bodies + contact->bodyIdA;
+				// int indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 
+				// b2Body* bodyB = bodies + contact->bodyIdB;
+				// int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+
+				int indexA = contact->bodySimIndexA;
+				int indexB = contact->bodySimIndexB;
+
+#if B2_VALIDATE
+				b2Body* bodyA = bodies + contact->bodyIdA;
+				int validIndexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 				b2Body* bodyB = bodies + contact->bodyIdB;
-				int indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+				int validIndexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+
+				B2_ASSERT(indexA == validIndexA);
+				B2_ASSERT(indexB == validIndexB);
+#endif
 
 				constraint->indexA[j] = indexA;
 				constraint->indexB[j] = indexB;

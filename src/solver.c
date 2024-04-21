@@ -27,8 +27,6 @@
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-//#include <stddef.h>
-//#include <string.h>
 
 typedef struct b2WorkerContext
 {
@@ -727,31 +725,33 @@ void b2SolverTask(int startIndex, int endIndex, uint32_t threadIndexDontUse, voi
 
 	// Worker spins and waits for work
 	uint32_t lastSyncBits = 0;
-	uint64_t maxSpinTime = 10;
+	//uint64_t maxSpinTime = 10;
 	while (true)
 	{
 		// Spin until main thread bumps changes the sync bits
-		// todo consider using the cycle counter as well
 		uint32_t syncBits;
 		int spinCount = 0;
 		while ((syncBits = atomic_load(&context->atomicSyncBits)) == lastSyncBits)
 		{
-			if (spinCount >= 3)
+			if (spinCount >= 4)
 			{
-				b2SleepMilliseconds(0);
+				b2Yield();
+				spinCount = 0;
 			}
 			else
 			{
-				uint64_t prev = __rdtsc();
-				do
-				{
-					_mm_pause();
-				}
-				while ((__rdtsc() - prev) < maxSpinTime);
-				maxSpinTime += 10;
+				// Using the cycle counter helps to account for variation in mm_pause timing across different
+				// CPUs. However, this is X64 only.
+				//uint64_t prev = __rdtsc();
+				//do
+				//{
+				//	simde_mm_pause();
+				//}
+				//while ((__rdtsc() - prev) < maxSpinTime);
+				//maxSpinTime += 10;
+				simde_mm_pause();
+				spinCount += 1;
 			}
-
-			spinCount += 1;
 		}
 
 		if (syncBits == UINT_MAX)

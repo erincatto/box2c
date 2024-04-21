@@ -25,3 +25,4 @@ B2_API int64_t b2GetTicks(b2Timer* timer);
 B2_API float b2GetMilliseconds(const b2Timer* timer);
 B2_API float b2GetMillisecondsAndReset(b2Timer* timer);
 B2_API void b2SleepMilliseconds(float milliseconds);
+B2_API void b2Yield();

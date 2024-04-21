@@ -282,41 +282,46 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 
 	for (int i = startIndex; i < endIndex; ++i)
 	{
-		b2ContactSim* contact = contacts[i];
+		b2ContactSim* contactSim = contacts[i];
 
-		int contactId = contact->contactId;
+		int contactId = contactSim->contactId;
 
-		b2Shape* shapeA = shapes + contact->shapeIdA;
-		b2Shape* shapeB = shapes + contact->shapeIdB;
+		b2Shape* shapeA = shapes + contactSim->shapeIdA;
+		b2Shape* shapeB = shapes + contactSim->shapeIdB;
 
 		// Do proxies still overlap?
 		bool overlap = b2AABB_Overlaps(shapeA->fatAABB, shapeB->fatAABB);
 		if (overlap == false)
 		{
-			contact->simFlags |= b2_simDisjoint;
-			contact->simFlags &= ~b2_simTouchingFlag;
+			contactSim->simFlags |= b2_simDisjoint;
+			contactSim->simFlags &= ~b2_simTouchingFlag;
 			b2SetBit(&taskContext->contactStateBitSet, contactId);
 		}
 		else
 		{
-			bool wasTouching = (contact->simFlags & b2_simTouchingFlag);
+			bool wasTouching = (contactSim->simFlags & b2_simTouchingFlag);
 
 			// Update contact respecting shape/body order (A,B)
 			b2Body* bodyA = bodies + shapeA->bodyId;
 			b2Body* bodyB = bodies + shapeB->bodyId;
 			b2BodySim* bodySimA = b2GetBodySim(world, bodyA);
 			b2BodySim* bodySimB = b2GetBodySim(world, bodyB);
-			bool touching = b2UpdateContact(world, contact, shapeA, bodySimA->transform, shapeB, bodySimB->transform);
+			
+			// avoid cache misses in b2PrepareContactsTask
+			contactSim->bodySimIndexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+			contactSim->bodySimIndexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
+
+			bool touching = b2UpdateContact(world, contactSim, shapeA, bodySimA->transform, shapeB, bodySimB->transform);
 
 			// State changes that affect island connectivity
 			if (touching == true && wasTouching == false)
 			{
-				contact->simFlags |= b2_simStartedTouching;
+				contactSim->simFlags |= b2_simStartedTouching;
 				b2SetBit(&taskContext->contactStateBitSet, contactId);
 			}
 			else if (touching == false && wasTouching == true)
 			{
-				contact->simFlags |= b2_simStoppedTouching;
+				contactSim->simFlags |= b2_simStoppedTouching;
 				b2SetBit(&taskContext->contactStateBitSet, contactId);
 			}
 		}
@@ -368,6 +373,8 @@ static void b2RemoveNonTouchingContact(b2World* world, int setIndex, int localIn
 }
 
 // Narrow-phase collision
+// todo try storing body sim index in contact sim to avoid accessing body in b2PrepareContactsTask
+// I think this is safe because bodies sims cannot move between collide and solve
 static void b2Collide(b2StepContext* context)
 {
 	b2World* world = context->world;

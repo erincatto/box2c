@@ -259,7 +259,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		contact->flags |= b2_contactEnableContactEvents;
 	}
 
-		// Connect to body A
+	// Connect to body A
 	{
 		contact->edges[0].bodyId = shapeA->bodyId;
 		contact->edges[0].prevKey = B2_NULL_INDEX;
@@ -302,8 +302,13 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	b2ContactSim* contactSim = b2AddContact(&world->blockAllocator, &set->contacts);
 	contactSim->contactId = contactId;
 
+#if B2_VALIDATE
 	contactSim->bodyIdA = shapeA->bodyId;
 	contactSim->bodyIdB = shapeB->bodyId;
+#endif
+
+	contactSim->bodySimIndexA = B2_NULL_INDEX;
+	contactSim->bodySimIndexB = B2_NULL_INDEX;
 	contactSim->shapeIdA = shapeIdA;
 	contactSim->shapeIdB = shapeIdB;
 	contactSim->cache = b2_emptyDistanceCache;
