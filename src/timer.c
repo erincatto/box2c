@@ -76,9 +76,9 @@ void b2Yield()
 
 #elif defined(__linux__) || defined (__APPLE__)
 
+#include <time.h>
 #include <sched.h>
 #include <sys/time.h>
-#include <time.h>
 
 b2Timer b2CreateTimer(void)
 {
