@@ -101,6 +101,7 @@ void Settings::Load()
 			assert(count < 32);
 			const char* s = data + tokens[i + 1].start;
 			strncpy(buffer, s, count);
+			buffer[count] = 0;
 			char* dummy;
 			sampleIndex = (int)strtol(buffer, &dummy, 10);
 		}
@@ -114,6 +115,18 @@ void Settings::Load()
 			else if (strncmp(s, "false", 5) == 0)
 			{
 				drawShapes = false;
+			}
+		}
+		else if (jsoneq(data, &tokens[i], "drawJoints") == 0)
+		{
+			const char* s = data + tokens[i + 1].start;
+			if (strncmp(s, "true", 4) == 0)
+			{
+				drawJoints = true;
+			}
+			else if (strncmp(s, "false", 5) == 0)
+			{
+				drawJoints = false;
 			}
 		}
 	}

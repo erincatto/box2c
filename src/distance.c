@@ -7,7 +7,7 @@
 #include "core.h"
 
 #include "box2d/constants.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/timer.h"
 
 #include <float.h>
@@ -110,6 +110,7 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
 
+// todo try not copying
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
 {
 	count = B2_MIN(count, b2_maxPolygonVertices);

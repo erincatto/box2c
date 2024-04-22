@@ -2,6 +2,7 @@
 
 add_executable(test 
     main.c
+    test_allocator.c
     test_bitset.c
     test_collision.c
     test_determinism.c
@@ -23,6 +24,7 @@ set_target_properties(test PROPERTIES
 target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 if (MSVC)
+    # target_compile_options(test PRIVATE /fsanitize=address /experimental:c11atomics)
     target_compile_options(test PRIVATE /experimental:c11atomics)
 endif()
 

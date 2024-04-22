@@ -3,34 +3,43 @@
 
 #pragma once
 
+#include "block_allocator.h"
 #include "bitset.h"
 #include "broad_phase.h"
 #include "constraint_graph.h"
+#include "id_pool.h"
 #include "island.h"
-#include "pool.h"
+#include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
-#include "box2d/timer.h"
 
-#define B2_GRAPH_COLOR 1
+typedef struct b2ContactSim b2ContactSim;
 
-typedef struct b2Contact b2Contact;
+enum b2SetType
+{
+	b2_staticSet = 0,
+	b2_disabledSet = 1,
+	b2_awakeSet = 2,
+	b2_firstSleepingSet = 3,
+};
 
 // Per thread task storage
 typedef struct b2TaskContext
 {
-	// These bits align with the awake contact array and signal change in contact status
-	// that affects the island graph.
+	// These bits align with the b2ConstraintGraph::contactBlocks and signal a change in contact status
 	b2BitSet contactStateBitSet;
 
-	// Used to prevent duplicate awake contacts
-	b2BitSet awakeContactBitSet;
+	// Used to track bodies with shapes that have enlarged AABBs. This avoids having a bit array
+	// that is very large when there are many static shapes.
+	b2BitSet enlargedSimBitSet;
 
-	// Used to sort shapes that have enlarged AABBs
-	b2BitSet shapeBitSet;
-
-	// Used to wake islands
+	// Used to put islands to sleep
 	b2BitSet awakeIslandBitSet;
+
+	// Per worker split island candidate
+	float splitSleepTime;
+	int splitIslandId;
+
 } b2TaskContext;
 
 /// The world class manages all physics entities, dynamic simulation,
@@ -38,43 +47,58 @@ typedef struct b2TaskContext
 /// management facilities.
 typedef struct b2World
 {
-	struct b2BlockAllocator* blockAllocator;
-	struct b2StackAllocator* stackAllocator;
-
+	b2BlockAllocator blockAllocator;
+	b2StackAllocator stackAllocator;
 	b2BroadPhase broadPhase;
-	b2ConstraintGraph graph;
+	b2ConstraintGraph constraintGraph;
 
-	b2Pool bodyPool;
-	b2Pool contactPool;
-	b2Pool jointPool;
-	b2Pool shapePool;
-	b2Pool chainPool;
-	b2Pool islandPool;
+	// The body id pool is used to allocate and recycle body ids. Body ids
+	// provide a stable identifier for users, but incur caches misses when used
+	// to access body data. Aligns with b2Body.
+	b2IdPool bodyIdPool;
+
+	// This is a sparse array that maps body ids to the body data
+	// stored in solver sets. As sims move within a set or across set.
+	// Indices come from id pool.
+	struct b2Body* bodyArray;
+
+	// Provides free list for solver sets.
+	b2IdPool solverSetIdPool;
+
+	// Solvers sets allow sims to be stored in contiguous arrays. The first
+	// set is all static sims. The second set is active sims. The third set is disabled
+	// sims. The remaining sets are sleeping islands.
+	struct b2SolverSet* solverSetArray;
+
+	// Used to create stable ids for joints
+	b2IdPool jointIdPool;
+
+	// This is a sparse array that maps joint ids to the joint data stored in the constraint graph
+	// or in the solver sets.
+	struct b2Joint* jointArray;
+
+	// Used to create stable ids for contacts
+	b2IdPool contactIdPool;
+
+	// This is a sparse array that maps contact ids to the contact data stored in the constraint graph
+	// or in the solver sets.
+	struct b2Contact* contactArray;
+
+	// Used to create stable ids for islands
+	b2IdPool islandIdPool;
+
+	// This is a sparse array that maps island ids to the island data stored in the solver sets.
+	struct b2Island* islandArray;
+	
+	b2IdPool shapeIdPool;
+	b2IdPool chainIdPool;
 
 	// These are sparse arrays that point into the pools above
-	struct b2Body* bodies;
-	struct b2Contact* contacts;
-	struct b2Joint* joints;
-	struct b2Shape* shapes;
-	struct b2ChainShape* chains;
-	struct b2Island* islands;
+	struct b2Shape* shapeArray;
+	struct b2ChainShape* chainArray;
 
 	// Per thread storage
 	b2TaskContext* taskContextArray;
-
-	// Awake island array holds indices into the island array (islandPool).
-	// This is a dense array that is rebuilt every time step.
-	int32_t* awakeIslandArray;
-
-	// Awake contact array holds contacts that should be updated.
-	// This is a dense array that is rebuilt every time step. Order doesn't matter for determinism
-	// but a bit set is used to prevent duplicates
-	int32_t* awakeContactArray;
-
-	// Hot data split from b2Contact. Used when a contact is destroyed and needs to be removed from the awake contact array.
-	// A contact is destroyed when a shape/body is destroyed or when the shape AABBs stop overlapping.
-	// TODO_ERIN use a bit array somehow?
-	int32_t* contactAwakeIndexArray;
 
 	struct b2BodyMoveEvent* bodyMoveEventArray;
 	struct b2SensorBeginTouchEvent* sensorBeginEventArray;
@@ -82,20 +106,17 @@ typedef struct b2World
 	struct b2ContactBeginTouchEvent* contactBeginArray;
 	struct b2ContactEndTouchEvent* contactEndArray;
 
-	// Array of fast bodies that need continuous collision handling
-	int32_t* fastBodies;
-	_Atomic int fastBodyCount;
-
-	// Array of bullet bodies that need continuous collision handling
-	int32_t* bulletBodies;
-	_Atomic int bulletBodyCount;
-
 	// Id that is incremented every time step
-	uint64_t stepId;
+	uint64_t stepIndex;
 
-	// sub-step info from the most recent time step
-	int32_t subStepCount;
-	float inv_h;
+	// Identify islands for splitting as follows:
+	// - I want to split islands so smaller islands can sleep
+	// - when a body comes to rest and its sleep timer trips, I can look at the island and flag it for splitting
+	//   if it has removed constraints
+	// - islands that have removed constraints must be put split first because I don't want to wake bodies incorrectly
+	// - otherwise I can use the awake islands that have bodies wanting to sleep as the splitting candidates
+	// - if no bodies want to sleep then there is no reason to perform island splitting
+	int splitIslandId;
 
 	b2Vec2 gravity;
 	float restitutionThreshold;
@@ -112,28 +133,31 @@ typedef struct b2World
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;
 
-	uint32_t workerCount;
+	int workerCount;
 	b2EnqueueTaskCallback* enqueueTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
 	void* userTaskContext;
-
 	void* userTreeTask;
 
-	int32_t splitIslandIndex;
+	// Remember type step used for reporting forces and torques
+	float inv_h;
 
-	int32_t activeTaskCount;
-	int32_t taskCount;
+	int activeTaskCount;
+	int taskCount;
 
-	uint16_t poolIndex;
+	uint16_t worldId;
 
 	bool enableSleep;
 	bool locked;
 	bool enableWarmStarting;
 	bool enableContinuous;
+	bool inUse;
 } b2World;
 
 b2World* b2GetWorldFromId(b2WorldId id);
-b2World* b2GetWorldFromIndex(uint16_t index);
-b2World* b2GetWorldFromIndexLocked(uint16_t index);
+b2World* b2GetWorld(int index);
+b2World* b2GetWorldLocked(int index);
 
-bool b2IsBodyIdValid(b2World* world, b2BodyId id);
+void b2ValidateConnectivity(b2World* world);
+void b2ValidateSolverSets(b2World* world);
+void b2ValidateContacts(b2World* world);

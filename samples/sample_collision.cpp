@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "draw.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -10,7 +11,7 @@
 #include "box2d/dynamic_tree.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -1068,7 +1069,7 @@ public:
 		// circle
 		{
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
-			b2Vec2 c = b2TransformPoint(xf, m_circle.point);
+			b2Vec2 c = b2TransformPoint(xf, m_circle.center);
 			b2Vec2 axis = b2RotateVector(xf.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c, m_circle.radius, axis, color1);
 
@@ -1091,8 +1092,8 @@ public:
 		// capsule
 		{
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
-			b2Vec2 v1 = b2TransformPoint(xf, m_capsule.point1);
-			b2Vec2 v2 = b2TransformPoint(xf, m_capsule.point2);
+			b2Vec2 v1 = b2TransformPoint(xf, m_capsule.center1);
+			b2Vec2 v2 = b2TransformPoint(xf, m_capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, m_capsule.radius, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
@@ -1788,8 +1789,8 @@ public:
 					}
 					else if (m_castType == e_capsuleCast)
 					{
-						b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.point1), t);
-						b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.point2), t);
+						b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.center1), t);
+						b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.center2), t);
 						g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
 					}
 					else if (m_castType == e_polygonCast)
@@ -1821,8 +1822,8 @@ public:
 				}
 				else if (m_castType == e_capsuleCast)
 				{
-					b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.point1), rayTranslation);
-					b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.point2), rayTranslation);
+					b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.center1), rayTranslation);
+					b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.center2), rayTranslation);
 					g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
 				}
 				else if (m_castType == e_polygonCast)
@@ -2182,8 +2183,8 @@ public:
 		{
 			b2World_OverlapCapsule(m_worldId, &m_queryCapsule, transform, b2DefaultQueryFilter(), OverlapWorld::OverlapResultFcn, 
 								   this);
-			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.point1);
-			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.point2);
+			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.center1);
+			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.center2);
 			g_draw.DrawCapsule(p1, p2, m_queryCapsule.radius, color);
 		}
 		else if (m_shapeType == e_boxShape)
@@ -2471,8 +2472,8 @@ public:
 
 			b2Manifold m = b2CollideCircles(&circle1, xf1, &circle2, xf2);
 
-			b2Vec2 c1 = b2TransformPoint(xf1, circle1.point);
-			b2Vec2 c2 = b2TransformPoint(xf2, circle2.point);
+			b2Vec2 c1 = b2TransformPoint(xf1, circle1.center);
+			b2Vec2 c2 = b2TransformPoint(xf2, circle2.center);
 			b2Vec2 axis1 = b2RotateVector(xf1.q, {1.0f, 0.0f});
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c1, circle1.radius, axis1, color1);
@@ -2493,11 +2494,11 @@ public:
 
 			b2Manifold m = b2CollideCapsuleAndCircle(&capsule, xf1, &circle, xf2);
 
-			b2Vec2 v1 = b2TransformPoint(xf1, capsule.point1);
-			b2Vec2 v2 = b2TransformPoint(xf1, capsule.point2);
+			b2Vec2 v1 = b2TransformPoint(xf1, capsule.center1);
+			b2Vec2 v2 = b2TransformPoint(xf1, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color1);
 
-			b2Vec2 c1 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 c1 = b2TransformPoint(xf2, circle.center);
 			b2Vec2 axis1 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c1, circle.radius, axis1, color2);
 
@@ -2520,7 +2521,7 @@ public:
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
 			g_draw.DrawSegment(p1, p2, color1);
 
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
 
@@ -2547,7 +2548,7 @@ public:
 			}
 			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, fillColor1, color1);
 
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
 
@@ -2570,12 +2571,12 @@ public:
 
 			b2Manifold m = b2CollideCapsules(&capsule, xf1, &capsule, xf2, &m_capcapCache);
 
-			b2Vec2 v1 = b2TransformPoint(xf1, capsule.point1);
-			b2Vec2 v2 = b2TransformPoint(xf1, capsule.point2);
+			b2Vec2 v1 = b2TransformPoint(xf1, capsule.center1);
+			b2Vec2 v2 = b2TransformPoint(xf1, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color1);
 
-			v1 = b2TransformPoint(xf2, capsule.point1);
-			v2 = b2TransformPoint(xf2, capsule.point2);
+			v1 = b2TransformPoint(xf2, capsule.center1);
+			v2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
 
 			DrawManifold(&m);
@@ -2601,8 +2602,8 @@ public:
 			}
 			g_draw.DrawSolidPolygon(vertices, box.count, color1);
 
-			b2Vec2 v1 = b2TransformPoint(xf2, capsule.point1);
-			b2Vec2 v2 = b2TransformPoint(xf2, capsule.point2);
+			b2Vec2 v1 = b2TransformPoint(xf2, capsule.center1);
+			b2Vec2 v2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
 
 			DrawManifold(&m);
@@ -2624,8 +2625,8 @@ public:
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
 			g_draw.DrawSegment(p1, p2, color1);
 
-			p1 = b2TransformPoint(xf2, capsule.point1);
-			p2 = b2TransformPoint(xf2, capsule.point2);
+			p1 = b2TransformPoint(xf2, capsule.center1);
+			p2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
 
 			DrawManifold(&m);
@@ -2807,7 +2808,7 @@ public:
 			g_draw.DrawSegment(p1, p2, color1);
 			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
 
@@ -2917,8 +2918,8 @@ public:
 				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
-			b2Vec2 p1 = b2TransformPoint(xf2, capsule.point1);
-			b2Vec2 p2 = b2TransformPoint(xf2, capsule.point2);
+			b2Vec2 p1 = b2TransformPoint(xf2, capsule.center1);
+			b2Vec2 p2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
 
 			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro));
@@ -3193,7 +3194,7 @@ public:
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
 
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.point);
+			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
 			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
 
@@ -3608,8 +3609,8 @@ public:
 
 	b2Vec2 m_verticesA[4] = {{-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 5.0f}, {-1.0f, 5.0f}};
 	b2Vec2 m_verticesB[4] = {{-0.5f, -4.0f}, {0.0f, -4.0f}, {0.0f, 0.0f}, {-0.5f, 0.0f}};
-	int32_t m_countA = B2_ARRAY_COUNT(m_verticesA);
-	int32_t m_countB = B2_ARRAY_COUNT(m_verticesB);
+	int32_t m_countA = ARRAY_COUNT(m_verticesA);
+	int32_t m_countB = ARRAY_COUNT(m_verticesB);
 };
 
 static int sampleTimeOfImpact = RegisterSample("Collision", "Time of Impact", TimeOfImpact::Create);

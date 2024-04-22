@@ -1,20 +1,22 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/box2d.h"
-#include "box2d/geometry.h"
-#include "box2d/hull.h"
-#include "box2d/math.h"
+#include "draw.h"
 #include "sample.h"
 #include "settings.h"
 
-#include <imgui.h>
+#include "box2d/box2d.h"
+#include "box2d/geometry.h"
+#include "box2d/hull.h"
+#include "box2d/math_functions.h"
+
 #include <GLFW/glfw3.h>
+#include <imgui.h>
 
 class SingleBox : public Sample
 {
 public:
-	SingleBox(Settings& settings)
+	explicit SingleBox(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -53,7 +55,6 @@ static int sampleSingleBox = RegisterSample("Stacking", "Single Box", SingleBox:
 class TiltedStack : public Sample
 {
 public:
-
 	enum
 	{
 		e_columns = 10,
@@ -400,7 +401,6 @@ public:
 			b2CreateCapsuleShape(groundId, &shapeDef, &capsule);
 		}
 
-
 		m_flip = false;
 
 		for (int32_t i = 0; i < 9; ++i)
@@ -519,7 +519,7 @@ static int sampleCliff = RegisterSample("Stacking", "Cliff", Cliff::Create);
 class Arch : public Sample
 {
 public:
-	Arch(Settings& settings)
+	explicit Arch(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

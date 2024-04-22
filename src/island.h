@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "pool.h"
-
 #include <stdint.h>
 
 typedef struct b2Body b2Body;
@@ -16,48 +14,58 @@ typedef struct b2World b2World;
 // Deterministic solver
 //
 // Collide all awake contacts
-// Use bit array to emit start/stop touching events in defined order, per thread. Try using contact index, assuming contacts are created in
-// a deterministic order. bit-wise OR together bit arrays and issue changes:
+// Use bit array to emit start/stop touching events in defined order, per thread. Try using contact index, assuming contacts are
+// created in a deterministic order. bit-wise OR together bit arrays and issue changes:
 // - start touching: merge islands - temporary linked list - mark root island dirty - wake all - largest island is root
 // - stop touching: mark island dirty - wake island
 // Reserve island jobs
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
-// Persistent island
+// Persistent island for awake sims, joints, and contacts
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
+// map from int to solver set and index
 typedef struct b2Island
 {
-	b2Object object;
+	// index of solver set stored in b2World
+	// may be B2_NULL_INDEX
+	int setIndex;
 
-	struct b2World* world;
+	// island index within set
+	// may be B2_NULL_INDEX
+	int localIndex;
 
-	int32_t headBody;
-	int32_t tailBody;
-	int32_t bodyCount;
+	int islandId;
 
-	int32_t headContact;
-	int32_t tailContact;
-	int32_t contactCount;
+	int headBody;
+	int tailBody;
+	int bodyCount;
 
-	int32_t headJoint;
-	int32_t tailJoint;
-	int32_t jointCount;
+	int headContact;
+	int tailContact;
+	int contactCount;
+
+	int headJoint;
+	int tailJoint;
+	int jointCount;
 
 	// Union find
-	int32_t parentIsland;
-
-	// Index into world awake island array, B2_NULL_INDEX if the island is sleeping
-	int32_t awakeIndex;
+	int parentIsland;
 
 	// Keeps track of how many contacts have been removed from this island.
-	int32_t constraintRemoveCount;
+	int constraintRemoveCount;
 } b2Island;
 
-void b2CreateIsland(b2Island* island);
-void b2DestroyIsland(b2Island* island);
+typedef struct b2IslandSim
+{
+	int islandId;
 
-void b2WakeIsland(b2Island* island);
+} b2IslandSim;
+
+b2Island* b2CreateIsland(b2World* world, int setIndex);
+void b2DestroyIsland(b2World* world, int islandId);
+
+b2Island* b2GetIsland(b2World* world, int islandId);
 
 // Link contacts into the island graph when it starts having contact points
 void b2LinkContact(b2World* world, b2Contact* contact);
@@ -73,7 +81,7 @@ void b2UnlinkJoint(b2World* world, b2Joint* joint);
 
 void b2MergeAwakeIslands(b2World* world);
 
-void b2SplitIslandTask(int32_t startIndex, int32_t endIndex, uint32_t threadIndex, void* context);
-void b2CompleteSplitIsland(b2Island* island);
+void b2SplitIsland(b2World* world, int baseId);
+void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context);
 
-void b2ValidateIsland(b2Island* island, bool checkSleep);
+void b2ValidateIsland(b2World* world, int islandId);

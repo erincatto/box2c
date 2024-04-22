@@ -117,7 +117,7 @@ typedef struct b2MouseJointDef
 	/// Damping ratio, non-dimensional
 	float dampingRatio;
 
-	/// Set this flag to true if the attached bodies should collide.
+	/// Set this flag to true if the attached sims should collide.
 	bool collideConnected;
 
 	/// User data pointer
@@ -150,7 +150,7 @@ typedef struct b2PrismaticJointDef
 	/// The local translation unit axis in bodyA.
 	b2Vec2 localAxisA;
 
-	/// The constrained angle between the bodies: bodyB_angle - bodyA_angle.
+	/// The constrained angle between the sims: bodyB_angle - bodyA_angle.
 	float referenceAngle;
 
 	/// Enable/disable the joint limit.
@@ -171,7 +171,7 @@ typedef struct b2PrismaticJointDef
 	/// The desired motor speed in radians per second.
 	float motorSpeed;
 
-	/// Set this flag to true if the attached bodies should collide.
+	/// Set this flag to true if the attached sims should collide.
 	bool collideConnected;
 
 	/// User data pointer
@@ -182,7 +182,7 @@ typedef struct b2PrismaticJointDef
 B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef();
 
 /// Revolute joint definition. This requires defining an anchor point where the
-/// bodies are joined. The definition uses local anchor points so that the
+/// sims are joined. The definition uses local anchor points so that the
 /// initial configuration can violate the constraint slightly. You also need to
 /// specify the initial relative angle for joint limits. This helps when saving
 /// and loading a game.
@@ -231,7 +231,7 @@ typedef struct b2RevoluteJointDef
 	/// Scale the debug draw
 	float drawSize;
 
-	/// Set this flag to true if the attached bodies should collide.
+	/// Set this flag to true if the attached sims should collide.
 	bool collideConnected;
 
 	/// User data pointer
@@ -241,9 +241,9 @@ typedef struct b2RevoluteJointDef
 /// Use this to initialize your joint definition
 B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef();
 
-/// A weld joint connect to bodies together rigidly. This constraint can be made soft to mimic
+/// A weld joint connect to sims together rigidly. This constraint can be made soft to mimic
 ///	soft-body simulation.
-/// @warning the approximate solver in Box2D cannot hold many bodies together rigidly
+/// @warning the approximate solver in Box2D cannot hold many sims together rigidly
 typedef struct b2WeldJointDef
 {
 	/// The first attached body.
@@ -273,7 +273,7 @@ typedef struct b2WeldJointDef
 	/// Linear damping ratio, non-dimensional. Use 1 for critical damping.
 	float angularDampingRatio;
 
-	/// Set this flag to true if the attached bodies should collide.
+	/// Set this flag to true if the attached sims should collide.
 	bool collideConnected;
 
 	/// User data pointer
@@ -330,7 +330,7 @@ typedef struct b2WheelJointDef
 	/// Spring damping ratio, non-dimensional
 	float dampingRatio;
 
-	/// Set this flag to true if the attached bodies should collide.
+	/// Set this flag to true if the attached sims should collide.
 	bool collideConnected;
 
 	/// User data pointer

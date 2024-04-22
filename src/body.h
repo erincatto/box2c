@@ -3,20 +3,67 @@
 
 #pragma once
 
-#include "pool.h"
-
 #include "box2d/distance.h"
-#include "box2d/id.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 typedef struct b2Polygon b2Polygon;
 typedef struct b2World b2World;
+typedef struct b2JointSim b2JointSim;
+typedef struct b2ContactSim b2ContactSim;
+typedef struct b2Shape b2Shape;
+typedef struct b2Body b2Body;
 
-// The body state is designed for fast conversion to and from SIMD via scatter-gather
-// todo every non-static body gets a solver body.
-// No solver bodies for static bodies to avoid cross thread sharing and the cache misses they bring.
-// Keep two solver body arrays: awake and sleeping
-// However, this makes it slower to access transform for collision/broad-phase?
+// Body organizational details that are not used in the solver.
+typedef struct b2Body
+{
+	void* userData;
+
+	// index of solver set stored in b2World
+	// may be B2_NULL_INDEX
+	int setIndex;
+
+	// body sim and state index within set
+	// may be B2_NULL_INDEX
+	int localIndex;
+
+	// [31 : contactId | 1 : edgeIndex]
+	int headContactKey;
+	int contactCount;
+
+	// todo maybe move this to the body sim
+	int headShapeId;
+	int shapeCount;
+
+	int headChainId;
+
+	// [31 : jointId | 1 : edgeIndex]
+	int headJointKey;
+	int jointCount;
+
+	// All enabled dynamic and kinematic bodies are in an island.
+	int islandId;
+
+	// doubly-linked island list
+	int islandPrev;
+	int islandNext;
+
+	int id;
+
+	b2BodyType type;
+
+	// This is monotonically advanced when a body is allocated in this slot
+	// Used to check for invalid b2BodyId
+	uint16_t revision;
+
+	//int16_t worldId;
+
+	bool isSpeedCapped;
+	bool isMarked;
+} b2Body;
+
+// The body state is designed for fast conversion to and from SIMD via scatter-gather.
+// Only awake dynamic and kinematic bodies have a body state.
+// This is used in the performance critical constraint solver
 //
 // 32 bytes
 typedef struct b2BodyState
@@ -33,70 +80,29 @@ typedef struct b2BodyState
 	b2Rot deltaRotation; // 8
 } b2BodyState;
 
+// Identity body state, notice the deltaRotation is {0, 1}
 static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
 
-// Holds extra data needed by the constraint solver, but not in the SIMD contact solver
-typedef struct b2BodyParam
+// Body simulation data used for integration of position and velocity
+// Transform data used for collision and solver preparation.
+typedef struct b2BodySim
 {
-	float invMass;
-	float invI;
-	float linearDamping;
-	float angularDamping;
-	// force, torque, and gravity to be applied each sub-step
-	b2Vec2 linearVelocityDelta;
-	float angularVelocityDelta;
-	int bodyIndex;
-} b2BodyParam;
+	// todo better to have transform in sim or in base body? Try both!
+	// transform for body origin
+	b2Transform transform;
 
-// A rigid body
-typedef struct b2Body
-{
-	b2Object object;
+	// center of mass position in world space
+	b2Vec2 center;
 
-	enum b2BodyType type;
-
-	// the body origin (not center of mass)
-	b2Vec2 origin;
-
-	// rotation
-	b2Rot rotation;
-
-	// center of mass position in world
-	b2Vec2 position;
-
-	// previous rotation and position for TOI
+	// previous rotation and COM for TOI
 	b2Rot rotation0;
-	b2Vec2 position0;
+	b2Vec2 center0;
 
 	// location of center of mass relative to the body origin
 	b2Vec2 localCenter;
 
-	b2Vec2 linearVelocity;
-	float angularVelocity;
-
 	b2Vec2 force;
 	float torque;
-
-	int32_t shapeList;
-	int32_t shapeCount;
-
-	int32_t chainList;
-
-	// This is a key: [jointIndex:31, edgeIndex:1]
-	int32_t jointList;
-	int32_t jointCount;
-
-	int32_t contactList;
-	int32_t contactCount;
-
-	// A non-static body is always in an island. B2_NULL_INDEX for static bodies.
-	int32_t islandIndex;
-
-	// Doubly linked island list
-	int32_t islandPrev;
-	int32_t islandNext;
-
-	int32_t solverIndex;
 
 	float mass, invMass;
 
@@ -108,51 +114,54 @@ typedef struct b2Body
 	float linearDamping;
 	float angularDamping;
 	float gravityScale;
-
 	float sleepTime;
 
-	void* userData;
-	int16_t world;
+	// body data can be moved around, the id is stable (used in b2BodyId)
+	int bodyId;
 
 	bool enableSleep;
+
+	// todo needed in sim?
 	bool fixedRotation;
-	bool isEnabled;
-	bool isMarked;
+
+	// todo eliminate
 	bool isFast;
 	bool isBullet;
 	bool isSpeedCapped;
 	bool enlargeAABB;
-} b2Body;
+} b2BodySim;
 
-b2Body* b2GetBody(b2World* world, b2BodyId id);
+b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
+
+b2Body* b2GetBody(b2World* world, int bodyId);
+
+// Get a validated body from a world using an id.
+b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
+
+b2Transform b2GetBodyTransformQuick(b2World* world, b2Body* body);
+b2Transform b2GetBodyTransform(b2World* world, int bodyId);
+
+// Create a b2BodyId from a raw id.
+b2BodyId b2MakeBodyId(b2World* world, int bodyId);
+
 bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
 bool b2IsBodyAwake(b2World* world, b2Body* body);
-void b2WakeBody(b2World* world, b2Body* body);
+
+b2BodySim* b2GetBodySim(b2World* world, b2Body* body);
+b2BodyState* b2GetBodyState(b2World* world, b2Body* body);
+
+// careful calling this because it can invalidate body, state, joint, and contact pointers
+bool b2WakeBody(b2World* world, b2Body* body);
+
 void b2UpdateBodyMassData(b2World* world, b2Body* body);
 
-static inline b2Transform b2MakeTransform(const b2Body* body)
-{
-	return (b2Transform){body->origin, body->rotation};
-}
-
-static inline b2Sweep b2MakeSweep(const b2Body* body)
+static inline b2Sweep b2MakeSweep(const b2BodySim* bodySim)
 {
 	b2Sweep s;
-	if (body->type == b2_staticBody)
-	{
-		s.c1 = body->position;
-		s.c2 = body->position;
-		s.q1 = body->rotation;
-		s.q2 = body->rotation;
-	}
-	else
-	{
-		s.c1 = body->position0;
-		s.c2 = body->position;
-		s.q1 = body->rotation0;
-		s.q2 = body->rotation;
-	}
-
-	s.localCenter = body->localCenter;
+	s.c1 = bodySim->center0;
+	s.c2 = bodySim->center;
+	s.q1 = bodySim->rotation0;
+	s.q2 = bodySim->transform.q;
+	s.localCenter = bodySim->localCenter;
 	return s;
 }

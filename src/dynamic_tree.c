@@ -3,18 +3,17 @@
 
 #include "box2d/dynamic_tree.h"
 
-#include "allocate.h"
-#include "array.h"
-#include "core.h"
-
 #include "aabb.h"
+#include "allocate.h"
+#include "core.h"
+#include "util.h"
+
 #include "box2d/constants.h"
 
 #include <float.h>
 #include <string.h>
 
 #define b2_treeStackSize 1024
-
 
 // TODO_ERIN
 // - try incrementally sorting internal nodes by height for better cache efficiency during depth first traversal.
@@ -1535,7 +1534,7 @@ static int32_t b2PartitionMid(int32_t* indices, b2Vec2* centers, int32_t count)
 
 #else
 
-#define B2_BIN_COUNT 8
+	#define B2_BIN_COUNT 8
 
 typedef struct b2TreeBin
 {

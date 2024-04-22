@@ -79,7 +79,8 @@
 /// Maximum parallel workers. Used to size some static arrays.
 #define b2_maxWorkers 64
 
-/// Solver graph coloring
+/// Maximum number of colors in the constraint graph. Constraints that cannot
+///	find a color are added to the overflow set.
 #define b2_graphColorCount 12
 
 /// Version numbering scheme.

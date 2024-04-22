@@ -5,6 +5,7 @@
 #include "core.h"
 #include "joint.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "world.h"
 
 // needed for dll export
@@ -12,51 +13,65 @@
 
 void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	base->mouseJoint.targetA = target;
 }
 
 b2Vec2 b2MouseJoint_GetTarget(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	return base->mouseJoint.targetA;
 }
 
 void b2MouseJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	base->mouseJoint.hertz = hertz;
 	base->mouseJoint.dampingRatio = dampingRatio;
 }
 
 float b2MouseJoint_GetHertz(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	return base->mouseJoint.hertz;
 }
 
 float b2MouseJoint_GetDampingRatio(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_mouseJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	return base->mouseJoint.dampingRatio;
 }
 
-void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareMouseJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
-	int32_t indexB = base->edges[1].bodyIndex;
-	B2_ASSERT(0 <= indexB && indexB < context->bodyCapacity);
+	// chase body id to the solver set where the body lives
+	int idB = base->bodyIdB;
 
-	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(bodyB->object.index == bodyB->object.next);
+	b2World* world = context->world;
+	b2Body* bodies = world->bodyArray;
 
-	base->invMassB = bodyB->invMass;
-	base->invIB = bodyB->invI;
+	b2CheckIndex(bodies, idB);
+
+	b2Body* bodyB = bodies + idB;
+
+	B2_ASSERT(bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
+
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
+
+	int localIndexB = bodyB->localIndex;
+	B2_ASSERT(0 <= localIndexB && localIndexB <= setB->sims.count);
+
+	b2BodySim* bodySimB = setB->sims.data + localIndexB;
+
+	base->invMassB = bodySimB->invMass;
+	base->invIB = bodySimB->invI;
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	joint->indexB = bodyB->solverIndex;
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
 
 	joint->linearSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
 
@@ -64,10 +79,9 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	float angularDampingRatio = 0.1f;
 	joint->angularSoftness = b2MakeSoft(angularHertz, angularDampingRatio, context->h);
 
-	b2Rot qB = bodyB->rotation;
 	b2Vec2 rB = joint->anchorB;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	// K = [(1/m1 + 1/m2) * eye(2) - skew(r1) * invI1 * skew(r1) - skew(r2) * invI2 * skew(r2)]
 	//   = [1/m1+1/m2     0    ] + invI1 * [r1.y*r1.y -r1.x*r1.y] + invI2 * [r1.y*r1.y -r1.x*r1.y]
@@ -79,7 +93,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	K.cy.y = mB + iB * rB.x * rB.x;
 
 	joint->linearMass = b2GetInverse22(K);
-	joint->deltaCenter = b2Sub(bodyB->position, joint->targetA);
+	joint->deltaCenter = b2Sub(bodySimB->center, joint->targetA);
 
 	if (context->enableWarmStarting == false)
 	{
@@ -88,7 +102,7 @@ void b2PrepareMouseJoint(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartMouseJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);
 
@@ -97,7 +111,7 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 
 	b2MouseJoint* joint = &base->mouseJoint;
 
-	b2BodyState* stateB = context->bodyStates + joint->indexB;
+	b2BodyState* stateB = context->states + joint->indexB;
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
@@ -111,13 +125,13 @@ void b2WarmStartMouseJoint(b2Joint* base, b2StepContext* context)
 	stateB->angularVelocity = wB;
 }
 
-void b2SolveMouseJoint(b2Joint* base, b2StepContext* context)
+void b2SolveMouseJoint(b2JointSim* base, b2StepContext* context)
 {
 	float mB = base->invMassB;
 	float iB = base->invIB;
 
 	b2MouseJoint* joint = &base->mouseJoint;
-	b2BodyState* stateB = context->bodyStates + joint->indexB;
+	b2BodyState* stateB = context->states + joint->indexB;
 
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;

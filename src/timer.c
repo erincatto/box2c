@@ -63,13 +63,21 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 	return ms;
 }
 
-void b2SleepMilliseconds(float milliseconds)
+void b2SleepMilliseconds(int milliseconds)
 {
-	Sleep((DWORD)(milliseconds));
+	// also SwitchToThread()
+	Sleep((DWORD)milliseconds);
+}
+
+void b2Yield()
+{
+	SwitchToThread();
 }
 
 #elif defined(__linux__) || defined (__APPLE__)
 
+#include <time.h>
+#include <sched.h>
 #include <sys/time.h>
 
 b2Timer b2CreateTimer(void)
@@ -134,11 +142,17 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 	return 1000.0f * (t.tv_sec - start_sec) + 0.001f * (t.tv_usec - start_usec);
 }
 
-void b2SleepMilliseconds(float milliseconds)
+void b2SleepMilliseconds(int milliseconds)
 {
-	B2_MAYBE_UNUSED(milliseconds);
-	// TODO couldn't get this to compile on gcc
-	// usleep((uint32_t)(1000.0f * milliseconds + 0.5f));
+	struct timespec ts;
+	ts.tv_sec = milliseconds / 1000;
+	ts.tv_nsec = (milliseconds % 1000) * 1000000;
+	nanosleep(&ts, NULL);
+}
+
+void b2Yield()
+{
+	sched_yield();
 }
 
 #else
@@ -151,19 +165,23 @@ b2Timer b2CreateTimer(void)
 
 float b2GetMilliseconds(const b2Timer* timer)
 {
-	B2_MAYBE_UNUSED(timer);
+	((void)(timer));
 	return 0.0f;
 }
 
 float b2GetMillisecondsAndReset(b2Timer* timer)
 {
-	B2_MAYBE_UNUSED(timer);
+	((void)(timer));
 	return 0.0f;
 }
 
-void b2SleepMilliseconds(float milliseconds)
+void b2SleepMilliseconds(int milliseconds)
 {
-	B2_MAYBE_UNUSED(milliseconds);
+	((void)(milliseconds));
+}
+
+void b2Yield()
+{
 }
 
 #endif

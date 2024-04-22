@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "donut.h"
+#include "draw.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"
@@ -10,7 +11,7 @@
 #include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -986,7 +987,7 @@ public:
 		e_count = 8
 	};
 
-	Cantilever(Settings& settings)
+	explicit Cantilever(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1016,11 +1017,13 @@ public:
 
 			b2WeldJointDef jointDef = b2DefaultWeldJointDef();
 
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.isAwake = false;
+
 			b2BodyId prevBodyId = groundId;
 			for (int32_t i = 0; i < e_count; ++i)
 			{
-				b2BodyDef bodyDef = b2DefaultBodyDef();
-				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = {(1.0f + 2.0f * i) * hx, 0.0f};
 				m_bodyIds[i] = b2CreateBody(m_worldId, &bodyDef);
 				b2CreateCapsuleShape(m_bodyIds[i], &shapeDef, &capsule);
@@ -1137,7 +1140,7 @@ public:
 		e_count = 6
 	};
 
-	FixedRotation(Settings& settings)
+	explicit FixedRotation(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1179,7 +1182,6 @@ public:
 		b2Vec2 position = {-12.5f, 10.0f};
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
-		bodyDef.enableSleep = false;
 		bodyDef.fixedRotation = m_fixedRotation;
 
 		b2Polygon box = b2MakeBox(1.0f, 1.0f);
@@ -1220,13 +1222,12 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(m_bodyIds[index], &shapeDef, &box);
 
-			b2Vec2 pivot = {position.x - 1.0f, position.y};
 			b2MotorJointDef jointDef = b2DefaultMotorJointDef();
 			jointDef.bodyIdA = m_groundId;
 			jointDef.bodyIdB = m_bodyIds[index];
 			jointDef.linearOffset = position;
 			jointDef.maxForce = 200.0f;
-			jointDef.maxTorque = 200.0f;
+			jointDef.maxTorque = 20.0f;
 			m_jointIds[index] = b2CreateMotorJoint(m_worldId, &jointDef);
 		}
 
@@ -1660,7 +1661,7 @@ public:
 				{-1.5f, -0.5f}, {1.5f, -0.5f}, {1.5f, 0.0f}, {0.0f, 0.9f}, {-1.15f, 0.9f}, {-1.5f, 0.2f},
 			};
 
-			b2Hull hull = b2ComputeHull(vertices, B2_ARRAY_COUNT(vertices));
+			b2Hull hull = b2ComputeHull(vertices, ARRAY_COUNT(vertices));
 			b2Polygon chassis = b2MakePolygon(&hull, 0.0f);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();

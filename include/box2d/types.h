@@ -18,14 +18,7 @@
 #include "math_types.h"
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
-
-/// Returns the number of elements of an array
-#define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
-
-/// Used to prevent the compiler from warning about unused variables
-#define B2_MAYBE_UNUSED(x) ((void)(x))
 
 /// Result from b2World_RayCastClosest
 typedef struct b2RayResult
@@ -68,30 +61,15 @@ typedef struct b2WorldDef
 	/// Enable continuous collision
 	bool enableContinous;
 
-	/// Capacity for bodies. This may not be exceeded.
-	int32_t bodyCapacity;
+	/// Number of workers to use with the provided task system. Box2D performs best when using only
+	///	performance cores and accessing a single L2 cache. Efficiency cores and hyper-threading provide
+	///	little benefit and may even harm performance.
+	int workerCount;
 
-	/// initial capacity for shapes
-	int32_t shapeCapacity;
-
-	/// Capacity for contacts. This may not be exceeded.
-	int32_t contactCapacity;
-
-	/// Capacity for joints
-	int32_t jointCapacity;
-
-	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
-	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
-	/// application.
-	int32_t stackAllocatorCapacity;
-
-	/// task system hookup
-	uint32_t workerCount;
-
-	/// function to spawn task
+	/// Function to spawn tasks
 	b2EnqueueTaskCallback* enqueueTask;
 
-	/// function to finish a task
+	/// Function to finish a task
 	b2FinishTaskCallback* finishTask;
 
 	/// User context that is provided to enqueueTask and finishTask
@@ -107,14 +85,13 @@ typedef enum b2BodyType
 	b2_staticBody = 0,
 	b2_kinematicBody = 1,
 	b2_dynamicBody = 2,
-	b2_bodyTypeCount
 } b2BodyType;
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 typedef struct b2BodyDef
 {
-	/// The body type: static, kinematic, or dynamic.
+/// The body type: static, kinematic, or dynamic.
 	/// Note: if a dynamic body would have zero mass, the mass is set to one.
 	b2BodyType type;
 
@@ -255,7 +232,7 @@ typedef struct b2ChainDef
 	const b2Vec2* points;
 
 	/// The point count, must be 4 or more.
-	int32_t count;
+	int count;
 
 	/// Indicates a closed chain formed by connecting the first and last points
 	bool isLoop;
@@ -282,6 +259,19 @@ typedef struct b2Profile
 	float solve;
 	float buildIslands;
 	float solveConstraints;
+	float prepareTasks;
+	float solverTasks;
+	float prepareConstraints;
+	float integrateVelocities;
+	float warmStart;
+	float solveVelocities;
+	float integratePositions;
+	float relaxVelocities;
+	float applyRestitution;
+	float storeImpulses;
+	float finalizeBodies;
+	float splitIslands;
+	float sleepIslands;
 	float broadphase;
 	float continuous;
 } b2Profile;
@@ -289,18 +279,17 @@ typedef struct b2Profile
 /// Counters that give details of the simulation size
 typedef struct b2Counters
 {
-	int32_t islandCount;
-	int32_t bodyCount;
-	int32_t contactCount;
-	int32_t jointCount;
-	int32_t proxyCount;
-	int32_t pairCount;
-	int32_t treeHeight;
-	int32_t stackCapacity;
-	int32_t stackUsed;
-	int32_t byteCount;
-	int32_t taskCount;
-	int32_t colorCounts[b2_graphColorCount + 1];
+	int staticBodyCount;
+	int bodyCount;
+	int shapeCount;
+	int contactCount;
+	int jointCount;
+	int islandCount;
+	int stackUsed;
+	int treeHeight;
+	int byteCount;
+	int taskCount;
+	int colorCounts[b2_graphColorCount];
 } b2Counters;
 
 /// Use this to initialize your world definition

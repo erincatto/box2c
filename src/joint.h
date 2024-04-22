@@ -2,28 +2,61 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "pool.h"
 #include "solver.h"
 
 #include "box2d/joint_types.h"
-
-#include <stdint.h>
 
 typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-/// A joint edge is used to connect bodies and joints together
+/// A joint edge is used to connect sims and joints together
 /// in a joint graph where each body is a node and each joint
 /// is an edge. A joint edge belongs to a doubly linked list
 /// maintained in each attached body. Each joint has two joint
 /// nodes, one for each attached body.
 typedef struct b2JointEdge
 {
-	int32_t bodyIndex;
-	int32_t prevKey;
-	int32_t nextKey;
+	int bodyId;
+	int prevKey;
+	int nextKey;
 } b2JointEdge;
+
+// Map from b2JointId to b2Joint in the solver sets
+typedef struct b2Joint
+{
+	void* userData;
+
+	// index of simulation set stored in b2World
+	// B2_NULL_INDEX when slot is free
+	int setIndex;
+
+	// index into the constraint graph color array, may be B2_NULL_INDEX for sleeping/disabled joints
+	// B2_NULL_INDEX when slot is free
+	int colorIndex;
+
+	// joint index within set or graph color
+	// B2_NULL_INDEX when slot is free
+	int localIndex;
+	
+	b2JointEdge edges[2];
+
+	int jointId;
+	int islandId;
+	int islandPrev;
+	int islandNext;
+
+	// This is monotonically advanced when a body is allocated in this slot
+	// Used to check for invalid b2JointId
+	int revision;
+
+	float drawSize;
+
+	b2JointType type;
+	bool isMarked;
+	bool collideConnected;
+
+} b2Joint;
 
 typedef struct b2DistanceJoint
 {
@@ -37,8 +70,8 @@ typedef struct b2DistanceJoint
 	float lowerImpulse;
 	float upperImpulse;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -56,8 +89,8 @@ typedef struct b2MotorJoint
 	float maxTorque;
 	float correctionFactor;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -77,7 +110,7 @@ typedef struct b2MouseJoint
 
 	b2Softness linearSoftness;
 	b2Softness angularSoftness;
-	int32_t indexB;
+	int indexB;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
 	b2Mat22 linearMass;
@@ -98,8 +131,8 @@ typedef struct b2PrismaticJoint
 	float lowerTranslation;
 	float upperTranslation;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
@@ -122,8 +155,8 @@ typedef struct b2RevoluteJoint
 	float lowerAngle;
 	float upperAngle;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -144,8 +177,8 @@ typedef struct b2WeldJoint
 	b2Vec2 linearImpulse;
 	float angularImpulse;
 
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 deltaCenter;
@@ -172,8 +205,8 @@ typedef struct b2WheelJoint
 	bool enableLimit;
 
 	// Solver temp
-	int32_t indexA;
-	int32_t indexB;
+	int indexA;
+	int indexB;
 	b2Vec2 anchorA;
 	b2Vec2 anchorB;
 	b2Vec2 axisA;
@@ -184,23 +217,16 @@ typedef struct b2WheelJoint
 	b2Softness springSoftness;
 } b2WheelJoint;
 
-/// The base joint class. Joints are used to constraint two bodies together in
+/// The base joint class. Joints are used to constraint two sims together in
 /// various fashions. Some joints also feature limits and motors.
-typedef struct b2Joint
+typedef struct b2JointSim
 {
-	b2Object object;
+	int jointId;
+
+	int bodyIdA;
+	int bodyIdB;
+
 	b2JointType type;
-	b2JointEdge edges[2];
-
-	int32_t islandIndex;
-	int32_t islandPrev;
-	int32_t islandNext;
-
-	// The color of this constraint in the graph coloring
-	int32_t colorIndex;
-
-	// Index of joint within color
-	int32_t colorSubIndex;
 
 	// Anchors relative to body origin
 	b2Vec2 localOriginAnchorA;
@@ -219,21 +245,17 @@ typedef struct b2Joint
 		b2WeldJoint weldJoint;
 		b2WheelJoint wheelJoint;
 	};
+} b2JointSim;
 
-	void* userData;
+b2Joint* b2GetJoint(b2World* world, int jointId);
+void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
 
-	float drawSize;
-	bool isMarked;
-	bool collideConnected;
-} b2Joint;
+b2JointSim* b2GetJointSim(b2World* world, b2Joint* joint);
+b2JointSim* b2GetJointSimCheckType(b2JointId jointId, b2JointType type);
 
-b2Joint* b2GetJoint(b2World* world, b2JointId jointId);
-b2Joint* b2GetJointCheckType(b2JointId id, b2JointType type);
-void b2DestroyJointInternal(b2World* world, b2Joint* joint);
-
-void b2PrepareJoint(b2Joint* joint, b2StepContext* context);
-void b2WarmStartJoint(b2Joint* joint, b2StepContext* context);
-void b2SolveJoint(b2Joint* joint, b2StepContext* context, bool useBias);
+void b2PrepareJoint(b2JointSim* joint, b2StepContext* context);
+void b2WarmStartJoint(b2JointSim* joint, b2StepContext* context);
+void b2SolveJoint(b2JointSim* joint, b2StepContext* context, bool useBias);
 
 void b2PrepareOverflowJoints(b2StepContext* context);
 void b2WarmStartOverflowJoints(b2StepContext* context);

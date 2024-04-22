@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "pool.h"
+#include "world.h"
 
 #include "box2d/distance.h"
 #include "box2d/geometry.h"
@@ -15,9 +15,9 @@ typedef struct b2World b2World;
 
 typedef struct b2Shape
 {
-	b2Object object;
-	int32_t bodyIndex;
-	int32_t nextShapeIndex;
+	int id;
+	int bodyId;
+	int nextShapeId;
 	b2ShapeType type;
 	float density;
 	float friction;
@@ -26,19 +26,11 @@ typedef struct b2Shape
 	b2AABB aabb;
 	b2AABB fatAABB;
 	b2Vec2 localCentroid;
-	int32_t proxyKey;
+	int proxyKey;
 
 	b2Filter filter;
 	void* userData;
 
-	bool isSensor;
-	bool enableSensorEvents;
-	bool enableContactEvents;
-	bool enablePreSolveEvents;
-	bool enlargedAABB;
-	bool isFast;
-
-	// TODO_ERIN maybe not anonymous, check asm
 	union
 	{
 		b2Capsule capsule;
@@ -47,15 +39,24 @@ typedef struct b2Shape
 		b2Segment segment;
 		b2SmoothSegment smoothSegment;
 	};
+
+	uint16_t revision;
+	bool isSensor;
+	bool enableSensorEvents;
+	bool enableContactEvents;
+	bool enablePreSolveEvents;
+	bool enlargedAABB;
+	bool isFast;
 } b2Shape;
 
 typedef struct b2ChainShape
 {
-	b2Object object;
-	int32_t bodyIndex;
-	int32_t nextIndex;
-	int32_t* shapeIndices;
-	int32_t count;
+	int id;
+	int bodyId;
+	int nextChainId;
+	int* shapeIndices;
+	int count;
+	uint16_t revision;
 } b2ChainShape;
 
 typedef struct b2ShapeExtent
@@ -64,17 +65,17 @@ typedef struct b2ShapeExtent
 	float maxExtent;
 } b2ShapeExtent;
 
-void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform xf);
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform);
 void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp);
 
 b2MassData b2ComputeShapeMass(const b2Shape* shape);
 b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape);
-b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform xf);
+b2AABB b2ComputeShapeAABB(const b2Shape* shape, b2Transform transform);
 b2Vec2 b2GetShapeCentroid(const b2Shape* shape);
 
 b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
 
-b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf);
-b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf);
+b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform transform);
+b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform transform);
 
-b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId);
+b2Transform b2GetOwnerTransform(b2World* world, b2Shape* shape);

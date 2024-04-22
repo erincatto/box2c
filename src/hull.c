@@ -5,7 +5,7 @@
 
 #include "core.h"
 
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <float.h>
 

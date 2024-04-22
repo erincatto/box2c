@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/geometry.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "test_macros.h"
 #include "box2d/hull.h"
 
@@ -26,7 +26,7 @@ static int ShapeMassTest(void)
 
 	{
 		float radius = capsule.radius;
-		float length = b2Distance(capsule.point1, capsule.point2);
+		float length = b2Distance(capsule.center1, capsule.center2);
 
 		b2MassData md = b2ComputeCapsuleMass(&capsule, 1.0f);
 

@@ -3,7 +3,7 @@
 
 #include "box2d/constants.h"
 #include "box2d/distance.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "test_macros.h"
 
 #include <float.h>
@@ -42,8 +42,8 @@ static int ShapeDistanceTest(void)
 	};
 
 	b2DistanceInput input;
-	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
-	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
+	input.proxyA = b2MakeProxy(vas, ARRAY_COUNT(vas), 0.0f);
+	input.proxyB = b2MakeProxy(vbs, ARRAY_COUNT(vbs), 0.0f);
 	input.transformA = b2Transform_identity;
 	input.transformB = b2Transform_identity;
 	input.useRadii = false;
@@ -70,8 +70,8 @@ static int ShapeCastTest(void)
 	};
 
 	b2ShapeCastPairInput input;
-	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
-	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
+	input.proxyA = b2MakeProxy(vas, ARRAY_COUNT(vas), 0.0f);
+	input.proxyB = b2MakeProxy(vbs, ARRAY_COUNT(vbs), 0.0f);
 	input.transformA = b2Transform_identity;
 	input.transformB = b2Transform_identity;
 	input.translationB = (b2Vec2){-2.0f, 0.0f};
@@ -99,8 +99,8 @@ static int TimeOfImpactTest(void)
 	};
 
 	b2TOIInput input;
-	input.proxyA = b2MakeProxy(vas, B2_ARRAY_COUNT(vas), 0.0f);
-	input.proxyB = b2MakeProxy(vbs, B2_ARRAY_COUNT(vbs), 0.0f);
+	input.proxyA = b2MakeProxy(vas, ARRAY_COUNT(vas), 0.0f);
+	input.proxyB = b2MakeProxy(vbs, ARRAY_COUNT(vbs), 0.0f);
 	input.sweepA = (b2Sweep){b2Vec2_zero, b2Vec2_zero, b2Vec2_zero, b2Rot_identity, b2Rot_identity};
 	input.sweepB = (b2Sweep){b2Vec2_zero, b2Vec2_zero, (b2Vec2){-2.0f, 0.0f}, b2Rot_identity, b2Rot_identity};
 	input.tMax = 1.0f;

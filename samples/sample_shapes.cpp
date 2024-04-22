@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "draw.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -8,7 +9,7 @@
 #include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -858,7 +859,7 @@ static int sampleIndex3 = RegisterSample("Shapes", "Friction", Friction::Create)
 class ModifyGeometry : public Sample
 {
 public:
-	ModifyGeometry(Settings& settings)
+	explicit ModifyGeometry(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

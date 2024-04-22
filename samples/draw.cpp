@@ -4,7 +4,7 @@
 #include "draw.h"
 
 #include "box2d/constants.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -457,10 +457,13 @@ struct GLRenderLines
 		m_count = 0;
 	}
 
+	// need lots of space for lines so they draw last
+	// could also consider disabling depth buffer
 	enum
 	{
-		e_maxVertices = 2 * 512
+		e_maxVertices = 32 * 512
 	};
+
 	b2Vec2 m_vertices[e_maxVertices];
 	b2Color m_colors[e_maxVertices];
 

@@ -11,7 +11,7 @@
 
 #include "box2d/api.h"
 #include "box2d/constants.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/timer.h"
 
 #include <glad/glad.h>
@@ -24,16 +24,16 @@
 #include <stdlib.h>
 
 #ifdef BOX2D_PROFILE
-#include <tracy/Tracy.hpp>
+	#include <tracy/Tracy.hpp>
 #else
-#define FrameMark
+	#define FrameMark
 #endif
 
 #if defined(_WIN32)
-#include <crtdbg.h>
+	#include <crtdbg.h>
 
-static int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber, const unsigned char* filename,
-					   int lineNumber)
+static int MyAllocHook(int allocType, void* userData, size_t size, int blockType, long requestNumber,
+					   const unsigned char* filename, int lineNumber)
 {
 	// This hook can help find leaks
 	if (size == 143)
@@ -48,7 +48,6 @@ static int MyAllocHook(int allocType, void* userData, size_t size, int blockType
 GLFWwindow* g_mainWindow = nullptr;
 static int32_t s_selection = 0;
 static Sample* s_sample = nullptr;
-static Settings s_defaultSettings;
 static Settings s_settings;
 static bool s_rightMouseDown = false;
 static b2Vec2 s_clickPointWS = b2Vec2_zero;
@@ -57,7 +56,7 @@ static float s_framebufferScale = 1.0f;
 
 inline bool IsPowerOfTwo(int32_t x)
 {
-    return (x != 0) && ((x & (x - 1)) == 0);
+	return (x != 0) && ((x & (x - 1)) == 0);
 }
 
 void* AllocFcn(uint32_t size, int32_t alignment)
@@ -67,6 +66,7 @@ void* AllocFcn(uint32_t size, int32_t alignment)
 	assert(IsPowerOfTwo(alignment));
 	size_t sizeAligned = ((size - 1) | (alignment - 1)) + 1;
 	assert((sizeAligned & (alignment - 1)) == 0);
+
 #if defined(_WIN64)
 	void* ptr = _aligned_malloc(sizeAligned, alignment);
 #else
@@ -144,12 +144,16 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		assert(false);
 	}
 
+#if 1
+	// this doesn't look that good
 	// Search for font file
 	const char* fontPath1 = "data/droid_sans.ttf";
-	const char* fontPath2 = "../data/droid_sans.ttf";
+	const char* fontPath2 = "../samples/data/droid_sans.ttf";
+	const char* fontPath3 = "samples/data/droid_sans.ttf";
 	const char* fontPath = nullptr;
 	FILE* file1 = fopen(fontPath1, "rb");
 	FILE* file2 = fopen(fontPath2, "rb");
+	FILE* file3 = fopen(fontPath3, "rb");
 	if (file1)
 	{
 		fontPath = fontPath1;
@@ -162,12 +166,20 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		fclose(file2);
 	}
 
+	if (file3)
+	{
+		fontPath = fontPath3;
+		fclose(file3);
+	}
+
 	if (fontPath)
 	{
 		ImFontConfig fontConfig;
 		fontConfig.RasterizerMultiply = s_windowScale * s_framebufferScale;
 		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 14.0f, &fontConfig);
+		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 128.0f, &fontConfig);
 	}
+#endif
 }
 
 static void DestroyUI()
@@ -393,7 +405,8 @@ static void UpdateUI()
 		ImGui::SetNextWindowPos({g_camera.m_width - menuWidth - 10.0f, 10.0f});
 		ImGui::SetNextWindowSize({menuWidth, g_camera.m_height - 20.0f});
 
-		ImGui::Begin("Tools", &g_draw.m_showUI, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+		ImGui::Begin("Tools", &g_draw.m_showUI,
+					 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
 		if (ImGui::BeginTabBar("ControlTabs", ImGuiTabBarFlags_None))
 		{
@@ -402,7 +415,7 @@ static void UpdateUI()
 				ImGui::PushItemWidth(100.0f);
 				ImGui::SliderInt("Sub-steps", &s_settings.subStepCount, 1, 50);
 				ImGui::SliderFloat("Hertz", &s_settings.hertz, 5.0f, 120.0f, "%.0f hz");
-				
+
 				if (ImGui::SliderInt("Workers", &s_settings.workerCount, 1, maxWorkers))
 				{
 					s_settings.workerCount = B2_CLAMP(s_settings.workerCount, 1, maxWorkers);
@@ -577,12 +590,13 @@ int main(int, char**)
 	bool fullscreen = false;
 	if (fullscreen)
 	{
-		g_mainWindow = glfwCreateWindow(int(1920 * s_windowScale), int(1080 * s_windowScale), buffer, glfwGetPrimaryMonitor(), nullptr);
+		g_mainWindow =
+			glfwCreateWindow(int(1920 * s_windowScale), int(1080 * s_windowScale), buffer, glfwGetPrimaryMonitor(), nullptr);
 	}
 	else
 	{
-		g_mainWindow =
-			glfwCreateWindow(int(g_camera.m_width * s_windowScale), int(g_camera.m_height * s_windowScale), buffer, nullptr, nullptr);
+		g_mainWindow = glfwCreateWindow(int(g_camera.m_width * s_windowScale), int(g_camera.m_height * s_windowScale), buffer,
+										nullptr, nullptr);
 	}
 
 	if (g_mainWindow == nullptr)
@@ -693,16 +707,16 @@ int main(int, char**)
 
 		UpdateUI();
 
-		//ImGui::ShowDemoWindow();
+		// ImGui::ShowDemoWindow();
 
 		// if (g_draw.m_showUI)
 		{
-			snprintf(buffer, 128, "%.1f ms - step %d - camera (%g, %g, %g)", 1000.0f * frameTime, s_sample->m_stepCount, g_camera.m_center.x,
-					 g_camera.m_center.y, g_camera.m_zoom);
+			snprintf(buffer, 128, "%.1f ms - step %d - camera (%g, %g, %g)", 1000.0f * frameTime, s_sample->m_stepCount,
+					 g_camera.m_center.x, g_camera.m_center.y, g_camera.m_zoom);
 
 			ImGui::Begin("Overlay", nullptr,
-						ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
-							ImGuiWindowFlags_NoScrollbar);
+						 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+							 ImGuiWindowFlags_NoScrollbar);
 			ImGui::SetCursorPos(ImVec2(5.0f, g_camera.m_height - 20.0f));
 			ImGui::TextColored(ImColor(153, 230, 153, 255), "%s", buffer);
 			ImGui::End();
@@ -736,7 +750,7 @@ int main(int, char**)
 		int loopCount = 0;
 		while (time2 < targetTime)
 		{
-			b2SleepMilliseconds(0.0f);
+			b2Yield();
 			time2 = glfwGetTime();
 			++loopCount;
 		}

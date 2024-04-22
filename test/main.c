@@ -18,6 +18,7 @@
 //}
 #endif
 
+extern int AllocatorTest(void);
 extern int BitSetTest(void);
 extern int MathTest(void);
 extern int CollisionTest(void);
@@ -31,6 +32,11 @@ int main(void)
 {
 #if defined(_WIN32)
 	// Enable memory-leak reports
+
+	// How to break at the leaking allocation, in the watch window enter this variable
+	// and set it to the allocation number in {}. Do this at the first line in main.
+	// {,,ucrtbased.dll}_crtBreakAlloc = <allocation number> 3970
+
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
 	//_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
@@ -41,6 +47,7 @@ int main(void)
 	printf("Starting Box2D unit tests\n");
 	printf("======================================\n");
 
+	RUN_TEST(AllocatorTest);
 	RUN_TEST(MathTest);
 	RUN_TEST(CollisionTest);
 	RUN_TEST(DeterminismTest);

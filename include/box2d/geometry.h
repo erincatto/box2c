@@ -52,14 +52,14 @@ typedef struct b2MassData
 /// A solid circle
 typedef struct b2Circle
 {
-	b2Vec2 point;
+	b2Vec2 center;
 	float radius;
 } b2Circle;
 
 /// A solid capsule
 typedef struct b2Capsule
 {
-	b2Vec2 point1, point2;
+	b2Vec2 center1, center2;
 	float radius;
 } b2Capsule;
 
@@ -75,7 +75,7 @@ typedef struct b2Polygon
 	b2Vec2 normals[b2_maxPolygonVertices];
 	b2Vec2 centroid;
 	float radius;
-	int32_t count;
+	int count;
 } b2Polygon;
 
 /// A line segment with two-sided collision.
@@ -99,7 +99,7 @@ typedef struct b2SmoothSegment
 	b2Vec2 ghost2;
 
 	/// The owning chain shape index (internal usage only)
-	int32_t chainIndex;
+	int32_t chainId;
 } b2SmoothSegment;
 
 /// Validate ray cast input data (NaN, etc)

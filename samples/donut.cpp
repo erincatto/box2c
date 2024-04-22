@@ -4,7 +4,7 @@
 #include "donut.h"
 
 #include "box2d/box2d.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <assert.h>
 
@@ -86,14 +86,9 @@ void Donut::Despawn()
 
 	for (int i = 0; i < e_sides; ++i)
 	{
-		//b2DestroyJoint(m_jointIds[i]);
-		m_jointIds[i] = b2_nullJointId;
-	}
-
-	for (int i = 0; i < e_sides; ++i)
-	{
-		b2DestroyBodyAndJoints(m_bodyIds[i]);
+		b2DestroyBody(m_bodyIds[i]);
 		m_bodyIds[i] = b2_nullBodyId;
+		m_jointIds[i] = b2_nullJointId;
 	}
 
 	m_isSpawned = false;

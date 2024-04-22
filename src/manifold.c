@@ -7,7 +7,7 @@
 
 #include "box2d/distance.h"
 #include "box2d/geometry.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 
 #include <float.h>
 #include <stdatomic.h>
@@ -43,8 +43,8 @@ b2Manifold b2CollideCircles(const b2Circle* circleA, b2Transform xfA, const b2Ci
 
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
-	b2Vec2 pointA = circleA->point;
-	b2Vec2 pointB = b2TransformPoint(xf, circleB->point);
+	b2Vec2 pointA = circleA->center;
+	b2Vec2 pointB = b2TransformPoint(xf, circleB->center);
 
 	float distance;
 	b2Vec2 normal = b2GetLengthAndNormalize(&distance, b2Sub(pointB, pointA));
@@ -81,11 +81,11 @@ b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA,
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
 	// Compute circle position in the frame of the capsule.
-	b2Vec2 pB = b2TransformPoint(xf, circleB->point);
+	b2Vec2 pB = b2TransformPoint(xf, circleB->center);
 
 	// Compute closest point
-	b2Vec2 p1 = capsuleA->point1;
-	b2Vec2 p2 = capsuleA->point2;
+	b2Vec2 p1 = capsuleA->center1;
+	b2Vec2 p2 = capsuleA->center2;
 
 	b2Vec2 e = b2Sub(p2, p1);
 
@@ -145,7 +145,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
 	// Compute circle position in the frame of the polygon.
-	b2Vec2 c = b2TransformPoint(xf, circleB->point);
+	b2Vec2 c = b2TransformPoint(xf, circleB->center);
 	float radiusA = polygonA->radius;
 	float radiusB = circleB->radius;
 	float radius = radiusA + radiusB;
@@ -258,8 +258,8 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
 							 b2DistanceCache* cache)
 {
-	b2Polygon polyA = b2MakeCapsule(capsuleA->point1, capsuleA->point2, capsuleA->radius);
-	b2Polygon polyB = b2MakeCapsule(capsuleB->point1, capsuleB->point2, capsuleB->radius);
+	b2Polygon polyA = b2MakeCapsule(capsuleA->center1, capsuleA->center2, capsuleA->radius);
+	b2Polygon polyB = b2MakeCapsule(capsuleB->center1, capsuleB->center2, capsuleB->radius);
 	return b2CollidePolygons(&polyA, xfA, &polyB, xfB, cache);
 }
 
@@ -267,14 +267,14 @@ b2Manifold b2CollideSegmentAndCapsule(const b2Segment* segmentA, b2Transform xfA
 									  b2DistanceCache* cache)
 {
 	b2Polygon polyA = b2MakeCapsule(segmentA->point1, segmentA->point2, 0.0f);
-	b2Polygon polyB = b2MakeCapsule(capsuleB->point1, capsuleB->point2, capsuleB->radius);
+	b2Polygon polyB = b2MakeCapsule(capsuleB->center1, capsuleB->center2, capsuleB->radius);
 	return b2CollidePolygons(&polyA, xfA, &polyB, xfB, cache);
 }
 
 b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
 									  b2DistanceCache* cache)
 {
-	b2Polygon polyB = b2MakeCapsule(capsuleB->point1, capsuleB->point2, capsuleB->radius);
+	b2Polygon polyB = b2MakeCapsule(capsuleB->center1, capsuleB->center2, capsuleB->radius);
 	return b2CollidePolygons(polygonA, xfA, &polyB, xfB, cache);
 }
 
@@ -696,7 +696,7 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
 	// Compute circle in frame of segment
-	b2Vec2 pB = b2TransformPoint(xf, circleB->point);
+	b2Vec2 pB = b2TransformPoint(xf, circleB->center);
 
 	b2Vec2 p1 = smoothSegmentA->segment.point1;
 	b2Vec2 p2 = smoothSegmentA->segment.point2;
@@ -779,7 +779,7 @@ b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA
 b2Manifold b2CollideSmoothSegmentAndCapsule(const b2SmoothSegment* segmentA, b2Transform xfA, const b2Capsule* capsuleB,
 											b2Transform xfB, b2DistanceCache* cache)
 {
-	b2Polygon polyB = b2MakeCapsule(capsuleB->point1, capsuleB->point2, capsuleB->radius);
+	b2Polygon polyB = b2MakeCapsule(capsuleB->center1, capsuleB->center2, capsuleB->radius);
 	return b2CollideSmoothSegmentAndPolygon(segmentA, xfA, &polyB, xfB, cache);
 }
 

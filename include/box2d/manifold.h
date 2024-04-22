@@ -18,11 +18,12 @@ typedef struct b2SmoothSegment b2SmoothSegment;
 /// of the contact points.
 typedef struct b2ManifoldPoint
 {
-	/// location of the contact in world space
-	/// subject to precision loss at large coordinates
+	/// Location of the contact point in world space. Subject to precision loss at large coordinates.
+	///	@warning should only be used for debugging.
 	b2Vec2 point;
 
-	/// location of contact point relative to body center of mass in world space
+	/// Location of contact point relative to body origin in world space.
+	///	@warning when used internally to the Box2D solver, these are relative to the center of mass.
 	b2Vec2 anchorA, anchorB;
 
 	/// the separation of the contact point, negative if penetrating
@@ -49,7 +50,7 @@ typedef struct b2Manifold
 {
 	b2ManifoldPoint points[2];
 	b2Vec2 normal;
-	int32_t pointCount;
+	int pointCount;
 } b2Manifold;
 
 /// Use this to initialize your manifold

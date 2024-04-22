@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "draw.h"
 #include "sample.h"
 #include "settings.h"
 
@@ -13,7 +14,7 @@
 class BodyType : public Sample
 {
   public:
-	BodyType(Settings& settings)
+	explicit BodyType(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -21,6 +22,9 @@ class BodyType : public Sample
 			g_camera.m_center = {0.8f, 6.4f};
 			g_camera.m_zoom = 0.4f;
 		}
+
+		m_type = b2_dynamicBody;
+		m_isEnabled = true;
 
 		b2BodyId groundId = b2_nullBodyId;
 		{
@@ -36,7 +40,7 @@ class BodyType : public Sample
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {0.0f, 3.0f};
+			bodyDef.position = {-2.0f, 3.0f};
 			m_attachmentId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.5f, 2.0f);
@@ -45,10 +49,25 @@ class BodyType : public Sample
 			b2CreatePolygonShape(m_attachmentId, &shapeDef, &box);
 		}
 
+		// Define second attachment
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = m_type;
+			bodyDef.isEnabled = m_isEnabled;
+			bodyDef.position = {3.0f, 3.0f};
+			m_secondAttachmentId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(0.5f, 2.0f);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.density = 1.0f;
+			b2CreatePolygonShape(m_secondAttachmentId, &shapeDef, &box);
+		}
+
 		// Define platform
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
-			bodyDef.type = b2_dynamicBody;
+			bodyDef.type = m_type;
+			bodyDef.isEnabled = m_isEnabled;
 			bodyDef.position = {-4.0f, 5.0f};
 			m_platformId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -60,10 +79,19 @@ class BodyType : public Sample
 			b2CreatePolygonShape(m_platformId, &shapeDef, &box);
 
 			b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
-			b2Vec2 pivot = {0.0f, 5.0f};
+			b2Vec2 pivot = {-2.0f, 5.0f};
 			revoluteDef.bodyIdA = m_attachmentId;
 			revoluteDef.bodyIdB = m_platformId;
 			revoluteDef.localAnchorA = b2Body_GetLocalPoint(m_attachmentId, pivot);
+			revoluteDef.localAnchorB = b2Body_GetLocalPoint(m_platformId, pivot);
+			revoluteDef.maxMotorTorque = 50.0f;
+			revoluteDef.enableMotor = true;
+			b2CreateRevoluteJoint(m_worldId, &revoluteDef);
+
+			pivot = {3.0f, 5.0f};
+			revoluteDef.bodyIdA = m_secondAttachmentId;
+			revoluteDef.bodyIdB = m_platformId;
+			revoluteDef.localAnchorA = b2Body_GetLocalPoint(m_secondAttachmentId, pivot);
 			revoluteDef.localAnchorB = b2Body_GetLocalPoint(m_platformId, pivot);
 			revoluteDef.maxMotorTorque = 50.0f;
 			revoluteDef.enableMotor = true;
@@ -92,7 +120,7 @@ class BodyType : public Sample
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {0.0f, 8.0f};
+			bodyDef.position = {-3.0f, 8.0f};
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeBox(0.75f, 0.75f);
@@ -103,6 +131,58 @@ class BodyType : public Sample
 
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
+
+		// Create a second payload
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = m_type;
+			bodyDef.isEnabled = m_isEnabled;
+			bodyDef.position = {2.0f, 8.0f};
+			m_secondPayloadId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeBox(0.75f, 0.75f);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.friction = 0.6f;
+			shapeDef.density = 2.0f;
+
+			b2CreatePolygonShape(m_secondPayloadId, &shapeDef, &box);
+		}
+
+		// Create a separate body on the ground
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = m_type;
+			bodyDef.isEnabled = m_isEnabled;
+			bodyDef.position = {8.0f, 0.2f};
+			m_touchingBodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule = {{0.0f, 0.0f}, {1.0f, 0.0f}, 0.25f};
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.friction = 0.6f;
+			shapeDef.density = 2.0f;
+
+			b2CreateCapsuleShape(m_touchingBodyId, &shapeDef, &capsule);
+		}
+
+		// Create a separate floating body
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = m_type;
+			bodyDef.isEnabled = m_isEnabled;
+			bodyDef.position = {-8.0f, 12.0f};
+			bodyDef.gravityScale = 0.0f;
+			m_floatingBodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Circle circle = {{0.0f, 0.5f}, 0.25f};
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.friction = 0.6f;
+			shapeDef.density = 2.0f;
+
+			b2CreateCircleShape(m_floatingBodyId, &shapeDef, &circle);
+		}
 	}
 
 	void UpdateUI() override
@@ -111,35 +191,61 @@ class BodyType : public Sample
 		ImGui::SetNextWindowSize(ImVec2(200.0f, 150.0f));
 		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		b2BodyType bodyType = b2Body_GetType(m_platformId);
-
-		if (ImGui::RadioButton("Static", bodyType == b2_staticBody))
+		if (ImGui::RadioButton("Static", m_type == b2_staticBody))
 		{
+			m_type = b2_staticBody;
 			b2Body_SetType(m_platformId, b2_staticBody);
+			b2Body_SetType(m_secondAttachmentId, b2_staticBody);
+			b2Body_SetType(m_secondPayloadId, b2_staticBody);
+			b2Body_SetType(m_touchingBodyId, b2_staticBody);
+			b2Body_SetType(m_floatingBodyId, b2_staticBody);
 		}
 
-		if (ImGui::RadioButton("Kinematic", bodyType == b2_kinematicBody))
+		if (ImGui::RadioButton("Kinematic", m_type == b2_kinematicBody))
 		{
+			m_type = b2_kinematicBody;
 			b2Body_SetType(m_platformId, b2_kinematicBody);
 			b2Body_SetLinearVelocity(m_platformId, {-m_speed, 0.0f});
 			b2Body_SetAngularVelocity(m_platformId, 0.0f);
+			b2Body_SetType(m_secondAttachmentId, b2_kinematicBody);
+			b2Body_SetType(m_secondPayloadId, b2_kinematicBody);
+			b2Body_SetType(m_touchingBodyId, b2_kinematicBody);
+			b2Body_SetType(m_floatingBodyId, b2_kinematicBody);
 		}
 		
-		if (ImGui::RadioButton("Dynamic", bodyType == b2_dynamicBody))
+		if (ImGui::RadioButton("Dynamic", m_type == b2_dynamicBody))
 		{
+			m_type = b2_dynamicBody;
 			b2Body_SetType(m_platformId, b2_dynamicBody);
+			b2Body_SetType(m_secondAttachmentId, b2_dynamicBody);
+			b2Body_SetType(m_secondPayloadId, b2_dynamicBody);
+			b2Body_SetType(m_touchingBodyId, b2_dynamicBody);
+			b2Body_SetType(m_floatingBodyId, b2_dynamicBody);
 		}
 
-		bool isEnabled = b2Body_IsEnabled(m_platformId);
-		if (ImGui::Checkbox("Enable", &isEnabled))
+		if (ImGui::Checkbox("Enable", &m_isEnabled))
 		{
-			if (isEnabled)
+			if (m_isEnabled)
 			{
 				b2Body_Enable(m_platformId);
+				b2Body_Enable(m_secondAttachmentId);
+				b2Body_Enable(m_secondPayloadId);
+				b2Body_Enable(m_touchingBodyId);
+				b2Body_Enable(m_floatingBodyId);
+
+				if (m_type == b2_kinematicBody)
+				{
+					b2Body_SetLinearVelocity(m_platformId, {-m_speed, 0.0f});
+					b2Body_SetAngularVelocity(m_platformId, 0.0f);
+				}
 			}
 			else
 			{
 				b2Body_Disable(m_platformId);
+				b2Body_Disable(m_secondAttachmentId);
+				b2Body_Disable(m_secondPayloadId);
+				b2Body_Disable(m_touchingBodyId);
+				b2Body_Disable(m_floatingBodyId);
 			}
 		}
 
@@ -149,7 +255,7 @@ class BodyType : public Sample
 	void Step(Settings& settings) override
 	{
 		// Drive the kinematic body.
-		if (b2Body_GetType(m_platformId) == b2_kinematicBody)
+		if (m_type == b2_kinematicBody)
 		{
 			b2Vec2 p = b2Body_GetPosition(m_platformId);
 			b2Vec2 v = b2Body_GetLinearVelocity(m_platformId);
@@ -170,8 +276,14 @@ class BodyType : public Sample
 	}
 
 	b2BodyId m_attachmentId;
+	b2BodyId m_secondAttachmentId;
 	b2BodyId m_platformId;
+	b2BodyId m_secondPayloadId;
+	b2BodyId m_touchingBodyId;
+	b2BodyId m_floatingBodyId;
+	b2BodyType m_type;
 	float m_speed;
+	bool m_isEnabled;
 };
 
 static int sampleBodyType = RegisterSample("Bodies", "Body Type", BodyType::Create);
@@ -183,7 +295,7 @@ static int sampleBodyType = RegisterSample("Bodies", "Body Type", BodyType::Crea
 class Character : public Sample
 {
 public:
-	Character(Settings& settings)
+	explicit Character(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -363,7 +475,7 @@ static int sampleCharacter = RegisterSample("Bodies", "Character", Character::Cr
 class Weeble : public Sample
 {
 public:
-	Weeble(Settings& settings)
+	explicit Weeble(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -435,7 +547,7 @@ static int sampleWeeble = RegisterSample("Bodies", "Weeble", Weeble::Create);
 class Sleep : public Sample
 {
 public:
-	Sleep(Settings& settings)
+	explicit Sleep(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -492,6 +604,20 @@ public:
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {0.0f, 1.0f}, 0.25f * b2_pi);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+
+		// A sleeping body to test waking on collision
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {5.0f, 1.0f};
+			bodyDef.isAwake = false;
+			bodyDef.enableSleep = true;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeSquare(1.0f);
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}

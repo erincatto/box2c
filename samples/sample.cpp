@@ -3,15 +3,15 @@
 
 #include "sample.h"
 
+#include "draw.h"
 #include "settings.h"
 
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
 #include "box2d/hull.h"
 #include "box2d/manifold.h"
-#include "box2d/math.h"
+#include "box2d/math_functions.h"
 #include "box2d/math_cpp.h"
-#include "box2d/timer.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -85,17 +85,14 @@ Sample::Sample(Settings& settings)
 	m_scheduler.Initialize(settings.workerCount);
 	m_taskCount = 0;
 
+	m_threadCount = 1 + settings.workerCount;
+
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	worldDef.workerCount = settings.workerCount;
-	worldDef.enqueueTask = &EnqueueTask;
-	worldDef.finishTask = &FinishTask;
+	worldDef.enqueueTask = EnqueueTask;
+	worldDef.finishTask = FinishTask;
 	worldDef.userTaskContext = this;
 	worldDef.enableSleep = settings.enableSleep;
-
-	// These are not ideal, but useful for testing Box2D
-	worldDef.bodyCapacity = 2;
-	worldDef.contactCapacity = 2;
-	worldDef.stackAllocatorCapacity = 0;
 
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
@@ -185,7 +182,7 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			jd.dampingRatio = 0.7f;
 			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
 
-			b2Body_Wake(queryContext.bodyId);
+			b2Body_SetAwake(queryContext.bodyId, true);
 		}
 	}
 }
@@ -208,7 +205,7 @@ void Sample::MouseMove(b2Vec2 p)
 	{
 		b2MouseJoint_SetTarget(m_mouseJointId, p);
 		b2BodyId bodyIdB = b2Joint_GetBodyB(m_mouseJointId);
-		b2Body_Wake(bodyIdB);
+		b2Body_SetAwake(bodyIdB, true);
 	}
 }
 
@@ -269,11 +266,12 @@ void Sample::Step(Settings& settings)
 	{
 		b2Counters s = b2World_GetCounters(m_worldId);
 
-		g_draw.DrawString(5, m_textLine, "islands/bodies/contacts/joints = %d/%d/%d/%d", s.islandCount, s.bodyCount, s.contactCount,
+		g_draw.DrawString(5, m_textLine, "bodies/shapes/contacts/joints = %d/%d/%d/%d", s.bodyCount, s.shapeCount, s.contactCount,
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "pairs/proxies/height = %d/%d/%d", s.pairCount, s.proxyCount, s.treeHeight);
+		g_draw.DrawString(5, m_textLine, "islands/tree_height/stack/tasks = %d/%d/%d/%d", s.islandCount, s.treeHeight,
+						  s.stackUsed, s.taskCount);
 		m_textLine += m_textIncrement;
 
 		int32_t totalCount = 0;
@@ -284,18 +282,8 @@ void Sample::Step(Settings& settings)
 			offset += snprintf(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
 			totalCount += s.colorCounts[i];
 		}
-		totalCount += s.colorCounts[b2_graphColorCount];
-		snprintf(buffer + offset, 256 - offset, "(%d)[%d]", s.colorCounts[b2_graphColorCount], totalCount);
+		snprintf(buffer + offset, 256 - offset, "[%d]", totalCount);
 		g_draw.DrawString(5, m_textLine, buffer);
-		m_textLine += m_textIncrement;
-
-		g_draw.DrawString(5, m_textLine, "tree: proxies/height = %d/%d", s.proxyCount, s.treeHeight);
-		m_textLine += m_textIncrement;
-
-		g_draw.DrawString(5, m_textLine, "stack allocator capacity/used = %d/%d", s.stackCapacity, s.stackUsed);
-		m_textLine += m_textIncrement;
-
-		g_draw.DrawString(5, m_textLine, "task count = %d", s.taskCount);
 		m_textLine += m_textIncrement;
 
 		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);
@@ -311,6 +299,19 @@ void Sample::Step(Settings& settings)
 		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
 		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
 		m_maxProfile.solveConstraints = B2_MAX(m_maxProfile.solveConstraints, p.solveConstraints);
+		m_maxProfile.prepareTasks = B2_MAX(m_maxProfile.prepareTasks, p.prepareTasks);
+		m_maxProfile.solverTasks = B2_MAX(m_maxProfile.solverTasks, p.solverTasks);
+		m_maxProfile.prepareConstraints = B2_MAX(m_maxProfile.prepareConstraints, p.prepareConstraints);
+		m_maxProfile.integrateVelocities = B2_MAX(m_maxProfile.integrateVelocities, p.integrateVelocities);
+		m_maxProfile.warmStart = B2_MAX(m_maxProfile.warmStart, p.warmStart);
+		m_maxProfile.solveVelocities = B2_MAX(m_maxProfile.solveVelocities, p.solveVelocities);
+		m_maxProfile.integratePositions = B2_MAX(m_maxProfile.integratePositions, p.integratePositions);
+		m_maxProfile.relaxVelocities = B2_MAX(m_maxProfile.relaxVelocities, p.relaxVelocities);
+		m_maxProfile.applyRestitution = B2_MAX(m_maxProfile.applyRestitution, p.applyRestitution);
+		m_maxProfile.storeImpulses = B2_MAX(m_maxProfile.storeImpulses, p.storeImpulses);
+		m_maxProfile.finalizeBodies = B2_MAX(m_maxProfile.finalizeBodies, p.finalizeBodies);
+		m_maxProfile.sleepIslands = B2_MAX(m_maxProfile.sleepIslands, p.sleepIslands);
+		m_maxProfile.splitIslands = B2_MAX(m_maxProfile.splitIslands, p.splitIslands);
 		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
 		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
 
@@ -320,6 +321,19 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.solve += p.solve;
 		m_totalProfile.buildIslands += p.buildIslands;
 		m_totalProfile.solveConstraints += p.solveConstraints;
+		m_totalProfile.prepareTasks += p.prepareTasks;
+		m_totalProfile.solverTasks += p.solverTasks;
+		m_totalProfile.prepareConstraints += p.prepareConstraints;
+		m_totalProfile.integrateVelocities += p.integrateVelocities;
+		m_totalProfile.warmStart += p.warmStart;
+		m_totalProfile.solveVelocities += p.solveVelocities;
+		m_totalProfile.integratePositions += p.integratePositions;
+		m_totalProfile.relaxVelocities += p.relaxVelocities;
+		m_totalProfile.applyRestitution += p.applyRestitution;
+		m_totalProfile.storeImpulses += p.storeImpulses;
+		m_totalProfile.finalizeBodies += p.finalizeBodies;
+		m_totalProfile.sleepIslands += p.sleepIslands;
+		m_totalProfile.splitIslands += p.splitIslands;
 		m_totalProfile.broadphase += p.broadphase;
 		m_totalProfile.continuous += p.continuous;
 	}
@@ -339,30 +353,84 @@ void Sample::Step(Settings& settings)
 			aveProfile.solve = scale * m_totalProfile.solve;
 			aveProfile.buildIslands = scale * m_totalProfile.buildIslands;
 			aveProfile.solveConstraints = scale * m_totalProfile.solveConstraints;
+			aveProfile.prepareTasks = scale * m_totalProfile.prepareTasks;
+			aveProfile.solverTasks = scale * m_totalProfile.solverTasks;
+			aveProfile.prepareConstraints = scale * m_totalProfile.prepareConstraints;
+			aveProfile.integrateVelocities = scale * m_totalProfile.integrateVelocities;
+			aveProfile.warmStart = scale * m_totalProfile.warmStart;
+			aveProfile.solveVelocities = scale * m_totalProfile.solveVelocities;
+			aveProfile.integratePositions = scale * m_totalProfile.integratePositions;
+			aveProfile.relaxVelocities = scale * m_totalProfile.relaxVelocities;
+			aveProfile.applyRestitution = scale * m_totalProfile.applyRestitution;
+			aveProfile.storeImpulses = scale * m_totalProfile.storeImpulses;
+			aveProfile.finalizeBodies = scale * m_totalProfile.finalizeBodies;
+			aveProfile.sleepIslands = scale * m_totalProfile.sleepIslands;
+			aveProfile.splitIslands = scale * m_totalProfile.splitIslands;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 			aveProfile.continuous = scale * m_totalProfile.continuous;
 		}
 
 		g_draw.DrawString(5, m_textLine, "step [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.step, aveProfile.step, m_maxProfile.step);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs, m_maxProfile.pairs);
+		g_draw.DrawString(5, m_textLine, "pairs [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.pairs, aveProfile.pairs,
+						  m_maxProfile.pairs);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "collide [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.collide, aveProfile.collide,
 						  m_maxProfile.collide);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve, m_maxProfile.solve);
+		g_draw.DrawString(5, m_textLine, "solve [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solve, aveProfile.solve,
+						  m_maxProfile.solve);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands, aveProfile.buildIslands,
-						  m_maxProfile.buildIslands);
+		g_draw.DrawString(5, m_textLine, "builds island [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.buildIslands,
+						  aveProfile.buildIslands, m_maxProfile.buildIslands);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "solve constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveConstraints, aveProfile.solveConstraints,
-						  m_maxProfile.solveConstraints);
+		g_draw.DrawString(5, m_textLine, "solve constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveConstraints,
+						  aveProfile.solveConstraints, m_maxProfile.solveConstraints);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "prepare tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.prepareTasks,
+						  aveProfile.prepareTasks, m_maxProfile.prepareTasks);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "solver tasks [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solverTasks,
+						  aveProfile.solverTasks, m_maxProfile.solverTasks);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "prepare constraints [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.prepareConstraints,
+						  aveProfile.prepareConstraints, m_maxProfile.prepareConstraints);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "integrate velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.integrateVelocities,
+						  aveProfile.integrateVelocities, m_maxProfile.integrateVelocities);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "warm start [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.warmStart,
+						  aveProfile.warmStart, m_maxProfile.warmStart);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "solve velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveVelocities,
+						  aveProfile.solveVelocities, m_maxProfile.solveVelocities);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "integrate positions [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.integratePositions,
+						  aveProfile.integratePositions, m_maxProfile.integratePositions);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "relax velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.relaxVelocities,
+						  aveProfile.relaxVelocities, m_maxProfile.relaxVelocities);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "apply restitution [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.applyRestitution,
+						  aveProfile.applyRestitution, m_maxProfile.applyRestitution);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "store impulses [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.storeImpulses,
+						  aveProfile.storeImpulses, m_maxProfile.storeImpulses);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "finalize bodies [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.finalizeBodies,
+						  aveProfile.finalizeBodies, m_maxProfile.finalizeBodies);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "sleep islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.sleepIslands,
+						  aveProfile.sleepIslands, m_maxProfile.sleepIslands);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "split islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.splitIslands,
+						  aveProfile.splitIslands, m_maxProfile.splitIslands);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "continuous collision [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.continuous, aveProfile.continuous,
-						  m_maxProfile.continuous);
+		g_draw.DrawString(5, m_textLine, "continuous collision [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.continuous,
+						  aveProfile.continuous, m_maxProfile.continuous);
 		m_textLine += m_textIncrement;
 	}
 }

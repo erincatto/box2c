@@ -6,7 +6,6 @@
 #include "api.h"
 #include "math_types.h"
 
-#include <float.h>
 #include <math.h>
 #include <stdbool.h>
 

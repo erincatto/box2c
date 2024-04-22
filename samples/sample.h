@@ -8,12 +8,11 @@
 #include "box2d/timer.h"
 #include "box2d/types.h"
 
-#include "draw.h"
-
 #include "TaskScheduler.h"
 
-#include <atomic>
 #include <stdlib.h>
+
+#define ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
 
 struct Settings;
 
@@ -54,6 +53,7 @@ class SampleTask : public enki::ITaskSet
 };
 
 constexpr int32_t maxTasks = 64;
+constexpr int32_t maxThreads = 64;
 
 class Sample
 {
@@ -83,6 +83,7 @@ class Sample
 	enki::TaskScheduler m_scheduler;
 	SampleTask m_tasks[maxTasks];
 	int32_t m_taskCount;
+	int m_threadCount;
 
 	b2BodyId m_groundBodyId;
 

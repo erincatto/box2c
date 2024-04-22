@@ -18,7 +18,9 @@ void b2DestroyArray(void* a, int elementSize);
 void b2Array_Grow(void** a, int elementSize);
 void b2Array_Resize(void** a, int elementSize, int count);
 
-#define b2Array_Check(a, index) B2_ASSERT(0 <= index && index < b2Array(a).count)
+#define b2CheckIndex(a, index) B2_ASSERT(0 <= index && index < b2Array(a).count)
+#define b2CheckId(ARRAY, ID) B2_ASSERT(0 <= ID && ID < b2Array(ARRAY).count && ARRAY[ID].id == ID)
+#define b2CheckIdAndRevision(ARRAY, ID, REV) B2_ASSERT(0 <= ID && ID < b2Array(ARRAY).count && ARRAY[ID].id == ID && ARRAY[ID].revision == REV)
 
 #define b2Array_Clear(a) b2Array(a).count = 0
 

@@ -7,6 +7,7 @@
 #include "core.h"
 #include "joint.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "world.h"
 
 // needed for dll export
@@ -31,22 +32,40 @@
 // K = J * invM * JT
 //   = invMass1 + invI1 * cross(r1, u)^2 + invMass2 + invI2 * cross(r2, u)^2
 
-void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
-	int32_t indexA = base->edges[0].bodyIndex;
-	int32_t indexB = base->edges[1].bodyIndex;
-	b2Body* bodyA = context->bodies + indexA;
-	b2Body* bodyB = context->bodies + indexB;
+	// chase body id to the solver set where the body lives
+	int idA = base->bodyIdA;
+	int idB = base->bodyIdB;
 
-	B2_ASSERT(b2IsValidObject(&bodyA->object));
-	B2_ASSERT(b2IsValidObject(&bodyB->object));
+	b2World* world = context->world;
+	b2Body* bodies = world->bodyArray;
 
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2CheckIndex(bodies, idA);
+	b2CheckIndex(bodies, idB);
+
+	b2Body* bodyA = bodies + idA;
+	b2Body* bodyB = bodies + idB;
+
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
+
+	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
+
+	B2_ASSERT(0 <= bodyA->localIndex && bodyA->localIndex <= setA->sims.count);
+	B2_ASSERT(0 <= bodyB->localIndex && bodyB->localIndex <= setB->sims.count);
+
+	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
+	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
+
+	float mA = bodySimA->invMass;
+	float iA = bodySimA->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	base->invMassA = mA;
 	base->invMassB = mB;
@@ -55,13 +74,13 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	joint->indexA = bodyA->solverIndex;
-	joint->indexB = bodyB->solverIndex;
+	joint->indexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 	// initial anchors in world space
-	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
-	joint->deltaCenter = b2Sub(bodyB->position, bodyA->position);
+	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
+	joint->deltaCenter = b2Sub(bodySimB->center, bodySimA->center);
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
@@ -84,7 +103,7 @@ void b2PrepareDistanceJoint(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartDistanceJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -93,12 +112,12 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
-	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
 	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
 	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
@@ -116,7 +135,7 @@ void b2WarmStartDistanceJoint(b2Joint* base, b2StepContext* context)
 	stateB->angularVelocity += iB * b2Cross(rB, P);
 }
 
-void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
+void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
@@ -125,12 +144,12 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
-	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 	
 	b2Vec2 vA = stateA->linearVelocity;
 	float wA = stateA->angularVelocity;
@@ -273,7 +292,7 @@ void b2SolveDistanceJoint(b2Joint* base, b2StepContext* context, bool useBias)
 
 float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeStep)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	return (joint->impulse + joint->lowerImpulse - joint->upperImpulse) * inverseTimeStep;
@@ -281,7 +300,7 @@ float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeSte
 
 void b2DistanceJoint_SetLength(b2JointId jointId, float length)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	joint->length = B2_CLAMP(length, b2_linearSlop, b2_huge);
@@ -292,14 +311,14 @@ void b2DistanceJoint_SetLength(b2JointId jointId, float length)
 
 float b2DistanceJoint_GetLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->length;
 }
 
 void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
 	minLength = B2_CLAMP(minLength, b2_linearSlop, b2_huge);
@@ -313,39 +332,34 @@ void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float ma
 
 float b2DistanceJoint_GetMinLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->minLength;
 }
 
 float b2DistanceJoint_GetMaxLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->maxLength;
 }
 
 float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 
-	b2World* world = b2GetWorldFromIndex(jointId.world);
+	b2World* world = b2GetWorld(jointId.world0);
 	B2_ASSERT(world->locked == false);
 	if (world->locked)
 	{
 		return 0.0f;
 	}
 
-	int32_t indexA = base->edges[0].bodyIndex;
-	int32_t indexB = base->edges[1].bodyIndex;
-	b2Body* bodyA = world->bodies + indexA;
-	b2Body* bodyB = world->bodies + indexB;
+	b2Transform transformA = b2GetBodyTransform(world, base->bodyIdA);
+	b2Transform transformB = b2GetBodyTransform(world, base->bodyIdB);
 
-	B2_ASSERT(b2IsValidObject(&bodyA->object));
-	B2_ASSERT(b2IsValidObject(&bodyB->object));
-
-	b2Vec2 pA = b2TransformPoint(b2MakeTransform(bodyA), base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(b2MakeTransform(bodyB), base->localOriginAnchorB);
+	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 	b2Vec2 d = b2Sub(pB, pA);
 	float length = b2Length(d);
 	return length;
@@ -353,7 +367,7 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 
 void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	joint->hertz = hertz;
 	joint->dampingRatio = dampingRatio;
@@ -361,14 +375,14 @@ void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRati
 
 float b2DistanceJoint_GetHertz(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->hertz;
 }
 
 float b2DistanceJoint_GetDampingRatio(b2JointId jointId)
 {
-	b2Joint* base = b2GetJointCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->dampingRatio;
 }
@@ -380,8 +394,8 @@ void b2DistanceJoint::Dump()
 	int32 indexB = m_bodyB->m_islandIndex;
 
 	b2Dump("  b2DistanceJointDef jd;\n");
-	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
-	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
+	b2Dump("  jd.bodyA = sims[%d];\n", indexA);
+	b2Dump("  jd.bodyB = sims[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", m_collideConnected);
 	b2Dump("  jd.localAnchorA.Set(%.9g, %.9g);\n", m_localAnchorA.x, m_localAnchorA.y);
 	b2Dump("  jd.localAnchorB.Set(%.9g, %.9g);\n", m_localAnchorB.x, m_localAnchorB.y);
@@ -394,16 +408,14 @@ void b2DistanceJoint::Dump()
 }
 #endif
 
-void b2DrawDistance(b2DebugDraw* draw, b2Joint* base, b2Body* bodyA, b2Body* bodyB)
+void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transformA, b2Transform transformB)
 {
 	B2_ASSERT(base->type == b2_distanceJoint);
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Transform xfA = b2MakeTransform(bodyA);
-	b2Transform xfB = b2MakeTransform(bodyB);
-	b2Vec2 pA = b2TransformPoint(xfA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(xfB, base->localOriginAnchorB);
+	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
+	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 
 	b2Vec2 axis = b2Normalize(b2Sub(pB, pA));
 

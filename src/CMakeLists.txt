@@ -7,9 +7,10 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
-	bitset.inl
 	block_allocator.c
 	block_allocator.h
+	block_array.c
+	block_array.h
 	body.c
 	body.h
 	broad_phase.c
@@ -22,29 +23,31 @@ set(BOX2D_SOURCE_FILES
 	contact_solver.h
 	core.c
 	core.h
+	ctz.h
 	distance.c
 	distance_joint.c
 	dynamic_tree.c
 	geometry.c
 	hull.c
+	id_pool.c
+	id_pool.h
 	implementation.c
 	island.c
 	island.h
 	joint.c
 	joint.h
 	manifold.c
-	math.c
+	math_functions.c
 	motor_joint.c
 	mouse_joint.c
-	polygon_shape.h
-	pool.c
-	pool.h
 	prismatic_joint.c
 	revolute_joint.c
 	shape.c
 	shape.h
 	solver.c
 	solver.h
+	solver_set.c
+	solver_set.h
 	stack_allocator.c
 	stack_allocator.h
 	table.c
@@ -52,6 +55,7 @@ set(BOX2D_SOURCE_FILES
 	timer.c
 	types.c
 	user_constants.h.in
+	util.h
 	weld_joint.c
 	wheel_joint.c
 	world.c
@@ -73,7 +77,7 @@ set(BOX2D_API_FILES
 	../include/box2d/id.h
 	../include/box2d/joint_types.h
 	../include/box2d/manifold.h
-	../include/box2d/math.h
+	../include/box2d/math_functions.h
 	../include/box2d/math_cpp.h
 	../include/box2d/math_types.h
 	../include/box2d/timer.h
@@ -115,7 +119,7 @@ target_link_libraries(box2d PRIVATE simde)
 set_target_properties(box2d PROPERTIES
 	C_STANDARD 17
     C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
+    C_EXTENSIONS YES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
@@ -147,6 +151,7 @@ if (MSVC)
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# Atomics are still considered experimental in Visual Studio 17.8
+		# target_compile_options(box2d PRIVATE /experimental:c11atomics "$<$<CONFIG:Debug>:/fsanitize=address>")
 		target_compile_options(box2d PRIVATE /experimental:c11atomics)
 		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

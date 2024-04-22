@@ -44,6 +44,7 @@ add_subdirectory(src)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
 	option(BOX2D_SAMPLES "Build the Box2D samples" ON)
+	option(BOX2D_BENCHMARK "Build the Box2D benchmarks" OFF)
 	option(BOX2D_DOCS "Build the Box2D documentation" OFF)
 	option(BOX2D_PROFILE "Enable profiling with Tracy" OFF)
 
@@ -86,6 +87,10 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 			set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT samples)
 			set_property(TARGET samples PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 		endif()	
+	endif()
+
+	if (BOX2D_BENCHMARK)
+		add_subdirectory(benchmark)
 	endif()
 
 	if (BOX2D_DOCS)

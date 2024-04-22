@@ -5,6 +5,7 @@
 #include "core.h"
 #include "joint.h"
 #include "solver.h"
+#include "solver_set.h"
 #include "world.h"
 
 // needed for dll export
@@ -25,24 +26,43 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
+void b2PrepareMotorJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_motorJoint);
 
-	int32_t indexA = base->edges[0].bodyIndex;
-	int32_t indexB = base->edges[1].bodyIndex;
-	B2_ASSERT(0 <= indexA && indexA < context->bodyCapacity);
-	B2_ASSERT(0 <= indexB && indexB < context->bodyCapacity);
+	// chase body id to the solver set where the body lives
+	int idA = base->bodyIdA;
+	int idB = base->bodyIdB;
 
-	b2Body* bodyA = context->bodies + indexA;
-	b2Body* bodyB = context->bodies + indexB;
-	B2_ASSERT(bodyA->object.index == bodyA->object.next);
-	B2_ASSERT(bodyB->object.index == bodyB->object.next);
+	b2World* world = context->world;
+	b2Body* bodies = world->bodyArray;
 
-	float mA = bodyA->invMass;
-	float iA = bodyA->invI;
-	float mB = bodyB->invMass;
-	float iB = bodyB->invI;
+	b2CheckIndex(bodies, idA);
+	b2CheckIndex(bodies, idB);
+
+	b2Body* bodyA = bodies + idA;
+	b2Body* bodyB = bodies + idB;
+
+	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
+	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
+	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
+
+	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
+	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
+
+	int localIndexA = bodyA->localIndex;
+	int localIndexB = bodyB->localIndex;
+
+	B2_ASSERT(0 <= localIndexA && localIndexA <= setA->sims.count);
+	B2_ASSERT(0 <= localIndexB && localIndexB <= setB->sims.count);
+
+	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
+	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
+
+	float mA = bodySimA->invMass;
+	float iA = bodySimA->invI;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invI;
 
 	base->invMassA = mA;
 	base->invMassB = mB;
@@ -50,13 +70,13 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	base->invIB = iB;
 
 	b2MotorJoint* joint = &base->motorJoint;
-	joint->indexA = bodyA->solverIndex;
-	joint->indexB = bodyB->solverIndex;
+	joint->indexA = bodyA->setIndex == b2_awakeSet ? localIndexA : B2_NULL_INDEX;
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
 
-	joint->anchorA = b2RotateVector(bodyA->rotation, b2Sub(base->localOriginAnchorA, bodyA->localCenter));
-	joint->anchorB = b2RotateVector(bodyB->rotation, b2Sub(base->localOriginAnchorB, bodyB->localCenter));
-	joint->deltaCenter = b2Sub(b2Sub(bodyB->position, bodyA->position), joint->linearOffset);
-	joint->deltaAngle = b2RelativeAngle(bodyB->rotation, bodyA->rotation) - joint->angularOffset;
+	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
+	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
+	joint->deltaCenter = b2Sub(b2Sub(bodySimB->center, bodySimA->center), joint->linearOffset);
+	joint->deltaAngle = b2RelativeAngle(bodySimB->transform.q, bodySimA->transform.q) - joint->angularOffset;
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
@@ -78,7 +98,7 @@ void b2PrepareMotorJoint(b2Joint* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
+void b2WarmStartMotorJoint(b2JointSim* base, b2StepContext* context)
 {
 	float mA = base->invMassA;
 	float mB = base->invMassB;
@@ -87,11 +107,11 @@ void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 
 	b2MotorJoint* joint = &base->motorJoint;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
-	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
 	b2Vec2 rA = b2RotateVector(bodyA->deltaRotation, joint->anchorA);
 	b2Vec2 rB = b2RotateVector(bodyB->deltaRotation, joint->anchorB);
@@ -102,7 +122,7 @@ void b2WarmStartMotorJoint(b2Joint* base, b2StepContext* context)
 	bodyB->angularVelocity += iB * (b2Cross(rB, joint->linearImpulse) + joint->angularImpulse);
 }
 
-void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias)
+void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useBias)
 {
 	B2_ASSERT(base->type == b2_motorJoint);
 
@@ -111,12 +131,12 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static bodies
+	// dummy state for static sims
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2MotorJoint* joint = &base->motorJoint;
-	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexA;
-	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->bodyStates + joint->indexB;
+	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* bodyB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
 	b2Vec2 vA = bodyA->linearVelocity;
 	float wA = bodyA->angularVelocity;
@@ -180,70 +200,68 @@ void b2SolveMotorJoint(b2Joint* base, const b2StepContext* context, bool useBias
 
 void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.linearOffset = linearOffset;
 }
 
 b2Vec2 b2MotorJoint_GetLinearOffset(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.linearOffset;
 }
 
 void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.angularOffset = angularOffset;
 }
 
 float b2MotorJoint_GetAngularOffset(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.angularOffset;
 }
 
 void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.maxForce = B2_MAX(0.0f, maxForce);
 }
 
 float b2MotorJoint_GetMaxForce(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.maxForce;
 }
 
 void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.maxTorque = B2_MAX(0.0f, maxTorque);
 }
 
 float b2MotorJoint_GetMaxTorque(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.maxTorque;
 }
 
 void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	joint->motorJoint.correctionFactor = B2_CLAMP(correctionFactor, 0.0f, 1.0f);
 }
 
 float b2MotorJoint_GetCorrectionFactor(b2JointId jointId)
 {
-	b2Joint* joint = b2GetJointCheckType(jointId, b2_motorJoint);
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	return joint->motorJoint.correctionFactor;
 }
 
 b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* base = b2GetJoint(world, jointId);
-	B2_ASSERT(base->type == b2_motorJoint);
-
+	b2World* world = b2GetWorld(jointId.world0);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
 	b2MotorJoint* joint = &base->motorJoint;
 	b2Vec2 force = b2MulSV(world->inv_h, joint->linearImpulse);
 	return force;
@@ -251,11 +269,9 @@ b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
 
 float b2MotorJoint_GetConstraintTorque(b2JointId jointId)
 {
-	b2World* world = b2GetWorldFromIndex(jointId.world);
-	b2Joint* joint = b2GetJoint(world, jointId);
-	B2_ASSERT(joint->type == b2_motorJoint);
-
-	return world->inv_h * joint->motorJoint.angularImpulse;
+	b2World* world = b2GetWorld(jointId.world0);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	return world->inv_h * base->motorJoint.angularImpulse;
 }
 
 #if 0
@@ -265,8 +281,8 @@ void b2DumpMotorJoint()
 	int32 indexB = m_bodyB->m_islandIndex;
 
 	b2Dump("  b2MotorJointDef jd;\n");
-	b2Dump("  jd.bodyA = bodies[%d];\n", indexA);
-	b2Dump("  jd.bodyB = bodies[%d];\n", indexB);
+	b2Dump("  jd.bodyA = sims[%d];\n", indexA);
+	b2Dump("  jd.bodyB = sims[%d];\n", indexB);
 	b2Dump("  jd.collideConnected = bool(%d);\n", m_collideConnected);
 	b2Dump("  jd.localAnchorA.Set(%.9g, %.9g);\n", m_localAnchorA.x, m_localAnchorA.y);
 	b2Dump("  jd.localAnchorB.Set(%.9g, %.9g);\n", m_localAnchorB.x, m_localAnchorB.y);
