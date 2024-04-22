@@ -616,7 +616,7 @@ static int sampleGhostCollision = RegisterSample("Continuous", "Ghost Collision"
 class SpeculativeFail : public Sample
 {
 public:
-	SpeculativeFail(Settings& settings)
+	explicit SpeculativeFail(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -639,15 +639,17 @@ public:
 			b2CreatePolygonShape(groundId, &shapeDef, &poly);
 		}
 
+		// Fast moving skinny box. Also testing a large shape offset.
 		{
+			float offset = 8.0f;
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {0.0f, 8.0f};
+			bodyDef.position = {offset, 8.0f};
 			bodyDef.linearVelocity = {0.0f, -100.0f};
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Polygon box = b2MakeBox(2.0f, 0.05f);
+			b2Polygon box = b2MakeOffsetBox(2.0f, 0.05f, {-offset, 0.0f}, b2_pi);
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
 	}

@@ -153,6 +153,7 @@ if (MSVC)
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 		# Atomics are still considered experimental in Visual Studio 17.8
+		# target_compile_options(box2d PRIVATE /experimental:c11atomics "$<$<CONFIG:Debug>:/fsanitize=address>")
 		target_compile_options(box2d PRIVATE /experimental:c11atomics)
 		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
 	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

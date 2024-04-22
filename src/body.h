@@ -91,7 +91,7 @@ typedef struct b2BodySim
 	// transform for body origin
 	b2Transform transform;
 
-	// center of mass position in world
+	// center of mass position in world space
 	b2Vec2 center;
 
 	// previous rotation and COM for TOI

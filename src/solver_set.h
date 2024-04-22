@@ -38,8 +38,8 @@ typedef struct b2SolverSet
 	// Islands live in the solver sets to limit the number of islands that need to be considered for sleeping.
 	b2IslandArray islands;
 
-	// Aligns with b2World::solverSetIdPool. Used to create a stable id for body/contact/joint/island lookups.
-	int setId;
+	// Aligns with b2World::solverSetIdPool. Used to create a stable id for body/contact/joint/islands.
+	int setIndex;
 } b2SolverSet;
 
 void b2WakeSolverSet(b2World* world, int setId);

@@ -728,12 +728,13 @@ void b2SolverTask(int startIndex, int endIndex, uint32_t threadIndexDontUse, voi
 	//uint64_t maxSpinTime = 10;
 	while (true)
 	{
-		// Spin until main thread bumps changes the sync bits
+		// Spin until main thread bumps changes the sync bits. This can waste significant time overall, but it is necessary for
+		// parallel simulation with graph coloring.
 		uint32_t syncBits;
 		int spinCount = 0;
 		while ((syncBits = atomic_load(&context->atomicSyncBits)) == lastSyncBits)
 		{
-			if (spinCount >= 4)
+			if (spinCount > 5)
 			{
 				b2Yield();
 				spinCount = 0;
@@ -749,6 +750,7 @@ void b2SolverTask(int startIndex, int endIndex, uint32_t threadIndexDontUse, voi
 				//}
 				//while ((__rdtsc() - prev) < maxSpinTime);
 				//maxSpinTime += 10;
+				simde_mm_pause();
 				simde_mm_pause();
 				spinCount += 1;
 			}

@@ -309,6 +309,10 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	contactSim->bodySimIndexA = B2_NULL_INDEX;
 	contactSim->bodySimIndexB = B2_NULL_INDEX;
+	contactSim->invMassA = 0.0f;
+	contactSim->invIA = 0.0f;
+	contactSim->invMassB = 0.0f;
+	contactSim->invIB = 0.0f;
 	contactSim->shapeIdA = shapeIdA;
 	contactSim->shapeIdB = shapeIdB;
 	contactSim->cache = b2_emptyDistanceCache;
@@ -483,8 +487,8 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 
 // Update the contact manifold and touching status.
 // Note: do not assume the shape AABBs are overlapping or are valid.
-bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
-					 b2Transform transformB)
+bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Vec2 centerOffsetA, b2Shape* shapeB,
+					 b2Transform transformB, b2Vec2 centerOffsetB)
 {
 	b2ShapeId shapeIdA = {shapeA->object.index + 1, world->worldId, shapeA->object.revision};
 	b2ShapeId shapeIdB = {shapeB->object.index + 1, world->worldId, shapeB->object.revision};
@@ -514,6 +518,10 @@ bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2T
 		for (int i = 0; i < pointCount; ++i)
 		{
 			b2ManifoldPoint* mp2 = contact->manifold.points + i;
+
+			// shift anchors to be center of mass relative
+			mp2->anchorA = b2Sub(mp2->anchorA, centerOffsetA);
+			mp2->anchorB = b2Sub(mp2->anchorB, centerOffsetB);
 
 			mp2->normalImpulse = 0.0f;
 			mp2->tangentImpulse = 0.0f;

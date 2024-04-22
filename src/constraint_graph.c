@@ -8,6 +8,7 @@
 #include "body.h"
 #include "contact.h"
 #include "joint.h"
+#include "solver_set.h"
 #include "world.h"
 
 #include <string.h>
@@ -135,8 +136,47 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 	b2ContactSim* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
 	memcpy(newContact, contactSim, sizeof(b2ContactSim));
 
-	newContact->bodySimIndexA = staticA ? B2_NULL_INDEX : bodyA->localIndex;
-	newContact->bodySimIndexB = staticB ? B2_NULL_INDEX : bodyB->localIndex;
+	// todo perhaps skip this if the contact is already awake
+	
+	if (staticA)
+	{
+		newContact->bodySimIndexA = B2_NULL_INDEX;
+		newContact->invMassA = 0.0f;
+		newContact->invIA = 0.0f;
+	}
+	else
+	{
+		B2_ASSERT(bodyA->setIndex == b2_awakeSet);
+		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+
+		int localIndex = bodyA->localIndex;
+		B2_ASSERT(0 <= localIndex && localIndex < awakeSet->sims.count);
+		newContact->bodySimIndexA = localIndex;
+
+		b2BodySim* bodySimA = awakeSet->sims.data + localIndex;
+		newContact->invMassA = bodySimA->invMass;
+		newContact->invIA = bodySimA->invI;
+	}
+
+	if (staticB)
+	{
+		newContact->bodySimIndexB = B2_NULL_INDEX;
+		newContact->invMassB = 0.0f;
+		newContact->invIB = 0.0f;
+	}
+	else
+	{
+		B2_ASSERT(bodyB->setIndex == b2_awakeSet);
+		b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
+
+		int localIndex = bodyB->localIndex;
+		B2_ASSERT(0 <= localIndex && localIndex < awakeSet->sims.count);
+		newContact->bodySimIndexB = localIndex;
+
+		b2BodySim* bodySimB = awakeSet->sims.data + localIndex;
+		newContact->invMassB = bodySimB->invMass;
+		newContact->invIB = bodySimB->invI;
+	}
 }
 
 void b2RemoveContactFromGraph(b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex)

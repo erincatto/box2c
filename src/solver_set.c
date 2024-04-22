@@ -24,7 +24,7 @@ void b2DestroySolverSet(b2World* world, int setId)
 	b2DestroyIslandArray(&world->blockAllocator, &set->islands);
 	b2FreeId(&world->solverSetIdPool, setId);
 	*set = (b2SolverSet){0};
-	set->setId = B2_NULL_INDEX;
+	set->setIndex = B2_NULL_INDEX;
 }
 
 // Wake a solver set. Does not merge islands.
@@ -183,7 +183,7 @@ void b2TrySleepIsland(b2World* world, int islandId)
 	if (sleepSetId == b2Array(world->solverSetArray).count)
 	{
 		b2SolverSet set = {0};
-		set.setId = B2_NULL_INDEX;
+		set.setIndex = B2_NULL_INDEX;
 		b2Array_Push(world->solverSetArray, set);
 	}
 
@@ -194,7 +194,7 @@ void b2TrySleepIsland(b2World* world, int islandId)
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	B2_ASSERT(0 <= island->localIndex && island->localIndex < awakeSet->islands.count);
 
-	sleepSet->setId = sleepSetId;
+	sleepSet->setIndex = sleepSetId;
 	sleepSet->sims = b2CreateBodySimArray(&world->blockAllocator, island->bodyCount);
 	sleepSet->contacts = b2CreateContactArray(&world->blockAllocator, island->contactCount);
 	sleepSet->joints = b2CreateJointArray(&world->blockAllocator, island->jointCount);
@@ -566,17 +566,17 @@ void b2TransferBody(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceS
 		movedBody->localIndex = sourceIndex;
 	}
 
-	if (sourceSet->setId == b2_awakeSet)
+	if (sourceSet->setIndex == b2_awakeSet)
 	{
 		b2RemoveBodyState(&sourceSet->states, sourceIndex);
 	}
-	else if (targetSet->setId == b2_awakeSet)
+	else if (targetSet->setIndex == b2_awakeSet)
 	{
 		b2BodyState* state = b2AddBodyState(&world->blockAllocator, &targetSet->states);
 		*state = b2_identityBodyState;
 	}
 
-	body->setIndex = targetSet->setId;
+	body->setIndex = targetSet->setIndex;
 	body->localIndex = targetIndex;
 }
 
@@ -589,7 +589,7 @@ void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* source
 
 	// Retrieve source.
 	b2JointSim* sourceSim;
-	if (sourceSet->setId == b2_awakeSet)
+	if (sourceSet->setIndex == b2_awakeSet)
 	{
 		B2_ASSERT(0 <= colorIndex && colorIndex < b2_graphColorCount);
 		b2GraphColor* color = world->constraintGraph.colors + colorIndex;
@@ -605,14 +605,14 @@ void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* source
 	}
 
 	// Create target and copy. Fix joint.
-	if (targetSet->setId == b2_awakeSet)
+	if (targetSet->setIndex == b2_awakeSet)
 	{
 		b2AddJointToGraph(world, sourceSim, joint);
 		joint->setIndex = b2_awakeSet;
 	}
 	else
 	{
-		joint->setIndex = targetSet->setId;
+		joint->setIndex = targetSet->setIndex;
 		joint->localIndex = targetSet->joints.count;
 		joint->colorIndex = B2_NULL_INDEX;
 
@@ -621,7 +621,7 @@ void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* source
 	}
 
 	// Destroy source.
-	if (sourceSet->setId == b2_awakeSet)
+	if (sourceSet->setIndex == b2_awakeSet)
 	{
 		b2RemoveJointFromGraph(world, joint->edges[0].bodyId, joint->edges[1].bodyId, colorIndex, localIndex);
 	}

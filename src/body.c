@@ -223,10 +223,10 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 		}
 		else
 		{
-			B2_ASSERT(world->solverSetArray[setId].setId == B2_NULL_INDEX);
+			B2_ASSERT(world->solverSetArray[setId].setIndex == B2_NULL_INDEX);
 		}
 
-		world->solverSetArray[setId].setId = setId;
+		world->solverSetArray[setId].setIndex = setId;
 	}
 
 	B2_ASSERT(0 <= setId && setId < b2Array(world->solverSetArray).count);
@@ -1421,7 +1421,7 @@ void b2Body_Disable(b2BodyId bodyId)
 			continue;
 		}
 
-		B2_ASSERT(joint->setIndex == set->setId || set->setId == b2_staticSet);
+		B2_ASSERT(joint->setIndex == set->setIndex || set->setIndex == b2_staticSet);
 
 		// Remove joint from island
 		if (joint->islandId != B2_NULL_INDEX)

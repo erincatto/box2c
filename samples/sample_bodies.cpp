@@ -607,6 +607,20 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
+
+		// A sleeping body to test waking on collision
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {5.0f, 1.0f};
+			bodyDef.isAwake = false;
+			bodyDef.enableSleep = true;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Polygon box = b2MakeSquare(1.0f);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
 	}
 
 	static Sample* Create(Settings& settings)

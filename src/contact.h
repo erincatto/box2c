@@ -112,6 +112,12 @@ typedef struct b2ContactSim
 	int shapeIdA;
 	int shapeIdB;
 
+	float invMassA;
+	float invIA;
+
+	float invMassB;
+	float invIB;
+
 	b2DistanceCache cache;
 
 	b2Manifold manifold;
@@ -136,5 +142,5 @@ b2ContactSim* b2GetContactSim(b2World* world, b2Contact* contact);
 
 bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB);
 
-bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Shape* shapeB,
-					 b2Transform transformB);
+bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Vec2 centerOffsetA,
+					 b2Shape* shapeB, b2Transform transformB, b2Vec2 centerOffsetB);
