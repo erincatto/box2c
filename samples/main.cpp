@@ -750,7 +750,7 @@ int main(int, char**)
 		int loopCount = 0;
 		while (time2 < targetTime)
 		{
-			b2SleepMilliseconds(0.0f);
+			b2Yield();
 			time2 = glfwGetTime();
 			++loopCount;
 		}
