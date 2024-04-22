@@ -61,30 +61,15 @@ typedef struct b2WorldDef
 	/// Enable continuous collision
 	bool enableContinous;
 
-	/// Capacity for bodies. This may not be exceeded.
-	int bodyCapacity;
-
-	/// initial capacity for shapes
-	int shapeCapacity;
-
-	/// Capacity for contacts. This may not be exceeded.
-	int contactCapacity;
-
-	/// Capacity for joints
-	int jointCapacity;
-
-	/// Stack allocator capacity. This controls how much space box2d reserves for per-frame calculations.
-	/// Larger worlds require more space. b2Counters can be used to determine a good capacity for your
-	/// application.
-	int stackAllocatorCapacity;
-
-	/// task system hookup
+	/// Number of workers to use with the provided task system. Box2D performs best when using only
+	///	performance cores and accessing a single L2 cache. Efficiency cores and hyper-threading provide
+	///	little benefit and may even harm performance.
 	int workerCount;
 
-	/// function to spawn task
+	/// Function to spawn tasks
 	b2EnqueueTaskCallback* enqueueTask;
 
-	/// function to finish a task
+	/// Function to finish a task
 	b2FinishTaskCallback* finishTask;
 
 	/// User context that is provided to enqueueTask and finishTask

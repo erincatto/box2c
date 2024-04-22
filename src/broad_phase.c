@@ -168,7 +168,7 @@ typedef struct b2QueryPairContext
 } b2QueryPairContext;
 
 // This is called from b2DynamicTree::Query when we are gathering pairs.
-static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
+static bool b2PairQueryCallback(int proxyId, int shapeId, void* context)
 {
 	b2QueryPairContext* queryContext = context;
 	b2BroadPhase* bp = &queryContext->world->broadPhase;
@@ -192,32 +192,32 @@ static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
 		}
 	}
 
-	uint64_t pairKey = B2_SHAPE_PAIR_KEY(shapeIndex, queryContext->queryShapeIndex);
+	uint64_t pairKey = B2_SHAPE_PAIR_KEY(shapeId, queryContext->queryShapeIndex);
 	if (b2ContainsKey(&bp->pairSet, pairKey))
 	{
 		// contact exists
 		return true;
 	}
 
-	int shapeIndexA, shapeIndexB;
+	int shapeIdA, shapeIdB;
 	if (proxyKey < queryContext->queryProxyKey)
 	{
-		shapeIndexA = shapeIndex;
-		shapeIndexB = queryContext->queryShapeIndex;
+		shapeIdA = shapeId;
+		shapeIdB = queryContext->queryShapeIndex;
 	}
 	else
 	{
-		shapeIndexA = queryContext->queryShapeIndex;
-		shapeIndexB = shapeIndex;
+		shapeIdA = queryContext->queryShapeIndex;
+		shapeIdB = shapeId;
 	}
 
 	b2World* world = queryContext->world;
 
-	B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
-	B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
+	b2CheckId(world->shapeArray, shapeIdA);
+	b2CheckId(world->shapeArray, shapeIdB);
 
-	b2Shape* shapeA = world->shapes + shapeIndexA;
-	b2Shape* shapeB = world->shapes + shapeIndexB;
+	b2Shape* shapeA = world->shapeArray + shapeIdA;
+	b2Shape* shapeB = world->shapeArray + shapeIdB;
 
 	int bodyIdA = shapeA->bodyId;
 	int bodyIdB = shapeB->bodyId;
@@ -256,8 +256,8 @@ static bool b2PairQueryCallback(int proxyId, int shapeIndex, void* context)
 		pair->heap = true;
 	}
 
-	pair->shapeIndexA = shapeIndexA;
-	pair->shapeIndexB = shapeIndexB;
+	pair->shapeIndexA = shapeIdA;
+	pair->shapeIndexB = shapeIdB;
 	pair->next = queryContext->moveResult->pairList;
 	queryContext->moveResult->pairList = pair;
 
@@ -350,7 +350,7 @@ void b2UpdateBroadPhasePairs(b2World* world)
 	// Single-threaded work
 	// - Clear move flags
 	// - Create contacts in deterministic order
-	b2Shape* shapes = world->shapes;
+	b2Shape* shapes = world->shapeArray;
 
 	for (int i = 0; i < moveCount; ++i)
 	{
@@ -364,8 +364,8 @@ void b2UpdateBroadPhasePairs(b2World* world)
 			//	return;
 			//}
 
-			int shapeIndexA = pair->shapeIndexA;
-			int shapeIndexB = pair->shapeIndexB;
+			int shapeIdA = pair->shapeIndexA;
+			int shapeIdB = pair->shapeIndexB;
 
 			// if (s_file != NULL)
 			//{
@@ -374,10 +374,10 @@ void b2UpdateBroadPhasePairs(b2World* world)
 
 			//++pairCount;
 
-			B2_ASSERT(0 <= shapeIndexA && shapeIndexA < world->shapePool.capacity);
-			B2_ASSERT(0 <= shapeIndexB && shapeIndexB < world->shapePool.capacity);
+			b2CheckId(shapes, shapeIdA);
+			b2CheckId(shapes, shapeIdB);
 
-			b2CreateContact(world, shapes + shapeIndexA, shapes + shapeIndexB);
+			b2CreateContact(world, shapes + shapeIdA, shapes + shapeIdB);
 
 			if (pair->heap)
 			{

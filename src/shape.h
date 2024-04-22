@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pool.h"
 #include "world.h"
 
 #include "box2d/distance.h"
@@ -16,7 +15,7 @@ typedef struct b2World b2World;
 
 typedef struct b2Shape
 {
-	b2Object object;
+	int id;
 	int bodyId;
 	int nextShapeId;
 	b2ShapeType type;
@@ -41,6 +40,7 @@ typedef struct b2Shape
 		b2SmoothSegment smoothSegment;
 	};
 
+	uint16_t revision;
 	bool isSensor;
 	bool enableSensorEvents;
 	bool enableContactEvents;
@@ -51,11 +51,12 @@ typedef struct b2Shape
 
 typedef struct b2ChainShape
 {
-	b2Object object;
+	int id;
 	int bodyId;
-	int nextIndex;
+	int nextChainId;
 	int* shapeIndices;
 	int count;
+	uint16_t revision;
 } b2ChainShape;
 
 typedef struct b2ShapeExtent
@@ -77,5 +78,4 @@ b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
 b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform transform);
 b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform transform);
 
-b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId);
 b2Transform b2GetOwnerTransform(b2World* world, b2Shape* shape);

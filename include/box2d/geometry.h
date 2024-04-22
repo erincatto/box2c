@@ -100,7 +100,7 @@ typedef struct b2SmoothSegment
 	b2Vec2 ghost2;
 
 	/// The owning chain shape index (internal usage only)
-	int32_t chainIndex;
+	int32_t chainId;
 } b2SmoothSegment;
 
 /// Validate ray cast input data (NaN, etc)

@@ -93,17 +93,16 @@ int main(int argc, char** argv)
 	int maxThreadCount = 8;
 	int runCount = 4;
 	b2Counters counters = {0};
-	bool countersAcquired = false;
 	bool enableContinuous = true;
 
 	assert(maxThreadCount <= THREAD_LIMIT);
 
 	Benchmark benchmarks[] = {
-		//{"joint_grid", JointGrid, 500},
-		//{"large_pyramid", LargePyramid, 500},
+		{"joint_grid", JointGrid, 500},
+		{"large_pyramid", LargePyramid, 500},
 		{"many_pyramids", ManyPyramids, 200},
-		//{"smash", Smash, 300},
-		//{"tumbler", Tumbler, 750},
+		{"smash", Smash, 300},
+		{"tumbler", Tumbler, 750},
 	};
 
 	int benchmarkCount = ARRAY_COUNT(benchmarks);
@@ -119,11 +118,13 @@ int main(int argc, char** argv)
 		int stepCount = 10;
 #endif
 
+		bool countersAcquired = false;
+		
 		printf("benchmark: %s, steps = %d\n", benchmarks[benchmarkIndex].name, stepCount);
 
 		float maxFps[THREAD_LIMIT] = {0};
 
-		for (int threadCount = maxThreadCount; threadCount <= maxThreadCount; ++threadCount)
+		for (int threadCount = 1; threadCount <= maxThreadCount; ++threadCount)
 		{
 			printf("thread count: %d\n", threadCount);
 
@@ -188,7 +189,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		printf("body %d / shape %d / contact %d / joint %d / stack %d\n", counters.bodyCount, counters.shapeCount,
+		printf("body %d / shape %d / contact %d / joint %d / stack %d\n\n", counters.bodyCount, counters.shapeCount,
 			   counters.contactCount, counters.jointCount, counters.stackUsed);
 
 		char fileName[64] = {0};

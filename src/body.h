@@ -47,7 +47,7 @@ typedef struct b2Body
 	int islandPrev;
 	int islandNext;
 
-	int bodyId;
+	int id;
 
 	b2BodyType type;
 
@@ -55,7 +55,7 @@ typedef struct b2Body
 	// Used to check for invalid b2BodyId
 	uint16_t revision;
 
-	int16_t worldId;
+	//int16_t worldId;
 
 	bool isSpeedCapped;
 	bool isMarked;

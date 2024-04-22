@@ -132,8 +132,8 @@ typedef struct b2JointPair
 
 static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, void* userData, float drawSize, b2JointType type, bool collideConnected)
 {
-	int bodyIdA = bodyA->bodyId;
-	int bodyIdB = bodyB->bodyId;
+	int bodyIdA = bodyA->id;
+	int bodyIdB = bodyB->id;
 	int maxSetIndex = B2_MAX(bodyA->setIndex, bodyB->setIndex);
 
 	// Create joint id and joint
@@ -289,12 +289,12 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 	if (bodyA->contactCount < bodyB->contactCount)
 	{
 		contactKey = bodyA->headContactKey;
-		otherBodyId = bodyB->bodyId;
+		otherBodyId = bodyB->id;
 	}
 	else
 	{
 		contactKey = bodyB->headContactKey;
-		otherBodyId = bodyA->bodyId;
+		otherBodyId = bodyA->id;
 	}
 
 	// no need to wake bodies when a joint removes collision between them
@@ -800,7 +800,7 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 		int shapeId = shapeCountA < shapeCountB ? bodyA->headShapeId : bodyB->headShapeId;
 		while (shapeId != B2_NULL_INDEX)
 		{
-			b2Shape* shape = world->shapes + shapeId;
+			b2Shape* shape = world->shapeArray + shapeId;
 
 			if (shape->proxyKey != B2_NULL_INDEX)
 			{

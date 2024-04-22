@@ -296,7 +296,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		int shapeId = body->headShapeId;
 		while (shapeId != B2_NULL_INDEX)
 		{
-			b2Shape* shape = world->shapes + shapeId;
+			b2Shape* shape = world->shapeArray + shapeId;
 
 			B2_ASSERT(shape->isFast == false);
 
@@ -787,7 +787,7 @@ struct b2ContinuousContext
 	float fraction;
 };
 
-static bool b2ContinuousQueryCallback(int proxyId, int shapeIndex, void* context)
+static bool b2ContinuousQueryCallback(int proxyId, int shapeId, void* context)
 {
 	B2_MAYBE_UNUSED(proxyId);
 
@@ -796,15 +796,15 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeIndex, void* context
 	b2BodySim* fastBodySim = continuousContext->fastBodySim;
 
 	// Skip same shape
-	if (shapeIndex == fastShape->object.index)
+	if (shapeId == fastShape->id)
 	{
 		return true;
 	}
 
 	b2World* world = continuousContext->world;
-	B2_ASSERT(0 <= shapeIndex && shapeIndex < world->shapePool.capacity);
-	b2Shape* shape = world->shapes + shapeIndex;
-	B2_ASSERT(shape->object.index == shape->object.next);
+
+	b2CheckId(world->shapeArray, shapeId);
+	b2Shape* shape = world->shapeArray + shapeId;
 
 	// Skip same body
 	if (shape->bodyId == fastShape->bodyId)
@@ -894,7 +894,7 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 	b2BodySim* fastBodySim = awakeSet->sims.data + bodySimIndex;
 	B2_ASSERT(fastBodySim->isFast);
 
-	b2Shape* shapes = world->shapes;
+	b2Shape* shapes = world->shapeArray;
 
 	b2Sweep sweep = b2MakeSweep(fastBodySim);
 
@@ -923,6 +923,7 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 	int shapeId = fastBody->headShapeId;
 	while (shapeId != B2_NULL_INDEX)
 	{
+		b2CheckId(shapes, shapeId);
 		b2Shape* fastShape = shapes + shapeId;
 		B2_ASSERT(fastShape->isFast == true);
 
@@ -1653,7 +1654,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	// in deterministic order. I'm tracking sim bodies because the number of shape ids can be huge.
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
-		b2Shape* shapes = world->shapes;
+		b2Shape* shapes = world->shapeArray;
 		uint32_t wordCount = simBitSet->blockCount;
 		uint64_t* bits = simBitSet->bits;
 		for (uint32_t k = 0; k < wordCount; ++k)
@@ -1674,8 +1675,8 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 				int shapeId = body->headShapeId;
 				while (shapeId != B2_NULL_INDEX)
 				{
+					b2CheckId(shapes, shapeId);
 					b2Shape* shape = shapes + shapeId;
-					b2CheckValidObject(&shape->object);
 
 					if (shape->enlargedAABB)
 					{
@@ -1739,7 +1740,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		b2BroadPhase* broadPhase = &world->broadPhase;
 		b2DynamicTree* movableTree = broadPhase->trees + b2_movableProxy;
 		b2Body* bodies = world->bodyArray;
-		b2Shape* shapes = world->shapes;
+		b2Shape* shapes = world->shapeArray;
 
 		int* fastBodies = stepContext->fastBodies;
 		int fastBodyCount = stepContext->fastBodyCount;

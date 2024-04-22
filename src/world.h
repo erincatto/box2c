@@ -9,7 +9,6 @@
 #include "constraint_graph.h"
 #include "id_pool.h"
 #include "island.h"
-#include "pool.h"
 #include "stack_allocator.h"
 
 #include "box2d/callbacks.h"
@@ -91,12 +90,12 @@ typedef struct b2World
 	// This is a sparse array that maps island ids to the island data stored in the solver sets.
 	struct b2Island* islandArray;
 	
-	b2Pool shapePool;
-	b2Pool chainPool;
+	b2IdPool shapeIdPool;
+	b2IdPool chainIdPool;
 
 	// These are sparse arrays that point into the pools above
-	struct b2Shape* shapes;
-	struct b2ChainShape* chains;
+	struct b2Shape* shapeArray;
+	struct b2ChainShape* chainArray;
 
 	// Per thread storage
 	b2TaskContext* taskContextArray;
@@ -158,11 +157,6 @@ typedef struct b2World
 b2World* b2GetWorldFromId(b2WorldId id);
 b2World* b2GetWorld(int index);
 b2World* b2GetWorldLocked(int index);
-
-void b2CheckBodyId(b2BodyId bodyId);
-void b2CheckJointId(b2JointId jointId);
-void b2CheckShapeId(b2ShapeId shapeId);
-void b2CheckChainId(b2ChainId chainId);
 
 void b2ValidateConnectivity(b2World* world);
 void b2ValidateSolverSets(b2World* world);

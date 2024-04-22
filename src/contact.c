@@ -200,9 +200,6 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 		return;
 	}
 
-	int shapeIdA = shapeA->object.index;
-	int shapeIdB = shapeB->object.index;
-
 	b2Body* bodyA = b2GetBody(world, shapeA->bodyId);
 	b2Body* bodyB = b2GetBody(world, shapeB->bodyId);
 
@@ -230,6 +227,9 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	{
 		b2Array_Push(world->contactArray, (b2Contact){0});
 	}
+
+	int shapeIdA = shapeA->id;
+	int shapeIdB = shapeB->id;
 
 	b2Contact* contact = world->contactArray + contactId;
 	contact->contactId = contactId;
@@ -490,8 +490,8 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 bool b2UpdateContact(b2World* world, b2ContactSim* contact, b2Shape* shapeA, b2Transform transformA, b2Vec2 centerOffsetA, b2Shape* shapeB,
 					 b2Transform transformB, b2Vec2 centerOffsetB)
 {
-	b2ShapeId shapeIdA = {shapeA->object.index + 1, world->worldId, shapeA->object.revision};
-	b2ShapeId shapeIdB = {shapeB->object.index + 1, world->worldId, shapeB->object.revision};
+	b2ShapeId shapeIdA = {shapeA->id + 1, world->worldId, shapeA->revision};
+	b2ShapeId shapeIdB = {shapeB->id + 1, world->worldId, shapeB->revision};
 
 	bool touching;
 

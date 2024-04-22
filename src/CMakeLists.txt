@@ -40,8 +40,6 @@ set(BOX2D_SOURCE_FILES
 	math_functions.c
 	motor_joint.c
 	mouse_joint.c
-	pool.c
-	pool.h
 	prismatic_joint.c
 	revolute_joint.c
 	shape.c

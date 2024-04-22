@@ -42,10 +42,6 @@ b2WorldId ManyPyramids(b2WorldDef* worldDef)
 	int columnCount = 5;
 #endif
 
-	worldDef->bodyCapacity = columnCount * rowCount * ((baseCount + 1) * baseCount) / 2 + rowCount;
-	worldDef->shapeCapacity = worldDef->bodyCapacity;
-	worldDef->contactCapacity = 4 * worldDef->bodyCapacity;
-	worldDef->stackAllocatorCapacity = 25000000;
 	worldDef->enableSleep = false;
 
 	b2WorldId worldId = b2CreateWorld(worldDef);

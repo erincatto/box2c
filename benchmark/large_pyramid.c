@@ -13,11 +13,6 @@ b2WorldId LargePyramid(b2WorldDef* worldDef)
 	int baseCount = 20;
 #endif
 
-	worldDef->bodyCapacity = ((baseCount + 1) * baseCount)/2 + 1;
-	worldDef->shapeCapacity = worldDef->bodyCapacity;
-	worldDef->contactCapacity = 4 * worldDef->bodyCapacity;
-	worldDef->stackAllocatorCapacity = 5000000;
-
 	b2WorldId worldId = b2CreateWorld(worldDef);
 
 	{

@@ -18,7 +18,6 @@ b2WorldDef b2DefaultWorldDef()
 	def.jointDampingRatio = 2.0f;
 	def.enableSleep = true;
 	def.enableContinous = true;
-	def.stackAllocatorCapacity = 1024 * 1024;
 	return def;
 }
 

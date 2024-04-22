@@ -94,11 +94,6 @@ Sample::Sample(Settings& settings)
 	worldDef.userTaskContext = this;
 	worldDef.enableSleep = settings.enableSleep;
 
-	// These are not ideal, but useful for testing Box2D
-	worldDef.bodyCapacity = 2;
-	worldDef.contactCapacity = 2;
-	worldDef.stackAllocatorCapacity = 0;
-
 	m_worldId = b2CreateWorld(&worldDef);
 	m_textLine = 30;
 	m_textIncrement = 18;
