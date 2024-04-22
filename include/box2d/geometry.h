@@ -52,15 +52,14 @@ typedef struct b2MassData
 /// A solid circle
 typedef struct b2Circle
 {
-	b2Vec2 point;
+	b2Vec2 center;
 	float radius;
 } b2Circle;
 
 /// A solid capsule
 typedef struct b2Capsule
 {
-	// todo rename to center1 and center2 for clarity
-	b2Vec2 point1, point2;
+	b2Vec2 center1, center2;
 	float radius;
 } b2Capsule;
 

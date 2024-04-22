@@ -413,7 +413,7 @@ void b2ApplyOverflowRestitution(b2StepContext* context)
 			float impulse = -cp->normalMass * (vn + restitution * cp->relativeVelocity);
 
 			// clamp the accumulated impulse
-			// #todo should this be stored?
+			// todo should this be stored?
 			float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
 			impulse = newImpulse - cp->normalImpulse;
 			cp->normalImpulse = newImpulse;

@@ -3,9 +3,6 @@
 
 #pragma once
 
-// todo temp
-#define B2_USE_PINNED_TASKS 1
-
 /// @file
 /// Constants used by box2d.
 /// box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless

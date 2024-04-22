@@ -153,10 +153,10 @@ b2ShapeId b2CreateCircleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Ci
 
 b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule)
 {
-	float lengthSqr = b2DistanceSquared(capsule->point1, capsule->point2);
+	float lengthSqr = b2DistanceSquared(capsule->center1, capsule->center2);
 	if (lengthSqr <= b2_linearSlop * b2_linearSlop)
 	{
-		b2Circle circle = {b2Lerp(capsule->point1, capsule->point2, 0.5f), capsule->radius};
+		b2Circle circle = {b2Lerp(capsule->center1, capsule->center2, 0.5f), capsule->radius};
 		return b2CreateShape(bodyId, def, &circle, b2_circleShape);
 	}
 
@@ -449,9 +449,9 @@ b2Vec2 b2GetShapeCentroid(const b2Shape* shape)
 	switch (shape->type)
 	{
 		case b2_capsuleShape:
-			return b2Lerp(shape->capsule.point1, shape->capsule.point2, 0.5f);
+			return b2Lerp(shape->capsule.center1, shape->capsule.center2, 0.5f);
 		case b2_circleShape:
-			return shape->circle.point;
+			return shape->circle.center;
 		case b2_polygonShape:
 			return shape->polygon.centroid;
 		case b2_segmentShape:
@@ -490,7 +490,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			float radius = shape->capsule.radius;
 			extent.minExtent = radius;
-			extent.maxExtent = B2_MAX(b2Length(shape->capsule.point1), b2Length(shape->capsule.point2)) + radius;
+			extent.maxExtent = B2_MAX(b2Length(shape->capsule.center1), b2Length(shape->capsule.center2)) + radius;
 		}
 		break;
 
@@ -498,7 +498,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			float radius = shape->circle.radius;
 			extent.minExtent = radius;
-			extent.maxExtent = b2Length(shape->circle.point) + radius;
+			extent.maxExtent = b2Length(shape->circle.center) + radius;
 		}
 		break;
 
@@ -640,9 +640,9 @@ b2DistanceProxy b2MakeShapeDistanceProxy(const b2Shape* shape)
 	switch (shape->type)
 	{
 		case b2_capsuleShape:
-			return b2MakeProxy(&shape->capsule.point1, 2, shape->capsule.radius);
+			return b2MakeProxy(&shape->capsule.center1, 2, shape->capsule.radius);
 		case b2_circleShape:
-			return b2MakeProxy(&shape->circle.point, 1, shape->circle.radius);
+			return b2MakeProxy(&shape->circle.center, 1, shape->circle.radius);
 		case b2_polygonShape:
 			return b2MakeProxy(shape->polygon.vertices, shape->polygon.count, shape->polygon.radius);
 		case b2_segmentShape:

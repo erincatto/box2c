@@ -593,7 +593,7 @@ public:
 				case b2_circleShape:
 				{
 					b2Circle circle = b2Shape_GetCircle(shapeId);
-					circle.point = b2TransformPoint(relativeTransform, circle.point);
+					circle.center = b2TransformPoint(relativeTransform, circle.center);
 
 					b2CreateCircleShape(m_playerId, &shapeDef, &circle);
 				}
@@ -602,8 +602,8 @@ public:
 				case b2_capsuleShape:
 				{
 					b2Capsule capsule = b2Shape_GetCapsule(shapeId);
-					capsule.point1 = b2TransformPoint(relativeTransform, capsule.point1);
-					capsule.point2 = b2TransformPoint(relativeTransform, capsule.point2);
+					capsule.center1 = b2TransformPoint(relativeTransform, capsule.center1);
+					capsule.center2 = b2TransformPoint(relativeTransform, capsule.center2);
 
 					b2CreateCapsuleShape(m_playerId, &shapeDef, &capsule);
 				}

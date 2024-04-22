@@ -390,8 +390,6 @@ static void b2RemoveNonTouchingContact(b2World* world, int setIndex, int localIn
 }
 
 // Narrow-phase collision
-// todo try storing body sim index in contact sim to avoid accessing body in b2PrepareContactsTask
-// I think this is safe because bodies sims cannot move between collide and solve
 static void b2Collide(b2StepContext* context)
 {
 	b2World* world = context->world;
@@ -764,8 +762,8 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 		case b2_capsuleShape:
 		{
 			b2Capsule* capsule = &shape->capsule;
-			b2Vec2 p1 = b2TransformPoint(xf, capsule->point1);
-			b2Vec2 p2 = b2TransformPoint(xf, capsule->point2);
+			b2Vec2 p1 = b2TransformPoint(xf, capsule->center1);
+			b2Vec2 p2 = b2TransformPoint(xf, capsule->center2);
 			draw->DrawSolidCapsule(p1, p2, capsule->radius, color, draw->context);
 		}
 		break;
@@ -773,7 +771,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 		case b2_circleShape:
 		{
 			b2Circle* circle = &shape->circle;
-			b2Vec2 center = b2TransformPoint(xf, circle->point);
+			b2Vec2 center = b2TransformPoint(xf, circle->center);
 			b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
 			draw->DrawSolidCircle(center, circle->radius, axis, color, draw->context);
 		}
@@ -1491,7 +1489,7 @@ void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transfor
 
 	b2AABB aabb = b2ComputeCircleAABB(circle, transform);
 	WorldOverlapContext worldContext = {
-		world, fcn, filter, b2MakeProxy(&circle->point, 1, circle->radius), transform, context,
+		world, fcn, filter, b2MakeProxy(&circle->center, 1, circle->radius), transform, context,
 	};
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
@@ -1515,7 +1513,7 @@ void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Trans
 
 	b2AABB aabb = b2ComputeCapsuleAABB(capsule, transform);
 	WorldOverlapContext worldContext = {
-		world, fcn, filter, b2MakeProxy(&capsule->point1, 2, capsule->radius), transform, context,
+		world, fcn, filter, b2MakeProxy(&capsule->center1, 2, capsule->radius), transform, context,
 	};
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
@@ -1710,7 +1708,7 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2ShapeCastInput input;
-	input.points[0] = b2TransformPoint(originTransform, circle->point);
+	input.points[0] = b2TransformPoint(originTransform, circle->center);
 	input.count = 1;
 	input.radius = circle->radius;
 	input.translation = translation;
@@ -1746,8 +1744,8 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 	B2_ASSERT(b2Vec2_IsValid(translation));
 
 	b2ShapeCastInput input;
-	input.points[0] = b2TransformPoint(originTransform, capsule->point1);
-	input.points[1] = b2TransformPoint(originTransform, capsule->point2);
+	input.points[0] = b2TransformPoint(originTransform, capsule->center1);
+	input.points[1] = b2TransformPoint(originTransform, capsule->center2);
 	input.count = 2;
 	input.radius = capsule->radius;
 	input.translation = translation;

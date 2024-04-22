@@ -237,7 +237,6 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 			sim->sleepTime = 0.0f;
 
 			const float saftetyFactor = 0.5f;
-			// todo continuous disabled
 			if (enableContinuous && (b2Length(v) + B2_ABS(w) * sim->maxExtent) * timeStep > saftetyFactor * sim->minExtent)
 			{
 				// Store in fast array for the continuous collision stage

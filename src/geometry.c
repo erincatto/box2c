@@ -186,10 +186,10 @@ b2MassData b2ComputeCircleMass(const b2Circle* shape, float density)
 
 	b2MassData massData;
 	massData.mass = density * b2_pi * rr;
-	massData.center = shape->point;
+	massData.center = shape->center;
 
 	// inertia about the local origin
-	massData.I = massData.mass * (0.5f * rr + b2Dot(shape->point, shape->point));
+	massData.I = massData.mass * (0.5f * rr + b2Dot(shape->center, shape->center));
 
 	return massData;
 }
@@ -198,8 +198,8 @@ b2MassData b2ComputeCapsuleMass(const b2Capsule* shape, float density)
 {
 	float radius = shape->radius;
 	float rr = radius * radius;
-	b2Vec2 p1 = shape->point1;
-	b2Vec2 p2 = shape->point2;
+	b2Vec2 p1 = shape->center1;
+	b2Vec2 p2 = shape->center2;
 	float length = b2Length(b2Sub(p2, p1));
 	float ll = length * length;
 
@@ -267,7 +267,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	if (shape->count == 1)
 	{
 		b2Circle circle;
-		circle.point = shape->vertices[0];
+		circle.center = shape->vertices[0];
 		circle.radius = shape->radius;
 		return b2ComputeCircleMass(&circle, density);
 	}
@@ -275,8 +275,8 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	if (shape->count == 2)
 	{
 		b2Capsule capsule;
-		capsule.point1 = shape->vertices[0];
-		capsule.point2 = shape->vertices[1];
+		capsule.center1 = shape->vertices[0];
+		capsule.center2 = shape->vertices[1];
 		capsule.radius = shape->radius;
 		return b2ComputeCapsuleMass(&capsule, density);
 	}
@@ -372,7 +372,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 
 b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform xf)
 {
-	b2Vec2 p = b2TransformPoint(xf, shape->point);
+	b2Vec2 p = b2TransformPoint(xf, shape->center);
 	float r = shape->radius;
 
 	b2AABB aabb = {{p.x - r, p.y - r}, {p.x + r, p.y + r}};
@@ -381,8 +381,8 @@ b2AABB b2ComputeCircleAABB(const b2Circle* shape, b2Transform xf)
 
 b2AABB b2ComputeCapsuleAABB(const b2Capsule* shape, b2Transform xf)
 {
-	b2Vec2 v1 = b2TransformPoint(xf, shape->point1);
-	b2Vec2 v2 = b2TransformPoint(xf, shape->point2);
+	b2Vec2 v1 = b2TransformPoint(xf, shape->center1);
+	b2Vec2 v2 = b2TransformPoint(xf, shape->center2);
 
 	b2Vec2 r = {shape->radius, shape->radius};
 	b2Vec2 lower = b2Sub(b2Min(v1, v2), r);
@@ -427,15 +427,15 @@ b2AABB b2ComputeSegmentAABB(const b2Segment* shape, b2Transform xf)
 
 bool b2PointInCircle(b2Vec2 point, const b2Circle* shape)
 {
-	b2Vec2 center = shape->point;
+	b2Vec2 center = shape->center;
 	return b2DistanceSquared(point, center) <= shape->radius * shape->radius;
 }
 
 bool b2PointInCapsule(b2Vec2 point, const b2Capsule* shape)
 {
 	float rr = shape->radius * shape->radius;
-	b2Vec2 p1 = shape->point1;
-	b2Vec2 p2 = shape->point2;
+	b2Vec2 p1 = shape->center1;
+	b2Vec2 p2 = shape->center2;
 
 	b2Vec2 d = b2Sub(p2, p1);
 	float dd = b2Dot(d, d);
@@ -479,7 +479,7 @@ b2CastOutput b2RayCastCircle(const b2RayCastInput* input, const b2Circle* shape)
 {
 	B2_ASSERT(b2IsValidRay(input));
 
-	b2Vec2 p = shape->point;
+	b2Vec2 p = shape->center;
 
 	b2CastOutput output = {0};
 
@@ -538,8 +538,8 @@ b2CastOutput b2RayCastCapsule(const b2RayCastInput* input, const b2Capsule* shap
 
 	b2CastOutput output = {0};
 
-	b2Vec2 v1 = shape->point1;
-	b2Vec2 v2 = shape->point2;
+	b2Vec2 v1 = shape->center1;
+	b2Vec2 v2 = shape->center2;
 
 	b2Vec2 e = b2Sub(v2, v1);
 
@@ -836,7 +836,7 @@ b2CastOutput b2RayCastPolygon(const b2RayCastInput* input, const b2Polygon* shap
 b2CastOutput b2ShapeCastCircle(const b2ShapeCastInput* input, const b2Circle* shape)
 {
 	b2ShapeCastPairInput pairInput;
-	pairInput.proxyA = b2MakeProxy(&shape->point, 1, shape->radius);
+	pairInput.proxyA = b2MakeProxy(&shape->center, 1, shape->radius);
 	pairInput.proxyB = b2MakeProxy(input->points, input->count, input->radius);
 	pairInput.transformA = b2Transform_identity;
 	pairInput.transformB = b2Transform_identity;
@@ -850,7 +850,7 @@ b2CastOutput b2ShapeCastCircle(const b2ShapeCastInput* input, const b2Circle* sh
 b2CastOutput b2ShapeCastCapsule(const b2ShapeCastInput* input, const b2Capsule* shape)
 {
 	b2ShapeCastPairInput pairInput;
-	pairInput.proxyA = b2MakeProxy(&shape->point1, 2, shape->radius);
+	pairInput.proxyA = b2MakeProxy(&shape->center1, 2, shape->radius);
 	pairInput.proxyB = b2MakeProxy(input->points, input->count, input->radius);
 	pairInput.transformA = b2Transform_identity;
 	pairInput.transformB = b2Transform_identity;

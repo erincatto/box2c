@@ -136,7 +136,6 @@ b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
 b2Body* b2GetBody(b2World* world, int bodyId);
 
 // Get a validated body from a world using an id.
-// todo remove this function and instead use B2_ASSERT(b2Body_IsValid(bodyId))
 b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
 
 b2Transform b2GetBodyTransformQuick(b2World* world, b2Body* body);
