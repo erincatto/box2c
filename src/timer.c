@@ -145,7 +145,7 @@ void b2SleepMilliseconds(int milliseconds)
 {
 	struct timespec ts;
 	ts.tv_sec = milliseconds / 1000;
-	ts.tv_nsec = (microseconds % 1000) * 1000000;
+	ts.tv_nsec = (milliseconds % 1000) * 1000000;
 	nanosleep(&ts, NULL);
 }
 
