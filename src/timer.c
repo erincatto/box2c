@@ -143,15 +143,13 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 
 void b2SleepMilliseconds(float milliseconds)
 {
-	struct timespec sleepTime;
-	uint32_t remainder = milliseconds % 1000;
-	sleepTime.tv_sec = milliseconds - remainder;
-	sleepTime.tv_nsec = 1000000L * remainder;
+	// convert to microseconds and truncate
+	uint32_t microseconds = (uint32_t)(1000.0f * milliseconds);
 
-	while (nanosleep(&sleepTime, &sleepTime) == -1)
-	{
-		continue;
-	}
+	struct timespec ts;
+	ts.tv_sec = microseconds / 1000000ul;
+	ts.tv_nsec = (microseconds % 1000000ul) * 1000;
+	nanosleep(&ts, NULL);
 }
 
 void b2Yield()
