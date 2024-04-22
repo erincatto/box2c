@@ -143,7 +143,7 @@ float b2GetMillisecondsAndReset(b2Timer* timer)
 
 void b2SleepMilliseconds(float milliseconds)
 {
-	timespec sleepTime;
+	struct timespec sleepTime;
 	uint32_t remainder = milliseconds % 1000;
 	sleepTime.tv_sec = milliseconds - remainder;
 	sleepTime.tv_nsec = 1000000L * remainder;
