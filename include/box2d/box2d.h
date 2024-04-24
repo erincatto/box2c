@@ -468,12 +468,15 @@ B2_API b2Polygon b2Shape_GetPolygon(b2ShapeId shapeId);
 B2_API void b2Shape_SetCircle(b2ShapeId shapeId, const b2Circle* circle);
 
 /// Allows you to change a shape to be a capsule or update the current capsule.
+/// This does not modify the mass properties.
 B2_API void b2Shape_SetCapsule(b2ShapeId shapeId, const b2Capsule* capsule);
 
 /// Allows you to change a shape to be a segment or update the current segment.
+/// This does not modify the mass properties.
 B2_API void b2Shape_SetSegment(b2ShapeId shapeId, const b2Segment* segment);
 
 /// Allows you to change a shape to be a segment or update the current segment.
+/// This does not modify the mass properties.
 B2_API void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon);
 
 /// If the type is b2_smoothSegmentShape then you can get the parent chain id.

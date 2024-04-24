@@ -47,6 +47,8 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	option(BOX2D_BENCHMARK "Build the Box2D benchmarks" OFF)
 	option(BOX2D_DOCS "Build the Box2D documentation" OFF)
 	option(BOX2D_PROFILE "Enable profiling with Tracy" OFF)
+	option(BOX2D_SANITIZE "Enable unit testing with sanitizers" OFF)
+	option(BOX2D_VALIDATE "Enable heavy validation" ON)
 
 	if (MSVC AND WIN32)
 		# Enable edit and continue only in debug due to perf hit in release

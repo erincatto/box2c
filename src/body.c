@@ -440,6 +440,7 @@ int b2Body_GetContactCapacity(b2BodyId bodyId)
 }
 
 // todo what about sensors?
+// todo sample needed
 int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capacity)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
@@ -478,7 +479,7 @@ int b2Body_GetContactData(b2BodyId bodyId, b2ContactData* contactData, int capac
 		contactKey = contact->edges[edgeIndex].nextKey;
 	}
 
-	B2_ASSERT(index < capacity);
+	B2_ASSERT(index <= capacity);
 
 	return index;
 }

@@ -139,6 +139,10 @@ if (BOX2D_PROFILE)
 	target_link_libraries(box2d PUBLIC TracyClient)
 endif()
 
+if (BOX2D_VALIDATE)
+	target_compile_definitions(box2d PRIVATE BOX2D_VALIDATE)
+endif()
+
 if (MSVC)
 	message(STATUS "Box2D on MSVC")	
 	if (BUILD_SHARED_LIBS)
@@ -149,12 +153,12 @@ if (MSVC)
 	# Visual Studio won't load the natvis unless it is in the project
 	target_sources(box2d PRIVATE box2d.natvis)
 
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+	if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 		# Atomics are still considered experimental in Visual Studio 17.8
 		# target_compile_options(box2d PRIVATE /experimental:c11atomics "$<$<CONFIG:Debug>:/fsanitize=address>")
 		target_compile_options(box2d PRIVATE /experimental:c11atomics)
 		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
-	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+	elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 		message(STATUS "CMake using Clang-CL")
 	endif()
 
@@ -174,7 +178,11 @@ elseif (MINGW)
 	endif()
 elseif (APPLE)
 	message(STATUS "Box2D on Apple")
-	# target_compile_options(box2d PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
+	if (BOX2D_SANITIZE)
+		# target_compile_options(box2d PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
+		message(STATUS "Box2D sanitize build")
+		target_compile_options(box2d PRIVATE -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
+	endif()
 elseif (EMSCRIPTEN)
 	message(STATUS "Box2D on Emscripten")
 	# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
@@ -192,7 +200,6 @@ elseif (UNIX)
 			message(STATUS "Box2D using AVX2")
 			# FMA -mfma -mavx -march=native
 			target_compile_options(box2d PRIVATE -mavx2)
-			# target_compile_options(box2d PRIVATE -fsanitize=address)
 		else()
 			# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
 			message(STATUS "Box2D disabling ABI warning")
