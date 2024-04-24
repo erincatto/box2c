@@ -25,7 +25,7 @@ public:
 		e_maxCount = 10
 	};
 
-	DistanceJoint(Settings& settings)
+	explicit DistanceJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

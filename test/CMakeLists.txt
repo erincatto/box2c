@@ -26,10 +26,17 @@ target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 if (MSVC)
     # target_compile_options(test PRIVATE /fsanitize=address /experimental:c11atomics)
     target_compile_options(test PRIVATE /experimental:c11atomics)
+elseif (APPLE)
+	message(STATUS "Box2D on Apple")
+	if (BOX2D_SANITIZE)
+		# target_compile_options(box2d PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
+        # target_link_options(test PRIVATE -fsanitize=thread)'
+		message(STATUS "Box2D sanitize unit tests")
+		target_compile_options(test PRIVATE -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
+        target_link_options(test PRIVATE -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
+ 	endif()
 endif()
 
 target_link_libraries(test PRIVATE box2d enkiTS simde)
-
-# target_link_options(test PRIVATE -fsanitize=thread)
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "" FILES ${BOX2D_TESTS})

@@ -661,7 +661,7 @@ static int sampleWeeble = RegisterSample("Events", "Contact", ContactEvent::Crea
 class Platformer : public Sample
 {
 public:
-	Platformer(Settings& settings)
+	explicit Platformer(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -727,8 +727,8 @@ public:
 	}
 
 	// This callback must be thread-safe. It may be called multiple times simultaneously.
-	// Notice how this method is constant and therefor doesn't change any data. It also
-	// does not try to access an values in the world that may be changing, such as contact data.
+	// Notice how this method is constant and doesn't change any data. It also
+	// does not try to access any values in the world that may be changing, such as contact data.
 	bool PreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold) const
 	{
 		assert(b2Shape_IsValid(shapeIdA));
@@ -786,7 +786,7 @@ public:
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 200.0f));
 		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
-		ImGui::Begin("Sample Platformer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Platformer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("force", &m_force, 0.0f, 50.0f, "%.1f");
 		ImGui::SliderFloat("impulse", &m_impulse, 0.0f, 50.0f, "%.1f");
@@ -797,10 +797,13 @@ public:
 	void Step(Settings& settings) override
 	{
 		bool canJump = false;
-		if (m_jumpDelay == 0.0f && m_jumping == false)
+		b2Vec2 velocity = b2Body_GetLinearVelocity(m_characterId);
+		if (m_jumpDelay == 0.0f && m_jumping == false && velocity.y < 0.01f)
 		{
+			int capacity = b2Body_GetContactCapacity(m_characterId);
+			capacity = B2_MIN(capacity, 4);
 			b2ContactData contactData[4];
-			int count = b2Body_GetContactData(m_characterId, contactData, 4);
+			int count = b2Body_GetContactData(m_characterId, contactData, capacity);
 			for (int i = 0; i < count; ++i)
 			{
 				b2BodyId bodyIdA = b2Shape_GetBody(contactData[i].shapeIdA);

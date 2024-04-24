@@ -1140,6 +1140,7 @@ int b2Shape_GetContactCapacity(b2ShapeId shapeId)
 	return body->contactCount;
 }
 
+// todo sample needed
 int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int capacity)
 {
 	b2World* world = b2GetWorldLocked(shapeId.world0);
@@ -1183,7 +1184,7 @@ int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int ca
 		contactKey = contact->edges[edgeIndex].nextKey;
 	}
 
-	B2_ASSERT(index < capacity);
+	B2_ASSERT(index <= capacity);
 
 	return index;
 }
