@@ -33,6 +33,7 @@ elseif (APPLE)
         # target_link_options(test PRIVATE -fsanitize=thread)'
 		message(STATUS "Box2D sanitize unit tests")
 		target_compile_options(test PRIVATE -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
+        target_link_options(test PRIVATE -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
  	endif()
 endif()
 
