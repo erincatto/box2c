@@ -34,6 +34,7 @@ if (MSVC OR APPLE)
 			# more sanitizers on Apple clang
 			# add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
 			add_compile_options(-fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
+			add_link_options(-fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
 		endif()
 	endif()
 endif()
