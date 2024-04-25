@@ -189,6 +189,12 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 
 void Sample::MouseUp(b2Vec2 p, int button)
 {
+	if (b2Joint_IsValid(m_mouseJointId) == false)
+	{
+		// The world or attached body was destroyed.
+		m_mouseJointId = b2_nullJointId;
+	}
+
 	if (B2_IS_NON_NULL(m_mouseJointId) && button == GLFW_MOUSE_BUTTON_1)
 	{
 		b2DestroyJoint(m_mouseJointId);
@@ -201,6 +207,12 @@ void Sample::MouseUp(b2Vec2 p, int button)
 
 void Sample::MouseMove(b2Vec2 p)
 {
+	if (b2Joint_IsValid(m_mouseJointId) == false)
+	{
+		// The world or attached body was destroyed.
+		m_mouseJointId = b2_nullJointId;
+	}
+
 	if (B2_IS_NON_NULL(m_mouseJointId))
 	{
 		b2MouseJoint_SetTarget(m_mouseJointId, p);
@@ -224,7 +236,7 @@ void Sample::Step(Settings& settings)
 	{
 		if (settings.singleStep)
 		{
-			settings.singleStep = 0;
+			settings.singleStep = false;
 		}
 		else
 		{
