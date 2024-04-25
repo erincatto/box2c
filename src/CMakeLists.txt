@@ -153,19 +153,17 @@ if (MSVC)
 	# Visual Studio won't load the natvis unless it is in the project
 	target_sources(box2d PRIVATE box2d.natvis)
 
-	if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-		# Atomics are still considered experimental in Visual Studio 17.8
-		# target_compile_options(box2d PRIVATE /experimental:c11atomics "$<$<CONFIG:Debug>:/fsanitize=address>")
-		target_compile_options(box2d PRIVATE /experimental:c11atomics)
-		target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
-	elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-		message(STATUS "CMake using Clang-CL")
-	endif()
+	# Enable asserts in release with debug info
+	target_compile_definitions(box2d PUBLIC "$<$<CONFIG:RELWITHDEBINFO>:B2_ENABLE_ASSERT>")
+
+	# Atomics are still considered experimental in Visual Studio 17.8
+	target_compile_options(box2d PRIVATE /experimental:c11atomics)
 
 	if (BOX2D_AVX2)
 		message(STATUS "Box2D using AVX2")	
 		target_compile_options(box2d PRIVATE /arch:AVX2)
 	endif()
+
 elseif (MINGW)
 	message(STATUS "Box2D on MinGW")
 	if (BOX2D_AVX2)
@@ -178,11 +176,6 @@ elseif (MINGW)
 	endif()
 elseif (APPLE)
 	message(STATUS "Box2D on Apple")
-	if (BOX2D_SANITIZE)
-		# target_compile_options(box2d PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
-		message(STATUS "Box2D sanitize build")
-		target_compile_options(box2d PRIVATE -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=undefined)
-	endif()
 elseif (EMSCRIPTEN)
 	message(STATUS "Box2D on Emscripten")
 	# see SIMDE_DIAGNOSTIC_DISABLE_PSABI_
