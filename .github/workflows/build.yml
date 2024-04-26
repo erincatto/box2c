@@ -64,9 +64,14 @@ jobs:
   build-windows:
     name: windows
     runs-on: windows-latest
-
     steps:
+
     - uses: actions/checkout@v4
+
+    - name: Setup MSVC dev command prompt
+      uses: TheMrMilchmann/setup-msvc-dev@v3
+      with:
+        arch: x64
 
     - name: Configure CMake
       # enkiTS is failing ASAN on windows

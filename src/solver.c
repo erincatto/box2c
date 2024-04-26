@@ -1854,7 +1854,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		// Collect split island candidate for the next time step. No need to split if sleeping is disabled.
 		B2_ASSERT(world->splitIslandId == B2_NULL_INDEX);
 		float splitSleepTimer = 0.0f;
-		for (int i = 1; i < world->workerCount; ++i)
+		for (int i = 0; i < world->workerCount; ++i)
 		{
 			b2TaskContext* taskContext = world->taskContextArray + i;
 			if (taskContext->splitIslandId != B2_NULL_INDEX && taskContext->splitSleepTime > splitSleepTimer)

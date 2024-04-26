@@ -36,7 +36,7 @@ public:
 
 	void DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color);
 
-	void DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor, b2Color outlineColor);
+	void DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color);
 
 	void DrawCircle(b2Vec2 center, float radius, b2Color color);
 

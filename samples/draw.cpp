@@ -824,10 +824,10 @@ void DrawSolidPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color,
 	static_cast<Draw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
 }
 
-void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color fillColor, b2Color lineColor,
+void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color,
 						   void* context)
 {
-	static_cast<Draw*>(context)->DrawRoundedPolygon(vertices, vertexCount, radius, fillColor, lineColor);
+	static_cast<Draw*>(context)->DrawRoundedPolygon(vertices, vertexCount, radius, color);
 }
 
 void DrawCircleFcn(b2Vec2 center, float radius, b2Color color, void* context)
@@ -911,6 +911,7 @@ void Draw::Create()
 					DrawStringFcn,
 					true, // shapes
 					true, // joints
+					false, // joint extras
 					false, // aabbs
 					false, // mass
 					false, // contacts
@@ -978,17 +979,18 @@ void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color
 // Outline needs 4*count triangles.
 #define MAX_POLY_INDEXES (3 * (5 * MAX_POLY_VERTEXES - 2))
 
-void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radius, b2Color fillColor, b2Color outlineColor)
+void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color)
 {
-	assert(count <= MAX_POLY_VERTEXES);
+	assert(vertexCount <= MAX_POLY_VERTEXES);
+	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
 
 	RGBA8 fill = MakeRGBA8(fillColor);
-	RGBA8 outline = MakeRGBA8(outlineColor);
+	RGBA8 outline = MakeRGBA8(color);
 
 	uint16_t indices[MAX_POLY_INDEXES];
 
 	// Polygon fill triangles.
-	for (int i = 0; i < count - 2; ++i)
+	for (int i = 0; i < vertexCount - 2; ++i)
 	{
 		indices[3 * i + 0] = 0;
 		indices[3 * i + 1] = 4 * (i + 1);
@@ -996,10 +998,10 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 	}
 
 	// Polygon outline triangles.
-	uint16_t* outlineIndices = indices + 3 * (count - 2);
-	for (int i0 = 0; i0 < count; ++i0)
+	uint16_t* outlineIndices = indices + 3 * (vertexCount - 2);
+	for (int i0 = 0; i0 < vertexCount; ++i0)
 	{
-		int i1 = (i0 + 1) % count;
+		int i1 = (i0 + 1) % vertexCount;
 		outlineIndices[12 * i0 + 0] = 4 * i0 + 0;
 		outlineIndices[12 * i0 + 1] = 4 * i0 + 1;
 		outlineIndices[12 * i0 + 2] = 4 * i0 + 2;
@@ -1029,12 +1031,12 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t count, float radiu
 	// float outset = radius + lineScale;
 	// float r = outset - inset;
 
-	Vertex* vertexes = m_roundedTriangles->AllocVertices(4 * count, indices, 3 * (5 * count - 2));
-	for (int i = 0; i < count; ++i)
+	Vertex* vertexes = m_roundedTriangles->AllocVertices(4 * vertexCount, indices, 3 * (5 * vertexCount - 2));
+	for (int i = 0; i < vertexCount; ++i)
 	{
-		b2Vec2 v_prev = vertices[(i + (count - 1)) % count];
+		b2Vec2 v_prev = vertices[(i + (vertexCount - 1)) % vertexCount];
 		b2Vec2 v0 = vertices[i];
-		b2Vec2 v_next = vertices[(i + (count + 1)) % count];
+		b2Vec2 v_next = vertices[(i + (vertexCount + 1)) % vertexCount];
 
 		b2Vec2 n1 = b2Normalize(b2CrossVS(b2Sub(v0, v_prev), 1.0f));
 		b2Vec2 n2 = b2Normalize(b2CrossVS(b2Sub(v_next, v0), 1.0f));

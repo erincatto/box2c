@@ -339,7 +339,7 @@ static int sampleMotorJoint = RegisterSample("Joints", "Motor Joint", MotorJoint
 class RevoluteJoint : public Sample
 {
 public:
-	RevoluteJoint(Settings& settings)
+	explicit RevoluteJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -386,8 +386,9 @@ public:
 			jointDef.motorSpeed = m_motorSpeed;
 			jointDef.maxMotorTorque = m_motorTorque;
 			jointDef.enableMotor = m_enableMotor;
-			jointDef.lowerAngle = -0.25f * b2_pi;
-			jointDef.upperAngle = 0.5f * b2_pi;
+			jointDef.referenceAngle = 0.5f * b2_pi;
+			jointDef.lowerAngle = -0.5f * b2_pi;
+			jointDef.upperAngle = 0.75f * b2_pi;
 			jointDef.enableLimit = m_enableLimit;
 
 			m_jointId1 = b2CreateRevoluteJoint(m_worldId, &jointDef);
@@ -470,6 +471,10 @@ public:
 	void Step(Settings& settings) override
 	{
 		Sample::Step(settings);
+
+		float angle1 = b2RevoluteJoint_GetAngle(m_jointId1);
+		g_draw.DrawString(5, m_textLine, "Angle (Deg) 1 = %2.1f", angle1);
+		m_textLine += m_textIncrement;
 
 		float torque1 = b2RevoluteJoint_GetMotorTorque(m_jointId1);
 		g_draw.DrawString(5, m_textLine, "Motor Torque 1 = %4.1f", torque1);
