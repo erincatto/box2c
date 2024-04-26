@@ -30,6 +30,7 @@ if (MSVC OR APPLE)
 		if(MSVC)
 			# address sanitizer only in the debug build
 			add_compile_options("$<$<CONFIG:Debug>:/fsanitize=address>")
+			add_link_options("$<$<CONFIG:Debug>:/INCREMENTAL:NO>")
 		elseif(APPLE)
 			# more sanitizers on Apple clang
 			# add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)

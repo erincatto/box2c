@@ -9,6 +9,9 @@
 
 b2WorldId JointGrid(b2WorldDef* worldDef)
 {
+	// Turning gravity off to isolate joint performance.
+	worldDef->gravity = b2Vec2_zero;
+
 	b2WorldId worldId = b2CreateWorld(worldDef);
 	
 #ifdef NDEBUG

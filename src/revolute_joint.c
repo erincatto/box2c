@@ -16,6 +16,18 @@
 
 #include <stdio.h>
 
+float b2RevoluteJoint_GetAngle(b2JointId jointId)
+{
+	b2World* world = b2GetWorld(jointId.world0);
+	b2JointSim* jointSim = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2Transform transformA = b2GetBodyTransform(world, jointSim->bodyIdA);
+	b2Transform transformB = b2GetBodyTransform(world, jointSim->bodyIdB);
+
+	float angle = b2RelativeAngle(transformB.q, transformA.q) - jointSim->revoluteJoint.referenceAngle;
+	angle = b2UnwindAngle(angle);
+	return angle;
+}
+
 void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 {
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
@@ -203,6 +215,7 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
 	joint->deltaCenter = b2Sub(bodySimB->center, bodySimA->center);
 	joint->deltaAngle = b2RelativeAngle(bodySimB->transform.q, bodySimA->transform.q) - joint->referenceAngle;
+	joint->deltaAngle = b2UnwindAngle(joint->deltaAngle);
 
 	float k = iA + iB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
@@ -286,6 +299,7 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	if (joint->enableLimit && fixedRotation == false)
 	{
 		float jointAngle = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
+		jointAngle = b2UnwindAngle(jointAngle);
 
 		// Lower limit
 		{
@@ -435,26 +449,41 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 	b2Color c1 = {0.7f, 0.7f, 0.7f, 1.0f};
 	b2Color c2 = {0.3f, 0.9f, 0.3f, 1.0f};
 	b2Color c3 = {0.9f, 0.3f, 0.3f, 1.0f};
-	b2Color c4 = {0.3f, 0.3f, 0.9f, 1.0f};
-	b2Color c5 = {0.4f, 0.4f, 0.4f, 1.0f};
-
-	draw->DrawPoint(pA, 5.0f, c4, draw->context);
-	draw->DrawPoint(pB, 5.0f, c5, draw->context);
-
-	float angle = b2RelativeAngle(transformB.q, transformA.q) - joint->referenceAngle;
+	b2Color c4 = {0.4f, 0.4f, 0.4f, 1.0f};
+	b2Color c5 = {0.3f, 0.3f, 0.9f, 1.0f};
 
 	const float L = drawSize;
-	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
-	draw->DrawSegment(pB, b2Add(pB, r), c1, draw->context);
+	draw->DrawPoint(pA, 5.0f, c4, draw->context);
+	draw->DrawPoint(pB, 5.0f, c5, draw->context);
 	draw->DrawCircle(pB, L, c1, draw->context);
+
+	float angle = b2RelativeAngle(transformB.q, transformA.q);
+
+	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
+	b2Vec2 pC = b2Add(pB, r);
+	draw->DrawSegment(pB, pC, c1, draw->context);
+
+	if (draw->drawJointExtras)
+	{
+		float jointAngle = b2UnwindAngle(angle - joint->referenceAngle);
+		char buffer[32];
+		snprintf(buffer, 32, " %.1f deg", 180.0f * jointAngle / b2_pi);
+		draw->DrawString(pC, buffer, draw->context);
+	}
+
+	float lowerAngle = joint->lowerAngle + joint->referenceAngle;
+	float upperAngle = joint->upperAngle + joint->referenceAngle;
 
 	if (joint->enableLimit)
 	{
-		b2Vec2 rlo = {L * cosf(joint->lowerAngle), L * sinf(joint->lowerAngle)};
-		b2Vec2 rhi = {L * cosf(joint->upperAngle), L * sinf(joint->upperAngle)};
+		b2Vec2 rlo = {L * cosf(lowerAngle), L * sinf(lowerAngle)};
+		b2Vec2 rhi = {L * cosf(upperAngle), L * sinf(upperAngle)};
 
 		draw->DrawSegment(pB, b2Add(pB, rlo), c2, draw->context);
 		draw->DrawSegment(pB, b2Add(pB, rhi), c3, draw->context);
+
+		b2Vec2 ref = (b2Vec2){L * cosf(joint->referenceAngle), L * sinf(joint->referenceAngle)};
+		draw->DrawSegment(pB, b2Add(pB, ref), c5, draw->context);
 	}
 
 	b2Color color = {0.5f, 0.8f, 0.8f, 1.0f};

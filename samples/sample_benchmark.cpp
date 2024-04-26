@@ -1142,12 +1142,31 @@ public:
 		}
 
 		free(bodies);
+
+		m_gravity = 10.0f;
 	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 500.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 100.0f));
+		ImGui::Begin("Joint Grid", nullptr, ImGuiWindowFlags_NoResize);
+
+		if (ImGui::SliderFloat("gravity", &m_gravity, 0.0f, 20.0f, "%.1f"))
+		{
+			b2World_SetGravity(m_worldId, {0.0f, -m_gravity});
+		}
+
+		ImGui::End();
+	}
+
 
 	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkJointGrid(settings);
 	}
+
+	float m_gravity;
 };
 
 static int benchmarkJointGridIndex = RegisterSample("Benchmark", "Joint Grid", BenchmarkJointGrid::Create);

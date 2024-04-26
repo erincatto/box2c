@@ -1807,7 +1807,7 @@ public:
 						}
 						else
 						{
-							g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow, yellow);
+							g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow);
 						}
 					}
 				}
@@ -1840,7 +1840,7 @@ public:
 					}
 					else
 					{
-						g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow, yellow);
+						g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow);
 					}
 				}
 			}
@@ -2434,8 +2434,8 @@ public:
 
 		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
 		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
-		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
-		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
+		//b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
+		//b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
 
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
 
@@ -2546,7 +2546,7 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, fillColor1, color1);
+			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, color1);
 
 			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
 			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
@@ -2687,7 +2687,7 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2711,13 +2711,13 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf1, rox.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor1, color1);
+			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color1);
 
 			for (int i = 0; i < rox.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2748,7 +2748,7 @@ public:
 
 			if (m_round > 0.0f)
 			{
-				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
 			}
 			else
 			{
@@ -2775,13 +2775,13 @@ public:
 			{
 				vertices[i] = b2TransformPoint(xf1, wox.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, fillColor1, color1);
+			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, color1);
 
 			for (int i = 0; i < wox.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf2, wox.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, fillColor2, color2);
+			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2866,7 +2866,7 @@ public:
 
 			if (m_round > 0.0f)
 			{
-				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
 				g_draw.DrawPolygon(vertices, rox.count, color2);
 			}
 			else
@@ -3218,7 +3218,7 @@ public:
 
 			if (m_round > 0.0f)
 			{
-				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, fillColor2, color2);
+				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
 			}
 			else
 			{

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "api.h"
+#include "constants.h"
 #include "math_types.h"
 
 #include <math.h>
@@ -305,6 +306,20 @@ B2_INLINE float b2RelativeAngle(b2Rot b, b2Rot a)
 	float s = b.s * a.c - b.c * a.s;
 	float c = b.c * a.c + b.s * a.s;
 	return atan2f(s, c);
+}
+
+B2_INLINE float b2UnwindAngle(float angle)
+{
+	if (angle < -b2_pi)
+	{
+		return angle + 2.0f * b2_pi;
+	}
+	else if (angle > b2_pi)
+	{
+		return angle - 2.0f * b2_pi;
+	}
+
+	return angle;
 }
 
 /// Rotate a vector

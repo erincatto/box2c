@@ -17,6 +17,7 @@ struct Settings
 	int workerCount = 1;
 	bool drawShapes = true;
 	bool drawJoints = true;
+	bool drawJointExtras = false;
 	bool drawAABBs = false;
 	bool drawContactPoints = false;
 	bool drawContactNormals = false;

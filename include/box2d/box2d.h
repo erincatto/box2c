@@ -715,6 +715,9 @@ B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
 
 /// Revolute Joint
 
+/// Get the current joint angle in radians relative to the reference angle
+B2_API float b2RevoluteJoint_GetAngle(b2JointId jointId);
+
 /// Enable/disable a revolute joint limit.
 B2_API void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 

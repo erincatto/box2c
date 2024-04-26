@@ -461,7 +461,7 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	b2RevoluteJoint empty = {0};
 	joint->revoluteJoint = empty;
 
-	joint->revoluteJoint.referenceAngle = def->referenceAngle;
+	joint->revoluteJoint.referenceAngle = B2_CLAMP(def->referenceAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.linearImpulse = b2Vec2_zero;
 	joint->revoluteJoint.axialMass = 0.0f;
 	joint->revoluteJoint.motorImpulse = 0.0f;
@@ -469,6 +469,8 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	joint->revoluteJoint.upperImpulse = 0.0f;
 	joint->revoluteJoint.lowerAngle = B2_MIN(def->lowerAngle, def->upperAngle);
 	joint->revoluteJoint.upperAngle = B2_MAX(def->lowerAngle, def->upperAngle);
+	joint->revoluteJoint.lowerAngle = B2_CLAMP(joint->revoluteJoint.lowerAngle, -b2_pi, b2_pi);
+	joint->revoluteJoint.upperAngle = B2_CLAMP(joint->revoluteJoint.upperAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.maxMotorTorque = def->maxMotorTorque;
 	joint->revoluteJoint.motorSpeed = def->motorSpeed;
 	joint->revoluteJoint.enableLimit = def->enableLimit;

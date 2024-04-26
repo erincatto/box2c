@@ -15,7 +15,7 @@ typedef struct b2DebugDraw
 	void (*DrawSolidPolygon)(const b2Vec2* vertices, int vertexCount, b2Color color, void* context);
 
 	/// Draw a rounded polygon provided in CCW order.
-	void (*DrawRoundedPolygon)(const b2Vec2* vertices, int vertexCount, float radius, b2Color lineColor, b2Color fillColor, void* context);
+	void (*DrawRoundedPolygon)(const b2Vec2* vertices, int vertexCount, float radius, b2Color color, void* context);
 
 	/// Draw a circle.
 	void (*DrawCircle)(b2Vec2 center, float radius, b2Color color, void* context);
@@ -33,8 +33,7 @@ typedef struct b2DebugDraw
 	void (*DrawSegment)(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context);
 
 	/// Draw a transform. Choose your own length scale.
-	/// @param xf a transform.
-	void (*DrawTransform)(b2Transform xf, void* context);
+	void (*DrawTransform)(b2Transform transform, void* context);
 
 	/// Draw a point.
 	void (*DrawPoint)(b2Vec2 p, float size, b2Color color, void* context);
@@ -44,6 +43,7 @@ typedef struct b2DebugDraw
 
 	bool drawShapes;
 	bool drawJoints;
+	bool drawJointExtras;
 	bool drawAABBs;
 	bool drawMass;
 	bool drawContacts;

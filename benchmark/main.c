@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "TaskScheduler_c.h"
 
 #include "box2d/box2d.h"
@@ -194,9 +196,8 @@ int main(int argc, char** argv)
 
 		char fileName[64] = {0};
 		snprintf(fileName, 64, "%s.csv", benchmarks[benchmarkIndex].name);
-		FILE* file = NULL;
-		errno_t status = fopen_s(&file, fileName, "w");
-		if (status != 0 || file == NULL)
+		FILE* file = fopen(fileName, "w");
+		if (file == NULL)
 		{
 			continue;
 		}
