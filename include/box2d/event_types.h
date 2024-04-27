@@ -31,8 +31,8 @@ typedef struct b2SensorEvents
 {
 	b2SensorBeginTouchEvent* beginEvents;
 	b2SensorEndTouchEvent* endEvents;
-	int beginCount;
-	int endCount;
+	int32_t beginCount;
+	int32_t endCount;
 } b2SensorEvents;
 
 /// A begin touch event is generated when two shapes begin touching. By convention the manifold
@@ -72,8 +72,8 @@ typedef struct b2ContactEvents
 {
 	b2ContactBeginTouchEvent* beginEvents;
 	b2ContactEndTouchEvent* endEvents;
-	int beginCount;
-	int endCount;
+	int32_t beginCount;
+	int32_t endCount;
 } b2ContactEvents;
 
 /// The contact data for two shapes. By convention the manifold normal points
@@ -104,5 +104,5 @@ typedef struct b2BodyMoveEvent
 typedef struct b2BodyEvents
 {
 	b2BodyMoveEvent* moveEvents;
-	int moveCount;
+	int32_t moveCount;
 } b2BodyEvents;

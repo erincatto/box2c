@@ -217,7 +217,7 @@ static int sampleDistanceJoint = RegisterSample("Joints", "Distance Joint", Dist
 class MotorJoint : public Sample
 {
 public:
-	MotorJoint(Settings& settings)
+	explicit MotorJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -504,7 +504,7 @@ static int sampleRevolute = RegisterSample("Joints", "Revolute", RevoluteJoint::
 class PrismaticJoint : public Sample
 {
 public:
-	PrismaticJoint(Settings& settings)
+	explicit PrismaticJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -613,7 +613,7 @@ static int samplePrismatic = RegisterSample("Joints", "Prismatic", PrismaticJoin
 class WheelJoint : public Sample
 {
 public:
-	WheelJoint(Settings& settings)
+	explicit WheelJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -740,7 +740,7 @@ public:
 		e_count = 160
 	};
 
-	Bridge(Settings& settings)
+	explicit Bridge(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -884,7 +884,7 @@ public:
 		e_count = 30
 	};
 
-	BallAndChain(Settings& settings)
+	explicit BallAndChain(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1372,7 +1372,7 @@ static int sampleFixedRotation = RegisterSample("Joints", "Fixed Rotation", Fixe
 class UserConstraint : public Sample
 {
 public:
-	UserConstraint(Settings& settings)
+	explicit UserConstraint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1495,7 +1495,7 @@ static int sampleUserConstraintIndex = RegisterSample("Joints", "User Constraint
 class Car : public Sample
 {
 public:
-	Car(Settings& settings)
+	explicit Car(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1831,7 +1831,7 @@ static int sampleCar = RegisterSample("Joints", "Car", Car::Create);
 class Ragdoll : public Sample
 {
 public:
-	Ragdoll(Settings& settings)
+	explicit Ragdoll(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1864,7 +1864,7 @@ static int sampleRagdoll = RegisterSample("Joints", "Ragdoll", Ragdoll::Create);
 class SoftBody : public Sample
 {
 public:
-	SoftBody(Settings& settings)
+	explicit SoftBody(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

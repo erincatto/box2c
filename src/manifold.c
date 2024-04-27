@@ -10,8 +10,6 @@
 #include "box2d/math_functions.h"
 
 #include <float.h>
-#include <stdatomic.h>
-#include <string.h>
 
 #define B2_MAKE_ID(A, B) ((uint8_t)(A) << 8 | (uint8_t)(B))
 
@@ -1064,7 +1062,8 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 				{
 					return manifold;
 				}
-				else if (type == b2_normalAdmit)
+				
+				if (type == b2_normalAdmit)
 				{
 					// Get polygon edge associated with normal
 					ib1 = ib;
@@ -1187,11 +1186,17 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 		{
 			b2Vec2 n = normals[i];
 
-			// Check the infinite sides of the partial polygon
-			if ((smoothParams.convex1 && b2Cross(n0, n) > 0.0f) || (smoothParams.convex2 && b2Cross(n, n2) > 0.0f))
+			enum b2NormalType type = b2ClassifyNormal(smoothParams, b2Neg(n));
+			if (type != b2_normalAdmit)
 			{
 				continue;
 			}
+
+			// Check the infinite sides of the partial polygon
+			//if ((smoothParams.convex1 && b2Cross(n0, n) > 0.0f) || (smoothParams.convex2 && b2Cross(n, n2) > 0.0f))
+			//{
+			//	continue;
+			//}
 
 			b2Vec2 p = vertices[i];
 			float s = B2_MIN(b2Dot(n, b2Sub(p2, p)), b2Dot(n, b2Sub(p1, p)));

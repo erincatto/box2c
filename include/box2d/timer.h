@@ -16,7 +16,7 @@ typedef struct b2Timer
 	unsigned long long start_sec;
 	unsigned long long start_usec;
 #else
-	int dummy;
+	int32_t dummy;
 #endif
 } b2Timer;
 

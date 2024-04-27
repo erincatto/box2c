@@ -64,7 +64,7 @@ typedef struct b2WorldDef
 	/// Number of workers to use with the provided task system. Box2D performs best when using only
 	///	performance cores and accessing a single L2 cache. Efficiency cores and hyper-threading provide
 	///	little benefit and may even harm performance.
-	int workerCount;
+	int32_t workerCount;
 
 	/// Function to spawn tasks
 	b2EnqueueTaskCallback* enqueueTask;
@@ -232,7 +232,7 @@ typedef struct b2ChainDef
 	const b2Vec2* points;
 
 	/// The point count, must be 4 or more.
-	int count;
+	int32_t count;
 
 	/// Indicates a closed chain formed by connecting the first and last points
 	bool isLoop;
@@ -279,17 +279,17 @@ typedef struct b2Profile
 /// Counters that give details of the simulation size
 typedef struct b2Counters
 {
-	int staticBodyCount;
-	int bodyCount;
-	int shapeCount;
-	int contactCount;
-	int jointCount;
-	int islandCount;
-	int stackUsed;
-	int treeHeight;
-	int byteCount;
-	int taskCount;
-	int colorCounts[b2_graphColorCount];
+	int32_t staticBodyCount;
+	int32_t bodyCount;
+	int32_t shapeCount;
+	int32_t contactCount;
+	int32_t jointCount;
+	int32_t islandCount;
+	int32_t stackUsed;
+	int32_t treeHeight;
+	int32_t byteCount;
+	int32_t taskCount;
+	int32_t colorCounts[b2_graphColorCount];
 } b2Counters;
 
 /// Use this to initialize your world definition

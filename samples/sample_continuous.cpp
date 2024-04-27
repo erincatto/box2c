@@ -25,7 +25,7 @@ public:
 		e_boxShape
 	};
 
-	BounceHouse(Settings& settings)
+	explicit BounceHouse(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -131,7 +131,7 @@ static int sampleBounceHouse = RegisterSample("Continuous", "Bounce House", Boun
 class FastChain : public Sample
 {
 public:
-	FastChain(Settings& settings)
+	explicit FastChain(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -204,7 +204,7 @@ static int sampleFastChainHouse = RegisterSample("Continuous", "Fast Chain", Fas
 class SkinnyBox : public Sample
 {
 public:
-	SkinnyBox(Settings& settings)
+	explicit SkinnyBox(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -339,7 +339,7 @@ public:
 		e_boxShape
 	};
 
-	GhostCollision(Settings& settings)
+	explicit GhostCollision(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -549,8 +549,8 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 130.0f));
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, 160.0f));
+		ImGui::Begin("Ghost Collision", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Chain", &m_useChain))
 		{
@@ -667,7 +667,7 @@ static int sampleSpeculativeFail = RegisterSample("Continuous", "Speculative Fai
 class Pinball : public Sample
 {
 public:
-	Pinball(Settings& settings)
+	explicit Pinball(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
