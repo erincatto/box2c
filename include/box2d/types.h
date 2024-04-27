@@ -286,6 +286,7 @@ typedef struct b2Counters
 	int32_t jointCount;
 	int32_t islandCount;
 	int32_t stackUsed;
+	int32_t staticTreeHeight;
 	int32_t treeHeight;
 	int32_t byteCount;
 	int32_t taskCount;

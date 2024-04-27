@@ -10,8 +10,8 @@
 #include "box2d/callbacks.h"
 #include "box2d/hull.h"
 #include "box2d/manifold.h"
-#include "box2d/math_functions.h"
 #include "box2d/math_cpp.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -283,8 +283,10 @@ void Sample::Step(Settings& settings)
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "islands/tree_height/stack/tasks = %d/%d/%d/%d", s.islandCount, s.treeHeight,
-						  s.stackUsed, s.taskCount);
+		g_draw.DrawString(5, m_textLine, "islands/tasks = %d/%d", s.islandCount, s.taskCount);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "tree height static/movable = %d/%d", s.staticTreeHeight, s.treeHeight);
 		m_textLine += m_textIncrement;
 
 		int32_t totalCount = 0;
@@ -299,7 +301,10 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, buffer);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);
+		g_draw.DrawString(5, m_textLine, "stack allocator size = %d K", s.stackUsed / 1024);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "total allocation = %d K", s.byteCount / 1024);
 		m_textLine += m_textIncrement;
 	}
 
@@ -412,8 +417,8 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "integrate velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.integrateVelocities,
 						  aveProfile.integrateVelocities, m_maxProfile.integrateVelocities);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "warm start [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.warmStart,
-						  aveProfile.warmStart, m_maxProfile.warmStart);
+		g_draw.DrawString(5, m_textLine, "warm start [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.warmStart, aveProfile.warmStart,
+						  m_maxProfile.warmStart);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "solve velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveVelocities,
 						  aveProfile.solveVelocities, m_maxProfile.solveVelocities);

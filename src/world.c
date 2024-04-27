@@ -1359,8 +1359,12 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 	s.jointCount = b2GetIdCount(&world->jointIdPool);
 	s.islandCount = b2GetIdCount(&world->islandIdPool);
 
+	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticProxy;
+	s.staticTreeHeight = b2DynamicTree_GetHeight(staticTree);
+
 	b2DynamicTree* tree = world->broadPhase.trees + b2_movableProxy;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
+	
 	s.stackUsed = b2GetMaxStackAllocation(&world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	s.taskCount = world->taskCount;
@@ -2311,6 +2315,8 @@ void b2ValidateSolverSets(b2World* world)
 	B2_ASSERT(totalJointCount == jointIdCount);
 
 	// Validate shapes
+	// This is very slow on compounds
+	#if 0
 	int shapeCapacity = b2Array(world->shapeArray).count;
 	for (int shapeIndex = 0; shapeIndex < shapeCapacity; shapeIndex += 1)
 	{
@@ -2350,6 +2356,7 @@ void b2ValidateSolverSets(b2World* world)
 		B2_ASSERT(found);
 		B2_ASSERT(shapeCount == body->shapeCount);
 	}
+	#endif
 }
 
 // Validate contact touching status.

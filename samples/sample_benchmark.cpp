@@ -359,7 +359,7 @@ public:
 
 static int benchmarkTumbler = RegisterSample("Benchmark", "Tumbler", BenchmarkTumbler::Create);
 
-// #todo add option to make these kinematic
+// todo try removing kinematics from graph coloring
 class BenchmarkManyTumblers : public Sample
 {
 public:
@@ -380,7 +380,6 @@ public:
 		m_columnCount = g_sampleDebug ? 2 : 19;
 
 		m_tumblerIds = nullptr;
-		m_jointIds = nullptr;
 		m_positions = nullptr;
 		m_tumblerCount = 0;
 
@@ -388,15 +387,13 @@ public:
 		m_bodyCount = 0;
 		m_bodyIndex = 0;
 
-		m_motorSpeed = 25.0f;
-		m_shapeType = 0;
+		m_angularSpeed = 25.0f;
 
 		CreateScene();
 	}
 
 	~BenchmarkManyTumblers() override
 	{
-		free(m_jointIds);
 		free(m_tumblerIds);
 		free(m_positions);
 		free(m_bodyIds);
@@ -405,8 +402,9 @@ public:
 	void CreateTumbler(b2Vec2 position, int index)
 	{
 		b2BodyDef bodyDef = b2DefaultBodyDef();
-		bodyDef.type = b2_dynamicBody;
+		bodyDef.type = b2_kinematicBody;
 		bodyDef.position = {position.x, position.y};
+		bodyDef.angularVelocity = (b2_pi / 180.0f) * m_angularSpeed;
 		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 		m_tumblerIds[index] = bodyId;
 
@@ -422,18 +420,6 @@ public:
 		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
 		polygon = b2MakeOffsetBox(2.0f, 0.25f, {0.0f, -2.0f}, 0.0);
 		b2CreatePolygonShape(bodyId, &shapeDef, &polygon);
-
-		b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
-		jd.bodyIdA = m_groundId;
-		jd.bodyIdB = bodyId;
-		jd.localAnchorA = position;
-		jd.localAnchorB = {0.0f, 0.0f};
-		jd.referenceAngle = 0.0f;
-		jd.motorSpeed = (b2_pi / 180.0f) * m_motorSpeed;
-		jd.maxMotorTorque = 1e8f;
-		jd.enableMotor = true;
-
-		m_jointIds[index] = b2CreateRevoluteJoint(m_worldId, &jd);
 	}
 
 	void CreateScene()
@@ -448,17 +434,14 @@ public:
 
 		for (int i = 0; i < m_tumblerCount; ++i)
 		{
-			b2DestroyJoint(m_jointIds[i]);
 			b2DestroyBody(m_tumblerIds[i]);
 		}
 
-		free(m_jointIds);
 		free(m_tumblerIds);
 		free(m_positions);
 
 		m_tumblerCount = m_rowCount * m_columnCount;
 		m_tumblerIds = static_cast<b2BodyId*>(malloc(m_tumblerCount * sizeof(b2BodyId)));
-		m_jointIds = static_cast<b2JointId*>(malloc(m_tumblerCount * sizeof(b2JointId)));
 		m_positions = static_cast<b2Vec2*>(malloc(m_tumblerCount * sizeof(b2Vec2)));
 
 		int index = 0;
@@ -486,8 +469,6 @@ public:
 
 		memset(m_bodyIds, 0, m_bodyCount * sizeof(b2BodyId));
 		m_bodyIndex = 0;
-
-		m_shapeType = 0;
 	}
 
 	void UpdateUI() override
@@ -505,11 +486,11 @@ public:
 			CreateScene();
 		}
 
-		if (ImGui::SliderFloat("Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
+		if (ImGui::SliderFloat("Speed", &m_angularSpeed, 0.0f, 100.0f, "%.f"))
 		{
 			for (int i = 0; i < m_tumblerCount; ++i)
 			{
-				b2RevoluteJoint_SetMotorSpeed(m_jointIds[i], (b2_pi / 180.0f) * m_motorSpeed);
+				b2Body_SetAngularVelocity(m_tumblerIds[i], (b2_pi / 180.0f) * m_angularSpeed);
 				b2Body_SetAwake(m_tumblerIds[i], true);
 			}
 		}
@@ -524,13 +505,8 @@ public:
 		if (m_bodyIndex < m_bodyCount && (m_stepCount & 0x7) == 0)
 		{
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			shapeDef.density = 1.0f;
-			// shapeDef.restitution = 0.5f;
 
-			b2Circle circle = {{0.0f, 0.0f}, 0.125f};
-			b2Polygon polygon = b2MakeBox(0.125f, 0.125f);
 			b2Capsule capsule = {{-0.1f, 0.0f}, {0.1f, 0.0f}, 0.075f};
-			int j = m_shapeType % 3;
 
 			for (int i = 0; i < m_tumblerCount; ++i)
 			{
@@ -540,24 +516,10 @@ public:
 				bodyDef.type = b2_dynamicBody;
 				bodyDef.position = m_positions[i];
 				m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
-
-				// if (j == 0)
-				//{
-				//	b2CreatePolygonShape(m_bodyIds[m_bodyIndex], &shapeDef, &polygon);
-				// }
-				// else if (j == 1)
-				{
-					b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &capsule);
-				}
-				// else
-				//{
-				//	b2CreateCircleShape(m_bodyIds[m_bodyIndex], &shapeDef, &circle);
-				// }
+				b2CreateCapsuleShape(m_bodyIds[m_bodyIndex], &shapeDef, &capsule);
 
 				m_bodyIndex += 1;
 			}
-
-			m_shapeType += 1;
 		}
 	}
 
@@ -572,16 +534,14 @@ public:
 	int m_columnCount;
 
 	b2BodyId* m_tumblerIds;
-	b2JointId* m_jointIds;
 	b2Vec2* m_positions;
 	int m_tumblerCount;
 
 	b2BodyId* m_bodyIds;
 	int m_bodyCount;
 	int m_bodyIndex;
-	int m_shapeType;
 
-	float m_motorSpeed;
+	float m_angularSpeed;
 };
 
 static int benchmarkManyTumblers = RegisterSample("Benchmark", "Many Tumblers", BenchmarkManyTumblers::Create);
@@ -1160,7 +1120,6 @@ public:
 		ImGui::End();
 	}
 
-
 	static Sample* Create(Settings& settings)
 	{
 		return new BenchmarkJointGrid(settings);
@@ -1171,10 +1130,10 @@ public:
 
 static int benchmarkJointGridIndex = RegisterSample("Benchmark", "Joint Grid", BenchmarkJointGrid::Create);
 
-class Smash : public Sample
+class BenchmarkSmash : public Sample
 {
 public:
-	explicit Smash(Settings& settings)
+	explicit BenchmarkSmash(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1316,7 +1275,7 @@ public:
 
 		m_created = true;
 	}
-	
+
 	void CreateScene3()
 	{
 		float d = 0.4f;
@@ -1354,13 +1313,108 @@ public:
 			CreateScene3();
 		}
 	}
-	
+
 	static Sample* Create(Settings& settings)
 	{
-		return new Smash(settings);
+		return new BenchmarkSmash(settings);
 	}
 
 	bool m_created;
 };
 
-static int sampleSmash = RegisterSample("Benchmark", "Smash", Smash::Create);
+static int sampleSmash = RegisterSample("Benchmark", "Smash", BenchmarkSmash::Create);
+
+class BenchmarkCompound : public Sample
+{
+public:
+	explicit BenchmarkCompound(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {18.0f, 115.0f};
+			g_camera.m_zoom = 5.5f;
+		}
+
+		float grid = 1.0f;
+#ifdef NDEBUG
+		int height = 200;
+		int width = 200;
+#else
+		int height = 100;
+		int width = 100;
+#endif
+		{
+
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+			for (int i = 0; i < height; ++i)
+			{
+				float y = grid * i;
+				for (int j = i; j < width; ++j)
+				{
+					float x = grid * j;
+					b2Polygon square = b2MakeOffsetBox(0.5f * grid, 0.5f * grid, {x, y}, 0.0f);
+					b2CreatePolygonShape(groundId, &shapeDef, &square);
+				}
+			}
+
+			for (int i = 0; i < height; ++i)
+			{
+				float y = grid * i;
+				for (int j = i; j < width; ++j)
+				{
+					float x = -grid * j;
+					b2Polygon square = b2MakeOffsetBox(0.5f * grid, 0.5f * grid, {x, y}, 0.0f);
+					b2CreatePolygonShape(groundId, &shapeDef, &square);
+				}
+			}
+		}
+
+		{
+#ifdef NDEBUG
+			int span = 20;
+			int count = 5;
+#else
+			int span = 5;
+			int count = 5;
+#endif
+
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+			for (int m = 0; m < count; ++m)
+			{
+				float ybody = (100.0f + m * span) * grid;
+
+				for (int n = 0; n < count; ++n)
+				{
+					float xbody = -0.5f * grid * count * span + n * span * grid;
+					bodyDef.position = {xbody, ybody};
+					b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+					for (int i = 0; i < span; ++i)
+					{
+						float y = i * grid;
+						for (int j = 0; j < span; ++j)
+						{
+							float x = j * grid;
+							b2Polygon square = b2MakeOffsetBox(0.5f * grid, 0.5f * grid, {x, y}, 0.0f);
+							b2CreatePolygonShape(bodyId, &shapeDef, &square);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new BenchmarkCompound(settings);
+	}
+};
+
+static int sampleCompound = RegisterSample("Benchmark", "Compound", BenchmarkCompound::Create);

@@ -255,7 +255,6 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->sleepTime = 0.0f;
 	bodySim->bodyId = bodyId;
 	bodySim->enableSleep = def->enableSleep;
-	bodySim->fixedRotation = def->fixedRotation;
 	bodySim->isBullet = def->isBullet;
 	bodySim->enlargeAABB = false;
 	bodySim->isFast = false;
@@ -299,6 +298,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandNext = B2_NULL_INDEX;
 	body->id = bodyId;
 	body->type = def->type;
+	body->fixedRotation = def->fixedRotation;
 	body->isSpeedCapped = false;
 	body->isMarked = false;
 
@@ -560,7 +560,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		localCenter = b2MulSV(bodySim->invMass, localCenter);
 	}
 
-	if (bodySim->I > 0.0f && bodySim->fixedRotation == false)
+	if (bodySim->I > 0.0f && body->fixedRotation == false)
 	{
 		// Center the inertia about the center of mass.
 		bodySim->I -= bodySim->mass * b2Dot(localCenter, localCenter);
@@ -1545,11 +1545,9 @@ void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag)
 	}
 
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2BodySim* bodySim = b2GetBodySim(world, body);
-
-	if (bodySim->fixedRotation != flag)
+	if (body->fixedRotation != flag)
 	{
-		bodySim->fixedRotation = flag;
+		body->fixedRotation = flag;
 
 		b2BodyState* state = b2GetBodyState(world, body);
 		if (state != NULL)
@@ -1564,8 +1562,7 @@ bool b2Body_IsFixedRotation(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2BodySim* bodySim = b2GetBodySim(world, body);
-	return bodySim->fixedRotation;
+	return body->fixedRotation;
 }
 
 void b2Body_SetBullet(b2BodyId bodyId, bool flag)

@@ -55,8 +55,7 @@ typedef struct b2Body
 	// Used to check for invalid b2BodyId
 	uint16_t revision;
 
-	//int16_t worldId;
-
+	bool fixedRotation;
 	bool isSpeedCapped;
 	bool isMarked;
 } b2Body;
@@ -120,9 +119,6 @@ typedef struct b2BodySim
 	int bodyId;
 
 	bool enableSleep;
-
-	// todo needed in sim?
-	bool fixedRotation;
 
 	// todo eliminate
 	bool isFast;
