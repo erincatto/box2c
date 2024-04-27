@@ -40,7 +40,7 @@ public:
 		e_boxShape
 	};
 
-	ChainShape(Settings& settings)
+	explicit ChainShape(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -133,7 +133,7 @@ public:
 		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
 		m_chainId = b2CreateChain(m_groundId, &chainDef);
-	}
+		}
 
 	void Launch()
 	{
@@ -151,7 +151,7 @@ public:
 		shapeDef.density = 1.0f;
 		shapeDef.friction = m_friction;
 		shapeDef.restitution = m_restitution;
-
+	
 		if (m_shapeType == e_circleShape)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
@@ -227,13 +227,14 @@ public:
 
 static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape::Create);
 
+
 // This sample shows how careful creation of compound shapes leads to better simulation and avoids
 // objects getting stuck.
 // This also shows how to get the combined AABB for the body.
 class CompoundShapes : public Sample
 {
 public:
-	CompoundShapes(Settings& settings)
+	explicit CompoundShapes(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -463,7 +464,7 @@ public:
 		ALL_BITS = (~0u)
 	};
 
-	ShapeFilter(Settings& settings)
+	explicit ShapeFilter(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -676,7 +677,7 @@ public:
 		e_boxShape
 	};
 
-	Restitution(Settings& settings)
+	explicit Restitution(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -790,7 +791,7 @@ static int sampleIndex = RegisterSample("Shapes", "Restitution", Restitution::Cr
 class Friction : public Sample
 {
 public:
-	Friction(Settings& settings)
+	explicit Friction(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1012,3 +1013,83 @@ public:
 };
 
 static int sampleModifyGeometry = RegisterSample("Shapes", "Modify Geometry", ModifyGeometry::Create);
+
+// Shows how to link to chain shapes together. This is a useful technique for building large game levels with smooth collision.
+class ChainLink : public Sample
+{
+public:
+	explicit ChainLink(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 5.0f};
+			g_camera.m_zoom = 0.5f;
+		}
+
+		b2Vec2 points1[] = {{40.0f, 1.0f}, {0.0f, 0.0f}, {-40.0f, 0.0f}, {-40.0f, -1.0f}, {0.0f, -1.0f}, {40.0f, -1.0f}};
+		b2Vec2 points2[] = {{-40.0f, -1.0f}, {0.0f, -1.0f}, {40.0f, -1.0f}, {40.0f, 0.0f}, {0.0f, 0.0f}, {-40.0f, 0.0f}};
+
+		int count1 = std::size(points1);
+		int count2 = std::size(points2);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+		{
+			b2ChainDef chainDef = b2DefaultChainDef();
+			chainDef.points = points1;
+			chainDef.count = count1;
+			chainDef.isLoop = false;
+			b2CreateChain(groundId, &chainDef);
+		}
+
+		{
+			b2ChainDef chainDef = b2DefaultChainDef();
+			chainDef.points = points2;
+			chainDef.count = count2;
+			chainDef.isLoop = false;
+			b2CreateChain(groundId, &chainDef);
+		}
+
+		bodyDef.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		{
+			bodyDef.position = {-5.0f, 2.0f};
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
+			b2CreateCircleShape(bodyId, &shapeDef, &circle);
+		}
+
+		{
+			bodyDef.position = {0.0f, 2.0f};
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2Capsule capsule = {{-0.5f, 0.0f}, {0.5f, 0.0}, 0.25f};
+			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+		}
+
+		{
+			bodyDef.position = {5.0f, 2.0f};
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			float h = 0.5f;
+			b2Polygon box = b2MakeBox(h, h);
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawString(5, m_textLine, "This shows how to link together two chain shapes");
+		m_textLine += m_textIncrement;
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new ChainLink(settings);
+	}
+};
+
+static int sampleChainLink = RegisterSample("Shapes", "Chain Link", ChainLink::Create);

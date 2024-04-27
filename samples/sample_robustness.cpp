@@ -16,7 +16,7 @@
 class HighMassRatio1 : public Sample
 {
   public:
-	HighMassRatio1(Settings& settings)
+	explicit HighMassRatio1(Settings& settings)
 		: Sample(settings)
 	{
 		float extent = 1.0f;
@@ -74,7 +74,7 @@ static int sampleIndex1 = RegisterSample("Robustness", "HighMassRatio1", HighMas
 class HighMassRatio2 : public Sample
 {
   public:
-	HighMassRatio2(Settings& settings)
+	explicit HighMassRatio2(Settings& settings)
 		: Sample(settings)
 	{
 		{
@@ -128,7 +128,7 @@ static int sampleIndex2 = RegisterSample("Robustness", "HighMassRatio2", HighMas
 class OverlapRecovery : public Sample
 {
   public:
-	OverlapRecovery(Settings& settings)
+	explicit OverlapRecovery(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

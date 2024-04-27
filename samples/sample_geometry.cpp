@@ -18,7 +18,7 @@ public:
 		e_count = b2_maxPolygonVertices
 	};
 
-	ConvexHull(Settings& settings)
+	explicit ConvexHull(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

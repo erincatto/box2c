@@ -23,8 +23,8 @@
 #define B2_CLAMP(A, B, C) B2_MIN(B2_MAX(A, B), C)
 
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
-static const b2Rot b2Rot_identity = {0.0f, 1.0f};
-static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {0.0f, 1.0f}};
+static const b2Rot b2Rot_identity = {1.0f, 0.0f};
+static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {1.0f, 0.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
 /// Vector dot product
@@ -180,7 +180,7 @@ B2_INLINE float b2DistanceSquared(b2Vec2 a, b2Vec2 b)
 B2_INLINE b2Rot b2MakeRot(float angle)
 {
 	// todo determinism
-	b2Rot q = {sinf(angle), cosf(angle)};
+	b2Rot q = {cosf(angle), sinf(angle)};
 	return q;
 }
 
@@ -189,7 +189,7 @@ B2_INLINE b2Rot b2NormalizeRot(b2Rot q)
 {
 	float mag = sqrtf(q.s * q.s + q.c * q.c);
 	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
-	b2Rot qn = {q.s * invMag, q.c * invMag};
+	b2Rot qn = {q.c * invMag, q.s * invMag};
 	return qn;
 }
 
@@ -207,8 +207,8 @@ B2_INLINE b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
 {
 	float omt = 1.0f - t;
 	b2Rot q = {
-		omt * q1.s + t * q2.s,
 		omt * q1.c + t * q2.c,
+		omt * q1.s + t * q2.s,
 	};
 
 	return b2NormalizeRot(q);
@@ -219,14 +219,14 @@ B2_INLINE b2Rot b2NLerp(b2Rot q1, b2Rot q2, float t)
 ///	@param deltaAngle the angular displacement in radians
 B2_INLINE b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
 {
-	// ds/dt = omega * cos(t)
 	// dc/dt = -omega * sin(t)
-	// s2 = s1 + omega * h * c1
+	// ds/dt = omega * cos(t)
 	// c2 = c1 - omega * h * s1
-	b2Rot q2 = {q1.s + deltaAngle * q1.c, q1.c - deltaAngle * q1.s};
+	// s2 = s1 + omega * h * c1
+	b2Rot q2 = {q1.c - deltaAngle * q1.s, q1.s + deltaAngle * q1.c};
 	float mag = sqrtf(q2.s * q2.s + q2.c * q2.c);
 	float invMag = mag > 0.0 ? 1.0f / mag : 0.0f;
-	b2Rot qn = {q2.s * invMag, q2.c * invMag};
+	b2Rot qn = {q2.c * invMag, q2.s * invMag};
 	return qn;
 }
 

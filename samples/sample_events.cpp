@@ -25,7 +25,7 @@ public:
 		e_count = 32
 	};
 
-	SensorEvent(Settings& settings)
+	explicit SensorEvent(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -334,7 +334,7 @@ public:
 		e_count = 20
 	};
 
-	ContactEvent(Settings& settings)
+	explicit ContactEvent(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -903,7 +903,7 @@ public:
 		e_count = 50
 	};
 
-	BodyMove(Settings& settings)
+	explicit BodyMove(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

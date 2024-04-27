@@ -15,8 +15,8 @@ typedef struct b2Vec2
 /// This is similar to using a complex number for rotation
 typedef struct b2Rot
 {
-	/// sine and cosine
-	float s, c;
+	/// cosine and sine
+	float c, s;
 } b2Rot;
 
 /// A 2D rigid transform

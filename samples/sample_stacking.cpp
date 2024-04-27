@@ -61,7 +61,7 @@ public:
 		e_rows = 10,
 	};
 
-	TiltedStack(Settings& settings)
+	explicit TiltedStack(Settings& settings)
 		: Sample(settings)
 	{
 		{
@@ -136,7 +136,7 @@ public:
 		e_boxShape
 	};
 
-	VerticalStack(Settings& settings)
+	explicit VerticalStack(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -373,7 +373,7 @@ static int sampleVerticalStack = RegisterSample("Stacking", "Vertical Stack", Ve
 class Cliff : public Sample
 {
 public:
-	Cliff(Settings& settings)
+	explicit Cliff(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -615,7 +615,7 @@ static int sampleArch = RegisterSample("Stacking", "Arch", Arch::Create);
 class DoubleDomino : public Sample
 {
 public:
-	DoubleDomino(Settings& settings)
+	explicit DoubleDomino(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -674,7 +674,7 @@ public:
 		e_maxCount = e_gridCount * e_gridCount
 	};
 
-	Confined(Settings& settings)
+	explicit Confined(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -745,7 +745,7 @@ static int sampleConfined = RegisterSample("Stacking", "Confined", Confined::Cre
 class CardHouse : public Sample
 {
 public:
-	CardHouse(Settings& settings)
+	explicit CardHouse(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)

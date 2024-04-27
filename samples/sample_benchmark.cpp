@@ -1269,7 +1269,7 @@ public:
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 		const char* text = "I";
-		int n = strlen(text);
+		int n = (int)strlen(text);
 		float zoom = 1.0f;
 
 		float x = 0.0f;

@@ -379,12 +379,10 @@ void b2ApplyOverflowRestitution(b2StepContext* context)
 		b2BodyState* stateA = constraint->indexA == B2_NULL_INDEX ? &dummyState : states + constraint->indexA;
 		b2Vec2 vA = stateA->linearVelocity;
 		float wA = stateA->angularVelocity;
-		b2Rot dqA = stateA->deltaRotation;
 
 		b2BodyState* stateB = constraint->indexB == B2_NULL_INDEX ? &dummyState : states + constraint->indexB;
 		b2Vec2 vB = stateB->linearVelocity;
 		float wB = stateB->angularVelocity;
-		b2Rot dqB = stateB->deltaRotation;
 
 		b2Vec2 normal = constraint->normal;
 		int pointCount = constraint->pointCount;
@@ -505,8 +503,8 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int* restri
 {
 	_Static_assert(sizeof(b2BodyState) == 32, "b2BodyState not 32 bytes");
 	B2_ASSERT(((uintptr_t)states & 0x1F) == 0);
-	// static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
-	b2FloatW identity = simde_mm256_setr_ps(0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f, 1.0f);
+	// static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {1.0f, 0.0f}};
+	b2FloatW identity = simde_mm256_setr_ps(0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 1.0f, 0.0f);
 	b2FloatW b0 = indices[0] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[0]));
 	b2FloatW b1 = indices[1] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[1]));
 	b2FloatW b2 = indices[2] == B2_NULL_INDEX ? identity : simde_mm256_load_ps((float*)(states + indices[2]));
@@ -540,8 +538,8 @@ static b2SimdBody b2GatherBodies(const b2BodyState* restrict states, int* restri
 	simdBody.flags = simde_mm256_permute2f128_ps(tt3, tt7, 0x20);
 	simdBody.dp.X = simde_mm256_permute2f128_ps(tt0, tt4, 0x31);
 	simdBody.dp.Y = simde_mm256_permute2f128_ps(tt1, tt5, 0x31);
-	simdBody.dq.S = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
-	simdBody.dq.C = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
+	simdBody.dq.C = simde_mm256_permute2f128_ps(tt2, tt6, 0x31);
+	simdBody.dq.S = simde_mm256_permute2f128_ps(tt3, tt7, 0x31);
 	return simdBody;
 }
 
@@ -556,8 +554,8 @@ static void b2ScatterBodies(b2BodyState* restrict states, int* restrict indices,
 	b2FloatW t3 = simde_mm256_unpackhi_ps(simdBody->w, simdBody->flags);
 	b2FloatW t4 = simde_mm256_unpacklo_ps(simdBody->dp.X, simdBody->dp.Y);
 	b2FloatW t5 = simde_mm256_unpackhi_ps(simdBody->dp.X, simdBody->dp.Y);
-	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->dq.S, simdBody->dq.C);
-	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->dq.S, simdBody->dq.C);
+	b2FloatW t6 = simde_mm256_unpacklo_ps(simdBody->dq.C, simdBody->dq.S);
+	b2FloatW t7 = simde_mm256_unpackhi_ps(simdBody->dq.C, simdBody->dq.S);
 	b2FloatW tt0 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(1, 0, 1, 0));
 	b2FloatW tt1 = simde_mm256_shuffle_ps(t0, t2, SIMDE_MM_SHUFFLE(3, 2, 3, 2));
 	b2FloatW tt2 = simde_mm256_shuffle_ps(t1, t3, SIMDE_MM_SHUFFLE(1, 0, 1, 0));

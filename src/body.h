@@ -76,12 +76,12 @@ typedef struct b2BodyState
 	b2Vec2 deltaPosition; // 8
 
 	// Using delta rotation because I cannot access the full rotation on static bodies in
-	// the solver and must use zero delta rotation for static bodies (s,c) = (0,1)
+	// the solver and must use zero delta rotation for static bodies (c,s) = (1,0)
 	b2Rot deltaRotation; // 8
 } b2BodyState;
 
-// Identity body state, notice the deltaRotation is {0, 1}
-static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {0.0f, 1.0f}};
+// Identity body state, notice the deltaRotation is {1, 0}
+static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {1.0f, 0.0f}};
 
 // Body simulation data used for integration of position and velocity
 // Transform data used for collision and solver preparation.

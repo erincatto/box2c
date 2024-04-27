@@ -19,7 +19,7 @@
 class SampleDistance : public Sample
 {
 public:
-	SampleDistance(Settings& settings)
+	explicit SampleDistance(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -173,6 +173,7 @@ public:
 
 		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
 
+		// todo finish this sample
 #if 0
 		// circle-circle
 		{
@@ -475,7 +476,7 @@ static float RayCallback(const b2RayCastInput* input, int32_t proxyId, int32_t u
 class DynamicTree : public Sample
 {
 public:
-	DynamicTree(Settings& settings)
+	explicit DynamicTree(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -883,7 +884,7 @@ static int sampleDynamicTree = RegisterSample("Collision", "Dynamic Tree", Dynam
 class RayCast : public Sample
 {
 public:
-	RayCast(Settings& settings)
+	explicit RayCast(Settings& settings)
 		: Sample(settings)
 	{
 		m_circle = {{0.0f, 0.0f}, 2.0f};
@@ -1406,7 +1407,7 @@ public:
 		e_maxCount = 64
 	};
 
-	RayCastWorld(Settings& settings)
+	explicit RayCastWorld(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1927,7 +1928,7 @@ public:
 		return true;
 	}
 
-	OverlapWorld(Settings& settings)
+	explicit OverlapWorld(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -2265,7 +2266,7 @@ static int sampleOverlapWorld = RegisterSample("Collision", "Overlap World", Ove
 class Manifold : public Sample
 {
 public:
-	Manifold(Settings& settings)
+	explicit Manifold(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -2977,7 +2978,7 @@ public:
 		e_boxShape
 	};
 
-	SmoothManifold(Settings& settings)
+	explicit SmoothManifold(Settings& settings)
 		: Sample(settings)
 	{
 		m_shapeType = e_boxShape;
@@ -3061,8 +3062,8 @@ public:
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(230.0f, 260.0f));
-		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(230.0f, 270.0f));
+		ImGui::Begin("Smooth Manifold", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		{
 			const char* shapeTypes[] = {"Circle", "Box"};
@@ -3269,7 +3270,7 @@ public:
 		e_vertexCount = 8
 	};
 
-	ShapeCast(Settings& settings)
+	explicit ShapeCast(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -3508,7 +3509,7 @@ static int sampleShapeCast = RegisterSample("Collision", "Shape Cast", ShapeCast
 class TimeOfImpact : public Sample
 {
 public:
-	TimeOfImpact(Settings& settings)
+	explicit TimeOfImpact(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
