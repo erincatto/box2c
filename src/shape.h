@@ -17,6 +17,7 @@ typedef struct b2Shape
 {
 	int id;
 	int bodyId;
+	int prevShapeId;
 	int nextShapeId;
 	b2ShapeType type;
 	float density;

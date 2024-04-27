@@ -108,7 +108,15 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
 	}
 
-	// Add to shape linked list
+	// Add to shape doubly linked list
+	if (body->headShapeId != B2_NULL_INDEX)
+	{
+		b2CheckId(world->shapeArray, body->headShapeId);
+		b2Shape* headShape = world->shapeArray + body->headShapeId;
+		headShape->prevShapeId = shapeId;
+	}
+
+	shape->prevShapeId = B2_NULL_INDEX;
 	shape->nextShapeId = body->headShapeId;
 	body->headShapeId = shapeId;
 	body->shapeCount += 1;
@@ -185,25 +193,22 @@ void b2DestroyShapeInternal(b2World* world, b2Shape* shape, b2Body* body, bool w
 {
 	int shapeId = shape->id;
 
-	// Remove the shape from the body's singly linked list.
-	int* shapeIdPtr = &body->headShapeId;
-	bool found = false;
-	while (*shapeIdPtr != B2_NULL_INDEX)
+	// Remove the shape from the body's doubly linked list.
+	if (shape->prevShapeId != B2_NULL_INDEX)
 	{
-		if (*shapeIdPtr == shape->id)
-		{
-			*shapeIdPtr = shape->nextShapeId;
-			found = true;
-			break;
-		}
-
-		shapeIdPtr = &(world->shapeArray[*shapeIdPtr].nextShapeId);
+		b2CheckId(world->shapeArray, shape->prevShapeId);
+		world->shapeArray[shape->prevShapeId].nextShapeId = shape->nextShapeId;
 	}
 
-	B2_ASSERT(found);
-	if (found == false)
+	if (shape->nextShapeId != B2_NULL_INDEX)
 	{
-		return;
+		b2CheckId(world->shapeArray, shape->nextShapeId);
+		world->shapeArray[shape->nextShapeId].prevShapeId = shape->prevShapeId;
+	}
+
+	if (shapeId == body->headShapeId)
+	{
+		body->headShapeId = shape->nextShapeId;
 	}
 
 	body->shapeCount -= 1;

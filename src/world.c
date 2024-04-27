@@ -2088,6 +2088,32 @@ void b2ValidateSolverSets(b2World* world)
 						B2_ASSERT(body->headContactKey == B2_NULL_INDEX);
 					}
 
+					// Validate body shapes
+					int prevShapeId = B2_NULL_INDEX;
+					int shapeId = body->headShapeId;
+					while (shapeId != B2_NULL_INDEX)
+					{
+						b2CheckId(world->shapeArray, shapeId);
+						b2Shape* shape = world->shapeArray + shapeId;
+						B2_ASSERT(shape->prevShapeId == prevShapeId);
+
+						if (setIndex == b2_disabledSet)
+						{
+							B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
+						}
+						else if (setIndex == b2_staticSet)
+						{
+							B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) == b2_staticProxy);
+						}
+						else
+						{
+							B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) == b2_movableProxy);
+						}
+
+						prevShapeId = shapeId;
+						shapeId = shape->nextShapeId;
+					}
+
 					// Validate body contacts
 					int contactKey = body->headContactKey;
 					while (contactKey != B2_NULL_INDEX)

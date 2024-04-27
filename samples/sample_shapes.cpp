@@ -1032,7 +1032,7 @@ public:
 
 		int count1 = std::size(points1);
 		int count2 = std::size(points2);
-		;
+
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
