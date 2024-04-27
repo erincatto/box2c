@@ -21,8 +21,8 @@ b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
 	xf.p = b2Add(b2MulSV(1.0f - time, sweep->c1), b2MulSV(time, sweep->c2));
 
 	b2Rot q = {
-		(1.0f - time) * sweep->q1.s + time * sweep->q2.s,
 		(1.0f - time) * sweep->q1.c + time * sweep->q2.c,
+		(1.0f - time) * sweep->q1.s + time * sweep->q2.s,
 	};
 
 	xf.q = b2NormalizeRot(q);
