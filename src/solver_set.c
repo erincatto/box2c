@@ -9,20 +9,19 @@
 #include "core.h"
 #include "island.h"
 #include "joint.h"
-#include "util.h"
 #include "world.h"
 
 #include <string.h>
 
-void b2DestroySolverSet(b2World* world, int setId)
+void b2DestroySolverSet(b2World* world, int setIndex)
 {
-	b2SolverSet* set = world->solverSetArray + setId;
+	b2SolverSet* set = world->solverSetArray + setIndex;
 	b2DestroyBodySimArray(&world->blockAllocator, &set->sims);
 	b2DestroyBodyStateArray(&world->blockAllocator, &set->states);
 	b2DestroyContactArray(&world->blockAllocator, &set->contacts);
 	b2DestroyJointArray(&world->blockAllocator, &set->joints);
 	b2DestroyIslandArray(&world->blockAllocator, &set->islands);
-	b2FreeId(&world->solverSetIdPool, setId);
+	b2FreeId(&world->solverSetIdPool, setIndex);
 	*set = (b2SolverSet){0};
 	set->setIndex = B2_NULL_INDEX;
 }
@@ -33,11 +32,11 @@ void b2DestroySolverSet(b2World* world, int setId)
 // 2. non-touching contacts already in the awake set
 // 3. touching contacts in the sleeping set
 // This handles contact types 1 and 3. Type 2 doesn't need any action.
-void b2WakeSolverSet(b2World* world, int setId)
+void b2WakeSolverSet(b2World* world, int setIndex)
 {
-	B2_ASSERT(setId >= b2_firstSleepingSet);
-	b2CheckIndex(world->solverSetArray, setId);
-	b2SolverSet* set = world->solverSetArray + setId;
+	B2_ASSERT(setIndex >= b2_firstSleepingSet);
+	b2CheckIndex(world->solverSetArray, setIndex);
+	b2SolverSet* set = world->solverSetArray + setIndex;
 	b2SolverSet* awakeSet = world->solverSetArray + b2_awakeSet;
 	b2SolverSet* disabledSet = world->solverSetArray + b2_disabledSet;
 
@@ -54,7 +53,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 		simSrc->sleepTime = 0.0f;
 
 		b2Body* body = bodies + simSrc->bodyId;
-		B2_ASSERT(body->setIndex == setId);
+		B2_ASSERT(body->setIndex == setIndex);
 		body->setIndex = b2_awakeSet;
 		body->localIndex = awakeSet->sims.count;
 
@@ -78,7 +77,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 
 			if (contact->setIndex != b2_disabledSet)
 			{
-				B2_ASSERT(contact->setIndex == b2_awakeSet || contact->setIndex == setId);
+				B2_ASSERT(contact->setIndex == b2_awakeSet || contact->setIndex == setIndex);
 				continue;
 			}
 
@@ -116,7 +115,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 			B2_ASSERT(contact->flags & b2_contactTouchingFlag);
 			B2_ASSERT(contactSim->simFlags & b2_simTouchingFlag);
 			B2_ASSERT(contactSim->manifold.pointCount > 0);
-			B2_ASSERT(contact->setIndex == setId);
+			B2_ASSERT(contact->setIndex == setIndex);
 			b2AddContactToGraph(world, contactSim, contact);
 			contact->setIndex = b2_awakeSet;
 		}
@@ -130,7 +129,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 		{
 			b2JointSim* jointSim = set->joints.data + i;
 			b2Joint* joint = joints + jointSim->jointId;
-			B2_ASSERT(joint->setIndex == setId);
+			B2_ASSERT(joint->setIndex == setIndex);
 			b2AddJointToGraph(world, jointSim, joint);
 			joint->setIndex = b2_awakeSet;
 		}
@@ -156,7 +155,7 @@ void b2WakeSolverSet(b2World* world, int setId)
 	}
 
 	// destroy the sleeping set
-	b2DestroySolverSet(world, setId);
+	b2DestroySolverSet(world, setIndex);
 
 	b2ValidateSolverSets(world);
 }

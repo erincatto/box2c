@@ -13,6 +13,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#if defined(_WIN64)
+	#include <windows.h>
+#elif defined(__APPLE__)
+	// #include <sys/param.h>
+	// #include <sys/sysctl.h>
+	#include <unistd.h>
+#elif defined(__linux__)
+	#include <unistd.h>
+#endif
+
 #define ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
 #define MAYBE_UNUSED(x) ((void)(x))
 
@@ -43,6 +53,39 @@ enkiTaskScheduler* scheduler;
 enkiTaskSet* tasks[MAX_TASKS];
 TaskData taskData[MAX_TASKS];
 int taskCount;
+
+int GetNumberOfCores()
+{
+#if defined(_WIN64)
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo(&sysinfo);
+	return sysinfo.dwNumberOfProcessors;
+#elif defined(__APPLE__)
+	// int nm[2];
+	// size_t len = 4;
+	// uint32_t count;
+
+	// nm[0] = CTL_HW;
+	// nm[1] = HW_AVAILCPU;
+	// sysctl(nm, 2, &count, &len, NULL, 0);
+
+	// if (count < 1)
+	//{
+	//	nm[1] = HW_NCPU;
+	//	sysctl(nm, 2, &count, &len, NULL, 0);
+	//	if (count < 1)
+	//	{
+	//		count = 1;
+	//	}
+	// }
+	// return count;
+	return sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(__linux__)
+	return sysconf(_SC_NPROCESSORS_ONLN);
+#else
+	return 1;
+#endif
+}
 
 void ExecuteRangeTask(uint32_t start, uint32_t end, uint32_t threadIndex, void* context)
 {
@@ -92,12 +135,27 @@ static void FinishTask(void* userTask, void* userContext)
 
 int main(int argc, char** argv)
 {
-	int maxThreadCount = 8;
+	int maxThreadCount = GetNumberOfCores();
 	int runCount = 4;
 	b2Counters counters = {0};
 	bool enableContinuous = true;
 
 	assert(maxThreadCount <= THREAD_LIMIT);
+
+	for (int i = 1; i < argc; ++i)
+	{
+		const char* arg = argv[i];
+		if (strncmp(arg, "-t=", 3) == 0)
+		{
+			int threadCount = atoi(arg + 3);
+			maxThreadCount = B2_MIN(maxThreadCount, threadCount);
+		}
+		else if (strcmp(arg, "-h") == 0)
+		{
+			printf("Usage\n"
+				   "-t=<thread count>: the maximum number of threads to use\n");
+		}
+	}
 
 	Benchmark benchmarks[] = {
 		{"joint_grid", JointGrid, 500},
@@ -121,7 +179,7 @@ int main(int argc, char** argv)
 #endif
 
 		bool countersAcquired = false;
-		
+
 		printf("benchmark: %s, steps = %d\n", benchmarks[benchmarkIndex].name, stepCount);
 
 		float maxFps[THREAD_LIMIT] = {0};

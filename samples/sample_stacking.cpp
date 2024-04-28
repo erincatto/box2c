@@ -6,6 +6,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math_functions.h"
@@ -36,12 +37,31 @@ public:
 
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
 		b2CreateSegmentShape(groundId, &shapeDef, &segment);
+		
 		bodyDef.type = b2_dynamicBody;
+		bodyDef.gravityScale = 0.0f;
+		bodyDef.enableSleep = false;
 
-		b2Polygon box = b2MakeBox(extent, extent);
+		b2Polygon box = b2MakeRoundedBox(extent, extent, 0.2f);
 		bodyDef.position = {0.0f, 4.0f};
 		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 		b2CreatePolygonShape(bodyId, &shapeDef, &box);
+
+		box = b2MakeOffsetBox(extent, extent, {3.0f, 0.0f}, 0.0f);
+		b2CreatePolygonShape(bodyId, &shapeDef, &box);
+
+		b2Circle circle = {{-3.0, 0.0f}, 1.0f};
+		b2CreateCircleShape(bodyId, &shapeDef, &circle);
+	}
+
+	void Step(Settings& settings) override
+	{
+		b2Transform transform = {{0.0f, 1.0f}, {1.0f, 0.0f}};
+		g_draw.DrawCircle2(transform, 0.5f, {0.0f, 0.0f, 1.0f, 1.0f});
+
+		transform.p.x = 4.0f;
+		g_draw.DrawCircle2(transform, 1.0f, {1.0f, 0.0f, 1.0f, 1.0f});
+		Sample::Step(settings);
 	}
 
 	static Sample* Create(Settings& settings)

@@ -128,7 +128,7 @@ static void CheckGLError()
 	GLenum errCode = glGetError();
 	if (errCode != GL_NO_ERROR)
 	{
-		fprintf(stderr, "OpenGL error = %d\n", errCode);
+		printf("OpenGL error = %d\n", errCode);
 		assert(false);
 	}
 }
@@ -138,23 +138,31 @@ static void PrintLog(GLuint object)
 {
 	GLint log_length = 0;
 	if (glIsShader(object))
+	{
 		glGetShaderiv(object, GL_INFO_LOG_LENGTH, &log_length);
+	}
 	else if (glIsProgram(object))
+	{
 		glGetProgramiv(object, GL_INFO_LOG_LENGTH, &log_length);
+	}
 	else
 	{
-		fprintf(stderr, "printlog: Not a shader or a program\n");
+		printf("printlog: Not a shader or a program\n");
 		return;
 	}
 
 	char* log = (char*)malloc(log_length);
 
 	if (glIsShader(object))
+	{
 		glGetShaderInfoLog(object, log_length, nullptr, log);
+	}
 	else if (glIsProgram(object))
+	{
 		glGetProgramInfoLog(object, log_length, nullptr, log);
+	}
 
-	fprintf(stderr, "%s", log);
+	printf("%s", log);
 	free(log);
 }
 
@@ -169,7 +177,7 @@ static GLuint sCreateShaderFromString(const char* source, GLenum type)
 	glGetShaderiv(res, GL_COMPILE_STATUS, &status);
 	if (status == GL_FALSE)
 	{
-		fprintf(stderr, "Error compiling shader of type %d!\n", type);
+		printf("Error compiling shader of type %d!\n", type);
 		PrintLog(res);
 		glDeleteShader(res);
 		return 0;
@@ -550,7 +558,9 @@ struct GLRenderTriangles
 	void Vertex(const b2Vec2& v, const b2Color& c)
 	{
 		if (m_count == e_maxVertices)
+		{
 			Flush();
+		}
 
 		m_vertices[m_count] = v;
 		m_colors[m_count] = c;
@@ -560,7 +570,9 @@ struct GLRenderTriangles
 	void Flush()
 	{
 		if (m_count == 0)
+		{
 			return;
+		}
 
 		glUseProgram(m_programId);
 
@@ -609,6 +621,215 @@ struct GLRenderTriangles
 	GLint m_colorAttribute;
 };
 
+struct Transform
+{
+	float x, y, c, s;
+};
+
+struct GLRenderCircles
+{
+	void Create()
+	{
+		const char* vs = SHADER_TEXT(
+						 uniform mat4 projectionMatrix;
+						 layout(location = 0) in vec2 v_localPosition;
+						 layout(location = 1) in vec4 v_instanceTransform;
+						 layout(location = 2) in float v_instanceRadius;
+						 layout(location = 3) in vec4 v_instanceColor;
+						 out vec2 f_position;
+						 out vec4 f_color;
+						 void main()
+						 {
+							f_position = v_localPosition;
+							f_color = v_instanceColor;
+							float x = v_instanceTransform.x;
+							float y = v_instanceTransform.y;
+							float c = v_instanceTransform.z;
+							float s = v_instanceTransform.w;
+							float radius = v_instanceRadius;
+							vec2 p = vec2(radius * v_localPosition.x, radius * v_localPosition.y);
+							p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
+						 	gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
+						});
+
+		const char* fs = SHADER_TEXT(
+						 in vec2 f_position;
+						 in vec4 f_color;
+						 out vec4 color;
+						 void main()
+						 {
+							vec2 p = f_position;
+							vec2 c = vec2(0);
+
+							float radius = 0.5;
+
+							// distance
+							vec2 e = vec2(radius, 0);
+							vec2 w = p - c;
+							float we = dot(w, e);
+
+							// distance to line segment
+							vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
+							float da = sqrt(dot(b, b));
+
+							// distance to origin
+							float dw = sqrt(dot(w, w));
+							float dc = abs(dw - radius);
+							float d = min(da, dc);
+
+							vec4 borderColor = f_color;
+							vec4 fillColor = 0.5 * borderColor;
+
+							float borderThickness = 0.007f;
+
+							//vec4 col = dw > radius ? vec4(0) : fillColor;
+							//col = mix(col, borderColor, 1.0 - smoothstep(0.0, borderThickness, d));
+						 	
+							vec4 col = mix(vec4(0), fillColor, 1.0 - smoothstep(radius - fwidth(dw), radius, dw));
+							col = mix(col, borderColor, 1.0 - smoothstep(borderThickness - fwidth(d), borderThickness, d));
+
+							color = col;
+							//color = vec4(col, alpha * f_color.a);
+						 });
+
+		m_programId = sCreateShaderProgram(vs, fs);
+		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
+		int vertexAttribute = 0;
+		int instanceTransformAttribute = 1;
+		int instanceRadiusAttribute = 2;
+		int instanceColorAttribute = 3;
+
+		// Generate
+		glGenVertexArrays(1, &m_vaoId);
+		glGenBuffers(4, m_vboIds);
+
+		glBindVertexArray(m_vaoId);
+		glEnableVertexAttribArray(vertexAttribute);
+		glEnableVertexAttribArray(instanceTransformAttribute);
+		glEnableVertexAttribArray(instanceRadiusAttribute);
+		glEnableVertexAttribArray(instanceColorAttribute);
+
+		// Vertex buffer for single quad
+		b2Vec2 vertices[] = {{-0.6f, -0.6f}, {0.6f, -0.6f}, {-0.6f, 0.6f}, {0.6f, -0.6f}, {0.6f, 0.6f}, {-0.6f, 0.6f}};
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+
+		// Transform buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_transforms), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceTransformAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glVertexAttribDivisor(1, 1);
+
+		// Radii buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_radii), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceRadiusAttribute, 1, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glVertexAttribDivisor(2, 1);
+
+		// Color buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceColorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glVertexAttribDivisor(3, 1);
+
+		CheckGLError();
+
+		// Cleanup
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+
+		m_count = 0;
+	}
+
+	void Destroy()
+	{
+		if (m_vaoId)
+		{
+			glDeleteVertexArrays(1, &m_vaoId);
+			glDeleteBuffers(4, m_vboIds);
+			m_vaoId = 0;
+		}
+
+		if (m_programId)
+		{
+			glDeleteProgram(m_programId);
+			m_programId = 0;
+		}
+	}
+
+	void AddCircle(const b2Transform& transform, float radius, const b2Color& c)
+	{
+		if (m_count == e_maxCircles)
+		{
+			Flush();
+		}
+
+		m_transforms[m_count] = {transform.p.x, transform.p.y, transform.q.c, transform.q.s};
+		m_radii[m_count] = radius;
+		m_colors[m_count] = c;
+		++m_count;
+	}
+
+	void Flush()
+	{
+		if (m_count == 0)
+		{
+			return;
+		}
+
+		glUseProgram(m_programId);
+
+		float proj[16] = {0.0f};
+		g_camera.BuildProjectionMatrix(proj, 0.2f);
+
+		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
+
+		glBindVertexArray(m_vaoId);
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(Transform), m_transforms);
+		CheckGLError();
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(float), m_radii);
+		CheckGLError();
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
+		CheckGLError();
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, m_count);
+		glDisable(GL_BLEND);
+
+		CheckGLError();
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
+
+		m_count = 0;
+	}
+
+	enum
+	{
+		e_maxCircles = 3 * 512
+	};
+
+	Transform m_transforms[e_maxCircles];
+	float m_radii[e_maxCircles];
+	b2Color m_colors[e_maxCircles];
+
+	int m_count;
+
+	GLuint m_vaoId;
+	GLuint m_vboIds[4];
+	GLuint m_programId;
+	GLint m_projectionUniform;
+};
+
 struct Float2
 {
 	float x, y;
@@ -629,12 +850,16 @@ struct GLRenderRoundedTriangles
 	void Create()
 	{
 		const char* vs = SHADER_TEXT(
-			layout(location = 0) in vec2 position; layout(location = 1) in vec2 uv; layout(location = 2) in float radius;
-			layout(location = 3) in vec4 fillColor; layout(location = 4) in vec4 outlineColor;
+			layout(location = 0) in vec2 position;
+			layout(location = 1) in vec2 uv;
+			layout(location = 2) in float radius;
+			layout(location = 3) in vec4 fillColor;
+			layout(location = 4) in vec4 outlineColor;
 
 			uniform mat4 projectionMatrix;
 
 			out struct {
+				// uv is really the border normal or zero for inner vertex
 				vec2 uv;
 				vec4 fillColor;
 				vec4 outlineColor;
@@ -659,18 +884,20 @@ struct GLRenderRoundedTriangles
 			void main() {
 				// length of 1 is the circular border of the rounded edge
 				float len = length(Frag.uv);
-				vec2 df = vec2(dFdx(len), dFdy(len));
-				float fw = 4.0f * length(df);
+				//vec2 df = vec2(dFdx(len), dFdy(len));
+				//float fw = 1.5f * length(df);
+				float fw = fwidth(len);
 
 				// mask is 1 inside rounded polygon, 0 outside with smoothing at the border
 				// smoothing needed to anti-alias the perimeter
-				float mask = 1 - smoothstep(1 - 0.5f * fw, 1, len);
+				float mask = 1 - smoothstep(1 - 0.5 * fw, 1, len);
 
 				// outline mask is 1 outside polygon including a border strip that is roughly fixed pixel width
 				// smooth step needed to anti-alias the interior of the border
-				float outlineMask = smoothstep(1 - 1.5 * fw, 1 - fw, len);
+				float outlineMask = smoothstep(1 - 2 * fw, 1 - fw, len);
 
 				vec4 color = Frag.fillColor + (Frag.outlineColor - Frag.fillColor * Frag.outlineColor.a) * outlineMask;
+				//vec4 color = Frag.fillColor;
 				outColor = color * mask;
 			});
 
@@ -877,6 +1104,7 @@ Draw::Draw()
 	m_lines = nullptr;
 	m_triangles = nullptr;
 	m_roundedTriangles = nullptr;
+	m_circles = nullptr;
 	m_debugDraw = {};
 }
 
@@ -897,6 +1125,8 @@ void Draw::Create()
 	m_triangles->Create();
 	m_roundedTriangles = static_cast<GLRenderRoundedTriangles*>(malloc(sizeof(GLRenderRoundedTriangles)));
 	m_roundedTriangles->Create();
+	m_circles = static_cast<GLRenderCircles*>(malloc(sizeof(GLRenderCircles)));
+	m_circles->Create();
 
 	m_debugDraw = {	DrawPolygonFcn,
 					DrawSolidPolygonFcn,
@@ -939,6 +1169,10 @@ void Draw::Destroy()
 	m_roundedTriangles->Destroy();
 	free(m_roundedTriangles);
 	m_roundedTriangles = nullptr;
+
+	m_circles->Destroy();
+	free(m_circles);
+	m_circles = nullptr;
 }
 
 void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
@@ -982,7 +1216,8 @@ void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color
 void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color)
 {
 	assert(vertexCount <= MAX_POLY_VERTEXES);
-	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
+	b2Color fillColor = color;
+	//{0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
 
 	RGBA8 fill = MakeRGBA8(fillColor);
 	RGBA8 outline = MakeRGBA8(color);
@@ -1002,15 +1237,23 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float
 	for (int i0 = 0; i0 < vertexCount; ++i0)
 	{
 		int i1 = (i0 + 1) % vertexCount;
+
+		// corner triangle 1
 		outlineIndices[12 * i0 + 0] = 4 * i0 + 0;
 		outlineIndices[12 * i0 + 1] = 4 * i0 + 1;
 		outlineIndices[12 * i0 + 2] = 4 * i0 + 2;
+
+		// corner triangle 2
 		outlineIndices[12 * i0 + 3] = 4 * i0 + 0;
 		outlineIndices[12 * i0 + 4] = 4 * i0 + 2;
 		outlineIndices[12 * i0 + 5] = 4 * i0 + 3;
+		
+		// edge triangle 1
 		outlineIndices[12 * i0 + 6] = 4 * i0 + 0;
 		outlineIndices[12 * i0 + 7] = 4 * i0 + 3;
 		outlineIndices[12 * i0 + 8] = 4 * i1 + 0;
+		
+		// edge triangle 2
 		outlineIndices[12 * i0 + 9] = 4 * i0 + 3;
 		outlineIndices[12 * i0 + 10] = 4 * i1 + 0;
 		outlineIndices[12 * i0 + 11] = 4 * i1 + 1;
@@ -1038,14 +1281,28 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float
 		b2Vec2 v0 = vertices[i];
 		b2Vec2 v_next = vertices[(i + (vertexCount + 1)) % vertexCount];
 
+		// normal on trailing edge
 		b2Vec2 n1 = b2Normalize(b2CrossVS(b2Sub(v0, v_prev), 1.0f));
+
+		// normal on leading edge
 		b2Vec2 n2 = b2Normalize(b2CrossVS(b2Sub(v_next, v0), 1.0f));
+
+		// radius normal
 		b2Vec2 of = b2MulSV(1.0f / (b2Dot(n1, n2) + 1.0f), b2Add(n1, n2));
+
+		// inner vertex
 		b2Vec2 v = b2Add(v0, b2MulSV(inset, of));
 
+		// inner vertex
 		vertexes[4 * i + 0] = {{v.x, v.y}, {0.0f, 0.0f}, 0.0f, fill, outline};
+
+		// trailing border vertex
 		vertexes[4 * i + 1] = {{v.x, v.y}, {n1.x, n1.y}, r, fill, outline};
+
+		// rounded corner vertex
 		vertexes[4 * i + 2] = {{v.x, v.y}, {of.x, of.y}, r, fill, outline};
+
+		// leading border vertex
 		vertexes[4 * i + 3] = {{v.x, v.y}, {n2.x, n2.y}, r, fill, outline};
 	}
 }
@@ -1115,6 +1372,11 @@ void Draw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color col
 	b2Vec2 p = b2MulAdd(center, radius, axis);
 	m_lines->Vertex(center, color);
 	m_lines->Vertex(p, color);
+}
+
+void Draw::DrawCircle2(b2Transform transform, float radius, b2Color color)
+{
+	m_circles->AddCircle(transform, radius, color);
 }
 
 void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
@@ -1362,5 +1624,6 @@ void Draw::Flush()
 	m_triangles->Flush();
 	m_lines->Flush();
 	m_points->Flush();
+	m_circles->Flush();
 	CheckGLError();
 }

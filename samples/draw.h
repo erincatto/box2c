@@ -42,6 +42,8 @@ public:
 
 	void DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color);
 
+	void DrawCircle2(b2Transform transform, float radius, b2Color color);
+
 	void DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
 
 	void DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
@@ -65,6 +67,7 @@ public:
 	struct GLRenderLines* m_lines;
 	struct GLRenderTriangles* m_triangles;
 	struct GLRenderRoundedTriangles* m_roundedTriangles;
+	struct GLRenderCircles* m_circles;
 	b2DebugDraw m_debugDraw;
 };
 

@@ -239,13 +239,6 @@ void b2DestroyWorld(b2WorldId worldId)
 		}
 	}
 
-	b2DestroyIdPool(&world->bodyIdPool);
-	b2DestroyIdPool(&world->shapeIdPool);
-	b2DestroyIdPool(&world->chainIdPool);
-	b2DestroyIdPool(&world->contactIdPool);
-	b2DestroyIdPool(&world->jointIdPool);
-	b2DestroyIdPool(&world->islandIdPool);
-	b2DestroyIdPool(&world->solverSetIdPool);
 	b2DestroyArray(world->bodyArray, sizeof(b2Body));
 	b2DestroyArray(world->shapeArray, sizeof(b2Shape));
 	b2DestroyArray(world->chainArray, sizeof(b2ChainShape));
@@ -255,10 +248,29 @@ void b2DestroyWorld(b2WorldId worldId)
 
 	// The data in the solvers sets all comes from the block allocator so no
 	// need to destroy the set contents.
+	// todo testing
+	int setCapacity = b2Array(world->solverSetArray).count;
+	for (int i = 0; i < setCapacity; ++i)
+	{
+		b2SolverSet* set = world->solverSetArray + i;
+		if (set->setIndex != B2_NULL_INDEX)
+		{
+			b2DestroySolverSet(world, i);
+		}
+	}
+
 	b2DestroyArray(world->solverSetArray, sizeof(b2SolverSet));
 
 	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase(&world->broadPhase);
+
+	b2DestroyIdPool(&world->bodyIdPool);
+	b2DestroyIdPool(&world->shapeIdPool);
+	b2DestroyIdPool(&world->chainIdPool);
+	b2DestroyIdPool(&world->contactIdPool);
+	b2DestroyIdPool(&world->jointIdPool);
+	b2DestroyIdPool(&world->islandIdPool);
+	b2DestroyIdPool(&world->solverSetIdPool);
 
 	b2DestroyBlockAllocator(&world->blockAllocator);
 	b2DestroyStackAllocator(&world->stackAllocator);
