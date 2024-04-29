@@ -540,6 +540,10 @@ int main(int, char**)
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
 	//_CrtSetAllocHook(MyAllocHook);
+
+	// How to break at the leaking allocation, in the watch window enter this variable
+	// and set it to the allocation number in {}. Do this at the first line in main.
+	// {,,ucrtbased.dll}_crtBreakAlloc = <allocation number> 3970
 #endif
 
 	// Install memory hooks

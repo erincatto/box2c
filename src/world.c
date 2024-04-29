@@ -115,7 +115,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(2048);
 	b2CreateBroadPhase(&world->broadPhase);
-	b2CreateGraph(&world->constraintGraph, &world->blockAllocator, 16);
+	b2CreateGraph(&world->constraintGraph, 16);
 
 	// pools
 	world->bodyIdPool = b2CreateIdPool();
@@ -261,7 +261,7 @@ void b2DestroyWorld(b2WorldId worldId)
 
 	b2DestroyArray(world->solverSetArray, sizeof(b2SolverSet));
 
-	b2DestroyGraph(&world->constraintGraph);
+	b2DestroyGraph(&world->constraintGraph, &world->blockAllocator);
 	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyIdPool(&world->bodyIdPool);
@@ -783,9 +783,8 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 		case b2_circleShape:
 		{
 			b2Circle* circle = &shape->circle;
-			b2Vec2 center = b2TransformPoint(xf, circle->center);
-			b2Vec2 axis = b2RotateVector(xf.q, (b2Vec2){1.0f, 0.0f});
-			draw->DrawSolidCircle(center, circle->radius, axis, color, draw->context);
+			xf.p = b2TransformPoint(xf, circle->center);
+			draw->DrawSolidCircle(xf, circle->radius, color, draw->context);
 		}
 		break;
 

@@ -67,13 +67,15 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_boxShape;
+		m_shapeType = e_circleShape;
 
 		CreateScene();
 	}
 
 	void CreateScene()
 	{
+		srand(42);
+
 		for (int i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodies[i]))
@@ -184,10 +186,15 @@ public:
 
 				if (m_shapeType == e_circleShape)
 				{
+					circle.radius = RandomFloat(0.25f, 0.75f);
 					b2CreateCircleShape(m_bodies[index], &shapeDef, &circle);
 				}
 				else if (m_shapeType == e_capsuleShape)
 				{
+					capsule.radius = RandomFloat(0.25f, 0.75f);
+					float length = RandomFloat(0.25f, 1.5f);
+					capsule.center1 = {0.0f, -0.5f * length};
+					capsule.center2 = {0.0f, 0.5f * length};
 					b2CreateCapsuleShape(m_bodies[index], &shapeDef, &capsule);
 				}
 				else if (m_shapeType == e_boxShape)

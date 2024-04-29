@@ -58,7 +58,7 @@ void b2DestroyBlockAllocator(b2BlockAllocator* allocator)
 }
 
 // todo this would leak on shutdown
-#define B2_USE_SYSTEM_ALLOC 1
+#define B2_USE_SYSTEM_ALLOC 0
 
 #if B2_USE_SYSTEM_ALLOC
 void* b2AllocBlock(b2BlockAllocator* allocator, int size)

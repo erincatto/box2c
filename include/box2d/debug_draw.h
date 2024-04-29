@@ -21,7 +21,7 @@ typedef struct b2DebugDraw
 	void (*DrawCircle)(b2Vec2 center, float radius, b2Color color, void* context);
 
 	/// Draw a solid circle.
-	void (*DrawSolidCircle)(b2Vec2 center, float radius, b2Vec2 axis, b2Color color, void* context);
+	void (*DrawSolidCircle)(b2Transform transform, float radius, b2Color color, void* context);
 
 	/// Draw a capsule.
 	void (*DrawCapsule)(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context);

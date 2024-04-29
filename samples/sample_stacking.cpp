@@ -56,11 +56,20 @@ public:
 
 	void Step(Settings& settings) override
 	{
-		b2Transform transform = {{0.0f, 1.0f}, {1.0f, 0.0f}};
-		g_draw.DrawCircle2(transform, 0.5f, {0.0f, 0.0f, 1.0f, 1.0f});
+		b2Color color = b2MakeColor(b2_colorPink3);
 
-		transform.p.x = 4.0f;
-		g_draw.DrawCircle2(transform, 1.0f, {1.0f, 0.0f, 1.0f, 1.0f});
+		b2Transform transform = {{-6.0f, 4.0f}, {1.0f, 0.0f}};
+		g_draw.DrawCircle2(transform, 1.0f, color);
+
+		transform.p.x = -8.0f;
+		g_draw.DrawCircle2(transform, 0.5f, color);
+
+		transform.p.x = -9.0f;
+		g_draw.DrawCircle2(transform, 0.25f, color);
+
+		g_draw.DrawSolidCapsule({-0.5f, 1.75f}, {0.5f, 1.75f}, 0.25f, color);
+		g_draw.DrawCapsule2({-0.5f, 1.0f}, {0.5f, 1.0f}, 0.25f, color);
+
 		Sample::Step(settings);
 	}
 
