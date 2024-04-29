@@ -1326,6 +1326,8 @@ void DrawCircleFcn(b2Vec2 center, float radius, b2Color color, void* context)
 
 void DrawSolidCircleFcn(b2Transform transform, float radius, b2Color color, void* context)
 {
+	//b2Vec2 axis = b2RotateVector(transform.q, {1.0f, 0.0f});
+	//static_cast<Draw*>(context)->DrawSolidCircle(transform.p, radius, axis, color);
 	static_cast<Draw*>(context)->DrawCircle2(transform, radius, color);
 }
 
