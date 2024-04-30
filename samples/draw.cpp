@@ -627,81 +627,97 @@ struct Transform
 	float x, y, c, s;
 };
 
+// Draws SDF circles using quad instancing. Apparently instancing of quads can be slow on older GPUs.
+// https://www.reddit.com/r/opengl/comments/q7yikr/how_to_draw_several_quads_through_instancing/
+// https://www.g-truc.net/post-0666.html
 struct GLRenderCircles
 {
 	void Create()
 	{
 		const char* vs = SHADER_TEXT(
-						 uniform mat4 projectionMatrix;
-						 uniform float zoom;
-						 layout(location = 0) in vec2 v_localPosition;
-						 layout(location = 1) in vec4 v_instanceTransform;
-						 layout(location = 2) in float v_instanceRadius;
-						 layout(location = 3) in vec4 v_instanceColor;
-						 out vec2 f_position;
-						 out vec4 f_color;
-						 out float f_zoom;
-						 void main()
-						 {
-							f_position = v_localPosition;
-							f_color = v_instanceColor;
-							float radius = v_instanceRadius;
+		 uniform mat4 projectionMatrix;
+		 uniform float zoom;
+		 
+		 layout(location = 0) in vec2 v_localPosition;
+		 layout(location = 1) in vec4 v_instanceTransform;
+		 layout(location = 2) in float v_instanceRadius;
+		 layout(location = 3) in vec4 v_instanceColor;
+		 
+		 out vec2 f_position;
+		 out vec4 f_color;
+		 out float f_zoom;
 
-							// scale zoom so the border is fixed size
-							f_zoom = zoom / radius;
+		 void main()
+		 {
+			f_position = v_localPosition;
+			f_color = v_instanceColor;
+			float radius = v_instanceRadius;
 
-							float x = v_instanceTransform.x;
-							float y = v_instanceTransform.y;
-							float c = v_instanceTransform.z;
-							float s = v_instanceTransform.w;
-							vec2 p = vec2(radius * v_localPosition.x, radius * v_localPosition.y);
-							p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
-						 	gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
-						});
+			// scale zoom so the border is fixed size
+			f_zoom = zoom / radius;
+
+			float x = v_instanceTransform.x;
+			float y = v_instanceTransform.y;
+			float c = v_instanceTransform.z;
+			float s = v_instanceTransform.w;
+			vec2 p = vec2(radius * v_localPosition.x, radius * v_localPosition.y);
+			p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
+			gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
+		});
 
 		// Thanks to baz! for help on this shader
 		// todo this can be optimized a bit, keeping some terms for clarity
 		const char* fs = SHADER_TEXT(
-						 in vec2 f_position;
-						 in vec4 f_color;
-						 in float f_zoom;
-						 out vec4 color;
-						 void main()
-						 {
-							// radius in unit quad
-							float radius = 1.0;
+			in vec2 f_position;
+			in vec4 f_color;
+			in float f_zoom;
 
-							// distance to axis line segment
-							vec2 e = vec2(radius, 0);
-							vec2 w = f_position;
-							float we = dot(w, e);
-						 	vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
-							float da = sqrt(dot(b, b));
+			out vec4 color;
 
-							// distance to circle
-							float dw = sqrt(dot(w, w));
-							float dc = abs(dw - radius);
-							
-							// union of circle and axis
-							float d = min(da, dc);
+			// https://en.wikipedia.org/wiki/Alpha_compositing
+			vec4 blend_colors(vec4 front, vec4 back)
+			{
+				vec3 cSrc = front.rgb;
+				float alphaSrc = front.a;
+				vec3 cDst = back.rgb;
+				float alphaDst = back.a;
 
-							vec4 borderColor = f_color;
-							vec4 fillColor = 0.6f * borderColor;
+				vec3 cOut = cSrc * alphaSrc + cDst * alphaDst * (1.0 - alphaSrc);
+				float alphaOut = alphaSrc + alphaDst * (1.0 - alphaSrc);
+				cOut = cOut / alphaOut;
 
-							// scale border by zoom so the pixel width is constant
-							float borderThickness = 0.07f * f_zoom;
+				return vec4(cOut, alphaOut);
+			}
 
-							// border and anti-aliasing
-							float aa = fwidth(d);
+			void main()
+			{
+				// radius in unit quad
+				float radius = 1.0;
 
-							// This sets the interior color of the circle
-							vec4 col = mix(vec4(0), fillColor, 1.0 - smoothstep(radius - aa, radius, dw));
+				// distance to axis line segment
+				vec2 e = vec2(radius, 0);
+				vec2 w = f_position;
+				float we = dot(w, e);
+				vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
+				float da = sqrt(dot(b, b));
 
-							// This adds the border color with anti-aliasing
-							col = mix(col, borderColor, 1.0 - smoothstep(borderThickness - aa, borderThickness + aa, d));
+				// distance to circle
+				float dw = sqrt(dot(w, w));
+				float dc = abs(dw - radius);
 
-							color = col;
-						 });
+				// union of circle and axis
+				float d = min(da, dc);
+
+				vec4 borderColor = f_color;
+				vec4 fillColor = 0.6f * borderColor;
+
+				// scale border by zoom so the pixel width is constant
+				float borderThickness = 0.07f * f_zoom;
+
+				vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
+				vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+				color = blend_colors(front, back);
+			});
 
 		m_programId = sCreateShaderProgram(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
@@ -906,6 +922,23 @@ struct GLRenderCapsules
 
 		out vec4 color;
 		
+		// https://en.wikipedia.org/wiki/Alpha_compositing
+		vec4 blend_colors(vec4 front, vec4 back)
+		{
+			vec3 cSrc = front.rgb;
+			float alphaSrc = front.a;
+			vec3 cDst = back.rgb;
+			float alphaDst = back.a;
+
+			vec3 cOut = cSrc * alphaSrc + cDst * alphaDst * (1.0 - alphaSrc);
+			float alphaOut = alphaSrc + alphaDst * (1.0 - alphaSrc);
+
+			// remove alpha from rgb
+			cOut = cOut / alphaOut;
+
+			return vec4(cOut, alphaOut);
+		}
+
 		void main()
 		{
 			// radius in unit quad
@@ -929,11 +962,13 @@ struct GLRenderCapsules
 
 			float borderThickness = 0.07 * f_zoom;
 
-			float aa = fwidth(d);
-			vec4 col = mix(vec4(0), fillColor, 1.0 - smoothstep(radius - aa, radius, dw));
-			col = mix(col, borderColor, 1.0 - smoothstep(borderThickness - aa, borderThickness + aa, d));
+			// roll the fill alpha down at the border
+			vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
 
-			color = col;
+			// roll the border alpha down from 1 to 0 across the border thickness
+			vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+
+			color = blend_colors(front, back);
 		});
 
 		m_programId = sCreateShaderProgram(vs, fs);
@@ -1087,6 +1122,310 @@ struct GLRenderCapsules
 
 	GLuint m_vaoId;
 	GLuint m_vboIds[4];
+	GLuint m_programId;
+	GLint m_projectionUniform;
+	GLint m_zoomUniform;
+};
+
+struct GLRenderPolygons
+{
+	void Create()
+	{
+		const char* vs = SHADER_TEXT(
+			uniform mat4 projectionMatrix;
+			uniform float zoom;
+
+			layout(location = 0) in vec2 v_localPosition;
+			layout(location = 1) in vec4 v_instanceTransform;
+			layout(location = 2) in vec4 v_instancePoints12;
+			layout(location = 3) in mat4 v_instancePoints34;
+			layout(location = 4) in vec2 v_instancePoints56;
+			layout(location = 5) in vec2 v_instancePoints78;
+			layout(location = 6) in int v_instanceCount;
+			layout(location = 7) in float v_instanceRadius;
+			layout(location = 8) in vec4 v_instanceColor;
+			
+			out vec2 f_position;
+			out vec4 f_color;
+			out vec2 f_points[8];
+			out int f_count;
+			out float f_radius;
+			out float f_zoom;
+			
+			void main()
+			{
+				f_position = v_localPosition;
+				f_color = v_instanceColor;
+
+				f_radius = v_instanceRadius;
+				f_count = v_instanceCount;
+
+				f_points[0] = v_instancePoints12.xy;
+				f_points[1] = v_instancePoints12.zw;
+				f_points[2] = v_instancePoints34.xy;
+				f_points[3] = v_instancePoints34.zw;
+				f_points[4] = v_instancePoints56.xy;
+				f_points[5] = v_instancePoints56.zw;
+				f_points[6] = v_instancePoints78.xy;
+				f_points[7] = v_instancePoints78.zw;
+
+				// Need to scale down polygon points so they fit in 2x2 quad
+
+				vec2 lower = f_points[0];
+				vec2 upper = f_points[0];
+				for (int i = 1; i < f_count; ++i)
+				{
+					lower = min(lower, f_points[i]);
+					upper = max(upper, f_points[i]);
+				}
+
+				vec2 width = upper - lower;
+				float maxWidth = max(width.x, width.y);
+
+				float scale = f_radius + maxWidth;
+				float invScale = 1.0 / scale;
+
+				for (int i = 0; i < f_count; ++i)
+				{
+					f_points[i] = invScale * f_points[i];
+				}
+
+				f_radius = invScale * f_radius;
+
+				// scale zoom so the border is fixed size
+				f_zoom = invScale * zoom;
+
+				// scale up and transform quad to fit polygon
+				float x = v_instanceTransform.x;
+				float y = v_instanceTransform.y;
+				float c = v_instanceTransform.z;
+				float s = v_instanceTransform.w;
+				vec2 p = vec2(scale * v_localPosition.x, scale * v_localPosition.y);
+				p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
+				gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
+			});
+
+		const char* fs = SHADER_TEXT(
+			
+			in vec2 f_position;
+			in vec4 f_color;
+			in vec2 f_points[8];
+			in int f_count;
+			in float f_radius;
+			in float f_zoom;
+
+			out vec4 fragColor;
+			
+			// https://en.wikipedia.org/wiki/Alpha_compositing
+			vec4 blend_colors(vec4 front, vec4 back)
+			{
+				vec3 cSrc = front.rgb;
+				float alphaSrc = front.a;
+				vec3 cDst = back.rgb;
+				float alphaDst = back.a;
+
+				vec3 cOut = cSrc * alphaSrc + cDst * alphaDst * (1.0 - alphaSrc);
+				float alphaOut = alphaSrc + alphaDst * (1.0 - alphaSrc);
+
+				// remove alpha from rgb
+				cOut = cOut / alphaOut;
+
+				return vec4(cOut, alphaOut);
+			}
+
+			void main()
+			{
+				// radius in unit quad
+
+				vec4 borderColor = f_color;
+				vec4 fillColor = 0.6f * borderColor;
+
+				//// distance to line segment
+				//vec2 e = v2 - v1;
+				//vec2 w = f_position - v1;
+				//float we = dot(w, e);
+				//vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
+				//float dw = sqrt(dot(b, b));
+
+				//// SDF union of capsule and line segment
+				//float d = min(dw, abs(dw - radius));
+
+				//float borderThickness = 0.07 * f_zoom;
+
+				//// roll the fill alpha down at the border
+				//vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
+
+				//// roll the border alpha down from 1 to 0 across the border thickness
+				//vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+
+				//color = blend_colors(front, back);
+
+				fragColor = f_color; 
+			});
+
+		m_programId = sCreateShaderProgram(vs, fs);
+		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
+		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
+		int vertexAttribute = 0;
+		int instanceTransformAttribute = 1;
+		int instancePoint12 = 2;
+		int instancePoint34 = 3;
+		int instancePoint56 = 4;
+		int instancePoint78 = 5;
+		int instancePointCount = 6;
+		int instanceRadiusAttribute = 7;
+		int instanceColorAttribute = 8;
+
+		// Generate
+		glGenVertexArrays(1, &m_vaoId);
+		glGenBuffers(9, m_vboIds);
+
+		glBindVertexArray(m_vaoId);
+		glEnableVertexAttribArray(vertexAttribute);
+		glEnableVertexAttribArray(instanceTransformAttribute);
+		glEnableVertexAttribArray(instancePoint12);
+		glEnableVertexAttribArray(instancePoint34);
+		glEnableVertexAttribArray(instancePoint56);
+		glEnableVertexAttribArray(instancePoint78);
+		glEnableVertexAttribArray(instancePointCount);
+		glEnableVertexAttribArray(instanceRadiusAttribute);
+		glEnableVertexAttribArray(instanceColorAttribute);
+
+		// Vertex buffer for single quad
+		float a = 1.1f;
+		b2Vec2 vertices[] = {{-a, -a}, {a, -a}, {-a, a}, {a, -a}, {a, a}, {-a, a}};
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+
+		// Transform buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_transforms), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceTransformAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glVertexAttribDivisor(1, 1);
+
+		// Radii buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_capsuleData), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceRadiusLengthAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glVertexAttribDivisor(2, 1);
+
+		// Color buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceColorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+		glVertexAttribDivisor(3, 1);
+
+		CheckGLError();
+
+		// Cleanup
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+
+		m_count = 0;
+	}
+
+	void Destroy()
+	{
+		if (m_vaoId)
+		{
+			glDeleteVertexArrays(1, &m_vaoId);
+			glDeleteBuffers(4, m_vboIds);
+			m_vaoId = 0;
+		}
+
+		if (m_programId)
+		{
+			glDeleteProgram(m_programId);
+			m_programId = 0;
+		}
+	}
+
+	void AddCapsule(b2Vec2 p1, b2Vec2 p2, float radius, const b2Color& c)
+	{
+		if (m_count == e_maxCount)
+		{
+			Flush();
+		}
+
+		b2Vec2 d = p2 - p1;
+		float length = b2Length(d);
+		if (length < b2_linearSlop)
+		{
+			printf("WARNING: sample app: capsule too short!\n");
+			return;
+		}
+
+		b2Vec2 axis = {d.x / length, d.y / length};
+		b2Transform transform;
+		transform.p = 0.5f * (p1 + p2);
+		transform.q.c = axis.x;
+		transform.q.s = axis.y;
+
+		m_transforms[m_count] = {transform.p.x, transform.p.y, transform.q.c, transform.q.s};
+		m_capsuleData[m_count] = {radius, length};
+		m_colors[m_count] = c;
+		++m_count;
+	}
+
+	void Flush()
+	{
+		if (m_count == 0)
+		{
+			return;
+		}
+
+		glUseProgram(m_programId);
+
+		float proj[16] = {0.0f};
+		g_camera.BuildProjectionMatrix(proj, 0.2f);
+
+		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
+		glUniform1f(m_zoomUniform, g_camera.m_zoom);
+
+		glBindVertexArray(m_vaoId);
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(Transform), m_transforms);
+		CheckGLError();
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(CapsuleData), m_capsuleData);
+		CheckGLError();
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
+		CheckGLError();
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, m_count);
+		glDisable(GL_BLEND);
+
+		CheckGLError();
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
+
+		m_count = 0;
+	}
+
+	enum
+	{
+		e_maxCount = 3 * 512
+	};
+
+	Transform m_transforms[e_maxCount];
+	b2Vec2 m_points[8 * e_maxCount];
+	float m_radii[e_maxCount];
+	int m_counts[e_maxCount];
+	b2Color m_colors[e_maxCount];
+
+	int m_count;
+
+	GLuint m_vaoId;
+	GLuint m_vboIds[9];
 	GLuint m_programId;
 	GLint m_projectionUniform;
 	GLint m_zoomUniform;
