@@ -183,6 +183,9 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
 
 			b2Body_SetAwake(queryContext.bodyId, true);
+
+			// todo for breakpoint
+			jd.hertz += 0;
 		}
 	}
 }

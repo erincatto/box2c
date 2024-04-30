@@ -205,7 +205,13 @@ static GLuint sCreateShaderProgram(const char* vs, const char* fs)
 
 	GLint status = GL_FALSE;
 	glGetProgramiv(programId, GL_LINK_STATUS, &status);
-	assert(status != GL_FALSE);
+	if (status == GL_FALSE)
+	{
+		printf("Error linking shader program!\n");
+		PrintLog(programId);
+		glDeleteProgram(programId);
+		return 0;
+	}
 
 	return programId;
 }
@@ -748,19 +754,19 @@ struct GLRenderCircles
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(m_transforms), NULL, GL_DYNAMIC_DRAW);
 		glVertexAttribPointer(instanceTransformAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(1, 1);
+		glVertexAttribDivisor(instanceTransformAttribute, 1);
 
 		// Radii buffer
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(m_radii), NULL, GL_DYNAMIC_DRAW);
 		glVertexAttribPointer(instanceRadiusAttribute, 1, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(2, 1);
+		glVertexAttribDivisor(instanceRadiusAttribute, 1);
 
 		// Color buffer
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), NULL, GL_DYNAMIC_DRAW);
 		glVertexAttribPointer(instanceColorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(3, 1);
+		glVertexAttribDivisor(instanceColorAttribute, 1);
 
 		CheckGLError();
 
@@ -1127,6 +1133,15 @@ struct GLRenderCapsules
 	GLint m_zoomUniform;
 };
 
+struct PolygonData
+{
+	b2Transform transform;
+	b2Vec2 p1, p2, p3, p4, p5, p6, p7, p8;
+	int count;
+	float radius;
+	b2Color color;
+};
+
 struct GLRenderPolygons
 {
 	void Create()
@@ -1138,9 +1153,9 @@ struct GLRenderPolygons
 			layout(location = 0) in vec2 v_localPosition;
 			layout(location = 1) in vec4 v_instanceTransform;
 			layout(location = 2) in vec4 v_instancePoints12;
-			layout(location = 3) in mat4 v_instancePoints34;
-			layout(location = 4) in vec2 v_instancePoints56;
-			layout(location = 5) in vec2 v_instancePoints78;
+			layout(location = 3) in vec4 v_instancePoints34;
+			layout(location = 4) in vec4 v_instancePoints56;
+			layout(location = 5) in vec4 v_instancePoints78;
 			layout(location = 6) in int v_instanceCount;
 			layout(location = 7) in float v_instanceRadius;
 			layout(location = 8) in vec4 v_instanceColor;
@@ -1148,7 +1163,7 @@ struct GLRenderPolygons
 			out vec2 f_position;
 			out vec4 f_color;
 			out vec2 f_points[8];
-			out int f_count;
+			flat out int f_count;
 			out float f_radius;
 			out float f_zoom;
 			
@@ -1169,11 +1184,11 @@ struct GLRenderPolygons
 				f_points[6] = v_instancePoints78.xy;
 				f_points[7] = v_instancePoints78.zw;
 
-				// Need to scale down polygon points so they fit in 2x2 quad
+				//// Need to scale down polygon points so they fit in 2x2 quad
 
 				vec2 lower = f_points[0];
 				vec2 upper = f_points[0];
-				for (int i = 1; i < f_count; ++i)
+				for (int i = 1; i < v_instanceCount; ++i)
 				{
 					lower = min(lower, f_points[i]);
 					upper = max(upper, f_points[i]);
@@ -1182,9 +1197,10 @@ struct GLRenderPolygons
 				vec2 width = upper - lower;
 				float maxWidth = max(width.x, width.y);
 
-				float scale = f_radius + maxWidth;
+				float scale = f_radius + 0.5 * maxWidth;
 				float invScale = 1.0 / scale;
 
+				// todo shift center
 				for (int i = 0; i < f_count; ++i)
 				{
 					f_points[i] = invScale * f_points[i];
@@ -1194,6 +1210,13 @@ struct GLRenderPolygons
 
 				// scale zoom so the border is fixed size
 				f_zoom = invScale * zoom;
+
+				//float scale = 1.0f + f_radius;
+
+				//if (v_instanceCount == 4)
+				//{
+				//	f_color = vec4(0, 0, 1, 1);
+				//}
 
 				// scale up and transform quad to fit polygon
 				float x = v_instanceTransform.x;
@@ -1208,10 +1231,10 @@ struct GLRenderPolygons
 		const char* fs = SHADER_TEXT(
 			
 			in vec2 f_position;
-			in vec4 f_color;
 			in vec2 f_points[8];
-			in int f_count;
+			flat in int f_count;
 			in float f_radius;
+			in vec4 f_color;
 			in float f_zoom;
 
 			out vec4 fragColor;
@@ -1233,63 +1256,97 @@ struct GLRenderPolygons
 				return vec4(cOut, alphaOut);
 			}
 
+			float cross2d(in vec2 v1, in vec2 v2)
+			{
+				return v1.x * v2.y - v1.y * v2.x;
+			}
+
+			// Signed distance function for convex polygon
+			float sdConvexPolygon(in vec2 p, in vec2[8] v, in int count)
+			{
+				// Initial squared distance
+				float d = dot(p - v[0], p - v[0]);
+
+				// Consider query point inside to start
+				float side = -1.0;
+				int j = count - 1;
+				for (int i = 0; i < count; ++i)
+				{
+					// Distance to a polygon edge
+					vec2 e = v[i] - v[j];
+					vec2 w = p - v[j];
+					float we = dot(w, e);
+					vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
+					float bb = dot(b, b);
+
+					// Track smallest distance
+					if (bb < d)
+					{
+						d = bb;
+					}
+					
+					// If the query point is outside any edge then it is outside the entire polygon.
+					// This depends on the CCW winding order of points.
+					float s = cross2d(w, e);
+					if (s >= 0.0)
+					{
+						side = 1.0;
+					}
+
+					j = i;
+				}
+
+				return side * sqrt(d);
+			}
+
 			void main()
 			{
-				// radius in unit quad
-
 				vec4 borderColor = f_color;
 				vec4 fillColor = 0.6f * borderColor;
 
-				//// distance to line segment
-				//vec2 e = v2 - v1;
-				//vec2 w = f_position - v1;
-				//float we = dot(w, e);
-				//vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
-				//float dw = sqrt(dot(b, b));
+				float dw = sdConvexPolygon(f_position, f_points, f_count);
+				float d = abs(dw - f_radius);
 
-				//// SDF union of capsule and line segment
-				//float d = min(dw, abs(dw - radius));
+				float borderThickness = 0.07 * f_zoom;
 
-				//float borderThickness = 0.07 * f_zoom;
+				// roll the fill alpha down at the border
+				vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(f_radius, f_radius + borderThickness, dw)));
 
-				//// roll the fill alpha down at the border
-				//vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
+				// roll the border alpha down from 1 to 0 across the border thickness
+				vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
 
-				//// roll the border alpha down from 1 to 0 across the border thickness
-				//vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+				fragColor = blend_colors(front, back);
 
-				//color = blend_colors(front, back);
-
-				fragColor = f_color; 
+				//fragColor = vec4(0.5);
 			});
 
 		m_programId = sCreateShaderProgram(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
 		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
 		int vertexAttribute = 0;
-		int instanceTransformAttribute = 1;
+		int instanceTransform = 1;
 		int instancePoint12 = 2;
 		int instancePoint34 = 3;
 		int instancePoint56 = 4;
 		int instancePoint78 = 5;
 		int instancePointCount = 6;
-		int instanceRadiusAttribute = 7;
-		int instanceColorAttribute = 8;
+		int instanceRadius = 7;
+		int instanceColor = 8;
 
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
-		glGenBuffers(9, m_vboIds);
+		glGenBuffers(2, m_vboIds);
 
 		glBindVertexArray(m_vaoId);
 		glEnableVertexAttribArray(vertexAttribute);
-		glEnableVertexAttribArray(instanceTransformAttribute);
+		glEnableVertexAttribArray(instanceTransform);
 		glEnableVertexAttribArray(instancePoint12);
 		glEnableVertexAttribArray(instancePoint34);
 		glEnableVertexAttribArray(instancePoint56);
 		glEnableVertexAttribArray(instancePoint78);
 		glEnableVertexAttribArray(instancePointCount);
-		glEnableVertexAttribArray(instanceRadiusAttribute);
-		glEnableVertexAttribArray(instanceColorAttribute);
+		glEnableVertexAttribArray(instanceRadius);
+		glEnableVertexAttribArray(instanceColor);
 
 		// Vertex buffer for single quad
 		float a = 1.1f;
@@ -1298,23 +1355,25 @@ struct GLRenderPolygons
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 
-		// Transform buffer
+		// Polygon buffer
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_transforms), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceTransformAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(1, 1);
-
-		// Radii buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_capsuleData), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceRadiusLengthAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(2, 1);
-
-		// Color buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceColorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(3, 1);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_polygons), NULL, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(instanceTransform, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, transform));
+		glVertexAttribPointer(instancePoint12, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p1));
+		glVertexAttribPointer(instancePoint34, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p3));
+		glVertexAttribPointer(instancePoint56, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p5));
+		glVertexAttribPointer(instancePoint78, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p7));
+		glVertexAttribIPointer(instancePointCount, 1, GL_INT, sizeof(PolygonData), (void*)offsetof(PolygonData, count));
+		glVertexAttribPointer(instanceRadius, 1, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, radius));
+		glVertexAttribPointer(instanceColor, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, color));
+		glVertexAttribDivisor(instanceTransform, 1);
+		glVertexAttribDivisor(instancePoint12, 1);
+		glVertexAttribDivisor(instancePoint34, 1);
+		glVertexAttribDivisor(instancePoint56, 1);
+		glVertexAttribDivisor(instancePoint78, 1);
+		glVertexAttribDivisor(instancePointCount, 1);
+		glVertexAttribDivisor(instanceRadius, 1);
+		glVertexAttribDivisor(instanceColor, 1);
 
 		CheckGLError();
 
@@ -1330,7 +1389,7 @@ struct GLRenderPolygons
 		if (m_vaoId)
 		{
 			glDeleteVertexArrays(1, &m_vaoId);
-			glDeleteBuffers(4, m_vboIds);
+			glDeleteBuffers(2, m_vboIds);
 			m_vaoId = 0;
 		}
 
@@ -1341,30 +1400,31 @@ struct GLRenderPolygons
 		}
 	}
 
-	void AddCapsule(b2Vec2 p1, b2Vec2 p2, float radius, const b2Color& c)
+	void AddPolygon(const b2Transform& transform, const b2Vec2* points, int count, float radius, const b2Color& color)
 	{
 		if (m_count == e_maxCount)
 		{
 			Flush();
 		}
 
-		b2Vec2 d = p2 - p1;
-		float length = b2Length(d);
-		if (length < b2_linearSlop)
+		PolygonData* data = m_polygons + m_count;
+		data->transform = transform;
+
+		int n = count < 8 ? count : 8;
+		b2Vec2* ps = &data->p1;
+		for (int i = 0; i < n; ++i)
 		{
-			printf("WARNING: sample app: capsule too short!\n");
-			return;
+			ps[i] = points[i];
 		}
 
-		b2Vec2 axis = {d.x / length, d.y / length};
-		b2Transform transform;
-		transform.p = 0.5f * (p1 + p2);
-		transform.q.c = axis.x;
-		transform.q.s = axis.y;
+		for (int i = n; i < 8; ++i)
+		{
+			ps[i] = {0.0f, 0.0f};
+		}
 
-		m_transforms[m_count] = {transform.p.x, transform.p.y, transform.q.c, transform.q.s};
-		m_capsuleData[m_count] = {radius, length};
-		m_colors[m_count] = c;
+		data->count = n;
+		data->radius = radius;
+		data->color = color;
 		++m_count;
 	}
 
@@ -1386,15 +1446,7 @@ struct GLRenderPolygons
 		glBindVertexArray(m_vaoId);
 
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(Transform), m_transforms);
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(CapsuleData), m_capsuleData);
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(PolygonData), m_polygons);
 		CheckGLError();
 
 		glEnable(GL_BLEND);
@@ -1413,19 +1465,15 @@ struct GLRenderPolygons
 
 	enum
 	{
-		e_maxCount = 3 * 512
+		e_maxCount = 20
 	};
 
-	Transform m_transforms[e_maxCount];
-	b2Vec2 m_points[8 * e_maxCount];
-	float m_radii[e_maxCount];
-	int m_counts[e_maxCount];
-	b2Color m_colors[e_maxCount];
+	PolygonData m_polygons[e_maxCount];
 
 	int m_count;
 
 	GLuint m_vaoId;
-	GLuint m_vboIds[9];
+	GLuint m_vboIds[2];
 	GLuint m_programId;
 	GLint m_projectionUniform;
 	GLint m_zoomUniform;
@@ -1652,7 +1700,8 @@ void DrawSolidPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color,
 	static_cast<Draw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
 }
 
-void DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color,
+void 
+DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color,
 						   void* context)
 {
 	static_cast<Draw*>(context)->DrawRoundedPolygon(vertices, vertexCount, radius, color);
@@ -1709,6 +1758,7 @@ Draw::Draw()
 	m_roundedTriangles = nullptr;
 	m_circles = nullptr;
 	m_capsules = nullptr;
+	m_polygons = nullptr;
 	m_debugDraw = {};
 }
 
@@ -1733,6 +1783,8 @@ void Draw::Create()
 	m_circles->Create();
 	m_capsules = static_cast<GLRenderCapsules*>(malloc(sizeof(GLRenderCapsules)));
 	m_capsules->Create();
+	m_polygons = static_cast<GLRenderPolygons*>(malloc(sizeof(GLRenderPolygons)));
+	m_polygons->Create();
 
 	m_debugDraw = {	DrawPolygonFcn,
 					DrawSolidPolygonFcn,
@@ -1783,6 +1835,10 @@ void Draw::Destroy()
 	m_capsules->Destroy();
 	free(m_capsules);
 	m_capsules = nullptr;
+
+	m_polygons->Destroy();
+	free(m_polygons);
+	m_polygons = nullptr;
 }
 
 void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
@@ -1915,6 +1971,11 @@ void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float
 		// leading border vertex
 		vertexes[4 * i + 3] = {{v.x, v.y}, {n2.x, n2.y}, r, fill, outline};
 	}
+}
+
+void Draw::DrawPolygon2(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color)
+{
+	m_polygons->AddPolygon(transform, vertices, vertexCount, radius, color);
 }
 
 void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
@@ -2241,5 +2302,6 @@ void Draw::Flush()
 	m_points->Flush();
 	m_circles->Flush();
 	m_capsules->Flush();
+	m_polygons->Flush();
 	CheckGLError();
 }

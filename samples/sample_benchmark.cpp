@@ -67,7 +67,7 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_circleShape;
+		m_shapeType = e_humanShape;
 
 		CreateScene();
 	}
@@ -104,8 +104,8 @@ public:
 		{
 			if constexpr (g_sampleDebug)
 			{
-				m_rowCount = 5;
-				m_columnCount = 10;
+				m_rowCount = 3;
+				m_columnCount = 1;
 			}
 			else
 			{
