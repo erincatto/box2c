@@ -300,12 +300,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 			float sinHalfAngle = b2Cross(mid, t1);
 
 			float offset = radius;
-			if (sinHalfAngle > FLT_EPSILON)
-			{
-				offset = radius / sinHalfAngle;
-			}
-
-			vertices[i] = b2MulAdd(shape->vertices[i], offset, mid);
+			vertices[i] = b2MulAdd(shape->vertices[i], radius, mid);
 		}
 	}
 	else

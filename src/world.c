@@ -791,22 +791,23 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 		case b2_polygonShape:
 		{
 			b2Polygon* poly = &shape->polygon;
-			int count = poly->count;
-			B2_ASSERT(count <= b2_maxPolygonVertices);
-			b2Vec2 vertices[b2_maxPolygonVertices];
+			// todo cleanup
+			//int count = poly->count;
+			//B2_ASSERT(count <= b2_maxPolygonVertices);
+			//b2Vec2 vertices[b2_maxPolygonVertices];
 
-			for (int i = 0; i < count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
-			}
+			//for (int i = 0; i < count; ++i)
+			//{
+			//	vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
+			//}
 
-			if (poly->radius > 0.0f)
+			//if (poly->radius > 0.0f)
+			//{
+			//	draw->DrawRoundedPolygon(vertices, count, poly->radius, color, draw->context);
+			//}
+			//else
 			{
-				draw->DrawRoundedPolygon(vertices, count, poly->radius, color, draw->context);
-			}
-			else
-			{
-				draw->DrawSolidPolygon(vertices, count, color, draw->context);
+				draw->DrawSolidPolygon(xf, poly->vertices, poly->count, poly->radius, color, draw->context);
 			}
 		}
 		break;
@@ -2309,11 +2310,14 @@ void b2ValidateSolverSets(b2World* world)
 				int bodyIdB = joint->edges[1].bodyId;
 				b2CheckIndex(world->bodyArray, bodyIdA);
 				b2CheckIndex(world->bodyArray, bodyIdB);
-				b2Body* bodyA = world->bodyArray + bodyIdA;
-				b2Body* bodyB = world->bodyArray + bodyIdB;
 
-				B2_ASSERT(b2GetBit(&color->bodySet, bodyIdA) == (bodyA->type != b2_staticBody));
-				B2_ASSERT(b2GetBit(&color->bodySet, bodyIdB) == (bodyB->type != b2_staticBody));
+				if (colorIndex < b2_overflowIndex)
+				{
+					b2Body* bodyA = world->bodyArray + bodyIdA;
+					b2Body* bodyB = world->bodyArray + bodyIdB;
+					B2_ASSERT(b2GetBit(&color->bodySet, bodyIdA) == (bodyA->type != b2_staticBody));
+					B2_ASSERT(b2GetBit(&color->bodySet, bodyIdB) == (bodyB->type != b2_staticBody));
+				}
 			}
 		}
 	}

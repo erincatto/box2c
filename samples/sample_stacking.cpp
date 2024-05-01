@@ -38,20 +38,20 @@ public:
 		b2Segment segment = {{-0.5f * 2.0f * groundWidth, 0.0f}, {0.5f * 2.0f * groundWidth, 0.0f}};
 		b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		
-		bodyDef.type = b2_dynamicBody;
-		bodyDef.gravityScale = 0.0f;
-		bodyDef.enableSleep = false;
+		//bodyDef.type = b2_dynamicBody;
+		//bodyDef.gravityScale = 0.0f;
+		//bodyDef.enableSleep = false;
 
-		b2Polygon box = b2MakeRoundedBox(extent, extent, 0.2f);
-		bodyDef.position = {0.0f, 4.0f};
-		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-		b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		//b2Polygon box = b2MakeRoundedBox(extent, extent, 0.2f);
+		//bodyDef.position = {0.0f, 4.0f};
+		//b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+		//b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
-		box = b2MakeOffsetBox(extent, extent, {3.0f, 0.0f}, 0.0f);
-		b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		//box = b2MakeOffsetBox(extent, extent, {3.0f, 0.0f}, 0.0f);
+		//b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
-		b2Circle circle = {{-3.0, 0.0f}, 1.0f};
-		b2CreateCircleShape(bodyId, &shapeDef, &circle);
+		//b2Circle circle = {{-3.0, 0.0f}, 1.0f};
+		//b2CreateCircleShape(bodyId, &shapeDef, &circle);
 	}
 
 	void Step(Settings& settings) override
@@ -70,35 +70,40 @@ public:
 		g_draw.DrawSolidCapsule({-0.5f, 1.75f}, {0.5f, 1.75f}, 0.25f, color);
 		g_draw.DrawCapsule2({-0.5f, 1.0f}, {0.5f, 1.0f}, 0.25f, color);
 
-		//b2Polygon box = b2MakeBox(0.25f, 0.25f);
+		b2Polygon box = b2MakeOffsetBox(0.1f, 1.0f, {2.0f, 1.0f}, 0.0f);
 
-		//transform.p = {4.0f, 2.0f};
-		//g_draw.DrawPolygon2(transform, box.vertices, box.count, 0.0f, color);
+		transform.p = {4.0f, 2.0f};
+		//transform.q = {1.0f, 0.0f};
+		transform.q = b2MakeRot(0.5f * b2_pi);
 
-		//{
-		//	b2Transform xf = {{5.0f, 2.0f}, {1.0f, 0.0f}};
-		//	b2Vec2 vertices[b2_maxPolygonVertices];
-		//	for (int i = 0; i < box.count; ++i)
-		//	{
-		//		vertices[i] = b2TransformPoint(xf, box.vertices[i]);
-		//	}
-		//	g_draw.DrawPolygon(vertices, box.count, color);
-		//}
+		//b2MakeRot(0.25f * b2_pi);
+		g_draw.DrawPolygon2(transform, box.vertices, box.count, 0.1f, color);
+
+		{
+			b2Transform xf = {{5.0f, 2.0f}, transform.q};
+			//b2Transform xf = transform;
+			b2Vec2 vertices[b2_maxPolygonVertices];
+			for (int i = 0; i < box.count; ++i)
+			{
+				vertices[i] = b2TransformPoint(xf, box.vertices[i]);
+			}
+			g_draw.DrawRoundedPolygon(vertices, box.count, 0.0f, color);
+		}
 
 		b2Vec2 points[3] = {{-0.1f, -0.5f}, {0.1f, -0.5f}, {0.0f, 0.5f}};
 		b2Hull wedgeHull = b2ComputeHull(points, 3);
 		b2Polygon wedge = b2MakePolygon(&wedgeHull, 0.0f);
 		transform.p = {2.0f, 2.0f};
-		g_draw.DrawPolygon2(transform, wedge.vertices, wedge.count, 0.1f, color);
+		g_draw.DrawPolygon2(transform, wedge.vertices, wedge.count, 0.0f, color);
 
 		{
-			b2Transform xf = {{3.0f, 2.0f}, {1.0f, 0.0f}};
+			b2Transform xf = {{3.0f, 2.0f}, transform.q};
 			b2Vec2 vertices[b2_maxPolygonVertices];
 			for (int i = 0; i < wedge.count; ++i)
 			{
 				vertices[i] = b2TransformPoint(xf, wedge.vertices[i]);
 			}
-			g_draw.DrawRoundedPolygon(vertices, wedge.count, 0.1f, color);
+			g_draw.DrawRoundedPolygon(vertices, wedge.count, 0.0f, color);
 		}
 
 		Sample::Step(settings);

@@ -20,11 +20,9 @@ class BenchmarkBarrel : public Sample
 public:
 	enum ShapeType
 	{
-		e_circleShape = 0,
-		e_capsuleShape = 1,
-		e_boxShape = 2,
-		e_compoundShape = 3,
-		e_humanShape = 4,
+		e_mixShape = 0,
+		e_compoundShape = 1,
+		e_humanShape = 2,
 	};
 
 	enum
@@ -104,8 +102,8 @@ public:
 		{
 			if constexpr (g_sampleDebug)
 			{
-				m_rowCount = 3;
-				m_columnCount = 1;
+				m_rowCount = 5;
+				m_columnCount = 10;
 			}
 			else
 			{
@@ -127,10 +125,13 @@ public:
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
 
-		b2Polygon box = b2MakeBox(0.5f, 0.5f);
 		b2Capsule capsule = {{0.0f, -0.25f}, {0.0f, 0.25f}, rad};
 		b2Circle circle = {{0.0f, 0.0f}, rad};
 
+		b2Vec2 points[3] = {{-0.1f, -0.5f}, {0.1f, -0.5f}, {0.0f, 0.5f}};
+		b2Hull wedgeHull = b2ComputeHull(points, 3);
+		b2Polygon wedge = b2MakePolygon(&wedgeHull, 0.0f);
+		
 		b2Vec2 vertices[3];
 		vertices[0] = {-1.0f, 0.0f};
 		vertices[1] = {0.5f, 1.0f};
@@ -149,12 +150,9 @@ public:
 		// b2Polygon rightLeg = b2MakeOffsetBox(0.2f, 0.5f, {0.6f, 0.5f}, 0.0f);
 
 		float side = -0.1f;
-		float extray = 0.0f;
-		if (m_shapeType == e_capsuleShape)
-		{
-			extray = 0.5f;
-		}
-		else if (m_shapeType == e_compoundShape)
+		float extray = 0.5f;
+		
+		if (m_shapeType == e_compoundShape)
 		{
 			extray = 0.25f;
 			side = 0.25f;
@@ -182,27 +180,45 @@ public:
 				bodyDef.position = {x + side, y};
 				side = -side;
 
-				m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
+				if (m_shapeType == e_mixShape)
+				{
+					m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
 
-				if (m_shapeType == e_circleShape)
-				{
-					circle.radius = RandomFloat(0.25f, 0.75f);
-					b2CreateCircleShape(m_bodies[index], &shapeDef, &circle);
-				}
-				else if (m_shapeType == e_capsuleShape)
-				{
-					capsule.radius = RandomFloat(0.25f, 0.75f);
-					float length = RandomFloat(0.25f, 1.5f);
-					capsule.center1 = {0.0f, -0.5f * length};
-					capsule.center2 = {0.0f, 0.5f * length};
-					b2CreateCapsuleShape(m_bodies[index], &shapeDef, &capsule);
-				}
-				else if (m_shapeType == e_boxShape)
-				{
-					b2CreatePolygonShape(m_bodies[index], &shapeDef, &box);
+					int mod = index % 3;
+					if (mod == 0)
+					{
+						circle.radius = RandomFloat(0.25f, 0.75f);
+						b2CreateCircleShape(m_bodies[index], &shapeDef, &circle);
+					}
+					else if (mod == 1)
+					{
+						capsule.radius = RandomFloat(0.25f, 0.5f);
+						float length = RandomFloat(0.25f, 1.0f);
+						capsule.center1 = {0.0f, -0.5f * length};
+						capsule.center2 = {0.0f, 0.5f * length};
+						b2CreateCapsuleShape(m_bodies[index], &shapeDef, &capsule);
+					}
+					else if (mod == 2)
+					{
+						float width = RandomFloat(0.1f, 0.5f);
+						float height = RandomFloat(0.5f, 0.75f);
+						b2Polygon box = b2MakeBox(width, height);
+
+						// Don't put a function call into a macro.
+						float value = RandomFloat(-1.0f, 1.0f);
+						box.radius = 0.25f * B2_MAX(0.0f, value);
+						b2CreatePolygonShape(m_bodies[index], &shapeDef, &box);
+					}
+					else
+					{
+						wedge.radius = RandomFloat(0.1f, 0.25f);
+						b2CreatePolygonShape(m_bodies[index], &shapeDef, &wedge);
+					}
 				}
 				else if (m_shapeType == e_compoundShape)
 				{
+					m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
+
 					b2CreatePolygonShape(m_bodies[index], &shapeDef, &left);
 					b2CreatePolygonShape(m_bodies[index], &shapeDef, &right);
 					// b2CreatePolygonShape(m_bodies[index], &shapeDef, &top);
@@ -226,7 +242,7 @@ public:
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		const char* shapeTypes[] = {"Circle", "Capsule", "Box", "Compound", "Human"};
+		const char* shapeTypes[] = {"Mix", "Compound", "Human"};
 
 		int shapeType = int(m_shapeType);
 		changed = changed || ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));

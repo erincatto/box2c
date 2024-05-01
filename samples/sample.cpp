@@ -480,12 +480,13 @@ int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn)
 b2Polygon RandomPolygon(float extent)
 {
 	b2Vec2 points[b2_maxPolygonVertices];
-	for (int i = 0; i < b2_maxPolygonVertices; ++i)
+	int count = 3 + rand() % 6;
+	for (int i = 0; i < count; ++i)
 	{
 		points[i] = RandomVec2(-extent, extent);
 	}
 
-	b2Hull hull = b2ComputeHull(points, b2_maxPolygonVertices);
+	b2Hull hull = b2ComputeHull(points, count);
 	if (hull.count > 0)
 	{
 		return b2MakePolygon(&hull, 0.0f);

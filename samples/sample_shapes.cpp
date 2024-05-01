@@ -14,22 +14,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-struct RayCastContext
-{
-	b2Vec2 point;
-	b2Vec2 normal;
-	bool hit;
-};
-
-static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
-{
-	RayCastContext* rayContext = (RayCastContext*)context;
-	rayContext->point = point;
-	rayContext->normal = normal;
-	rayContext->hit = true;
-	return fraction;
-}
-
 class ChainShape : public Sample
 {
 public:
@@ -226,7 +210,6 @@ public:
 };
 
 static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape::Create);
-
 
 // This sample shows how careful creation of compound shapes leads to better simulation and avoids
 // objects getting stuck.
@@ -696,7 +679,7 @@ public:
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			m_bodyIds[i] = b2_nullBodyId;
 		}
@@ -708,7 +691,7 @@ public:
 
 	void CreateBodies()
 	{
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
@@ -733,7 +716,7 @@ public:
 		float x = -1.0f * (e_count - 1);
 		float dx = 2.0f;
 
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			bodyDef.position = {x, 40.0f};
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
@@ -1093,3 +1076,77 @@ public:
 };
 
 static int sampleChainLink = RegisterSample("Shapes", "Chain Link", ChainLink::Create);
+
+class RoundedShapes : public Sample
+{
+public:
+	explicit RoundedShapes(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.55f;
+			g_camera.m_center = {2.0f, 8.0f};
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(20.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 5.0f, {19.0f, 5.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 5.0f, {-19.0f, 5.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		//b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, 0.25f};
+		//b2Circle circle = {{0.0f, 0.0f}, 0.35f};
+		//b2Polygon square = b2MakeSquare(0.35f);
+
+		//b2Vec2 points[3] = {{-0.1f, -0.5f}, {0.1f, -0.5f}, {0.0f, 0.5f}};
+		//b2Hull wedgeHull = b2ComputeHull(points, 3);
+		//b2Polygon wedge = b2MakePolygon(&wedgeHull, 0.0f);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		float y = 2.0f;
+		int xcount = 10, ycount = 10;
+
+		for (int i = 0; i < ycount; ++i)
+		{
+			float x = -5.0f;
+			for (int j = 0; j < xcount; ++j)
+			{
+				bodyDef.position = {x, y};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+				b2Polygon poly = RandomPolygon(0.5f);
+				poly.radius = RandomFloat(0.05f, 0.25f);
+				b2CreatePolygonShape(bodyId, &shapeDef, &poly);
+
+				x += 1.0f;
+			}
+
+			y += 1.0f;
+		}
+	}
+
+	void CreateBodies()
+	{
+	}
+
+
+	static Sample* Create(Settings& settings)
+	{
+		return new RoundedShapes(settings);
+	}
+};
+
+static int sampleRoundedShapes = RegisterSample("Shapes", "Rounded", RoundedShapes::Create);

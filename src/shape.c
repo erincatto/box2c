@@ -173,6 +173,7 @@ b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2C
 
 b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon)
 {
+	B2_ASSERT(b2IsValid(polygon->radius) && polygon->radius >= 0.0f);
 	return b2CreateShape(bodyId, def, polygon, b2_polygonShape);
 }
 

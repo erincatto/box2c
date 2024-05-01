@@ -1184,8 +1184,7 @@ struct GLRenderPolygons
 				f_points[6] = v_instancePoints78.xy;
 				f_points[7] = v_instancePoints78.zw;
 
-				//// Need to scale down polygon points so they fit in 2x2 quad
-
+				// Compute polygon AABB
 				vec2 lower = f_points[0];
 				vec2 upper = f_points[0];
 				for (int i = 1; i < v_instanceCount; ++i)
@@ -1194,24 +1193,24 @@ struct GLRenderPolygons
 					upper = max(upper, f_points[i]);
 				}
 
+				vec2 center = 0.5 * (lower + upper);
 				vec2 width = upper - lower;
 				float maxWidth = max(width.x, width.y);
 
 				float scale = f_radius + 0.5 * maxWidth;
 				float invScale = 1.0 / scale;
 
-				// todo shift center
+				// Shift and scale polygon points so they fit in 2x2 quad
 				for (int i = 0; i < f_count; ++i)
 				{
-					f_points[i] = invScale * f_points[i];
+					f_points[i] = invScale * (f_points[i] - center);
 				}
 
+				// Scale radius as well
 				f_radius = invScale * f_radius;
 
 				// scale zoom so the border is fixed size
 				f_zoom = invScale * zoom;
-
-				//float scale = 1.0f + f_radius;
 
 				//if (v_instanceCount == 4)
 				//{
@@ -1223,7 +1222,7 @@ struct GLRenderPolygons
 				float y = v_instanceTransform.y;
 				float c = v_instanceTransform.z;
 				float s = v_instanceTransform.w;
-				vec2 p = vec2(scale * v_localPosition.x, scale * v_localPosition.y);
+				vec2 p = vec2(scale * v_localPosition.x, scale * v_localPosition.y) + center;
 				p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
 				gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
 			});
@@ -1533,20 +1532,18 @@ struct GLRenderRoundedTriangles
 			void main() {
 				// length of 1 is the circular border of the rounded edge
 				float len = length(Frag.uv);
-				//vec2 df = vec2(dFdx(len), dFdy(len));
-				//float fw = 1.5f * length(df);
-				float fw = fwidth(len);
+				vec2 df = vec2(dFdx(len), dFdy(len));
+				float fw = 4.0f * length(df);
 
 				// mask is 1 inside rounded polygon, 0 outside with smoothing at the border
 				// smoothing needed to anti-alias the perimeter
-				float mask = 1 - smoothstep(1 - 0.5 * fw, 1, len);
+				float mask = 1 - smoothstep(1 - 0.5f * fw, 1, len);
 
 				// outline mask is 1 outside polygon including a border strip that is roughly fixed pixel width
 				// smooth step needed to anti-alias the interior of the border
-				float outlineMask = smoothstep(1 - 2 * fw, 1 - fw, len);
+				float outlineMask = smoothstep(1 - 1.5 * fw, 1 - fw, len);
 
 				vec4 color = Frag.fillColor + (Frag.outlineColor - Frag.fillColor * Frag.outlineColor.a) * outlineMask;
-				//vec4 color = Frag.fillColor;
 				outColor = color * mask;
 			});
 
@@ -1695,9 +1692,9 @@ void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void
 	static_cast<Draw*>(context)->DrawPolygon(vertices, vertexCount, color);
 }
 
-void DrawSolidPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
+void DrawSolidPolygonFcn(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color, void* context)
 {
-	static_cast<Draw*>(context)->DrawSolidPolygon(vertices, vertexCount, color);
+	static_cast<Draw*>(context)->DrawPolygon2(transform, vertices, vertexCount, radius, color);
 }
 
 void 
@@ -1882,8 +1879,7 @@ void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color
 void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color)
 {
 	assert(vertexCount <= MAX_POLY_VERTEXES);
-	b2Color fillColor = color;
-	//{0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
+	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
 
 	RGBA8 fill = MakeRGBA8(fillColor);
 	RGBA8 outline = MakeRGBA8(color);
