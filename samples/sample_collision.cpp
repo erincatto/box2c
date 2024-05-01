@@ -1070,9 +1070,7 @@ public:
 		// circle
 		{
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
-			b2Vec2 c = b2TransformPoint(xf, m_circle.center);
-			b2Vec2 axis = b2RotateVector(xf.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c, m_circle.radius, axis, color1);
+			g_draw.DrawSolidCircle(xf, m_circle.center, m_circle.radius, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
@@ -1116,13 +1114,7 @@ public:
 		// box
 		{
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
-
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < m_box.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf, m_box.vertices[i]);
-			}
-			g_draw.DrawSolidPolygon(vertices, m_box.count, color1);
+			g_draw.DrawSolidPolygon(xf, m_box.vertices, m_box.count, 0.0f, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
@@ -1143,13 +1135,7 @@ public:
 		// triangle
 		{
 			b2Transform xf = {b2Add(m_transform.p, offset), m_transform.q};
-
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < m_triangle.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf, m_triangle.vertices[i]);
-			}
-			g_draw.DrawSolidPolygon(vertices, m_triangle.count, color1);
+			g_draw.DrawSolidPolygon(xf, m_triangle.vertices, m_triangle.count, 0.0f, color1);
 
 			b2Vec2 start = b2InvTransformPoint(xf, m_rayStart);
 			b2Vec2 translation = b2InvRotateVector(xf.q, b2Sub(m_rayEnd, m_rayStart));
@@ -1796,20 +1782,8 @@ public:
 					}
 					else if (m_castType == e_polygonCast)
 					{
-						b2Vec2 points[b2_maxPolygonVertices];
-						for (int j = 0; j < box.count; ++j)
-						{
-							points[j] = b2Add(b2TransformPoint(transform, box.vertices[j]), t);
-						}
-
-						if (box.radius == 0.0f)
-						{
-							g_draw.DrawPolygon(points, box.count, yellow);
-						}
-						else
-						{
-							g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow);
-						}
+						b2Transform xf = {b2Add(transform.p, t), transform.q};
+						g_draw.DrawSolidPolygon(xf, box.vertices, box.count, box.radius, yellow);
 					}
 				}
 			}
@@ -1829,20 +1803,8 @@ public:
 				}
 				else if (m_castType == e_polygonCast)
 				{
-					b2Vec2 points[b2_maxPolygonVertices];
-					for (int j = 0; j < box.count; ++j)
-					{
-						points[j] = b2Add(b2TransformPoint(transform, box.vertices[j]), rayTranslation);
-					}
-
-					if (box.radius == 0.0f)
-					{
-						g_draw.DrawPolygon(points, box.count, yellow);
-					}
-					else
-					{
-						g_draw.DrawRoundedPolygon(points, box.count, box.radius, yellow);
-					}
+					b2Transform xf = {b2Add(transform.p, rayTranslation), transform.q};
+					g_draw.DrawSolidPolygon(xf, box.vertices, box.count, box.radius, yellow);
 				}
 			}
 		}
@@ -2473,12 +2435,8 @@ public:
 
 			b2Manifold m = b2CollideCircles(&circle1, xf1, &circle2, xf2);
 
-			b2Vec2 c1 = b2TransformPoint(xf1, circle1.center);
-			b2Vec2 c2 = b2TransformPoint(xf2, circle2.center);
-			b2Vec2 axis1 = b2RotateVector(xf1.q, {1.0f, 0.0f});
-			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c1, circle1.radius, axis1, color1);
-			g_draw.DrawSolidCircle(c2, circle2.radius, axis2, color2);
+			g_draw.DrawSolidCircle(xf1, circle1.center, circle1.radius, color1);
+			g_draw.DrawSolidCircle(xf2, circle2.center, circle2.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2499,9 +2457,7 @@ public:
 			b2Vec2 v2 = b2TransformPoint(xf1, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color1);
 
-			b2Vec2 c1 = b2TransformPoint(xf2, circle.center);
-			b2Vec2 axis1 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c1, circle.radius, axis1, color2);
+			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2522,9 +2478,7 @@ public:
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
 			g_draw.DrawSegment(p1, p2, color1);
 
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
-			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2542,16 +2496,8 @@ public:
 
 			b2Manifold m = b2CollidePolygonAndCircle(&box, xf1, &circle, xf2);
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < box.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
-			}
-			g_draw.DrawRoundedPolygon(vertices, box.count, m_round, color1);
-
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
-			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, m_round, color1);
+			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2596,12 +2542,7 @@ public:
 			b2DistanceCache cache = b2_emptyDistanceCache;
 			b2Manifold m = b2CollidePolygonAndCapsule(&box, xf1, &capsule, xf2, &cache);
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < box.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
-			}
-			g_draw.DrawSolidPolygon(vertices, box.count, color1);
+			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, box.radius, color1);
 
 			b2Vec2 v1 = b2TransformPoint(xf2, capsule.center1);
 			b2Vec2 v2 = b2TransformPoint(xf2, capsule.center2);
@@ -2647,18 +2588,8 @@ public:
 
 			b2Manifold m = b2CollidePolygons(&box, xf1, &box, xf2, &m_boxboxCache);
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < box.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
-			}
-			g_draw.DrawSolidPolygon(vertices, box.count, color1);
-
-			for (int i = 0; i < box.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, box.vertices[i]);
-			}
-			g_draw.DrawSolidPolygon(vertices, box.count, color2);
+			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, box.radius, color1);
+			g_draw.DrawSolidPolygon(xf2, box.vertices, box.count, box.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2677,18 +2608,8 @@ public:
 
 			b2Manifold m = b2CollidePolygons(&box, xf1, &rox, xf2, &m_boxroxCache);
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < box.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf1, box.vertices[i]);
-			}
-			g_draw.DrawSolidPolygon(vertices, box.count, color1);
-
-			for (int i = 0; i < rox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
-			}
-			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
+			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, box.radius, color1);
+			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2707,18 +2628,8 @@ public:
 
 			b2Manifold m = b2CollidePolygons(&rox, xf1, &rox, xf2, &m_roxroxCache);
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < rox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf1, rox.vertices[i]);
-			}
-			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color1);
-
-			for (int i = 0; i < rox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
-			}
-			g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
+			g_draw.DrawSolidPolygon(xf1, rox.vertices, rox.count, rox.radius, color1);
+			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2740,21 +2651,7 @@ public:
 			b2Vec2 p1 = b2TransformPoint(xf1, segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.point2);
 			g_draw.DrawSegment(p1, p2, color1);
-
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < rox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
-			}
-
-			if (m_round > 0.0f)
-			{
-				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
-			}
-			else
-			{
-				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
-			}
+			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2771,18 +2668,8 @@ public:
 
 			b2Manifold m = b2CollidePolygons(&wox, xf1, &wox, xf2, &m_woxwoxCache);
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < wox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf1, wox.vertices[i]);
-			}
-			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, color1);
-
-			for (int i = 0; i < wox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, wox.vertices[i]);
-			}
-			g_draw.DrawRoundedPolygon(vertices, wox.count, wox.radius, color2);
+			g_draw.DrawSolidPolygon(xf1, wox.vertices, wox.count, wox.radius, color1);
+			g_draw.DrawSolidPolygon(xf2, wox.vertices, wox.count, wox.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2808,10 +2695,7 @@ public:
 			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 			g_draw.DrawSegment(p1, p2, color1);
 			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
-
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
-			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
 			DrawManifold(&m);
 
@@ -2859,22 +2743,7 @@ public:
 				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < rox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
-			}
-
-			if (m_round > 0.0f)
-			{
-				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
-				g_draw.DrawPolygon(vertices, rox.count, color2);
-			}
-			else
-			{
-				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
-			}
-
+			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro));
 
 			DrawManifold(&m1);
@@ -3194,10 +3063,7 @@ public:
 		if (m_shapeType == e_circleShape)
 		{
 			b2Circle circle = {{0.0f, 0.0f}, 0.5f};
-
-			b2Vec2 c2 = b2TransformPoint(xf2, circle.center);
-			b2Vec2 axis2 = b2RotateVector(xf2.q, {1.0f, 0.0f});
-			g_draw.DrawSolidCircle(c2, circle.radius, axis2, color2);
+			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
 			for (int i = 0; i < m_count; ++i)
 			{
@@ -3210,21 +3076,7 @@ public:
 		{
 			float h = 0.5f - m_round;
 			b2Polygon rox = b2MakeRoundedBox(h, h, m_round);
-
-			b2Vec2 vertices[b2_maxPolygonVertices];
-			for (int i = 0; i < rox.count; ++i)
-			{
-				vertices[i] = b2TransformPoint(xf2, rox.vertices[i]);
-			}
-
-			if (m_round > 0.0f)
-			{
-				g_draw.DrawRoundedPolygon(vertices, rox.count, rox.radius, color2);
-			}
-			else
-			{
-				g_draw.DrawSolidPolygon(vertices, rox.count, color2);
-			}
+			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
 			for (int i = 0; i < m_count; ++i)
 			{

@@ -14,9 +14,6 @@ typedef struct b2DebugDraw
 	/// Draw a solid closed polygon provided in CCW order.
 	void (*DrawSolidPolygon)(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color, void* context);
 
-	/// Draw a rounded polygon provided in CCW order.
-	void (*DrawRoundedPolygon)(const b2Vec2* vertices, int vertexCount, float radius, b2Color color, void* context);
-
 	/// Draw a circle.
 	void (*DrawCircle)(b2Vec2 center, float radius, b2Color color, void* context);
 

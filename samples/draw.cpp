@@ -1139,7 +1139,9 @@ struct PolygonData
 	b2Vec2 p1, p2, p3, p4, p5, p6, p7, p8;
 	int count;
 	float radius;
-	b2Color color;
+
+	// keep color small
+	RGBA8 color;
 };
 
 struct GLRenderPolygons
@@ -1364,7 +1366,8 @@ struct GLRenderPolygons
 		glVertexAttribPointer(instancePoint78, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p7));
 		glVertexAttribIPointer(instancePointCount, 1, GL_INT, sizeof(PolygonData), (void*)offsetof(PolygonData, count));
 		glVertexAttribPointer(instanceRadius, 1, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, radius));
-		glVertexAttribPointer(instanceColor, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, color));
+		// color will get automatically expanded to floats in the shader
+		glVertexAttribPointer(instanceColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(PolygonData), (void*)offsetof(PolygonData, color));
 		glVertexAttribDivisor(instanceTransform, 1);
 		glVertexAttribDivisor(instancePoint12, 1);
 		glVertexAttribDivisor(instancePoint34, 1);
@@ -1423,7 +1426,7 @@ struct GLRenderPolygons
 
 		data->count = n;
 		data->radius = radius;
-		data->color = color;
+		data->color = MakeRGBA8(color);
 		++m_count;
 	}
 
@@ -1478,215 +1481,6 @@ struct GLRenderPolygons
 	GLint m_zoomUniform;
 };
 
-struct Float2
-{
-	float x, y;
-};
-
-struct Vertex
-{
-	Float2 p;
-	Float2 uv;
-	float r;
-	RGBA8 fill;
-	RGBA8 outline;
-};
-
-// Thanks to Scott Lembcke for this shader
-struct GLRenderRoundedTriangles
-{
-	void Create()
-	{
-		const char* vs = SHADER_TEXT(
-			layout(location = 0) in vec2 position;
-			layout(location = 1) in vec2 uv;
-			layout(location = 2) in float radius;
-			layout(location = 3) in vec4 fillColor;
-			layout(location = 4) in vec4 outlineColor;
-
-			uniform mat4 projectionMatrix;
-
-			out struct {
-				// uv is really the border normal or zero for inner vertex
-				vec2 uv;
-				vec4 fillColor;
-				vec4 outlineColor;
-			} Frag;
-
-			void main() {
-				gl_Position = projectionMatrix * vec4(position + radius * uv, 0, 1);
-				Frag.uv = uv;
-				Frag.fillColor = fillColor;
-				Frag.outlineColor = outlineColor;
-			});
-
-		const char* fs = SHADER_TEXT(
-			in struct {
-				vec2 uv;
-				vec4 fillColor;
-				vec4 outlineColor;
-			} Frag;
-
-			out vec4 outColor;
-
-			void main() {
-				// length of 1 is the circular border of the rounded edge
-				float len = length(Frag.uv);
-				vec2 df = vec2(dFdx(len), dFdy(len));
-				float fw = 4.0f * length(df);
-
-				// mask is 1 inside rounded polygon, 0 outside with smoothing at the border
-				// smoothing needed to anti-alias the perimeter
-				float mask = 1 - smoothstep(1 - 0.5f * fw, 1, len);
-
-				// outline mask is 1 outside polygon including a border strip that is roughly fixed pixel width
-				// smooth step needed to anti-alias the interior of the border
-				float outlineMask = smoothstep(1 - 1.5 * fw, 1 - fw, len);
-
-				vec4 color = Frag.fillColor + (Frag.outlineColor - Frag.fillColor * Frag.outlineColor.a) * outlineMask;
-				outColor = color * mask;
-			});
-
-		m_programId = sCreateShaderProgram(vs, fs);
-		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-
-		// Generate
-		glGenVertexArrays(1, &m_vaoId);
-		glGenBuffers(1, &m_vboId);
-		glGenBuffers(1, &m_edoId);
-
-		glBindVertexArray(m_vaoId);
-
-		// Vertex buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_vertices), NULL, GL_DYNAMIC_DRAW);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_edoId);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(m_indices), NULL, GL_DYNAMIC_DRAW);
-
-		// position
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, p));
-
-		// uv
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-
-		// radius
-		glEnableVertexAttribArray(2);
-		glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, r));
-
-		// fill color
-		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex, fill));
-
-		// outline color
-		glEnableVertexAttribArray(4);
-		glVertexAttribPointer(4, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex, outline));
-
-		CheckGLError();
-
-		glBindVertexArray(0);
-
-		m_vertexCount = 0;
-		m_indexCount = 0;
-	}
-
-	void Destroy()
-	{
-		if (m_vaoId)
-		{
-			glDeleteVertexArrays(1, &m_vaoId);
-			glDeleteBuffers(1, &m_vboId);
-			glDeleteBuffers(1, &m_edoId);
-			m_vaoId = 0;
-		}
-
-		if (m_programId)
-		{
-			glDeleteProgram(m_programId);
-			m_programId = 0;
-		}
-	}
-
-	// Allocate vertices with precomputed indices
-	Vertex* AllocVertices(int32_t vertexCount, const uint16_t* indices, int32_t indexCount)
-	{
-		if (vertexCount + m_vertexCount == e_maxVertices || indexCount + m_indexCount == e_maxIndices)
-		{
-			Flush();
-		}
-
-		uint16_t globalBaseIndex = uint16_t(m_vertexCount);
-		uint16_t* indexBase = m_indices + m_indexCount;
-		for (int32_t i = 0; i < indexCount; ++i)
-		{
-			// Convert local vertex index to global vertex index
-			indexBase[i] = indices[i] + globalBaseIndex;
-		}
-		m_indexCount += indexCount;
-
-		Vertex* vertices = m_vertices + m_vertexCount;
-		m_vertexCount += vertexCount;
-		return vertices;
-	}
-
-	void Flush()
-	{
-		if (m_vertexCount == 0 || m_indexCount == 0)
-		{
-			return;
-		}
-
-		glUseProgram(m_programId);
-
-		float proj[16] = {0.0f};
-		g_camera.BuildProjectionMatrix(proj, 0.2f);
-
-		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-
-		glBindVertexArray(m_vaoId);
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_vertexCount * sizeof(Vertex), m_vertices);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_edoId);
-		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, m_indexCount * sizeof(uint16_t), m_indices);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_SHORT, nullptr);
-		glDisable(GL_BLEND);
-
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glUseProgram(0);
-
-		m_vertexCount = 0;
-		m_indexCount = 0;
-	}
-
-	enum
-	{
-		e_maxVertices = 3 * 1024,
-		e_maxIndices = 4 * e_maxVertices
-	};
-
-	Vertex m_vertices[e_maxVertices];
-	uint16_t m_indices[e_maxIndices];
-
-	int32_t m_vertexCount;
-	int32_t m_indexCount;
-
-	GLuint m_vaoId;
-	GLuint m_vboId;
-	GLuint m_edoId;
-	GLuint m_programId;
-	GLint m_projectionUniform;
-};
-
 void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
 {
 	static_cast<Draw*>(context)->DrawPolygon(vertices, vertexCount, color);
@@ -1694,14 +1488,7 @@ void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void
 
 void DrawSolidPolygonFcn(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color, void* context)
 {
-	static_cast<Draw*>(context)->DrawPolygon2(transform, vertices, vertexCount, radius, color);
-}
-
-void 
-DrawRoundedPolygonFcn(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color,
-						   void* context)
-{
-	static_cast<Draw*>(context)->DrawRoundedPolygon(vertices, vertexCount, radius, color);
+	static_cast<Draw*>(context)->DrawSolidPolygon(transform, vertices, vertexCount, radius, color);
 }
 
 void DrawCircleFcn(b2Vec2 center, float radius, b2Color color, void* context)
@@ -1711,9 +1498,7 @@ void DrawCircleFcn(b2Vec2 center, float radius, b2Color color, void* context)
 
 void DrawSolidCircleFcn(b2Transform transform, float radius, b2Color color, void* context)
 {
-	//b2Vec2 axis = b2RotateVector(transform.q, {1.0f, 0.0f});
-	//static_cast<Draw*>(context)->DrawSolidCircle(transform.p, radius, axis, color);
-	static_cast<Draw*>(context)->DrawCircle2(transform, radius, color);
+	static_cast<Draw*>(context)->DrawSolidCircle(transform, b2Vec2_zero, radius, color);
 }
 
 void DrawCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context)
@@ -1723,7 +1508,7 @@ void DrawCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* con
 
 void DrawSolidCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context)
 {
-	static_cast<Draw*>(context)->DrawCapsule2(p1, p2, radius, color);
+	static_cast<Draw*>(context)->DrawSolidCapsule(p1, p2, radius, color);
 }
 
 void DrawSegmentFcn(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context)
@@ -1752,7 +1537,6 @@ Draw::Draw()
 	m_points = nullptr;
 	m_lines = nullptr;
 	m_triangles = nullptr;
-	m_roundedTriangles = nullptr;
 	m_circles = nullptr;
 	m_capsules = nullptr;
 	m_polygons = nullptr;
@@ -1774,8 +1558,6 @@ void Draw::Create()
 	m_lines->Create();
 	m_triangles = static_cast<GLRenderTriangles*>(malloc(sizeof(GLRenderTriangles)));
 	m_triangles->Create();
-	m_roundedTriangles = static_cast<GLRenderRoundedTriangles*>(malloc(sizeof(GLRenderRoundedTriangles)));
-	m_roundedTriangles->Create();
 	m_circles = static_cast<GLRenderCircles*>(malloc(sizeof(GLRenderCircles)));
 	m_circles->Create();
 	m_capsules = static_cast<GLRenderCapsules*>(malloc(sizeof(GLRenderCapsules)));
@@ -1785,7 +1567,6 @@ void Draw::Create()
 
 	m_debugDraw = {	DrawPolygonFcn,
 					DrawSolidPolygonFcn,
-					DrawRoundedPolygonFcn,
 					DrawCircleFcn,
 					DrawSolidCircleFcn,
 					DrawCapsuleFcn,
@@ -1821,10 +1602,6 @@ void Draw::Destroy()
 	free(m_triangles);
 	m_triangles = nullptr;
 
-	m_roundedTriangles->Destroy();
-	free(m_roundedTriangles);
-	m_roundedTriangles = nullptr;
-
 	m_circles->Destroy();
 	free(m_circles);
 	m_circles = nullptr;
@@ -1850,126 +1627,7 @@ void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color colo
 	}
 }
 
-void Draw::DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
-{
-	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-
-	for (int32_t i = 1; i < vertexCount - 1; ++i)
-	{
-		m_triangles->Vertex(vertices[0], fillColor);
-		m_triangles->Vertex(vertices[i], fillColor);
-		m_triangles->Vertex(vertices[i + 1], fillColor);
-	}
-
-	b2Vec2 p1 = vertices[vertexCount - 1];
-	for (int32_t i = 0; i < vertexCount; ++i)
-	{
-		b2Vec2 p2 = vertices[i];
-		m_lines->Vertex(p1, color);
-		m_lines->Vertex(p2, color);
-		p1 = p2;
-	}
-}
-
-#define MAX_POLY_VERTEXES 64
-// Fill needs (count - 2) triangles.
-// Outline needs 4*count triangles.
-#define MAX_POLY_INDEXES (3 * (5 * MAX_POLY_VERTEXES - 2))
-
-void Draw::DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color)
-{
-	assert(vertexCount <= MAX_POLY_VERTEXES);
-	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-
-	RGBA8 fill = MakeRGBA8(fillColor);
-	RGBA8 outline = MakeRGBA8(color);
-
-	uint16_t indices[MAX_POLY_INDEXES];
-
-	// Polygon fill triangles.
-	for (int i = 0; i < vertexCount - 2; ++i)
-	{
-		indices[3 * i + 0] = 0;
-		indices[3 * i + 1] = 4 * (i + 1);
-		indices[3 * i + 2] = 4 * (i + 2);
-	}
-
-	// Polygon outline triangles.
-	uint16_t* outlineIndices = indices + 3 * (vertexCount - 2);
-	for (int i0 = 0; i0 < vertexCount; ++i0)
-	{
-		int i1 = (i0 + 1) % vertexCount;
-
-		// corner triangle 1
-		outlineIndices[12 * i0 + 0] = 4 * i0 + 0;
-		outlineIndices[12 * i0 + 1] = 4 * i0 + 1;
-		outlineIndices[12 * i0 + 2] = 4 * i0 + 2;
-
-		// corner triangle 2
-		outlineIndices[12 * i0 + 3] = 4 * i0 + 0;
-		outlineIndices[12 * i0 + 4] = 4 * i0 + 2;
-		outlineIndices[12 * i0 + 5] = 4 * i0 + 3;
-		
-		// edge triangle 1
-		outlineIndices[12 * i0 + 6] = 4 * i0 + 0;
-		outlineIndices[12 * i0 + 7] = 4 * i0 + 3;
-		outlineIndices[12 * i0 + 8] = 4 * i1 + 0;
-		
-		// edge triangle 2
-		outlineIndices[12 * i0 + 9] = 4 * i0 + 3;
-		outlineIndices[12 * i0 + 10] = 4 * i1 + 0;
-		outlineIndices[12 * i0 + 11] = 4 * i1 + 1;
-	}
-
-	// Inset so that zero radius polygons still get a border
-	float r = radius;
-	float inset = 0.0f;
-	// constexpr float minRadius = 0.04f;
-	// if (radius < minRadius)
-	//{
-	//	inset = radius - minRadius;
-	//	r = radius - inset;
-	// }
-
-	// constexpr float lineScale = 0.05f;
-	// float inset = -B2_MAX(0, 2.0f * lineScale - radius);
-	// float outset = radius + lineScale;
-	// float r = outset - inset;
-
-	Vertex* vertexes = m_roundedTriangles->AllocVertices(4 * vertexCount, indices, 3 * (5 * vertexCount - 2));
-	for (int i = 0; i < vertexCount; ++i)
-	{
-		b2Vec2 v_prev = vertices[(i + (vertexCount - 1)) % vertexCount];
-		b2Vec2 v0 = vertices[i];
-		b2Vec2 v_next = vertices[(i + (vertexCount + 1)) % vertexCount];
-
-		// normal on trailing edge
-		b2Vec2 n1 = b2Normalize(b2CrossVS(b2Sub(v0, v_prev), 1.0f));
-
-		// normal on leading edge
-		b2Vec2 n2 = b2Normalize(b2CrossVS(b2Sub(v_next, v0), 1.0f));
-
-		// radius normal
-		b2Vec2 of = b2MulSV(1.0f / (b2Dot(n1, n2) + 1.0f), b2Add(n1, n2));
-
-		// inner vertex
-		b2Vec2 v = b2Add(v0, b2MulSV(inset, of));
-
-		// inner vertex
-		vertexes[4 * i + 0] = {{v.x, v.y}, {0.0f, 0.0f}, 0.0f, fill, outline};
-
-		// trailing border vertex
-		vertexes[4 * i + 1] = {{v.x, v.y}, {n1.x, n1.y}, r, fill, outline};
-
-		// rounded corner vertex
-		vertexes[4 * i + 2] = {{v.x, v.y}, {of.x, of.y}, r, fill, outline};
-
-		// leading border vertex
-		vertexes[4 * i + 3] = {{v.x, v.y}, {n2.x, n2.y}, r, fill, outline};
-	}
-}
-
-void Draw::DrawPolygon2(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color)
+void Draw::DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color)
 {
 	m_polygons->AddPolygon(transform, vertices, vertexCount, radius, color);
 }
@@ -1996,53 +1654,10 @@ void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 	}
 }
 
-void Draw::DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color)
+void Draw::DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2Color color)
 {
-	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-	const float k_segments = 32.0f;
-	const float k_increment = 2.0f * b2_pi / k_segments;
-	float sinInc = sinf(k_increment);
-	float cosInc = cosf(k_increment);
-
-	b2Vec2 v0 = center;
-	b2Vec2 r1{cosInc, sinInc};
-	b2Vec2 v1 = b2MulAdd(center, radius, r1);
-	for (int32_t i = 0; i < k_segments; ++i)
-	{
-		// Perform rotation to avoid additional trigonometry.
-		b2Vec2 r2;
-		r2.x = cosInc * r1.x - sinInc * r1.y;
-		r2.y = sinInc * r1.x + cosInc * r1.y;
-		b2Vec2 v2 = b2MulAdd(center, radius, r2);
-		m_triangles->Vertex(v0, fillColor);
-		m_triangles->Vertex(v1, fillColor);
-		m_triangles->Vertex(v2, fillColor);
-		r1 = r2;
-		v1 = v2;
-	}
-
-	r1 = {1.0f, 0.0f};
-	v1 = b2MulAdd(center, radius, r1);
-	for (int32_t i = 0; i < k_segments; ++i)
-	{
-		b2Vec2 r2;
-		r2.x = cosInc * r1.x - sinInc * r1.y;
-		r2.y = sinInc * r1.x + cosInc * r1.y;
-		b2Vec2 v2 = b2MulAdd(center, radius, r2);
-		m_lines->Vertex(v1, color);
-		m_lines->Vertex(v2, color);
-		r1 = r2;
-		v1 = v2;
-	}
-
-	// Draw a line fixed in the circle to animate rotation.
-	b2Vec2 p = b2MulAdd(center, radius, axis);
-	m_lines->Vertex(center, color);
-	m_lines->Vertex(p, color);
-}
-
-void Draw::DrawCircle2(b2Transform transform, float radius, b2Color color)
-{
+	b2Transform xf = transform;
+	xf.p = b2TransformPoint(transform, center);
 	m_circles->AddCircle(transform, radius, color);
 }
 
@@ -2105,109 +1720,9 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	m_lines->Vertex(p2, color);
 }
 
-void Draw::DrawCapsule2(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
-{
-	m_capsules->AddCapsule(p1, p2, radius, color);
-}
-
 void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 {
-	float length;
-	b2Vec2 axis = b2GetLengthAndNormalize(&length, b2Sub(p2, p1));
-
-	if (length == 0.0f)
-	{
-		DrawSolidCircle(p1, radius, {1.0f, 0.0f}, color);
-	}
-
-	b2Color fillColor = {0.5f * color.r, 0.5f * color.g, 0.5f * color.b, 0.5f};
-	const float k_segments = 16.0f;
-	const float k_increment = b2_pi / k_segments;
-	float sinInc = sinf(k_increment);
-	float cosInc = cosf(k_increment);
-
-	b2Vec2 r1 = {-axis.y, axis.x};
-	b2Vec2 v1 = b2MulAdd(p1, radius, r1);
-	b2Vec2 a = v1;
-	for (int32_t i = 0; i < k_segments; ++i)
-	{
-		// Perform rotation to avoid additional trigonometry.
-		b2Vec2 r2;
-		r2.x = cosInc * r1.x - sinInc * r1.y;
-		r2.y = sinInc * r1.x + cosInc * r1.y;
-		b2Vec2 v2 = b2MulAdd(p1, radius, r2);
-		m_triangles->Vertex(p1, fillColor);
-		m_triangles->Vertex(v1, fillColor);
-		m_triangles->Vertex(v2, fillColor);
-		r1 = r2;
-		v1 = v2;
-	}
-	b2Vec2 b = v1;
-
-	r1 = {axis.y, -axis.x};
-	v1 = b2MulAdd(p2, radius, r1);
-	b2Vec2 c = v1;
-	for (int32_t i = 0; i < k_segments; ++i)
-	{
-		// Perform rotation to avoid additional trigonometry.
-		b2Vec2 r2;
-		r2.x = cosInc * r1.x - sinInc * r1.y;
-		r2.y = sinInc * r1.x + cosInc * r1.y;
-		b2Vec2 v2 = b2MulAdd(p2, radius, r2);
-		m_triangles->Vertex(p2, fillColor);
-		m_triangles->Vertex(v1, fillColor);
-		m_triangles->Vertex(v2, fillColor);
-		r1 = r2;
-		v1 = v2;
-	}
-	b2Vec2 d = v1;
-
-	m_triangles->Vertex(a, fillColor);
-	m_triangles->Vertex(b, fillColor);
-	m_triangles->Vertex(c, fillColor);
-
-	m_triangles->Vertex(c, fillColor);
-	m_triangles->Vertex(d, fillColor);
-	m_triangles->Vertex(a, fillColor);
-
-	r1 = {-axis.y, axis.x};
-	v1 = b2MulAdd(p1, radius, r1);
-	for (int32_t i = 0; i < k_segments; ++i)
-	{
-		// Perform rotation to avoid additional trigonometry.
-		b2Vec2 r2;
-		r2.x = cosInc * r1.x - sinInc * r1.y;
-		r2.y = sinInc * r1.x + cosInc * r1.y;
-		b2Vec2 v2 = b2MulAdd(p1, radius, r2);
-		m_lines->Vertex(v1, color);
-		m_lines->Vertex(v2, color);
-		r1 = r2;
-		v1 = v2;
-	}
-
-	r1 = {axis.y, -axis.x};
-	v1 = b2MulAdd(p2, radius, r1);
-	for (int32_t i = 0; i < k_segments; ++i)
-	{
-		// Perform rotation to avoid additional trigonometry.
-		b2Vec2 r2;
-		r2.x = cosInc * r1.x - sinInc * r1.y;
-		r2.y = sinInc * r1.x + cosInc * r1.y;
-		b2Vec2 v2 = b2MulAdd(p2, radius, r2);
-		m_lines->Vertex(v1, color);
-		m_lines->Vertex(v2, color);
-		r1 = r2;
-		v1 = v2;
-	}
-
-	m_lines->Vertex(a, color);
-	m_lines->Vertex(d, color);
-
-	m_lines->Vertex(b, color);
-	m_lines->Vertex(c, color);
-
-	m_lines->Vertex(p1, color);
-	m_lines->Vertex(p2, color);
+	m_capsules->AddCapsule(p1, p2, radius, color);
 }
 
 void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color)
@@ -2292,7 +1807,6 @@ void Draw::DrawAABB(b2AABB aabb, b2Color c)
 
 void Draw::Flush()
 {
-	m_roundedTriangles->Flush();
 	m_triangles->Flush();
 	m_lines->Flush();
 	m_points->Flush();
