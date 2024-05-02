@@ -15,6 +15,7 @@ struct Camera
 	b2Vec2 ConvertScreenToWorld(b2Vec2 screenPoint);
 	b2Vec2 ConvertWorldToScreen(b2Vec2 worldPoint);
 	void BuildProjectionMatrix(float* m, float zBias);
+	b2AABB GetViewBounds();
 
 	b2Vec2 m_center;
 	float m_zoom;

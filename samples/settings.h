@@ -15,6 +15,7 @@ struct Settings
 	float hertz = 60.0f;
 	int subStepCount = 4;
 	int workerCount = 1;
+	bool useCameraBounds = true;
 	bool drawShapes = true;
 	bool drawJoints = true;
 	bool drawJointExtras = false;

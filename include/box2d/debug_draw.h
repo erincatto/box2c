@@ -38,6 +38,9 @@ typedef struct b2DebugDraw
 	/// Draw a string.
 	void (*DrawString)(b2Vec2 p, const char* s, void* context);
 
+	b2AABB drawingBounds;
+	bool useDrawingBounds;
+
 	bool drawShapes;
 	bool drawJoints;
 	bool drawJointExtras;

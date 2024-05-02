@@ -202,6 +202,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 		world->taskContextArray[i].awakeIslandBitSet = b2CreateBitSet(256);
 	}
 
+	world->debugBodySet = b2CreateBitSet(256);
+	world->debugJointSet = b2CreateBitSet(256);
+	world->debugContactSet = b2CreateBitSet(256);
+
 	// add one to worldId so that 0 represents a null b2WorldId
 	return (b2WorldId){(uint16_t)(worldId + 1), world->revision};
 }
@@ -209,6 +213,10 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 void b2DestroyWorld(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
+
+	b2DestroyBitSet(&world->debugBodySet);
+	b2DestroyBitSet(&world->debugJointSet);
+	b2DestroyBitSet(&world->debugContactSet);
 
 	for (int i = 0; i < world->workerCount; ++i)
 	{
@@ -767,8 +775,10 @@ void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount)
 	b2TracyCZoneEnd(world_step);
 }
 
-static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Color color)
+static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2HexColor hexColor)
 {
+	b2Color color = b2MakeColor(hexColor);
+
 	switch (shape->type)
 	{
 		case b2_capsuleShape:
@@ -791,24 +801,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 		case b2_polygonShape:
 		{
 			b2Polygon* poly = &shape->polygon;
-			// todo cleanup
-			//int count = poly->count;
-			//B2_ASSERT(count <= b2_maxPolygonVertices);
-			//b2Vec2 vertices[b2_maxPolygonVertices];
-
-			//for (int i = 0; i < count; ++i)
-			//{
-			//	vertices[i] = b2TransformPoint(xf, poly->vertices[i]);
-			//}
-
-			//if (poly->radius > 0.0f)
-			//{
-			//	draw->DrawRoundedPolygon(vertices, count, poly->radius, color, draw->context);
-			//}
-			//else
-			{
-				draw->DrawSolidPolygon(xf, poly->vertices, poly->count, poly->radius, color, draw->context);
-			}
+			draw->DrawSolidPolygon(xf, poly->vertices, poly->count, poly->radius, color, draw->context);
 		}
 		break;
 
@@ -837,6 +830,275 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Col
 	}
 }
 
+struct DrawContext
+{
+	b2World* world;
+	b2DebugDraw* draw;
+};
+
+static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	struct DrawContext* drawContext = context;
+	b2World* world = drawContext->world;
+	b2DebugDraw* draw = drawContext->draw;
+
+	b2CheckId(world->shapeArray, shapeId);
+	b2Shape* shape = world->shapeArray + shapeId;
+
+	b2SetBit(&world->debugBodySet, shape->bodyId);
+
+	if (draw->drawShapes)
+	{
+		b2CheckId(world->bodyArray, shape->bodyId);
+		b2Body* body = world->bodyArray + shape->bodyId;
+		b2BodySim* bodySim = b2GetBodySim(world, body);
+
+		b2HexColor color;
+		
+		if (body->type == b2_dynamicBody && bodySim->mass == 0.0f)
+		{
+			// Bad body
+			color = b2_colorRed;
+		}
+		else if (body->setIndex == b2_disabledSet)
+		{
+			color = b2_colorSlateGray2;
+		}
+		else if (shape->isSensor)
+		{
+			color = b2_colorWheat;
+		}
+		else if (body->isSpeedCapped)
+		{
+			color = b2_colorYellow;
+		}
+		else if (bodySim->isFast)
+		{
+			color = b2_colorSalmon;
+		}
+		else if (body->type == b2_staticBody)
+		{
+			color = b2_colorPaleGreen;
+		}
+		else if (body->type == b2_kinematicBody)
+		{
+			color = b2_colorRoyalBlue;
+		}
+		else if (body->setIndex == b2_awakeSet)
+		{
+			color = b2_colorPink3;
+		}
+		else
+		{
+			color = b2_colorGray;
+		}
+
+		b2DrawShape(draw, shape, bodySim->transform, color);	
+	}
+
+	if (draw->drawAABBs)
+	{
+		// todo hex equivalent?
+		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
+
+		b2AABB aabb = shape->fatAABB;
+
+		b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
+						{aabb.upperBound.x, aabb.lowerBound.y},
+						{aabb.upperBound.x, aabb.upperBound.y},
+						{aabb.lowerBound.x, aabb.upperBound.y}};
+
+		draw->DrawPolygon(vs, 4, color, draw->context);
+	}
+
+	return true;
+}
+
+static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
+{
+	B2_ASSERT(b2AABB_IsValid(draw->drawingBounds));
+
+	const float k_impulseScale = 1.0f;
+	const float k_axisScale = 0.3f;
+	b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
+	b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
+	b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
+	b2Color normalColor = {0.9f, 0.9f, 0.9f, 1.0f};
+	b2Color impulseColor = {0.9f, 0.9f, 0.3f, 1.0f};
+	b2Color frictionColor = {0.9f, 0.9f, 0.3f, 1.0f};
+
+	b2HexColor graphColors[b2_graphColorCount] = {b2_colorRed,		b2_colorOrange,	   b2_colorYellow, b2_colorGreen,
+											 b2_colorCyan,		b2_colorBlue,	   b2_colorViolet, b2_colorPink,
+											 b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral,  b2_colorBlack};
+
+	int bodyCapacity = b2GetIdCapacity(&world->bodyIdPool);
+	b2SetBitCountAndClear(&world->debugBodySet, bodyCapacity);
+
+	int jointCapacity = b2GetIdCapacity(&world->jointIdPool);
+	b2SetBitCountAndClear(&world->debugJointSet, jointCapacity);
+
+	int contactCapacity = b2GetIdCapacity(&world->contactIdPool);
+	b2SetBitCountAndClear(&world->debugContactSet, contactCapacity);
+
+	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	{
+		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, DrawQueryCallback, &world);
+	}
+
+	uint32_t wordCount = world->debugBodySet.blockCount;
+	uint64_t* bits = world->debugBodySet.bits;
+	for (uint32_t k = 0; k < wordCount; ++k)
+	{
+		uint64_t word = bits[k];
+		while (word != 0)
+		{
+			uint32_t ctz = b2CTZ64(word);
+			uint32_t bodyId = 64 * k + ctz;
+
+			b2CheckId(world->bodyArray, bodyId);
+			b2Body* body = world->bodyArray + bodyId;
+
+			if (draw->drawMass && body->type == b2_dynamicBody)
+			{
+				b2Vec2 offset = {0.1f, 0.1f};
+				b2BodySim* bodySim = b2GetBodySim(world, body);
+
+				b2Transform transform = {bodySim->center, bodySim->transform.q};
+				draw->DrawTransform(transform, draw->context);
+
+				b2Vec2 p = b2TransformPoint(transform, offset);
+
+				char buffer[32];
+				snprintf(buffer, 32, "  %.2f", bodySim->mass);
+				draw->DrawString(p, buffer, draw->context);
+			}
+
+			if (draw->drawJoints)
+			{
+				int jointKey = body->headJointKey;
+				while (jointKey != B2_NULL_INDEX)
+				{
+					int jointId = jointKey >> 1;
+					int edgeIndex = jointKey & 1;
+					b2Joint* joint = world->jointArray + jointId;
+
+					// avoid double draw
+					if (b2GetBit(&world->debugJointSet, jointId) == false)
+					{
+						b2DrawJoint(draw, world, joint);
+						b2SetBit(&world->debugJointSet, jointId);
+					}
+					else
+					{
+						// todo testing
+						edgeIndex += 0;
+					}
+
+					jointKey = joint->edges[edgeIndex].nextKey;
+				}
+			}
+
+			if (draw->drawContacts && body->type == b2_dynamicBody && body->setIndex == b2_awakeSet)
+			{
+				int contactKey = body->headContactKey;
+				while (contactKey != B2_NULL_INDEX)
+				{
+					int contactId = contactKey >> 1;
+					int edgeIndex = contactKey & 1;
+					b2Contact* contact = world->contactArray + contactId;
+					contactKey = contact->edges[edgeIndex].nextKey;
+
+					if (contact->setIndex != b2_awakeSet || contact->colorIndex == B2_NULL_INDEX)
+					{
+						continue;
+					}
+
+					// avoid double draw
+					if (b2GetBit(&world->debugContactSet, contactId) == false)
+					{
+						B2_ASSERT(0 <= contact->colorIndex && contact->colorIndex < b2_graphColorCount);
+
+						b2GraphColor* gc = world->constraintGraph.colors + contact->colorIndex;
+						B2_ASSERT(0 <= contact->localIndex && contact->localIndex < gc->contacts.count);
+
+						b2ContactSim* contactSim = gc->contacts.data + contact->localIndex;
+						int pointCount = contactSim->manifold.pointCount;
+						b2Vec2 normal = contactSim->manifold.normal;
+						char buffer[32];
+
+						for (int j = 0; j < pointCount; ++j)
+						{
+							b2ManifoldPoint* point = contactSim->manifold.points + j;
+
+							if (draw->drawGraphColors)
+							{
+								// graph color
+								float pointSize = contact->colorIndex == b2_overflowIndex ? 7.5f : 5.0f;
+								draw->DrawPoint(point->point, pointSize, b2MakeColor(graphColors[contact->colorIndex]), draw->context);
+								// g_draw.DrawString(point->position, "%d", point->color);
+							}
+							else if (point->separation > b2_linearSlop)
+							{
+								// Speculative
+								draw->DrawPoint(point->point, 5.0f, speculativeColor, draw->context);
+							}
+							else if (point->persisted == false)
+							{
+								// Add
+								draw->DrawPoint(point->point, 10.0f, addColor, draw->context);
+							}
+							else if (point->persisted == true)
+							{
+								// Persist
+								draw->DrawPoint(point->point, 5.0f, persistColor, draw->context);
+							}
+
+							if (draw->drawContactNormals)
+							{
+								b2Vec2 p1 = point->point;
+								b2Vec2 p2 = b2MulAdd(p1, k_axisScale, normal);
+								draw->DrawSegment(p1, p2, normalColor, draw->context);
+							}
+							else if (draw->drawContactImpulses)
+							{
+								b2Vec2 p1 = point->point;
+								b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->normalImpulse, normal);
+								draw->DrawSegment(p1, p2, impulseColor, draw->context);
+								snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.2f", point->normalImpulse);
+								draw->DrawString(p1, buffer, draw->context);
+							}
+
+							if (draw->drawFrictionImpulses)
+							{
+								b2Vec2 tangent = b2RightPerp(normal);
+								b2Vec2 p1 = point->point;
+								b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->tangentImpulse, tangent);
+								draw->DrawSegment(p1, p2, frictionColor, draw->context);
+								snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.2f", point->normalImpulse);
+								draw->DrawString(p1, buffer, draw->context);
+							}
+						}
+
+						b2SetBit(&world->debugContactSet, contactId);
+					}
+					else
+					{
+						// todo testing
+						edgeIndex += 0;
+					}
+
+					contactKey = contact->edges[edgeIndex].nextKey;
+				}
+			}
+
+			// Clear the smallest set bit
+			word = word & (word - 1);
+		}
+	}
+}
+
 void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -846,12 +1108,17 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		return;
 	}
 
+	if (draw->useDrawingBounds)
+	{
+		b2DrawWithBounds(world, draw);
+		return;
+	}
+
 	if (draw->drawShapes)
 	{
 		int setCount = b2Array(world->solverSetArray).count;
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
 		{
-			bool isAwake = (setIndex == b2_awakeSet);
 			b2SolverSet* set = world->solverSetArray + setIndex;
 			int bodyCount = set->sims.count;
 			for (int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex)
@@ -866,44 +1133,44 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 				while (shapeId != B2_NULL_INDEX)
 				{
 					b2Shape* shape = world->shapeArray + shapeId;
-					b2Color color;
+					b2HexColor color;
 
 					if (body->type == b2_dynamicBody && bodySim->mass == 0.0f)
 					{
 						// Bad body
-						color = b2MakeColor(b2_colorRed);
+						color = b2_colorRed;
 					}
 					else if (body->setIndex == b2_disabledSet)
 					{
-						color = b2MakeColor(b2_colorSlateGray2);
+						color = b2_colorSlateGray2;
 					}
 					else if (shape->isSensor)
 					{
-						color = b2MakeColor(b2_colorWheat);
+						color = b2_colorWheat;
 					}
 					else if (body->isSpeedCapped)
 					{
-						color = b2MakeColor(b2_colorYellow);
+						color = b2_colorYellow;
 					}
 					else if (bodySim->isFast)
 					{
-						color = b2MakeColor(b2_colorSalmon);
+						color = b2_colorSalmon;
 					}
 					else if (body->type == b2_staticBody)
 					{
-						color = b2MakeColor(b2_colorPaleGreen);
+						color = b2_colorPaleGreen;
 					}
 					else if (body->type == b2_kinematicBody)
 					{
-						color = b2MakeColor(b2_colorRoyalBlue);
+						color = b2_colorRoyalBlue;
 					}
-					else if (isAwake)
+					else if (body->setIndex == b2_awakeSet)
 					{
-						color = b2MakeColor(b2_colorPink3);
+						color = b2_colorPink3;
 					}
 					else
 					{
-						color = b2MakeColor(b2_colorGray);
+						color = b2_colorGray;
 					}
 
 					b2DrawShape(draw, shape, xf, color);

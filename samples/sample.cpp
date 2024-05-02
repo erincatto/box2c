@@ -250,6 +250,15 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 	}
 
+	g_draw.m_debugDraw.drawingBounds = g_camera.GetViewBounds();
+	g_draw.m_debugDraw.useDrawingBounds = settings.useCameraBounds;
+
+	// todo testing
+	//b2Transform t1 = {g_draw.m_debugDraw.drawingBounds.lowerBound, b2Rot_identity};
+	//b2Transform t2 = {g_draw.m_debugDraw.drawingBounds.upperBound, b2Rot_identity};
+	//g_draw.DrawSolidCircle(t1, b2Vec2_zero, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+	//g_draw.DrawSolidCircle(t2, b2Vec2_zero, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+
 	g_draw.m_debugDraw.drawShapes = settings.drawShapes;
 	g_draw.m_debugDraw.drawJoints = settings.drawJoints;
 	g_draw.m_debugDraw.drawJointExtras = settings.drawJointExtras;

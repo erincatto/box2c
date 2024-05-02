@@ -4,18 +4,18 @@
 #include "draw.h"
 
 #include "box2d/constants.h"
-#include "box2d/math_functions.h"
 #include "box2d/math_cpp.h"
+#include "box2d/math_functions.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 
 #if defined(_WIN32)
-#define _CRTDBG_MAP_ALLOC
-#include <crtdbg.h>
-#include <stdlib.h>
+	#define _CRTDBG_MAP_ALLOC
+	#include <crtdbg.h>
+	#include <stdlib.h>
 #else
-#include <stdlib.h>
+	#include <stdlib.h>
 #endif
 
 #include <glad/glad.h>
@@ -38,7 +38,6 @@ static inline RGBA8 MakeRGBA8(b2Color c)
 Draw g_draw;
 Camera g_camera;
 
-//
 Camera::Camera()
 {
 	m_width = 1280;
@@ -46,14 +45,12 @@ Camera::Camera()
 	ResetView();
 }
 
-//
 void Camera::ResetView()
 {
 	m_center = {0.0f, 20.0f};
 	m_zoom = 1.0f;
 }
 
-//
 b2Vec2 Camera::ConvertScreenToWorld(b2Vec2 ps)
 {
 	float w = float(m_width);
@@ -71,7 +68,6 @@ b2Vec2 Camera::ConvertScreenToWorld(b2Vec2 ps)
 	return pw;
 }
 
-//
 b2Vec2 Camera::ConvertWorldToScreen(b2Vec2 pw)
 {
 	float w = float(m_width);
@@ -123,7 +119,14 @@ void Camera::BuildProjectionMatrix(float* m, float zBias)
 	m[15] = 1.0f;
 }
 
-//
+b2AABB Camera::GetViewBounds()
+{
+	b2AABB bounds;
+	bounds.lowerBound = ConvertScreenToWorld({0.0f, (float)m_height});
+	bounds.upperBound = ConvertScreenToWorld({(float)m_width, 0.0f});
+	return bounds;
+}
+
 static void CheckGLError()
 {
 	GLenum errCode = glGetError();
@@ -349,7 +352,7 @@ struct GLRenderPoints
 	b2Color m_colors[e_maxVertices];
 	float m_sizes[e_maxVertices];
 
-	int32_t m_count;
+	int m_count;
 
 	GLuint m_vaoId;
 	GLuint m_vboIds[3];
@@ -482,7 +485,7 @@ struct GLRenderLines
 	b2Vec2 m_vertices[e_maxVertices];
 	b2Color m_colors[e_maxVertices];
 
-	int32_t m_count;
+	int m_count;
 
 	GLuint m_vaoId;
 	GLuint m_vboIds[2];
@@ -618,7 +621,7 @@ struct GLRenderTriangles
 	b2Vec2 m_vertices[e_maxVertices];
 	b2Color m_colors[e_maxVertices];
 
-	int32_t m_count;
+	int m_count;
 
 	GLuint m_vaoId;
 	GLuint m_vboIds[2];
@@ -795,7 +798,7 @@ struct GLRenderCircles
 
 	void AddCircle(const b2Transform& transform, float radius, const b2Color& c)
 	{
-		if (m_count == e_maxCircles)
+		if (m_count == e_maxCount)
 		{
 			Flush();
 		}
@@ -851,12 +854,13 @@ struct GLRenderCircles
 
 	enum
 	{
-		e_maxCircles = 3 * 512
+		e_maxCount = 3 * 512
 	};
 
-	Transform m_transforms[e_maxCircles];
-	float m_radii[e_maxCircles];
-	b2Color m_colors[e_maxCircles];
+	// todo combine into struct like PolygonData
+	Transform m_transforms[e_maxCount];
+	float m_radii[e_maxCount];
+	b2Color m_colors[e_maxCount];
 
 	int m_count;
 
@@ -873,6 +877,7 @@ struct CapsuleData
 	float length;
 };
 
+// Draw capsules using SDF-based shader
 struct GLRenderCapsules
 {
 	void Create()
@@ -1120,6 +1125,7 @@ struct GLRenderCapsules
 		e_maxCount = 3 * 512
 	};
 
+	// todo combine into struct like PolygonData
 	Transform m_transforms[e_maxCount];
 	CapsuleData m_capsuleData[e_maxCount];
 	b2Color m_colors[e_maxCount];
@@ -1144,6 +1150,7 @@ struct PolygonData
 	RGBA8 color;
 };
 
+// Rounded and non-rounded convex polygons using an SDF-based shader.
 struct GLRenderPolygons
 {
 	void Create()
@@ -1359,7 +1366,8 @@ struct GLRenderPolygons
 		// Polygon buffer
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(m_polygons), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceTransform, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, transform));
+		glVertexAttribPointer(instanceTransform, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData),
+							  (void*)offsetof(PolygonData, transform));
 		glVertexAttribPointer(instancePoint12, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p1));
 		glVertexAttribPointer(instancePoint34, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p3));
 		glVertexAttribPointer(instancePoint56, 4, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, p5));
@@ -1367,7 +1375,8 @@ struct GLRenderPolygons
 		glVertexAttribIPointer(instancePointCount, 1, GL_INT, sizeof(PolygonData), (void*)offsetof(PolygonData, count));
 		glVertexAttribPointer(instanceRadius, 1, GL_FLOAT, GL_FALSE, sizeof(PolygonData), (void*)offsetof(PolygonData, radius));
 		// color will get automatically expanded to floats in the shader
-		glVertexAttribPointer(instanceColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(PolygonData), (void*)offsetof(PolygonData, color));
+		glVertexAttribPointer(instanceColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(PolygonData),
+							  (void*)offsetof(PolygonData, color));
 		glVertexAttribDivisor(instanceTransform, 1);
 		glVertexAttribDivisor(instancePoint12, 1);
 		glVertexAttribDivisor(instancePoint34, 1);
@@ -1467,7 +1476,7 @@ struct GLRenderPolygons
 
 	enum
 	{
-		e_maxCount = 20
+		e_maxCount = 512
 	};
 
 	PolygonData m_polygons[e_maxCount];
@@ -1486,7 +1495,8 @@ void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void
 	static_cast<Draw*>(context)->DrawPolygon(vertices, vertexCount, color);
 }
 
-void DrawSolidPolygonFcn(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color, void* context)
+void DrawSolidPolygonFcn(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color,
+						 void* context)
 {
 	static_cast<Draw*>(context)->DrawSolidPolygon(transform, vertices, vertexCount, radius, color);
 }
@@ -1548,6 +1558,9 @@ Draw::~Draw()
 	assert(m_points == nullptr);
 	assert(m_lines == nullptr);
 	assert(m_triangles == nullptr);
+	assert(m_circles == nullptr);
+	assert(m_capsules == nullptr);
+	assert(m_polygons == nullptr);
 }
 
 void Draw::Create()
@@ -1565,27 +1578,31 @@ void Draw::Create()
 	m_polygons = static_cast<GLRenderPolygons*>(malloc(sizeof(GLRenderPolygons)));
 	m_polygons->Create();
 
-	m_debugDraw = {	DrawPolygonFcn,
-					DrawSolidPolygonFcn,
-					DrawCircleFcn,
-					DrawSolidCircleFcn,
-					DrawCapsuleFcn,
-					DrawSolidCapsuleFcn,
-					DrawSegmentFcn,
-					DrawTransformFcn,
-					DrawPointFcn,
-					DrawStringFcn,
-					true, // shapes
-					true, // joints
-					false, // joint extras
-					false, // aabbs
-					false, // mass
-					false, // contacts
-					false, // colors
-					false, // normals
-					false, // impulse
-					false, // friction
-					this};
+	b2AABB bounds = {{-FLT_MAX, -FLT_MAX}, {FLT_MAX, FLT_MAX}};
+
+	m_debugDraw = {DrawPolygonFcn,
+				   DrawSolidPolygonFcn,
+				   DrawCircleFcn,
+				   DrawSolidCircleFcn,
+				   DrawCapsuleFcn,
+				   DrawSolidCapsuleFcn,
+				   DrawSegmentFcn,
+				   DrawTransformFcn,
+				   DrawPointFcn,
+				   DrawStringFcn,
+				   bounds,
+					false, // drawUsingBounds
+				   true,  // shapes
+				   true,  // joints
+				   false, // joint extras
+				   false, // aabbs
+				   false, // mass
+				   false, // contacts
+				   false, // colors
+				   false, // normals
+				   false, // impulse
+				   false, // friction
+				   this};
 }
 
 void Draw::Destroy()
@@ -1615,10 +1632,10 @@ void Draw::Destroy()
 	m_polygons = nullptr;
 }
 
-void Draw::DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color)
+void Draw::DrawPolygon(const b2Vec2* vertices, int vertexCount, b2Color color)
 {
 	b2Vec2 p1 = vertices[vertexCount - 1];
-	for (int32_t i = 0; i < vertexCount; ++i)
+	for (int i = 0; i < vertexCount; ++i)
 	{
 		b2Vec2 p2 = vertices[i];
 		m_lines->Vertex(p1, color);
@@ -1632,6 +1649,7 @@ void Draw::DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int v
 	m_polygons->AddPolygon(transform, vertices, vertexCount, radius, color);
 }
 
+// todo use SDF
 void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 {
 	const float k_segments = 32.0f;
@@ -1640,7 +1658,7 @@ void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 	float cosInc = cosf(k_increment);
 	b2Vec2 r1 = {1.0f, 0.0f};
 	b2Vec2 v1 = b2MulAdd(center, radius, r1);
-	for (int32_t i = 0; i < k_segments; ++i)
+	for (int i = 0; i < k_segments; ++i)
 	{
 		// Perform rotation to avoid additional trigonometry.
 		b2Vec2 r2;
@@ -1661,6 +1679,7 @@ void Draw::DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b
 	m_circles->AddCircle(transform, radius, color);
 }
 
+// todo use SDF
 void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 {
 	float length;
@@ -1679,7 +1698,7 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	b2Vec2 r1 = {-axis.y, axis.x};
 	b2Vec2 v1 = b2MulAdd(p1, radius, r1);
 	b2Vec2 a = v1;
-	for (int32_t i = 0; i < k_segments; ++i)
+	for (int i = 0; i < k_segments; ++i)
 	{
 		// Perform rotation to avoid additional trigonometry.
 		b2Vec2 r2;
@@ -1696,7 +1715,7 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 	r1 = {axis.y, -axis.x};
 	v1 = b2MulAdd(p2, radius, r1);
 	b2Vec2 c = v1;
-	for (int32_t i = 0; i < k_segments; ++i)
+	for (int i = 0; i < k_segments; ++i)
 	{
 		// Perform rotation to avoid additional trigonometry.
 		b2Vec2 r2;
@@ -1736,10 +1755,10 @@ void Draw::DrawTransform(b2Transform xf)
 	const float k_axisScale = 0.2f;
 	b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
 	b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
-	b2Vec2 p1 = xf.p, p2;
+	b2Vec2 p1 = xf.p;
 
 	m_lines->Vertex(p1, red);
-	p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetXAxis(xf.q));
+	b2Vec2 p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetXAxis(xf.q));
 	m_lines->Vertex(p2, red);
 
 	m_lines->Vertex(p1, green);
@@ -1807,11 +1826,11 @@ void Draw::DrawAABB(b2AABB aabb, b2Color c)
 
 void Draw::Flush()
 {
-	m_triangles->Flush();
-	m_lines->Flush();
-	m_points->Flush();
 	m_circles->Flush();
 	m_capsules->Flush();
 	m_polygons->Flush();
+	m_triangles->Flush();
+	m_lines->Flush();
+	m_points->Flush();
 	CheckGLError();
 }
