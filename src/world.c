@@ -942,9 +942,11 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 	int contactCapacity = b2GetIdCapacity(&world->contactIdPool);
 	b2SetBitCountAndClear(&world->debugContactSet, contactCapacity);
 
+	struct DrawContext drawContext = {world, draw};
+
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, DrawQueryCallback, &world);
+		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, DrawQueryCallback, &drawContext);
 	}
 
 	uint32_t wordCount = world->debugBodySet.blockCount;
