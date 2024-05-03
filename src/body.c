@@ -1008,7 +1008,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			b2Shape* shape = world->shapeArray + shapeId;
 			shapeId = shape->nextShapeId;
 			b2DestroyShapeProxy(shape, &world->broadPhase);
-			b2CreateShapeProxy(shape, &world->broadPhase, b2_movableProxy, transform);
+			bool forcePairCreation = true;
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_movableProxy, transform, forcePairCreation);
 		}
 	}
 	else if (type == b2_staticBody)
@@ -1081,7 +1082,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			b2Shape* shape = world->shapeArray + shapeId;
 			shapeId = shape->nextShapeId;
 			b2DestroyShapeProxy(shape, &world->broadPhase);
-			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticProxy, transform);
+			bool forcePairCreation = true;
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticProxy, transform, forcePairCreation);
 		}
 	}
 	else
@@ -1469,13 +1471,14 @@ void b2Body_Enable(b2BodyId bodyId)
 
 	// Add shapes to broad-phase
 	b2ProxyType proxyType = setId == b2_staticSet ? b2_staticProxy : b2_movableProxy;
+	bool forcePairCreation = true;
 	int shapeId = body->headShapeId;
 	while (shapeId != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapeArray + shapeId;
 		shapeId = shape->nextShapeId;
 
-		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, forcePairCreation);
 	}
 
 	if (setId != b2_staticSet)

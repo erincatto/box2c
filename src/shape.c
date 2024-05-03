@@ -34,6 +34,26 @@ static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
 	return chain;
 }
 
+static void b2UpdateShapeAABBs(b2Shape* shape, b2Transform transform, b2ProxyType proxyType)
+{
+	// Compute a bounding box with a speculative margin
+	b2AABB aabb = b2ComputeShapeAABB(shape, transform);
+	aabb.lowerBound.x -= b2_speculativeDistance;
+	aabb.lowerBound.y -= b2_speculativeDistance;
+	aabb.upperBound.x += b2_speculativeDistance;
+	aabb.upperBound.y += b2_speculativeDistance;
+	shape->aabb = aabb;
+
+	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
+	float margin = proxyType == b2_staticProxy ? b2_speculativeDistance : b2_aabbMargin;
+	b2AABB fatAABB;
+	fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
+	fatAABB.lowerBound.y = aabb.lowerBound.y - margin;
+	fatAABB.upperBound.x = aabb.upperBound.x + margin;
+	fatAABB.upperBound.y = aabb.upperBound.y + margin;
+	shape->fatAABB = fatAABB;
+}
+
 static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform transform,
 							  const b2ShapeDef* def, const void* geometry, b2ShapeType shapeType)
 {
@@ -105,7 +125,7 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 	if (body->setIndex != b2_disabledSet)
 	{
 		b2ProxyType proxyType = body->setIndex == b2_staticSet ? b2_staticProxy : b2_movableProxy;
-		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, def->forceContactCreation);
 	}
 
 	// Add to shape doubly linked list
@@ -606,29 +626,14 @@ b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shap
 	return output;
 }
 
-void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform)
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform, bool forcePairCreation)
 {
 	B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
 
-	// Compute a bounding box with a speculative margin
-	b2AABB aabb = b2ComputeShapeAABB(shape, transform);
-	aabb.lowerBound.x -= b2_speculativeDistance;
-	aabb.lowerBound.y -= b2_speculativeDistance;
-	aabb.upperBound.x += b2_speculativeDistance;
-	aabb.upperBound.y += b2_speculativeDistance;
-	shape->aabb = aabb;
-
-	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
-	float margin = type == b2_staticProxy ? b2_speculativeDistance : b2_aabbMargin;
-	b2AABB fatAABB;
-	fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
-	fatAABB.lowerBound.y = aabb.lowerBound.y - margin;
-	fatAABB.upperBound.x = aabb.upperBound.x + margin;
-	fatAABB.upperBound.y = aabb.upperBound.y + margin;
-	shape->fatAABB = fatAABB;
+	b2UpdateShapeAABBs(shape, transform, type);
 
 	// Create proxies in the broad-phase.
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, fatAABB, shape->filter.categoryBits, shape->id);
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->id, forcePairCreation);
 	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_proxyTypeCount);
 }
 
@@ -867,11 +872,17 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 		}
 	}
 
-	// Touch the broad-phase proxies to ensure the correct contacts get created.
-	int proxyKey = shape->proxyKey;
-	if (proxyKey != B2_NULL_INDEX && B2_PROXY_TYPE(proxyKey) == b2_movableProxy)
+	b2Transform transform = b2GetBodyTransformQuick(world, body);
+	if (shape->proxyKey != B2_NULL_INDEX)
 	{
-		b2BufferMove(&world->broadPhase, proxyKey);
+		b2ProxyType proxyType = B2_PROXY_TYPE(shape->proxyKey);
+		b2UpdateShapeAABBs(shape, transform, proxyType);
+		b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->fatAABB);
+	}
+	else
+	{
+		b2ProxyType proxyType = body->type == b2_staticBody ? b2_staticProxy : b2_movableProxy;
+		b2UpdateShapeAABBs(shape, transform, proxyType);
 	}
 
 	b2ValidateSolverSets(world);

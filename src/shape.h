@@ -66,7 +66,7 @@ typedef struct b2ShapeExtent
 	float maxExtent;
 } b2ShapeExtent;
 
-void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform);
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform, bool forcePairCreation);
 void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp);
 
 b2MassData b2ComputeShapeMass(const b2Shape* shape);

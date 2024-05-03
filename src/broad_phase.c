@@ -83,6 +83,7 @@ static inline void b2UnBufferMove(b2BroadPhase* bp, int proxyKey)
 	if (found)
 	{
 		// Purge from move buffer. Linear search.
+		// todo if I can iterate the move set then I don't need the moveArray
 		int count = b2Array(bp->moveArray).count;
 		for (int i = 0; i < count; ++i)
 		{
@@ -95,12 +96,13 @@ static inline void b2UnBufferMove(b2BroadPhase* bp, int proxyKey)
 	}
 }
 
-int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex)
+int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex,
+							 bool forcePairCreation)
 {
 	B2_ASSERT(0 <= proxyType && proxyType < b2_proxyTypeCount);
 	int proxyId = b2DynamicTree_CreateProxy(bp->trees + proxyType, aabb, categoryBits, shapeIndex);
 	int proxyKey = B2_PROXY_KEY(proxyId, proxyType);
-	if (proxyType != b2_staticProxy)
+	if (proxyType != b2_staticProxy || forcePairCreation)
 	{
 		b2BufferMove(bp, proxyKey);
 	}
@@ -114,11 +116,11 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey)
 
 	--bp->proxyCount;
 
-	int typeIndex = B2_PROXY_TYPE(proxyKey);
+	b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
 	int proxyId = B2_PROXY_ID(proxyKey);
 
-	B2_ASSERT(0 <= typeIndex && typeIndex <= b2_proxyTypeCount);
-	b2DynamicTree_DestroyProxy(bp->trees + typeIndex, proxyId);
+	B2_ASSERT(0 <= proxyType && proxyType <= b2_proxyTypeCount);
+	b2DynamicTree_DestroyProxy(bp->trees + proxyType, proxyId);
 }
 
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
@@ -127,10 +129,7 @@ void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
 	int proxyId = B2_PROXY_ID(proxyKey);
 
 	b2DynamicTree_MoveProxy(bp->trees + proxyType, proxyId, aabb);
-	if (proxyType != b2_staticProxy)
-	{
-		b2BufferMove(bp, proxyKey);
-	}
+	b2BufferMove(bp, proxyKey);
 }
 
 void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
@@ -291,7 +290,9 @@ void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* c
 		}
 
 		b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
-		B2_ASSERT(proxyType == b2_movableProxy);
+
+		// todo moving this choice to a higher level
+		//B2_ASSERT(proxyType == b2_movableProxy);
 
 		int proxyId = B2_PROXY_ID(proxyKey);
 		queryContext.queryProxyKey = proxyKey;
@@ -304,8 +305,11 @@ void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* c
 		queryContext.queryShapeIndex = b2DynamicTree_GetUserData(baseTree, proxyId);
 
 		// Query trees
-		queryContext.queryTreeType = b2_staticProxy;
-		b2DynamicTree_Query(bp->trees + b2_staticProxy, fatAABB, b2PairQueryCallback, &queryContext);
+		if (proxyType == b2_movableProxy)
+		{
+			queryContext.queryTreeType = b2_staticProxy;
+			b2DynamicTree_Query(bp->trees + b2_staticProxy, fatAABB, b2PairQueryCallback, &queryContext);
+		}
 		queryContext.queryTreeType = b2_movableProxy;
 		b2DynamicTree_Query(bp->trees + b2_movableProxy, fatAABB, b2PairQueryCallback, &queryContext);
 	}

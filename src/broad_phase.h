@@ -57,7 +57,7 @@ typedef struct b2BroadPhase
 
 void b2CreateBroadPhase(b2BroadPhase* bp);
 void b2DestroyBroadPhase(b2BroadPhase* bp);
-int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType bodyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex);
+int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex, bool forcePairCreation);
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey);
 
 void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb);
@@ -77,15 +77,16 @@ void b2ValidateNoEnlarged(const b2BroadPhase* bp);
 // Warning: this must be called in deterministic order
 static inline void b2BufferMove(b2BroadPhase* bp, int proxyKey)
 {
+	// todo moving this choice to a higher level
 	// Why only mobile proxies? Because we need to be able insert a large number of static shapes
 	// without triggering a large number of pair updates that do nothing.
 	// If you need to spawn non-moving shapes close to dynamic bodies then use kinematic bodies.
-	b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
-	if (proxyType != b2_movableProxy)
-	{
-		B2_ASSERT(false);
-		return;
-	}
+	//b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
+	//if (proxyType != b2_movableProxy)
+	//{
+	//	B2_ASSERT(false);
+	//	return;
+	//}
 
 	// Adding 1 because 0 is the sentinel
 	bool alreadyAdded = b2AddKey(&bp->moveSet, proxyKey + 1);

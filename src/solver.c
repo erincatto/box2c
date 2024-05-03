@@ -178,6 +178,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 	b2BodySim* sims = stepContext->sims;
 	b2Body* bodies = world->bodyArray;
 	float timeStep = stepContext->dt;
+	float invTimeStep = stepContext->inv_dt;
 
 	uint16_t worldId = world->worldId;
 	b2BodyMoveEvent* moveEvents = world->bodyMoveEventArray;
@@ -210,6 +211,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		sim->center = b2Add(sim->center, state->deltaPosition);
 		sim->transform.q = b2NormalizeRot(b2MulRot(state->deltaRotation, sim->transform.q));
 
+		// Sleep needs to observe position correction as well as true velocity.
+		b2Vec2 sv = b2Max(b2MulSV(invTimeStep, state->deltaPosition), v);
+		float sw = b2MaxFloat(invTimeStep * state->deltaRotation.s, w);
+
 		// reset state deltas
 		state->deltaPosition = b2Vec2_zero;
 		state->deltaRotation = b2Rot_identity;
@@ -232,8 +237,9 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		
 		sim->isFast = false;
 
-		if (enableSleep == false || sim->enableSleep == false || w * w > angTolSqr || b2Dot(v, v) > linTolSqr)
+		if (enableSleep == false || sim->enableSleep == false || sw * sw > angTolSqr || b2Dot(sv, sv) > linTolSqr)
 		{
+			// Body is not sleepy
 			sim->sleepTime = 0.0f;
 
 			const float saftetyFactor = 0.5f;
@@ -263,7 +269,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		}
 		else
 		{
-			// Body is safe to advance
+			// Body is safe to advance and is falling asleep
 			sim->center0 = sim->center;
 			sim->rotation0 = sim->transform.q;
 			sim->sleepTime += timeStep;
