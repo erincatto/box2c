@@ -8,6 +8,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math_functions.h"
@@ -917,18 +918,28 @@ public:
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Polygon box = b2MakeOffsetBox(20.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			b2Polygon box = b2MakeOffsetBox(20.0f, 0.1f, {0.0f, -0.1f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+			
+			box = b2MakeOffsetBox(20.0f, 0.1f, {0.0f, -0.1f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
-			box = b2MakeOffsetBox(1.0f, 5.0f, {19.0f, 5.0f}, 0.0f);
+			box = b2MakeOffsetBox(0.1f, 10.0f, {19.9f, 10.0f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
-			box = b2MakeOffsetBox(1.0f, 5.0f, {-19.0f, 5.0f}, 0.0f);
+			box = b2MakeOffsetBox(0.1f, 10.0f, {-19.9f, 10.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(20.0f, 0.1f, {0.0f, 20.1f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		m_sleepCount = 0;
 		m_count = 0;
+
+		m_explosionPosition = {0.0f, 0.0f};
+		m_explosionRadius = 10.0f;
+		m_explosionMagnitude = 6.0f;
 	}
 
 	void CreateBodies()
@@ -965,6 +976,7 @@ public:
 			else
 			{
 				b2Polygon poly = RandomPolygon(0.75f);
+				poly.radius = 0.1f;
 				b2CreatePolygonShape(m_bodyIds[m_count], &shapeDef, &poly);
 			}
 
@@ -972,6 +984,23 @@ public:
 			x += 1.0f;
 		}
 	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
+		ImGui::SetNextWindowSize(ImVec2(220.0f, 160.0f));
+		ImGui::Begin("Body Move", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Explode"))
+		{
+			b2World_Explode(m_worldId, m_explosionPosition, m_explosionRadius, m_explosionMagnitude);
+		}
+
+		ImGui::SliderFloat("Magnitude", &m_explosionMagnitude, -8.0f, 8.0f, "%.1f");
+
+		ImGui::End();
+	}
+
 
 	void Step(Settings& settings) override
 	{
@@ -1010,6 +1039,8 @@ public:
 			}
 		}
 
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2MakeColor(b2_colorAzure3));
+
 		g_draw.DrawString(5, m_textLine, "sleep count: %d", m_sleepCount);
 		m_textLine += m_textIncrement;
 	}
@@ -1023,6 +1054,9 @@ public:
 	bool m_sleeping[e_count];
 	int m_count;
 	int m_sleepCount;
+	b2Vec2 m_explosionPosition;
+	float m_explosionRadius;
+	float m_explosionMagnitude;
 };
 
 static int sampleBodyMove = RegisterSample("Events", "Body Move", BodyMove::Create);

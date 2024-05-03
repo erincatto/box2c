@@ -346,9 +346,10 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 			b2Vec2 centerOffsetA = b2RotateVector(transformA.q, bodySimA->localCenter);
 			b2Vec2 centerOffsetB = b2RotateVector(transformB.q, bodySimB->localCenter);
 
-			bool touching = b2UpdateContact(world, contactSim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB);
+			bool touching =
+				b2UpdateContact(world, contactSim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB);
 
-			// Move 
+			// Move
 
 			// State changes that affect island connectivity
 			if (touching == true && wasTouching == false)
@@ -856,7 +857,7 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 		b2BodySim* bodySim = b2GetBodySim(world, body);
 
 		b2HexColor color;
-		
+
 		if (body->type == b2_dynamicBody && bodySim->mass == 0.0f)
 		{
 			// Bad body
@@ -895,7 +896,7 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 			color = b2_colorGray;
 		}
 
-		b2DrawShape(draw, shape, bodySim->transform, color);	
+		b2DrawShape(draw, shape, bodySim->transform, color);
 	}
 
 	if (draw->drawAABBs)
@@ -929,9 +930,9 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 	b2Color impulseColor = {0.9f, 0.9f, 0.3f, 1.0f};
 	b2Color frictionColor = {0.9f, 0.9f, 0.3f, 1.0f};
 
-	b2HexColor graphColors[b2_graphColorCount] = {b2_colorRed,		b2_colorOrange,	   b2_colorYellow, b2_colorGreen,
-											 b2_colorCyan,		b2_colorBlue,	   b2_colorViolet, b2_colorPink,
-											 b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral,  b2_colorBlack};
+	b2HexColor graphColors[b2_graphColorCount] = {b2_colorRed,		 b2_colorOrange,	b2_colorYellow, b2_colorGreen,
+												  b2_colorCyan,		 b2_colorBlue,		b2_colorViolet, b2_colorPink,
+												  b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral,	b2_colorBlack};
 
 	int bodyCapacity = b2GetIdCapacity(&world->bodyIdPool);
 	b2SetBitCountAndClear(&world->debugBodySet, bodyCapacity);
@@ -1038,7 +1039,8 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 							{
 								// graph color
 								float pointSize = contact->colorIndex == b2_overflowIndex ? 7.5f : 5.0f;
-								draw->DrawPoint(point->point, pointSize, b2MakeColor(graphColors[contact->colorIndex]), draw->context);
+								draw->DrawPoint(point->point, pointSize, b2MakeColor(graphColors[contact->colorIndex]),
+												draw->context);
 								// g_draw.DrawString(point->position, "%d", point->color);
 							}
 							else if (point->separation > b2_linearSlop)
@@ -1068,7 +1070,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 								b2Vec2 p1 = point->point;
 								b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->normalImpulse, normal);
 								draw->DrawSegment(p1, p2, impulseColor, draw->context);
-								snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.2f", point->normalImpulse);
+								snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.1f", 1000.0f * point->normalImpulse);
 								draw->DrawString(p1, buffer, draw->context);
 							}
 
@@ -1078,7 +1080,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 								b2Vec2 p1 = point->point;
 								b2Vec2 p2 = b2MulAdd(p1, k_impulseScale * point->tangentImpulse, tangent);
 								draw->DrawSegment(p1, p2, frictionColor, draw->context);
-								snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.2f", point->normalImpulse);
+								snprintf(buffer, B2_ARRAY_COUNT(buffer), "%.1f", 1000.0f * point->tangentImpulse);
 								draw->DrawString(p1, buffer, draw->context);
 							}
 						}
@@ -1645,7 +1647,7 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 
 	b2DynamicTree* tree = world->broadPhase.trees + b2_movableProxy;
 	s.treeHeight = b2DynamicTree_GetHeight(tree);
-	
+
 	s.stackUsed = b2GetMaxStackAllocation(&world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	s.taskCount = world->taskCount;
@@ -2195,6 +2197,105 @@ b2Vec2 b2World_GetGravity(b2WorldId worldId)
 {
 	b2World* world = b2GetWorldFromId(worldId);
 	return world->gravity;
+}
+
+struct ExplosionContext
+{
+	b2World* world;
+	b2Vec2 position;
+	float radius;
+	float magnitude;
+};
+
+static bool ExplosionCallback(int proxyId, int shapeId, void* context)
+{
+	B2_MAYBE_UNUSED(proxyId);
+
+	struct ExplosionContext* explosionContext = context;
+	b2World* world = explosionContext->world;
+
+	b2CheckId(world->shapeArray, shapeId);
+	b2Shape* shape = world->shapeArray + shapeId;
+
+	b2CheckId(world->bodyArray, shape->bodyId);
+	b2Body* body = world->bodyArray + shape->bodyId;
+	if (body->type == b2_kinematicBody)
+	{
+		return true;
+	}
+
+	b2WakeBody(world, body);
+
+	if (body->setIndex != b2_awakeSet)
+	{
+		return true;
+	}
+
+	b2Transform transform = b2GetBodyTransformQuick(world, body);
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeShapeDistanceProxy(shape);
+	input.proxyB = b2MakeProxy(&explosionContext->position, 1, 0.0f);
+	input.transformA = transform;
+	input.transformB = b2Transform_identity;
+	input.useRadii = true;
+
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+
+	if (output.distance > explosionContext->radius)
+	{
+		return true;
+	}
+
+	b2Vec2 closestPoint = output.pointA;
+
+	if (output.distance == 0.0f)
+	{
+		b2Vec2 localCentroid = b2GetShapeCentroid(shape);
+		closestPoint = b2TransformPoint(transform, localCentroid);
+	}
+
+	float falloff = 0.4f;
+	float perimeter = b2GetShapePerimeter(shape);
+	float magnitude = explosionContext->magnitude * perimeter * (1.0f - falloff * output.distance / explosionContext->radius);
+
+	b2Vec2 direction = b2Normalize(b2Sub(closestPoint, explosionContext->position));
+	b2Vec2 impulse = b2MulSV(magnitude, direction);
+
+	int localIndex = body->localIndex;
+	b2SolverSet* set = world->solverSetArray + b2_awakeSet;
+	B2_ASSERT(0 <= localIndex && localIndex < set->states.count);
+	b2BodyState* state = set->states.data + localIndex;
+	b2BodySim* bodySim = set->sims.data + localIndex;
+	state->linearVelocity = b2MulAdd(state->linearVelocity, bodySim->invMass, impulse);
+	state->angularVelocity += bodySim->invI * b2Cross(b2Sub(closestPoint, bodySim->center), impulse);
+
+	return true;
+}
+
+void b2World_Explode(b2WorldId worldId, b2Vec2 position, float radius, float magnitude)
+{
+	B2_ASSERT(b2Vec2_IsValid(position));
+	B2_ASSERT(b2IsValid(radius) && radius > 0.0f);
+	B2_ASSERT(b2IsValid(magnitude));
+
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	struct ExplosionContext explosionContext = {world, position, radius, magnitude};
+
+	b2AABB aabb;
+	aabb.lowerBound.x = position.x - radius;
+	aabb.lowerBound.y = position.y - radius;
+	aabb.upperBound.x = position.x + radius;
+	aabb.upperBound.y = position.y + radius;
+
+	b2DynamicTree_Query(world->broadPhase.trees + b2_movableProxy, aabb, ExplosionCallback, &explosionContext);
 }
 
 #if B2_VALIDATE

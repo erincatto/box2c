@@ -26,6 +26,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
+	bodyDef.linearSleepVelocity = 0.1f;
 	bodyDef.userData = userData;
 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -251,7 +252,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 		jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 		jointDef.enableLimit = enableLimit;
-		jointDef.lowerAngle = -0.05f * b2_pi;
+		jointDef.lowerAngle = 0.05f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
 		jointDef.maxMotorTorque = 0.5f * maxTorque;
@@ -305,7 +306,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 		jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
 		jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
 		jointDef.enableLimit = enableLimit;
-		jointDef.lowerAngle = -0.05f * b2_pi;
+		jointDef.lowerAngle = 0.05f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
 		jointDef.maxMotorTorque = 0.5f * maxTorque;

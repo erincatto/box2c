@@ -489,6 +489,40 @@ b2Vec2 b2GetShapeCentroid(const b2Shape* shape)
 	}
 }
 
+// todo maybe compute this on shape creation
+float b2GetShapePerimeter(const b2Shape* shape)
+{
+	switch (shape->type)
+	{
+		case b2_capsuleShape:
+			return 2.0f * b2Length(b2Sub(shape->capsule.center1, shape->capsule.center2)) + 2.0f * b2_pi * shape->capsule.radius;
+		case b2_circleShape:
+			return 2.0f * b2_pi * shape->circle.radius;
+		case b2_polygonShape:
+		{
+			const b2Vec2* points = shape->polygon.vertices;
+			int count = shape->polygon.count;
+			float perimeter = 2.0f * b2_pi * shape->polygon.radius;
+			B2_ASSERT(count > 0);
+			b2Vec2 prev = points[count - 1];
+			for (int i = 0; i < count; ++i)
+			{
+				b2Vec2 next = points[i];
+				perimeter += b2Length(b2Sub(next, prev));
+				prev = next;
+			}
+
+			return perimeter;
+		}
+		case b2_segmentShape:
+			return 2.0f * b2Length(b2Sub(shape->segment.point1, shape->segment.point2));
+		case b2_smoothSegmentShape:
+			return 2.0f * b2Length(b2Sub(shape->smoothSegment.segment.point1, shape->smoothSegment.segment.point2));
+		default:
+			return 0.0f;
+	}
+}
+
 b2MassData b2ComputeShapeMass(const b2Shape* shape)
 {
 	switch (shape->type)
@@ -1216,4 +1250,29 @@ b2AABB b2Shape_GetAABB(b2ShapeId shapeId)
 
 	b2Shape* shape = b2GetShape(world, shapeId);
 	return shape->aabb;
+}
+
+b2Vec2 b2Shape_GetClosestPoint(b2ShapeId shapeId, b2Vec2 target)
+{
+	b2World* world = b2GetWorldLocked(shapeId.world0);
+	if (world == NULL)
+	{
+		return (b2Vec2){0};
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	b2Body* body = b2GetBody(world, shape->bodyId);
+	b2Transform transform = b2GetBodyTransformQuick(world, body);
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeShapeDistanceProxy(shape);
+	input.proxyB = b2MakeProxy(&target, 1, 0.0f);
+	input.transformA = transform;
+	input.transformB = b2Transform_identity;
+	input.useRadii = true;
+
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+
+	return output.pointA;
 }

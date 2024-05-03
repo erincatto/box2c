@@ -25,6 +25,8 @@ b2BodyDef b2DefaultBodyDef()
 {
 	b2BodyDef def = {0};
 	def.type = b2_staticBody;
+	def.linearSleepVelocity = 0.01f * b2_lengthUnitsPerMeter;
+	def.angularSleepVelocity = 0.035f;
 	def.gravityScale = 1.0f;
 	def.enableSleep = true;
 	def.isAwake = true;

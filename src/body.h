@@ -47,6 +47,10 @@ typedef struct b2Body
 	int islandPrev;
 	int islandNext;
 
+	float linearSleepVelocity;
+	float angularSleepVelocity;
+	float sleepTime;
+
 	int id;
 
 	b2BodyType type;
@@ -113,7 +117,6 @@ typedef struct b2BodySim
 	float linearDamping;
 	float angularDamping;
 	float gravityScale;
-	float sleepTime;
 
 	// body data can be moved around, the id is stable (used in b2BodyId)
 	int bodyId;

@@ -193,10 +193,6 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 
 	B2_ASSERT(startIndex <= endIndex);
 
-	// Update sleep
-	const float linTolSqr = b2_linearSleepTolerance * b2_linearSleepTolerance;
-	const float angTolSqr = b2_angularSleepTolerance * b2_angularSleepTolerance;
-
 	for (int simIndex = startIndex; simIndex < endIndex; ++simIndex)
 	{
 		b2BodyState* state = states + simIndex;
@@ -212,8 +208,8 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		sim->transform.q = b2NormalizeRot(b2MulRot(state->deltaRotation, sim->transform.q));
 
 		// Sleep needs to observe position correction as well as true velocity.
-		b2Vec2 sv = b2Max(b2MulSV(invTimeStep, state->deltaPosition), v);
-		float sw = b2MaxFloat(invTimeStep * state->deltaRotation.s, w);
+		float vSqr = b2MaxFloat(0.25f * invTimeStep * invTimeStep * b2Dot(state->deltaPosition, state->deltaPosition), b2Dot(v, v));
+		float wSqr = b2MaxFloat(0.25f * invTimeStep * invTimeStep * state->deltaRotation.s * state->deltaRotation.s, w * w);
 
 		// reset state deltas
 		state->deltaPosition = b2Vec2_zero;
@@ -237,10 +233,13 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		
 		sim->isFast = false;
 
-		if (enableSleep == false || sim->enableSleep == false || sw * sw > angTolSqr || b2Dot(sv, sv) > linTolSqr)
+		float linTolSqr = body->linearSleepVelocity * body->linearSleepVelocity;
+		float angTolSqr = body->angularSleepVelocity * body->angularSleepVelocity;
+
+		if (enableSleep == false || sim->enableSleep == false || wSqr > angTolSqr || vSqr > linTolSqr)
 		{
 			// Body is not sleepy
-			sim->sleepTime = 0.0f;
+			body->sleepTime = 0.0f;
 
 			const float saftetyFactor = 0.5f;
 			if (enableContinuous && (b2Length(v) + B2_ABS(w) * sim->maxExtent) * timeStep > saftetyFactor * sim->minExtent)
@@ -272,13 +271,13 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 			// Body is safe to advance and is falling asleep
 			sim->center0 = sim->center;
 			sim->rotation0 = sim->transform.q;
-			sim->sleepTime += timeStep;
+			body->sleepTime += timeStep;
 		}
 
 		// Any single body in an island can keep it awake
 		b2CheckIndex(islands, body->islandId);
 		b2Island* island = islands + body->islandId;
-		if (sim->sleepTime < b2_timeToSleep)
+		if (body->sleepTime < b2_timeToSleep)
 		{
 			// keep island awake
 			int islandIndex = island->localIndex;
@@ -287,11 +286,11 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		else if (island->constraintRemoveCount > 0)
 		{
 			// body wants to sleep but its island needs splitting first
-			if (sim->sleepTime > taskContext->splitSleepTime)
+			if (body->sleepTime > taskContext->splitSleepTime)
 			{
 				// pick the sleepiest candidate
 				taskContext->splitIslandId = body->islandId;
-				taskContext->splitSleepTime = sim->sleepTime;
+				taskContext->splitSleepTime = body->sleepTime;
 			}
 		}
 

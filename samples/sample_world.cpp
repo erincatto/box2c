@@ -23,19 +23,20 @@ public:
 		: Sample(settings)
 	{
 		// One cycle per 50 meters
-		float period = 50.0f;
-		float omega = 2.0 * b2_pi / period;
-		float cycleCount = g_sampleDebug ? 10 : 300;
-
+		m_period = 30.0f;
+		float omega = 2.0 * b2_pi / m_period;
+		m_cycleCount = g_sampleDebug ? 10 : 600;
 		m_gridSize = 1.0f;
-		m_gridCount = (int)(cycleCount * period / m_gridSize);
+		m_gridCount = (int)(m_cycleCount * m_period / m_gridSize);
 
-		m_viewPosition = {m_gridCount * m_gridSize, 30.0f};
+		float xStart = -0.5f * (m_cycleCount * m_period);
+
+		m_viewPosition = {xStart, 15.0f};
 
 		if (settings.restart == false)
 		{
 			g_camera.m_center = m_viewPosition;
-			g_camera.m_zoom = 2.0f;
+			g_camera.m_zoom = 1.0f;
 			settings.drawJoints = false;
 		}
 
@@ -47,9 +48,9 @@ public:
 			// static bodies and shapes.
 			shapeDef.forceContactCreation = false;
 
-			float height = 5.0f;
-			float xBody = 0.0f;
-			float xShape = 0.0f;
+			float height = 4.0f;
+			float xBody = xStart;
+			float xShape = xStart;
 
 			b2BodyId groundId;
 
@@ -66,11 +67,12 @@ public:
 
 				float y = 0.0f;
 
-				int ycount = (int)(height * cosf(omega * xBody) + 0.5f) + 20;
+				int ycount = (int)roundf(height * cosf(omega * xBody)) + 12;
 
 				for (int j = 0; j < ycount; ++j)
 				{
-					b2Polygon square = b2MakeOffsetBox(0.5f * m_gridSize, 0.5f * m_gridSize, {xShape, y}, 0.0f);
+					b2Polygon square = b2MakeOffsetBox(0.4f * m_gridSize, 0.4f * m_gridSize, {xShape, y}, 0.0f);
+					square.radius = 0.1f;
 					b2CreatePolygonShape(groundId, &shapeDef, &square);
 
 					y += m_gridSize;
@@ -81,27 +83,50 @@ public:
 			}
 		}
 
-		for (int cycleIndex = 0; cycleIndex < cycleCount; ++cycleIndex)
+		int humanIndex = 0;
+		for (int cycleIndex = 0; cycleIndex < m_cycleCount; ++cycleIndex)
 		{
-			float xbase = (0.5f + cycleIndex) * period;
+			float xbase = (0.5f + cycleIndex) * m_period + xStart;
 
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			bodyDef.type = b2_dynamicBody;
-			bodyDef.position = {xbase - 4.0f, 20.0f};
-
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Polygon box = b2MakeSquare(0.5f);
-
-			for (int i = 0; i < 15; ++i)
+			if ((cycleIndex & 1) == 0)
 			{
-				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
-				b2CreatePolygonShape(bodyId, &shapeDef, &box);
-				bodyDef.position.x += 0.1f;
-				bodyDef.position.y += 1.0f;
+				b2BodyDef bodyDef = b2DefaultBodyDef();
+				bodyDef.type = b2_dynamicBody;
+				bodyDef.position = {xbase - 3.0f, 10.0f};
+
+				b2ShapeDef shapeDef = b2DefaultShapeDef();
+				b2Polygon box = b2MakeBox(0.3f, 0.2f);
+
+				for (int i = 0; i < 10; ++i)
+				{
+					bodyDef.position.y = 10.0f;
+					for (int j = 0; j < 5; ++j)
+					{
+						b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+						b2CreatePolygonShape(bodyId, &shapeDef, &box);
+						bodyDef.position.y += 0.5f;
+					}
+					bodyDef.position.x += 0.6f;
+				}
+			}
+			else
+			{
+				b2Vec2 position = {xbase - 2.0f, 10.0f};
+				for (int i = 0; i < 5; ++i)
+				{
+					// Abusing this class a bit since it doesn't allocate memory
+					Human human;
+					human.Spawn(m_worldId, position, 2.0f, humanIndex + 1, NULL);
+					humanIndex += 1;
+					position.x += 0.5f;
+				}
 			}
 		}
 
-		m_speed = -20.0f;
+		m_cycleIndex = 0;
+		m_speed = 10.0f;
+		m_explosionPosition = {(0.5f + m_cycleIndex) * m_period + xStart, 7.0f};
+		m_explode = false;
 	}
 
 	void UpdateUI() override
@@ -116,13 +141,15 @@ public:
 			m_speed = 0.0f;
 		}
 
+		ImGui::Checkbox("explode", &m_explode);
+
 		ImGui::Text("world size = %g kilometers", m_gridSize * m_gridCount / 1000.0f);
 		ImGui::End();
 	}
 
 	void Step(Settings& settings) override
 	{
-		float xLast = m_gridCount * m_gridSize;
+		float span = 0.5f * (m_period * m_cycleCount);
 		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
 
 		if (settings.pause)
@@ -131,9 +158,22 @@ public:
 		}
 
 		m_viewPosition.x += timeStep * m_speed;
-		m_viewPosition.x = b2ClampFloat(m_viewPosition.x, 0.0f, xLast);
+		m_viewPosition.x = b2ClampFloat(m_viewPosition.x, -span, span);
 
 		g_camera.m_center = m_viewPosition;
+
+		float radius = 2.0f;
+		if ((m_stepCount & 0x1) == 0x1 && m_explode)
+		{
+			m_explosionPosition.x = (0.5f + m_cycleIndex) * m_period - span;
+			b2World_Explode(m_worldId, m_explosionPosition, radius, 1.0f);
+			m_cycleIndex = (m_cycleIndex + 1) % m_cycleCount;
+		}
+
+		if (m_explode)
+		{
+			g_draw.DrawCircle(m_explosionPosition, radius, b2MakeColor(b2_colorAzure3));
+		}
 
 		Sample::Step(settings);
 	}
@@ -144,9 +184,15 @@ public:
 	}
 
 	b2Vec2 m_viewPosition;
+	float m_period;
+	int m_cycleCount;
+	int m_cycleIndex;
 	float m_gridCount;
 	float m_gridSize;
 	float m_speed;
+
+	b2Vec2 m_explosionPosition;
+	bool m_explode;
 };
 
 static int sampleLargeWorld = RegisterSample("World", "Large World", LargeWorld::Create);

@@ -185,6 +185,8 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
+	B2_ASSERT(b2IsValid(def->linearSleepVelocity) && def->linearSleepVelocity >= 0.0f);
+	B2_ASSERT(b2IsValid(def->angularSleepVelocity) && def->angularSleepVelocity >= 0.0f);
 	B2_ASSERT(b2IsValid(def->gravityScale));
 
 	b2World* world = b2GetWorldFromId(worldId);
@@ -252,7 +254,6 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->linearDamping = def->linearDamping;
 	bodySim->angularDamping = def->angularDamping;
 	bodySim->gravityScale = def->gravityScale;
-	bodySim->sleepTime = 0.0f;
 	bodySim->bodyId = bodyId;
 	bodySim->enableSleep = def->enableSleep;
 	bodySim->isBullet = def->isBullet;
@@ -297,6 +298,9 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
 	body->id = bodyId;
+	body->linearSleepVelocity = def->linearSleepVelocity;
+	body->angularSleepVelocity = def->angularSleepVelocity;
+	body->sleepTime = 0.0f;
 	body->type = def->type;
 	body->fixedRotation = def->fixedRotation;
 	body->isSpeedCapped = false;

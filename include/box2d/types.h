@@ -91,7 +91,7 @@ typedef enum b2BodyType
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 typedef struct b2BodyDef
 {
-/// The body type: static, kinematic, or dynamic.
+	/// The body type: static, kinematic, or dynamic.
 	/// Note: if a dynamic body would have zero mass, the mass is set to one.
 	b2BodyType type;
 
@@ -120,6 +120,12 @@ typedef struct b2BodyDef
 
 	/// Scale the gravity applied to this body.
 	float gravityScale;
+
+	/// Linear sleep velocity, default is 0.01 meter per second
+	float linearSleepVelocity;
+
+	/// Angular sleep velocity, default is 0.035 radians per second
+	float angularSleepVelocity;
 
 	/// Use this to store application specific body data.
 	void* userData;

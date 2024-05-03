@@ -6,6 +6,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 
@@ -518,20 +519,38 @@ public:
 			b2MassData massData = {mass, {0.0f, -offset}, I};
 			b2Body_SetMassData(m_weebleId, massData);
 		}
+
+		m_explosionPosition = {0.0f, 0.0f};
+		m_explosionRadius = 2.0f;
+		m_explosionMagnitude = 8.0f;
 	}
 
 	void UpdateUI() override
 	{
 		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 60.0f));
-		ImGui::Begin("Sample Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(220.0f, 160.0f));
+		ImGui::Begin("Weeble", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Teleport"))
 		{
 			b2Body_SetTransform(m_weebleId, {0.0f, 5.0f}, 0.95 * b2_pi);
 		}
 
+		if (ImGui::Button("Explode"))
+		{
+			b2World_Explode(m_worldId, m_explosionPosition, m_explosionRadius, m_explosionMagnitude);
+		}
+
+		ImGui::SliderFloat("Magnitude", &m_explosionMagnitude, -100.0f, 100.0f, "%.1f");
+
 		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2MakeColor(b2_colorAzure3));
 	}
 
 	static Sample* Create(Settings& settings)
@@ -540,6 +559,9 @@ public:
 	}
 
 	b2BodyId m_weebleId;
+	b2Vec2 m_explosionPosition;
+	float m_explosionRadius;
+	float m_explosionMagnitude;
 };
 
 static int sampleWeeble = RegisterSample("Bodies", "Weeble", Weeble::Create);

@@ -49,13 +49,13 @@ void b2WakeSolverSet(b2World* world, int setIndex)
 	{
 		b2BodySim* simSrc = set->sims.data + i;
 
-		// Reset sleep timer
-		simSrc->sleepTime = 0.0f;
-
 		b2Body* body = bodies + simSrc->bodyId;
 		B2_ASSERT(body->setIndex == setIndex);
 		body->setIndex = b2_awakeSet;
 		body->localIndex = awakeSet->sims.count;
+
+		// Reset sleep timer
+		body->sleepTime = 0.0f;
 
 		b2BodySim* simDst = b2AddBodySim(alloc, &awakeSet->sims);
 		memcpy(simDst, simSrc, sizeof(b2BodySim));
