@@ -41,28 +41,43 @@ public:
 
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
-			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
-
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 
+			// Setting this to false significantly reduces the cost of creating
+			// static bodies and shapes.
+			shapeDef.forceContactCreation = false;
+
 			float height = 5.0f;
-			float x = 0.0f;
+			float xBody = 0.0f;
+			float xShape = 0.0f;
+
+			b2BodyId groundId;
 
 			for (int i = 0; i < m_gridCount; ++i)
 			{
+				// Create a new body every 25 meters so that shapes are not too far from the body origin.
+				// This makes a noticeable improvement in stability far from the origin.
+				if (i % 25 == 0)
+				{
+					bodyDef.position.x = xBody;
+					groundId = b2CreateBody(m_worldId, &bodyDef);
+					xShape = 0.0f;
+				}
+
 				float y = 0.0f;
 
-				int ycount = (int)(height * cosf(omega * x) + 0.5f) + 20;
+				int ycount = (int)(height * cosf(omega * xBody) + 0.5f) + 20;
 
 				for (int j = 0; j < ycount; ++j)
 				{
-					b2Polygon square = b2MakeOffsetBox(0.5f * m_gridSize, 0.5f * m_gridSize, {x, y}, 0.0f);
+					b2Polygon square = b2MakeOffsetBox(0.5f * m_gridSize, 0.5f * m_gridSize, {xShape, y}, 0.0f);
 					b2CreatePolygonShape(groundId, &shapeDef, &square);
 
 					y += m_gridSize;
 				}
 
-				x += m_gridSize;
+				xBody += m_gridSize;
+				xShape += m_gridSize;
 			}
 		}
 

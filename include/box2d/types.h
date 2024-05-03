@@ -211,9 +211,9 @@ typedef struct b2ShapeDef
 	///	and must be carefully handled due to multi-threading. Ignored for sensors.
 	bool enablePreSolveEvents;
 
-	/// Normally static bodies don't invoke contact creation when they are added to the world. This overrides
-	///	that behavior and causes contact creation. This can lead to a one-frame spike in b2World_Step if
-	///	many static shapes are created with this option.
+	/// Normally shapes on static bodies don't invoke contact creation when they are added to the world. This overrides
+	///	that behavior and causes contact creation. This significantly slows down static body creation which can be important
+	///	when there are many static bodies.
 	bool forceContactCreation;
 
 } b2ShapeDef;
