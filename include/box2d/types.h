@@ -121,11 +121,8 @@ typedef struct b2BodyDef
 	/// Scale the gravity applied to this body.
 	float gravityScale;
 
-	/// Linear sleep velocity, default is 0.01 meter per second
-	float linearSleepVelocity;
-
-	/// Angular sleep velocity, default is 0.035 radians per second
-	float angularSleepVelocity;
+	/// Sleep velocity threshold, default is 0.05 meter per second
+	float sleepThreshold;
 
 	/// Use this to store application specific body data.
 	void* userData;

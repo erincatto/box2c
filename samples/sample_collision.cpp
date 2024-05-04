@@ -2252,7 +2252,7 @@ public:
 
 		m_transform = b2Transform_identity;
 		m_angle = 0.0f;
-		m_round = 0.0f;
+		m_round = 0.1f;
 
 		m_startPoint = {0.0f, 0.0f};
 		m_basePosition = {0.0f, 0.0f};
@@ -2262,6 +2262,7 @@ public:
 		m_rotating = false;
 		m_showIds = false;
 		m_showSeparation = false;
+		m_showAnchors = false;
 		m_enableCaching = true;
 
 		b2Vec2 points[3] = {{-0.1f, -0.5f}, {0.1f, -0.5f}, {0.0f, 0.5f}};
@@ -2274,34 +2275,19 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(230.0f, 260.0f));
 		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
-		{
-		}
-
-		if (ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f"))
-		{
-		}
+		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
 
 		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
 		{
 			m_transform.q = b2MakeRot(m_angle);
 		}
 
-		if (ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f"))
-		{
-		}
-
-		if (ImGui::Checkbox("show ids", &m_showIds))
-		{
-		}
-
-		if (ImGui::Checkbox("show separation", &m_showSeparation))
-		{
-		}
-
-		if (ImGui::Checkbox("enable caching", &m_enableCaching))
-		{
-		}
+		ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f");
+		ImGui::Checkbox("show ids", &m_showIds);
+		ImGui::Checkbox("show separation", &m_showSeparation);
+		ImGui::Checkbox("show anchors", &m_showAnchors);
+		ImGui::Checkbox("enable caching", &m_enableCaching);
 
 		if (ImGui::Button("Reset"))
 		{
@@ -2360,11 +2346,13 @@ public:
 		}
 	}
 
-	void DrawManifold(const b2Manifold* manifold)
+	void DrawManifold(const b2Manifold* manifold, b2Vec2 origin1, b2Vec2 origin2)
 	{
-		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
-		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
-
+		b2Color white = b2MakeColor(b2_colorWhite);
+		b2Color red = b2MakeColor(b2_colorRed);
+		b2Color green = b2MakeColor(b2_colorGreen);
+		b2Color blue = b2MakeColor(b2_colorBlue);
+		
 		for (int i = 0; i < manifold->pointCount; ++i)
 		{
 			const b2ManifoldPoint* mp = manifold->points + i;
@@ -2372,7 +2360,16 @@ public:
 			b2Vec2 p1 = mp->point;
 			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
 			g_draw.DrawSegment(p1, p2, white);
-			g_draw.DrawPoint(p1, 5.0f, green);
+
+			if (m_showAnchors)
+			{
+				g_draw.DrawPoint(b2Add(origin1, mp->anchorA), 5.0f, red);
+				g_draw.DrawPoint(b2Add(origin2, mp->anchorB), 5.0f, green);
+			}
+			else
+			{
+				g_draw.DrawPoint(p1, 5.0f, blue);
+			}
 
 			if (m_showIds)
 			{
@@ -2438,7 +2435,7 @@ public:
 			g_draw.DrawSolidCircle(xf1, circle1.center, circle1.radius, color1);
 			g_draw.DrawSolidCircle(xf2, circle2.center, circle2.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2459,7 +2456,7 @@ public:
 
 			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2480,7 +2477,7 @@ public:
 
 			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2499,7 +2496,7 @@ public:
 			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, m_round, color1);
 			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2526,15 +2523,15 @@ public:
 			v2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
 
 		// box-capsule
 		{
-			b2Capsule capsule = {{-0.1f, 0.0f}, {0.1f, 0.0f}, 0.075f};
-			b2Polygon box = b2MakeBox(2.0f, 0.25f);
+			b2Capsule capsule = {{-0.4f, 0.0f}, {-0.1f, 0.0f}, 0.1f};
+			b2Polygon box = b2MakeOffsetBox(0.25f, 1.0f, {1.0f, -1.0f}, 0.25f * b2_pi);
 
 			b2Transform xf1 = {offset, b2Rot_identity};
 			b2Transform xf2 = {b2Add(m_transform.p, offset), m_transform.q};
@@ -2548,7 +2545,7 @@ public:
 			b2Vec2 v2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(v1, v2, capsule.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2571,7 +2568,7 @@ public:
 			p2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2591,7 +2588,7 @@ public:
 			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, box.radius, color1);
 			g_draw.DrawSolidPolygon(xf2, box.vertices, box.count, box.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2611,7 +2608,7 @@ public:
 			g_draw.DrawSolidPolygon(xf1, box.vertices, box.count, box.radius, color1);
 			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2631,7 +2628,7 @@ public:
 			g_draw.DrawSolidPolygon(xf1, rox.vertices, rox.count, rox.radius, color1);
 			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2653,7 +2650,7 @@ public:
 			g_draw.DrawSegment(p1, p2, color1);
 			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2671,7 +2668,7 @@ public:
 			g_draw.DrawSolidPolygon(xf1, wox.vertices, wox.count, wox.radius, color1);
 			g_draw.DrawSolidPolygon(xf2, wox.vertices, wox.count, wox.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset = b2Add(offset, increment);
 		}
@@ -2697,7 +2694,7 @@ public:
 			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
-			DrawManifold(&m);
+			DrawManifold(&m, xf1.p, xf2.p);
 
 			offset.x += 2.0f * increment.x;
 		}
@@ -2746,8 +2743,8 @@ public:
 			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
 			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro));
 
-			DrawManifold(&m1);
-			DrawManifold(&m2);
+			DrawManifold(&m1, xf1.p, xf2.p);
+			DrawManifold(&m2, xf1.p, xf2.p);
 
 			offset.x += 2.0f * increment.x;
 		}
@@ -2794,8 +2791,8 @@ public:
 
 			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro));
 
-			DrawManifold(&m1);
-			DrawManifold(&m2);
+			DrawManifold(&m1, xf1.p, xf2.p);
+			DrawManifold(&m2, xf1.p, xf2.p);
 
 			offset.x += 2.0f * increment.x;
 		}
@@ -2832,6 +2829,7 @@ public:
 	bool m_dragging;
 	bool m_rotating;
 	bool m_showIds;
+	bool m_showAnchors;
 	bool m_showSeparation;
 	bool m_enableCaching;
 };
@@ -2862,6 +2860,7 @@ public:
 		m_dragging = false;
 		m_rotating = false;
 		m_showIds = false;
+		m_showAnchors = false;
 		m_showSeparation = false;
 
 		// https://betravis.github.io/shape-tools/path-to-polygon/
@@ -2952,6 +2951,7 @@ public:
 		ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f");
 		ImGui::Checkbox("show ids", &m_showIds);
 		ImGui::Checkbox("show separation", &m_showSeparation);
+		ImGui::Checkbox("show anchors", &m_showAnchors);
 
 		if (ImGui::Button("Reset"))
 		{
@@ -3022,7 +3022,17 @@ public:
 			b2Vec2 p1 = mp->point;
 			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
 			g_draw.DrawSegment(p1, p2, white);
-			g_draw.DrawPoint(p1, 5.0f, green);
+
+			if (m_showAnchors)
+			{
+				g_draw.DrawPoint(p1, 5.0f, green);
+			
+			}
+			else
+			{
+				g_draw.DrawPoint(p1, 5.0f, green);
+			
+			}
 
 			if (m_showIds)
 			{
@@ -3109,6 +3119,7 @@ public:
 	bool m_dragging;
 	bool m_rotating;
 	bool m_showIds;
+	bool m_showAnchors;
 	bool m_showSeparation;
 };
 

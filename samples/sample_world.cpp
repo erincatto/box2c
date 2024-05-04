@@ -22,8 +22,7 @@ public:
 	explicit LargeWorld(Settings& settings)
 		: Sample(settings)
 	{
-		// One cycle per 50 meters
-		m_period = 30.0f;
+		m_period = 40.0f;
 		float omega = 2.0 * b2_pi / m_period;
 		m_cycleCount = g_sampleDebug ? 10 : 600;
 		m_gridSize = 1.0f;
@@ -56,9 +55,11 @@ public:
 
 			for (int i = 0; i < m_gridCount; ++i)
 			{
-				// Create a new body every 25 meters so that shapes are not too far from the body origin.
+				// Create a new body regularly so that shapes are not too far from the body origin.
+				// Most algorithms in Box2D work in local coordinates, but contact points are computed
+				// relative to the body origin.
 				// This makes a noticeable improvement in stability far from the origin.
-				if (i % 25 == 0)
+				if (i % 10 == 0)
 				{
 					bodyDef.position.x = xBody;
 					groundId = b2CreateBody(m_worldId, &bodyDef);
@@ -84,11 +85,13 @@ public:
 		}
 
 		int humanIndex = 0;
+		int donutIndex = 0;
 		for (int cycleIndex = 0; cycleIndex < m_cycleCount; ++cycleIndex)
 		{
 			float xbase = (0.5f + cycleIndex) * m_period + xStart;
 
-			if ((cycleIndex & 1) == 0)
+			int remainder = cycleIndex % 3;
+			if (remainder == 0)
 			{
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
@@ -109,16 +112,28 @@ public:
 					bodyDef.position.x += 0.6f;
 				}
 			}
-			else
+			else if (remainder == 1)
 			{
-				b2Vec2 position = {xbase - 2.0f, 10.0f};
-				for (int i = 0; i < 5; ++i)
+				b2Vec2 position = {xbase - 1.0f, 10.0f};
+				for (int i = 0; i < 3; ++i)
 				{
 					// Abusing this class a bit since it doesn't allocate memory
 					Human human;
 					human.Spawn(m_worldId, position, 2.0f, humanIndex + 1, NULL);
 					humanIndex += 1;
-					position.x += 0.5f;
+					position.x += 0.75f;
+				}
+			}
+			else
+			{
+				b2Vec2 position = {xbase - 6.0f, 12.0f};
+
+				for (int i = 0; i < 5; ++i)
+				{
+					Donut donut;
+					donut.Spawn(m_worldId, position, donutIndex + 1, NULL);
+					donutIndex += 1;
+					position.x += 3.0f;
 				}
 			}
 		}
@@ -160,7 +175,7 @@ public:
 		m_viewPosition.x += timeStep * m_speed;
 		m_viewPosition.x = b2ClampFloat(m_viewPosition.x, -span, span);
 
-		g_camera.m_center = m_viewPosition;
+		//g_camera.m_center = m_viewPosition;
 
 		float radius = 2.0f;
 		if ((m_stepCount & 0x1) == 0x1 && m_explode)

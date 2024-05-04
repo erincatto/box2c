@@ -26,7 +26,7 @@ void Human::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
-	bodyDef.linearSleepVelocity = 0.1f;
+	bodyDef.sleepThreshold = 0.1f;
 	bodyDef.userData = userData;
 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();

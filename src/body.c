@@ -185,8 +185,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
-	B2_ASSERT(b2IsValid(def->linearSleepVelocity) && def->linearSleepVelocity >= 0.0f);
-	B2_ASSERT(b2IsValid(def->angularSleepVelocity) && def->angularSleepVelocity >= 0.0f);
+	B2_ASSERT(b2IsValid(def->sleepThreshold) && def->sleepThreshold >= 0.0f);
 	B2_ASSERT(b2IsValid(def->gravityScale));
 
 	b2World* world = b2GetWorldFromId(worldId);
@@ -298,8 +297,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
 	body->id = bodyId;
-	body->linearSleepVelocity = def->linearSleepVelocity;
-	body->angularSleepVelocity = def->angularSleepVelocity;
+	body->sleepThreshold = def->sleepThreshold;
 	body->sleepTime = 0.0f;
 	body->type = def->type;
 	body->fixedRotation = def->fixedRotation;
@@ -552,6 +550,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
 		bodySim->I += massData.I;
 
+		// todo this should be center of mass relative
 		b2ShapeExtent extent = b2ComputeShapeExtent(s);
 		bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
 		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
@@ -1356,6 +1355,20 @@ bool b2Body_IsSleepEnabled(b2BodyId bodyId)
 	b2Body* body = b2GetBodyFullId(world, bodyId);
 	b2BodySim* bodySim = b2GetBodySim(world, body);
 	return bodySim->enableSleep;
+}
+
+void b2Body_SetSleepThreshold(b2BodyId bodyId, float sleepVelocity)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBodyFullId(world, bodyId);
+	body->sleepThreshold = sleepVelocity;
+}
+
+float b2Body_GetSleepThreshold(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBodyFullId(world, bodyId);
+	return body->sleepThreshold;
 }
 
 void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep)

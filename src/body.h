@@ -47,8 +47,7 @@ typedef struct b2Body
 	int islandPrev;
 	int islandNext;
 
-	float linearSleepVelocity;
-	float angularSleepVelocity;
+	float sleepThreshold;
 	float sleepTime;
 
 	int id;

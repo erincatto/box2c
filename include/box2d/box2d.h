@@ -303,6 +303,12 @@ B2_API void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep);
 /// @return is sleeping enabled for this body?
 B2_API bool b2Body_IsSleepEnabled(b2BodyId bodyId);
 
+/// Set the sleep threshold. Normally in meters per second.
+B2_API void b2Body_SetSleepThreshold(b2BodyId bodyId, float sleepVelocity);
+
+/// Get the sleep threshold. Normally in meters per second.
+B2_API float b2Body_GetSleepThreshold(b2BodyId bodyId);
+
 /// Is this body enabled?
 B2_API bool b2Body_IsEnabled(b2BodyId bodyId);
 

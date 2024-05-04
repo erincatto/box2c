@@ -527,8 +527,25 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 {
 	b2Manifold manifold = {0};
 	float radius = polyA->radius + polyB->radius;
+	b2Vec2 origin = polyA->vertices[0];
 
-	b2Transform xf = b2InvMulTransforms(xfA, xfB);
+	// Shift polyA to origin
+	// pw = q * pb + p
+	// pw = q * (pbs + origin) + p
+	// pw = q * pbs + (p + q * origin)
+	b2Transform sfA = {b2Add(xfA.p, b2RotateVector(xfA.q, origin)), xfA.q};
+	b2Transform xf = b2InvMulTransforms(sfA, xfB);
+
+	b2Polygon localPolyA;
+	localPolyA.count = polyA->count;
+	localPolyA.radius = polyA->radius;
+	localPolyA.vertices[0] = b2Vec2_zero;
+	localPolyA.normals[0] = polyA->normals[0];
+	for (int i = 1; i < localPolyA.count; ++i)
+	{
+		localPolyA.vertices[i] = b2Sub(polyA->vertices[i], origin);
+		localPolyA.normals[i] = polyA->normals[i];
+	}
 
 	// Put polyB in polyA's frame to reduce round-off error
 	b2Polygon localPolyB;
@@ -541,7 +558,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	}
 
 	b2DistanceInput input;
-	input.proxyA = b2MakeProxy(polyA->vertices, polyA->count, 0.0f);
+	input.proxyA = b2MakeProxy(localPolyA.vertices, localPolyA.count, 0.0f);
 	input.proxyB = b2MakeProxy(localPolyB.vertices, localPolyB.count, 0.0f);
 	input.transformA = b2Transform_identity;
 	input.transformB = b2Transform_identity;
@@ -558,7 +575,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	if (output.distance < 0.1f * b2_linearSlop)
 	{
 		// distance is small or zero, fallback to SAT
-		manifold = b2PolygonSAT(polyA, &localPolyB);
+		manifold = b2PolygonSAT(&localPolyA, &localPolyB);
 
 		if (manifold.pointCount > 0)
 		{
@@ -566,7 +583,9 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 			for (int i = 0; i < manifold.pointCount; ++i)
 			{
 				b2ManifoldPoint* mp = manifold.points + i;
-				mp->anchorA = b2RotateVector(xfA.q, mp->anchorA);
+
+				// anchor points relative to shape origin in world space
+				mp->anchorA = b2RotateVector(xfA.q, b2Add(mp->anchorA, origin));
 				mp->anchorB = b2Add(mp->anchorA, b2Sub(xfA.p, xfB.p));
 				mp->point = b2Add(xfA.p, mp->anchorA);
 			}
@@ -583,13 +602,16 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 
 		float distance = output.distance;
 		b2Vec2 normal = b2Normalize(b2Sub(pB, pA));
-		b2Vec2 contactPointA = b2MulAdd(pB, 0.5f * (polyA->radius - localPolyB.radius - distance), normal);
+		b2Vec2 contactPointA = b2MulAdd(pB, 0.5f * (localPolyA.radius - localPolyB.radius - distance), normal);
 
 		manifold.normal = b2RotateVector(xfA.q, normal);
 		b2ManifoldPoint* mp = manifold.points + 0;
-		mp->anchorA = b2RotateVector(xfA.q, contactPointA);
+		
+		// anchor points relative to shape origin in world space
+		mp->anchorA = b2RotateVector(xfA.q, b2Add(contactPointA, origin));
 		mp->anchorB = b2Add(mp->anchorA, b2Sub(xfA.p, xfB.p));
 		mp->point = b2Add(xfA.p, mp->anchorA);
+		
 		mp->separation = distance - radius;
 		mp->id = B2_MAKE_ID(cache->indexA[0], cache->indexB[0]);
 		manifold.pointCount = 1;
@@ -599,8 +621,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	// vertex-edge collision
 	B2_ASSERT(cache->count == 2);
 	bool flip;
-	int32_t countA = polyA->count;
-	int32_t countB = polyB->count;
+	int32_t countA = localPolyA.count;
+	int32_t countB = localPolyB.count;
 	int32_t edgeA, edgeB;
 
 	int32_t a1 = cache->indexA[0];
@@ -629,8 +651,8 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		// Limit search to edges adjacent to closest vertex on A
 		int32_t edgeA1 = a1;
 		int32_t edgeA2 = edgeA1 == 0 ? countA - 1 : edgeA1 - 1;
-		dot1 = b2Dot(axis, polyA->normals[edgeA1]);
-		dot2 = b2Dot(axis, polyA->normals[edgeA2]);
+		dot1 = b2Dot(axis, localPolyA.normals[edgeA1]);
+		dot2 = b2Dot(axis, localPolyA.normals[edgeA2]);
 		edgeA = dot1 < dot2 ? edgeA1 : edgeA2;
 	}
 	else
@@ -638,14 +660,14 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		// Find reference edge that most aligns with vector between closest points.
 		// This works for capsules and polygons
 		b2Vec2 axis = b2Sub(output.pointB, output.pointA);
-		float dot1 = b2Dot(axis, polyA->normals[a1]);
-		float dot2 = b2Dot(axis, polyA->normals[a2]);
+		float dot1 = b2Dot(axis, localPolyA.normals[a1]);
+		float dot2 = b2Dot(axis, localPolyA.normals[a2]);
 		edgeA = dot1 > dot2 ? a1 : a2;
 
 		flip = false;
 
 		// Get the normal of the reference edge in polyB's frame.
-		axis = polyA->normals[edgeA];
+		axis = localPolyA.normals[edgeA];
 
 		// Find the incident edge on polyB
 		// Limit search to edges adjacent to closest vertex
@@ -656,7 +678,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		edgeB = dot1 < dot2 ? edgeB1 : edgeB2;
 	}
 
-	manifold = b2ClipPolygons(polyA, &localPolyB, edgeA, edgeB, flip);
+	manifold = b2ClipPolygons(&localPolyA, &localPolyB, edgeA, edgeB, flip);
 
 	if (manifold.pointCount > 0)
 	{
@@ -664,7 +686,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		for (int i = 0; i < manifold.pointCount; ++i)
 		{
 			b2ManifoldPoint* mp = manifold.points + i;
-			mp->anchorA = b2RotateVector(xfA.q, mp->anchorA);
+			mp->anchorA = b2RotateVector(xfA.q, b2Add(mp->anchorA, origin));
 			mp->anchorB = b2Add(mp->anchorA, b2Sub(xfA.p, xfB.p));
 			mp->point = b2Add(xfA.p, mp->anchorA);
 		}

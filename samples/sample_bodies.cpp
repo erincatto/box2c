@@ -574,8 +574,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {2.3f, 10.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_center = {3.0f, 50.0f};
+			g_camera.m_zoom = 2.2f;
 		}
 
 		b2BodyId groundId = b2_nullBodyId;
@@ -643,12 +643,64 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
+
+		// A long pendulum
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 100.0f};
+			bodyDef.angularDamping = 0.5f;
+			bodyDef.sleepThreshold = 0.05f;
+			m_pendulumId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule = {{0.0f, 0.0f}, {90.0f, 0.0f}, 0.25f};
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateCapsuleShape(m_pendulumId, &shapeDef, &capsule);
+
+			b2Vec2 pivot = bodyDef.position;
+			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			jointDef.bodyIdA = groundId;
+			jointDef.bodyIdB = m_pendulumId;
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			b2CreateRevoluteJoint(m_worldId, &jointDef);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 800.0f));
+		ImGui::SetNextWindowSize(ImVec2(250.0f, 100.0f));
+		ImGui::Begin("Sleep", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::PushItemWidth(140.0f);
+
+		ImGui::Text("Pendulum Tuning");
+
+		float sleepVelocity = b2Body_GetSleepThreshold(m_pendulumId);
+		if (ImGui::SliderFloat("sleep velocity", &sleepVelocity, 0.0f, 1.0f, "%.2f"))
+		{
+			b2Body_SetSleepThreshold(m_pendulumId, sleepVelocity);
+			b2Body_SetAwake(m_pendulumId, true);
+		}
+
+		float angularDamping = b2Body_GetAngularDamping(m_pendulumId);
+		if (ImGui::SliderFloat("angular damping", &angularDamping, 0.0f, 2.0f, "%.2f"))
+		{
+			b2Body_SetAngularDamping(m_pendulumId, angularDamping);
+		}
+
+		ImGui::PopItemWidth();
+
+		ImGui::End();
 	}
 
 	static Sample* Create(Settings& settings)
 	{
 		return new Sleep(settings);
 	}
+
+	b2BodyId m_pendulumId;
 };
 
 static int sampleSleep = RegisterSample("Bodies", "Sleep", Sleep::Create);

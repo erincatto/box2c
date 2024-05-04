@@ -207,9 +207,13 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		sim->center = b2Add(sim->center, state->deltaPosition);
 		sim->transform.q = b2NormalizeRot(b2MulRot(state->deltaRotation, sim->transform.q));
 
+		// Use the velocity of the farthest point on the body to account for rotation.
+		float maxVelocity = b2Length(v) + b2AbsFloat(w) * sim->maxExtent;
+
 		// Sleep needs to observe position correction as well as true velocity.
-		float vSqr = b2MaxFloat(0.25f * invTimeStep * invTimeStep * b2Dot(state->deltaPosition, state->deltaPosition), b2Dot(v, v));
-		float wSqr = b2MaxFloat(0.25f * invTimeStep * invTimeStep * state->deltaRotation.s * state->deltaRotation.s, w * w);
+		float maxDeltaPosition = b2Length(state->deltaPosition) + b2AbsFloat(state->deltaRotation.s) * sim->maxExtent;
+		
+		float sleepVelocity = b2MaxFloat(maxVelocity, 0.5f * invTimeStep * maxDeltaPosition);
 
 		// reset state deltas
 		state->deltaPosition = b2Vec2_zero;
@@ -233,16 +237,13 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		
 		sim->isFast = false;
 
-		float linTolSqr = body->linearSleepVelocity * body->linearSleepVelocity;
-		float angTolSqr = body->angularSleepVelocity * body->angularSleepVelocity;
-
-		if (enableSleep == false || sim->enableSleep == false || wSqr > angTolSqr || vSqr > linTolSqr)
+		if (enableSleep == false || sim->enableSleep == false || sleepVelocity > body->sleepThreshold)
 		{
 			// Body is not sleepy
 			body->sleepTime = 0.0f;
 
 			const float saftetyFactor = 0.5f;
-			if (enableContinuous && (b2Length(v) + B2_ABS(w) * sim->maxExtent) * timeStep > saftetyFactor * sim->minExtent)
+			if (enableContinuous && maxVelocity * timeStep > saftetyFactor * sim->minExtent)
 			{
 				// Store in fast array for the continuous collision stage
 				// This is deterministic because the order of TOI sweeps doesn't matter

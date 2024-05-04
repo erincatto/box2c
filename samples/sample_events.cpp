@@ -918,11 +918,15 @@ public:
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Polygon box = b2MakeOffsetBox(20.0f, 0.1f, {0.0f, -0.1f}, 0.0f);
+			shapeDef.friction = 0.1f;
+
+			b2Polygon box = b2MakeOffsetBox(12.0f, 0.1f, {-10.0f, -0.1f}, -0.15f * b2_pi);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 			
-			box = b2MakeOffsetBox(20.0f, 0.1f, {0.0f, -0.1f}, 0.0f);
+			box = b2MakeOffsetBox(12.0f, 0.1f, {10.0f, -0.1f}, 0.15f * b2_pi);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			shapeDef.restitution = 0.8f;
 
 			box = b2MakeOffsetBox(0.1f, 10.0f, {19.9f, 10.0f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
@@ -937,7 +941,7 @@ public:
 		m_sleepCount = 0;
 		m_count = 0;
 
-		m_explosionPosition = {0.0f, 0.0f};
+		m_explosionPosition = {0.0f, -5.0f};
 		m_explosionRadius = 10.0f;
 		m_explosionMagnitude = 6.0f;
 	}
@@ -987,8 +991,8 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(220.0f, 160.0f));
+		ImGui::SetNextWindowPos(ImVec2(10.0f, 900.0f));
+		ImGui::SetNextWindowSize(ImVec2(220.0f, 100.0f));
 		ImGui::Begin("Body Move", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Explode"))

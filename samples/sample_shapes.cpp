@@ -456,10 +456,9 @@ public:
 			g_camera.m_center = {0.0f, 5.0f};
 		}
 
-		b2BodyId groundId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
-			groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2BodyId  groundId = b2CreateBody(m_worldId, &bodyDef);
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -1138,11 +1137,6 @@ public:
 		}
 	}
 
-	void CreateBodies()
-	{
-	}
-
-
 	static Sample* Create(Settings& settings)
 	{
 		return new RoundedShapes(settings);
@@ -1150,3 +1144,61 @@ public:
 };
 
 static int sampleRoundedShapes = RegisterSample("Shapes", "Rounded", RoundedShapes::Create);
+
+class OffsetShapes : public Sample
+{
+public:
+	explicit OffsetShapes(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.55f;
+			g_camera.m_center = {2.0f, 8.0f};
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {-1.0f, 1.0f};
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {10.0f, -2.0f}, 0.5f * b2_pi);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		{
+			b2Capsule capsule = {{-5.0f, 1.0f}, {-4.0f, 1.0f}, 0.25f};
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {13.5f, -0.75f};
+			bodyDef.type = b2_dynamicBody;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+		}
+
+		{
+			b2Polygon box = b2MakeOffsetBox(0.75f, 0.5f, {9.0f, 2.0f}, 0.5f * b2_pi);
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {0.0f, 0.0f};
+			bodyDef.type = b2_dynamicBody;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawTransform(b2Transform_identity);
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new OffsetShapes(settings);
+	}
+};
+
+static int sampleOffsetShapes = RegisterSample("Shapes", "Offset", OffsetShapes::Create);
