@@ -1450,12 +1450,12 @@ public:
 			float C = length - slackLength;
 			if (C < 0.0f || length < 0.001f)
 			{
-				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan));
+				g_draw.DrawSegment(anchorA, anchorB, b2_colorLightCyan);
 				m_impulses[i] = 0.0f;
 				continue;
 			}
 
-			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet));
+			g_draw.DrawSegment(anchorA, anchorB, b2_colorViolet);
 			b2Vec2 axis = b2Normalize(deltaAnchor);
 
 			b2Vec2 rB = b2Sub(anchorB, pB);

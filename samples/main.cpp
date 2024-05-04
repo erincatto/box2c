@@ -747,6 +747,7 @@ int main(int, char**)
 
 			// #todo restore all drawing settings that may have been overridden by a sample
 			s_settings.drawJoints = true;
+			s_settings.useCameraBounds = false;
 
 			delete s_sample;
 			s_sample = nullptr;

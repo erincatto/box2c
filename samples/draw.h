@@ -33,26 +33,26 @@ public:
 	void Create();
 	void Destroy();
 
-	void DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color);
-	void DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color);
+	void DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2HexColor color);
+	void DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int32_t vertexCount, float radius, b2HexColor color);
 
-	void DrawCircle(b2Vec2 center, float radius, b2Color color);
-	void DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2Color color);
+	void DrawCircle(b2Vec2 center, float radius, b2HexColor color);
+	void DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2HexColor color);
 
-	void DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
-	void DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
+	void DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color);
+	void DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color);
 
-	void DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color);
+	void DrawSegment(b2Vec2 p1, b2Vec2 p2, b2HexColor color);
 
 	void DrawTransform(b2Transform xf);
 
-	void DrawPoint(b2Vec2 p, float size, b2Color color);
+	void DrawPoint(b2Vec2 p, float size, b2HexColor color);
 
 	void DrawString(int x, int y, const char* string, ...);
 
 	void DrawString(b2Vec2 p, const char* string, ...);
 
-	void DrawAABB(b2AABB aabb, b2Color color);
+	void DrawAABB(b2AABB aabb, b2HexColor color);
 
 	void Flush();
 

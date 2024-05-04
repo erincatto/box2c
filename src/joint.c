@@ -1065,7 +1065,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 	b2Vec2 pA = b2TransformPoint(transformA, jointSim->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, jointSim->localOriginAnchorB);
 
-	b2Color color = {0.5f, 0.8f, 0.8f, 1.0f};
+	b2HexColor color = b2_colorDarkSeaGreen3;
 
 	switch (joint->type)
 	{
@@ -1077,11 +1077,11 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		{
 			b2Vec2 target = jointSim->mouseJoint.targetA;
 
-			b2Color c1 = {0.0f, 1.0f, 0.0f, 1.0f};
+			b2HexColor c1 = b2_colorGreen;
 			draw->DrawPoint(target, 4.0f, c1, draw->context);
 			draw->DrawPoint(pB, 4.0f, c1, draw->context);
 
-			b2Color c2 = {0.8f, 0.8f, 0.8f, 1.0f};
+			b2HexColor c2 = b2_colorGray80;
 			draw->DrawSegment(target, pB, c2, draw->context);
 		}
 		break;
@@ -1114,7 +1114,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 		if (colorIndex != B2_NULL_INDEX)
 		{
 			b2Vec2 p = b2Lerp(pA, pB, 0.5f);
-			draw->DrawPoint(p, 5.0f, b2MakeColor(colors[colorIndex]), draw->context);
+			draw->DrawPoint(p, 5.0f, colors[colorIndex], draw->context);
 		}
 	}
 }

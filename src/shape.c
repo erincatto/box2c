@@ -540,7 +540,7 @@ b2MassData b2ComputeShapeMass(const b2Shape* shape)
 	}
 }
 
-b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
+b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape, b2Vec2 localCenter)
 {
 	b2ShapeExtent extent = {0};
 
@@ -550,7 +550,9 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			float radius = shape->capsule.radius;
 			extent.minExtent = radius;
-			extent.maxExtent = B2_MAX(b2Length(shape->capsule.center1), b2Length(shape->capsule.center2)) + radius;
+			b2Vec2 c1 = b2Sub(shape->capsule.center1, localCenter);
+			b2Vec2 c2 = b2Sub(shape->capsule.center2, localCenter);
+			extent.maxExtent = sqrtf(b2MaxFloat(b2LengthSquared(c1), b2LengthSquared(c2))) + radius;
 		}
 		break;
 
@@ -558,7 +560,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			float radius = shape->circle.radius;
 			extent.minExtent = radius;
-			extent.maxExtent = b2Length(shape->circle.center) + radius;
+			extent.maxExtent = b2Length(b2Sub(shape->circle.center, localCenter)) + radius;
 		}
 		break;
 
@@ -570,15 +572,34 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 			int count = poly->count;
 			for (int i = 0; i < count; ++i)
 			{
-				float planeOffset = b2Dot(poly->normals[i], b2Sub(poly->vertices[i], poly->centroid));
+				b2Vec2 v = poly->vertices[i];
+				float planeOffset = b2Dot(poly->normals[i], b2Sub(v, poly->centroid));
 				minExtent = B2_MIN(minExtent, planeOffset);
 
-				float distanceSqr = b2LengthSquared(poly->vertices[i]);
+				float distanceSqr = b2LengthSquared(b2Sub(v, localCenter));
 				maxExtentSqr = B2_MAX(maxExtentSqr, distanceSqr);
 			}
 
 			extent.minExtent = minExtent + poly->radius;
 			extent.maxExtent = sqrtf(maxExtentSqr) + poly->radius;
+		}
+		break;
+
+		case b2_segmentShape:
+		{
+			extent.minExtent = 0.0f;
+			b2Vec2 c1 = b2Sub(shape->segment.point1, localCenter);
+			b2Vec2 c2 = b2Sub(shape->segment.point2, localCenter);
+			extent.maxExtent = sqrtf(b2MaxFloat(b2LengthSquared(c1), b2LengthSquared(c2)));
+		}
+		break;
+
+		case b2_smoothSegmentShape:
+		{
+			extent.minExtent = 0.0f;
+			b2Vec2 c1 = b2Sub(shape->smoothSegment.segment.point1, localCenter);
+			b2Vec2 c2 = b2Sub(shape->smoothSegment.segment.point2, localCenter);
+			extent.maxExtent = sqrtf(b2MaxFloat(b2LengthSquared(c1), b2LengthSquared(c2)));
 		}
 		break;
 
@@ -589,11 +610,11 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 	return extent;
 }
 
-b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)
+b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform transform)
 {
 	b2RayCastInput localInput = *input;
-	localInput.origin = b2InvTransformPoint(xf, input->origin);
-	localInput.translation = b2InvRotateVector(xf.q, input->translation);
+	localInput.origin = b2InvTransformPoint(transform, input->origin);
+	localInput.translation = b2InvRotateVector(transform.q, input->translation);
 
 	b2CastOutput output = {0};
 	switch (shape->type)
@@ -617,21 +638,21 @@ b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b
 			return output;
 	}
 
-	output.point = b2TransformPoint(xf, output.point);
-	output.normal = b2RotateVector(xf.q, output.normal);
+	output.point = b2TransformPoint(transform, output.point);
+	output.normal = b2RotateVector(transform.q, output.normal);
 	return output;
 }
 
-b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf)
+b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform transform)
 {
 	b2ShapeCastInput localInput = *input;
 
 	for (int i = 0; i < localInput.count; ++i)
 	{
-		localInput.points[i] = b2InvTransformPoint(xf, input->points[i]);
+		localInput.points[i] = b2InvTransformPoint(transform, input->points[i]);
 	}
 
-	localInput.translation = b2InvRotateVector(xf.q, input->translation);
+	localInput.translation = b2InvRotateVector(transform.q, input->translation);
 
 	b2CastOutput output = {0};
 	switch (shape->type)
@@ -655,8 +676,8 @@ b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shap
 			return output;
 	}
 
-	output.point = b2TransformPoint(xf, output.point);
-	output.normal = b2RotateVector(xf.q, output.normal);
+	output.point = b2TransformPoint(transform, output.point);
+	output.normal = b2RotateVector(transform.q, output.normal);
 	return output;
 }
 

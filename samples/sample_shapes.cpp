@@ -191,8 +191,8 @@ public:
 	{
 		Sample::Step(settings);
 
-		g_draw.DrawSegment(b2Vec2_zero, {0.5f, 0.0f}, b2MakeColor(b2_colorRed));
-		g_draw.DrawSegment(b2Vec2_zero, {0.0f, 0.5f}, b2MakeColor(b2_colorGreen));
+		g_draw.DrawSegment(b2Vec2_zero, {0.5f, 0.0f}, b2_colorRed);
+		g_draw.DrawSegment(b2Vec2_zero, {0.0f, 0.5f}, b2_colorGreen);
 	}
 
 	static Sample* Create(Settings& settings)
@@ -402,21 +402,17 @@ public:
 
 		if (m_drawBodyAABBs)
 		{
-			b2AABB aabb;
-
-			b2Color yellow = b2MakeColorAlpha(b2_colorYellow3, 0.5f);
-
-			aabb = b2Body_ComputeAABB(m_table1Id);
-			g_draw.DrawAABB(aabb, yellow);
+			b2AABB aabb = b2Body_ComputeAABB(m_table1Id);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 
 			aabb = b2Body_ComputeAABB(m_table2Id);
-			g_draw.DrawAABB(aabb, yellow);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 
 			aabb = b2Body_ComputeAABB(m_ship1Id);
-			g_draw.DrawAABB(aabb, yellow);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 
 			aabb = b2Body_ComputeAABB(m_ship2Id);
-			g_draw.DrawAABB(aabb, yellow);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 		}
 	}
 

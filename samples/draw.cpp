@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 #include "draw.h"
+#include "shader.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_cpp.h"
 #include "box2d/math_functions.h"
 
+#include <vector>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -30,9 +32,9 @@ struct RGBA8
 	uint8_t r, g, b, a;
 };
 
-static inline RGBA8 MakeRGBA8(b2Color c)
+static inline RGBA8 MakeRGBA8(b2HexColor c, float alpha)
 {
-	return {uint8_t(0xFF * c.r), uint8_t(0xFF * c.g), uint8_t(0xFF * c.b), uint8_t(0xFF * c.a)};
+	return {uint8_t((c >> 16) & 0xFF), uint8_t((c >> 8) & 0xFF), uint8_t(c & 0xFF), uint8_t(0xFF * alpha)};
 }
 
 Draw g_draw;
@@ -127,99 +129,13 @@ b2AABB Camera::GetViewBounds()
 	return bounds;
 }
 
-static void CheckGLError()
+struct PointData
 {
-	GLenum errCode = glGetError();
-	if (errCode != GL_NO_ERROR)
-	{
-		printf("OpenGL error = %d\n", errCode);
-		assert(false);
-	}
-}
+	b2Vec2 position;
+	float size;
+	RGBA8 rgba;
+};
 
-// Prints shader compilation errors
-static void PrintLog(GLuint object)
-{
-	GLint log_length = 0;
-	if (glIsShader(object))
-	{
-		glGetShaderiv(object, GL_INFO_LOG_LENGTH, &log_length);
-	}
-	else if (glIsProgram(object))
-	{
-		glGetProgramiv(object, GL_INFO_LOG_LENGTH, &log_length);
-	}
-	else
-	{
-		printf("printlog: Not a shader or a program\n");
-		return;
-	}
-
-	char* log = (char*)malloc(log_length);
-
-	if (glIsShader(object))
-	{
-		glGetShaderInfoLog(object, log_length, nullptr, log);
-	}
-	else if (glIsProgram(object))
-	{
-		glGetProgramInfoLog(object, log_length, nullptr, log);
-	}
-
-	printf("%s", log);
-	free(log);
-}
-
-//
-static GLuint sCreateShaderFromString(const char* source, GLenum type)
-{
-	GLuint res = glCreateShader(type);
-	const char* sources[] = {source};
-	glShaderSource(res, 1, sources, nullptr);
-	glCompileShader(res);
-	GLint status = GL_FALSE;
-	glGetShaderiv(res, GL_COMPILE_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-		printf("Error compiling shader of type %d!\n", type);
-		PrintLog(res);
-		glDeleteShader(res);
-		return 0;
-	}
-
-	return res;
-}
-
-//
-static GLuint sCreateShaderProgram(const char* vs, const char* fs)
-{
-	GLuint vsId = sCreateShaderFromString(vs, GL_VERTEX_SHADER);
-	GLuint fsId = sCreateShaderFromString(fs, GL_FRAGMENT_SHADER);
-	assert(vsId != 0 && fsId != 0);
-
-	GLuint programId = glCreateProgram();
-	glAttachShader(programId, vsId);
-	glAttachShader(programId, fsId);
-	glBindFragDataLocation(programId, 0, "color");
-	glLinkProgram(programId);
-
-	glDeleteShader(vsId);
-	glDeleteShader(fsId);
-
-	GLint status = GL_FALSE;
-	glGetProgramiv(programId, GL_LINK_STATUS, &status);
-	if (status == GL_FALSE)
-	{
-		printf("Error linking shader program!\n");
-		PrintLog(programId);
-		glDeleteProgram(programId);
-		return 0;
-	}
-
-	return programId;
-}
-
-//
 struct GLRenderPoints
 {
 	void Create()
@@ -227,8 +143,8 @@ struct GLRenderPoints
 		const char* vs = "#version 330\n"
 						 "uniform mat4 projectionMatrix;\n"
 						 "layout(location = 0) in vec2 v_position;\n"
-						 "layout(location = 1) in vec4 v_color;\n"
-						 "layout(location = 2) in float v_size;\n"
+						 "layout(location = 1) in float v_size;\n"
+						 "layout(location = 2) in vec4 v_color;\n"
 						 "out vec4 f_color;\n"
 						 "void main(void)\n"
 						 "{\n"
@@ -245,41 +161,35 @@ struct GLRenderPoints
 						 "	color = f_color;\n"
 						 "}\n";
 
-		m_programId = sCreateShaderProgram(vs, fs);
+		m_programId = CreateProgramFromStrings(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		m_vertexAttribute = 0;
-		m_colorAttribute = 1;
-		m_sizeAttribute = 2;
+		int vertexAttribute = 0;
+		int sizeAttribute = 1;
+		int colorAttribute = 2;
 
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
-		glGenBuffers(3, m_vboIds);
+		glGenBuffers(1, &m_vboId);
 
 		glBindVertexArray(m_vaoId);
-		glEnableVertexAttribArray(m_vertexAttribute);
-		glEnableVertexAttribArray(m_colorAttribute);
-		glEnableVertexAttribArray(m_sizeAttribute);
+		glEnableVertexAttribArray(vertexAttribute);
+		glEnableVertexAttribArray(sizeAttribute);
+		glEnableVertexAttribArray(colorAttribute);
 
 		// Vertex buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glVertexAttribPointer(m_vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_vertices), m_vertices, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
+		glBufferData(GL_ARRAY_BUFFER, e_maxCount * sizeof(PointData), NULL, GL_DYNAMIC_DRAW);
 
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glVertexAttribPointer(m_colorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), m_colors, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(PointData), (void*)offsetof(PointData, position));
+		glVertexAttribPointer(sizeAttribute, 1, GL_FLOAT, GL_FALSE, sizeof(PointData), (void*)offsetof(PointData, size));
+		// color will get automatically expanded to floats in the shader
+		glVertexAttribPointer(colorAttribute, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(PointData), (void*)offsetof(PointData, rgba));
 
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glVertexAttribPointer(m_sizeAttribute, 1, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_sizes), m_sizes, GL_DYNAMIC_DRAW);
-
-		CheckGLError();
+		CheckErrorGL();
 
 		// Cleanup
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
-
-		m_count = 0;
 	}
 
 	void Destroy()
@@ -287,8 +197,9 @@ struct GLRenderPoints
 		if (m_vaoId)
 		{
 			glDeleteVertexArrays(1, &m_vaoId);
-			glDeleteBuffers(3, m_vboIds);
+			glDeleteBuffers(1, &m_vboId);
 			m_vaoId = 0;
+			m_vboId = 0;
 		}
 
 		if (m_programId)
@@ -298,21 +209,22 @@ struct GLRenderPoints
 		}
 	}
 
-	void Vertex(const b2Vec2& v, const b2Color& c, float size)
-	{
-		if (m_count == e_maxVertices)
-			Flush();
+	// todo instead of flushing, keep a growable array of data
+	// this will prevent sorting problems.
 
-		m_vertices[m_count] = v;
-		m_colors[m_count] = c;
-		m_sizes[m_count] = size;
-		++m_count;
+	void AddPoint(b2Vec2 v, float size, b2HexColor c)
+	{
+		RGBA8 rgba = MakeRGBA8(c, 1.0f);
+		m_points.push_back({v, size, rgba});
 	}
 
 	void Flush()
 	{
-		if (m_count == 0)
+		int count = m_points.size();
+		if (count == 0)
+		{
 			return;
+		}
 
 		glUseProgram(m_programId);
 
@@ -322,48 +234,49 @@ struct GLRenderPoints
 		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
 		glBindVertexArray(m_vaoId);
 
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Vec2), m_vertices);
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(float), m_sizes);
-
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
 		glEnable(GL_PROGRAM_POINT_SIZE);
-		glDrawArrays(GL_POINTS, 0, m_count);
+
+		int base = 0;
+		while (count > 0)
+		{
+			int batchCount = b2MinInt(count, e_maxCount);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, batchCount * sizeof(PointData), &m_points[base]);
+			glDrawArrays(GL_POINTS, 0, batchCount);
+
+			CheckErrorGL();
+		
+			count -= e_maxCount;
+			base += e_maxCount;
+		}
+
 		glDisable(GL_PROGRAM_POINT_SIZE);
-
-		CheckGLError();
-
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 		glUseProgram(0);
 
-		m_count = 0;
+		m_points.clear();
 	}
 
 	enum
 	{
-		e_maxVertices = 512
+		e_maxCount = 2048
 	};
-	b2Vec2 m_vertices[e_maxVertices];
-	b2Color m_colors[e_maxVertices];
-	float m_sizes[e_maxVertices];
 
-	int m_count;
+	std::vector<PointData> m_points;
 
 	GLuint m_vaoId;
-	GLuint m_vboIds[3];
+	GLuint m_vboId;
 	GLuint m_programId;
 	GLint m_projectionUniform;
-	GLint m_vertexAttribute;
-	GLint m_colorAttribute;
-	GLint m_sizeAttribute;
 };
 
-//
+struct VertexData
+{
+	b2Vec2 position;
+	RGBA8 rgba;
+};
+
 struct GLRenderLines
 {
 	void Create()
@@ -387,35 +300,33 @@ struct GLRenderLines
 						 "	color = f_color;\n"
 						 "}\n";
 
-		m_programId = sCreateShaderProgram(vs, fs);
+		m_programId = CreateProgramFromStrings(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		m_vertexAttribute = 0;
-		m_colorAttribute = 1;
+		int vertexAttribute = 0;
+		int colorAttribute = 1;
 
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
-		glGenBuffers(2, m_vboIds);
+		glGenBuffers(1, &m_vboId);
 
 		glBindVertexArray(m_vaoId);
-		glEnableVertexAttribArray(m_vertexAttribute);
-		glEnableVertexAttribArray(m_colorAttribute);
+		glEnableVertexAttribArray(vertexAttribute);
+		glEnableVertexAttribArray(colorAttribute);
 
 		// Vertex buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glVertexAttribPointer(m_vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_vertices), m_vertices, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
+		glBufferData(GL_ARRAY_BUFFER, e_maxCount * sizeof(VertexData), NULL, GL_DYNAMIC_DRAW);
 
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glVertexAttribPointer(m_colorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), m_colors, GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+		// color will get automatically expanded to floats in the shader
+		glVertexAttribPointer(colorAttribute, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VertexData),
+							  (void*)offsetof(VertexData, rgba));
 
-		CheckGLError();
+		CheckErrorGL();
 
 		// Cleanup
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
-
-		m_count = 0;
 	}
 
 	void Destroy()
@@ -423,8 +334,9 @@ struct GLRenderLines
 		if (m_vaoId)
 		{
 			glDeleteVertexArrays(1, &m_vaoId);
-			glDeleteBuffers(2, m_vboIds);
+			glDeleteBuffers(1, &m_vboId);
 			m_vaoId = 0;
+			m_vboId = 0;
 		}
 
 		if (m_programId)
@@ -434,20 +346,22 @@ struct GLRenderLines
 		}
 	}
 
-	void Vertex(const b2Vec2& v, const b2Color& c)
+	void AddLine(b2Vec2 p1, b2Vec2 p2, b2HexColor c)
 	{
-		if (m_count == e_maxVertices)
-			Flush();
-
-		m_vertices[m_count] = v;
-		m_colors[m_count] = c;
-		++m_count;
+		RGBA8 rgba = MakeRGBA8(c, 1.0f);
+		m_points.push_back({p1, rgba});
+		m_points.push_back({p2, rgba});
 	}
 
 	void Flush()
 	{
-		if (m_count == 0)
+		int count = m_points.size();
+		if (count == 0)
+		{
 			return;
+		}
+
+		assert(count % 2 == 0);
 
 		glUseProgram(m_programId);
 
@@ -458,43 +372,46 @@ struct GLRenderLines
 
 		glBindVertexArray(m_vaoId);
 
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Vec2), m_vertices);
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
 
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
+		int base = 0;
+		while (count > 0)
+		{
+			int batchCount = b2MinInt(count, e_maxCount);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, batchCount * sizeof(VertexData), &m_points[base]);
 
-		glDrawArrays(GL_LINES, 0, m_count);
+			glDrawArrays(GL_LINES, 0, batchCount);
 
-		CheckGLError();
+			CheckErrorGL();
+
+			count -= e_maxCount;
+			base += e_maxCount;
+		}
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 		glUseProgram(0);
 
-		m_count = 0;
+		m_points.clear();
 	}
 
 	// need lots of space for lines so they draw last
 	// could also consider disabling depth buffer
 	enum
 	{
-		e_maxVertices = 32 * 512
+		// must be multiple of 2
+		e_maxCount = 2 * 2048
 	};
 
-	b2Vec2 m_vertices[e_maxVertices];
-	b2Color m_colors[e_maxVertices];
-
-	int m_count;
+	std::vector<VertexData> m_points;
 
 	GLuint m_vaoId;
-	GLuint m_vboIds[2];
+	GLuint m_vboId;
 	GLuint m_programId;
 	GLint m_projectionUniform;
-	GLint m_vertexAttribute;
-	GLint m_colorAttribute;
 };
 
+// todo this is not used anymore and has untested changes
 struct GLRenderTriangles
 {
 	void Create()
@@ -518,29 +435,178 @@ struct GLRenderTriangles
 						 "	color = f_color;\n"
 						 "}\n";
 
-		m_programId = sCreateShaderProgram(vs, fs);
+		m_programId = CreateProgramFromStrings(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		m_vertexAttribute = 0;
-		m_colorAttribute = 1;
+		int vertexAttribute = 0;
+		int colorAttribute = 1;
+
+		// Generate
+		glGenVertexArrays(1, &m_vaoId);
+		glGenBuffers(1, &m_vboId);
+
+		glBindVertexArray(m_vaoId);
+		glEnableVertexAttribArray(vertexAttribute);
+		glEnableVertexAttribArray(colorAttribute);
+
+		// Vertex buffer
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_points), NULL, GL_DYNAMIC_DRAW);
+
+		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+		// color will get automatically expanded to floats in the shader
+		glVertexAttribPointer(colorAttribute, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VertexData),
+							  (void*)offsetof(VertexData, rgba));
+
+		CheckErrorGL();
+
+		// Cleanup
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+	}
+
+	void Destroy()
+	{
+		if (m_vaoId)
+		{
+			glDeleteVertexArrays(1, &m_vaoId);
+			glDeleteBuffers(1, &m_vboId);
+			m_vaoId = 0;
+			m_vboId = 0;
+		}
+
+		if (m_programId)
+		{
+			glDeleteProgram(m_programId);
+			m_programId = 0;
+		}
+	}
+
+	void AddTriangle(b2Vec2 p1, b2Vec2 p2, b2Vec2 p3, b2HexColor c)
+	{
+		RGBA8 rgba = MakeRGBA8(c, 1.0f);
+		m_points.push_back({p1, rgba});
+		m_points.push_back({p2, rgba});
+		m_points.push_back({p3, rgba});
+	}
+
+	void Flush()
+	{
+		int count = m_points.size();
+		if (count == 0)
+		{
+			return;
+		}
+
+		assert(count % 3 == 0);
+
+		glUseProgram(m_programId);
+
+		float proj[16] = {0.0f};
+		g_camera.BuildProjectionMatrix(proj, 0.2f);
+
+		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
+
+		glBindVertexArray(m_vaoId);
+
+		glBindBuffer(GL_ARRAY_BUFFER, m_vboId);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		int base = 0;
+		while (count > 0)
+		{
+			int batchCount = b2MinInt(count, e_maxCount);
+
+			glBufferSubData(GL_ARRAY_BUFFER, 0, batchCount * sizeof(VertexData), &m_points);
+			glDrawArrays(GL_TRIANGLES, 0, batchCount);
+
+			CheckErrorGL();
+
+			count -= e_maxCount;
+			base += e_maxCount;
+		}
+
+		glDisable(GL_BLEND);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
+
+		m_points.clear();
+	}
+
+	enum
+	{
+		// must be multiple of 3
+		e_maxCount = 3 * 512
+	};
+
+	std::vector<VertexData> m_points;
+
+	GLuint m_vaoId;
+	GLuint m_vboId;
+	GLuint m_programId;
+	GLint m_projectionUniform;
+};
+
+struct Transform
+{
+	float x, y, c, s;
+};
+
+struct CircleData
+{
+	Transform transform;
+	float radius;
+	RGBA8 rgba;
+};
+
+// Draws SDF circles using quad instancing. Apparently instancing of quads can be slow on older GPUs.
+// https://www.reddit.com/r/opengl/comments/q7yikr/how_to_draw_several_quads_through_instancing/
+// https://www.g-truc.net/post-0666.html
+struct GLRenderCircles
+{
+	void Create()
+	{
+		m_programId = CreateProgramFromFiles("samples/data/circle.vs", "samples/data/circle.fs");
+		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
+		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
+		int vertexAttribute = 0;
+		int transformInstance = 1;
+		int radiusInstance = 2;
+		int colorInstance = 3;
 
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
 		glGenBuffers(2, m_vboIds);
 
 		glBindVertexArray(m_vaoId);
-		glEnableVertexAttribArray(m_vertexAttribute);
-		glEnableVertexAttribArray(m_colorAttribute);
+		glEnableVertexAttribArray(vertexAttribute);
+		glEnableVertexAttribArray(transformInstance);
+		glEnableVertexAttribArray(radiusInstance);
+		glEnableVertexAttribArray(colorInstance);
 
-		// Vertex buffer
+		// Vertex buffer for single quad
+		float a = 1.1f;
+		b2Vec2 vertices[] = {{-a, -a}, {a, -a}, {-a, a}, {a, -a}, {a, a}, {-a, a}};
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glVertexAttribPointer(m_vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_vertices), m_vertices, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 
+		// Circle buffer
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glVertexAttribPointer(m_colorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), m_colors, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_circles), NULL, GL_DYNAMIC_DRAW);
 
-		CheckGLError();
+		glVertexAttribPointer(transformInstance, 4, GL_FLOAT, GL_FALSE, sizeof(CircleData),
+							  (void*)offsetof(CircleData, transform));
+		glVertexAttribPointer(radiusInstance, 1, GL_FLOAT, GL_FALSE, sizeof(CircleData), (void*)offsetof(CircleData, radius));
+		glVertexAttribPointer(colorInstance, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(CircleData), (void*)offsetof(CircleData, rgba));
+
+		glVertexAttribDivisor(transformInstance, 1);
+		glVertexAttribDivisor(radiusInstance, 1);
+		glVertexAttribDivisor(colorInstance, 1);
+
+		CheckErrorGL();
 
 		// Cleanup
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -556,6 +622,8 @@ struct GLRenderTriangles
 			glDeleteVertexArrays(1, &m_vaoId);
 			glDeleteBuffers(2, m_vboIds);
 			m_vaoId = 0;
+			m_vboIds[0] = 0;
+			m_vboIds[1] = 0;
 		}
 
 		if (m_programId)
@@ -565,247 +633,15 @@ struct GLRenderTriangles
 		}
 	}
 
-	void Vertex(const b2Vec2& v, const b2Color& c)
-	{
-		if (m_count == e_maxVertices)
-		{
-			Flush();
-		}
-
-		m_vertices[m_count] = v;
-		m_colors[m_count] = c;
-		++m_count;
-	}
-
-	void Flush()
-	{
-		if (m_count == 0)
-		{
-			return;
-		}
-
-		glUseProgram(m_programId);
-
-		float proj[16] = {0.0f};
-		g_camera.BuildProjectionMatrix(proj, 0.2f);
-
-		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-
-		glBindVertexArray(m_vaoId);
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Vec2), m_vertices);
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glDrawArrays(GL_TRIANGLES, 0, m_count);
-		glDisable(GL_BLEND);
-
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		glUseProgram(0);
-
-		m_count = 0;
-	}
-
-	enum
-	{
-		e_maxVertices = 3 * 512
-	};
-
-	b2Vec2 m_vertices[e_maxVertices];
-	b2Color m_colors[e_maxVertices];
-
-	int m_count;
-
-	GLuint m_vaoId;
-	GLuint m_vboIds[2];
-	GLuint m_programId;
-	GLint m_projectionUniform;
-	GLint m_vertexAttribute;
-	GLint m_colorAttribute;
-};
-
-struct Transform
-{
-	float x, y, c, s;
-};
-
-// Draws SDF circles using quad instancing. Apparently instancing of quads can be slow on older GPUs.
-// https://www.reddit.com/r/opengl/comments/q7yikr/how_to_draw_several_quads_through_instancing/
-// https://www.g-truc.net/post-0666.html
-struct GLRenderCircles
-{
-	void Create()
-	{
-		const char* vs = SHADER_TEXT(
-		 uniform mat4 projectionMatrix;
-		 uniform float zoom;
-		 
-		 layout(location = 0) in vec2 v_localPosition;
-		 layout(location = 1) in vec4 v_instanceTransform;
-		 layout(location = 2) in float v_instanceRadius;
-		 layout(location = 3) in vec4 v_instanceColor;
-		 
-		 out vec2 f_position;
-		 out vec4 f_color;
-		 out float f_zoom;
-
-		 void main()
-		 {
-			f_position = v_localPosition;
-			f_color = v_instanceColor;
-			float radius = v_instanceRadius;
-
-			// scale zoom so the border is fixed size
-			f_zoom = zoom / radius;
-
-			float x = v_instanceTransform.x;
-			float y = v_instanceTransform.y;
-			float c = v_instanceTransform.z;
-			float s = v_instanceTransform.w;
-			vec2 p = vec2(radius * v_localPosition.x, radius * v_localPosition.y);
-			p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
-			gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
-		});
-
-		// Thanks to baz! for help on this shader
-		// todo this can be optimized a bit, keeping some terms for clarity
-		const char* fs = SHADER_TEXT(
-			in vec2 f_position;
-			in vec4 f_color;
-			in float f_zoom;
-
-			out vec4 color;
-
-			// https://en.wikipedia.org/wiki/Alpha_compositing
-			vec4 blend_colors(vec4 front, vec4 back)
-			{
-				vec3 cSrc = front.rgb;
-				float alphaSrc = front.a;
-				vec3 cDst = back.rgb;
-				float alphaDst = back.a;
-
-				vec3 cOut = cSrc * alphaSrc + cDst * alphaDst * (1.0 - alphaSrc);
-				float alphaOut = alphaSrc + alphaDst * (1.0 - alphaSrc);
-				cOut = cOut / alphaOut;
-
-				return vec4(cOut, alphaOut);
-			}
-
-			void main()
-			{
-				// radius in unit quad
-				float radius = 1.0;
-
-				// distance to axis line segment
-				vec2 e = vec2(radius, 0);
-				vec2 w = f_position;
-				float we = dot(w, e);
-				vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
-				float da = sqrt(dot(b, b));
-
-				// distance to circle
-				float dw = sqrt(dot(w, w));
-				float dc = abs(dw - radius);
-
-				// union of circle and axis
-				float d = min(da, dc);
-
-				vec4 borderColor = f_color;
-				vec4 fillColor = 0.6f * borderColor;
-
-				// scale border by zoom so the pixel width is constant
-				float borderThickness = 0.07f * f_zoom;
-
-				vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
-				vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
-				color = blend_colors(front, back);
-			});
-
-		m_programId = sCreateShaderProgram(vs, fs);
-		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
-		int vertexAttribute = 0;
-		int instanceTransformAttribute = 1;
-		int instanceRadiusAttribute = 2;
-		int instanceColorAttribute = 3;
-
-		// Generate
-		glGenVertexArrays(1, &m_vaoId);
-		glGenBuffers(4, m_vboIds);
-
-		glBindVertexArray(m_vaoId);
-		glEnableVertexAttribArray(vertexAttribute);
-		glEnableVertexAttribArray(instanceTransformAttribute);
-		glEnableVertexAttribArray(instanceRadiusAttribute);
-		glEnableVertexAttribArray(instanceColorAttribute);
-
-		// Vertex buffer for single quad
-		float a = 1.1f;
-		b2Vec2 vertices[] = {{-a, -a}, {a, -a}, {-a, a}, {a, -a}, {a, a}, {-a, a}};
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[0]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-
-		// Transform buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_transforms), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceTransformAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(instanceTransformAttribute, 1);
-
-		// Radii buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_radii), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceRadiusAttribute, 1, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(instanceRadiusAttribute, 1);
-
-		// Color buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceColorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(instanceColorAttribute, 1);
-
-		CheckGLError();
-
-		// Cleanup
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-
-		m_count = 0;
-	}
-
-	void Destroy()
-	{
-		if (m_vaoId)
-		{
-			glDeleteVertexArrays(1, &m_vaoId);
-			glDeleteBuffers(4, m_vboIds);
-			m_vaoId = 0;
-		}
-
-		if (m_programId)
-		{
-			glDeleteProgram(m_programId);
-			m_programId = 0;
-		}
-	}
-
-	void AddCircle(const b2Transform& transform, float radius, const b2Color& c)
+	void AddCircle(const b2Transform& transform, float radius, b2HexColor color)
 	{
 		if (m_count == e_maxCount)
 		{
 			Flush();
 		}
 
-		m_transforms[m_count] = {transform.p.x, transform.p.y, transform.q.c, transform.q.s};
-		m_radii[m_count] = radius;
-		m_colors[m_count] = c;
+		RGBA8 rgba = MakeRGBA8(color, 1.0f);
+		m_circles[m_count] = {{transform.p.x, transform.p.y, transform.q.c, transform.q.s}, radius, rgba};
 		++m_count;
 	}
 
@@ -827,23 +663,15 @@ struct GLRenderCircles
 		glBindVertexArray(m_vaoId);
 
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(Transform), m_transforms);
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(float), m_radii);
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
-		CheckGLError();
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(CircleData), m_circles);
+		CheckErrorGL();
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, m_count);
 		glDisable(GL_BLEND);
 
-		CheckGLError();
+		CheckErrorGL();
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
@@ -854,18 +682,15 @@ struct GLRenderCircles
 
 	enum
 	{
-		e_maxCount = 3 * 512
+		e_maxCount = 2048
 	};
 
-	// todo combine into struct like PolygonData
-	Transform m_transforms[e_maxCount];
-	float m_radii[e_maxCount];
-	b2Color m_colors[e_maxCount];
+	CircleData m_circles[e_maxCount];
 
 	int m_count;
 
 	GLuint m_vaoId;
-	GLuint m_vboIds[4];
+	GLuint m_vboIds[2];
 	GLuint m_programId;
 	GLint m_projectionUniform;
 	GLint m_zoomUniform;
@@ -873,8 +698,10 @@ struct GLRenderCircles
 
 struct CapsuleData
 {
+	Transform transform;
 	float radius;
 	float length;
+	RGBA8 rgba;
 };
 
 // Draw capsules using SDF-based shader
@@ -882,123 +709,26 @@ struct GLRenderCapsules
 {
 	void Create()
 	{
-		const char* vs = SHADER_TEXT(
-		uniform mat4 projectionMatrix;
-		uniform float zoom;
+		m_programId = CreateProgramFromFiles("samples/data/capsule.vs", "samples/data/capsule.fs");
 
-		layout(location = 0) in vec2 v_localPosition;
-		layout(location = 1) in vec4 v_instanceTransform;
-		layout(location = 2) in vec2 v_instanceRadiusAndLength;
-		layout(location = 3) in vec4 v_instanceColor;
-		
-		out vec2 f_position;
-		out vec4 f_color;
-		out float f_length;
-		out float f_zoom;
-		
-		void main()
-		{
-			f_position = v_localPosition;
-			f_color = v_instanceColor;
-
-			float radius = v_instanceRadiusAndLength.x;
-			float length = v_instanceRadiusAndLength.y;
-
-			// scale quad large enough to hold capsule
-			float scale = radius + 0.5 * length;
-
-			// quad range of [-1, 1] implies normalize radius and length
-			f_length = 2.0 * length / (2.0 * radius + length);
-
-			// scale zoom so the border is fixed size
-			f_zoom = zoom / scale;
-
-			float x = v_instanceTransform.x;
-			float y = v_instanceTransform.y;
-			float c = v_instanceTransform.z;
-			float s = v_instanceTransform.w;
-			vec2 p = vec2(scale * v_localPosition.x, scale * v_localPosition.y);
-			p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
-			gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
-		});
-
-		// Thanks to baz! for help on this shader
-		// todo this can be optimized a bit, keeping some terms for clarity
-		const char* fs = SHADER_TEXT(
-			
-		in vec2 f_position;
-		in vec4 f_color;
-		in float f_length;
-		in float f_zoom;
-
-		out vec4 color;
-		
-		// https://en.wikipedia.org/wiki/Alpha_compositing
-		vec4 blend_colors(vec4 front, vec4 back)
-		{
-			vec3 cSrc = front.rgb;
-			float alphaSrc = front.a;
-			vec3 cDst = back.rgb;
-			float alphaDst = back.a;
-
-			vec3 cOut = cSrc * alphaSrc + cDst * alphaDst * (1.0 - alphaSrc);
-			float alphaOut = alphaSrc + alphaDst * (1.0 - alphaSrc);
-
-			// remove alpha from rgb
-			cOut = cOut / alphaOut;
-
-			return vec4(cOut, alphaOut);
-		}
-
-		void main()
-		{
-			// radius in unit quad
-			float radius = 0.5 * (2.0 - f_length);
-
-			vec4 borderColor = f_color;
-			vec4 fillColor = 0.6f * borderColor;
-
-			vec2 v1 = vec2(-0.5 * f_length, 0);
-			vec2 v2 = vec2(0.5 * f_length, 0);
-
-			// distance to line segment
-			vec2 e = v2 - v1;
-			vec2 w = f_position - v1;
-			float we = dot(w, e);
-			vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
-			float dw = sqrt(dot(b, b));
-
-			// SDF union of capsule and line segment
-			float d = min(dw, abs(dw - radius));
-
-			float borderThickness = 0.07 * f_zoom;
-
-			// roll the fill alpha down at the border
-			vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
-
-			// roll the border alpha down from 1 to 0 across the border thickness
-			vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
-
-			color = blend_colors(front, back);
-		});
-
-		m_programId = sCreateShaderProgram(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
 		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
 		int vertexAttribute = 0;
-		int instanceTransformAttribute = 1;
-		int instanceRadiusLengthAttribute = 2;
-		int instanceColorAttribute = 3;
+		int transformInstance = 1;
+		int radiusInstance = 2;
+		int lengthInstance = 3;
+		int colorInstance = 4;
 
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
-		glGenBuffers(4, m_vboIds);
+		glGenBuffers(2, m_vboIds);
 
 		glBindVertexArray(m_vaoId);
 		glEnableVertexAttribArray(vertexAttribute);
-		glEnableVertexAttribArray(instanceTransformAttribute);
-		glEnableVertexAttribArray(instanceRadiusLengthAttribute);
-		glEnableVertexAttribArray(instanceColorAttribute);
+		glEnableVertexAttribArray(transformInstance);
+		glEnableVertexAttribArray(radiusInstance);
+		glEnableVertexAttribArray(lengthInstance);
+		glEnableVertexAttribArray(colorInstance);
 
 		// Vertex buffer for single quad
 		float a = 1.1f;
@@ -1007,25 +737,23 @@ struct GLRenderCapsules
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 		glVertexAttribPointer(vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 
-		// Transform buffer
+		// Capsule buffer
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_transforms), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceTransformAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(1, 1);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(m_capsules), NULL, GL_DYNAMIC_DRAW);
 
-		// Radii buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_capsuleData), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceRadiusLengthAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(2, 1);
+		glVertexAttribPointer(transformInstance, 4, GL_FLOAT, GL_FALSE, sizeof(CapsuleData),
+							  (void*)offsetof(CapsuleData, transform));
+		glVertexAttribPointer(radiusInstance, 1, GL_FLOAT, GL_FALSE, sizeof(CapsuleData), (void*)offsetof(CapsuleData, radius));
+		glVertexAttribPointer(lengthInstance, 1, GL_FLOAT, GL_FALSE, sizeof(CapsuleData), (void*)offsetof(CapsuleData, length));
+		glVertexAttribPointer(colorInstance, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(CapsuleData),
+							  (void*)offsetof(CapsuleData, rgba));
 
-		// Color buffer
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(m_colors), NULL, GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(instanceColorAttribute, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
-		glVertexAttribDivisor(3, 1);
+		glVertexAttribDivisor(transformInstance, 1);
+		glVertexAttribDivisor(radiusInstance, 1);
+		glVertexAttribDivisor(lengthInstance, 1);
+		glVertexAttribDivisor(colorInstance, 1);
 
-		CheckGLError();
+		CheckErrorGL();
 
 		// Cleanup
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1039,8 +767,10 @@ struct GLRenderCapsules
 		if (m_vaoId)
 		{
 			glDeleteVertexArrays(1, &m_vaoId);
-			glDeleteBuffers(4, m_vboIds);
+			glDeleteBuffers(2, m_vboIds);
 			m_vaoId = 0;
+			m_vboIds[0] = 0;
+			m_vboIds[1] = 0;
 		}
 
 		if (m_programId)
@@ -1050,7 +780,7 @@ struct GLRenderCapsules
 		}
 	}
 
-	void AddCapsule(b2Vec2 p1, b2Vec2 p2, float radius, const b2Color& c)
+	void AddCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor c)
 	{
 		if (m_count == e_maxCount)
 		{
@@ -1071,9 +801,9 @@ struct GLRenderCapsules
 		transform.q.c = axis.x;
 		transform.q.s = axis.y;
 
-		m_transforms[m_count] = {transform.p.x, transform.p.y, transform.q.c, transform.q.s};
-		m_capsuleData[m_count] = {radius, length};
-		m_colors[m_count] = c;
+		RGBA8 rgba = MakeRGBA8(c, 1.0f);
+
+		m_capsules[m_count] = {{transform.p.x, transform.p.y, transform.q.c, transform.q.s}, radius, length, rgba};
 		++m_count;
 	}
 
@@ -1095,23 +825,15 @@ struct GLRenderCapsules
 		glBindVertexArray(m_vaoId);
 
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(Transform), m_transforms);
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[2]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(CapsuleData), m_capsuleData);
-		CheckGLError();
-
-		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[3]);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(b2Color), m_colors);
-		CheckGLError();
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(CapsuleData), m_capsules);
+		CheckErrorGL();
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, m_count);
 		glDisable(GL_BLEND);
 
-		CheckGLError();
+		CheckErrorGL();
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
@@ -1122,18 +844,15 @@ struct GLRenderCapsules
 
 	enum
 	{
-		e_maxCount = 3 * 512
+		e_maxCount = 2048
 	};
 
-	// todo combine into struct like PolygonData
-	Transform m_transforms[e_maxCount];
-	CapsuleData m_capsuleData[e_maxCount];
-	b2Color m_colors[e_maxCount];
+	CapsuleData m_capsules[e_maxCount];
 
 	int m_count;
 
 	GLuint m_vaoId;
-	GLuint m_vboIds[4];
+	GLuint m_vboIds[2];
 	GLuint m_programId;
 	GLint m_projectionUniform;
 	GLint m_zoomUniform;
@@ -1155,101 +874,85 @@ struct GLRenderPolygons
 {
 	void Create()
 	{
-		const char* vs = SHADER_TEXT(
-			uniform mat4 projectionMatrix;
-			uniform float zoom;
+		const char* vs =
+			SHADER_TEXT(uniform mat4 projectionMatrix; uniform float zoom;
 
-			layout(location = 0) in vec2 v_localPosition;
-			layout(location = 1) in vec4 v_instanceTransform;
-			layout(location = 2) in vec4 v_instancePoints12;
-			layout(location = 3) in vec4 v_instancePoints34;
-			layout(location = 4) in vec4 v_instancePoints56;
-			layout(location = 5) in vec4 v_instancePoints78;
-			layout(location = 6) in int v_instanceCount;
-			layout(location = 7) in float v_instanceRadius;
-			layout(location = 8) in vec4 v_instanceColor;
-			
-			out vec2 f_position;
-			out vec4 f_color;
-			out vec2 f_points[8];
-			flat out int f_count;
-			out float f_radius;
-			out float f_zoom;
-			
-			void main()
-			{
-				f_position = v_localPosition;
-				f_color = v_instanceColor;
+						layout(location = 0) in vec2 v_localPosition; layout(location = 1) in vec4 v_instanceTransform;
+						layout(location = 2) in vec4 v_instancePoints12; layout(location = 3) in vec4 v_instancePoints34;
+						layout(location = 4) in vec4 v_instancePoints56; layout(location = 5) in vec4 v_instancePoints78;
+						layout(location = 6) in int v_instanceCount; layout(location = 7) in float v_instanceRadius;
+						layout(location = 8) in vec4 v_instanceColor;
 
-				f_radius = v_instanceRadius;
-				f_count = v_instanceCount;
+						out vec2 f_position; out vec4 f_color; out vec2 f_points[8]; flat out int f_count; out float f_radius;
+						out float f_zoom;
 
-				f_points[0] = v_instancePoints12.xy;
-				f_points[1] = v_instancePoints12.zw;
-				f_points[2] = v_instancePoints34.xy;
-				f_points[3] = v_instancePoints34.zw;
-				f_points[4] = v_instancePoints56.xy;
-				f_points[5] = v_instancePoints56.zw;
-				f_points[6] = v_instancePoints78.xy;
-				f_points[7] = v_instancePoints78.zw;
+						void main() {
+							f_position = v_localPosition;
+							f_color = v_instanceColor;
 
-				// Compute polygon AABB
-				vec2 lower = f_points[0];
-				vec2 upper = f_points[0];
-				for (int i = 1; i < v_instanceCount; ++i)
-				{
-					lower = min(lower, f_points[i]);
-					upper = max(upper, f_points[i]);
-				}
+							f_radius = v_instanceRadius;
+							f_count = v_instanceCount;
 
-				vec2 center = 0.5 * (lower + upper);
-				vec2 width = upper - lower;
-				float maxWidth = max(width.x, width.y);
+							f_points[0] = v_instancePoints12.xy;
+							f_points[1] = v_instancePoints12.zw;
+							f_points[2] = v_instancePoints34.xy;
+							f_points[3] = v_instancePoints34.zw;
+							f_points[4] = v_instancePoints56.xy;
+							f_points[5] = v_instancePoints56.zw;
+							f_points[6] = v_instancePoints78.xy;
+							f_points[7] = v_instancePoints78.zw;
 
-				float scale = f_radius + 0.5 * maxWidth;
-				float invScale = 1.0 / scale;
+							// Compute polygon AABB
+							vec2 lower = f_points[0];
+							vec2 upper = f_points[0];
+							for (int i = 1; i < v_instanceCount; ++i)
+							{
+								lower = min(lower, f_points[i]);
+								upper = max(upper, f_points[i]);
+							}
 
-				// Shift and scale polygon points so they fit in 2x2 quad
-				for (int i = 0; i < f_count; ++i)
-				{
-					f_points[i] = invScale * (f_points[i] - center);
-				}
+							vec2 center = 0.5 * (lower + upper);
+							vec2 width = upper - lower;
+							float maxWidth = max(width.x, width.y);
 
-				// Scale radius as well
-				f_radius = invScale * f_radius;
+							float scale = f_radius + 0.5 * maxWidth;
+							float invScale = 1.0 / scale;
 
-				// scale zoom so the border is fixed size
-				f_zoom = invScale * zoom;
+							// Shift and scale polygon points so they fit in 2x2 quad
+							for (int i = 0; i < f_count; ++i)
+							{
+								f_points[i] = invScale * (f_points[i] - center);
+							}
 
-				//if (v_instanceCount == 4)
-				//{
-				//	f_color = vec4(0, 0, 1, 1);
-				//}
+							// Scale radius as well
+							f_radius = invScale * f_radius;
 
-				// scale up and transform quad to fit polygon
-				float x = v_instanceTransform.x;
-				float y = v_instanceTransform.y;
-				float c = v_instanceTransform.z;
-				float s = v_instanceTransform.w;
-				vec2 p = vec2(scale * v_localPosition.x, scale * v_localPosition.y) + center;
-				p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
-				gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
-			});
+							// scale zoom so the border is fixed size
+							f_zoom = invScale * zoom;
+
+							// if (v_instanceCount == 4)
+							//{
+							//	f_color = vec4(0, 0, 1, 1);
+							// }
+
+							// scale up and transform quad to fit polygon
+							float x = v_instanceTransform.x;
+							float y = v_instanceTransform.y;
+							float c = v_instanceTransform.z;
+							float s = v_instanceTransform.w;
+							vec2 p = vec2(scale * v_localPosition.x, scale * v_localPosition.y) + center;
+							p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
+							gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
+						});
 
 		const char* fs = SHADER_TEXT(
-			
-			in vec2 f_position;
-			in vec2 f_points[8];
-			flat in int f_count;
-			in float f_radius;
-			in vec4 f_color;
-			in float f_zoom;
+
+			in vec2 f_position; in vec2 f_points[8]; flat in int f_count; in float f_radius; in vec4 f_color; in float f_zoom;
 
 			out vec4 fragColor;
-			
+
 			// https://en.wikipedia.org/wiki/Alpha_compositing
-			vec4 blend_colors(vec4 front, vec4 back)
-			{
+			vec4 blend_colors(vec4 front, vec4 back) {
 				vec3 cSrc = front.rgb;
 				float alphaSrc = front.a;
 				vec3 cDst = back.rgb;
@@ -1264,14 +967,10 @@ struct GLRenderPolygons
 				return vec4(cOut, alphaOut);
 			}
 
-			float cross2d(in vec2 v1, in vec2 v2)
-			{
-				return v1.x * v2.y - v1.y * v2.x;
-			}
+			float cross2d(in vec2 v1, in vec2 v2) { return v1.x * v2.y - v1.y * v2.x; }
 
 			// Signed distance function for convex polygon
-			float sdConvexPolygon(in vec2 p, in vec2[8] v, in int count)
-			{
+			float sdConvexPolygon(in vec2 p, in vec2[8] v, in int count) {
 				// Initial squared distance
 				float d = dot(p - v[0], p - v[0]);
 
@@ -1292,7 +991,7 @@ struct GLRenderPolygons
 					{
 						d = bb;
 					}
-					
+
 					// If the query point is outside any edge then it is outside the entire polygon.
 					// This depends on the CCW winding order of points.
 					float s = cross2d(w, e);
@@ -1307,8 +1006,7 @@ struct GLRenderPolygons
 				return side * sqrt(d);
 			}
 
-			void main()
-			{
+			void main() {
 				vec4 borderColor = f_color;
 				vec4 fillColor = 0.6f * borderColor;
 
@@ -1325,10 +1023,10 @@ struct GLRenderPolygons
 
 				fragColor = blend_colors(front, back);
 
-				//fragColor = vec4(0.5);
+				// fragColor = vec4(0.5);
 			});
 
-		m_programId = sCreateShaderProgram(vs, fs);
+		m_programId = CreateProgramFromStrings(vs, fs);
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
 		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
 		int vertexAttribute = 0;
@@ -1377,6 +1075,8 @@ struct GLRenderPolygons
 		// color will get automatically expanded to floats in the shader
 		glVertexAttribPointer(instanceColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(PolygonData),
 							  (void*)offsetof(PolygonData, color));
+
+		// These divisors tell glsl how to distribute per instance data
 		glVertexAttribDivisor(instanceTransform, 1);
 		glVertexAttribDivisor(instancePoint12, 1);
 		glVertexAttribDivisor(instancePoint34, 1);
@@ -1386,7 +1086,7 @@ struct GLRenderPolygons
 		glVertexAttribDivisor(instanceRadius, 1);
 		glVertexAttribDivisor(instanceColor, 1);
 
-		CheckGLError();
+		CheckErrorGL();
 
 		// Cleanup
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1411,7 +1111,7 @@ struct GLRenderPolygons
 		}
 	}
 
-	void AddPolygon(const b2Transform& transform, const b2Vec2* points, int count, float radius, const b2Color& color)
+	void AddPolygon(const b2Transform& transform, const b2Vec2* points, int count, float radius, b2HexColor color)
 	{
 		if (m_count == e_maxCount)
 		{
@@ -1435,7 +1135,7 @@ struct GLRenderPolygons
 
 		data->count = n;
 		data->radius = radius;
-		data->color = MakeRGBA8(color);
+		data->color = MakeRGBA8(color, 1.0f);
 		++m_count;
 	}
 
@@ -1458,14 +1158,14 @@ struct GLRenderPolygons
 
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, m_count * sizeof(PolygonData), m_polygons);
-		CheckGLError();
+		CheckErrorGL();
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, m_count);
 		glDisable(GL_BLEND);
 
-		CheckGLError();
+		CheckErrorGL();
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
@@ -1490,38 +1190,38 @@ struct GLRenderPolygons
 	GLint m_zoomUniform;
 };
 
-void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2Color color, void* context)
+void DrawPolygonFcn(const b2Vec2* vertices, int vertexCount, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawPolygon(vertices, vertexCount, color);
 }
 
-void DrawSolidPolygonFcn(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color,
+void DrawSolidPolygonFcn(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2HexColor color,
 						 void* context)
 {
 	static_cast<Draw*>(context)->DrawSolidPolygon(transform, vertices, vertexCount, radius, color);
 }
 
-void DrawCircleFcn(b2Vec2 center, float radius, b2Color color, void* context)
+void DrawCircleFcn(b2Vec2 center, float radius, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawCircle(center, radius, color);
 }
 
-void DrawSolidCircleFcn(b2Transform transform, float radius, b2Color color, void* context)
+void DrawSolidCircleFcn(b2Transform transform, float radius, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawSolidCircle(transform, b2Vec2_zero, radius, color);
 }
 
-void DrawCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context)
+void DrawCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawCapsule(p1, p2, radius, color);
 }
 
-void DrawSolidCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color, void* context)
+void DrawSolidCapsuleFcn(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawSolidCapsule(p1, p2, radius, color);
 }
 
-void DrawSegmentFcn(b2Vec2 p1, b2Vec2 p2, b2Color color, void* context)
+void DrawSegmentFcn(b2Vec2 p1, b2Vec2 p2, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawSegment(p1, p2, color);
 }
@@ -1531,7 +1231,7 @@ void DrawTransformFcn(b2Transform xf, void* context)
 	static_cast<Draw*>(context)->DrawTransform(xf);
 }
 
-void DrawPointFcn(b2Vec2 p, float size, b2Color color, void* context)
+void DrawPointFcn(b2Vec2 p, float size, b2HexColor color, void* context)
 {
 	static_cast<Draw*>(context)->DrawPoint(p, size, color);
 }
@@ -1565,17 +1265,17 @@ Draw::~Draw()
 
 void Draw::Create()
 {
-	m_points = static_cast<GLRenderPoints*>(malloc(sizeof(GLRenderPoints)));
+	m_points = new GLRenderPoints;
 	m_points->Create();
-	m_lines = static_cast<GLRenderLines*>(malloc(sizeof(GLRenderLines)));
+	m_lines = new GLRenderLines;
 	m_lines->Create();
-	m_triangles = static_cast<GLRenderTriangles*>(malloc(sizeof(GLRenderTriangles)));
+	m_triangles = new GLRenderTriangles;
 	m_triangles->Create();
-	m_circles = static_cast<GLRenderCircles*>(malloc(sizeof(GLRenderCircles)));
+	m_circles = new GLRenderCircles;
 	m_circles->Create();
-	m_capsules = static_cast<GLRenderCapsules*>(malloc(sizeof(GLRenderCapsules)));
+	m_capsules = new GLRenderCapsules;
 	m_capsules->Create();
-	m_polygons = static_cast<GLRenderPolygons*>(malloc(sizeof(GLRenderPolygons)));
+	m_polygons = new GLRenderPolygons;
 	m_polygons->Create();
 
 	b2AABB bounds = {{-FLT_MAX, -FLT_MAX}, {FLT_MAX, FLT_MAX}};
@@ -1591,7 +1291,7 @@ void Draw::Create()
 				   DrawPointFcn,
 				   DrawStringFcn,
 				   bounds,
-					false, // drawUsingBounds
+				   false, // drawUsingBounds
 				   true,  // shapes
 				   true,  // joints
 				   false, // joint extras
@@ -1608,49 +1308,48 @@ void Draw::Create()
 void Draw::Destroy()
 {
 	m_points->Destroy();
-	free(m_points);
+	delete m_points;
 	m_points = nullptr;
 
 	m_lines->Destroy();
-	free(m_lines);
+	delete m_lines;
 	m_lines = nullptr;
 
 	m_triangles->Destroy();
-	free(m_triangles);
+	delete m_triangles;
 	m_triangles = nullptr;
 
 	m_circles->Destroy();
-	free(m_circles);
+	delete m_circles;
 	m_circles = nullptr;
 
 	m_capsules->Destroy();
-	free(m_capsules);
+	delete m_capsules;
 	m_capsules = nullptr;
 
 	m_polygons->Destroy();
-	free(m_polygons);
+	delete m_polygons;
 	m_polygons = nullptr;
 }
 
-void Draw::DrawPolygon(const b2Vec2* vertices, int vertexCount, b2Color color)
+void Draw::DrawPolygon(const b2Vec2* vertices, int vertexCount, b2HexColor color)
 {
 	b2Vec2 p1 = vertices[vertexCount - 1];
 	for (int i = 0; i < vertexCount; ++i)
 	{
 		b2Vec2 p2 = vertices[i];
-		m_lines->Vertex(p1, color);
-		m_lines->Vertex(p2, color);
+		m_lines->AddLine(p1, p2, color);
 		p1 = p2;
 	}
 }
 
-void Draw::DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2Color color)
+void Draw::DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2HexColor color)
 {
 	m_polygons->AddPolygon(transform, vertices, vertexCount, radius, color);
 }
 
 // todo use SDF
-void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
+void Draw::DrawCircle(b2Vec2 center, float radius, b2HexColor color)
 {
 	const float k_segments = 32.0f;
 	const float k_increment = 2.0f * b2_pi / k_segments;
@@ -1665,14 +1364,13 @@ void Draw::DrawCircle(b2Vec2 center, float radius, b2Color color)
 		r2.x = cosInc * r1.x - sinInc * r1.y;
 		r2.y = sinInc * r1.x + cosInc * r1.y;
 		b2Vec2 v2 = b2MulAdd(center, radius, r2);
-		m_lines->Vertex(v1, color);
-		m_lines->Vertex(v2, color);
+		m_lines->AddLine(v1, v2, color);
 		r1 = r2;
 		v1 = v2;
 	}
 }
 
-void Draw::DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2Color color)
+void Draw::DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2HexColor color)
 {
 	b2Transform xf = transform;
 	xf.p = b2TransformPoint(transform, center);
@@ -1680,7 +1378,7 @@ void Draw::DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b
 }
 
 // todo use SDF
-void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
+void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color)
 {
 	float length;
 	b2Vec2 axis = b2GetLengthAndNormalize(&length, b2Sub(p2, p1));
@@ -1705,8 +1403,7 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 		r2.x = cosInc * r1.x - sinInc * r1.y;
 		r2.y = sinInc * r1.x + cosInc * r1.y;
 		b2Vec2 v2 = b2MulAdd(p1, radius, r2);
-		m_lines->Vertex(v1, color);
-		m_lines->Vertex(v2, color);
+		m_lines->AddLine(v1, v2, color);
 		r1 = r2;
 		v1 = v2;
 	}
@@ -1722,53 +1419,42 @@ void Draw::DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
 		r2.x = cosInc * r1.x - sinInc * r1.y;
 		r2.y = sinInc * r1.x + cosInc * r1.y;
 		b2Vec2 v2 = b2MulAdd(p2, radius, r2);
-		m_lines->Vertex(v1, color);
-		m_lines->Vertex(v2, color);
+		m_lines->AddLine(v1, v2, color);
 		r1 = r2;
 		v1 = v2;
 	}
 	b2Vec2 d = v1;
 
-	m_lines->Vertex(a, color);
-	m_lines->Vertex(d, color);
-
-	m_lines->Vertex(b, color);
-	m_lines->Vertex(c, color);
-
-	m_lines->Vertex(p1, color);
-	m_lines->Vertex(p2, color);
+	m_lines->AddLine(a, d, color);
+	m_lines->AddLine(b, c, color);
+	m_lines->AddLine(p1, p2, color);
 }
 
-void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color)
+void Draw::DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color)
 {
 	m_capsules->AddCapsule(p1, p2, radius, color);
 }
 
-void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color)
+void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2HexColor color)
 {
-	m_lines->Vertex(p1, color);
-	m_lines->Vertex(p2, color);
+	m_lines->AddLine(p1, p2, color);
 }
 
 void Draw::DrawTransform(b2Transform xf)
 {
 	const float k_axisScale = 0.2f;
-	b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
-	b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
 	b2Vec2 p1 = xf.p;
 
-	m_lines->Vertex(p1, red);
 	b2Vec2 p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetXAxis(xf.q));
-	m_lines->Vertex(p2, red);
+	m_lines->AddLine(p1, p2, b2_colorRed);
 
-	m_lines->Vertex(p1, green);
 	p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetYAxis(xf.q));
-	m_lines->Vertex(p2, green);
+	m_lines->AddLine(p1, p2, b2_colorGreen);
 }
 
-void Draw::DrawPoint(b2Vec2 p, float size, b2Color color)
+void Draw::DrawPoint(b2Vec2 p, float size, b2HexColor color)
 {
-	m_points->Vertex(p, color, size);
+	m_points->AddPoint(p, size, color);
 }
 
 void Draw::DrawString(int x, int y, const char* string, ...)
@@ -1804,24 +1490,17 @@ void Draw::DrawString(b2Vec2 pw, const char* string, ...)
 	va_end(arg);
 }
 
-void Draw::DrawAABB(b2AABB aabb, b2Color c)
+void Draw::DrawAABB(b2AABB aabb, b2HexColor c)
 {
 	b2Vec2 p1 = aabb.lowerBound;
 	b2Vec2 p2 = {aabb.upperBound.x, aabb.lowerBound.y};
 	b2Vec2 p3 = aabb.upperBound;
 	b2Vec2 p4 = {aabb.lowerBound.x, aabb.upperBound.y};
 
-	m_lines->Vertex(p1, c);
-	m_lines->Vertex(p2, c);
-
-	m_lines->Vertex(p2, c);
-	m_lines->Vertex(p3, c);
-
-	m_lines->Vertex(p3, c);
-	m_lines->Vertex(p4, c);
-
-	m_lines->Vertex(p4, c);
-	m_lines->Vertex(p1, c);
+	m_lines->AddLine(p1, p2, c);
+	m_lines->AddLine(p2, p3, c);
+	m_lines->AddLine(p3, p4, c);
+	m_lines->AddLine(p4, p1, c);
 }
 
 void Draw::Flush()
@@ -1832,5 +1511,5 @@ void Draw::Flush()
 	m_triangles->Flush();
 	m_lines->Flush();
 	m_points->Flush();
-	CheckGLError();
+	CheckErrorGL();
 }

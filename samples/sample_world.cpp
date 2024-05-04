@@ -37,6 +37,7 @@ public:
 			g_camera.m_center = m_viewPosition;
 			g_camera.m_zoom = 1.0f;
 			settings.drawJoints = false;
+			settings.useCameraBounds = true;
 		}
 
 		{
@@ -190,7 +191,7 @@ public:
 
 		if (m_explode)
 		{
-			g_draw.DrawCircle(m_explosionPosition, radius, b2MakeColor(b2_colorAzure3));
+			g_draw.DrawCircle(m_explosionPosition, radius, b2_colorAzure3);
 		}
 
 		Sample::Step(settings);

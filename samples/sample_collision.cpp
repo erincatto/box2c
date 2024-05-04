@@ -136,11 +136,7 @@ public:
 
 	void DrawDistance(const b2DistanceInput* input, const b2DistanceCache* cache, const b2DistanceOutput* output)
 	{
-		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
-		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
-		b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
-
-		g_draw.DrawSegment(output->pointA, output->pointB, white);
+		g_draw.DrawSegment(output->pointA, output->pointB, b2_colorWhite);
 
 		if (m_showIndices)
 		{
@@ -148,16 +144,16 @@ public:
 			{
 				b2Vec2 pointA = b2TransformPoint(input->transformA, input->proxyA.vertices[cache->indexA[i]]);
 				b2Vec2 pointB = b2TransformPoint(input->transformB, input->proxyB.vertices[cache->indexB[i]]);
-				g_draw.DrawPoint(pointA, 5.0f, green);
-				g_draw.DrawPoint(pointB, 5.0f, red);
+				g_draw.DrawPoint(pointA, 5.0f, b2_colorGreen);
+				g_draw.DrawPoint(pointB, 5.0f, b2_colorRed);
 			}
 			b2Vec2 m = b2Lerp(output->pointA, output->pointB, 0.5f);
 			g_draw.DrawString(m, " %d", cache->count);
 		}
 		else
 		{
-			g_draw.DrawPoint(output->pointA, 5.0f, green);
-			g_draw.DrawPoint(output->pointB, 5.0f, red);
+			g_draw.DrawPoint(output->pointA, 5.0f, b2_colorGreen);
+			g_draw.DrawPoint(output->pointB, 5.0f, b2_colorRed);
 		}
 	}
 
@@ -166,13 +162,9 @@ public:
 		b2Vec2 offset = {-20.0f, 10.0f};
 		b2Vec2 increment = {5.0f, 0.0f};
 
-		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
-		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
-		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
-		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
-
-		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
-
+		b2HexColor color1 = b2_colorYellow;
+		b2HexColor color2 = b2_colorMagenta;
+		
 		// todo finish this sample
 #if 0
 		// circle-circle
@@ -694,7 +686,7 @@ public:
 			b2AABB box = {b2Min(m_startPoint, m_endPoint), b2Max(m_startPoint, m_endPoint)};
 			b2DynamicTree_QueryFiltered(&m_tree, box, b2_defaultMaskBits, QueryCallback, this);
 
-			g_draw.DrawAABB(box, {1.0f, 1.0f, 1.0f, 1.0f});
+			g_draw.DrawAABB(box, b2_colorWhite);
 		}
 
 		// m_startPoint = {-1.0f, 0.5f};
@@ -705,13 +697,13 @@ public:
 			b2RayCastInput input = {m_startPoint, b2Sub(m_endPoint, m_startPoint), 1.0f};
 			b2DynamicTree_RayCast(&m_tree, &input, b2_defaultMaskBits, RayCallback, this);
 
-			g_draw.DrawSegment(m_startPoint, m_endPoint, {1.0f, 1.0f, 1.0f, 1.0f});
-			g_draw.DrawPoint(m_startPoint, 5.0f, {0.0f, 1.0f, 0.0f, 1.0f});
-			g_draw.DrawPoint(m_endPoint, 5.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+			g_draw.DrawSegment(m_startPoint, m_endPoint, b2_colorWhite);
+			g_draw.DrawPoint(m_startPoint, 5.0f, b2_colorGreen);
+			g_draw.DrawPoint(m_endPoint, 5.0f, b2_colorRed);
 		}
 
-		b2Color c = {0.3f, 0.3f, 0.8f, 0.7f};
-		b2Color qc = {0.3, 0.8f, 0.3f, 1.0f};
+		b2HexColor c = b2_colorBlue2;
+		b2HexColor qc = b2_colorGreen2;
 
 		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
 
@@ -1011,11 +1003,6 @@ public:
 
 	void DrawRay(const b2CastOutput* output)
 	{
-		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
-		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
-		b2Color red = {1.0f, 0.0f, 0.0f, 1.0f};
-		b2Color violet = {1.0f, 0.0f, 1.0f, 1.0f};
-
 		b2Vec2 p1 = m_rayStart;
 		b2Vec2 p2 = m_rayEnd;
 		b2Vec2 d = b2Sub(p2, p1);
@@ -1023,17 +1010,17 @@ public:
 		if (output->hit)
 		{
 			b2Vec2 p = b2MulAdd(p1, output->fraction, d);
-			g_draw.DrawSegment(p1, p, white);
-			g_draw.DrawPoint(p1, 5.0f, green);
-			g_draw.DrawPoint(output->point, 5.0f, white);
+			g_draw.DrawSegment(p1, p, b2_colorWhite);
+			g_draw.DrawPoint(p1, 5.0f, b2_colorGreen);
+			g_draw.DrawPoint(output->point, 5.0f, b2_colorWhite);
 
 			b2Vec2 n = b2MulAdd(p, 1.0f, output->normal);
-			g_draw.DrawSegment(p, n, violet);
+			g_draw.DrawSegment(p, n, b2_colorViolet);
 
 			// if (m_rayRadius > 0.0f)
 			//{
-			//	g_draw.DrawCircle(p1, m_rayRadius, green);
-			//	g_draw.DrawCircle(p, m_rayRadius, red);
+			//	g_draw.DrawCircle(p1, m_rayRadius, b2_colorGreen);
+			//	g_draw.DrawCircle(p, m_rayRadius, b2_colorRed);
 			// }
 
 			if (m_showFraction)
@@ -1044,14 +1031,14 @@ public:
 		}
 		else
 		{
-			g_draw.DrawSegment(p1, p2, white);
-			g_draw.DrawPoint(p1, 5.0f, green);
-			g_draw.DrawPoint(p2, 5.0f, red);
+			g_draw.DrawSegment(p1, p2, b2_colorWhite);
+			g_draw.DrawPoint(p1, 5.0f, b2_colorGreen);
+			g_draw.DrawPoint(p2, 5.0f, b2_colorRed);
 
 			// if (m_rayRadius > 0.0f)
 			//{
-			//	g_draw.DrawCircle(p1, m_rayRadius, green);
-			//	g_draw.DrawCircle(p2, m_rayRadius, red);
+			//	g_draw.DrawCircle(p1, m_rayRadius, b2_colorGreen);
+			//	g_draw.DrawCircle(p2, m_rayRadius, b2_colorRed);
 			// }
 		}
 	}
@@ -1061,8 +1048,8 @@ public:
 		b2Vec2 offset = {-20.0f, 20.0f};
 		b2Vec2 increment = {10.0f, 0.0f};
 
-		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
-		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
+		b2HexColor color1 = b2_colorYellow;
+		b2HexColor dim1 = b2_colorYellow4;
 
 		b2CastOutput output = {0};
 		float maxFraction = 1.0f;
@@ -1665,12 +1652,9 @@ public:
 
 		m_textLine += m_textIncrement;
 
-		b2Color color1 = {0.4f, 0.9f, 0.4f, 1.0f};
-		b2Color color2 = {0.8f, 0.8f, 0.8f, 1.0f};
-		b2Color color3 = {0.9f, 0.9f, 0.4f, 1.0f};
-		b2Color green = b2MakeColorAlpha(b2_colorGreen, 0.7f);
-		b2Color yellow = b2MakeColorAlpha(b2_colorYellow, 0.7f);
-		b2Color gray = b2MakeColorAlpha(b2_colorGray, 0.7f);
+		b2HexColor color1 = b2_colorGreen3;
+		b2HexColor color2 = b2_colorGray80;
+		b2HexColor color3 = b2_colorMagenta2;
 
 		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
 
@@ -1757,7 +1741,7 @@ public:
 			if (context.count > 0)
 			{
 				assert(context.count <= 3);
-				b2Color colors[3] = {b2MakeColor(b2_colorRed), b2MakeColor(b2_colorGreen), b2MakeColor(b2_colorBlue)};
+				b2HexColor colors[3] = {b2_colorRed, b2_colorGreen, b2_colorBlue};
 				for (int i = 0; i < context.count; ++i)
 				{
 					b2Vec2 c = b2MulAdd(m_rayStart, context.fractions[i], rayTranslation);
@@ -1772,18 +1756,18 @@ public:
 
 					if (m_castType == e_circleCast)
 					{
-						g_draw.DrawCircle(b2Add(m_rayStart, t), m_castRadius, yellow);
+						g_draw.DrawCircle(b2Add(m_rayStart, t), m_castRadius, b2_colorYellow);
 					}
 					else if (m_castType == e_capsuleCast)
 					{
 						b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.center1), t);
 						b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.center2), t);
-						g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
+						g_draw.DrawCapsule(p1, p2, m_castRadius, b2_colorYellow);
 					}
 					else if (m_castType == e_polygonCast)
 					{
 						b2Transform xf = {b2Add(transform.p, t), transform.q};
-						g_draw.DrawSolidPolygon(xf, box.vertices, box.count, box.radius, yellow);
+						g_draw.DrawSolidPolygon(xf, box.vertices, box.count, box.radius, b2_colorYellow);
 					}
 				}
 			}
@@ -1793,23 +1777,23 @@ public:
 
 				if (m_castType == e_circleCast)
 				{
-					g_draw.DrawCircle(b2Add(m_rayStart, rayTranslation), m_castRadius, gray);
+					g_draw.DrawCircle(b2Add(m_rayStart, rayTranslation), m_castRadius, b2_colorGray);
 				}
 				else if (m_castType == e_capsuleCast)
 				{
 					b2Vec2 p1 = b2Add(b2TransformPoint(transform, capsule.center1), rayTranslation);
 					b2Vec2 p2 = b2Add(b2TransformPoint(transform, capsule.center2), rayTranslation);
-					g_draw.DrawCapsule(p1, p2, m_castRadius, yellow);
+					g_draw.DrawCapsule(p1, p2, m_castRadius, b2_colorYellow);
 				}
 				else if (m_castType == e_polygonCast)
 				{
 					b2Transform xf = {b2Add(transform.p, rayTranslation), transform.q};
-					g_draw.DrawSolidPolygon(xf, box.vertices, box.count, box.radius, yellow);
+					g_draw.DrawSolidPolygon(xf, box.vertices, box.count, box.radius, b2_colorYellow);
 				}
 			}
 		}
 
-		g_draw.DrawPoint(m_rayStart, 5.0f, green);
+		g_draw.DrawPoint(m_rayStart, 5.0f, b2_colorGreen);
 
 		if (B2_IS_NON_NULL(m_bodyIds[m_ignoreIndex]))
 		{
@@ -2133,14 +2117,13 @@ public:
 
 		m_doomCount = 0;
 
-		b2Color color = b2MakeColor(b2_colorWhite);
 		b2Transform transform = {m_position, b2MakeRot(m_angle)};
 
 		if (m_shapeType == e_circleShape)
 		{
 			b2World_OverlapCircle(m_worldId, &m_queryCircle, transform, b2DefaultQueryFilter(), OverlapWorld::OverlapResultFcn, 
 								  this);
-			g_draw.DrawCircle(transform.p, m_queryCircle.radius, color);
+			g_draw.DrawCircle(transform.p, m_queryCircle.radius, b2_colorWhite);
 		}
 		else if (m_shapeType == e_capsuleShape)
 		{
@@ -2148,7 +2131,7 @@ public:
 								   this);
 			b2Vec2 p1 = b2TransformPoint(transform, m_queryCapsule.center1);
 			b2Vec2 p2 = b2TransformPoint(transform, m_queryCapsule.center2);
-			g_draw.DrawCapsule(p1, p2, m_queryCapsule.radius, color);
+			g_draw.DrawCapsule(p1, p2, m_queryCapsule.radius, b2_colorWhite);
 		}
 		else if (m_shapeType == e_boxShape)
 		{
@@ -2159,7 +2142,7 @@ public:
 			{
 				points[i] = b2TransformPoint(transform, m_queryBox.vertices[i]);
 			}
-			g_draw.DrawPolygon(points, m_queryBox.count, color);
+			g_draw.DrawPolygon(points, m_queryBox.count, b2_colorWhite);
 		}
 
 		if (B2_IS_NON_NULL(m_bodyIds[m_ignoreIndex]))
@@ -2348,27 +2331,22 @@ public:
 
 	void DrawManifold(const b2Manifold* manifold, b2Vec2 origin1, b2Vec2 origin2)
 	{
-		b2Color white = b2MakeColor(b2_colorWhite);
-		b2Color red = b2MakeColor(b2_colorRed);
-		b2Color green = b2MakeColor(b2_colorGreen);
-		b2Color blue = b2MakeColor(b2_colorBlue);
-		
 		for (int i = 0; i < manifold->pointCount; ++i)
 		{
 			const b2ManifoldPoint* mp = manifold->points + i;
 
 			b2Vec2 p1 = mp->point;
 			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
-			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawSegment(p1, p2, b2_colorWhite);
 
 			if (m_showAnchors)
 			{
-				g_draw.DrawPoint(b2Add(origin1, mp->anchorA), 5.0f, red);
-				g_draw.DrawPoint(b2Add(origin2, mp->anchorB), 5.0f, green);
+				g_draw.DrawPoint(b2Add(origin1, mp->anchorA), 5.0f, b2_colorRed);
+				g_draw.DrawPoint(b2Add(origin2, mp->anchorB), 5.0f, b2_colorGreen);
 			}
 			else
 			{
-				g_draw.DrawPoint(p1, 5.0f, blue);
+				g_draw.DrawPoint(p1, 5.0f, b2_colorBlue);
 			}
 
 			if (m_showIds)
@@ -2392,19 +2370,9 @@ public:
 		b2Vec2 offset = {-10.0f, 10.0f};
 		b2Vec2 increment = {4.0f, 0.0f};
 
-		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
-		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
-		//b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
-		//b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
-
-		b2Color dim1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 1.0f};
-
-		// box = b2MakeRoundedBox(10.0f, 10.0f, 10.0f);
-		// box = b2MakeRoundedBox(0.4f, 0.4f, 0.1f);
-
-		// b2Color fill = {0.345098048f, 0.431372553f, 0.458823532f, 1.0f};
-		// b2Color outline = {0.933333337f, 0.909803927f, 0.835294127f, 1.0f};
-		// g_draw.DrawRoundedPolygon(box.vertices, box.count, box.radius, fill, outline);
+		b2HexColor color1 = b2_colorAquamarine;
+		b2HexColor color2 = b2_colorMagenta;
+		b2HexColor dim1 = b2_colorAquamarine3;
 
 		if (m_enableCaching == false)
 		{
@@ -2689,9 +2657,9 @@ public:
 			b2Vec2 g2 = b2TransformPoint(xf1, segment.ghost2);
 			b2Vec2 p1 = b2TransformPoint(xf1, segment.segment.point1);
 			b2Vec2 p2 = b2TransformPoint(xf1, segment.segment.point2);
-			g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+			g_draw.DrawSegment(g1, p1, b2_colorLightGray);
 			g_draw.DrawSegment(p1, p2, color1);
-			g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+			g_draw.DrawSegment(p2, g2, b2_colorLightGray);
 			g_draw.DrawSolidCircle(xf2, circle.center, circle.radius, color2);
 
 			DrawManifold(&m, xf1.p, xf2.p);
@@ -2725,7 +2693,7 @@ public:
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(p2, g2, b2_colorLightGray);
 			}
 
 			{
@@ -2733,7 +2701,7 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
-				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(g1, p1, b2_colorLightGray);
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
@@ -2741,7 +2709,7 @@ public:
 			}
 
 			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);
-			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2MakeColor(b2_colorGainsboro));
+			g_draw.DrawPoint(b2TransformPoint(xf2, rox.centroid), 5.0f, b2_colorGainsboro);
 
 			DrawManifold(&m1, xf1.p, xf2.p);
 			DrawManifold(&m2, xf1.p, xf2.p);
@@ -2766,11 +2734,11 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
-				// g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				// g_draw.DrawSegment(g1, p1, b2_colorLightGray);
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(p2, g2, b2_colorLightGray);
 			}
 
 			{
@@ -2778,18 +2746,18 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment2.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment2.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment2.segment.point2);
-				g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
+				g_draw.DrawSegment(g1, p1, b2_colorLightGray);
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
+				// g_draw.DrawSegment(p2, g2, b2_colorLightGray);
 			}
 
 			b2Vec2 p1 = b2TransformPoint(xf2, capsule.center1);
 			b2Vec2 p2 = b2TransformPoint(xf2, capsule.center2);
 			g_draw.DrawSolidCapsule(p1, p2, capsule.radius, color2);
 
-			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2MakeColor(b2_colorGainsboro));
+			g_draw.DrawPoint(b2Lerp(p1, p2, 0.5f), 5.0f, b2_colorGainsboro);
 
 			DrawManifold(&m1, xf1.p, xf2.p);
 			DrawManifold(&m2, xf1.p, xf2.p);
@@ -3012,25 +2980,22 @@ public:
 
 	void DrawManifold(const b2Manifold* manifold)
 	{
-		b2Color white = {1.0f, 1.0f, 1.0f, 1.0f};
-		b2Color green = {0.0f, 1.0f, 0.0f, 1.0f};
-
 		for (int i = 0; i < manifold->pointCount; ++i)
 		{
 			const b2ManifoldPoint* mp = manifold->points + i;
 
 			b2Vec2 p1 = mp->point;
 			b2Vec2 p2 = b2MulAdd(p1, 0.5f, manifold->normal);
-			g_draw.DrawSegment(p1, p2, white);
+			g_draw.DrawSegment(p1, p2, b2_colorWhite);
 
 			if (m_showAnchors)
 			{
-				g_draw.DrawPoint(p1, 5.0f, green);
+				g_draw.DrawPoint(p1, 5.0f, b2_colorGreen);
 			
 			}
 			else
 			{
-				g_draw.DrawPoint(p1, 5.0f, green);
+				g_draw.DrawPoint(p1, 5.0f, b2_colorGreen);
 			
 			}
 
@@ -3052,10 +3017,8 @@ public:
 
 	void Step(Settings&) override
 	{
-		b2Color color1 = {0.3f, 0.8f, 0.6f, 1.0f};
-		b2Color color2 = {0.8f, 0.6f, 0.3f, 1.0f};
-		b2Color fillColor1 = {0.5f * color1.r, 0.5f * color1.g, 0.5f * color1.b, 0.5f};
-		b2Color fillColor2 = {0.5f * color2.r, 0.5f * color2.g, 0.5f * color2.b, 0.5f};
+		b2HexColor color1 = b2_colorYellow;
+		b2HexColor color2 = b2_colorMagenta;
 
 		b2Transform xf1 = b2Transform_identity;
 		b2Transform xf2 = m_transform;
@@ -3288,16 +3251,16 @@ public:
 		{
 			if (m_radiusA > 0.0f)
 			{
-				g_draw.DrawCircle(vertices[0], m_radiusA, {0.9f, 0.9f, 0.9f, 1.0f});
+				g_draw.DrawCircle(vertices[0], m_radiusA, b2_colorGray90);
 			}
 			else
 			{
-				g_draw.DrawPoint(vertices[0], 5.0f, {0.9f, 0.9f, 0.9f, 1.0f});
+				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorGray90);
 			}
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countA, {0.9f, 0.9f, 0.9f, 1.0f});
+			g_draw.DrawPolygon(vertices, m_countA, b2_colorGray90);
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -3309,16 +3272,16 @@ public:
 		{
 			if (m_radiusB > 0.0f)
 			{
-				g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.9f, 0.5f, 1.0f});
+				g_draw.DrawCircle(vertices[0], m_radiusB, b2_colorGreen2);
 			}
 			else
 			{
-				g_draw.DrawPoint(vertices[0], 5.0f, {0.5f, 0.9f, 0.5f, 1.0f});
+				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorGreen2);
 			}
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.9f, 0.5f, 1.0f});
+			g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen2);
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -3330,27 +3293,27 @@ public:
 		{
 			if (m_radiusB > 0.0f)
 			{
-				g_draw.DrawCircle(vertices[0], m_radiusB, {0.5f, 0.7f, 0.9f, 1.0f});
+				g_draw.DrawCircle(vertices[0], m_radiusB, b2_colorOrange);
 			}
 			else
 			{
-				g_draw.DrawPoint(vertices[0], 5.0f, {0.5f, 0.7f, 0.9f, 1.0f});
+				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorOrange);
 			}
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.7f, 0.9f, 1.0f});
+			g_draw.DrawPolygon(vertices, m_countB, b2_colorOrange);
 		}
 
 		if (output.hit)
 		{
 			b2Vec2 p1 = output.point;
-			g_draw.DrawPoint(p1, 10.0f, {0.9f, 0.3f, 0.3f, 1.0f});
+			g_draw.DrawPoint(p1, 10.0f, b2_colorRed2);
 			b2Vec2 p2 = b2MulAdd(p1, 1.0f, output.normal);
-			g_draw.DrawSegment(p1, p2, {0.9f, 0.3f, 0.3f, 1.0f});
+			g_draw.DrawSegment(p1, p2, b2_colorRed2);
 		}
 
-		g_draw.DrawSegment(m_transformB.p, b2Add(m_transformB.p, m_translationB), {0.9f, 0.9f, 0.9f, 1.0f});
+		g_draw.DrawSegment(m_transformB.p, b2Add(m_transformB.p, m_translationB), b2_colorGray);
 	}
 
 	b2Vec2 m_vAs[b2_maxPolygonVertices];
@@ -3418,7 +3381,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformA, m_verticesA[i]);
 		}
-		g_draw.DrawPolygon(vertices, m_countA, {0.9f, 0.9f, 0.9f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countA, b2_colorGray);
 
 		// Draw B at t = 0
 		b2Transform transformB = b2GetSweepTransform(&sweepB, 0.0f);
@@ -3426,7 +3389,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.9f, 0.5f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen2);
 
 		// Draw B at t = hit_time
 		transformB = b2GetSweepTransform(&sweepB, output.t);
@@ -3434,7 +3397,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_draw.DrawPolygon(vertices, m_countB, {0.5f, 0.7f, 0.9f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countB, b2_colorOrange);
 
 		// Draw B at t = 1
 		transformB = b2GetSweepTransform(&sweepB, 1.0f);
@@ -3442,7 +3405,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_draw.DrawPolygon(vertices, m_countB, {0.9f, 0.5f, 0.5f, 1.0f});
+		g_draw.DrawPolygon(vertices, m_countB, b2_colorRed2);
 
 		if (output.state == b2_toiStateHit)
 		{

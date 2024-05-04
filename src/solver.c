@@ -243,7 +243,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 			body->sleepTime = 0.0f;
 
 			const float saftetyFactor = 0.5f;
-			if (enableContinuous && maxVelocity * timeStep > saftetyFactor * sim->minExtent)
+			if (body->type == b2_dynamicBody && enableContinuous && maxVelocity * timeStep > saftetyFactor * sim->minExtent)
 			{
 				// Store in fast array for the continuous collision stage
 				// This is deterministic because the order of TOI sweeps doesn't matter

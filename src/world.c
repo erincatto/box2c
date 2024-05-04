@@ -775,10 +775,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount)
 	b2TracyCZoneEnd(world_step);
 }
 
-static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2HexColor hexColor)
+static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2HexColor color)
 {
-	b2Color color = b2MakeColor(hexColor);
-
 	switch (shape->type)
 	{
 		case b2_capsuleShape:
@@ -821,7 +819,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Hex
 			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
 			draw->DrawSegment(p1, p2, color, draw->context);
 			draw->DrawPoint(p2, 4.0f, color, draw->context);
-			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2MakeColor(b2_colorPaleGreen4), draw->context);
+			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2_colorPaleGreen4, draw->context);
 		}
 		break;
 
@@ -900,9 +898,6 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 
 	if (draw->drawAABBs)
 	{
-		// todo hex equivalent?
-		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
-
 		b2AABB aabb = shape->fatAABB;
 
 		b2Vec2 vs[4] = {{aabb.lowerBound.x, aabb.lowerBound.y},
@@ -910,25 +905,26 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 						{aabb.upperBound.x, aabb.upperBound.y},
 						{aabb.lowerBound.x, aabb.upperBound.y}};
 
-		draw->DrawPolygon(vs, 4, color, draw->context);
+		draw->DrawPolygon(vs, 4, b2_colorGold2, draw->context);
 	}
 
 	return true;
 }
 
+// todo this has varying order for moving shapes, causing flicker when overlapping shapes are moving
 static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 {
 	B2_ASSERT(b2AABB_IsValid(draw->drawingBounds));
 
 	const float k_impulseScale = 1.0f;
 	const float k_axisScale = 0.3f;
-	b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
-	b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
-	b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
-	b2Color normalColor = {0.9f, 0.9f, 0.9f, 1.0f};
-	b2Color impulseColor = {0.9f, 0.9f, 0.3f, 1.0f};
-	b2Color frictionColor = {0.9f, 0.9f, 0.3f, 1.0f};
-
+	b2HexColor speculativeColor = b2_colorGray30;
+	b2HexColor addColor = b2_colorGreen1;
+	b2HexColor persistColor = b2_colorBlue1;
+	b2HexColor normalColor = b2_colorGray90;
+	b2HexColor impulseColor = b2_colorMagenta;
+	b2HexColor frictionColor = b2_colorYellow2;
+	
 	b2HexColor graphColors[b2_graphColorCount] = {b2_colorRed,		 b2_colorOrange,	b2_colorYellow, b2_colorGreen,
 												  b2_colorCyan,		 b2_colorBlue,		b2_colorViolet, b2_colorPink,
 												  b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral,	b2_colorBlack};
@@ -1038,7 +1034,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 							{
 								// graph color
 								float pointSize = contact->colorIndex == b2_overflowIndex ? 7.5f : 5.0f;
-								draw->DrawPoint(point->point, pointSize, b2MakeColor(graphColors[contact->colorIndex]),
+								draw->DrawPoint(point->point, pointSize, graphColors[contact->colorIndex],
 												draw->context);
 								// g_draw.DrawString(point->position, "%d", point->color);
 							}
@@ -1111,6 +1107,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		return;
 	}
 
+	// todo it seems bounds drawing is fast enough for regular usage
 	if (draw->useDrawingBounds)
 	{
 		b2DrawWithBounds(world, draw);
@@ -1200,7 +1197,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 
 	if (draw->drawAABBs)
 	{
-		b2Color color = {0.9f, 0.3f, 0.9f, 1.0f};
+		b2HexColor color = b2_colorGold2;
 
 		int setCount = b2Array(world->solverSetArray).count;
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
@@ -1266,12 +1263,12 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	{
 		const float k_impulseScale = 1.0f;
 		const float k_axisScale = 0.3f;
-		b2Color speculativeColor = {0.3f, 0.3f, 0.3f, 1.0f};
-		b2Color addColor = {0.3f, 0.95f, 0.3f, 1.0f};
-		b2Color persistColor = {0.3f, 0.3f, 0.95f, 1.0f};
-		b2Color normalColor = {0.9f, 0.9f, 0.9f, 1.0f};
-		b2Color impulseColor = {0.9f, 0.9f, 0.3f, 1.0f};
-		b2Color frictionColor = {0.9f, 0.9f, 0.3f, 1.0f};
+		b2HexColor speculativeColor = b2_colorGray30;
+		b2HexColor addColor = b2_colorGreen1;
+		b2HexColor persistColor = b2_colorBlue1;
+		b2HexColor normalColor = b2_colorGray90;
+		b2HexColor impulseColor = b2_colorMagenta;
+		b2HexColor frictionColor = b2_colorYellow2;
 
 		b2HexColor colors[b2_graphColorCount] = {b2_colorRed,		b2_colorOrange,	   b2_colorYellow, b2_colorGreen,
 												 b2_colorCyan,		b2_colorBlue,	   b2_colorViolet, b2_colorPink,
@@ -1297,7 +1294,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					{
 						// graph color
 						float pointSize = colorIndex == b2_overflowIndex ? 7.5f : 5.0f;
-						draw->DrawPoint(point->point, pointSize, b2MakeColor(colors[colorIndex]), draw->context);
+						draw->DrawPoint(point->point, pointSize, colors[colorIndex], draw->context);
 						// g_draw.DrawString(point->position, "%d", point->color);
 					}
 					else if (point->separation > b2_linearSlop)

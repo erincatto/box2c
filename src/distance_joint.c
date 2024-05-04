@@ -419,10 +419,10 @@ void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 
 	b2Vec2 axis = b2Normalize(b2Sub(pB, pA));
 
-	b2Color c1 = {0.7f, 0.7f, 0.7f, 1.0f};
-	b2Color c2 = {0.3f, 0.9f, 0.3f, 1.0f};
-	b2Color c3 = {0.9f, 0.3f, 0.3f, 1.0f};
-	b2Color c4 = {0.4f, 0.4f, 0.4f, 1.0f};
+	b2HexColor c1 = b2_colorGray74;
+	b2HexColor c2 = b2_colorLightGreen;
+	b2HexColor c3 = b2_colorRed3;
+	b2HexColor c4 = b2_colorGray4;
 
 	draw->DrawSegment(pA, pB, c4, draw->context);
 

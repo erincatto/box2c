@@ -529,6 +529,21 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	if (body->type != b2_dynamicBody)
 	{
 		bodySim->center = bodySim->transform.p;
+
+		// Compute body extents relative to center of mass.
+		// Need extents regardless of body type.
+		int shapeId = body->headShapeId;
+		while (shapeId != B2_NULL_INDEX)
+		{
+			const b2Shape* s = world->shapeArray + shapeId;
+
+			b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
+			bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+			bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+
+			shapeId = s->nextShapeId;
+		}
+
 		return;
 	}
 
@@ -550,10 +565,6 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
 		bodySim->I += massData.I;
 
-		// todo this should be center of mass relative
-		b2ShapeExtent extent = b2ComputeShapeExtent(s);
-		bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
-		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
 	}
 
 	// Compute center of mass.
@@ -587,6 +598,19 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	{
 		b2Vec2 deltaLinear = b2CrossSV(state->angularVelocity, b2Sub(bodySim->center, oldCenter));
 		state->linearVelocity = b2Add(state->linearVelocity, deltaLinear);
+	}
+
+	// Compute body extents relative to center of mass
+	shapeId = body->headShapeId;
+	while (shapeId != B2_NULL_INDEX)
+	{
+		const b2Shape* s = world->shapeArray + shapeId;
+
+		b2ShapeExtent extent = b2ComputeShapeExtent(s, localCenter);
+		bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+
+		shapeId = s->nextShapeId;
 	}
 }
 

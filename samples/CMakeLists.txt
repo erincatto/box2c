@@ -78,6 +78,8 @@ add_executable(samples
 	sample_world.cpp
 	settings.cpp
 	settings.h
+	shader.cpp
+	shader.h
 )
 
 set_target_properties(samples PROPERTIES

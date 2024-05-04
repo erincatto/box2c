@@ -4,7 +4,7 @@
 #pragma once
 
 #include "api.h"
-#include "types.h"
+#include "math_types.h"
 
 /// All the colors! Credit to wherever I got this from, I forget.
 typedef enum b2HexColor
