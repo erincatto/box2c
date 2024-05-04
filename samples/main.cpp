@@ -10,6 +10,7 @@
 #include "settings.h"
 
 #include "box2d/api.h"
+#include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/timer.h"
@@ -453,6 +454,11 @@ static void UpdateUI()
 				if (ImGui::Button("Single Step (O)", button_sz))
 				{
 					s_settings.singleStep = !s_settings.singleStep;
+				}
+
+				if (ImGui::Button("Dump Mem Stats", button_sz))
+				{
+					b2World_DumpMemoryStats(s_sample->m_worldId);
 				}
 
 				if (ImGui::Button("Reset Profile", button_sz))

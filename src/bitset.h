@@ -58,3 +58,8 @@ static inline bool b2GetBit(const b2BitSet* bitSet, uint32_t bitIndex)
 	}
 	return (bitSet->bits[blockIndex] & ((uint64_t)1 << bitIndex % 64)) != 0;
 }
+
+static inline int b2GetBitSetBytes(b2BitSet* bitSet)
+{
+	return bitSet->blockCapacity * sizeof(uint64_t);
+}

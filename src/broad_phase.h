@@ -39,6 +39,7 @@ typedef struct b2BroadPhase
 	// and need a pair query for new contacts. The array has a deterministic order.
 	// todo perhaps just a move set?
 	// todo implement a 32bit hash set for faster lookup
+	// todo moveSet can grow quite large on the first time step and remain large
 	b2HashSet moveSet;
 	int* moveArray;
 
@@ -51,6 +52,7 @@ typedef struct b2BroadPhase
 	_Atomic int movePairIndex;
 
 	// Tracks shape pairs that have a b2Contact
+	// todo pairSet can grow quite large on the first time step and remain large
 	b2HashSet pairSet;
 
 } b2BroadPhase;

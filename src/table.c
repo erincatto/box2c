@@ -136,6 +136,11 @@ bool b2ContainsKey(const b2HashSet* set, uint64_t key)
 	return set->items[index].key == key;
 }
 
+int b2GetHashSetBytes(b2HashSet* set)
+{
+	return set->capacity * (int)sizeof(b2SetItem);
+}
+
 bool b2AddKey(b2HashSet* set, uint64_t key)
 {
 	// key of zero is a sentinel

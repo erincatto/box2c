@@ -33,3 +33,5 @@ bool b2AddKey(b2HashSet* set, uint64_t key);
 bool b2RemoveKey(b2HashSet* set, uint64_t key);
 
 bool b2ContainsKey(const b2HashSet* set, uint64_t key);
+
+int b2GetHashSetBytes(b2HashSet* set);

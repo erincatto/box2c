@@ -42,3 +42,4 @@ void b2Array_Resize(void** a, int elementSize, int count);
 
 #define b2GetArrayCount(a) (b2Array(a).count)
 #define b2GetArrayCapacity(a) (b2Array(a).capacity)
+#define b2GetArrayBytes(a, elementSize) ((int)elementSize * b2Array(a).capacity)

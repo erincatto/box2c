@@ -131,6 +131,9 @@ B2_API b2Profile b2World_GetProfile(b2WorldId worldId);
 /// Get counters and sizes
 B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
 
+/// Dump memory stats to box2d_memory.txt
+B2_API void b2World_DumpMemoryStats(b2WorldId worldId);
+
 /** @} */
 
 /**

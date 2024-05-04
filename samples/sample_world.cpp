@@ -139,9 +139,9 @@ public:
 		}
 
 		m_cycleIndex = 0;
-		m_speed = 10.0f;
+		m_speed = 0.0f;
 		m_explosionPosition = {(0.5f + m_cycleIndex) * m_period + xStart, 7.0f};
-		m_explode = false;
+		m_explode = true;
 	}
 
 	void UpdateUI() override
@@ -175,7 +175,10 @@ public:
 		m_viewPosition.x += timeStep * m_speed;
 		m_viewPosition.x = b2ClampFloat(m_viewPosition.x, -span, span);
 
-		//g_camera.m_center = m_viewPosition;
+		if (m_speed != 0.0f)
+		{
+			g_camera.m_center = m_viewPosition;
+		}
 
 		float radius = 2.0f;
 		if ((m_stepCount & 0x1) == 0x1 && m_explode)

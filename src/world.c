@@ -1657,6 +1657,106 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 	return s;
 }
 
+void b2World_DumpMemoryStats(b2WorldId worldId)
+{
+	FILE* file = fopen("box2d_memory.txt", "w");
+	if (file == NULL)
+	{
+		return;
+	}
+
+	b2World* world = b2GetWorldFromId(worldId);
+
+	// id pools
+	fprintf(file, "id pools\n");
+	fprintf(file, "body ids: %d\n", b2GetIdBytes(&world->bodyIdPool));
+	fprintf(file, "solver set ids: %d\n", b2GetIdBytes(&world->solverSetIdPool));
+	fprintf(file, "joint ids: %d\n", b2GetIdBytes(&world->jointIdPool));
+	fprintf(file, "contact ids: %d\n", b2GetIdBytes(&world->contactIdPool));
+	fprintf(file, "island ids: %d\n", b2GetIdBytes(&world->islandIdPool));
+	fprintf(file, "shape ids: %d\n", b2GetIdBytes(&world->shapeIdPool));
+	fprintf(file, "chain ids: %d\n", b2GetIdBytes(&world->chainIdPool));
+	fprintf(file, "\n");
+
+	// world arrays
+	fprintf(file, "world arrays\n");
+	fprintf(file, "bodies: %d\n", b2GetArrayBytes(world->bodyArray, sizeof(b2Body)));
+	fprintf(file, "solver sets: %d\n", b2GetArrayBytes(world->solverSetArray, sizeof(b2SolverSet)));
+	fprintf(file, "joints: %d\n", b2GetArrayBytes(world->jointArray, sizeof(b2Joint)));
+	fprintf(file, "contacts: %d\n", b2GetArrayBytes(world->contactArray, sizeof(b2Contact)));
+	fprintf(file, "islands: %d\n", b2GetArrayBytes(world->islandArray, sizeof(b2Island)));
+	fprintf(file, "shapes: %d\n", b2GetArrayBytes(world->shapeArray, sizeof(b2Shape)));
+	fprintf(file, "chains: %d\n", b2GetArrayBytes(world->chainArray, sizeof(b2ChainShape)));
+	fprintf(file, "\n");
+
+	// broad-phase
+	fprintf(file, "broad-phase\n");
+	fprintf(file, "static tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_staticProxy));
+	fprintf(file, "movable tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_movableProxy));
+	b2HashSet* moveSet = &world->broadPhase.moveSet;
+	fprintf(file, "moveSet: %d (%d, %d)\n", b2GetHashSetBytes(moveSet), moveSet->count, moveSet->capacity);
+	fprintf(file, "moveArray: %d\n", b2GetArrayBytes(world->broadPhase.moveArray, sizeof(int)));
+	b2HashSet* pairSet = &world->broadPhase.pairSet;
+	fprintf(file, "pairSet: %d (%d, %d)\n", b2GetHashSetBytes(pairSet), pairSet->count, pairSet->capacity);
+	fprintf(file, "\n");
+
+	// solver sets
+	int bodySimCapacity = 0;
+	int bodyStateCapacity = 0;
+	int jointSimCapacity = 0;
+	int contactSimCapacity = 0;
+	int islandSimCapacity = 0;
+	int solverSetCapacity = b2Array(world->solverSetArray).count;
+	for (int i = 0; i < solverSetCapacity; ++i)
+	{
+		b2SolverSet* set = world->solverSetArray + i;
+		if (set->setIndex == B2_NULL_INDEX)
+		{
+			continue;
+		}
+
+		bodySimCapacity += set->sims.capacity;
+		bodyStateCapacity += set->states.capacity;
+		jointSimCapacity += set->joints.capacity;
+		contactSimCapacity += set->contacts.capacity;
+		islandSimCapacity += set->islands.capacity;
+	}
+
+	fprintf(file, "solver sets\n");
+	fprintf(file, "body sim: %d\n", bodySimCapacity * (int)sizeof(b2BodySim));
+	fprintf(file, "body state: %d\n", bodyStateCapacity * (int)sizeof(b2BodyState));
+	fprintf(file, "joint sim: %d\n", jointSimCapacity * (int)sizeof(b2JointSim));
+	fprintf(file, "contact sim: %d\n", contactSimCapacity * (int)sizeof(b2ContactSim));
+	fprintf(file, "island sim: %d\n", islandSimCapacity * (int)sizeof(islandSimCapacity));
+	fprintf(file, "\n");
+
+	// constraint graph
+	int bodyBitSetBytes = 0;
+	contactSimCapacity = 0;
+	jointSimCapacity = 0;
+	for (int i = 0; i < b2_graphColorCount; ++i)
+	{
+		b2GraphColor* c = world->constraintGraph.colors + i;
+		bodyBitSetBytes += b2GetBitSetBytes(&c->bodySet);
+		contactSimCapacity += c->contacts.capacity;
+		jointSimCapacity += c->joints.capacity;
+	}
+
+	fprintf(file, "constraint graph\n");
+	fprintf(file, "body bit sets: %d\n", bodyBitSetBytes);
+	fprintf(file, "joint sim: %d\n", jointSimCapacity * (int)sizeof(b2JointSim));
+	fprintf(file, "contact sim: %d\n", contactSimCapacity * (int)sizeof(b2ContactSim));
+	fprintf(file, "\n");
+
+	// stack allocator
+	fprintf(file, "stack allocator: %d\n\n", world->stackAllocator.capacity);
+
+	// chain shapes
+	// todo
+
+	fclose(file);
+}
+
 typedef struct WorldQueryContext
 {
 	b2World* world;

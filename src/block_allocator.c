@@ -57,8 +57,12 @@ void b2DestroyBlockAllocator(b2BlockAllocator* allocator)
 	b2DestroyArray(allocator->chunkArray, sizeof(b2Chunk));
 }
 
-// todo this would leak on shutdown
-#define B2_USE_SYSTEM_ALLOC 0
+// todo should probably get rid of this allocator
+// large world sample:
+// - block allocator 245 MB
+// - system allocator 206 MB
+// no significant performance difference
+#define B2_USE_SYSTEM_ALLOC 1
 
 #if B2_USE_SYSTEM_ALLOC
 void* b2AllocBlock(b2BlockAllocator* allocator, int size)
