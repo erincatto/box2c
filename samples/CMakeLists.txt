@@ -75,8 +75,11 @@ add_executable(samples
 	sample_robustness.cpp
 	sample_shapes.cpp
 	sample_stacking.cpp
+	sample_world.cpp
 	settings.cpp
 	settings.h
+	shader.cpp
+	shader.h
 )
 
 set_target_properties(samples PROPERTIES

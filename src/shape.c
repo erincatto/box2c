@@ -34,6 +34,26 @@ static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
 	return chain;
 }
 
+static void b2UpdateShapeAABBs(b2Shape* shape, b2Transform transform, b2ProxyType proxyType)
+{
+	// Compute a bounding box with a speculative margin
+	b2AABB aabb = b2ComputeShapeAABB(shape, transform);
+	aabb.lowerBound.x -= b2_speculativeDistance;
+	aabb.lowerBound.y -= b2_speculativeDistance;
+	aabb.upperBound.x += b2_speculativeDistance;
+	aabb.upperBound.y += b2_speculativeDistance;
+	shape->aabb = aabb;
+
+	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
+	float margin = proxyType == b2_staticProxy ? b2_speculativeDistance : b2_aabbMargin;
+	b2AABB fatAABB;
+	fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
+	fatAABB.lowerBound.y = aabb.lowerBound.y - margin;
+	fatAABB.upperBound.x = aabb.upperBound.x + margin;
+	fatAABB.upperBound.y = aabb.upperBound.y + margin;
+	shape->fatAABB = fatAABB;
+}
+
 static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform transform,
 							  const b2ShapeDef* def, const void* geometry, b2ShapeType shapeType)
 {
@@ -105,7 +125,7 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 	if (body->setIndex != b2_disabledSet)
 	{
 		b2ProxyType proxyType = body->setIndex == b2_staticSet ? b2_staticProxy : b2_movableProxy;
-		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, def->forceContactCreation);
 	}
 
 	// Add to shape doubly linked list
@@ -143,7 +163,7 @@ b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const void* geom
 
 	b2Shape* shape = b2CreateShapeInternal(world, body, transform, def, geometry, shapeType);
 
-	if (shape->density > 0.0f)
+	if (body->automaticMass == true)
 	{
 		b2UpdateBodyMassData(world, body);
 	}
@@ -173,6 +193,7 @@ b2ShapeId b2CreateCapsuleShape(b2BodyId bodyId, const b2ShapeDef* def, const b2C
 
 b2ShapeId b2CreatePolygonShape(b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon)
 {
+	B2_ASSERT(b2IsValid(polygon->radius) && polygon->radius >= 0.0f);
 	return b2CreateShape(bodyId, def, polygon, b2_polygonShape);
 }
 
@@ -249,15 +270,13 @@ void b2DestroyShape(b2ShapeId shapeId)
 
 	b2Shape* shape = world->shapeArray + id;
 
-	float density = shape->density;
-
 	// need to wake bodies because this might be a static body
 	bool wakeBodies = true;
 
 	b2Body* body = b2GetBody(world, shape->bodyId);
 	b2DestroyShapeInternal(world, shape, body, wakeBodies);
 
-	if (density > 0.0f)
+	if (body->automaticMass == true)
 	{
 		b2UpdateBodyMassData(world, body);
 	}
@@ -468,6 +487,40 @@ b2Vec2 b2GetShapeCentroid(const b2Shape* shape)
 	}
 }
 
+// todo maybe compute this on shape creation
+float b2GetShapePerimeter(const b2Shape* shape)
+{
+	switch (shape->type)
+	{
+		case b2_capsuleShape:
+			return 2.0f * b2Length(b2Sub(shape->capsule.center1, shape->capsule.center2)) + 2.0f * b2_pi * shape->capsule.radius;
+		case b2_circleShape:
+			return 2.0f * b2_pi * shape->circle.radius;
+		case b2_polygonShape:
+		{
+			const b2Vec2* points = shape->polygon.vertices;
+			int count = shape->polygon.count;
+			float perimeter = 2.0f * b2_pi * shape->polygon.radius;
+			B2_ASSERT(count > 0);
+			b2Vec2 prev = points[count - 1];
+			for (int i = 0; i < count; ++i)
+			{
+				b2Vec2 next = points[i];
+				perimeter += b2Length(b2Sub(next, prev));
+				prev = next;
+			}
+
+			return perimeter;
+		}
+		case b2_segmentShape:
+			return 2.0f * b2Length(b2Sub(shape->segment.point1, shape->segment.point2));
+		case b2_smoothSegmentShape:
+			return 2.0f * b2Length(b2Sub(shape->smoothSegment.segment.point1, shape->smoothSegment.segment.point2));
+		default:
+			return 0.0f;
+	}
+}
+
 b2MassData b2ComputeShapeMass(const b2Shape* shape)
 {
 	switch (shape->type)
@@ -485,7 +538,7 @@ b2MassData b2ComputeShapeMass(const b2Shape* shape)
 	}
 }
 
-b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
+b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape, b2Vec2 localCenter)
 {
 	b2ShapeExtent extent = {0};
 
@@ -495,7 +548,9 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			float radius = shape->capsule.radius;
 			extent.minExtent = radius;
-			extent.maxExtent = B2_MAX(b2Length(shape->capsule.center1), b2Length(shape->capsule.center2)) + radius;
+			b2Vec2 c1 = b2Sub(shape->capsule.center1, localCenter);
+			b2Vec2 c2 = b2Sub(shape->capsule.center2, localCenter);
+			extent.maxExtent = sqrtf(b2MaxFloat(b2LengthSquared(c1), b2LengthSquared(c2))) + radius;
 		}
 		break;
 
@@ -503,7 +558,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 		{
 			float radius = shape->circle.radius;
 			extent.minExtent = radius;
-			extent.maxExtent = b2Length(shape->circle.center) + radius;
+			extent.maxExtent = b2Length(b2Sub(shape->circle.center, localCenter)) + radius;
 		}
 		break;
 
@@ -515,15 +570,34 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 			int count = poly->count;
 			for (int i = 0; i < count; ++i)
 			{
-				float planeOffset = b2Dot(poly->normals[i], b2Sub(poly->vertices[i], poly->centroid));
+				b2Vec2 v = poly->vertices[i];
+				float planeOffset = b2Dot(poly->normals[i], b2Sub(v, poly->centroid));
 				minExtent = B2_MIN(minExtent, planeOffset);
 
-				float distanceSqr = b2LengthSquared(poly->vertices[i]);
+				float distanceSqr = b2LengthSquared(b2Sub(v, localCenter));
 				maxExtentSqr = B2_MAX(maxExtentSqr, distanceSqr);
 			}
 
 			extent.minExtent = minExtent + poly->radius;
 			extent.maxExtent = sqrtf(maxExtentSqr) + poly->radius;
+		}
+		break;
+
+		case b2_segmentShape:
+		{
+			extent.minExtent = 0.0f;
+			b2Vec2 c1 = b2Sub(shape->segment.point1, localCenter);
+			b2Vec2 c2 = b2Sub(shape->segment.point2, localCenter);
+			extent.maxExtent = sqrtf(b2MaxFloat(b2LengthSquared(c1), b2LengthSquared(c2)));
+		}
+		break;
+
+		case b2_smoothSegmentShape:
+		{
+			extent.minExtent = 0.0f;
+			b2Vec2 c1 = b2Sub(shape->smoothSegment.segment.point1, localCenter);
+			b2Vec2 c2 = b2Sub(shape->smoothSegment.segment.point2, localCenter);
+			extent.maxExtent = sqrtf(b2MaxFloat(b2LengthSquared(c1), b2LengthSquared(c2)));
 		}
 		break;
 
@@ -534,11 +608,11 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape)
 	return extent;
 }
 
-b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform xf)
+b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b2Transform transform)
 {
 	b2RayCastInput localInput = *input;
-	localInput.origin = b2InvTransformPoint(xf, input->origin);
-	localInput.translation = b2InvRotateVector(xf.q, input->translation);
+	localInput.origin = b2InvTransformPoint(transform, input->origin);
+	localInput.translation = b2InvRotateVector(transform.q, input->translation);
 
 	b2CastOutput output = {0};
 	switch (shape->type)
@@ -562,21 +636,21 @@ b2CastOutput b2RayCastShape(const b2RayCastInput* input, const b2Shape* shape, b
 			return output;
 	}
 
-	output.point = b2TransformPoint(xf, output.point);
-	output.normal = b2RotateVector(xf.q, output.normal);
+	output.point = b2TransformPoint(transform, output.point);
+	output.normal = b2RotateVector(transform.q, output.normal);
 	return output;
 }
 
-b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform xf)
+b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shape, b2Transform transform)
 {
 	b2ShapeCastInput localInput = *input;
 
 	for (int i = 0; i < localInput.count; ++i)
 	{
-		localInput.points[i] = b2InvTransformPoint(xf, input->points[i]);
+		localInput.points[i] = b2InvTransformPoint(transform, input->points[i]);
 	}
 
-	localInput.translation = b2InvRotateVector(xf.q, input->translation);
+	localInput.translation = b2InvRotateVector(transform.q, input->translation);
 
 	b2CastOutput output = {0};
 	switch (shape->type)
@@ -600,34 +674,19 @@ b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shap
 			return output;
 	}
 
-	output.point = b2TransformPoint(xf, output.point);
-	output.normal = b2RotateVector(xf.q, output.normal);
+	output.point = b2TransformPoint(transform, output.point);
+	output.normal = b2RotateVector(transform.q, output.normal);
 	return output;
 }
 
-void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform)
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform, bool forcePairCreation)
 {
 	B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
 
-	// Compute a bounding box with a speculative margin
-	b2AABB aabb = b2ComputeShapeAABB(shape, transform);
-	aabb.lowerBound.x -= b2_speculativeDistance;
-	aabb.lowerBound.y -= b2_speculativeDistance;
-	aabb.upperBound.x += b2_speculativeDistance;
-	aabb.upperBound.y += b2_speculativeDistance;
-	shape->aabb = aabb;
-
-	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
-	float margin = type == b2_staticProxy ? b2_speculativeDistance : b2_aabbMargin;
-	b2AABB fatAABB;
-	fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
-	fatAABB.lowerBound.y = aabb.lowerBound.y - margin;
-	fatAABB.upperBound.x = aabb.upperBound.x + margin;
-	fatAABB.upperBound.y = aabb.upperBound.y + margin;
-	shape->fatAABB = fatAABB;
+	b2UpdateShapeAABBs(shape, transform, type);
 
 	// Create proxies in the broad-phase.
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, fatAABB, shape->filter.categoryBits, shape->id);
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->id, forcePairCreation);
 	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_proxyTypeCount);
 }
 
@@ -866,11 +925,17 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 		}
 	}
 
-	// Touch the broad-phase proxies to ensure the correct contacts get created.
-	int proxyKey = shape->proxyKey;
-	if (proxyKey != B2_NULL_INDEX && B2_PROXY_TYPE(proxyKey) == b2_movableProxy)
+	b2Transform transform = b2GetBodyTransformQuick(world, body);
+	if (shape->proxyKey != B2_NULL_INDEX)
 	{
-		b2BufferMove(&world->broadPhase, proxyKey);
+		b2ProxyType proxyType = B2_PROXY_TYPE(shape->proxyKey);
+		b2UpdateShapeAABBs(shape, transform, proxyType);
+		b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->fatAABB);
+	}
+	else
+	{
+		b2ProxyType proxyType = body->type == b2_staticBody ? b2_staticProxy : b2_movableProxy;
+		b2UpdateShapeAABBs(shape, transform, proxyType);
 	}
 
 	b2ValidateSolverSets(world);
@@ -1204,4 +1269,29 @@ b2AABB b2Shape_GetAABB(b2ShapeId shapeId)
 
 	b2Shape* shape = b2GetShape(world, shapeId);
 	return shape->aabb;
+}
+
+b2Vec2 b2Shape_GetClosestPoint(b2ShapeId shapeId, b2Vec2 target)
+{
+	b2World* world = b2GetWorldLocked(shapeId.world0);
+	if (world == NULL)
+	{
+		return (b2Vec2){0};
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	b2Body* body = b2GetBody(world, shape->bodyId);
+	b2Transform transform = b2GetBodyTransformQuick(world, body);
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeShapeDistanceProxy(shape);
+	input.proxyB = b2MakeProxy(&target, 1, 0.0f);
+	input.transformA = transform;
+	input.transformB = b2Transform_identity;
+	input.useRadii = true;
+
+	b2DistanceCache cache = {0};
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+
+	return output.pointA;
 }

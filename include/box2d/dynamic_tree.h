@@ -160,8 +160,12 @@ B2_API int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
 
 /// Shift the world origin. Useful for large worlds.
 /// The shift formula is: position -= newOrigin
+/// @param tree the tree to shift
 /// @param newOrigin the new origin with respect to the old origin
 B2_API void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
+
+/// Get the number of bytes used by this tree
+B2_API int b2DynamicTree_GetByteCount(b2DynamicTree* tree);
 
 /// Get proxy user data
 /// @return the proxy user data or 0 if the id is invalid

@@ -25,7 +25,7 @@
 // This is used for debugging by making all constraints be assigned to overflow.
 #define B2_FORCE_OVERFLOW 0
 
-void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bodyCapacity)
+void b2CreateGraph(b2ConstraintGraph* graph, int bodyCapacity)
 {
 	_Static_assert(b2_graphColorCount >= 2, "must have at least two constraint graph colors");
 
@@ -44,14 +44,15 @@ void b2CreateGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator, int bo
 	}
 }
 
-void b2DestroyGraph(b2ConstraintGraph* graph)
+void b2DestroyGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator)
 {
 	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
 		b2DestroyBitSet(&color->bodySet);
 
-		// the rest is from b2BlockAllocator
+		b2DestroyContactArray(allocator, &color->contacts);
+		b2DestroyJointArray(allocator, &color->joints);
 	}
 }
 

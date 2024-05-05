@@ -10,6 +10,7 @@
 #include "settings.h"
 
 #include "box2d/api.h"
+#include "box2d/box2d.h"
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/timer.h"
@@ -129,8 +130,7 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 
-	bool success;
-	success = ImGui_ImplGlfw_InitForOpenGL(window, false);
+	bool success = ImGui_ImplGlfw_InitForOpenGL(window, false);
 	if (success == false)
 	{
 		printf("ImGui_ImplGlfw_InitForOpenGL failed\n");
@@ -144,33 +144,10 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		assert(false);
 	}
 
-#if 1
 	// this doesn't look that good
 	// Search for font file
-	const char* fontPath1 = "data/droid_sans.ttf";
-	const char* fontPath2 = "../samples/data/droid_sans.ttf";
-	const char* fontPath3 = "samples/data/droid_sans.ttf";
-	const char* fontPath = nullptr;
-	FILE* file1 = fopen(fontPath1, "rb");
-	FILE* file2 = fopen(fontPath2, "rb");
-	FILE* file3 = fopen(fontPath3, "rb");
-	if (file1)
-	{
-		fontPath = fontPath1;
-		fclose(file1);
-	}
-
-	if (file2)
-	{
-		fontPath = fontPath2;
-		fclose(file2);
-	}
-
-	if (file3)
-	{
-		fontPath = fontPath3;
-		fclose(file3);
-	}
+	const char* fontPath = "samples/data/droid_sans.ttf";
+	FILE* file = fopen(fontPath, "rb");
 
 	if (fontPath)
 	{
@@ -179,7 +156,11 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 14.0f, &fontConfig);
 		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 128.0f, &fontConfig);
 	}
-#endif
+	else
+	{
+		printf("ERROR: must run Box2D samples working directory must be the top level Box2D directory (same as README.md)");
+		assert(false);
+	}
 }
 
 static void DestroyUI()
@@ -455,6 +436,11 @@ static void UpdateUI()
 					s_settings.singleStep = !s_settings.singleStep;
 				}
 
+				if (ImGui::Button("Dump Mem Stats", button_sz))
+				{
+					b2World_DumpMemoryStats(s_sample->m_worldId);
+				}
+
 				if (ImGui::Button("Reset Profile", button_sz))
 				{
 					s_sample->ResetProfile();
@@ -540,6 +526,10 @@ int main(int, char**)
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
 	//_CrtSetAllocHook(MyAllocHook);
+
+	// How to break at the leaking allocation, in the watch window enter this variable
+	// and set it to the allocation number in {}. Do this at the first line in main.
+	// {,,ucrtbased.dll}_crtBreakAlloc = <allocation number> 3970
 #endif
 
 	// Install memory hooks
@@ -737,6 +727,7 @@ int main(int, char**)
 
 			// #todo restore all drawing settings that may have been overridden by a sample
 			s_settings.drawJoints = true;
+			s_settings.useCameraBounds = false;
 
 			delete s_sample;
 			s_sample = nullptr;

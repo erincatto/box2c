@@ -6,6 +6,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math_functions.h"
@@ -42,6 +43,13 @@ public:
 		bodyDef.position = {0.0f, 4.0f};
 		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 		b2CreatePolygonShape(bodyId, &shapeDef, &box);
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+	
+		g_draw.DrawCircle(b2Vec2_zero, 1.0f, b2_colorWhite);
 	}
 
 	static Sample* Create(Settings& settings)
@@ -308,8 +316,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
+		float height = 230.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::PushItemWidth(120.0f);
@@ -492,9 +502,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 230.0f));
-		ImGui::Begin("Cliff Options", nullptr, ImGuiWindowFlags_NoResize);
+		float height = 60.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(160.0f, height));
+
+		ImGui::Begin("Cliff", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Flip"))
 		{

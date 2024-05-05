@@ -8,6 +8,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math_functions.h"
@@ -221,8 +222,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f));
-		ImGui::SetNextWindowSize(ImVec2(140.0f, 100.0f));
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Sensor Event", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("donut", m_type == e_donut))
@@ -438,8 +441,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 60.0f));
+		float height = 60.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Sample Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("force", &m_force, 100.0f, 500.0f, "%.1f");
@@ -784,8 +789,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 200.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Platformer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("force", &m_force, 0.0f, 50.0f, "%.1f");
@@ -917,18 +924,32 @@ public:
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			b2Polygon box = b2MakeOffsetBox(20.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			shapeDef.friction = 0.1f;
+
+			b2Polygon box = b2MakeOffsetBox(12.0f, 0.1f, {-10.0f, -0.1f}, -0.15f * b2_pi);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+			
+			box = b2MakeOffsetBox(12.0f, 0.1f, {10.0f, -0.1f}, 0.15f * b2_pi);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
-			box = b2MakeOffsetBox(1.0f, 5.0f, {19.0f, 5.0f}, 0.0f);
+			shapeDef.restitution = 0.8f;
+
+			box = b2MakeOffsetBox(0.1f, 10.0f, {19.9f, 10.0f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 
-			box = b2MakeOffsetBox(1.0f, 5.0f, {-19.0f, 5.0f}, 0.0f);
+			box = b2MakeOffsetBox(0.1f, 10.0f, {-19.9f, 10.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(20.0f, 0.1f, {0.0f, 20.1f}, 0.0f);
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
 		m_sleepCount = 0;
 		m_count = 0;
+
+		m_explosionPosition = {0.0f, -5.0f};
+		m_explosionRadius = 10.0f;
+		m_explosionMagnitude = 6.0f;
 	}
 
 	void CreateBodies()
@@ -965,6 +986,7 @@ public:
 			else
 			{
 				b2Polygon poly = RandomPolygon(0.75f);
+				poly.radius = 0.1f;
 				b2CreatePolygonShape(m_bodyIds[m_count], &shapeDef, &poly);
 			}
 
@@ -972,6 +994,25 @@ public:
 			x += 1.0f;
 		}
 	}
+
+	void UpdateUI() override
+	{
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Body Move", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		if (ImGui::Button("Explode"))
+		{
+			b2World_Explode(m_worldId, m_explosionPosition, m_explosionRadius, m_explosionMagnitude);
+		}
+
+		ImGui::SliderFloat("Magnitude", &m_explosionMagnitude, -8.0f, 8.0f, "%.1f");
+
+		ImGui::End();
+	}
+
 
 	void Step(Settings& settings) override
 	{
@@ -1010,6 +1051,8 @@ public:
 			}
 		}
 
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure3);
+
 		g_draw.DrawString(5, m_textLine, "sleep count: %d", m_sleepCount);
 		m_textLine += m_textIncrement;
 	}
@@ -1023,6 +1066,9 @@ public:
 	bool m_sleeping[e_count];
 	int m_count;
 	int m_sleepCount;
+	b2Vec2 m_explosionPosition;
+	float m_explosionRadius;
+	float m_explosionMagnitude;
 };
 
 static int sampleBodyMove = RegisterSample("Events", "Body Move", BodyMove::Create);

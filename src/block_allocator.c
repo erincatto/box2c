@@ -57,6 +57,28 @@ void b2DestroyBlockAllocator(b2BlockAllocator* allocator)
 	b2DestroyArray(allocator->chunkArray, sizeof(b2Chunk));
 }
 
+// todo should probably get rid of this allocator
+// large world sample:
+// - block allocator 245 MB
+// - system allocator 206 MB
+// no significant performance difference
+#define B2_USE_SYSTEM_ALLOC 1
+
+#if B2_USE_SYSTEM_ALLOC
+void* b2AllocBlock(b2BlockAllocator* allocator, int size)
+{
+	((void)allocator);
+	return b2Alloc(size);
+}
+
+void b2FreeBlock(b2BlockAllocator* allocator, void* memory, int size)
+{
+	((void)allocator);
+	b2Free(memory, size);
+}
+
+#else
+
 void* b2AllocBlock(b2BlockAllocator* allocator, int size)
 {
 	B2_ASSERT(size >= 0);
@@ -173,6 +195,7 @@ void b2FreeBlock(b2BlockAllocator* allocator, void* memory, int size)
 	block->next = allocator->freeLists[index];
 	allocator->freeLists[index] = block;
 }
+#endif
 
 bool b2ValidateBlockAllocator(b2BlockAllocator* allocator)
 {

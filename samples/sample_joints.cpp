@@ -110,8 +110,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, 220.0f));
+		float height = 120.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
@@ -267,9 +269,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 140.0f));
-		ImGui::Begin("Motor Joint", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 140.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Motor Joint", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Go", &m_go))
 		{
@@ -439,9 +443,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 140.0f));
-		ImGui::Begin("Joint Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 140.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Joint Controls", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
@@ -556,9 +562,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 140.0f));
-		ImGui::Begin("Joint Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 140.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Joint Controls", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
@@ -669,9 +677,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 180.0f));
-		ImGui::Begin("Wheel Joint", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 180.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Wheel Joint", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
@@ -836,10 +846,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
+		float height = 80.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		// Automatic window size
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Begin("Bridge", nullptr, ImGuiWindowFlags_NoResize);
 
 		// Slider takes half the window
 		ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
@@ -955,8 +966,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, 60.0f));
+		float height = 60.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_frictionTorque, 0.0f, 1000.0f, "%2.f");
@@ -1054,9 +1067,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 180.0f));
-		ImGui::Begin("Cantilever", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 180.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Cantilever", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("linear Hertz", &m_linearHertz, 0.0f, 20.0f, "%.0f"))
 		{
@@ -1340,8 +1355,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 60.0f));
+		float height = 60.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Fixed Rotation", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("fixed rotation", &m_fixedRotation))
@@ -1450,12 +1467,12 @@ public:
 			float C = length - slackLength;
 			if (C < 0.0f || length < 0.001f)
 			{
-				g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorLightCyan));
+				g_draw.DrawSegment(anchorA, anchorB, b2_colorLightCyan);
 				m_impulses[i] = 0.0f;
 				continue;
 			}
 
-			g_draw.DrawSegment(anchorA, anchorB, b2MakeColor(b2_colorViolet));
+			g_draw.DrawSegment(anchorA, anchorB, b2_colorViolet);
 			b2Vec2 axis = b2Normalize(deltaAnchor);
 
 			b2Vec2 rB = b2Sub(anchorB, pB);
@@ -1735,9 +1752,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(220.0f, 140.0f));
-		ImGui::Begin("Car", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 140.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Car", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::PushItemWidth(100.0f);
 		if (ImGui::SliderFloat("spring Hertz", &m_hertz, 0.0f, 20.0f, "%.0f"))

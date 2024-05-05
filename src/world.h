@@ -106,6 +106,11 @@ typedef struct b2World
 	struct b2ContactBeginTouchEvent* contactBeginArray;
 	struct b2ContactEndTouchEvent* contactEndArray;
 
+	// Used to track debug draw
+	b2BitSet debugBodySet;
+	b2BitSet debugJointSet;
+	b2BitSet debugContactSet;
+
 	// Id that is incremented every time step
 	uint64_t stepIndex;
 

@@ -6,6 +6,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
+#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 
@@ -187,8 +188,9 @@ class BodyType : public Sample
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 150.0f));
+		float height = 150.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("Static", m_type == b2_staticBody))
@@ -518,20 +520,39 @@ public:
 			b2MassData massData = {mass, {0.0f, -offset}, I};
 			b2Body_SetMassData(m_weebleId, massData);
 		}
+
+		m_explosionPosition = {0.0f, 0.0f};
+		m_explosionRadius = 2.0f;
+		m_explosionMagnitude = 8.0f;
 	}
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 60.0f));
-		ImGui::Begin("Sample Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 160.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::Begin("Weeble", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Teleport"))
 		{
 			b2Body_SetTransform(m_weebleId, {0.0f, 5.0f}, 0.95 * b2_pi);
 		}
 
+		if (ImGui::Button("Explode"))
+		{
+			b2World_Explode(m_worldId, m_explosionPosition, m_explosionRadius, m_explosionMagnitude);
+		}
+
+		ImGui::SliderFloat("Magnitude", &m_explosionMagnitude, -100.0f, 100.0f, "%.1f");
+
 		ImGui::End();
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure3);
 	}
 
 	static Sample* Create(Settings& settings)
@@ -540,6 +561,9 @@ public:
 	}
 
 	b2BodyId m_weebleId;
+	b2Vec2 m_explosionPosition;
+	float m_explosionRadius;
+	float m_explosionMagnitude;
 };
 
 static int sampleWeeble = RegisterSample("Bodies", "Weeble", Weeble::Create);
@@ -552,8 +576,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {2.3f, 10.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_center = {3.0f, 50.0f};
+			g_camera.m_zoom = 2.2f;
 		}
 
 		b2BodyId groundId = b2_nullBodyId;
@@ -621,12 +645,65 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2CreatePolygonShape(bodyId, &shapeDef, &box);
 		}
+
+		// A long pendulum
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.type = b2_dynamicBody;
+			bodyDef.position = {0.0f, 100.0f};
+			bodyDef.angularDamping = 0.5f;
+			bodyDef.sleepThreshold = 0.05f;
+			m_pendulumId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2Capsule capsule = {{0.0f, 0.0f}, {90.0f, 0.0f}, 0.25f};
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateCapsuleShape(m_pendulumId, &shapeDef, &capsule);
+
+			b2Vec2 pivot = bodyDef.position;
+			b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+			jointDef.bodyIdA = groundId;
+			jointDef.bodyIdB = m_pendulumId;
+			jointDef.localAnchorA = b2Body_GetLocalPoint(jointDef.bodyIdA, pivot);
+			jointDef.localAnchorB = b2Body_GetLocalPoint(jointDef.bodyIdB, pivot);
+			b2CreateRevoluteJoint(m_worldId, &jointDef);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::Begin("Sleep", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::PushItemWidth(140.0f);
+
+		ImGui::Text("Pendulum Tuning");
+
+		float sleepVelocity = b2Body_GetSleepThreshold(m_pendulumId);
+		if (ImGui::SliderFloat("sleep velocity", &sleepVelocity, 0.0f, 1.0f, "%.2f"))
+		{
+			b2Body_SetSleepThreshold(m_pendulumId, sleepVelocity);
+			b2Body_SetAwake(m_pendulumId, true);
+		}
+
+		float angularDamping = b2Body_GetAngularDamping(m_pendulumId);
+		if (ImGui::SliderFloat("angular damping", &angularDamping, 0.0f, 2.0f, "%.2f"))
+		{
+			b2Body_SetAngularDamping(m_pendulumId, angularDamping);
+		}
+
+		ImGui::PopItemWidth();
+
+		ImGui::End();
 	}
 
 	static Sample* Create(Settings& settings)
 	{
 		return new Sleep(settings);
 	}
+
+	b2BodyId m_pendulumId;
 };
 
 static int sampleSleep = RegisterSample("Bodies", "Sleep", Sleep::Create);

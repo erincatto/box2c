@@ -287,8 +287,8 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 
 	if (radius > 0.0f)
 	{
-		// Push out vertices according to radius. This improves
-		// the mass accuracy, especially the rotational inertia.
+		// Approximate mass of rounded polygons by pushing out the vertices.
+		float sqrt2 = 1.412f;
 		for (int32_t i = 0; i < count; ++i)
 		{
 			int32_t j = i == 0 ? count - 1 : i - 1;
@@ -296,16 +296,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 			b2Vec2 n2 = shape->normals[i];
 
 			b2Vec2 mid = b2Normalize(b2Add(n1, n2));
-			b2Vec2 t1 = {-n1.y, n1.x};
-			float sinHalfAngle = b2Cross(mid, t1);
-
-			float offset = radius;
-			if (sinHalfAngle > FLT_EPSILON)
-			{
-				offset = radius / sinHalfAngle;
-			}
-
-			vertices[i] = b2MulAdd(shape->vertices[i], offset, mid);
+			vertices[i] = b2MulAdd(shape->vertices[i], sqrt2 * radius, mid);
 		}
 	}
 	else

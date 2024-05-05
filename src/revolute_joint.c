@@ -446,11 +446,11 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 
-	b2Color c1 = {0.7f, 0.7f, 0.7f, 1.0f};
-	b2Color c2 = {0.3f, 0.9f, 0.3f, 1.0f};
-	b2Color c3 = {0.9f, 0.3f, 0.3f, 1.0f};
-	b2Color c4 = {0.4f, 0.4f, 0.4f, 1.0f};
-	b2Color c5 = {0.3f, 0.3f, 0.9f, 1.0f};
+	b2HexColor c1 = b2_colorGray70;
+	b2HexColor c2 = b2_colorGreen2;
+	b2HexColor c3 = b2_colorRed2;
+	b2HexColor c4 = b2_colorGray40;
+	b2HexColor c5 = b2_colorBlue2;
 
 	const float L = drawSize;
 	draw->DrawPoint(pA, 5.0f, c4, draw->context);
@@ -486,7 +486,7 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 		draw->DrawSegment(pB, b2Add(pB, ref), c5, draw->context);
 	}
 
-	b2Color color = {0.5f, 0.8f, 0.8f, 1.0f};
+	b2HexColor color = b2_colorGold2;
 	draw->DrawSegment(transformA.p, pA, color, draw->context);
 	draw->DrawSegment(pA, pB, color, draw->context);
 	draw->DrawSegment(transformB.p, pB, color, draw->context);

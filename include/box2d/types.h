@@ -91,7 +91,7 @@ typedef enum b2BodyType
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 typedef struct b2BodyDef
 {
-/// The body type: static, kinematic, or dynamic.
+	/// The body type: static, kinematic, or dynamic.
 	/// Note: if a dynamic body would have zero mass, the mass is set to one.
 	b2BodyType type;
 
@@ -121,6 +121,9 @@ typedef struct b2BodyDef
 	/// Scale the gravity applied to this body.
 	float gravityScale;
 
+	/// Sleep velocity threshold, default is 0.05 meter per second
+	float sleepThreshold;
+
 	/// Use this to store application specific body data.
 	void* userData;
 
@@ -140,6 +143,10 @@ typedef struct b2BodyDef
 
 	/// Does this body start out enabled?
 	bool isEnabled;
+
+	/// Automatically compute mass and related properties on this body from shapes.
+	/// Triggers whenever a shape is add/removed/changed. Default is true.
+	bool automaticMass;
 } b2BodyDef;
 
 /// This holds contact filtering data.
@@ -210,6 +217,11 @@ typedef struct b2ShapeDef
 	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 	///	and must be carefully handled due to multi-threading. Ignored for sensors.
 	bool enablePreSolveEvents;
+
+	/// Normally shapes on static bodies don't invoke contact creation when they are added to the world. This overrides
+	///	that behavior and causes contact creation. This significantly slows down static body creation which can be important
+	///	when there are many static bodies.
+	bool forceContactCreation;
 
 } b2ShapeDef;
 
@@ -286,6 +298,7 @@ typedef struct b2Counters
 	int32_t jointCount;
 	int32_t islandCount;
 	int32_t stackUsed;
+	int32_t staticTreeHeight;
 	int32_t treeHeight;
 	int32_t byteCount;
 	int32_t taskCount;

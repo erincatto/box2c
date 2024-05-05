@@ -27,3 +27,8 @@ static inline int b2GetIdCapacity(b2IdPool* pool)
 {
 	return pool->nextIndex;
 }
+
+static inline int b2GetIdBytes(b2IdPool* pool)
+{
+	return b2GetArrayBytes(pool->freeArray, sizeof(int));
+}

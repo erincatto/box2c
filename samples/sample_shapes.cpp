@@ -14,22 +14,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-struct RayCastContext
-{
-	b2Vec2 point;
-	b2Vec2 normal;
-	bool hit;
-};
-
-static float RayCastClosestCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
-{
-	RayCastContext* rayContext = (RayCastContext*)context;
-	rayContext->point = point;
-	rayContext->normal = normal;
-	rayContext->hit = true;
-	return fraction;
-}
-
 class ChainShape : public Sample
 {
 public:
@@ -172,8 +156,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 200.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(280.0f, 125.0f));
+		float height = 125.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
@@ -207,8 +193,8 @@ public:
 	{
 		Sample::Step(settings);
 
-		g_draw.DrawSegment(b2Vec2_zero, {0.5f, 0.0f}, b2MakeColor(b2_colorRed));
-		g_draw.DrawSegment(b2Vec2_zero, {0.0f, 0.5f}, b2MakeColor(b2_colorGreen));
+		g_draw.DrawSegment(b2Vec2_zero, {0.5f, 0.0f}, b2_colorRed);
+		g_draw.DrawSegment(b2Vec2_zero, {0.0f, 0.5f}, b2_colorGreen);
 	}
 
 	static Sample* Create(Settings& settings)
@@ -226,7 +212,6 @@ public:
 };
 
 static int sampleChainShape = RegisterSample("Shapes", "Chain Shape", ChainShape::Create);
-
 
 // This sample shows how careful creation of compound shapes leads to better simulation and avoids
 // objects getting stuck.
@@ -399,9 +384,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
-		ImGui::Begin("Compound Shapes", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Compound Shapes", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Intrude"))
 		{
@@ -419,21 +406,17 @@ public:
 
 		if (m_drawBodyAABBs)
 		{
-			b2AABB aabb;
-
-			b2Color yellow = b2MakeColorAlpha(b2_colorYellow3, 0.5f);
-
-			aabb = b2Body_ComputeAABB(m_table1Id);
-			g_draw.DrawAABB(aabb, yellow);
+			b2AABB aabb = b2Body_ComputeAABB(m_table1Id);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 
 			aabb = b2Body_ComputeAABB(m_table2Id);
-			g_draw.DrawAABB(aabb, yellow);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 
 			aabb = b2Body_ComputeAABB(m_ship1Id);
-			g_draw.DrawAABB(aabb, yellow);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 
 			aabb = b2Body_ComputeAABB(m_ship2Id);
-			g_draw.DrawAABB(aabb, yellow);
+			g_draw.DrawAABB(aabb, b2_colorYellow3);
 		}
 	}
 
@@ -473,10 +456,9 @@ public:
 			g_camera.m_center = {0.0f, 5.0f};
 		}
 
-		b2BodyId groundId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
-			groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2BodyId  groundId = b2CreateBody(m_worldId, &bodyDef);
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -519,9 +501,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 240.0f));
-		ImGui::Begin("Shape Filter", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 240.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Shape Filter", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::Text("Player 1 Collides With");
 		{
@@ -696,7 +680,7 @@ public:
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			m_bodyIds[i] = b2_nullBodyId;
 		}
@@ -708,7 +692,7 @@ public:
 
 	void CreateBodies()
 	{
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
@@ -733,7 +717,7 @@ public:
 		float x = -1.0f * (e_count - 1);
 		float dx = 2.0f;
 
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			bodyDef.position = {x, 40.0f};
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
@@ -756,8 +740,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Restitution", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -930,14 +916,16 @@ public:
 		}
 
 		b2BodyId bodyId = b2Shape_GetBody(m_shapeId);
-		b2Body_ResetMassData(bodyId);
+		b2Body_ApplyMassFromShapes(bodyId);
 	}
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 240.0f));
-		ImGui::Begin("Modify Geometry", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 230.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
+
+		ImGui::Begin("Modify Geometry", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("Circle", m_shapeType == b2_circleShape))
 		{
@@ -1093,3 +1081,130 @@ public:
 };
 
 static int sampleChainLink = RegisterSample("Shapes", "Chain Link", ChainLink::Create);
+
+class RoundedShapes : public Sample
+{
+public:
+	explicit RoundedShapes(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.55f;
+			g_camera.m_center = {2.0f, 8.0f};
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(20.0f, 1.0f, {0.0f, -1.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 5.0f, {19.0f, 5.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+
+			box = b2MakeOffsetBox(1.0f, 5.0f, {-19.0f, 5.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		//b2Capsule capsule = {{-0.25f, 0.0f}, {0.25f, 0.0f}, 0.25f};
+		//b2Circle circle = {{0.0f, 0.0f}, 0.35f};
+		//b2Polygon square = b2MakeSquare(0.35f);
+
+		//b2Vec2 points[3] = {{-0.1f, -0.5f}, {0.1f, -0.5f}, {0.0f, 0.5f}};
+		//b2Hull wedgeHull = b2ComputeHull(points, 3);
+		//b2Polygon wedge = b2MakePolygon(&wedgeHull, 0.0f);
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+		float y = 2.0f;
+		int xcount = 10, ycount = 10;
+
+		for (int i = 0; i < ycount; ++i)
+		{
+			float x = -5.0f;
+			for (int j = 0; j < xcount; ++j)
+			{
+				bodyDef.position = {x, y};
+				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+				b2Polygon poly = RandomPolygon(0.5f);
+				poly.radius = RandomFloat(0.05f, 0.25f);
+				b2CreatePolygonShape(bodyId, &shapeDef, &poly);
+
+				x += 1.0f;
+			}
+
+			y += 1.0f;
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new RoundedShapes(settings);
+	}
+};
+
+static int sampleRoundedShapes = RegisterSample("Shapes", "Rounded", RoundedShapes::Create);
+
+class OffsetShapes : public Sample
+{
+public:
+	explicit OffsetShapes(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_zoom = 0.55f;
+			g_camera.m_center = {2.0f, 8.0f};
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {-1.0f, 1.0f};
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {10.0f, -2.0f}, 0.5f * b2_pi);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		{
+			b2Capsule capsule = {{-5.0f, 1.0f}, {-4.0f, 1.0f}, 0.25f};
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {13.5f, -0.75f};
+			bodyDef.type = b2_dynamicBody;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreateCapsuleShape(bodyId, &shapeDef, &capsule);
+		}
+
+		{
+			b2Polygon box = b2MakeOffsetBox(0.75f, 0.5f, {9.0f, 2.0f}, 0.5f * b2_pi);
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position = {0.0f, 0.0f};
+			bodyDef.type = b2_dynamicBody;
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2CreatePolygonShape(bodyId, &shapeDef, &box);
+		}
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		g_draw.DrawTransform(b2Transform_identity);
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new OffsetShapes(settings);
+	}
+};
+
+static int sampleOffsetShapes = RegisterSample("Shapes", "Offset", OffsetShapes::Create);

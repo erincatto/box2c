@@ -185,6 +185,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
 	B2_ASSERT(b2IsValid(def->angularDamping) && def->angularDamping >= 0.0f);
+	B2_ASSERT(b2IsValid(def->sleepThreshold) && def->sleepThreshold >= 0.0f);
 	B2_ASSERT(b2IsValid(def->gravityScale));
 
 	b2World* world = b2GetWorldFromId(worldId);
@@ -252,10 +253,8 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->linearDamping = def->linearDamping;
 	bodySim->angularDamping = def->angularDamping;
 	bodySim->gravityScale = def->gravityScale;
-	bodySim->sleepTime = 0.0f;
 	bodySim->bodyId = bodyId;
 	bodySim->enableSleep = def->enableSleep;
-	bodySim->fixedRotation = def->fixedRotation;
 	bodySim->isBullet = def->isBullet;
 	bodySim->enlargeAABB = false;
 	bodySim->isFast = false;
@@ -298,9 +297,13 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
 	body->id = bodyId;
+	body->sleepThreshold = def->sleepThreshold;
+	body->sleepTime = 0.0f;
 	body->type = def->type;
+	body->fixedRotation = def->fixedRotation;
 	body->isSpeedCapped = false;
 	body->isMarked = false;
+	body->automaticMass = def->automaticMass;
 
 	// dynamic and kinematic bodies that are enabled need a island
 	if (setId >= b2_awakeSet)
@@ -527,6 +530,23 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	if (body->type != b2_dynamicBody)
 	{
 		bodySim->center = bodySim->transform.p;
+
+		// Need extents for kinematic bodies for sleeping to work correctly.
+		if (body->type == b2_kinematicBody)
+		{
+			int shapeId = body->headShapeId;
+			while (shapeId != B2_NULL_INDEX)
+			{
+				const b2Shape* s = world->shapeArray + shapeId;
+
+				b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
+				bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+				bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+
+				shapeId = s->nextShapeId;
+			}
+		}
+
 		return;
 	}
 
@@ -548,9 +568,6 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
 		bodySim->I += massData.I;
 
-		b2ShapeExtent extent = b2ComputeShapeExtent(s);
-		bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
-		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
 	}
 
 	// Compute center of mass.
@@ -560,7 +577,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		localCenter = b2MulSV(bodySim->invMass, localCenter);
 	}
 
-	if (bodySim->I > 0.0f && bodySim->fixedRotation == false)
+	if (bodySim->I > 0.0f && body->fixedRotation == false)
 	{
 		// Center the inertia about the center of mass.
 		bodySim->I -= bodySim->mass * b2Dot(localCenter, localCenter);
@@ -584,6 +601,19 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	{
 		b2Vec2 deltaLinear = b2CrossSV(state->angularVelocity, b2Sub(bodySim->center, oldCenter));
 		state->linearVelocity = b2Add(state->linearVelocity, deltaLinear);
+	}
+
+	// Compute body extents relative to center of mass
+	shapeId = body->headShapeId;
+	while (shapeId != B2_NULL_INDEX)
+	{
+		const b2Shape* s = world->shapeArray + shapeId;
+
+		b2ShapeExtent extent = b2ComputeShapeExtent(s, localCenter);
+		bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+
+		shapeId = s->nextShapeId;
 	}
 }
 
@@ -1008,7 +1038,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			b2Shape* shape = world->shapeArray + shapeId;
 			shapeId = shape->nextShapeId;
 			b2DestroyShapeProxy(shape, &world->broadPhase);
-			b2CreateShapeProxy(shape, &world->broadPhase, b2_movableProxy, transform);
+			bool forcePairCreation = true;
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_movableProxy, transform, forcePairCreation);
 		}
 	}
 	else if (type == b2_staticBody)
@@ -1081,7 +1112,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			b2Shape* shape = world->shapeArray + shapeId;
 			shapeId = shape->nextShapeId;
 			b2DestroyShapeProxy(shape, &world->broadPhase);
-			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticProxy, transform);
+			bool forcePairCreation = true;
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticProxy, transform, forcePairCreation);
 		}
 	}
 	else
@@ -1220,7 +1252,7 @@ b2MassData b2Body_GetMassData(b2BodyId bodyId)
 	return massData;
 }
 
-void b2Body_ResetMassData(b2BodyId bodyId)
+void b2Body_ApplyMassFromShapes(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
 	if (world == NULL)
@@ -1352,6 +1384,20 @@ bool b2Body_IsSleepEnabled(b2BodyId bodyId)
 	return bodySim->enableSleep;
 }
 
+void b2Body_SetSleepThreshold(b2BodyId bodyId, float sleepVelocity)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBodyFullId(world, bodyId);
+	body->sleepThreshold = sleepVelocity;
+}
+
+float b2Body_GetSleepThreshold(b2BodyId bodyId)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBodyFullId(world, bodyId);
+	return body->sleepThreshold;
+}
+
 void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
@@ -1469,13 +1515,14 @@ void b2Body_Enable(b2BodyId bodyId)
 
 	// Add shapes to broad-phase
 	b2ProxyType proxyType = setId == b2_staticSet ? b2_staticProxy : b2_movableProxy;
+	bool forcePairCreation = true;
 	int shapeId = body->headShapeId;
 	while (shapeId != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapeArray + shapeId;
 		shapeId = shape->nextShapeId;
 
-		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform);
+		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, forcePairCreation);
 	}
 
 	if (setId != b2_staticSet)
@@ -1545,11 +1592,9 @@ void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag)
 	}
 
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2BodySim* bodySim = b2GetBodySim(world, body);
-
-	if (bodySim->fixedRotation != flag)
+	if (body->fixedRotation != flag)
 	{
-		bodySim->fixedRotation = flag;
+		body->fixedRotation = flag;
 
 		b2BodyState* state = b2GetBodyState(world, body);
 		if (state != NULL)
@@ -1564,8 +1609,7 @@ bool b2Body_IsFixedRotation(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2BodySim* bodySim = b2GetBodySim(world, body);
-	return bodySim->fixedRotation;
+	return body->fixedRotation;
 }
 
 void b2Body_SetBullet(b2BodyId bodyId, bool flag)

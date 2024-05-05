@@ -15,6 +15,7 @@ struct Camera
 	b2Vec2 ConvertScreenToWorld(b2Vec2 screenPoint);
 	b2Vec2 ConvertWorldToScreen(b2Vec2 worldPoint);
 	void BuildProjectionMatrix(float* m, float zBias);
+	b2AABB GetViewBounds();
 
 	b2Vec2 m_center;
 	float m_zoom;
@@ -32,39 +33,37 @@ public:
 	void Create();
 	void Destroy();
 
-	void DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color);
+	void DrawPolygon(const b2Vec2* vertices, int32_t vertexCount, b2HexColor color);
+	void DrawSolidPolygon(b2Transform transform, const b2Vec2* vertices, int32_t vertexCount, float radius, b2HexColor color);
 
-	void DrawSolidPolygon(const b2Vec2* vertices, int32_t vertexCount, b2Color color);
+	void DrawCircle(b2Vec2 center, float radius, b2HexColor color);
+	void DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2HexColor color);
 
-	void DrawRoundedPolygon(const b2Vec2* vertices, int32_t vertexCount, float radius, b2Color color);
+	void DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color);
+	void DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color);
 
-	void DrawCircle(b2Vec2 center, float radius, b2Color color);
-
-	void DrawSolidCircle(b2Vec2 center, float radius, b2Vec2 axis, b2Color color);
-
-	void DrawCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
-
-	void DrawSolidCapsule(b2Vec2 p1, b2Vec2 p2, float radius, b2Color color);
-
-	void DrawSegment(b2Vec2 p1, b2Vec2 p2, b2Color color);
+	void DrawSegment(b2Vec2 p1, b2Vec2 p2, b2HexColor color);
 
 	void DrawTransform(b2Transform xf);
 
-	void DrawPoint(b2Vec2 p, float size, b2Color color);
+	void DrawPoint(b2Vec2 p, float size, b2HexColor color);
 
 	void DrawString(int x, int y, const char* string, ...);
 
 	void DrawString(b2Vec2 p, const char* string, ...);
 
-	void DrawAABB(b2AABB aabb, b2Color color);
+	void DrawAABB(b2AABB aabb, b2HexColor color);
 
 	void Flush();
 
 	bool m_showUI;
-	struct GLRenderPoints* m_points;
-	struct GLRenderLines* m_lines;
-	struct GLRenderTriangles* m_triangles;
-	struct GLRenderRoundedTriangles* m_roundedTriangles;
+	struct GLPoints* m_points;
+	struct GLLines* m_lines;
+	struct GLTriangles* m_triangles;
+	struct GLCircles* m_circles;
+	struct GLSolidCircles* m_solidCircles;
+	struct GLSolidCapsules* m_solidCapsules;
+	struct GLSolidPolygons* m_solidPolygons;
 	b2DebugDraw m_debugDraw;
 };
 

@@ -47,6 +47,9 @@ typedef struct b2Body
 	int islandPrev;
 	int islandNext;
 
+	float sleepThreshold;
+	float sleepTime;
+
 	int id;
 
 	b2BodyType type;
@@ -55,10 +58,10 @@ typedef struct b2Body
 	// Used to check for invalid b2BodyId
 	uint16_t revision;
 
-	//int16_t worldId;
-
+	bool fixedRotation;
 	bool isSpeedCapped;
 	bool isMarked;
+	bool automaticMass;
 } b2Body;
 
 // The body state is designed for fast conversion to and from SIMD via scatter-gather.
@@ -114,15 +117,11 @@ typedef struct b2BodySim
 	float linearDamping;
 	float angularDamping;
 	float gravityScale;
-	float sleepTime;
 
 	// body data can be moved around, the id is stable (used in b2BodyId)
 	int bodyId;
 
 	bool enableSleep;
-
-	// todo needed in sim?
-	bool fixedRotation;
 
 	// todo eliminate
 	bool isFast;

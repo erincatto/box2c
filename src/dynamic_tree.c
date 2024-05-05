@@ -119,8 +119,8 @@ static int32_t b2AllocateNode(b2DynamicTree* tree)
 		memcpy(tree->nodes, oldNodes, tree->nodeCount * sizeof(b2TreeNode));
 		b2Free(oldNodes, oldCapcity * sizeof(b2TreeNode));
 
-		// Build a linked list for the free list. The parent
-		// pointer becomes the "next" pointer.
+		// Build a linked list for the free list. The parent pointer becomes the "next" pointer.
+		// todo avoid building freelist?
 		for (int32_t i = tree->nodeCount; i < tree->nodeCapacity - 1; ++i)
 		{
 			tree->nodes[i].next = i + 1;
@@ -1136,6 +1136,14 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 		n->aabb.upperBound.x -= newOrigin.x;
 		n->aabb.upperBound.y -= newOrigin.y;
 	}
+}
+
+int b2DynamicTree_GetByteCount(b2DynamicTree* tree)
+{
+	size_t size = sizeof(b2DynamicTree) + sizeof(b2TreeNode) * tree->nodeCapacity +
+				  tree->rebuildCapacity * (sizeof(int32_t) + sizeof(b2AABB) + sizeof(b2Vec2) + sizeof(int32_t));
+
+	return (int)size;
 }
 
 void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,

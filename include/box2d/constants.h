@@ -66,12 +66,6 @@
 /// The time that a body must be still before it will go to sleep. In seconds.
 #define b2_timeToSleep 0.5f
 
-/// A body cannot sleep if its linear velocity is above this tolerance. Meters per second.
-#define b2_linearSleepTolerance (0.01f * b2_lengthUnitsPerMeter)
-
-/// A body cannot sleep if its angular velocity is above this tolerance. Radians per second.
-#define b2_angularSleepTolerance (2.0f / 180.0f * b2_pi)
-
 /// Used to detect bad values. Positions greater than about 16km will have precision
 /// problems, so 100km as a limit should be fine in all cases.
 #define b2_huge (100000.0f * b2_lengthUnitsPerMeter)

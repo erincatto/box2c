@@ -10,6 +10,8 @@
 #include <math.h>
 #include <stdbool.h>
 
+// todo these macros are not safe due to no sync point
+
 /// Macro to get the minimum of two values
 #define B2_MIN(A, B) ((A) < (B) ? (A) : (B))
 
@@ -26,6 +28,46 @@ static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {1.0f, 0.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {1.0f, 0.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
+
+B2_INLINE float b2MinFloat(float a, float b)
+{
+	return a < b ? a : b;
+}
+
+B2_INLINE float b2MaxFloat(float a, float b)
+{
+	return a > b ? a : b;
+}
+
+B2_INLINE float b2AbsFloat(float a)
+{
+	return a < 0 ? -a : a;
+}
+
+B2_INLINE float b2ClampFloat(float a, float lower, float upper)
+{
+	return a < lower ? lower : (a > upper ? upper : a);
+}
+
+B2_INLINE int b2MinInt(int a, int b)
+{
+	return a < b ? a : b;
+}
+
+B2_INLINE int b2MaxInt(int a, int b)
+{
+	return a > b ? a : b;
+}
+
+B2_INLINE int b2AbsInt(int a)
+{
+	return a < 0 ? -a : a;
+}
+
+B2_INLINE int b2ClampInt(int a, int lower, int upper)
+{
+	return a < lower ? lower : (a > upper ? upper : a);
+}
 
 /// Vector dot product
 B2_INLINE float b2Dot(b2Vec2 a, b2Vec2 b)

@@ -10,8 +10,8 @@
 #include "box2d/callbacks.h"
 #include "box2d/hull.h"
 #include "box2d/manifold.h"
-#include "box2d/math_functions.h"
 #include "box2d/math_cpp.h"
+#include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -183,6 +183,9 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
 
 			b2Body_SetAwake(queryContext.bodyId, true);
+
+			// todo for breakpoint
+			jd.hertz += 0;
 		}
 	}
 }
@@ -247,6 +250,15 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 	}
 
+	g_draw.m_debugDraw.drawingBounds = g_camera.GetViewBounds();
+	g_draw.m_debugDraw.useDrawingBounds = settings.useCameraBounds;
+
+	// todo testing
+	//b2Transform t1 = {g_draw.m_debugDraw.drawingBounds.lowerBound, b2Rot_identity};
+	//b2Transform t2 = {g_draw.m_debugDraw.drawingBounds.upperBound, b2Rot_identity};
+	//g_draw.DrawSolidCircle(t1, b2Vec2_zero, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+	//g_draw.DrawSolidCircle(t2, b2Vec2_zero, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+
 	g_draw.m_debugDraw.drawShapes = settings.drawShapes;
 	g_draw.m_debugDraw.drawJoints = settings.drawJoints;
 	g_draw.m_debugDraw.drawJointExtras = settings.drawJointExtras;
@@ -283,8 +295,10 @@ void Sample::Step(Settings& settings)
 						  s.jointCount);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "islands/tree_height/stack/tasks = %d/%d/%d/%d", s.islandCount, s.treeHeight,
-						  s.stackUsed, s.taskCount);
+		g_draw.DrawString(5, m_textLine, "islands/tasks = %d/%d", s.islandCount, s.taskCount);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "tree height static/movable = %d/%d", s.staticTreeHeight, s.treeHeight);
 		m_textLine += m_textIncrement;
 
 		int32_t totalCount = 0;
@@ -299,7 +313,10 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, buffer);
 		m_textLine += m_textIncrement;
 
-		g_draw.DrawString(5, m_textLine, "total bytes allocated = %d", s.byteCount);
+		g_draw.DrawString(5, m_textLine, "stack allocator size = %d K", s.stackUsed / 1024);
+		m_textLine += m_textIncrement;
+
+		g_draw.DrawString(5, m_textLine, "total allocation = %d K", s.byteCount / 1024);
 		m_textLine += m_textIncrement;
 	}
 
@@ -412,8 +429,8 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "integrate velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.integrateVelocities,
 						  aveProfile.integrateVelocities, m_maxProfile.integrateVelocities);
 		m_textLine += m_textIncrement;
-		g_draw.DrawString(5, m_textLine, "warm start [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.warmStart,
-						  aveProfile.warmStart, m_maxProfile.warmStart);
+		g_draw.DrawString(5, m_textLine, "warm start [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.warmStart, aveProfile.warmStart,
+						  m_maxProfile.warmStart);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "solve velocities [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.solveVelocities,
 						  aveProfile.solveVelocities, m_maxProfile.solveVelocities);
@@ -472,12 +489,13 @@ int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn)
 b2Polygon RandomPolygon(float extent)
 {
 	b2Vec2 points[b2_maxPolygonVertices];
-	for (int i = 0; i < b2_maxPolygonVertices; ++i)
+	int count = 3 + rand() % 6;
+	for (int i = 0; i < count; ++i)
 	{
 		points[i] = RandomVec2(-extent, extent);
 	}
 
-	b2Hull hull = b2ComputeHull(points, b2_maxPolygonVertices);
+	b2Hull hull = b2ComputeHull(points, count);
 	if (hull.count > 0)
 	{
 		return b2MakePolygon(&hull, 0.0f);

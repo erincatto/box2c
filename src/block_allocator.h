@@ -9,6 +9,8 @@
 #define b2_maxBlockPower 30
 #define b2_blockPowerCount (b2_maxBlockPower - b2_minBlockPower + 1)
 
+// todo current benchmarking shows very small gains. like 0.1% but large memory overhead
+
 // This is a block allocator used for allocating objects that persist for more than one time step. Allocations
 // rounded up to a power of 2. Free lists are maintained for a range of powers of two. Not thread-safe.
 typedef struct b2BlockAllocator
