@@ -188,8 +188,9 @@ class BodyType : public Sample
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 150.0f));
+		float height = 150.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("Static", m_type == b2_staticBody))
@@ -527,8 +528,9 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 400.0f));
-		ImGui::SetNextWindowSize(ImVec2(220.0f, 160.0f));
+		float height = 160.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 		ImGui::Begin("Weeble", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Teleport"))
@@ -669,8 +671,9 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 800.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 100.0f));
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 		ImGui::Begin("Sleep", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::PushItemWidth(140.0f);

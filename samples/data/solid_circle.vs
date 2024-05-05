@@ -7,7 +7,7 @@ uniform mat4 projectionMatrix;
 uniform float zoom;
 
 layout(location = 0) in vec2 v_localPosition;
-layout(location = 1) in vec2 v_instancePosition;
+layout(location = 1) in vec4 v_instanceTransform;
 layout(location = 2) in float v_instanceRadius;
 layout(location = 3) in vec4 v_instanceColor;
 
@@ -24,6 +24,11 @@ void main()
     // scale zoom so the border is fixed size
     f_zoom = zoom / radius;
 
-    vec2 p = vec2(radius * v_localPosition.x, radius * v_localPosition.y) + v_instancePosition;
+    float x = v_instanceTransform.x;
+    float y = v_instanceTransform.y;
+    float c = v_instanceTransform.z;
+    float s = v_instanceTransform.w;
+    vec2 p = vec2(radius * v_localPosition.x, radius * v_localPosition.y);
+    p = vec2((c * p.x - s * p.y) + x, (s * p.x + c * p.y) + y);
     gl_Position = projectionMatrix * vec4(p, 0.0f, 1.0f);
 }

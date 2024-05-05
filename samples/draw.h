@@ -57,12 +57,13 @@ public:
 	void Flush();
 
 	bool m_showUI;
-	struct GLRenderPoints* m_points;
-	struct GLRenderLines* m_lines;
-	struct GLRenderTriangles* m_triangles;
-	struct GLRenderCircles* m_circles;
-	struct GLRenderCapsules* m_capsules;
-	struct GLRenderPolygons* m_polygons;
+	struct GLPoints* m_points;
+	struct GLLines* m_lines;
+	struct GLTriangles* m_triangles;
+	struct GLCircles* m_circles;
+	struct GLSolidCircles* m_solidCircles;
+	struct GLSolidCapsules* m_solidCapsules;
+	struct GLSolidPolygons* m_solidPolygons;
 	b2DebugDraw m_debugDraw;
 };
 

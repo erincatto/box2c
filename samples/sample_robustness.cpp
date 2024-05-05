@@ -209,8 +209,10 @@ class OverlapRecovery : public Sample
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(260.0f, 220.0f));
+		float height = 220.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;

@@ -156,8 +156,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 200.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(280.0f, 125.0f));
+		float height = 125.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
@@ -382,9 +384,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
-		ImGui::Begin("Compound Shapes", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Compound Shapes", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Intrude"))
 		{
@@ -497,9 +501,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 240.0f));
-		ImGui::Begin("Shape Filter", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 240.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Shape Filter", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::Text("Player 1 Collides With");
 		{
@@ -734,8 +740,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(200.0f, 100.0f));
+		float height = 100.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Restitution", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
@@ -913,9 +921,11 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f));
-		ImGui::SetNextWindowSize(ImVec2(250.0f, 240.0f));
-		ImGui::Begin("Modify Geometry", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		float height = 230.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
+
+		ImGui::Begin("Modify Geometry", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("Circle", m_shapeType == b2_circleShape))
 		{

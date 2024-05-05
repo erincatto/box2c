@@ -147,7 +147,7 @@ static GLuint sCreateShaderFromFile(const char* filename, GLenum type)
 	}
 
 	fseek(file, 0, SEEK_END);
-	int size = ftell(file);
+	long size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
 	char* source = static_cast<char*>(malloc(size + 1));

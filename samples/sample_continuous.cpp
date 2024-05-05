@@ -102,8 +102,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 70.0f));
+		float height = 70.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
@@ -179,8 +181,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 300.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 70.0f));
+		float height = 70.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Fast Chain", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Launch"))
@@ -287,8 +291,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 130.0f));
+		float height = 130.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::Checkbox("Capsule", &m_capsule);
@@ -548,8 +554,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 100.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, 160.0f));
+		float height = 160.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Ghost Collision", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Chain", &m_useChain))

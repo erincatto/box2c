@@ -147,8 +147,10 @@ public:
 
 	void UpdateUI() override
 	{
-		ImGui::SetNextWindowPos(ImVec2(10.0f, 900.0f));
-		ImGui::SetNextWindowSize(ImVec2(220.0f, 140.0f));
+		float height = 140.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
 		ImGui::Begin("Large World", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("speed", &m_speed, -400.0f, 400.0f, "%.0f");

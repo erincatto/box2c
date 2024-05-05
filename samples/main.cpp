@@ -130,8 +130,7 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 
-	bool success;
-	success = ImGui_ImplGlfw_InitForOpenGL(window, false);
+	bool success = ImGui_ImplGlfw_InitForOpenGL(window, false);
 	if (success == false)
 	{
 		printf("ImGui_ImplGlfw_InitForOpenGL failed\n");
@@ -145,33 +144,10 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		assert(false);
 	}
 
-#if 1
 	// this doesn't look that good
 	// Search for font file
-	const char* fontPath1 = "data/droid_sans.ttf";
-	const char* fontPath2 = "../samples/data/droid_sans.ttf";
-	const char* fontPath3 = "samples/data/droid_sans.ttf";
-	const char* fontPath = nullptr;
-	FILE* file1 = fopen(fontPath1, "rb");
-	FILE* file2 = fopen(fontPath2, "rb");
-	FILE* file3 = fopen(fontPath3, "rb");
-	if (file1)
-	{
-		fontPath = fontPath1;
-		fclose(file1);
-	}
-
-	if (file2)
-	{
-		fontPath = fontPath2;
-		fclose(file2);
-	}
-
-	if (file3)
-	{
-		fontPath = fontPath3;
-		fclose(file3);
-	}
+	const char* fontPath = "samples/data/droid_sans.ttf";
+	FILE* file = fopen(fontPath, "rb");
 
 	if (fontPath)
 	{
@@ -180,7 +156,11 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 14.0f, &fontConfig);
 		ImGui::GetIO().Fonts->AddFontFromFileTTF(fontPath, 128.0f, &fontConfig);
 	}
-#endif
+	else
+	{
+		printf("ERROR: must run Box2D samples working directory must be the top level Box2D directory (same as README.md)");
+		assert(false);
+	}
 }
 
 static void DestroyUI()
