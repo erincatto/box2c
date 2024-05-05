@@ -1892,10 +1892,9 @@ public:
 			g_camera.m_center = {0.0f, 5.0f};
 		}
 
-		b2BodyId groundId;
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
-			groundId = b2CreateBody(m_worldId, &bodyDef);
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
@@ -1913,3 +1912,99 @@ public:
 };
 
 static int sampleDonut = RegisterSample("Joints", "Soft Body", SoftBody::Create);
+
+class Doohickey : public Sample
+{
+public:
+	explicit Doohickey(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 5.0f};
+			g_camera.m_zoom = 0.35f;
+		}
+
+		b2BodyId groundId;
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Segment segment = {{-20.0f, 0.0f}, {20.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
+
+			b2Polygon box = b2MakeOffsetBox(1.0f, 1.0f, {0.0f, 1.0f}, 0.0f);
+			b2CreatePolygonShape(groundId, &shapeDef, &box);
+		}
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2Circle circle = {{0.0f, 0.0f}, 1.0f};
+		b2Capsule capsule = {{-3.5f, 0.0f}, {3.5f, 0.0f}, 0.15f};
+
+		bodyDef.position = {-5.0f, 3.0f};
+		b2BodyId circleBody1 = b2CreateBody(m_worldId, &bodyDef);
+		b2CreateCircleShape(circleBody1, &shapeDef, &circle);
+
+		bodyDef.position = {5.0f, 3.0f};
+		b2BodyId circleBody2 = b2CreateBody(m_worldId, &bodyDef);
+		b2CreateCircleShape(circleBody2, &shapeDef, &circle);
+
+		bodyDef.position = {-1.5f, 3.0f};
+		b2BodyId barBody1 = b2CreateBody(m_worldId, &bodyDef);
+		b2CreateCapsuleShape(barBody1, &shapeDef, &capsule);
+
+		bodyDef.position = {1.5f, 3.0f};
+		b2BodyId barBody2 = b2CreateBody(m_worldId, &bodyDef);
+		b2CreateCapsuleShape(barBody2, &shapeDef, &capsule);
+
+		b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
+
+		revoluteDef.bodyIdA = circleBody1;
+		revoluteDef.bodyIdB = barBody1;
+		revoluteDef.localAnchorA = {0.0f, 0.0f};
+		revoluteDef.localAnchorB = {-3.5f, 0.0f};
+		revoluteDef.enableMotor = true;
+		revoluteDef.maxMotorTorque = 1.0f;
+
+		b2CreateRevoluteJoint(m_worldId, &revoluteDef);
+
+		revoluteDef.bodyIdA = circleBody2;
+		revoluteDef.bodyIdB = barBody2;
+		revoluteDef.localAnchorA = {0.0f, 0.0f};
+		revoluteDef.localAnchorB = {3.5f, 0.0f};
+		revoluteDef.enableMotor = true;
+		revoluteDef.maxMotorTorque = 1.0f;
+
+		b2CreateRevoluteJoint(m_worldId, &revoluteDef);
+
+		b2PrismaticJointDef prismaticDef = b2DefaultPrismaticJointDef();
+		prismaticDef.bodyIdA = barBody1;
+		prismaticDef.bodyIdB = barBody2;
+		prismaticDef.localAxisA = {1.0f, 0.0f};
+		prismaticDef.localAnchorA = {2.0f, 0.0f};
+		prismaticDef.localAnchorB = {-2.0f, 0.0f};
+		prismaticDef.lowerTranslation = -2.0f;
+		prismaticDef.upperTranslation = 2.0f;
+		prismaticDef.enableLimit = true;
+		prismaticDef.enableMotor = true;
+		prismaticDef.maxMotorForce = 1.0f;
+
+		b2CreatePrismaticJoint(m_worldId, &prismaticDef);
+	}
+
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new Doohickey(settings);
+	}
+};
+
+static int sampleDoohickey = RegisterSample("Joints", "Doohickey", Doohickey::Create);

@@ -149,7 +149,7 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 	const char* fontPath = "samples/data/droid_sans.ttf";
 	FILE* file = fopen(fontPath, "rb");
 
-	if (fontPath)
+	if (file != NULL)
 	{
 		ImFontConfig fontConfig;
 		fontConfig.RasterizerMultiply = s_windowScale * s_framebufferScale;
@@ -158,8 +158,8 @@ static void CreateUI(GLFWwindow* window, const char* glslVersion)
 	}
 	else
 	{
-		printf("ERROR: must run Box2D samples working directory must be the top level Box2D directory (same as README.md)");
-		assert(false);
+		printf("\n\nERROR: the Box2D samples working directory must be the top level Box2D directory (same as README.md)\n\n");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -624,8 +624,8 @@ int main(int, char**)
 	glfwSetScrollCallback(g_mainWindow, ScrollCallback);
 
 	// todo put this in s_settings
-	g_draw.Create();
 	CreateUI(g_mainWindow, glslVersion);
+	g_draw.Create();
 
 	s_settings.sampleIndex = B2_CLAMP(s_settings.sampleIndex, 0, g_sampleCount - 1);
 	s_selection = s_settings.sampleIndex;
