@@ -30,6 +30,7 @@ b2BodyDef b2DefaultBodyDef()
 	def.enableSleep = true;
 	def.isAwake = true;
 	def.isEnabled = true;
+	def.automaticMass = true;
 	return def;
 }
 

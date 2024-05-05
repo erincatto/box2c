@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Erin Catto
+// SPDX-License-Identifier: MIT
+
 #version 330
 
 in vec2 f_position;

@@ -163,7 +163,7 @@ b2ShapeId b2CreateShape(b2BodyId bodyId, const b2ShapeDef* def, const void* geom
 
 	b2Shape* shape = b2CreateShapeInternal(world, body, transform, def, geometry, shapeType);
 
-	if (shape->density > 0.0f)
+	if (body->automaticMass == true)
 	{
 		b2UpdateBodyMassData(world, body);
 	}
@@ -270,15 +270,13 @@ void b2DestroyShape(b2ShapeId shapeId)
 
 	b2Shape* shape = world->shapeArray + id;
 
-	float density = shape->density;
-
 	// need to wake bodies because this might be a static body
 	bool wakeBodies = true;
 
 	b2Body* body = b2GetBody(world, shape->bodyId);
 	b2DestroyShapeInternal(world, shape, body, wakeBodies);
 
-	if (density > 0.0f)
+	if (body->automaticMass == true)
 	{
 		b2UpdateBodyMassData(world, body);
 	}

@@ -908,7 +908,7 @@ public:
 		}
 
 		b2BodyId bodyId = b2Shape_GetBody(m_shapeId);
-		b2Body_ResetMassData(bodyId);
+		b2Body_ApplyMassFromShapes(bodyId);
 	}
 
 	void UpdateUI() override

@@ -399,8 +399,8 @@ public:
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		m_groundId = b2CreateBody(m_worldId, &bodyDef);
 
-		m_rowCount = g_sampleDebug ? 1 : 19;
-		m_columnCount = g_sampleDebug ? 1 : 19;
+		m_rowCount = g_sampleDebug ? 2 : 19;
+		m_columnCount = g_sampleDebug ? 2 : 19;
 
 		m_tumblerIds = nullptr;
 		m_positions = nullptr;
@@ -525,7 +525,6 @@ public:
 	{
 		Sample::Step(settings);
 
-		#if 0
 		if (m_bodyIndex < m_bodyCount && (m_stepCount & 0x7) == 0)
 		{
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -545,7 +544,6 @@ public:
 				m_bodyIndex += 1;
 			}
 		}
-		#endif
 	}
 
 	static Sample* Create(Settings& settings)
@@ -1366,8 +1364,8 @@ public:
 		int height = 200;
 		int width = 200;
 #else
-		int height = 50;
-		int width = 50;
+		int height = 100;
+		int width = 100;
 #endif
 		{
 
@@ -1409,6 +1407,8 @@ public:
 
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
+			// defer mass properties to avoid n-squared mass computations
+			bodyDef.automaticMass = false;
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 			for (int m = 0; m < count; ++m)
@@ -1431,6 +1431,9 @@ public:
 							b2CreatePolygonShape(bodyId, &shapeDef, &square);
 						}
 					}
+
+					// All shapes have been added so I can efficiently compute the mass properties.
+					b2Body_ApplyMassFromShapes(bodyId);
 				}
 			}
 		}

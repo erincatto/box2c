@@ -61,6 +61,7 @@ typedef struct b2Body
 	bool fixedRotation;
 	bool isSpeedCapped;
 	bool isMarked;
+	bool automaticMass;
 } b2Body;
 
 // The body state is designed for fast conversion to and from SIMD via scatter-gather.

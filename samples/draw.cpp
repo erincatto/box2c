@@ -874,6 +874,7 @@ struct GLRenderPolygons
 {
 	void Create()
 	{
+		#if 0
 		const char* vs =
 			SHADER_TEXT(uniform mat4 projectionMatrix; uniform float zoom;
 
@@ -1027,6 +1028,12 @@ struct GLRenderPolygons
 			});
 
 		m_programId = CreateProgramFromStrings(vs, fs);
+
+		#else
+		m_programId = CreateProgramFromFiles("samples/data/polygon.vs", "samples/data/polygon.fs");
+
+		#endif
+
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
 		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
 		int vertexAttribute = 0;

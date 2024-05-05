@@ -143,6 +143,10 @@ typedef struct b2BodyDef
 
 	/// Does this body start out enabled?
 	bool isEnabled;
+
+	/// Automatically compute mass and related properties on this body from shapes.
+	/// Triggers whenever a shape is add/removed/changed. Default is true.
+	bool automaticMass;
 } b2BodyDef;
 
 /// This holds contact filtering data.

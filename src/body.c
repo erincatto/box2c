@@ -303,6 +303,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->fixedRotation = def->fixedRotation;
 	body->isSpeedCapped = false;
 	body->isMarked = false;
+	body->automaticMass = def->automaticMass;
 
 	// dynamic and kinematic bodies that are enabled need a island
 	if (setId >= b2_awakeSet)
@@ -530,18 +531,20 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	{
 		bodySim->center = bodySim->transform.p;
 
-		// Compute body extents relative to center of mass.
-		// Need extents regardless of body type.
-		int shapeId = body->headShapeId;
-		while (shapeId != B2_NULL_INDEX)
+		// Need extents for kinematic bodies for sleeping to work correctly.
+		if (body->type == b2_kinematicBody)
 		{
-			const b2Shape* s = world->shapeArray + shapeId;
+			int shapeId = body->headShapeId;
+			while (shapeId != B2_NULL_INDEX)
+			{
+				const b2Shape* s = world->shapeArray + shapeId;
 
-			b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
-			bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
-			bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+				b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
+				bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+				bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
 
-			shapeId = s->nextShapeId;
+				shapeId = s->nextShapeId;
+			}
 		}
 
 		return;
@@ -1249,7 +1252,7 @@ b2MassData b2Body_GetMassData(b2BodyId bodyId)
 	return massData;
 }
 
-void b2Body_ResetMassData(b2BodyId bodyId)
+void b2Body_ApplyMassFromShapes(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorldLocked(bodyId.world0);
 	if (world == NULL)

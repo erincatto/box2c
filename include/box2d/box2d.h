@@ -157,7 +157,8 @@ B2_API bool b2Body_IsValid(b2BodyId id);
 /// Get the body type: static, kinematic, or dynamic
 B2_API b2BodyType b2Body_GetType(b2BodyId bodyId);
 
-/// Change the body type. This is an expensive operation.
+/// Change the body type. This is an expensive operation. This automatically updates the mass
+///	properties regardless of the automatic mass setting.
 B2_API void b2Body_SetType(b2BodyId bodyId, b2BodyType type);
 
 /// Set the user data for a body
@@ -269,10 +270,18 @@ B2_API void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData);
 /// Get the mass data for a body.
 B2_API b2MassData b2Body_GetMassData(b2BodyId bodyId);
 
-/// This resets the mass properties to the sum of the mass properties of the fixtures.
+/// This resets the mass properties to the sum of the mass properties of the shapes.
 /// This normally does not need to be called unless you called SetMassData to override
 /// the mass and you later want to reset the mass.
-B2_API void b2Body_ResetMassData(b2BodyId bodyId);
+///	You may also use this when automatic mass computation has been disabled.
+///	You should call this regardless of body type.
+B2_API void b2Body_ApplyMassFromShapes(b2BodyId bodyId);
+
+/// Set the automatic mass setting.
+B2_API void b2Body_SetAutomaticMass(b2BodyId bodyId, bool automaticMass);
+
+/// Get the automatic mass setting.
+B2_API bool b2Body_GetAutomaticMass(b2BodyId bodyId);
 
 /// Adjust the linear damping. Normally this is set in b2BodyDef before creation.
 B2_API void b2Body_SetLinearDamping(b2BodyId bodyId, float linearDamping);
@@ -321,7 +330,7 @@ B2_API void b2Body_Disable(b2BodyId bodyId);
 /// Enable a body by adding it to the simulation
 B2_API void b2Body_Enable(b2BodyId bodyId);
 
-/// Set this body to have fixed rotation. This causes the mass to be reset.
+/// Set this body to have fixed rotation. This causes the mass to be reset in all cases.
 B2_API void b2Body_SetFixedRotation(b2BodyId bodyId, bool flag);
 
 /// Does this body have fixed rotation?
