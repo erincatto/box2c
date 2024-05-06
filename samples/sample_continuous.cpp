@@ -15,6 +15,13 @@
 
 // This tests continuous collision robustness and also demonstrates the speed limits imposed
 // by b2_maxTranslation and b2_maxRotation.
+struct HitEvent
+{
+	b2Vec2 point;
+	float speed;
+	int stepIndex;
+};
+
 class BounceHouse : public Sample
 {
 public:
@@ -81,6 +88,8 @@ public:
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.restitution = 1.2f;
+		shapeDef.friction = 0.3f;
+		shapeDef.enableHitEvents = true;
 
 		if (m_shapeType == e_circleShape)
 		{
@@ -94,8 +103,8 @@ public:
 		}
 		else
 		{
-			float h = 0.5f;
-			b2Polygon box = b2MakeBox(h, h);
+			float h = 0.1f;
+			b2Polygon box = b2MakeBox(10.0f * h, h);
 			b2CreatePolygonShape(m_bodyId, &shapeDef, &box);
 		}
 	}
@@ -119,11 +128,46 @@ public:
 		ImGui::End();
 	}
 
+	void Step(Settings& settings) override
+	{
+		Sample::Step(settings);
+
+		b2ContactEvents events = b2World_GetContactEvents(m_worldId);
+		for (int i = 0; i < events.hitCount; ++i)
+		{
+			b2ContactHitEvent* event = events.hitEvents + i;
+
+			HitEvent* e = m_hitEvents + 0;
+			for (int j = 1; j < 4; ++j)
+			{
+				if (m_hitEvents[j].stepIndex < e->stepIndex)
+				{
+					e = m_hitEvents + j;
+				}
+			}
+
+			e->point = event->point;
+			e->speed = event->approachSpeed;
+			e->stepIndex = m_stepCount;
+		}
+
+		for (int i = 0; i < 4; ++i)
+		{
+			HitEvent* e = m_hitEvents + i;
+			if (e->stepIndex > 0 && m_stepCount <= e->stepIndex + 30)
+			{
+				g_draw.DrawCircle(e->point, 0.2f, b2_colorOrangeRed);
+				g_draw.DrawString(e->point, "%.1f", e->speed);
+			}
+		}
+	}
+
 	static Sample* Create(Settings& settings)
 	{
 		return new BounceHouse(settings);
 	}
 
+	HitEvent m_hitEvents[4];
 	b2BodyId m_bodyId;
 	ShapeType m_shapeType;
 };
@@ -547,7 +591,7 @@ public:
 		else
 		{
 			float h = 0.5f - m_round;
-			b2Polygon box = b2MakeRoundedBox(h, h, m_round);
+			b2Polygon box = b2MakeRoundedBox(h, 2.0f * h, m_round);
 			m_shapeId = b2CreatePolygonShape(m_bodyId, &shapeDef, &box);
 		}
 	}

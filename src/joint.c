@@ -134,7 +134,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 {
 	int bodyIdA = bodyA->id;
 	int bodyIdB = bodyB->id;
-	int maxSetIndex = B2_MAX(bodyA->setIndex, bodyB->setIndex);
+	int maxSetIndex = b2MaxInt(bodyA->setIndex, bodyB->setIndex);
 
 	// Create joint id and joint
 	int jointId = b2AllocId(&world->jointIdPool);
@@ -391,7 +391,7 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 	joint->motorJoint.angularOffset = def->angularOffset;
 	joint->motorJoint.maxForce = def->maxForce;
 	joint->motorJoint.maxTorque = def->maxTorque;
-	joint->motorJoint.correctionFactor = B2_CLAMP(def->correctionFactor, 0.0f, 1.0f);
+	joint->motorJoint.correctionFactor = b2ClampFloat(def->correctionFactor, 0.0f, 1.0f);
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)
@@ -461,16 +461,16 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	b2RevoluteJoint empty = {0};
 	joint->revoluteJoint = empty;
 
-	joint->revoluteJoint.referenceAngle = B2_CLAMP(def->referenceAngle, -b2_pi, b2_pi);
+	joint->revoluteJoint.referenceAngle = b2ClampFloat(def->referenceAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.linearImpulse = b2Vec2_zero;
 	joint->revoluteJoint.axialMass = 0.0f;
 	joint->revoluteJoint.motorImpulse = 0.0f;
 	joint->revoluteJoint.lowerImpulse = 0.0f;
 	joint->revoluteJoint.upperImpulse = 0.0f;
-	joint->revoluteJoint.lowerAngle = B2_MIN(def->lowerAngle, def->upperAngle);
+	joint->revoluteJoint.lowerAngle = b2MinFloat(def->lowerAngle, def->upperAngle);
 	joint->revoluteJoint.upperAngle = B2_MAX(def->lowerAngle, def->upperAngle);
-	joint->revoluteJoint.lowerAngle = B2_CLAMP(joint->revoluteJoint.lowerAngle, -b2_pi, b2_pi);
-	joint->revoluteJoint.upperAngle = B2_CLAMP(joint->revoluteJoint.upperAngle, -b2_pi, b2_pi);
+	joint->revoluteJoint.lowerAngle = b2ClampFloat(joint->revoluteJoint.lowerAngle, -b2_pi, b2_pi);
+	joint->revoluteJoint.upperAngle = b2ClampFloat(joint->revoluteJoint.upperAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.maxMotorTorque = def->maxMotorTorque;
 	joint->revoluteJoint.motorSpeed = def->motorSpeed;
 	joint->revoluteJoint.enableLimit = def->enableLimit;

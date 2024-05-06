@@ -79,19 +79,22 @@ typedef struct b2Contact
 enum b2ContactSimFlags
 {
 	// Set when the shapes are touching.
-	b2_simTouchingFlag = 0x00000001,
+	b2_simTouchingFlag = 0x0000'0001,
 
 	// This contact no longer has overlapping AABBs
-	b2_simDisjoint = 0x00000020,
+	b2_simDisjoint = 0x0000'0002,
 
 	// This contact started touching
-	b2_simStartedTouching = 0x00000040,
+	b2_simStartedTouching = 0x0000'0004,
 
 	// This contact stopped touching
-	b2_simStoppedTouching = 0x00000080,
+	b2_simStoppedTouching = 0x0000'0008,
+
+	// This contact has a hit event
+	b2_simEnableHitEvent = 0x0000'0010,
 
 	// This contact wants pre-solve events
-	b2_simEnablePreSolveEvents = 0x00000400,
+	b2_simEnablePreSolveEvents = 0x0000'0020,
 };
 
 /// The class manages contact between two shapes. A contact exists for each overlapping

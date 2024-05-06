@@ -91,9 +91,9 @@ int HelloWorld(void)
 	// create orphaned ids, so be careful about your world management.
 	b2DestroyWorld(worldId);
 
-	ENSURE(B2_ABS(position.x) < 0.01f);
-	ENSURE(B2_ABS(position.y - 1.00f) < 0.01f);
-	ENSURE(B2_ABS(angle) < 0.01f);
+	ENSURE(b2AbsFloat(position.x) < 0.01f);
+	ENSURE(b2AbsFloat(position.y - 1.00f) < 0.01f);
+	ENSURE(b2AbsFloat(angle) < 0.01f);
 
 	return 0;
 }

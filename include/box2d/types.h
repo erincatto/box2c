@@ -43,6 +43,9 @@ typedef struct b2WorldDef
 	/// This parameter controls how fast overlap is resolved and has units of meters per second
 	float contactPushoutVelocity;
 
+	/// Threshold velocity for hit events. Usually meters per second.
+	float hitEventThreshold;
+
 	/// Contact stiffness. Cycles per second.
 	float contactHertz;
 
@@ -214,6 +217,9 @@ typedef struct b2ShapeDef
 	/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
 	bool enableContactEvents;
 
+	/// Enable hit events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	bool enableHitEvents;
+
 	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 	///	and must be carefully handled due to multi-threading. Ignored for sensors.
 	bool enablePreSolveEvents;
@@ -284,6 +290,7 @@ typedef struct b2Profile
 	float finalizeBodies;
 	float splitIslands;
 	float sleepIslands;
+	float hitEvents;
 	float broadphase;
 	float continuous;
 } b2Profile;

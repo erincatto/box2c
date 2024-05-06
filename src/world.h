@@ -105,6 +105,7 @@ typedef struct b2World
 	struct b2SensorEndTouchEvent* sensorEndEventArray;
 	struct b2ContactBeginTouchEvent* contactBeginArray;
 	struct b2ContactEndTouchEvent* contactEndArray;
+	struct b2ContactHitEvent* contactHitArray;
 
 	// Used to track debug draw
 	b2BitSet debugBodySet;
@@ -124,6 +125,7 @@ typedef struct b2World
 	int splitIslandId;
 
 	b2Vec2 gravity;
+	float hitEventThreshold;
 	float restitutionThreshold;
 	float contactPushoutVelocity;
 	float contactHertz;

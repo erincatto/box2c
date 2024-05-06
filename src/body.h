@@ -50,6 +50,9 @@ typedef struct b2Body
 	float sleepThreshold;
 	float sleepTime;
 
+	// this is used to adjust the fellAsleep flag in the body move array
+	int bodyMoveIndex;
+
 	int id;
 
 	b2BodyType type;
@@ -58,6 +61,7 @@ typedef struct b2Body
 	// Used to check for invalid b2BodyId
 	uint16_t revision;
 
+	bool enableSleep;
 	bool fixedRotation;
 	bool isSpeedCapped;
 	bool isMarked;
@@ -120,8 +124,6 @@ typedef struct b2BodySim
 
 	// body data can be moved around, the id is stable (used in b2BodyId)
 	int bodyId;
-
-	bool enableSleep;
 
 	// todo eliminate
 	bool isFast;

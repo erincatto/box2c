@@ -62,7 +62,7 @@ void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	if (lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle)
 	{
-		joint->revoluteJoint.lowerAngle = B2_MIN(lower, upper);
+		joint->revoluteJoint.lowerAngle = b2MinFloat(lower, upper);
 		joint->revoluteJoint.upperAngle = B2_MAX(lower, upper);
 		joint->revoluteJoint.lowerImpulse = 0.0f;
 		joint->revoluteJoint.upperImpulse = 0.0f;
@@ -289,7 +289,7 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 		float impulse = -joint->axialMass * Cdot;
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->h * joint->maxMotorTorque;
-		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 
 		wA -= iA * impulse;

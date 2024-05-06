@@ -115,26 +115,26 @@ public:
 			}
 			else if (remainder == 1)
 			{
-				b2Vec2 position = {xbase - 1.0f, 10.0f};
-				for (int i = 0; i < 3; ++i)
+				b2Vec2 position = {xbase - 2.0f, 10.0f};
+				for (int i = 0; i < 5; ++i)
 				{
 					// Abusing this class a bit since it doesn't allocate memory
 					Human human;
-					human.Spawn(m_worldId, position, 2.0f, humanIndex + 1, NULL);
+					human.Spawn(m_worldId, position, 1.5f, humanIndex + 1, NULL);
 					humanIndex += 1;
-					position.x += 0.75f;
+					position.x += 1.0f;
 				}
 			}
 			else
 			{
-				b2Vec2 position = {xbase - 6.0f, 12.0f};
+				b2Vec2 position = {xbase - 4.0f, 12.0f};
 
 				for (int i = 0; i < 5; ++i)
 				{
 					Donut donut;
-					donut.Spawn(m_worldId, position, donutIndex + 1, NULL);
+					donut.Spawn(m_worldId, position, 0.75f, donutIndex + 1, NULL);
 					donutIndex += 1;
-					position.x += 3.0f;
+					position.x += 2.0f;
 				}
 			}
 		}

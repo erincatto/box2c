@@ -36,12 +36,17 @@ typedef struct b2ManifoldPoint
 	float tangentImpulse;
 
 	/// the maximum normal impulse applied during sub-stepping
+	///	todo not sure this is needed
 	float maxNormalImpulse;
+
+	/// Relative normal velocity pre-solve. Used for hit events. If the normal impulse is
+	/// zero then there was no hit. Negative means shapes are approaching.
+	float normalVelocity;
 
 	/// uniquely identifies a contact point between two shapes
 	uint16_t id;
 
-	/// did this contact point exist the previous step?
+	/// Did this contact point exist the previous step?
 	bool persisted;
 } b2ManifoldPoint;
 

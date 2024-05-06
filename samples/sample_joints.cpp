@@ -1482,7 +1482,7 @@ public:
 
 			float Cdot = b2Dot(vB, axis) + Jb * omegaB;
 			float impulse = -massCoefficient * invK * (Cdot + biasCoefficient * C);
-			float appliedImpulse = B2_CLAMP(impulse, -maxForce * timeStep, 0.0f);
+			float appliedImpulse = b2ClampFloat(impulse, -maxForce * timeStep, 0.0f);
 
 			vB = b2MulAdd(vB, invMass * appliedImpulse, axis);
 			omegaB += appliedImpulse * invI * Jb;
@@ -1900,7 +1900,7 @@ public:
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		m_donut.Spawn(m_worldId, {0.0f, 10.0f}, 0, nullptr);
+		m_donut.Spawn(m_worldId, {0.0f, 10.0f}, 2.0f, 0, nullptr);
 	}
 
 	static Sample* Create(Settings& settings)

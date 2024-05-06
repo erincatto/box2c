@@ -303,7 +303,7 @@ void b2DistanceJoint_SetLength(b2JointId jointId, float length)
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	joint->length = B2_CLAMP(length, b2_linearSlop, b2_huge);
+	joint->length = b2ClampFloat(length, b2_linearSlop, b2_huge);
 	joint->impulse = 0.0f;
 	joint->lowerImpulse = 0.0f;
 	joint->upperImpulse = 0.0f;
@@ -321,9 +321,9 @@ void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float ma
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	minLength = B2_CLAMP(minLength, b2_linearSlop, b2_huge);
-	maxLength = B2_CLAMP(maxLength, b2_linearSlop, b2_huge);
-	joint->minLength = B2_MIN(minLength, maxLength);
+	minLength = b2ClampFloat(minLength, b2_linearSlop, b2_huge);
+	maxLength = b2ClampFloat(maxLength, b2_linearSlop, b2_huge);
+	joint->minLength = b2MinFloat(minLength, maxLength);
 	joint->maxLength = B2_MAX(minLength, maxLength);
 	joint->impulse = 0.0f;
 	joint->lowerImpulse = 0.0f;

@@ -12,17 +12,8 @@
 
 // todo these macros are not safe due to no sync point
 
-/// Macro to get the minimum of two values
-#define B2_MIN(A, B) ((A) < (B) ? (A) : (B))
-
 /// Macro to get the maximum of two values
 #define B2_MAX(A, B) ((A) > (B) ? (A) : (B))
-
-/// Macro to get the absolute value
-#define B2_ABS(A) ((A) > 0.0f ? (A) : -(A))
-
-/// Macro to clamp A to be between B and C, inclusive
-#define B2_CLAMP(A, B, C) B2_MIN(B2_MAX(A, B), C)
 
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {1.0f, 0.0f};
@@ -160,8 +151,8 @@ B2_INLINE b2Vec2 b2MulSub(b2Vec2 a, float s, b2Vec2 b)
 B2_INLINE b2Vec2 b2Abs(b2Vec2 a)
 {
 	b2Vec2 b;
-	b.x = B2_ABS(a.x);
-	b.y = B2_ABS(a.y);
+	b.x = b2AbsFloat(a.x);
+	b.y = b2AbsFloat(a.y);
 	return b;
 }
 
@@ -169,8 +160,8 @@ B2_INLINE b2Vec2 b2Abs(b2Vec2 a)
 B2_INLINE b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
-	c.x = B2_MIN(a.x, b.x);
-	c.y = B2_MIN(a.y, b.y);
+	c.x = b2MinFloat(a.x, b.x);
+	c.y = b2MinFloat(a.y, b.y);
 	return c;
 }
 
@@ -178,8 +169,8 @@ B2_INLINE b2Vec2 b2Min(b2Vec2 a, b2Vec2 b)
 B2_INLINE b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
-	c.x = B2_MAX(a.x, b.x);
-	c.y = B2_MAX(a.y, b.y);
+	c.x = b2MaxFloat(a.x, b.x);
+	c.y = b2MaxFloat(a.y, b.y);
 	return c;
 }
 
@@ -187,8 +178,8 @@ B2_INLINE b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 B2_INLINE b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
-	c.x = B2_CLAMP(v.x, a.x, b.x);
-	c.y = B2_CLAMP(v.y, a.y, b.y);
+	c.x = b2ClampFloat(v.x, a.x, b.x);
+	c.y = b2ClampFloat(v.y, a.y, b.y);
 	return c;
 }
 
@@ -483,10 +474,10 @@ B2_INLINE b2Vec2 b2AABB_Extents(b2AABB a)
 B2_INLINE b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 {
 	b2AABB c;
-	c.lowerBound.x = B2_MIN(a.lowerBound.x, b.lowerBound.x);
-	c.lowerBound.y = B2_MIN(a.lowerBound.y, b.lowerBound.y);
-	c.upperBound.x = B2_MAX(a.upperBound.x, b.upperBound.x);
-	c.upperBound.y = B2_MAX(a.upperBound.y, b.upperBound.y);
+	c.lowerBound.x = b2MinFloat(a.lowerBound.x, b.lowerBound.x);
+	c.lowerBound.y = b2MinFloat(a.lowerBound.y, b.lowerBound.y);
+	c.upperBound.x = b2MaxFloat(a.upperBound.x, b.upperBound.x);
+	c.upperBound.y = b2MaxFloat(a.upperBound.y, b.upperBound.y);
 	return c;
 }
 

@@ -106,6 +106,9 @@ B2_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
 /// Adjust the restitution threshold. Advanced feature for testing.
 B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 
+/// Adjust the hit event threshold. Advanced feature for testing.
+B2_API void b2World_SetHitEventThreshold(b2WorldId worldId, float value);
+
 /// Register the pre-solve callback. This is optional.
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 

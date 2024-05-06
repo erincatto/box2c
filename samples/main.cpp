@@ -399,7 +399,7 @@ static void UpdateUI()
 
 				if (ImGui::SliderInt("Workers", &s_settings.workerCount, 1, maxWorkers))
 				{
-					s_settings.workerCount = B2_CLAMP(s_settings.workerCount, 1, maxWorkers);
+					s_settings.workerCount = b2ClampInt(s_settings.workerCount, 1, maxWorkers);
 					RestartSample();
 				}
 				ImGui::PopItemWidth();
@@ -539,7 +539,7 @@ int main(int, char**)
 	char buffer[128];
 
 	s_settings.Load();
-	s_settings.workerCount = B2_MIN(8, (int)enki::GetNumHardwareThreads() / 2);
+	s_settings.workerCount = b2MinInt(8, (int)enki::GetNumHardwareThreads() / 2);
 	SortTests();
 
 	glfwSetErrorCallback(glfwErrorCallback);
@@ -627,7 +627,7 @@ int main(int, char**)
 	CreateUI(g_mainWindow, glslVersion);
 	g_draw.Create();
 
-	s_settings.sampleIndex = B2_CLAMP(s_settings.sampleIndex, 0, g_sampleCount - 1);
+	s_settings.sampleIndex = b2ClampInt(s_settings.sampleIndex, 0, g_sampleCount - 1);
 	s_selection = s_settings.sampleIndex;
 	s_sample = g_sampleEntries[s_settings.sampleIndex].createFcn(s_settings);
 
@@ -644,7 +644,7 @@ int main(int, char**)
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_Z) == GLFW_PRESS)
 		{
 			// Zoom out
-			g_camera.m_zoom = B2_MIN(1.005f * g_camera.m_zoom, 20.0f);
+			g_camera.m_zoom = b2MinFloat(1.005f * g_camera.m_zoom, 20.0f);
 		}
 		else if (glfwGetKey(g_mainWindow, GLFW_KEY_X) == GLFW_PRESS)
 		{

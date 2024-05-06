@@ -48,7 +48,7 @@ void b2PrismaticJoint_SetLimits(b2JointId jointId, float lower, float upper)
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	if (lower != joint->prismaticJoint.lowerTranslation || upper != joint->prismaticJoint.upperTranslation)
 	{
-		joint->prismaticJoint.lowerTranslation = B2_MIN(lower, upper);
+		joint->prismaticJoint.lowerTranslation = b2MinFloat(lower, upper);
 		joint->prismaticJoint.upperTranslation = B2_MAX(lower, upper);
 		joint->prismaticJoint.lowerImpulse = 0.0f;
 		joint->prismaticJoint.upperImpulse = 0.0f;
@@ -336,7 +336,7 @@ void b2SolvePrismaticJoint(b2JointSim* base, b2StepContext* context, bool useBia
 		float impulse = joint->axialMass * (joint->motorSpeed - Cdot);
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->h * joint->maxMotorForce;
-		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 
 		b2Vec2 P = b2MulSV(impulse, axisA);
