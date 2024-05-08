@@ -60,15 +60,19 @@ typedef struct b2Joint
 
 typedef struct b2DistanceJoint
 {
+	float length;
 	float hertz;
 	float dampingRatio;
-	float length;
 	float minLength;
 	float maxLength;
+
+	float maxMotorForce;
+	float motorSpeed;
 
 	float impulse;
 	float lowerImpulse;
 	float upperImpulse;
+	float motorImpulse;
 
 	int indexA;
 	int indexB;
@@ -77,6 +81,10 @@ typedef struct b2DistanceJoint
 	b2Vec2 deltaCenter;
 	b2Softness distanceSoftness;
 	float axialMass;
+
+	bool enableSpring;
+	bool enableLimit;
+	bool enableMotor;
 } b2DistanceJoint;
 
 typedef struct b2MotorJoint
@@ -123,10 +131,8 @@ typedef struct b2PrismaticJoint
 	float motorImpulse;
 	float lowerImpulse;
 	float upperImpulse;
-	bool enableMotor;
 	float maxMotorForce;
 	float motorSpeed;
-	bool enableLimit;
 	float referenceAngle;
 	float lowerTranslation;
 	float upperTranslation;
@@ -139,6 +145,8 @@ typedef struct b2PrismaticJoint
 	b2Vec2 deltaCenter;
 	float deltaAngle;
 	float axialMass;
+	bool enableLimit;
+	bool enableMotor;
 } b2PrismaticJoint;
 
 typedef struct b2RevoluteJoint
@@ -147,10 +155,8 @@ typedef struct b2RevoluteJoint
 	float motorImpulse;
 	float lowerImpulse;
 	float upperImpulse;
-	bool enableMotor;
 	float maxMotorTorque;
 	float motorSpeed;
-	bool enableLimit;
 	float referenceAngle;
 	float lowerAngle;
 	float upperAngle;
@@ -162,6 +168,8 @@ typedef struct b2RevoluteJoint
 	b2Vec2 deltaCenter;
 	float deltaAngle;
 	float axialMass;
+	bool enableMotor;
+	bool enableLimit;
 } b2RevoluteJoint;
 
 typedef struct b2WeldJoint

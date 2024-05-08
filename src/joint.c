@@ -334,6 +334,7 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 
 	B2_ASSERT(b2Body_IsValid(def->bodyIdA));
 	B2_ASSERT(b2Body_IsValid(def->bodyIdB));
+	B2_ASSERT(b2IsValid(def->length) && def->length > 0.0f);
 
 	b2Body* bodyA = b2GetBodyFullId(world, def->bodyIdA);
 	b2Body* bodyB = b2GetBodyFullId(world, def->bodyIdB);
@@ -347,14 +348,20 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 
 	b2DistanceJoint empty = {0};
 	joint->distanceJoint = empty;
+	joint->distanceJoint.length = b2MaxFloat(def->length, b2_linearSlop);
 	joint->distanceJoint.hertz = def->hertz;
 	joint->distanceJoint.dampingRatio = def->dampingRatio;
-	joint->distanceJoint.length = def->length;
-	joint->distanceJoint.minLength = def->minLength;
-	joint->distanceJoint.maxLength = def->maxLength;
+	joint->distanceJoint.minLength = b2MaxFloat(def->minLength, b2_linearSlop);
+	joint->distanceJoint.maxLength = b2MaxFloat(def->minLength, def->maxLength);
+	joint->distanceJoint.maxMotorForce = def->maxMotorForce;
+	joint->distanceJoint.motorSpeed = def->motorSpeed;
+	joint->distanceJoint.enableSpring = def->enableSpring;
+	joint->distanceJoint.enableLimit = def->enableLimit;
+	joint->distanceJoint.enableMotor = def->enableMotor;
 	joint->distanceJoint.impulse = 0.0f;
 	joint->distanceJoint.lowerImpulse = 0.0f;
 	joint->distanceJoint.upperImpulse = 0.0f;
+	joint->distanceJoint.motorImpulse = 0.0f;
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies
 	if (def->collideConnected == false)

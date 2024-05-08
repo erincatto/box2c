@@ -37,17 +37,33 @@ typedef struct b2DistanceJointDef
 	/// The rest length of this joint. Clamped to a stable minimum value.
 	float length;
 
+	/// Enable the distance constraint to behave like a spring. If false
+	///	then the distance joint will be rigid, overriding the limit and motor.
+	bool enableSpring;
+
+	/// The spring linear stiffness hertz (cycles per second)
+	float hertz;
+
+	/// The spring linear damping ratio (non-dimensional)
+	float dampingRatio;
+
+	/// Enable/disable the joint limit.
+	bool enableLimit;
+
 	/// Minimum length. Clamped to a stable minimum value.
 	float minLength;
 
 	/// Maximum length. Must be greater than or equal to the minimum length.
 	float maxLength;
 
-	/// The linear stiffness hertz (cycles per second)
-	float hertz;
+	/// Enable/disable the joint motor.
+	bool enableMotor;
 
-	/// The linear damping ratio (non-dimensional)
-	float dampingRatio;
+	/// The maximum motor force, usually in N.
+	float maxMotorForce;
+
+	/// The desired motor speed, usually in meters per second.
+	float motorSpeed;
 
 	/// Set this flag to true if the attached bodies should collide.
 	bool collideConnected;
@@ -168,7 +184,7 @@ typedef struct b2PrismaticJointDef
 	/// The maximum motor force, usually in N.
 	float maxMotorForce;
 
-	/// The desired motor speed in radians per second.
+	/// The desired motor speed, usually in meters per second.
 	float motorSpeed;
 
 	/// Set this flag to true if the attached sims should collide.

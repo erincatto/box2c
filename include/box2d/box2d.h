@@ -641,6 +641,20 @@ B2_API float b2DistanceJoint_GetHertz(b2JointId jointId);
 /// Get the damping ratio of a distance joint
 B2_API float b2DistanceJoint_GetDampingRatio(b2JointId jointId);
 
+B2_API void b2DistanceJoint_EnableMotor(b2JointId jointId, bool enableMotor);
+
+B2_API bool b2DistanceJoint_IsMotorEnabled(b2JointId jointId);
+
+B2_API void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
+
+B2_API float bb2DistanceJoint_GetMotorSpeed(b2JointId jointId);
+
+B2_API float b2DistanceJoint_GetMotorForce(b2JointId jointId);
+
+B2_API void b2DistanceJoint_SetMaxMotorForce(b2JointId jointId, float force);
+
+B2_API float b2DistanceJoint_GetMaxMotorForce(b2JointId jointId);
+
 /// Motor Joint
 
 /// Set/Get the linear offset target for a motor joint

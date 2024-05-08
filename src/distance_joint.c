@@ -100,6 +100,7 @@ void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
 		joint->impulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
 		joint->upperImpulse = 0.0f;
+		joint->motorImpulse = 0.0f;
 	}
 }
 
@@ -126,7 +127,7 @@ void b2WarmStartDistanceJoint(b2JointSim* base, b2StepContext* context)
 	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
 	b2Vec2 axis = b2Normalize(separation);
 
-	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
+	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse + joint->motorImpulse;
 	b2Vec2 P = b2MulSV(axialImpulse, axis);
 
 	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, P);
@@ -167,8 +168,12 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	float length = b2Length(separation);
 	b2Vec2 axis = b2Normalize(separation);
 
-	if (joint->minLength < joint->maxLength)
+	// joint is soft if
+	// - spring is enabled
+	// - and (joint limit is disabled or limits are not equal)
+	if (joint->enableSpring && (joint->minLength < joint->maxLength || joint->enableLimit == false))
 	{
+		// spring
 		if (joint->hertz > 0.0f)
 		{
 			// Cdot = dot(u, v + cross(w, r))
@@ -188,68 +193,88 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 			wB += iB * b2Cross(rB, P);
 		}
 
-		// lower limit
+		if (joint->enableLimit)
+		{
+			// lower limit
+			{
+				b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
+				float Cdot = b2Dot(axis, vr);
+
+				float C = length - joint->minLength;
+
+				float bias = 0.0f;
+				float massCoeff = 1.0f;
+				float impulseCoeff = 0.0f;
+				if (C > 0.0f)
+				{
+					// speculative
+					bias = C * context->inv_h;
+				}
+				else if (useBias)
+				{
+					bias = context->jointSoftness.biasRate * C;
+					massCoeff = context->jointSoftness.massScale;
+					impulseCoeff = context->jointSoftness.impulseScale;
+				}
+
+				float impulse = -massCoeff * joint->axialMass * (Cdot + bias) - impulseCoeff * joint->lowerImpulse;
+				float newImpulse = B2_MAX(0.0f, joint->lowerImpulse + impulse);
+				impulse = newImpulse - joint->lowerImpulse;
+				joint->lowerImpulse = newImpulse;
+
+				b2Vec2 P = b2MulSV(impulse, axis);
+				vA = b2MulSub(vA, mA, P);
+				wA -= iA * b2Cross(rA, P);
+				vB = b2MulAdd(vB, mB, P);
+				wB += iB * b2Cross(rB, P);
+			}
+
+			// upper
+			{
+				b2Vec2 vr = b2Add(b2Sub(vA, vB), b2Sub(b2CrossSV(wA, rA), b2CrossSV(wB, rB)));
+				float Cdot = b2Dot(axis, vr);
+
+				float C = joint->maxLength - length;
+
+				float bias = 0.0f;
+				float massScale = 1.0f;
+				float impulseScale = 0.0f;
+				if (C > 0.0f)
+				{
+					// speculative
+					bias = C * context->inv_h;
+				}
+				else if (useBias)
+				{
+					bias = context->jointSoftness.biasRate * C;
+					massScale = context->jointSoftness.massScale;
+					impulseScale = context->jointSoftness.impulseScale;
+				}
+
+				float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->upperImpulse;
+				float newImpulse = B2_MAX(0.0f, joint->upperImpulse + impulse);
+				impulse = newImpulse - joint->upperImpulse;
+				joint->upperImpulse = newImpulse;
+
+				b2Vec2 P = b2MulSV(-impulse, axis);
+				vA = b2MulSub(vA, mA, P);
+				wA -= iA * b2Cross(rA, P);
+				vB = b2MulAdd(vB, mB, P);
+				wB += iB * b2Cross(rB, P);
+			}		
+		}
+
+		if (joint->enableMotor)
 		{
 			b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 			float Cdot = b2Dot(axis, vr);
-
-			float C = length - joint->minLength;
-
-			float bias = 0.0f;
-			float massCoeff = 1.0f;
-			float impulseCoeff = 0.0f;
-			if (C > 0.0f)
-			{
-				// speculative
-				bias = C * context->inv_h;
-			}
-			else if (useBias)
-			{
-				bias = context->jointSoftness.biasRate * C;
-				massCoeff = context->jointSoftness.massScale;
-				impulseCoeff = context->jointSoftness.impulseScale;
-			}
-
-			float impulse = -massCoeff * joint->axialMass * (Cdot + bias) - impulseCoeff * joint->lowerImpulse;
-			float newImpulse = B2_MAX(0.0f, joint->lowerImpulse + impulse);
-			impulse = newImpulse - joint->lowerImpulse;
-			joint->lowerImpulse = newImpulse;
+			float impulse = joint->axialMass * (joint->motorSpeed - Cdot);
+			float oldImpulse = joint->motorImpulse;
+			float maxImpulse = context->h * joint->maxMotorForce;
+			joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+			impulse = joint->motorImpulse - oldImpulse;
 
 			b2Vec2 P = b2MulSV(impulse, axis);
-			vA = b2MulSub(vA, mA, P);
-			wA -= iA * b2Cross(rA, P);
-			vB = b2MulAdd(vB, mB, P);
-			wB += iB * b2Cross(rB, P);
-		}
-
-		// upper
-		{
-			b2Vec2 vr = b2Add(b2Sub(vA, vB), b2Sub(b2CrossSV(wA, rA), b2CrossSV(wB, rB)));
-			float Cdot = b2Dot(axis, vr);
-
-			float C = joint->maxLength - length;
-
-			float bias = 0.0f;
-			float massScale = 1.0f;
-			float impulseScale = 0.0f;
-			if (C > 0.0f)
-			{
-				// speculative
-				bias = C * context->inv_h;
-			}
-			else if (useBias)
-			{
-				bias = context->jointSoftness.biasRate * C;
-				massScale = context->jointSoftness.massScale;
-				impulseScale = context->jointSoftness.impulseScale;
-			}
-
-			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->upperImpulse;
-			float newImpulse = B2_MAX(0.0f, joint->upperImpulse + impulse);
-			impulse = newImpulse - joint->upperImpulse;
-			joint->upperImpulse = newImpulse;
-
-			b2Vec2 P = b2MulSV(-impulse, axis);
 			vA = b2MulSub(vA, mA, P);
 			wA -= iA * b2Cross(rA, P);
 			vB = b2MulAdd(vB, mB, P);
@@ -258,7 +283,7 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	}
 	else
 	{
-		// equal limits
+		// rigid constraint
 		b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 		float Cdot = b2Dot(axis, vr);
 
@@ -295,7 +320,7 @@ float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float inverseTimeSte
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	return (joint->impulse + joint->lowerImpulse - joint->upperImpulse) * inverseTimeStep;
+	return (joint->impulse + joint->lowerImpulse - joint->upperImpulse + joint->motorImpulse) * inverseTimeStep;
 }
 
 void b2DistanceJoint_SetLength(b2JointId jointId, float length)
@@ -386,6 +411,54 @@ float b2DistanceJoint_GetDampingRatio(b2JointId jointId)
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->dampingRatio;
 }
+
+void b2DistanceJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	if (enableMotor != joint->distanceJoint.enableMotor)
+	{
+		joint->distanceJoint.enableMotor = enableMotor;
+		joint->distanceJoint.motorImpulse = 0.0f;
+	}
+}
+
+bool b2DistanceJoint_IsMotorEnabled(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	return joint->distanceJoint.enableMotor;
+}
+
+void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	joint->distanceJoint.motorSpeed = motorSpeed;
+}
+
+float bb2DistanceJoint_GetMotorSpeed(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	return joint->distanceJoint.motorSpeed;
+}
+
+float b2DistanceJoint_GetMotorForce(b2JointId jointId)
+{
+	b2World* world = b2GetWorld(jointId.world0);
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	return world->inv_h * base->distanceJoint.motorImpulse;
+}
+
+void b2DistanceJoint_SetMaxMotorForce(b2JointId jointId, float force)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	joint->distanceJoint.maxMotorForce = force;
+}
+
+float b2DistanceJoint_GetMaxMotorForce(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	return joint->distanceJoint.maxMotorForce;
+}
+
 
 #if 0
 void b2DistanceJoint::Dump()

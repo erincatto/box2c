@@ -726,6 +726,7 @@ int main(int, char**)
 			s_settings.sampleIndex = s_selection;
 
 			// #todo restore all drawing settings that may have been overridden by a sample
+			s_settings.subStepCount = 4;
 			s_settings.drawJoints = true;
 			s_settings.useCameraBounds = false;
 
