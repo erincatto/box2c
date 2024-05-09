@@ -1632,6 +1632,19 @@ bool b2Body_IsBullet(b2BodyId bodyId)
 	return bodySim->isBullet;
 }
 
+void b2Body_EnableHitEvents(b2BodyId bodyId, bool enableHitEvents)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBodyFullId(world, bodyId);
+	int shapeId = body->headShapeId;
+	while (shapeId != B2_NULL_INDEX)
+	{
+		b2Shape* shape = world->shapeArray + shapeId;
+		shape->enableHitEvents = enableHitEvents;
+		shapeId = shape->nextShapeId;
+	}
+}
+
 int b2Body_GetShapeCount(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);

@@ -1016,6 +1016,26 @@ bool b2Shape_ArePreSolveEventsEnabled(b2ShapeId shapeId)
 	return shape->enablePreSolveEvents;
 }
 
+void b2Shape_EnableHitEvents(b2ShapeId shapeId, bool flag)
+{
+	b2World* world = b2GetWorldLocked(shapeId.world0);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->enableHitEvents = flag;
+}
+
+bool b2Shape_AreHitEventsEnabled(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorld(shapeId.world0);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->enableHitEvents;
+}
+
+
 b2ShapeType b2Shape_GetType(b2ShapeId shapeId)
 {
 	b2World* world = b2GetWorld(shapeId.world0);

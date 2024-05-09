@@ -287,7 +287,7 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 		b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
 		float Cdot = b2Dot(axis, vr);
 
-		float C = length - joint->minLength;
+		float C = length - joint->length;
 
 		float bias = 0.0f;
 		float massScale = 1.0f;
@@ -341,6 +341,13 @@ float b2DistanceJoint_GetLength(b2JointId jointId)
 	return joint->length;
 }
 
+void b2DistanceJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+{
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	joint->enableLimit = enableLimit;
+}
+
 void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength)
 {
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
@@ -388,6 +395,13 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 	b2Vec2 d = b2Sub(pB, pA);
 	float length = b2Length(d);
 	return length;
+}
+
+void b2DistanceJoint_EnableSpring(b2JointId jointId, bool enableSpring)
+{
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2DistanceJoint* joint = &base->distanceJoint;
+	joint->enableSpring = enableSpring;
 }
 
 void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
@@ -492,17 +506,7 @@ void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 
 	b2Vec2 axis = b2Normalize(b2Sub(pB, pA));
 
-	b2HexColor c1 = b2_colorGray74;
-	b2HexColor c2 = b2_colorLightGreen;
-	b2HexColor c3 = b2_colorRed3;
-	b2HexColor c4 = b2_colorGray4;
-
-	draw->DrawSegment(pA, pB, c4, draw->context);
-
-	b2Vec2 pRest = b2MulAdd(pA, joint->length, axis);
-	draw->DrawPoint(pRest, 8.0f, c1, draw->context);
-
-	if (joint->minLength < joint->maxLength)
+	if (joint->minLength < joint->maxLength && joint->enableLimit)
 	{
 		b2Vec2 pMin = b2MulAdd(pA, joint->minLength, axis);
 		b2Vec2 pMax = b2MulAdd(pA, joint->maxLength, axis);
@@ -511,18 +515,28 @@ void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 		if (joint->minLength > b2_linearSlop)
 		{
 			//draw->DrawPoint(pMin, 4.0f, c2, draw->context);
-			draw->DrawSegment(b2Sub(pMin, offset), b2Add(pMin, offset), c2, draw->context);
+			draw->DrawSegment(b2Sub(pMin, offset), b2Add(pMin, offset), b2_colorLightGreen, draw->context);
 		}
 
 		if (joint->maxLength < b2_huge)
 		{
 			//draw->DrawPoint(pMax, 4.0f, c3, draw->context);
-			draw->DrawSegment(b2Sub(pMax, offset), b2Add(pMax, offset), c3, draw->context);
+			draw->DrawSegment(b2Sub(pMax, offset), b2Add(pMax, offset), b2_colorRed3, draw->context);
 		}
 
 		if (joint->minLength > b2_linearSlop && joint->maxLength < b2_huge)
 		{
-			draw->DrawSegment(pMin, pMax, c4, draw->context);
+			draw->DrawSegment(pMin, pMax, b2_colorGray, draw->context);
 		}
+	}
+
+	draw->DrawSegment(pA, pB, b2_colorWhite, draw->context);
+	draw->DrawPoint(pA, 4.0f, b2_colorWhite, draw->context);
+	draw->DrawPoint(pB, 4.0f, b2_colorWhite, draw->context);
+
+	if (joint->hertz > 0.0f && joint->enableSpring)
+	{
+		b2Vec2 pRest = b2MulAdd(pA, joint->length, axis);
+		draw->DrawPoint(pRest, 4.0f, b2_colorBlue2, draw->context);
 	}
 }

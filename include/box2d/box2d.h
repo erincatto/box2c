@@ -346,6 +346,9 @@ B2_API void b2Body_SetBullet(b2BodyId bodyId, bool flag);
 /// Is this body a bullet?
 B2_API bool b2Body_IsBullet(b2BodyId bodyId);
 
+/// Enable/disable hit events on all shapes.
+B2_API void b2Body_EnableHitEvents(b2BodyId bodyId, bool enableHitEvents);
+
 /// Get the number of shapes on this body
 B2_API int b2Body_GetShapeCount(b2BodyId bodyId);
 
@@ -464,6 +467,13 @@ B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag);
 
 /// @return are pre-solve events enabled?
 B2_API bool b2Shape_ArePreSolveEventsEnabled(b2ShapeId shapeId);
+
+/// Enable contact hit events for this shape. Ignored for sensors.
+///	@see b2WorldDef.hitEventThreshold
+B2_API void b2Shape_EnableHitEvents(b2ShapeId shapeId, bool flag);
+
+/// @return are hit events enabled?
+B2_API bool b2Shape_AreHitEventsEnabled(b2ShapeId shapeId);
 
 /// Test a point for overlap with a shape
 B2_API bool b2Shape_TestPoint(b2ShapeId shapeId, b2Vec2 point);
@@ -620,6 +630,10 @@ B2_API void b2DistanceJoint_SetLength(b2JointId jointId, float length);
 /// Get the rest length of a distance joint
 B2_API float b2DistanceJoint_GetLength(b2JointId jointId);
 
+/// Enable joint limit. The limit only works if the joint spring is enabled. Otherwise the joint is rigid
+///	and the limit has no effect.
+B2_API void b2DistanceJoint_EnableLimit(b2JointId jointId, bool enableLimit);
+
 /// Set the minimum and maximum length parameters of a distance joint
 B2_API void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength);
 
@@ -631,6 +645,9 @@ B2_API float b2DistanceJoint_GetMaxLength(b2JointId jointId);
 
 /// Get the current length of a distance joint
 B2_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
+
+/// Enable/disable the distance joint spring. When disabled the distance joint is rigid.
+B2_API void b2DistanceJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
 /// Adjust the softness parameters of a distance joint
 B2_API void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio);

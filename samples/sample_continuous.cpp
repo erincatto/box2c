@@ -67,6 +67,7 @@ public:
 
 		m_shapeType = e_circleShape;
 		m_bodyId = b2_nullBodyId;
+		m_enableHitEvents = true;
 
 		Launch();
 	}
@@ -89,7 +90,7 @@ public:
 		shapeDef.density = 1.0f;
 		shapeDef.restitution = 1.2f;
 		shapeDef.friction = 0.3f;
-		shapeDef.enableHitEvents = true;
+		shapeDef.enableHitEvents = m_enableHitEvents;
 
 		if (m_shapeType == e_circleShape)
 		{
@@ -111,11 +112,11 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 70.0f;
+		float height = 100.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Bounce House", nullptr, ImGuiWindowFlags_NoResize);
 
 		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
 		int shapeType = int(m_shapeType);
@@ -123,6 +124,11 @@ public:
 		{
 			m_shapeType = ShapeType(shapeType);
 			Launch();
+		}
+
+		if (ImGui::Checkbox("hit events", &m_enableHitEvents))
+		{
+			b2Body_EnableHitEvents(m_bodyId, m_enableHitEvents);
 		}
 
 		ImGui::End();
@@ -156,7 +162,7 @@ public:
 			HitEvent* e = m_hitEvents + i;
 			if (e->stepIndex > 0 && m_stepCount <= e->stepIndex + 30)
 			{
-				g_draw.DrawCircle(e->point, 0.2f, b2_colorOrangeRed);
+				g_draw.DrawCircle(e->point, 0.1f, b2_colorOrangeRed);
 				g_draw.DrawString(e->point, "%.1f", e->speed);
 			}
 		}
@@ -170,6 +176,7 @@ public:
 	HitEvent m_hitEvents[4];
 	b2BodyId m_bodyId;
 	ShapeType m_shapeType;
+	bool m_enableHitEvents;
 };
 
 static int sampleBounceHouse = RegisterSample("Continuous", "Bounce House", BounceHouse::Create);

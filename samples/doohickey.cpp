@@ -90,6 +90,7 @@ void Doohickey::Spawn(b2WorldId worldId, b2Vec2 position, float scale)
 	distanceDef.localAnchorA = {0.0f, 0.0f};
 	distanceDef.localAnchorB = {0.0f, 0.0f};
 	distanceDef.length = 10.0f;
+	distanceDef.enableSpring = true;
 	distanceDef.hertz = 2.0f;
 	distanceDef.dampingRatio = 0.5f;
 

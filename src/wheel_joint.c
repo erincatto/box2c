@@ -541,8 +541,8 @@ void b2DrawWheelJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transform
 		b2Vec2 upper = b2MulAdd(pA, joint->upperTranslation, axis);
 		b2Vec2 perp = b2LeftPerp(axis);
 		draw->DrawSegment(lower, upper, c1, draw->context);
-		draw->DrawSegment(b2MulSub(lower, 0.5f, perp), b2MulAdd(lower, 0.5f, perp), c2, draw->context);
-		draw->DrawSegment(b2MulSub(upper, 0.5f, perp), b2MulAdd(upper, 0.5f, perp), c3, draw->context);
+		draw->DrawSegment(b2MulSub(lower, 0.1f, perp), b2MulAdd(lower, 0.1f, perp), c2, draw->context);
+		draw->DrawSegment(b2MulSub(upper, 0.1f, perp), b2MulAdd(upper, 0.1f, perp), c3, draw->context);
 	}
 	else
 	{
