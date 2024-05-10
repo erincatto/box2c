@@ -217,11 +217,15 @@ void b2TrySleepIsland(b2World* world, int islandId)
 			B2_ASSERT(body->islandId == islandId);
 			
 			// Update the body move event to indicate this body fell asleep
-			b2CheckIndex(moveEvents, body->bodyMoveIndex);
-			B2_ASSERT(moveEvents[body->bodyMoveIndex].bodyId.index1 - 1 == bodyId);
-			B2_ASSERT(moveEvents[body->bodyMoveIndex].bodyId.revision == body->revision);
-			moveEvents[body->bodyMoveIndex].fellAsleep = true;
-			body->bodyMoveIndex = B2_NULL_INDEX;
+			// It could happen the body is forced asleep before it ever moves.
+			if (body->bodyMoveIndex != B2_NULL_INDEX)
+			{
+				b2CheckIndex(moveEvents, body->bodyMoveIndex);
+				B2_ASSERT(moveEvents[body->bodyMoveIndex].bodyId.index1 - 1 == bodyId);
+				B2_ASSERT(moveEvents[body->bodyMoveIndex].bodyId.revision == body->revision);
+				moveEvents[body->bodyMoveIndex].fellAsleep = true;
+				body->bodyMoveIndex = B2_NULL_INDEX;
+			}
 			
 			int awakeBodyIndex = body->localIndex;
 			B2_ASSERT(0 <= awakeBodyIndex && awakeBodyIndex < awakeSet->sims.count);

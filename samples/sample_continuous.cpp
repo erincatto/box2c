@@ -735,6 +735,8 @@ public:
 			g_camera.m_zoom = 0.5f;
 		}
 
+		settings.drawJoints = false;
+
 		// Ground body
 		b2BodyId groundId = {};
 		{

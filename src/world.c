@@ -661,10 +661,6 @@ static void b2Collide(b2StepContext* context)
 				}
 			}
 
-			{
-				// todo hit events
-			}
-
 			// Clear the smallest set bit
 			bits = bits & (bits - 1);
 		}

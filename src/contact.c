@@ -487,15 +487,15 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 
 // Update the contact manifold and touching status.
 // Note: do not assume the shape AABBs are overlapping or are valid.
-bool b2UpdateContact(b2World* world, b2ContactSim* contactSim, b2Shape* shapeA, b2Transform transformA, b2Vec2 centerOffsetA, b2Shape* shapeB,
-					 b2Transform transformB, b2Vec2 centerOffsetB)
+bool b2UpdateContact(b2World* world, b2ContactSim* contactSim, b2Shape* shapeA, b2Transform transformA, b2Vec2 centerOffsetA,
+					 b2Shape* shapeB, b2Transform transformB, b2Vec2 centerOffsetB)
 {
 	bool touching;
 
 	// Is this contact a sensor?
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
-		// Sensors don't generate manifolds.
+		// Sensors don't generate manifolds or hit events
 		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB);
 	}
 	else
@@ -510,22 +510,27 @@ bool b2UpdateContact(b2World* world, b2ContactSim* contactSim, b2Shape* shapeA, 
 		int pointCount = contactSim->manifold.pointCount;
 		touching = pointCount > 0;
 
-		if (touching)
+		if (touching && world->preSolveFcn && (contactSim->simFlags & b2_simEnablePreSolveEvents) != 0)
 		{
-			contactSim->simFlags |= b2_simTouchingFlag;
+			b2ShapeId shapeIdA = {shapeA->id + 1, world->worldId, shapeA->revision};
+			b2ShapeId shapeIdB = {shapeB->id + 1, world->worldId, shapeB->revision};
 
-			if (shapeA->enableHitEvents || shapeB->enableHitEvents)
+			// this call assumes thread safety
+			touching = world->preSolveFcn(shapeIdA, shapeIdB, &contactSim->manifold, world->preSolveContext);
+			if (touching == false)
 			{
-				contactSim->simFlags |= b2_simEnableHitEvent;
+				// disable contact
+				contactSim->manifold.pointCount = 0;
 			}
-			else
-			{
-				contactSim->simFlags &= ~b2_simEnableHitEvent;
-			}
+		}
+
+		if (touching && (shapeA->enableHitEvents || shapeB->enableHitEvents))
+		{
+			contactSim->simFlags |= b2_simEnableHitEvent;
 		}
 		else
 		{
-			contactSim->simFlags &= ~(b2_simTouchingFlag | b2_simEnableHitEvent);
+			contactSim->simFlags &= ~b2_simEnableHitEvent;
 		}
 
 		// Match old contact ids to new contact ids and copy the
@@ -559,20 +564,15 @@ bool b2UpdateContact(b2World* world, b2ContactSim* contactSim, b2Shape* shapeA, 
 				}
 			}
 		}
+	}
 
-		if (touching && world->preSolveFcn && (contactSim->simFlags & b2_simEnablePreSolveEvents) != 0)
-		{
-			b2ShapeId shapeIdA = {shapeA->id + 1, world->worldId, shapeA->revision};
-			b2ShapeId shapeIdB = {shapeB->id + 1, world->worldId, shapeB->revision};
-
-			// this call assumes thread safety
-			touching = world->preSolveFcn(shapeIdA, shapeIdB, &contactSim->manifold, world->preSolveContext);
-			if (touching == false)
-			{
-				// disable contact
-				contactSim->manifold.pointCount = 0;
-			}
-		}
+	if (touching)
+	{
+		contactSim->simFlags |= b2_simTouchingFlag;
+	}
+	else
+	{
+		contactSim->simFlags &= ~b2_simTouchingFlag;
 	}
 
 	return touching;

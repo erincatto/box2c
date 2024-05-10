@@ -35,6 +35,8 @@ public:
 			g_camera.m_zoom = 1.333f;
 		}
 		
+		settings.drawJoints = false;
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
