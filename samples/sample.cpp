@@ -323,27 +323,28 @@ void Sample::Step(Settings& settings)
 	// Track maximum profile times
 	{
 		b2Profile p = b2World_GetProfile(m_worldId);
-		m_maxProfile.step = B2_MAX(m_maxProfile.step, p.step);
-		m_maxProfile.pairs = B2_MAX(m_maxProfile.pairs, p.pairs);
-		m_maxProfile.collide = B2_MAX(m_maxProfile.collide, p.collide);
-		m_maxProfile.solve = B2_MAX(m_maxProfile.solve, p.solve);
-		m_maxProfile.buildIslands = B2_MAX(m_maxProfile.buildIslands, p.buildIslands);
-		m_maxProfile.solveConstraints = B2_MAX(m_maxProfile.solveConstraints, p.solveConstraints);
-		m_maxProfile.prepareTasks = B2_MAX(m_maxProfile.prepareTasks, p.prepareTasks);
-		m_maxProfile.solverTasks = B2_MAX(m_maxProfile.solverTasks, p.solverTasks);
-		m_maxProfile.prepareConstraints = B2_MAX(m_maxProfile.prepareConstraints, p.prepareConstraints);
-		m_maxProfile.integrateVelocities = B2_MAX(m_maxProfile.integrateVelocities, p.integrateVelocities);
-		m_maxProfile.warmStart = B2_MAX(m_maxProfile.warmStart, p.warmStart);
-		m_maxProfile.solveVelocities = B2_MAX(m_maxProfile.solveVelocities, p.solveVelocities);
-		m_maxProfile.integratePositions = B2_MAX(m_maxProfile.integratePositions, p.integratePositions);
-		m_maxProfile.relaxVelocities = B2_MAX(m_maxProfile.relaxVelocities, p.relaxVelocities);
-		m_maxProfile.applyRestitution = B2_MAX(m_maxProfile.applyRestitution, p.applyRestitution);
-		m_maxProfile.storeImpulses = B2_MAX(m_maxProfile.storeImpulses, p.storeImpulses);
-		m_maxProfile.finalizeBodies = B2_MAX(m_maxProfile.finalizeBodies, p.finalizeBodies);
-		m_maxProfile.sleepIslands = B2_MAX(m_maxProfile.sleepIslands, p.sleepIslands);
-		m_maxProfile.splitIslands = B2_MAX(m_maxProfile.splitIslands, p.splitIslands);
-		m_maxProfile.broadphase = B2_MAX(m_maxProfile.broadphase, p.broadphase);
-		m_maxProfile.continuous = B2_MAX(m_maxProfile.continuous, p.continuous);
+		m_maxProfile.step = b2MaxFloat(m_maxProfile.step, p.step);
+		m_maxProfile.pairs = b2MaxFloat(m_maxProfile.pairs, p.pairs);
+		m_maxProfile.collide = b2MaxFloat(m_maxProfile.collide, p.collide);
+		m_maxProfile.solve = b2MaxFloat(m_maxProfile.solve, p.solve);
+		m_maxProfile.buildIslands = b2MaxFloat(m_maxProfile.buildIslands, p.buildIslands);
+		m_maxProfile.solveConstraints = b2MaxFloat(m_maxProfile.solveConstraints, p.solveConstraints);
+		m_maxProfile.prepareTasks = b2MaxFloat(m_maxProfile.prepareTasks, p.prepareTasks);
+		m_maxProfile.solverTasks = b2MaxFloat(m_maxProfile.solverTasks, p.solverTasks);
+		m_maxProfile.prepareConstraints = b2MaxFloat(m_maxProfile.prepareConstraints, p.prepareConstraints);
+		m_maxProfile.integrateVelocities = b2MaxFloat(m_maxProfile.integrateVelocities, p.integrateVelocities);
+		m_maxProfile.warmStart = b2MaxFloat(m_maxProfile.warmStart, p.warmStart);
+		m_maxProfile.solveVelocities = b2MaxFloat(m_maxProfile.solveVelocities, p.solveVelocities);
+		m_maxProfile.integratePositions = b2MaxFloat(m_maxProfile.integratePositions, p.integratePositions);
+		m_maxProfile.relaxVelocities = b2MaxFloat(m_maxProfile.relaxVelocities, p.relaxVelocities);
+		m_maxProfile.applyRestitution = b2MaxFloat(m_maxProfile.applyRestitution, p.applyRestitution);
+		m_maxProfile.storeImpulses = b2MaxFloat(m_maxProfile.storeImpulses, p.storeImpulses);
+		m_maxProfile.finalizeBodies = b2MaxFloat(m_maxProfile.finalizeBodies, p.finalizeBodies);
+		m_maxProfile.sleepIslands = b2MaxFloat(m_maxProfile.sleepIslands, p.sleepIslands);
+		m_maxProfile.splitIslands = b2MaxFloat(m_maxProfile.splitIslands, p.splitIslands);
+		m_maxProfile.hitEvents = b2MaxFloat(m_maxProfile.hitEvents, p.hitEvents);
+		m_maxProfile.broadphase = b2MaxFloat(m_maxProfile.broadphase, p.broadphase);
+		m_maxProfile.continuous = b2MaxFloat(m_maxProfile.continuous, p.continuous);
 
 		m_totalProfile.step += p.step;
 		m_totalProfile.pairs += p.pairs;
@@ -364,6 +365,7 @@ void Sample::Step(Settings& settings)
 		m_totalProfile.finalizeBodies += p.finalizeBodies;
 		m_totalProfile.sleepIslands += p.sleepIslands;
 		m_totalProfile.splitIslands += p.splitIslands;
+		m_totalProfile.hitEvents += p.hitEvents;
 		m_totalProfile.broadphase += p.broadphase;
 		m_totalProfile.continuous += p.continuous;
 	}
@@ -396,6 +398,7 @@ void Sample::Step(Settings& settings)
 			aveProfile.finalizeBodies = scale * m_totalProfile.finalizeBodies;
 			aveProfile.sleepIslands = scale * m_totalProfile.sleepIslands;
 			aveProfile.splitIslands = scale * m_totalProfile.splitIslands;
+			aveProfile.hitEvents = scale * m_totalProfile.hitEvents;
 			aveProfile.broadphase = scale * m_totalProfile.broadphase;
 			aveProfile.continuous = scale * m_totalProfile.continuous;
 		}
@@ -455,6 +458,9 @@ void Sample::Step(Settings& settings)
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "split islands [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.splitIslands,
 						  aveProfile.splitIslands, m_maxProfile.splitIslands);
+		m_textLine += m_textIncrement;
+		g_draw.DrawString(5, m_textLine, "hit events [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.hitEvents, aveProfile.hitEvents,
+						  m_maxProfile.hitEvents);
 		m_textLine += m_textIncrement;
 		g_draw.DrawString(5, m_textLine, "broad-phase [ave] (max) = %5.2f [%6.2f] (%6.2f)", p.broadphase, aveProfile.broadphase,
 						  m_maxProfile.broadphase);

@@ -131,7 +131,7 @@ public:
 		else if (m_rotating)
 		{
 			float dx = p.x - m_startPoint.x;
-			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_angle = b2ClampFloat(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
 			m_transform.q = b2MakeRot(m_angle);
 		}
 	}
@@ -1002,7 +1002,7 @@ public:
 		else if (m_rotating)
 		{
 			float dx = p.x - m_startPosition.x;
-			m_angle = B2_CLAMP(m_baseAngle + 0.5f * dx, -b2_pi, b2_pi);
+			m_angle = b2ClampFloat(m_baseAngle + 0.5f * dx, -b2_pi, b2_pi);
 			m_transform.q = b2MakeRot(m_angle);
 		}
 	}
@@ -2336,7 +2336,7 @@ public:
 		else if (m_rotating)
 		{
 			float dx = p.x - m_startPoint.x;
-			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_angle = b2ClampFloat(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
 			m_transform.q = b2MakeRot(m_angle);
 		}
 	}
@@ -2987,7 +2987,7 @@ public:
 		else if (m_rotating)
 		{
 			float dx = p.x - m_startPoint.x;
-			m_angle = B2_CLAMP(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_angle = b2ClampFloat(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
 			m_transform.q = b2MakeRot(m_angle);
 		}
 	}

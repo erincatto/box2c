@@ -153,7 +153,7 @@ void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useB
 
 		float oldImpulse = joint->angularImpulse;
 		float maxImpulse = context->h * joint->maxTorque;
-		joint->angularImpulse = B2_CLAMP(joint->angularImpulse + impulse, -maxImpulse, maxImpulse);
+		joint->angularImpulse = b2ClampFloat(joint->angularImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->angularImpulse - oldImpulse;
 
 		wA -= iA * impulse;
@@ -249,7 +249,7 @@ float b2MotorJoint_GetMaxTorque(b2JointId jointId)
 void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
 {
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.correctionFactor = B2_CLAMP(correctionFactor, 0.0f, 1.0f);
+	joint->motorJoint.correctionFactor = b2ClampFloat(correctionFactor, 0.0f, 1.0f);
 }
 
 float b2MotorJoint_GetCorrectionFactor(b2JointId jointId)

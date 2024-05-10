@@ -114,6 +114,7 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 	shape->enlargedAABB = false;
 	shape->enableSensorEvents = def->enableSensorEvents;
 	shape->enableContactEvents = def->enableContactEvents;
+	shape->enableHitEvents = def->enableHitEvents;
 	shape->enablePreSolveEvents = def->enablePreSolveEvents;
 	shape->isFast = false;
 	shape->proxyKey = B2_NULL_INDEX;
@@ -323,6 +324,7 @@ b2ChainId b2CreateChain(b2BodyId bodyId, const b2ChainDef* def)
 	shapeDef.friction = def->friction;
 	shapeDef.filter = def->filter;
 	shapeDef.enableContactEvents = false;
+	shapeDef.enableHitEvents = false;
 	shapeDef.enableSensorEvents = false;
 
 	int n = def->count;
@@ -572,7 +574,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape, b2Vec2 localCenter)
 			{
 				b2Vec2 v = poly->vertices[i];
 				float planeOffset = b2Dot(poly->normals[i], b2Sub(v, poly->centroid));
-				minExtent = B2_MIN(minExtent, planeOffset);
+				minExtent = b2MinFloat(minExtent, planeOffset);
 
 				float distanceSqr = b2LengthSquared(b2Sub(v, localCenter));
 				maxExtentSqr = B2_MAX(maxExtentSqr, distanceSqr);
@@ -1013,6 +1015,26 @@ bool b2Shape_ArePreSolveEventsEnabled(b2ShapeId shapeId)
 	b2Shape* shape = b2GetShape(world, shapeId);
 	return shape->enablePreSolveEvents;
 }
+
+void b2Shape_EnableHitEvents(b2ShapeId shapeId, bool flag)
+{
+	b2World* world = b2GetWorldLocked(shapeId.world0);
+	if (world == NULL)
+	{
+		return;
+	}
+
+	b2Shape* shape = b2GetShape(world, shapeId);
+	shape->enableHitEvents = flag;
+}
+
+bool b2Shape_AreHitEventsEnabled(b2ShapeId shapeId)
+{
+	b2World* world = b2GetWorld(shapeId.world0);
+	b2Shape* shape = b2GetShape(world, shapeId);
+	return shape->enableHitEvents;
+}
+
 
 b2ShapeType b2Shape_GetType(b2ShapeId shapeId)
 {

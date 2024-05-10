@@ -69,7 +69,7 @@ typedef bool b2OverlapResultFcn(b2ShapeId shapeId, void* context);
 /// return 0: terminate the ray cast
 /// return fraction: clip the ray to this point
 /// return 1: don't clip the ray and continue
-/// @param shape the shape hit by the ray
+/// @param shapeId the shape hit by the ray
 /// @param point the point of initial intersection
 /// @param normal the normal vector at the point of intersection
 /// @param fraction the fraction along the ray at the point of intersection

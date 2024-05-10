@@ -325,7 +325,7 @@ void b2SolveOverflowContacts(b2StepContext* context, bool useBias)
 
 			// clamp the accumulated force
 			float maxFriction = friction * cp->normalImpulse;
-			float newImpulse = B2_CLAMP(cp->tangentImpulse + impulse, -maxFriction, maxFriction);
+			float newImpulse = b2ClampFloat(cp->tangentImpulse + impulse, -maxFriction, maxFriction);
 			impulse = newImpulse - cp->tangentImpulse;
 			cp->tangentImpulse = newImpulse;
 
@@ -446,6 +446,8 @@ void b2StoreOverflowImpulses(b2StepContext* context)
 	b2ContactSim* contacts = color->contacts.data;
 	int contactCount = color->contacts.count;
 
+	//float hitEventThreshold = context->world->hitEventThreshold;
+
 	for (int i = 0; i < contactCount; ++i)
 	{
 		const b2ContactConstraint* constraint = constraints + i;
@@ -458,6 +460,7 @@ void b2StoreOverflowImpulses(b2StepContext* context)
 			manifold->points[j].normalImpulse = constraint->points[j].normalImpulse;
 			manifold->points[j].tangentImpulse = constraint->points[j].tangentImpulse;
 			manifold->points[j].maxNormalImpulse = constraint->points[j].maxNormalImpulse;
+			manifold->points[j].normalVelocity = constraint->points[j].relativeVelocity;
 		}
 	}
 
@@ -1187,6 +1190,8 @@ void b2StoreImpulsesTask(int startIndex, int endIndex, b2StepContext* context)
 		const float* tangentImpulse2 = (float*)&c->tangentImpulse2;
 		const float* maxNormalImpulse1 = (float*)&c->maxNormalImpulse1;
 		const float* maxNormalImpulse2 = (float*)&c->maxNormalImpulse2;
+		const float* normalVelocity1 = (float*)&c->relativeVelocity1;
+		const float* normalVelocity2 = (float*)&c->relativeVelocity2;
 
 		int base = 8 * i;
 		b2Manifold* m0 = contacts[base + 0] == NULL ? &dummy : &contacts[base + 0]->manifold;
@@ -1201,58 +1206,82 @@ void b2StoreImpulsesTask(int startIndex, int endIndex, b2StepContext* context)
 		m0->points[0].normalImpulse = normalImpulse1[0];
 		m0->points[0].tangentImpulse = tangentImpulse1[0];
 		m0->points[0].maxNormalImpulse = maxNormalImpulse1[0];
+		m0->points[0].normalVelocity = normalVelocity1[0];
+
 		m0->points[1].normalImpulse = normalImpulse2[0];
 		m0->points[1].tangentImpulse = tangentImpulse2[0];
 		m0->points[1].maxNormalImpulse = maxNormalImpulse2[0];
+		m0->points[1].normalVelocity = normalVelocity2[0];
 
 		m1->points[0].normalImpulse = normalImpulse1[1];
 		m1->points[0].tangentImpulse = tangentImpulse1[1];
 		m1->points[0].maxNormalImpulse = maxNormalImpulse1[1];
+		m1->points[0].normalVelocity = normalVelocity1[1];
+
 		m1->points[1].normalImpulse = normalImpulse2[1];
 		m1->points[1].tangentImpulse = tangentImpulse2[1];
 		m1->points[1].maxNormalImpulse = maxNormalImpulse2[1];
+		m1->points[1].normalVelocity = normalVelocity2[1];
 
 		m2->points[0].normalImpulse = normalImpulse1[2];
 		m2->points[0].tangentImpulse = tangentImpulse1[2];
 		m2->points[0].maxNormalImpulse = maxNormalImpulse1[2];
+		m2->points[0].normalVelocity = normalVelocity1[2];
+
 		m2->points[1].normalImpulse = normalImpulse2[2];
 		m2->points[1].tangentImpulse = tangentImpulse2[2];
 		m2->points[1].maxNormalImpulse = maxNormalImpulse2[2];
+		m2->points[1].normalVelocity = normalVelocity2[2];
 
 		m3->points[0].normalImpulse = normalImpulse1[3];
 		m3->points[0].tangentImpulse = tangentImpulse1[3];
 		m3->points[0].maxNormalImpulse = maxNormalImpulse1[3];
+		m3->points[0].normalVelocity = normalVelocity1[3];
+
 		m3->points[1].normalImpulse = normalImpulse2[3];
 		m3->points[1].tangentImpulse = tangentImpulse2[3];
 		m3->points[1].maxNormalImpulse = maxNormalImpulse2[3];
+		m3->points[1].normalVelocity = normalVelocity2[3];
 
 		m4->points[0].normalImpulse = normalImpulse1[4];
 		m4->points[0].tangentImpulse = tangentImpulse1[4];
 		m4->points[0].maxNormalImpulse = maxNormalImpulse1[4];
+		m4->points[0].normalVelocity = normalVelocity1[4];
+
 		m4->points[1].normalImpulse = normalImpulse2[4];
 		m4->points[1].tangentImpulse = tangentImpulse2[4];
 		m4->points[1].maxNormalImpulse = maxNormalImpulse2[4];
+		m4->points[1].normalVelocity = normalVelocity2[4];
 
 		m5->points[0].normalImpulse = normalImpulse1[5];
 		m5->points[0].tangentImpulse = tangentImpulse1[5];
 		m5->points[0].maxNormalImpulse = maxNormalImpulse1[5];
+		m5->points[0].normalVelocity = normalVelocity1[5];
+		
 		m5->points[1].normalImpulse = normalImpulse2[5];
 		m5->points[1].tangentImpulse = tangentImpulse2[5];
 		m5->points[1].maxNormalImpulse = maxNormalImpulse2[5];
+		m5->points[1].normalVelocity = normalVelocity2[5];
 
 		m6->points[0].normalImpulse = normalImpulse1[6];
 		m6->points[0].tangentImpulse = tangentImpulse1[6];
 		m6->points[0].maxNormalImpulse = maxNormalImpulse1[6];
+		m6->points[0].normalVelocity = normalVelocity1[6];
+
 		m6->points[1].normalImpulse = normalImpulse2[6];
 		m6->points[1].tangentImpulse = tangentImpulse2[6];
 		m6->points[1].maxNormalImpulse = maxNormalImpulse2[6];
+		m6->points[1].normalVelocity = normalVelocity2[6];
 
 		m7->points[0].normalImpulse = normalImpulse1[7];
 		m7->points[0].tangentImpulse = tangentImpulse1[7];
 		m7->points[0].maxNormalImpulse = maxNormalImpulse1[7];
+		m7->points[0].normalVelocity = normalVelocity1[7];
+		
 		m7->points[1].normalImpulse = normalImpulse2[7];
 		m7->points[1].tangentImpulse = tangentImpulse2[7];
 		m7->points[1].maxNormalImpulse = maxNormalImpulse2[7];
+		m7->points[1].normalVelocity = normalVelocity2[7];
 	}
 
 	b2TracyCZoneEnd(store_impulses);

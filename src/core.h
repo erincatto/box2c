@@ -59,9 +59,9 @@
 	#define B2_COMPILER_MSVC
 #endif
 
-#if defined(B2_PLATFORM_WINDOWS)
+#if defined(B2_COMPILER_MSVC)
 	#define B2_BREAKPOINT __debugbreak()
-#elif defined(B2_PLATFORM_LINUX) || defined(B2_PLATFORM_ANDROID) || defined(B2_PLATFORM_MACOS) || defined(B2_PLATFORM_IOS)
+#elif defined(B2_COMPILER_GCC) || defined(B2_COMPILER_CLANG)
 	#if defined(B2_CPU_X64)
 		#define B2_BREAKPOINT __asm volatile("int $0x3")
 	#elif defined(B2_CPU_ARM)

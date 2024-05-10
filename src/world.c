@@ -161,12 +161,14 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->sensorEndEventArray = b2CreateArray(sizeof(b2SensorEndTouchEvent), 4);
 	world->contactBeginArray = b2CreateArray(sizeof(b2ContactBeginTouchEvent), 4);
 	world->contactEndArray = b2CreateArray(sizeof(b2ContactEndTouchEvent), 4);
+	world->contactHitArray = b2CreateArray(sizeof(b2ContactHitEvent), 4);
 
 	world->stepIndex = 0;
 	world->splitIslandId = B2_NULL_INDEX;
 	world->activeTaskCount = 0;
 	world->taskCount = 0;
 	world->gravity = def->gravity;
+	world->hitEventThreshold = def->hitEventThreshold;
 	world->restitutionThreshold = def->restitutionThreshold;
 	world->contactPushoutVelocity = def->contactPushoutVelocity;
 	world->contactHertz = def->contactHertz;
@@ -181,7 +183,7 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 
 	if (def->workerCount > 0 && def->enqueueTask != NULL && def->finishTask != NULL)
 	{
-		world->workerCount = B2_MIN(def->workerCount, b2_maxWorkers);
+		world->workerCount = b2MinInt(def->workerCount, b2_maxWorkers);
 		world->enqueueTaskFcn = def->enqueueTask;
 		world->finishTaskFcn = def->finishTask;
 		world->userTaskContext = def->userTaskContext;
@@ -232,6 +234,7 @@ void b2DestroyWorld(b2WorldId worldId)
 	b2DestroyArray(world->sensorEndEventArray, sizeof(b2SensorEndTouchEvent));
 	b2DestroyArray(world->contactBeginArray, sizeof(b2ContactBeginTouchEvent));
 	b2DestroyArray(world->contactEndArray, sizeof(b2ContactEndTouchEvent));
+	b2DestroyArray(world->contactHitArray, sizeof(b2ContactHitEvent));
 
 	int chainCapacity = b2Array(world->chainArray).count;
 	for (int i = 0; i < chainCapacity; ++i)
@@ -658,10 +661,6 @@ static void b2Collide(b2StepContext* context)
 				}
 			}
 
-			{
-				// todo hit events
-			}
-
 			// Clear the smallest set bit
 			bits = bits & (bits - 1);
 		}
@@ -690,6 +689,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount)
 	b2Array_Clear(world->sensorEndEventArray);
 	b2Array_Clear(world->contactBeginArray);
 	b2Array_Clear(world->contactEndArray);
+	b2Array_Clear(world->contactHitArray);
 
 	world->profile = (b2Profile){0};
 
@@ -735,8 +735,8 @@ void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount)
 	world->inv_h = context.inv_h;
 
 	// Hertz values get reduced for large time steps
-	float contactHertz = B2_MIN(world->contactHertz, 0.25f * context.inv_h);
-	float jointHertz = B2_MIN(world->jointHertz, 0.125f * context.inv_h);
+	float contactHertz = b2MinFloat(world->contactHertz, 0.25f * context.inv_h);
+	float jointHertz = b2MinFloat(world->jointHertz, 0.125f * context.inv_h);
 
 	context.contactSoftness = b2MakeSoft(contactHertz, world->contactDampingRatio, context.h);
 	context.staticSoftness = b2MakeSoft(2.0f * contactHertz, world->contactDampingRatio, context.h);
@@ -912,6 +912,7 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 }
 
 // todo this has varying order for moving shapes, causing flicker when overlapping shapes are moving
+// solution: display order by shape id modulus 3, keep 3 buckets in GLSolid* and flush in 3 passes.
 static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 {
 	B2_ASSERT(b2AABB_IsValid(draw->drawingBounds));
@@ -924,7 +925,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 	b2HexColor normalColor = b2_colorGray90;
 	b2HexColor impulseColor = b2_colorMagenta;
 	b2HexColor frictionColor = b2_colorYellow2;
-	
+
 	b2HexColor graphColors[b2_graphColorCount] = {b2_colorRed,		 b2_colorOrange,	b2_colorYellow, b2_colorGreen,
 												  b2_colorCyan,		 b2_colorBlue,		b2_colorViolet, b2_colorPink,
 												  b2_colorChocolate, b2_colorGoldenrod, b2_colorCoral,	b2_colorBlack};
@@ -1034,8 +1035,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 							{
 								// graph color
 								float pointSize = contact->colorIndex == b2_overflowIndex ? 7.5f : 5.0f;
-								draw->DrawPoint(point->point, pointSize, graphColors[contact->colorIndex],
-												draw->context);
+								draw->DrawPoint(point->point, pointSize, graphColors[contact->colorIndex], draw->context);
 								// g_draw.DrawString(point->position, "%d", point->color);
 							}
 							else if (point->separation > b2_linearSlop)
@@ -1384,8 +1384,11 @@ b2ContactEvents b2World_GetContactEvents(b2WorldId worldId)
 
 	int beginCount = b2Array(world->contactBeginArray).count;
 	int endCount = b2Array(world->contactEndArray).count;
+	int hitCount = b2Array(world->contactHitArray).count;
 
-	b2ContactEvents events = {world->contactBeginArray, world->contactEndArray, beginCount, endCount};
+	b2ContactEvents events = {
+		world->contactBeginArray, world->contactEndArray, world->contactHitArray, beginCount, endCount, hitCount};
+
 	return events;
 }
 
@@ -1605,7 +1608,19 @@ void b2World_SetRestitutionThreshold(b2WorldId worldId, float value)
 		return;
 	}
 
-	world->restitutionThreshold = B2_CLAMP(value, 0.0f, FLT_MAX);
+	world->restitutionThreshold = b2ClampFloat(value, 0.0f, FLT_MAX);
+}
+
+void b2World_SetHitEventThreshold(b2WorldId worldId, float value)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	B2_ASSERT(world->locked == false);
+	if (world->locked)
+	{
+		return;
+	}
+
+	world->hitEventThreshold = b2ClampFloat(value, 0.0f, FLT_MAX);
 }
 
 void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio, float pushOut)
@@ -1617,9 +1632,9 @@ void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio
 		return;
 	}
 
-	world->contactHertz = B2_CLAMP(hertz, 0.0f, FLT_MAX);
-	world->contactDampingRatio = B2_CLAMP(dampingRatio, 0.0f, FLT_MAX);
-	world->contactPushoutVelocity = B2_CLAMP(pushOut, 0.0f, FLT_MAX);
+	world->contactHertz = b2ClampFloat(hertz, 0.0f, FLT_MAX);
+	world->contactDampingRatio = b2ClampFloat(dampingRatio, 0.0f, FLT_MAX);
+	world->contactPushoutVelocity = b2ClampFloat(pushOut, 0.0f, FLT_MAX);
 }
 
 b2Profile b2World_GetProfile(b2WorldId worldId)

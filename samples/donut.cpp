@@ -19,7 +19,7 @@ Donut::Donut()
 	m_isSpawned = false;
 }
 
-void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* userData)
+void Donut::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData)
 {
 	assert(m_isSpawned == false);
 
@@ -29,11 +29,11 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* user
 		assert(B2_IS_NULL(m_jointIds[i]));
 	}
 
-	float radius = 1.0f;
+	float radius = 1.0f * scale;
 	float deltaAngle = 2.0f * b2_pi / e_sides;
 	float length = 2.0f * b2_pi * radius / e_sides;
 
-	b2Capsule capsule = {{0.0f, -0.5f * length}, {0.0f, 0.5f * length}, 0.25f};
+	b2Capsule capsule = {{0.0f, -0.5f * length}, {0.0f, 0.5f * length}, 0.25f * scale};
 
 	b2Vec2 center = position;
 
@@ -44,6 +44,7 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, int groupIndex, void* user
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 	shapeDef.density = 1.0f;
 	shapeDef.filter.groupIndex = -groupIndex;
+	shapeDef.friction = 0.3f;
 
 	// Create bodies
 	float angle = 0.0f;

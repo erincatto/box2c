@@ -53,14 +53,14 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 		if (dd1 >= epsSqr)
 		{
 			// Segment 2 is degenerate
-			result.fraction1 = B2_CLAMP(-rd1 / dd1, 0.0f, 1.0f);
+			result.fraction1 = b2ClampFloat(-rd1 / dd1, 0.0f, 1.0f);
 			result.fraction2 = 0.0f;
 		}
 		else if (dd2 >= epsSqr)
 		{
 			// Segment 1 is degenerate
 			result.fraction1 = 0.0f;
-			result.fraction2 = B2_CLAMP(rd2 / dd2, 0.0f, 1.0f);
+			result.fraction2 = b2ClampFloat(rd2 / dd2, 0.0f, 1.0f);
 		}
 		else
 		{
@@ -80,7 +80,7 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 		if (denom != 0.0f)
 		{
 			// not parallel
-			f1 = B2_CLAMP((d12 * rd2 - rd1 * dd2) / denom, 0.0f, 1.0f);
+			f1 = b2ClampFloat((d12 * rd2 - rd1 * dd2) / denom, 0.0f, 1.0f);
 		}
 
 		// Compute point on segment 2 closest to p1 + f1 * d1
@@ -90,12 +90,12 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 		if (f2 < 0.0f)
 		{
 			f2 = 0.0f;
-			f1 = B2_CLAMP(-rd1 / dd1, 0.0f, 1.0f);
+			f1 = b2ClampFloat(-rd1 / dd1, 0.0f, 1.0f);
 		}
 		else if (f2 > 1.0f)
 		{
 			f2 = 1.0f;
-			f1 = B2_CLAMP((d12 - rd1) / dd1, 0.0f, 1.0f);
+			f1 = b2ClampFloat((d12 - rd1) / dd1, 0.0f, 1.0f);
 		}
 
 		result.fraction1 = f1;
@@ -113,7 +113,7 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 // todo try not copying
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
 {
-	count = B2_MIN(count, b2_maxPolygonVertices);
+	count = b2MinInt(count, b2_maxPolygonVertices);
 	b2DistanceProxy proxy;
 	for (int32_t i = 0; i < count; ++i)
 	{
@@ -1205,7 +1205,7 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 
 				float s = b2EvaluateSeparation(&fcn, indexA, indexB, t);
 
-				if (B2_ABS(s - target) < tolerance)
+				if (b2AbsFloat(s - target) < tolerance)
 				{
 					// t2 holds a tentative value for t1
 					t2 = t;

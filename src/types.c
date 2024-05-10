@@ -10,6 +10,7 @@ b2WorldDef b2DefaultWorldDef()
 	b2WorldDef def = {0};
 	def.gravity.x = 0.0f;
 	def.gravity.y = -10.0f;
+	def.hitEventThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.restitutionThreshold = 1.0f * b2_lengthUnitsPerMeter;
 	def.contactPushoutVelocity = 3.0f * b2_lengthUnitsPerMeter;
 	def.contactHertz = 30.0;

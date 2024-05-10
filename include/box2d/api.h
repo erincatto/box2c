@@ -3,10 +3,10 @@
 
 #pragma once
 
-#if defined(_WIN32) && defined(box2d_EXPORTS)
+#if defined(_MSC_VER) && defined(box2d_EXPORTS)
 	// build the Windows DLL
 	#define BOX2D_EXPORT __declspec(dllexport)
-#elif defined(_WIN32) && defined(BOX2D_DLL)
+#elif defined(_MSC_VER) && defined(BOX2D_DLL)
 	// using the Windows DLL
 	#define BOX2D_EXPORT __declspec(dllimport)
 #elif defined(box2d_EXPORTS)
@@ -17,6 +17,7 @@
 	#define BOX2D_EXPORT
 #endif
 
+#if 0
 #if defined(BOX2D_IMPLEMENTATION)
 	#pragma message("BOX2D_IMPLEMENTATION")
 	#if defined(_WIN32) && defined(box2d_EXPORTS)
@@ -31,17 +32,18 @@
 		#define BOX2D_INLINE extern inline
 	#endif
 #else
-	// #pragma message("BOX2D inline")
+	//#pragma message("BOX2D inline")
 	#define BOX2D_INLINE inline
+#endif
 #endif
 
 #ifdef __cplusplus
 	#define B2_API extern "C" BOX2D_EXPORT
-	#define B2_INLINE extern "C" BOX2D_INLINE
+	#define B2_INLINE inline
 	#define B2_LITERAL(T) T
 #else
 	#define B2_API BOX2D_EXPORT
-	#define B2_INLINE BOX2D_INLINE
+	#define B2_INLINE static inline
 	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
 	#define B2_LITERAL(T) (T)
 #endif

@@ -72,7 +72,7 @@ void b2WheelJoint_SetLimits(b2JointId jointId, float lower, float upper)
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_wheelJoint);
 	if (lower != joint->wheelJoint.lowerTranslation || upper != joint->wheelJoint.upperTranslation)
 	{
-		joint->wheelJoint.lowerTranslation = B2_MIN(lower, upper);
+		joint->wheelJoint.lowerTranslation = b2MinFloat(lower, upper);
 		joint->wheelJoint.upperTranslation = B2_MAX(lower, upper);
 		joint->wheelJoint.lowerImpulse = 0.0f;
 		joint->wheelJoint.upperImpulse = 0.0f;
@@ -346,7 +346,7 @@ void b2SolveWheelJoint(b2JointSim* base, b2StepContext* context, bool useBias)
 		float impulse = -joint->motorMass * Cdot;
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->h * joint->maxMotorTorque;
-		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 
 		wA -= iA * impulse;
@@ -541,8 +541,8 @@ void b2DrawWheelJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transform
 		b2Vec2 upper = b2MulAdd(pA, joint->upperTranslation, axis);
 		b2Vec2 perp = b2LeftPerp(axis);
 		draw->DrawSegment(lower, upper, c1, draw->context);
-		draw->DrawSegment(b2MulSub(lower, 0.5f, perp), b2MulAdd(lower, 0.5f, perp), c2, draw->context);
-		draw->DrawSegment(b2MulSub(upper, 0.5f, perp), b2MulAdd(upper, 0.5f, perp), c3, draw->context);
+		draw->DrawSegment(b2MulSub(lower, 0.1f, perp), b2MulAdd(lower, 0.1f, perp), c2, draw->context);
+		draw->DrawSegment(b2MulSub(upper, 0.1f, perp), b2MulAdd(upper, 0.1f, perp), c3, draw->context);
 	}
 	else
 	{

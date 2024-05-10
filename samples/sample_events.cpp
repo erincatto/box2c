@@ -35,6 +35,8 @@ public:
 			g_camera.m_zoom = 1.333f;
 		}
 		
+		settings.drawJoints = false;
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
@@ -171,7 +173,7 @@ public:
 		{
 			Donut* donut = m_donuts + index;
 			//donut->Spawn(m_worldId, center, index + 1, donut);
-			donut->Spawn(m_worldId, center, 0, donut);
+			donut->Spawn(m_worldId, center, 1.0f, 0, donut);
 		}
 		else
 		{
@@ -808,7 +810,7 @@ public:
 		if (m_jumpDelay == 0.0f && m_jumping == false && velocity.y < 0.01f)
 		{
 			int capacity = b2Body_GetContactCapacity(m_characterId);
-			capacity = B2_MIN(capacity, 4);
+			capacity = b2MinInt(capacity, 4);
 			b2ContactData contactData[4];
 			int count = b2Body_GetContactData(m_characterId, contactData, capacity);
 			for (int i = 0; i < count; ++i)

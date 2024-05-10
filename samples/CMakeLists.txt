@@ -56,8 +56,12 @@ add_library(jsmn INTERFACE ${JSMN_DIR}/jsmn.h)
 target_include_directories(jsmn INTERFACE ${JSMN_DIR})
 
 add_executable(samples
+	car.cpp
+	car.h
 	donut.cpp
 	donut.h
+	doohickey.cpp
+	doohickey.h
 	draw.cpp
 	draw.h
 	human.cpp

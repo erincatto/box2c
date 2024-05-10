@@ -31,7 +31,7 @@ void b2CreateGraph(b2ConstraintGraph* graph, int bodyCapacity)
 
 	*graph = (b2ConstraintGraph){0};
 
-	bodyCapacity = B2_MAX(bodyCapacity, 8);
+	bodyCapacity = b2MaxInt(bodyCapacity, 8);
 	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;

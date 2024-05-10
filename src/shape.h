@@ -44,6 +44,7 @@ typedef struct b2Shape
 	bool isSensor;
 	bool enableSensorEvents;
 	bool enableContactEvents;
+	bool enableHitEvents;
 	bool enablePreSolveEvents;
 	bool enlargedAABB;
 	bool isFast;

@@ -254,7 +254,6 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->angularDamping = def->angularDamping;
 	bodySim->gravityScale = def->gravityScale;
 	bodySim->bodyId = bodyId;
-	bodySim->enableSleep = def->enableSleep;
 	bodySim->isBullet = def->isBullet;
 	bodySim->enlargeAABB = false;
 	bodySim->isFast = false;
@@ -296,10 +295,12 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	body->islandId = B2_NULL_INDEX;
 	body->islandPrev = B2_NULL_INDEX;
 	body->islandNext = B2_NULL_INDEX;
+	body->bodyMoveIndex = B2_NULL_INDEX;
 	body->id = bodyId;
 	body->sleepThreshold = def->sleepThreshold;
 	body->sleepTime = 0.0f;
 	body->type = def->type;
+	body->enableSleep = def->enableSleep;
 	body->fixedRotation = def->fixedRotation;
 	body->isSpeedCapped = false;
 	body->isMarked = false;
@@ -540,7 +541,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 				const b2Shape* s = world->shapeArray + shapeId;
 
 				b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
-				bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+				bodySim->minExtent = b2MinFloat(bodySim->minExtent, extent.minExtent);
 				bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
 
 				shapeId = s->nextShapeId;
@@ -610,7 +611,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		const b2Shape* s = world->shapeArray + shapeId;
 
 		b2ShapeExtent extent = b2ComputeShapeExtent(s, localCenter);
-		bodySim->minExtent = B2_MIN(bodySim->minExtent, extent.minExtent);
+		bodySim->minExtent = b2MinFloat(bodySim->minExtent, extent.minExtent);
 		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
 
 		shapeId = s->nextShapeId;
@@ -1380,8 +1381,7 @@ bool b2Body_IsSleepEnabled(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2BodySim* bodySim = b2GetBodySim(world, body);
-	return bodySim->enableSleep;
+	return body->enableSleep;
 }
 
 void b2Body_SetSleepThreshold(b2BodyId bodyId, float sleepVelocity)
@@ -1407,8 +1407,7 @@ void b2Body_EnableSleep(b2BodyId bodyId, bool enableSleep)
 	}
 
 	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2BodySim* bodySim = b2GetBodySim(world, body);
-	bodySim->enableSleep = enableSleep;
+	body->enableSleep = enableSleep;
 
 	if (enableSleep == false)
 	{
@@ -1631,6 +1630,19 @@ bool b2Body_IsBullet(b2BodyId bodyId)
 	b2Body* body = b2GetBodyFullId(world, bodyId);
 	b2BodySim* bodySim = b2GetBodySim(world, body);
 	return bodySim->isBullet;
+}
+
+void b2Body_EnableHitEvents(b2BodyId bodyId, bool enableHitEvents)
+{
+	b2World* world = b2GetWorld(bodyId.world0);
+	b2Body* body = b2GetBodyFullId(world, bodyId);
+	int shapeId = body->headShapeId;
+	while (shapeId != B2_NULL_INDEX)
+	{
+		b2Shape* shape = world->shapeArray + shapeId;
+		shape->enableHitEvents = enableHitEvents;
+		shapeId = shape->nextShapeId;
+	}
 }
 
 int b2Body_GetShapeCount(b2BodyId bodyId)

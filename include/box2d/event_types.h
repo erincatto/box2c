@@ -72,18 +72,12 @@ typedef struct b2ContactEvents
 {
 	b2ContactBeginTouchEvent* beginEvents;
 	b2ContactEndTouchEvent* endEvents;
+	b2ContactHitEvent* hitEvents;
+
 	int32_t beginCount;
 	int32_t endCount;
+	int32_t hitCount;
 } b2ContactEvents;
-
-/// The contact data for two shapes. By convention the manifold normal points
-///	from shape A to shape B.
-typedef struct b2ContactData
-{
-	b2ShapeId shapeIdA;
-	b2ShapeId shapeIdB;
-	b2Manifold manifold;
-} b2ContactData;
 
 /// Triggered when a body moves from simulation. Not reported for bodies moved by the user.
 /// This also has a flag to indicate that the body went to sleep so the application can also
@@ -106,3 +100,13 @@ typedef struct b2BodyEvents
 	b2BodyMoveEvent* moveEvents;
 	int32_t moveCount;
 } b2BodyEvents;
+
+/// The contact data for two shapes. By convention the manifold normal points
+///	from shape A to shape B.
+///	todo this is not event data but the header include order works better
+typedef struct b2ContactData
+{
+	b2ShapeId shapeIdA;
+	b2ShapeId shapeIdB;
+	b2Manifold manifold;
+} b2ContactData;

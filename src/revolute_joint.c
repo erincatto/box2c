@@ -62,7 +62,7 @@ void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
 	if (lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle)
 	{
-		joint->revoluteJoint.lowerAngle = B2_MIN(lower, upper);
+		joint->revoluteJoint.lowerAngle = b2MinFloat(lower, upper);
 		joint->revoluteJoint.upperAngle = B2_MAX(lower, upper);
 		joint->revoluteJoint.lowerImpulse = 0.0f;
 		joint->revoluteJoint.upperImpulse = 0.0f;
@@ -289,7 +289,7 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 		float impulse = -joint->axialMass * Cdot;
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->h * joint->maxMotorTorque;
-		joint->motorImpulse = B2_CLAMP(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
 		impulse = joint->motorImpulse - oldImpulse;
 
 		wA -= iA * impulse;
@@ -449,12 +449,10 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 	b2HexColor c1 = b2_colorGray70;
 	b2HexColor c2 = b2_colorGreen2;
 	b2HexColor c3 = b2_colorRed2;
-	b2HexColor c4 = b2_colorGray40;
-	b2HexColor c5 = b2_colorBlue2;
 
 	const float L = drawSize;
-	draw->DrawPoint(pA, 5.0f, c4, draw->context);
-	draw->DrawPoint(pB, 5.0f, c5, draw->context);
+	//draw->DrawPoint(pA, 3.0f, b2_colorGray40, draw->context);
+	//draw->DrawPoint(pB, 3.0f, b2_colorLightBlue, draw->context);
 	draw->DrawCircle(pB, L, c1, draw->context);
 
 	float angle = b2RelativeAngle(transformB.q, transformA.q);
@@ -483,7 +481,7 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 		draw->DrawSegment(pB, b2Add(pB, rhi), c3, draw->context);
 
 		b2Vec2 ref = (b2Vec2){L * cosf(joint->referenceAngle), L * sinf(joint->referenceAngle)};
-		draw->DrawSegment(pB, b2Add(pB, ref), c5, draw->context);
+		draw->DrawSegment(pB, b2Add(pB, ref), b2_colorBlue2, draw->context);
 	}
 
 	b2HexColor color = b2_colorGold2;

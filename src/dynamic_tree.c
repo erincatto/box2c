@@ -236,7 +236,7 @@ static int32_t b2FindBestSibling(const b2DynamicTree* tree, b2AABB boxD)
 			area1 = b2Perimeter(box1);
 
 			// Lower bound cost of inserting under child 1.
-			lowerCost1 = inheritedCost + directCost1 + B2_MIN(areaD - area1, 0.0f);
+			lowerCost1 = inheritedCost + directCost1 + b2MinFloat(areaD - area1, 0.0f);
 		}
 
 		// Cost of descending into child 2
@@ -264,7 +264,7 @@ static int32_t b2FindBestSibling(const b2DynamicTree* tree, b2AABB boxD)
 
 			// Lower bound cost of inserting under child 2. This is not the cost
 			// of child 2, it is the best we can hope for under child 2.
-			lowerCost2 = inheritedCost + directCost2 + B2_MIN(areaD - area2, 0.0f);
+			lowerCost2 = inheritedCost + directCost2 + b2MinFloat(areaD - area2, 0.0f);
 		}
 
 		if (leaf1 && leaf2)
@@ -1042,8 +1042,8 @@ int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree)
 
 		int32_t child1 = node->child1;
 		int32_t child2 = node->child2;
-		int32_t balance = B2_ABS(tree->nodes[child2].height - tree->nodes[child1].height);
-		maxBalance = B2_MAX(maxBalance, balance);
+		int32_t balance = b2AbsFloat(tree->nodes[child2].height - tree->nodes[child1].height);
+		maxBalance = b2MaxInt(maxBalance, balance);
 	}
 
 	return maxBalance;
@@ -1274,7 +1274,7 @@ void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* inpu
 		// radius extension is added to the node in this case
 		b2Vec2 c = b2AABB_Center(node->aabb);
 		b2Vec2 h = b2AABB_Extents(node->aabb);
-		float term1 = B2_ABS(b2Dot(v, b2Sub(p1, c)));
+		float term1 = b2AbsFloat(b2Dot(v, b2Sub(p1, c)));
 		float term2 = b2Dot(abs_v, h);
 		if (term2 < term1)
 		{
@@ -1381,7 +1381,7 @@ void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* 
 		// radius extension is added to the node in this case
 		b2Vec2 c = b2AABB_Center(node->aabb);
 		b2Vec2 h = b2Add(b2AABB_Extents(node->aabb), extension);
-		float term1 = B2_ABS(b2Dot(v, b2Sub(p1, c)));
+		float term1 = b2AbsFloat(b2Dot(v, b2Sub(p1, c)));
 		float term2 = b2Dot(abs_v, h);
 		if (term2 < term1)
 		{
@@ -1423,7 +1423,7 @@ void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* 
 	}
 }
 
-// Median split == 0, Surface area heurstic == 1
+// Median split == 0, Surface area heuristic == 1
 #define B2_TREE_HEURISTIC 0
 
 #if B2_TREE_HEURISTIC == 0
@@ -1437,7 +1437,7 @@ static int32_t b2PartitionMid(int32_t* indices, b2Vec2* centers, int32_t count)
 		return count / 2;
 	}
 
-	// TODO_ERIN SIMD?
+	// todo SIMD?
 	b2Vec2 lowerBound = centers[0];
 	b2Vec2 upperBound = centers[0];
 
@@ -1615,7 +1615,7 @@ static int32_t b2PartitionSAH(int32_t* indices, int32_t* binIndices, b2AABB* box
 		b2Vec2 c = b2AABB_Center(boxes[i]);
 		float cArray[2] = {c.x, c.y};
 		int32_t binIndex = (int32_t)(binCount * (cArray[axisIndex] - minC) * invD);
-		binIndex = B2_CLAMP(binIndex, 0, B2_BIN_COUNT - 1);
+		binIndex = b2ClampInt(binIndex, 0, B2_BIN_COUNT - 1);
 		binIndices[i] = binIndex;
 		bins[binIndex].count += 1;
 		bins[binIndex].aabb = b2AABB_Union(bins[binIndex].aabb, boxes[i]);

@@ -148,7 +148,7 @@ int main(int argc, char** argv)
 		if (strncmp(arg, "-t=", 3) == 0)
 		{
 			int threadCount = atoi(arg + 3);
-			maxThreadCount = B2_MIN(maxThreadCount, threadCount);
+			maxThreadCount = b2MinInt(maxThreadCount, threadCount);
 		}
 		else if (strcmp(arg, "-h") == 0)
 		{
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
 				float fps = 1000.0f * stepCount / ms;
 				printf("run %d : %g (ms), %g (fps)\n", runIndex, ms, fps);
 
-				maxFps[threadCount - 1] = B2_MAX(maxFps[threadCount - 1], fps);
+				maxFps[threadCount - 1] = b2MaxFloat(maxFps[threadCount - 1], fps);
 
 				if (countersAcquired == false)
 				{

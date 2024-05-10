@@ -40,6 +40,8 @@ public:
 			g_camera.m_zoom = 2.35f;
 		}
 
+		settings.drawJoints = false;
+
 		float groundSize = 25.0f;
 
 		{

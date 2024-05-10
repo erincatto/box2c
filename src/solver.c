@@ -85,7 +85,7 @@ static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContex
 		// Clamp to max angular speed
 		if (w * w > maxAngularSpeedSquared)
 		{
-			float ratio = maxAngularSpeed / B2_ABS(w);
+			float ratio = maxAngularSpeed / b2AbsFloat(w);
 			w *= ratio;
 			sim->isSpeedCapped = true;
 		}
@@ -213,7 +213,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		// Sleep needs to observe position correction as well as true velocity.
 		float maxDeltaPosition = b2Length(state->deltaPosition) + b2AbsFloat(state->deltaRotation.s) * sim->maxExtent;
 		
-		float sleepVelocity = b2MaxFloat(maxVelocity, 0.5f * invTimeStep * maxDeltaPosition);
+		// Position correction is not as important for sleep as true velocity.
+		float positionSleepFactor = 0.5f;
+
+		float sleepVelocity = b2MaxFloat(maxVelocity, positionSleepFactor * invTimeStep * maxDeltaPosition);
 
 		// reset state deltas
 		state->deltaPosition = b2Vec2_zero;
@@ -223,6 +226,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 
 		// cache miss here, however I need the shape list below
 		b2Body* body = bodies + sim->bodyId;
+		body->bodyMoveIndex = simIndex;
 		moveEvents[simIndex].transform = sim->transform;
 		moveEvents[simIndex].bodyId = (b2BodyId){sim->bodyId + 1, worldId, body->revision};
 		moveEvents[simIndex].userData = body->userData;
@@ -237,7 +241,7 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 		
 		sim->isFast = false;
 
-		if (enableSleep == false || sim->enableSleep == false || sleepVelocity > body->sleepThreshold)
+		if (enableSleep == false || body->enableSleep == false || sleepVelocity > body->sleepThreshold)
 		{
 			// Body is not sleepy
 			body->sleepTime = 0.0f;
@@ -455,7 +459,7 @@ static inline int GetWorkerStartIndex(int workerIndex, int blockCount, int worke
 
 	int blocksPerWorker = blockCount / workerCount;
 	int remainder = blockCount - blocksPerWorker * workerCount;
-	return blocksPerWorker * workerIndex + B2_MIN(remainder, workerIndex);
+	return blocksPerWorker * workerIndex + b2MinInt(remainder, workerIndex);
 }
 
 static void b2ExecuteStage(b2SolverStage* stage, b2StepContext* context, int previousSyncIndex, int syncIndex, int workerIndex)
@@ -1619,6 +1623,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 		world->profile.finalizeBodies = b2GetMillisecondsAndReset(&timer);
 
+
 		b2FreeStackItem(&world->stackAllocator, graphBlocks);
 		b2FreeStackItem(&world->stackAllocator, jointBlocks);
 		b2FreeStackItem(&world->stackAllocator, contactBlocks);
@@ -1632,6 +1637,64 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 	b2TracyCZoneEnd(graph_solver);
 	world->profile.solveConstraints = b2GetMillisecondsAndReset(&timer);
+
+	// Report hit events
+	// todo perhaps optimize this with a bitset
+	{
+		b2ContactHitEvent* events = world->contactHitArray;
+		B2_ASSERT(b2Array(events).count == 0);
+
+		float threshold = world->hitEventThreshold;
+		b2GraphColor* colors = world->constraintGraph.colors;
+		for (int i = 0; i < b2_graphColorCount; ++i)
+		{
+			b2GraphColor* color = colors + i;
+			int contactCount = color->contacts.count;
+			b2ContactSim* contactSims = color->contacts.data;
+			for (int j = 0; j < contactCount; ++j)
+			{
+				b2ContactSim* contactSim = contactSims + j;
+				if ((contactSim->simFlags & b2_simEnableHitEvent) == 0)
+				{
+					continue;
+				}
+
+				b2ContactHitEvent event = {0};
+				event.approachSpeed = threshold;
+
+				bool hit = false;
+				int pointCount = contactSim->manifold.pointCount;
+				for (int k = 0; k < pointCount; ++k)
+				{
+					b2ManifoldPoint* mp = contactSim->manifold.points + k;
+					float approachSpeed = -mp->normalVelocity;
+					if (approachSpeed > event.approachSpeed && mp->normalImpulse > 0.0f)
+					{
+						event.approachSpeed = approachSpeed;
+						event.point = mp->point;
+						hit = true;
+					}
+				}
+
+				if (hit == true)
+				{
+					event.normal = contactSim->manifold.normal;
+
+					b2CheckId(world->shapeArray, contactSim->shapeIdA);
+					b2CheckId(world->shapeArray, contactSim->shapeIdB);
+					b2Shape* shapeA = world->shapeArray + contactSim->shapeIdA;
+					b2Shape* shapeB = world->shapeArray + contactSim->shapeIdB;
+
+					event.shapeIdA = (b2ShapeId){shapeA->id + 1, world->worldId, shapeA->revision};
+					event.shapeIdB = (b2ShapeId){shapeB->id + 1, world->worldId, shapeB->revision};
+
+					b2Array_Push(events, event);
+				}
+			}
+		}
+	}
+
+	world->profile.hitEvents = b2GetMillisecondsAndReset(&timer);
 
 	// Finish the user tree task that was queued earlier in the time step. This must be complete before touching the broad-phase.
 	if (world->userTreeTask != NULL)

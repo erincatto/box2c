@@ -48,8 +48,6 @@ public:
 	void Step(Settings& settings) override
 	{
 		Sample::Step(settings);
-	
-		g_draw.DrawCircle(b2Vec2_zero, 1.0f, b2_colorWhite);
 	}
 
 	static Sample* Create(Settings& settings)
