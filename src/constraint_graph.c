@@ -68,7 +68,6 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 	b2ConstraintGraph* graph = &world->constraintGraph;
 	int colorIndex = b2_overflowIndex;
 
-#if B2_FORCE_OVERFLOW == 0
 	int bodyIdA = contact->edges[0].bodyId;
 	int bodyIdB = contact->edges[1].bodyId;
 	b2CheckIndex(world->bodyArray, bodyIdA);
@@ -80,6 +79,7 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 	bool staticB = bodyB->setIndex == b2_staticSet;
 	B2_ASSERT(staticA == false || staticB == false);
 
+#if B2_FORCE_OVERFLOW == 0
 	if (staticA == false && staticB == false)
 	{
 		for (int i = 0; i < b2_overflowIndex; ++i)

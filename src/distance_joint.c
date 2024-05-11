@@ -448,7 +448,7 @@ void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 	joint->distanceJoint.motorSpeed = motorSpeed;
 }
 
-float bb2DistanceJoint_GetMotorSpeed(b2JointId jointId)
+float b2DistanceJoint_GetMotorSpeed(b2JointId jointId)
 {
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	return joint->distanceJoint.motorSpeed;

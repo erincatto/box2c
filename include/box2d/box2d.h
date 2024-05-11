@@ -664,7 +664,7 @@ B2_API bool b2DistanceJoint_IsMotorEnabled(b2JointId jointId);
 
 B2_API void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 
-B2_API float bb2DistanceJoint_GetMotorSpeed(b2JointId jointId);
+B2_API float b2DistanceJoint_GetMotorSpeed(b2JointId jointId);
 
 B2_API float b2DistanceJoint_GetMotorForce(b2JointId jointId);
 
