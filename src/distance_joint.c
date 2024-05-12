@@ -400,16 +400,25 @@ float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
 void b2DistanceJoint_EnableSpring(b2JointId jointId, bool enableSpring)
 {
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
-	b2DistanceJoint* joint = &base->distanceJoint;
-	joint->enableSpring = enableSpring;
+	base->distanceJoint.enableSpring = enableSpring;
 }
 
-void b2DistanceJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
+bool b2DistanceJoint_IsSpringEnabled(b2JointId jointId)
 {
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
-	b2DistanceJoint* joint = &base->distanceJoint;
-	joint->hertz = hertz;
-	joint->dampingRatio = dampingRatio;
+	return base->distanceJoint.enableSpring;
+}
+
+void b2DistanceJoint_SetSpringHertz(b2JointId jointId, float hertz)
+{
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	base->distanceJoint.hertz = hertz;
+}
+
+void b2DistanceJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
+{
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	base->distanceJoint.dampingRatio = dampingRatio;
 }
 
 float b2DistanceJoint_GetHertz(b2JointId jointId)
@@ -448,7 +457,7 @@ void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
 	joint->distanceJoint.motorSpeed = motorSpeed;
 }
 
-float bb2DistanceJoint_GetMotorSpeed(b2JointId jointId)
+float b2DistanceJoint_GetMotorSpeed(b2JointId jointId)
 {
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
 	return joint->distanceJoint.motorSpeed;

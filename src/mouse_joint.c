@@ -23,10 +23,15 @@ b2Vec2 b2MouseJoint_GetTarget(b2JointId jointId)
 	return base->mouseJoint.targetA;
 }
 
-void b2MouseJoint_SetTuning(b2JointId jointId, float hertz, float dampingRatio)
+void b2MouseJoint_SetSpringHertz(b2JointId jointId, float hertz)
 {
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	base->mouseJoint.hertz = hertz;
+}
+
+void b2MouseJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
+{
+	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_mouseJoint);
 	base->mouseJoint.dampingRatio = dampingRatio;
 }
 

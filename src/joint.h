@@ -128,9 +128,12 @@ typedef struct b2PrismaticJoint
 {
 	b2Vec2 localAxisA;
 	b2Vec2 impulse;
+	float springImpulse;
 	float motorImpulse;
 	float lowerImpulse;
 	float upperImpulse;
+	float hertz;
+	float dampingRatio;
 	float maxMotorForce;
 	float motorSpeed;
 	float referenceAngle;
@@ -145,6 +148,9 @@ typedef struct b2PrismaticJoint
 	b2Vec2 deltaCenter;
 	float deltaAngle;
 	float axialMass;
+	b2Softness springSoftness;
+	
+	bool enableSpring;
 	bool enableLimit;
 	bool enableMotor;
 } b2PrismaticJoint;
@@ -152,9 +158,12 @@ typedef struct b2PrismaticJoint
 typedef struct b2RevoluteJoint
 {
 	b2Vec2 linearImpulse;
+	float springImpulse;
 	float motorImpulse;
 	float lowerImpulse;
 	float upperImpulse;
+	float hertz;
+	float dampingRatio;
 	float maxMotorTorque;
 	float motorSpeed;
 	float referenceAngle;
@@ -168,6 +177,9 @@ typedef struct b2RevoluteJoint
 	b2Vec2 deltaCenter;
 	float deltaAngle;
 	float axialMass;
+	b2Softness springSoftness;
+	
+	bool enableSpring;
 	bool enableMotor;
 	bool enableLimit;
 } b2RevoluteJoint;
@@ -196,7 +208,6 @@ typedef struct b2WeldJoint
 
 typedef struct b2WheelJoint
 {
-	// Solver shared
 	b2Vec2 localAxisA;
 	float perpImpulse;
 	float motorImpulse;
@@ -209,10 +220,7 @@ typedef struct b2WheelJoint
 	float upperTranslation;
 	float hertz;
 	float dampingRatio;
-	bool enableMotor;
-	bool enableLimit;
 
-	// Solver temp
 	int indexA;
 	int indexB;
 	b2Vec2 anchorA;
@@ -223,6 +231,10 @@ typedef struct b2WheelJoint
 	float motorMass;
 	float axialMass;
 	b2Softness springSoftness;
+
+	bool enableSpring;
+	bool enableMotor;
+	bool enableLimit;
 } b2WheelJoint;
 
 /// The base joint class. Joints are used to constraint two sims together in

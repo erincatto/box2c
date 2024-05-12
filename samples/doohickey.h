@@ -21,7 +21,6 @@ class Doohickey
 	b2JointId m_axleId1;
 	b2JointId m_axleId2;
 	b2JointId m_sliderId;
-	b2JointId m_springId;
 
 	bool m_isSpawned;
 };
