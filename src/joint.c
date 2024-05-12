@@ -67,6 +67,7 @@ b2WheelJointDef b2DefaultWheelJointDef()
 {
 	b2WheelJointDef def = {0};
 	def.localAxisA.y = 1.0f;
+	def.enableSpring = true;
 	def.hertz = 1.0f;
 	def.dampingRatio = 0.7f;
 	return def;
@@ -471,15 +472,19 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 	joint->revoluteJoint.referenceAngle = b2ClampFloat(def->referenceAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.linearImpulse = b2Vec2_zero;
 	joint->revoluteJoint.axialMass = 0.0f;
+	joint->revoluteJoint.springImpulse = 0.0f;
 	joint->revoluteJoint.motorImpulse = 0.0f;
 	joint->revoluteJoint.lowerImpulse = 0.0f;
 	joint->revoluteJoint.upperImpulse = 0.0f;
+	joint->revoluteJoint.hertz = def->hertz;
+	joint->revoluteJoint.dampingRatio = def->dampingRatio;
 	joint->revoluteJoint.lowerAngle = b2MinFloat(def->lowerAngle, def->upperAngle);
-	joint->revoluteJoint.upperAngle = B2_MAX(def->lowerAngle, def->upperAngle);
+	joint->revoluteJoint.upperAngle = b2MaxFloat(def->lowerAngle, def->upperAngle);
 	joint->revoluteJoint.lowerAngle = b2ClampFloat(joint->revoluteJoint.lowerAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.upperAngle = b2ClampFloat(joint->revoluteJoint.upperAngle, -b2_pi, b2_pi);
 	joint->revoluteJoint.maxMotorTorque = def->maxMotorTorque;
 	joint->revoluteJoint.motorSpeed = def->motorSpeed;
+	joint->revoluteJoint.enableSpring = def->enableSpring;
 	joint->revoluteJoint.enableLimit = def->enableLimit;
 	joint->revoluteJoint.enableMotor = def->enableMotor;
 
@@ -521,13 +526,17 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 	joint->prismaticJoint.referenceAngle = def->referenceAngle;
 	joint->prismaticJoint.impulse = b2Vec2_zero;
 	joint->prismaticJoint.axialMass = 0.0f;
+	joint->prismaticJoint.springImpulse = 0.0f;
 	joint->prismaticJoint.motorImpulse = 0.0f;
 	joint->prismaticJoint.lowerImpulse = 0.0f;
 	joint->prismaticJoint.upperImpulse = 0.0f;
+	joint->prismaticJoint.hertz = def->hertz;
+	joint->prismaticJoint.dampingRatio = def->dampingRatio;
 	joint->prismaticJoint.lowerTranslation = def->lowerTranslation;
 	joint->prismaticJoint.upperTranslation = def->upperTranslation;
 	joint->prismaticJoint.maxMotorForce = def->maxMotorForce;
 	joint->prismaticJoint.motorSpeed = def->motorSpeed;
+	joint->prismaticJoint.enableSpring = def->enableSpring;
 	joint->prismaticJoint.enableLimit = def->enableLimit;
 	joint->prismaticJoint.enableMotor = def->enableMotor;
 
@@ -616,6 +625,7 @@ b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 	joint->wheelJoint.motorSpeed = def->motorSpeed;
 	joint->wheelJoint.hertz = def->hertz;
 	joint->wheelJoint.dampingRatio = def->dampingRatio;
+	joint->wheelJoint.enableSpring = def->enableSpring;
 	joint->wheelJoint.enableLimit = def->enableLimit;
 	joint->wheelJoint.enableMotor = def->enableMotor;
 

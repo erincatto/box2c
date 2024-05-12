@@ -169,6 +169,15 @@ typedef struct b2PrismaticJointDef
 	/// The constrained angle between the sims: bodyB_angle - bodyA_angle.
 	float referenceAngle;
 
+	/// Enable a linear spring along the prismatic joint axis.
+	bool enableSpring;
+
+	/// The spring stiffness hertz (cycles per second)
+	float hertz;
+
+	/// The spring damping ratio (non-dimensional)
+	float dampingRatio;
+	
 	/// Enable/disable the joint limit.
 	bool enableLimit;
 
@@ -225,6 +234,15 @@ typedef struct b2RevoluteJointDef
 	/// This defines the zero angle for the joint limit.
 	float referenceAngle;
 
+	/// Enable a rotational spring on the revolute hinge axis.
+	bool enableSpring;
+
+	/// The spring stiffness hertz (cycles per second)
+	float hertz;
+
+	/// The spring damping ratio (non-dimensional)
+	float dampingRatio;
+	
 	/// A flag to enable joint limits.
 	bool enableLimit;
 
@@ -322,7 +340,16 @@ typedef struct b2WheelJointDef
 	/// The local translation unit axis in bodyA.
 	b2Vec2 localAxisA;
 
-	/// Enable/disable the joint limit.
+	/// Enable a linear spring along the local axis
+	bool enableSpring;
+	
+	/// Spring stiffness in Hertz
+	float hertz;
+
+	/// Spring damping ratio, non-dimensional
+	float dampingRatio;
+
+	/// Enable/disable the joint linear limit.
 	bool enableLimit;
 
 	/// The lower translation limit, usually in meters.
@@ -331,7 +358,7 @@ typedef struct b2WheelJointDef
 	/// The upper translation limit, usually in meters.
 	float upperTranslation;
 
-	/// Enable/disable the joint motor.
+	/// Enable/disable the joint rotational motor.
 	bool enableMotor;
 
 	/// The maximum motor torque, usually in N-m.
@@ -339,12 +366,6 @@ typedef struct b2WheelJointDef
 
 	/// The desired motor speed in radians per second.
 	float motorSpeed;
-
-	/// Spring stiffness in Hertz
-	float hertz;
-
-	/// Spring damping ratio, non-dimensional
-	float dampingRatio;
 
 	/// Set this flag to true if the attached sims should collide.
 	bool collideConnected;

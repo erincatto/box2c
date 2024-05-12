@@ -16,6 +16,46 @@
 
 #include <stdio.h>
 
+void b2RevoluteJoint_EnableSpring(b2JointId jointId, bool enableSpring)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	if (enableSpring != joint->revoluteJoint.enableSpring)
+	{
+		joint->revoluteJoint.enableSpring = enableSpring;
+		joint->revoluteJoint.springImpulse = 0.0f;
+	}
+}
+
+bool b2RevoluteJoint_IsSpringEnabled(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.enableSpring;
+}
+
+void b2RevoluteJoint_SetSpringHertz(b2JointId jointId, float hertz)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	joint->revoluteJoint.hertz = hertz;
+}
+
+float b2RevoluteJoint_GetSpringHertz(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.hertz;
+}
+
+void b2RevoluteJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	joint->revoluteJoint.dampingRatio = dampingRatio;
+}
+
+float b2RevoluteJoint_GetSpringDampingRatio(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	return joint->revoluteJoint.dampingRatio;
+}
+
 float b2RevoluteJoint_GetAngle(b2JointId jointId)
 {
 	b2World* world = b2GetWorld(jointId.world0);
@@ -223,6 +263,7 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	if (context->enableWarmStarting == false)
 	{
 		joint->linearImpulse = b2Vec2_zero;
+		joint->springImpulse = 0.0f;
 		joint->motorImpulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
 		joint->upperImpulse = 0.0f;
@@ -248,8 +289,10 @@ void b2WarmStartRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
 	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
 
-	float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
+	float axialImpulse = joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
+	joint->springSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
+	
 	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, joint->linearImpulse);
 	stateA->angularVelocity -= iA * (b2Cross(rA, joint->linearImpulse) + axialImpulse);
 
@@ -282,6 +325,22 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	bool fixedRotation = (iA + iB == 0.0f);
 	//const float maxBias = context->maxBiasVelocity;
 
+	// Solve spring.
+	if (joint->enableSpring && fixedRotation == false)
+	{
+		float C = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
+		float bias = joint->springSoftness.biasRate * C;
+		float massScale = joint->springSoftness.massScale;
+		float impulseScale = joint->springSoftness.impulseScale;
+
+		float Cdot = wB - wA;
+		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->springImpulse;
+		joint->springImpulse += impulse;
+
+		wA -= iA * impulse;
+		wB += iB * impulse;
+	}
+	
 	// Solve motor constraint.
 	if (joint->enableMotor && fixedRotation == false)
 	{

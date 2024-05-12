@@ -14,6 +14,23 @@
 
 #include <stdio.h>
 
+void b2WheelJoint_EnableSpring(b2JointId jointId, bool enableSpring)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_wheelJoint);
+	
+	if (enableSpring != joint->wheelJoint.enableSpring)
+	{
+		joint->wheelJoint.enableSpring = enableSpring;
+		joint->wheelJoint.springImpulse = 0.0f;
+	}
+}
+
+bool b2WheelJoint_IsSpringEnabled(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_wheelJoint);
+	return joint->wheelJoint.enableSpring;
+}
+
 void b2WheelJoint_SetSpringHertz(b2JointId jointId, float hertz)
 {
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_wheelJoint);
@@ -354,6 +371,7 @@ void b2SolveWheelJoint(b2JointSim* base, b2StepContext* context, bool useBias)
 	}
 
 	// spring constraint
+	if (joint->enableSpring)
 	{
 		// This is a real spring and should be applied even during relax
 		float C = translation;
@@ -401,7 +419,7 @@ void b2SolveWheelJoint(b2JointSim* base, b2StepContext* context, bool useBias)
 			float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
 			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->lowerImpulse;
-			joint->lowerImpulse = B2_MAX(oldImpulse + impulse, 0.0f);
+			joint->lowerImpulse = b2MaxFloat(oldImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
 
 			b2Vec2 P = b2MulSV(impulse, axisA);
@@ -524,7 +542,6 @@ void b2DrawWheelJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transform
 
 	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
-
 	b2Vec2 axis = b2RotateVector(transformA.q, joint->localAxisA);
 
 	b2HexColor c1 = b2_colorGray70;
