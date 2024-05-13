@@ -7,6 +7,10 @@ set(DOXYGEN_MACRO_EXPANSION YES)
 set(DOXYGEN_EXPAND_ONLY_PREDEF YES)
 set(DOXYGEN_PREDEFINED B2_API=)
 
+# In multiline comments, this takes the first line/sentence as a brief description to use in the table of functions.
+# So I don't need to use @brief tags to separate the short description from the full description.
+set(DOXYGEN_JAVADOC_AUTOBRIEF YES)
+
 set(DOXYGEN_IMAGE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/images")
 set(DOXYGEN_HTML_EXTRA_STYLESHEET "${CMAKE_CURRENT_SOURCE_DIR}/extra.css")
 set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_CURRENT_SOURCE_DIR}/overview.md")

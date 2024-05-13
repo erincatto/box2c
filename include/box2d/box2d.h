@@ -20,7 +20,7 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 
 /**
- * \defgroup WorldAPI Worlds
+ * @defgroup WorldAPI Worlds
  * These functions allow you to create a simulation world. You can then add bodies and
  * joints to the world and run the simulation. You can get contact information to get contact points
  * and normals as well as events. You can query to world, checking for overlaps and casting rays or shapes.
@@ -376,7 +376,7 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 /** @} */
 
 /**
- * \defgroup ShapeAPI Shapes
+ * @defgroup ShapeAPI Shapes
  * This is the shape API.
  * @{
  */
@@ -550,26 +550,13 @@ B2_API bool b2Chain_IsValid(b2ChainId id);
 /** @} */
 
 /**
- * \defgroup JointAPI Joints
- * This is the joint API.
+ * @defgroup joints Joints
+ * @brief Joints allow you to connect rigid bodies together while allowing various forms of relative motions.
  * @{
  */
 
-/// Create a distance joint
-///	@see b2DistanceJointDef for details
-B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
 
-/// Create a motor joint
-///	@see b2MotorJointDef for details
-B2_API b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def);
 
-/// Create a mouse joint
-///	@see b2MouseJointDef for details
-B2_API b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
-
-/// Create a prismatic (slider) joint
-///	@see b2PrismaticJointDef for details
-B2_API b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
 
 /// Create a revolute (hinge) joint
 ///	@see b2RevoluteJointDef for details
@@ -619,12 +606,22 @@ B2_API void* b2Joint_GetUserData(b2JointId jointId);
 /// Wake the bodies connect to this joint
 B2_API void b2Joint_WakeBodies(b2JointId jointId);
 
-/// Distance Joint
+/**
+ * @defgroup distance_joint Distance Joint
+ * @brief Functions for the distance joint.
+ * @{
+ */
 
-/// Get the constraint force on a distance joint
+/// Create a distance joint
+///	@see b2DistanceJointDef for details
+B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def);
+
+/// @return The constraint force on a distance joint.
 B2_API float b2DistanceJoint_GetConstraintForce(b2JointId jointId, float timeStep);
 
-/// Set the rest length of a distance joint
+/// @brief Set the rest length of a distance joint.
+/// @param[in] jointId The id for a distance joint.
+/// @param[in] length The new distance joint length.
 B2_API void b2DistanceJoint_SetLength(b2JointId jointId, float length);
 
 /// Get the rest length of a distance joint
@@ -656,7 +653,7 @@ B2_API bool b2DistanceJoint_IsLimitEnabled(b2JointId jointId);
 /// Set the minimum and maximum length parameters of a distance joint
 B2_API void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength);
 
-/// Get the minimum distance joint length
+/// @return the minimum distance joint length
 B2_API float b2DistanceJoint_GetMinLength(b2JointId jointId);
 
 /// Get the maximum distance joint length
@@ -679,7 +676,17 @@ B2_API void b2DistanceJoint_SetMaxMotorForce(b2JointId jointId, float force);
 
 B2_API float b2DistanceJoint_GetMaxMotorForce(b2JointId jointId);
 
-/// Motor Joint
+/** @} */
+
+/**
+ * @defgroup motor_joint Motor Joint
+ * @brief Functions for the motor joint.
+ * @{
+ */
+
+/// Create a motor joint
+///	@see b2MotorJointDef for details
+B2_API b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def);
 
 /// Set/Get the linear offset target for a motor joint
 B2_API void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset);
@@ -717,7 +724,21 @@ B2_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId);
 /// Get the current constraint torque for a motor joint
 B2_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId);
 
-/// Mouse Joint
+/** @} */
+
+
+/**
+ * @defgroup mouse_joint Mouse Joint
+ * @brief Functions for the mouse joint.
+ * 
+ * The mouse joint is designed for use in the samples application, but you may find it useful in applications where
+ * the user moves a rigid body with a cursor.
+ * @{
+ */
+
+/// Create a mouse joint
+///	@see b2MouseJointDef for details
+B2_API b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def);
 
 /// Set the target for a mouse joint
 B2_API void b2MouseJoint_SetTarget(b2JointId jointId, b2Vec2 target);
@@ -737,23 +758,41 @@ B2_API float b2MouseJoint_GetHertz(b2JointId jointId);
 /// Get the damping ratio of a mouse joint
 B2_API float b2MouseJoint_GetDampingRatio(b2JointId jointId);
 
-/// Prismatic Joint
+/** @} */
+
+/**
+ * @defgroup prismatic_joint Prismatic Joint
+ * @brief A prismatic joint allows for translation along a single axis with no rotation.
+ * 
+ * The prismatic joint is useful for things like pistons and moving platforms, where you want a body to translate
+ * along an axis and have no rotation. Also called a *slider* joint.
+ * @{
+ */
+
+/// Create a prismatic (slider) joint.
+///	@see b2PrismaticJointDef for details
+B2_API b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def);
 
 /// Enable/disable the joint spring.
 B2_API void b2PrismaticJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
+/// @brief Is the spring enabled or not?
+/// @param jointId 
+/// @return true if the spring is enable, other-wise false.
 B2_API bool b2PrismaticJoint_IsSpringEnabled(b2JointId jointId);
 
-/// Set the joint stiffness in Hertz
+/// Set the joint stiffness in Hertz.
+/// This should usually be less than a quarter of the simulation rate. For example, if the simulation
+/// runs at 60Hz then the joint stiffness should be 15Hz or less.
 B2_API void b2PrismaticJoint_SetSpringHertz(b2JointId jointId, float hertz);
 
-/// @return the joint stiffness in Hertz
+/// Get the joint stiffness in Hertz
 B2_API float b2PrismaticJoint_GetSpringHertz(b2JointId jointId);
 
 /// Set the joint damping ratio (non-dimensional)
 B2_API void b2PrismaticJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio);
 
-/// @return the joint damping ratio (non-dimensional)
+/// Get the spring damping ratio (non-dimensional)
 B2_API float b2PrismaticJoint_GetSpringDampingRatio(b2JointId jointId);
 
 /// Enable/disable a prismatic joint limit
@@ -798,7 +837,15 @@ B2_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId);
 /// Get the current constraint torque for a prismatic joint
 B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
 
-/// Revolute Joint
+/** @} */
+
+/**
+ * @defgroup revolute_joint Revolute Joint
+ * @brief A revolute joint allows for rotation in the 2D plane with no relative translation.
+ * 
+ * The revolute joint is probably the most common joint. It can be used for ragdolls and chains. Also called a *hinge* joint.
+ * @{
+ */
 
 /// Enable/disable the joint spring.
 B2_API void b2RevoluteJoint_EnableSpring(b2JointId jointId, bool enableSpring);
@@ -862,7 +909,15 @@ B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
 /// Get the current constraint torque for a revolute joint
 B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId);
 
-/// Wheel Joint
+/** @} */
+
+/**
+ * @defgroup wheel_joint Wheel Joint
+ * @brief todo
+ * 
+ * todo
+ * @{
+ */
 
 B2_API void b2WheelJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
@@ -922,7 +977,15 @@ B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId);
 /// Get the current wheel joint constraint torque
 B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId);
 
-/// Weld Joint
+/** @} */
+
+/**
+ * @defgroup weld_joint Weld Joint
+ * @brief todo
+ * 
+ * todo
+ * @{
+ */
 
 /// Set weld joint linear stiffness in Hertz. 0 is rigid.
 B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);
@@ -947,5 +1010,7 @@ B2_API void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingR
 
 /// @return the weld joint angular damping ratio (non-dimensional)
 B2_API float b2WeldJoint_GetAngularDampingRatio(b2JointId jointId);
+
+/** @} */
 
 /** @} */

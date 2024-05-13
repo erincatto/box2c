@@ -5,6 +5,10 @@
 
 #include "types.h"
 
+/// @brief Joint type enumeration.
+/// This is useful because all joint types use b2JointId and sometimes you
+/// may want to get the type of a joint.
+/// @ingroup joints
 typedef enum b2JointType
 {
 	b2_distanceJoint,
@@ -16,10 +20,12 @@ typedef enum b2JointType
 	b2_wheelJoint,
 } b2JointType;
 
-/// Distance joint definition. This requires defining an anchor point on both
+/// @brief Distance joint defintion
+/// This requires defining an anchor point on both
 /// bodies and the non-zero distance of the distance joint. The definition uses
 /// local anchor points so that the initial configuration can violate the
 /// constraint slightly. This helps when saving and loading a game.
+/// @ingroup distance_joint
 typedef struct b2DistanceJointDef
 {
 	/// The first attached body.
@@ -73,12 +79,14 @@ typedef struct b2DistanceJointDef
 
 } b2DistanceJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition.
+/// @ingroup distance_joint
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef();
 
-/// A motor joint is used to control the relative motion
-/// between two bodies. A typical usage is to control the movement
-/// of a dynamic body with respect to the ground.
+/// @brief A motor joint is used to control the relative motion between two bodies.
+///
+/// A typical usage is to control the movement of a dynamic body with respect to the ground.
+/// @ingroup motor_joint
 typedef struct b2MotorJointDef
 {
 	/// The first attached body.
@@ -110,12 +118,15 @@ typedef struct b2MotorJointDef
 
 } b2MotorJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition
+/// @ingroup motor_joint
 B2_API b2MotorJointDef b2DefaultMotorJointDef();
 
-/// A mouse joint is used to make a point on a body track a
-/// specified world point. This a soft constraint and allows the constraint to stretch without
+/// @brief A mouse joint is used to make a point on a body track a specified world point.
+///
+/// This a soft constraint and allows the constraint to stretch without
 /// applying huge forces. This also applies rotation constraint heuristic to improve control.
+/// @ingroup mouse_joint
 typedef struct b2MouseJointDef
 {
 	/// The first attached body.
@@ -141,14 +152,17 @@ typedef struct b2MouseJointDef
 
 } b2MouseJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition
+/// @ingroup mouse_joint
 B2_API b2MouseJointDef b2DefaultMouseJointDef();
 
-/// Prismatic joint definition. This requires defining a line of
-/// motion using an axis and an anchor point. The definition uses local
+/// @brief Prismatic joint definition.
+/// This requires defining a line of motion using an axis and an anchor point.
+/// The definition uses local
 /// anchor points and a local axis so that the initial configuration
 /// can violate the constraint slightly. The joint translation is zero
 /// when the local anchor points coincide in world space.
+/// @ingroup prismatic_joint
 typedef struct b2PrismaticJointDef
 {
 	/// The first attached body.
@@ -203,10 +217,13 @@ typedef struct b2PrismaticJointDef
 	void* userData;
 } b2PrismaticJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition
+/// @ingroupd prismatic_joint
 B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef();
 
-/// Revolute joint definition. This requires defining an anchor point where the
+/// @brief Revolute joint definition.
+/// 
+/// This requires defining an anchor point where the
 /// sims are joined. The definition uses local anchor points so that the
 /// initial configuration can violate the constraint slightly. You also need to
 /// specify the initial relative angle for joint limits. This helps when saving
@@ -216,6 +233,7 @@ B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef();
 /// 1. you might not know where the center of mass will be.
 /// 2. if you add/remove shapes from a body and recompute the mass,
 ///    the joints will be broken.
+/// @ingroup revolute_joint
 typedef struct b2RevoluteJointDef
 {
 	/// The first attached body.
@@ -272,12 +290,16 @@ typedef struct b2RevoluteJointDef
 	void* userData;
 } b2RevoluteJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition.
+/// @ingroup revolute_joint
 B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef();
 
+/// @brief Weld joint definition.
+///
 /// A weld joint connect to sims together rigidly. This constraint can be made soft to mimic
 ///	soft-body simulation.
 /// @warning the approximate solver in Box2D cannot hold many sims together rigidly
+/// @ingroup weld_joint
 typedef struct b2WeldJointDef
 {
 	/// The first attached body.
@@ -314,15 +336,18 @@ typedef struct b2WeldJointDef
 	void* userData;
 } b2WeldJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition
+/// @ingroup weld_joint
 B2_API b2WeldJointDef b2DefaultWeldJointDef();
 
-/// Wheel joint definition. This requires defining a line of
+/// @brief Wheel joint definition.
+/// This requires defining a line of
 /// motion using an axis and an anchor point. The definition uses local
 /// anchor points and a local axis so that the initial configuration
 /// can violate the constraint slightly. The joint translation is zero
 /// when the local anchor points coincide in world space. Using local
 /// anchors and a local axis helps when saving and loading a game.
+/// @ingroup wheel_joint
 typedef struct b2WheelJointDef
 {
 	/// The first attached body.
@@ -374,5 +399,6 @@ typedef struct b2WheelJointDef
 	void* userData;
 } b2WheelJointDef;
 
-/// Use this to initialize your joint definition
+/// @brief Use this to initialize your joint definition
+/// @ingroup wheel_joint
 B2_API b2WheelJointDef b2DefaultWheelJointDef();
