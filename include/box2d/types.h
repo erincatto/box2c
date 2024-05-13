@@ -30,7 +30,9 @@ typedef struct b2RayResult
 	bool hit;
 } b2RayResult;
 
-/// World definition used to create a simulation world. Must be initialized using b2DefaultWorldDef.
+/// World definition used to create a simulation world.
+/// Must be initialized using b2DefaultWorldDef.
+/// @ingroup world
 typedef struct b2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
@@ -83,6 +85,7 @@ typedef struct b2WorldDef
 /// static: zero mass, zero velocity, may be manually moved
 /// kinematic: zero mass, non-zero velocity set by user, moved by solver
 /// dynamic: positive mass, non-zero velocity determined by forces, moved by solver
+/// @ingroup body
 typedef enum b2BodyType
 {
 	b2_staticBody = 0,
@@ -92,6 +95,7 @@ typedef enum b2BodyType
 
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
+/// @ingroup body
 typedef struct b2BodyDef
 {
 	/// The body type: static, kinematic, or dynamic.
@@ -180,6 +184,7 @@ typedef struct b2QueryFilter
 } b2QueryFilter;
 
 /// Shape type
+/// @ingroup shape
 typedef enum b2ShapeType
 {
 	b2_circleShape,
@@ -191,6 +196,7 @@ typedef enum b2ShapeType
 } b2ShapeType;
 
 /// Used to create a shape
+/// @ingroup shape
 typedef struct b2ShapeDef
 {
 	/// Use this to store application specific shape data.
@@ -244,6 +250,7 @@ typedef struct b2ShapeDef
 ///	- you may overlap two open chains on their first three and/or last three points to get smooth collision
 ///	- a chain shape creates multiple hidden shapes on the body
 /// https://en.wikipedia.org/wiki/Polygonal_chain
+/// @ingroup shape
 typedef struct b2ChainDef
 {
 	/// An array of at least 4 points. These are cloned and may be temporary.
@@ -313,9 +320,11 @@ typedef struct b2Counters
 } b2Counters;
 
 /// Use this to initialize your world definition
+/// @ingroup world
 B2_API b2WorldDef b2DefaultWorldDef();
 
 /// Use this to initialize your body definition
+/// @ingroup body
 B2_API b2BodyDef b2DefaultBodyDef();
 
 /// Use this to initialize your filter
@@ -325,7 +334,9 @@ B2_API b2Filter b2DefaultFilter();
 B2_API b2QueryFilter b2DefaultQueryFilter();
 
 /// Use this to initialize your shape definition
+/// @ingroup shape
 B2_API b2ShapeDef b2DefaultShapeDef();
 
 /// Use this to initialize your chain definition
+/// @ingroup shape
 B2_API b2ChainDef b2DefaultChainDef();

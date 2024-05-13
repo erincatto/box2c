@@ -8,7 +8,7 @@
 /// @brief Joint type enumeration.
 /// This is useful because all joint types use b2JointId and sometimes you
 /// may want to get the type of a joint.
-/// @ingroup joints
+/// @ingroup joint
 typedef enum b2JointType
 {
 	b2_distanceJoint,

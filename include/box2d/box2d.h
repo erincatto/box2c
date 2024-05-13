@@ -20,7 +20,7 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 
 /**
- * @defgroup WorldAPI Worlds
+ * @defgroup world World
  * These functions allow you to create a simulation world. You can then add bodies and
  * joints to the world and run the simulation. You can get contact information to get contact points
  * and normals as well as events. You can query to world, checking for overlaps and casting rays or shapes.
@@ -140,7 +140,7 @@ B2_API void b2World_DumpMemoryStats(b2WorldId worldId);
 /** @} */
 
 /**
- * \defgroup BodyAPI Bodies
+ * @defgroup body Body
  * This is the body API.
  * @{
  */
@@ -376,8 +376,9 @@ B2_API b2AABB b2Body_ComputeAABB(b2BodyId bodyId);
 /** @} */
 
 /**
- * @defgroup ShapeAPI Shapes
- * This is the shape API.
+ * @defgroup shape Shape
+ * This is the shape API. Shapes bind raw geometry to bodies and hold material properties including
+ * friction and restitution.
  * @{
  */
 
@@ -550,25 +551,10 @@ B2_API bool b2Chain_IsValid(b2ChainId id);
 /** @} */
 
 /**
- * @defgroup joints Joints
+ * @defgroup joint Joint
  * @brief Joints allow you to connect rigid bodies together while allowing various forms of relative motions.
  * @{
  */
-
-
-
-
-/// Create a revolute (hinge) joint
-///	@see b2RevoluteJointDef for details
-B2_API b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
-
-/// Create a weld joint
-///	@see b2WeldJointDef for details
-B2_API b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
-
-/// Create a wheel joint
-///	@see b2WheelJointDef for details
-B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
 
 /// Destroy any joint type
 B2_API void b2DestroyJoint(b2JointId jointId);
@@ -847,6 +833,10 @@ B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
  * @{
  */
 
+/// Create a revolute (hinge) joint
+///	@see b2RevoluteJointDef for details
+B2_API b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def);
+
 /// Enable/disable the joint spring.
 B2_API void b2RevoluteJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
@@ -912,12 +902,54 @@ B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId);
 /** @} */
 
 /**
+ * @defgroup weld_joint Weld Joint
+ * @brief todo
+ * 
+ * todo
+ * @{
+ */
+
+/// Create a weld joint
+///	@see b2WeldJointDef for details
+B2_API b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def);
+
+/// Set weld joint linear stiffness in Hertz. 0 is rigid.
+B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);
+
+/// @return the weld joint linear stiffness in Hertz.
+B2_API float b2WeldJoint_GetLinearHertz(b2JointId jointId);
+
+/// Set weld joint linear damping ratio (non-dimensional)
+B2_API void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio);
+
+/// @return the weld joint linear damping ratio (non-dimensional)
+B2_API float b2WeldJoint_GetLinearDampingRatio(b2JointId jointId);
+
+/// Set weld joint angular stiffness in Hertz. 0 is rigid.
+B2_API void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz);
+
+/// @return the weld joint angular stiffness in Hertz.
+B2_API float b2WeldJoint_GetAngularHertz(b2JointId jointId);
+
+/// Set weld joint angular damping ratio (non-dimensional)
+B2_API void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio);
+
+/// @return the weld joint angular damping ratio (non-dimensional)
+B2_API float b2WeldJoint_GetAngularDampingRatio(b2JointId jointId);
+
+/** @} */
+
+/**
  * @defgroup wheel_joint Wheel Joint
  * @brief todo
  * 
  * todo
  * @{
  */
+
+/// Create a wheel joint
+///	@see b2WheelJointDef for details
+B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
 
 B2_API void b2WheelJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
@@ -976,40 +1008,6 @@ B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId);
 
 /// Get the current wheel joint constraint torque
 B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId);
-
-/** @} */
-
-/**
- * @defgroup weld_joint Weld Joint
- * @brief todo
- * 
- * todo
- * @{
- */
-
-/// Set weld joint linear stiffness in Hertz. 0 is rigid.
-B2_API void b2WeldJoint_SetLinearHertz(b2JointId jointId, float hertz);
-
-/// @return the weld joint linear stiffness in Hertz.
-B2_API float b2WeldJoint_GetLinearHertz(b2JointId jointId);
-
-/// Set weld joint linear damping ratio (non-dimensional)
-B2_API void b2WeldJoint_SetLinearDampingRatio(b2JointId jointId, float dampingRatio);
-
-/// @return the weld joint linear damping ratio (non-dimensional)
-B2_API float b2WeldJoint_GetLinearDampingRatio(b2JointId jointId);
-
-/// Set weld joint angular stiffness in Hertz. 0 is rigid.
-B2_API void b2WeldJoint_SetAngularHertz(b2JointId jointId, float hertz);
-
-/// @return the weld joint angular stiffness in Hertz.
-B2_API float b2WeldJoint_GetAngularHertz(b2JointId jointId);
-
-/// Set weld joint angular damping ratio (non-dimensional)
-B2_API void b2WeldJoint_SetAngularDampingRatio(b2JointId jointId, float dampingRatio);
-
-/// @return the weld joint angular damping ratio (non-dimensional)
-B2_API float b2WeldJoint_GetAngularDampingRatio(b2JointId jointId);
 
 /** @} */
 
