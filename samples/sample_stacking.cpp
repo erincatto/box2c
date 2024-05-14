@@ -23,7 +23,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 3.0f};
-			g_camera.m_zoom = 0.2f;
+			g_camera.m_zoom = 1.0f / 25.0f;
 		}
 
 		float extent = 1.0f;
@@ -48,6 +48,8 @@ public:
 	void Step(Settings& settings) override
 	{
 		Sample::Step(settings);
+
+		g_draw.DrawCircle({0.0f, 2.0f}, 1.0f, b2_colorWhite);
 	}
 
 	static Sample* Create(Settings& settings)

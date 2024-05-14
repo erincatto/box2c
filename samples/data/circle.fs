@@ -5,7 +5,7 @@
 
 in vec2 f_position;
 in vec4 f_color;
-in float f_zoom;
+in float f_thickness;
 
 out vec4 color;
 
@@ -16,11 +16,8 @@ void main()
 
     // distance to circle
     vec2 w = f_position;
-    float dw = sqrt(dot(w, w));
+    float dw = length(w);
     float d = abs(dw - radius);
 
-    // scale border by zoom so the pixel width is constant
-    float borderThickness = 0.07f * f_zoom;
-
-    color = vec4(f_color.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+    color = vec4(f_color.rgb, smoothstep(f_thickness, 0.0, d));
 }
