@@ -3,10 +3,7 @@
 
 #pragma once
 
-#include "api.h"
-#include "math_types.h"
-
-/// All the colors! Credit to wherever I got this from, I forget.
+/// These colors are used for debug draw.
 typedef enum b2HexColor
 {
 	b2_colorAliceBlue = 0xf0f8ff,
@@ -576,25 +573,3 @@ typedef enum b2HexColor
 	b2_colorYellow4 = 0x8b8b00,
 	b2_colorYellowGreen = 0x9acd32,
 } b2HexColor;
-
-/// Make a color from a hex code
-B2_INLINE b2Color b2MakeColor(enum b2HexColor hexCode)
-{
-	b2Color color;
-	color.r = ((hexCode >> 16) & 0xFF) / 255.0f;
-	color.g = ((hexCode >> 8) & 0xFF) / 255.0f;
-	color.b = (hexCode & 0xFF) / 255.0f;
-	color.a = 1.0f;
-	return color;
-}
-
-/// Make a color from a hex code and alpha
-B2_INLINE b2Color b2MakeColorAlpha(enum b2HexColor hexCode, float alpha)
-{
-	b2Color color;
-	color.r = ((hexCode >> 16) & 0xFF) / 255.0f;
-	color.g = ((hexCode >> 8) & 0xFF) / 255.0f;
-	color.b = (hexCode & 0xFF) / 255.0f;
-	color.a = alpha;
-	return color;
-}

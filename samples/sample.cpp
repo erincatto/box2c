@@ -174,18 +174,16 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			m_groundBodyId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2MouseJointDef jd = b2DefaultMouseJointDef();
-			jd.bodyIdA = m_groundBodyId;
-			jd.bodyIdB = queryContext.bodyId;
-			jd.target = p;
-			jd.hertz = 5.0f;
-			jd.dampingRatio = 0.7f;
-			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
+			b2MouseJointDef mouseDef = b2DefaultMouseJointDef();
+			mouseDef.bodyIdA = m_groundBodyId;
+			mouseDef.bodyIdB = queryContext.bodyId;
+			mouseDef.target = p;
+			mouseDef.hertz = 5.0f;
+			mouseDef.dampingRatio = 0.7f;
+			mouseDef.maxForce = 1000.0f * b2Body_GetMass(queryContext.bodyId);
+			m_mouseJointId = b2CreateMouseJoint(m_worldId, &mouseDef);
 
 			b2Body_SetAwake(queryContext.bodyId, true);
-
-			// todo for breakpoint
-			jd.hertz += 0;
 		}
 	}
 }

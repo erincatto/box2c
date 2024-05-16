@@ -39,9 +39,3 @@ typedef struct b2AABB
 	b2Vec2 lowerBound;
 	b2Vec2 upperBound;
 } b2AABB;
-
-/// Color for debug drawing. Each value has the range [0,1].
-typedef struct b2Color
-{
-	float r, g, b, a;
-} b2Color;

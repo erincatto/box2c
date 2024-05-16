@@ -1983,7 +1983,7 @@ static float RayCastCallback(const b2RayCastInput* input, int proxyId, int shape
 	return input->maxFraction;
 }
 
-void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
+void b2World_CastRay(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 					 void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -2025,7 +2025,7 @@ static float b2RayCastClosestFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal,
 	return fraction;
 }
 
-b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter)
+b2RayResult b2World_CastRayClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter)
 {
 	b2RayResult result = {0};
 
@@ -2089,7 +2089,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int proxyId, int s
 	return input->maxFraction;
 }
 
-void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
+void b2World_CastCircle(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
 						b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -2125,7 +2125,7 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 	}
 }
 
-void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
+void b2World_CastCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
 						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -2162,7 +2162,7 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 	}
 }
 
-void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
+void b2World_CastPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
 						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);

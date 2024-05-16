@@ -25,16 +25,19 @@ typedef struct b2Segment b2Segment;
  * joints to the world and run the simulation. You can get contact information to get contact points
  * and normals as well as events. You can query to world, checking for overlaps and casting rays or shapes.
  * There is also debugging information such as debug draw, timing information, and counters.
+ * You can find documentation here: https://box2d.org/
  * @{
  */
 
-/// Create a world for rigid body simulation. This contains all the bodies, shapes, and constraints.
+/// Create a world for rigid body simulation. A world contains bodies, shapes, and constraints. You make create
+///	up to b2_maxWorlds worlds. Each world is completely independent and may be simulated in parallel.
+///	@return the world id.
 B2_API b2WorldId b2CreateWorld(const b2WorldDef* def);
 
 /// Destroy a world.
 B2_API void b2DestroyWorld(b2WorldId worldId);
 
-/// World identifier validation. Provides validation for up to 64K allocations.
+/// World id validation. Provides validation for up to 64K allocations.
 B2_API bool b2World_IsValid(b2WorldId id);
 
 /// Simulate a world for one time step. This performs collision detection, integration, and constraint solution.
@@ -70,68 +73,88 @@ B2_API void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, 
 B2_API void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transform transform, b2QueryFilter filter,
 								   b2OverlapResultFcn* fcn, void* context);
 
-/// Ray-cast the world for all shapes in the path of the ray. Your callback
-/// controls whether you get the closest point, any point, or n-points.
+/// Cast a ray into the world to collect shapes in the path of the ray.
+/// Your callback controls whether you get the closest point, any point, or n-points.
 /// The ray-cast ignores shapes that contain the starting point.
-/// @param callback a user implemented callback class.
-/// @param point1 the ray starting point
-/// @param point2 the ray ending point
-B2_API void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
+///	@param worldId the world to cast the ray against
+///	@param origin the start point of the ray
+///	@param translation the translation of the ray from the start point to the end point
+///	@param filter contains bit flags to filter unwanted shapes from the results
+/// @param fcn a user implemented callback function
+/// @param context an opaque user context that is passed along to fcn
+B2_API void b2World_CastRay(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 							   void* context);
 
-/// Ray-cast closest hit. Convenience function. This is less general than b2World_RayCast and does not allow for custom filtering.
-B2_API b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter);
+/// Cast a ray into the world to collect the closest hit. This is a convenience function.
+/// This is less general than b2World_CastRay and does not allow for custom filtering.
+B2_API b2RayResult b2World_CastRayClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter);
 
-/// Cast a circle through the world. Similar to a ray-cast except that a circle is cast instead of a point.
-B2_API void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
+/// Cast a circle through the world. Similar to a cast ray except that a circle is cast instead of a point.
+B2_API void b2World_CastCircle(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
 								  b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
-/// Cast a capsule through the world. Similar to a ray-cast except that a capsule is cast instead of a point.
-B2_API void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
+/// Cast a capsule through the world. Similar to a cast ray except that a capsule is cast instead of a point.
+B2_API void b2World_CastCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
 								   b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
-/// Cast a capsule through the world. Similar to a ray-cast except that a polygon is cast instead of a point.
-B2_API void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
+/// Cast a polygon through the world. Similar to a cast ray except that a polygon is cast instead of a point.
+B2_API void b2World_CastPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
 								   b2QueryFilter filter, b2CastResultFcn* fcn, void* context);
 
-/// Enable/disable sleep. Advanced feature for testing.
+/// Enable/disable sleep. If your application does not need sleeping, you can gain some performance
+///	by disabling sleep completely at the world level.
+///	@see b2WorldDef
 B2_API void b2World_EnableSleeping(b2WorldId worldId, bool flag);
 
-/// Enable/disable constraint warm starting. Advanced feature for testing.
-B2_API void b2World_EnableWarmStarting(b2WorldId worldId, bool flag);
-
-/// Enable/disable continuous collision. Advanced feature for testing.
+/// Enable/disable continuous collision. Generally you should keep continuous collision enabled
+///	to prevent fast moving objects from going through static objects. The performance gain from
+///	disabling continuous collision is minor.
+///	@see b2WorldDef
 B2_API void b2World_EnableContinuous(b2WorldId worldId, bool flag);
 
-/// Adjust the restitution threshold. Advanced feature for testing.
+/// Adjust the restitution threshold. It is recommended not to make this value very small
+///	because it will prevent bodies from sleeping. Usually in meters per second.
+///	@see b2WorldDef
 B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 
-/// Adjust the hit event threshold. Advanced feature for testing.
+/// Adjust the hit event threshold. Usually in meters per second.
+///	@see b2WorldDef
 B2_API void b2World_SetHitEventThreshold(b2WorldId worldId, float value);
 
 /// Register the pre-solve callback. This is optional.
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
-/// Set the gravity vector for the entire world. Typically in m/s^2
+/// Set the gravity vector for the entire world. Box2D has no concept of an up direction and this
+/// is left as a decision for the application. Typically in m/s^2.
+///	@see b2WorldDef
 B2_API void b2World_SetGravity(b2WorldId worldId, b2Vec2 gravity);
 
 /// @return the gravity vector
 B2_API b2Vec2 b2World_GetGravity(b2WorldId worldId);
 
-/// Apply explosion
+/// Apply a radial explosion
+///	@param worldId the world
+///	@param position the center of the explosion
+///	@param radius the radius of the explosion
+///	@param impulse the impulse of the explosion, typically in kg * m / s or N * s.
 B2_API void b2World_Explode(b2WorldId worldId, b2Vec2 position, float radius, float impulse);
 
 /// Adjust contact tuning parameters:
-/// - hertz is the contact stiffness (cycles per second)
-/// - damping ratio is the contact bounciness with 1 being critical damping (non-dimensional)
-/// - push velocity is the maximum contact constraint push out velocity (meters per second)
-///	Advanced feature
+///	@param worldId 
+/// @param hertz is the contact stiffness (cycles per second)
+/// @param dampingRatio is the contact bounciness with 1 being critical damping (non-dimensional)
+/// @param pushVelocity is the maximum contact constraint push out velocity (meters per second)
+///	@note Advanced feature
 B2_API void b2World_SetContactTuning(b2WorldId worldId, float hertz, float dampingRatio, float pushVelocity);
 
-/// Get the current profile
+/// Enable/disable constraint warm starting. Advanced feature for testing. Disabling
+///	sleeping greatly reduces stability and provides no performance gain.
+B2_API void b2World_EnableWarmStarting(b2WorldId worldId, bool flag);
+
+/// Get the current world performance profile.
 B2_API b2Profile b2World_GetProfile(b2WorldId worldId);
 
-/// Get counters and sizes
+/// Get world counters and sizes.
 B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
 
 /// Dump memory stats to box2d_memory.txt
@@ -145,7 +168,12 @@ B2_API void b2World_DumpMemoryStats(b2WorldId worldId);
  * @{
  */
 
-/// Create a rigid body given a definition. No reference to the definition is retained.
+/// Create a rigid body given a definition. No reference to the definition is retained. So you can create the definition
+///	on the stack and pass its address.
+///	@code{.c}
+///	b2BodyDef bodyDef = b2DefaultBodyDef();
+///	b2BodyId myBodyId = b2CreateBody(myWorldId, &bodyDef);
+///	@endcode
 /// @warning This function is locked during callbacks.
 B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
 
@@ -154,7 +182,7 @@ B2_API b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def);
 /// @warning This function is locked during callbacks.
 B2_API void b2DestroyBody(b2BodyId bodyId);
 
-/// Body identifier validation. Provides validation for up to 64K allocations.
+/// Body identifier validation. Can be used to detect orphaned ids. Provides validation for up to 64K allocations.
 B2_API bool b2Body_IsValid(b2BodyId id);
 
 /// Get the body type: static, kinematic, or dynamic

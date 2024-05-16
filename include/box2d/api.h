@@ -3,6 +3,7 @@
 
 #pragma once
 
+// Shared library macros
 #if defined(_MSC_VER) && defined(box2d_EXPORTS)
 	// build the Windows DLL
 	#define BOX2D_EXPORT __declspec(dllexport)
@@ -17,26 +18,7 @@
 	#define BOX2D_EXPORT
 #endif
 
-#if 0
-#if defined(BOX2D_IMPLEMENTATION)
-	#pragma message("BOX2D_IMPLEMENTATION")
-	#if defined(_WIN32) && defined(box2d_EXPORTS)
-		// build the Windows DLL
-		#define BOX2D_INLINE __declspec(dllexport) extern inline
-	#elif defined(_WIN32) && defined(BOX2D_DLL)
-		// using the Windows DLL
-		#define BOX2D_INLINE __declspec(dllimport)
-	#elif defined(box2d_EXPORTS)
-		#define BOX2D_INLINE __attribute__((visibility("default")))
-	#else
-		#define BOX2D_INLINE extern inline
-	#endif
-#else
-	//#pragma message("BOX2D inline")
-	#define BOX2D_INLINE inline
-#endif
-#endif
-
+// C++ macros
 #ifdef __cplusplus
 	#define B2_API extern "C" BOX2D_EXPORT
 	#define B2_INLINE inline
@@ -64,7 +46,7 @@ typedef int b2AssertFcn(const char* condition, const char* fileName, int lineNum
 ///	set during application startup.
 B2_API void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
-/// Total bytes allocated by Box2D
+/// @return the total bytes allocated by Box2D.
 B2_API int b2GetByteCount(void);
 
 /// Override the default assert callback.

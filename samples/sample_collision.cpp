@@ -1678,7 +1678,7 @@ public:
 			m_textLine += m_textIncrement;
 
 			// This version doesn't have a callback, but it doesn't skip the ignored shape
-			b2RayResult result = b2World_RayCastClosest(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter());
+			b2RayResult result = b2World_CastRayClosest(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter());
 
 			if (result.hit == true)
 			{
@@ -1735,20 +1735,20 @@ public:
 			switch (m_castType)
 			{
 				case e_rayCast:
-					b2World_RayCast(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					b2World_CastRay(m_worldId, m_rayStart, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 
 				case e_circleCast:
-					b2World_CircleCast(m_worldId, &circle, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					b2World_CastCircle(m_worldId, &circle, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 
 				case e_capsuleCast:
-					b2World_CapsuleCast(m_worldId, &capsule, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn,
+					b2World_CastCapsule(m_worldId, &capsule, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn,
 										&context);
 					break;
 
 				case e_polygonCast:
-					b2World_PolygonCast(m_worldId, &box, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
+					b2World_CastPolygon(m_worldId, &box, transform, rayTranslation, b2DefaultQueryFilter(), modeFcn, &context);
 					break;
 			}
 
@@ -2707,7 +2707,6 @@ public:
 				b2Vec2 g2 = b2TransformPoint(xf1, segment1.ghost2);
 				b2Vec2 p1 = b2TransformPoint(xf1, segment1.segment.point1);
 				b2Vec2 p2 = b2TransformPoint(xf1, segment1.segment.point2);
-				// g_draw.DrawSegment(g1, p1, b2MakeColor(b2_colorLightGray));
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
@@ -2723,7 +2722,6 @@ public:
 				g_draw.DrawSegment(p1, p2, color1);
 				g_draw.DrawPoint(p1, 4.0f, color1);
 				g_draw.DrawPoint(p2, 4.0f, color1);
-				// g_draw.DrawSegment(p2, g2, b2MakeColor(b2_colorLightGray));
 			}
 
 			g_draw.DrawSolidPolygon(xf2, rox.vertices, rox.count, rox.radius, color2);

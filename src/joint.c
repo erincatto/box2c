@@ -40,6 +40,7 @@ b2MouseJointDef b2DefaultMouseJointDef()
 	b2MouseJointDef def = {0};
 	def.hertz = 4.0f;
 	def.dampingRatio = 1.0f;
+	def.maxForce = 1.0f;
 	return def;
 }
 
@@ -440,6 +441,7 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 	joint->mouseJoint.targetA = def->target;
 	joint->mouseJoint.hertz = def->hertz;
 	joint->mouseJoint.dampingRatio = def->dampingRatio;
+	joint->mouseJoint.maxForce = def->maxForce;
 
 	b2JointId jointId = {joint->jointId + 1, world->worldId, pair.joint->revision};
 	return jointId;

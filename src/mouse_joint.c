@@ -153,9 +153,7 @@ void b2SolveMouseJoint(b2JointSim* base, b2StepContext* context)
 		wB += iB * impulse;
 	}
 
-	// todo put max force in def
-	float gravity = 10.0f;
-	float maxImpulse = mB > 0.0f ? 100.0f * gravity * context->h / mB : 0.0f;
+	float maxImpulse = joint->maxForce * context->h;
 
 	{
 		b2Rot dqB = stateB->deltaRotation;

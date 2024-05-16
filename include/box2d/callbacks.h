@@ -64,7 +64,6 @@ typedef bool b2OverlapResultFcn(b2ShapeId shapeId, void* context);
 /// See b2World::RayCast
 /// Called for each shape found in the query. You control how the ray cast
 /// proceeds by returning a float:
-/// #todo rework this to return penetration
 /// return -1: ignore this shape and continue
 /// return 0: terminate the ray cast
 /// return fraction: clip the ray to this point

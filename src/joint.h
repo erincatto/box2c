@@ -112,6 +112,7 @@ typedef struct b2MouseJoint
 	b2Vec2 targetA;
 	float hertz;
 	float dampingRatio;
+	float maxForce;
 
 	b2Vec2 linearImpulse;
 	float angularImpulse;

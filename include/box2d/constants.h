@@ -33,6 +33,7 @@
 /// A small angle used as a collision and constraint tolerance. Usually it is
 /// chosen to be numerically significant, but visually insignificant.
 /// @warning modifying this can have a significant impact on stability
+///	todo not used
 #define b2_angularSlop (2.0f / 180.0f * b2_pi)
 
 /// The maximum number of vertices on a convex polygon. Changing this affects performance even if you
@@ -74,7 +75,7 @@
 #define b2_maxWorkers 64
 
 /// Maximum number of colors in the constraint graph. Constraints that cannot
-///	find a color are added to the overflow set.
+///	find a color are added to the overflow set which are solved single-threaded.
 #define b2_graphColorCount 12
 
 /// Version numbering scheme.
