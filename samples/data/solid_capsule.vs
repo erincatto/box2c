@@ -4,7 +4,7 @@
 #version 330
 
 uniform mat4 projectionMatrix;
-uniform float zoom;
+uniform float pixelScale;
 
 layout(location=0) in vec2 v_localPosition;
 layout(location=1) in vec4 v_instanceTransform;
@@ -15,7 +15,7 @@ layout(location=4) in vec4 v_instanceColor;
 out vec2 f_position;
 out vec4 f_color;
 out float f_length;
-out float f_zoom;
+out float f_thickness;
 
 void main()
 {
@@ -29,10 +29,10 @@ void main()
     float scale = radius + 0.5 * length;
     
     // quad range of [-1, 1] implies normalize radius and length
-    f_length = 2.0 * length / (2.0 * radius + length);
+    f_length = length / scale;
     
-    // scale zoom so the border is fixed size
-    f_zoom = zoom / scale;
+    // resolution.y = pixelScale * scale
+    f_thickness = 3.0f / (pixelScale * scale);
     
     float x = v_instanceTransform.x;
     float y = v_instanceTransform.y;

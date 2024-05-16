@@ -4,7 +4,7 @@
 #version 330
 
 uniform mat4 projectionMatrix;
-uniform float zoom;
+uniform float pixelScale;
 
 layout(location = 0) in vec2 v_localPosition;
 layout(location = 1) in vec4 v_instanceTransform;
@@ -21,7 +21,7 @@ out vec4 f_color;
 out vec2 f_points[8];
 flat out int f_count;
 out float f_radius;
-out float f_zoom;
+out float f_thickness;
 
 void main()
 {
@@ -65,13 +65,8 @@ void main()
     // Scale radius as well
     f_radius = invScale * f_radius;
 
-    // scale zoom so the border is fixed size
-    f_zoom = invScale * zoom;
-
-    // if (v_instanceCount == 4)
-    //{
-    //	f_color = vec4(0, 0, 1, 1);
-    // }
+    // resolution.y = pixelScale * scale
+    f_thickness = 3.0f / (pixelScale * scale);
 
     // scale up and transform quad to fit polygon
     float x = v_instanceTransform.x;

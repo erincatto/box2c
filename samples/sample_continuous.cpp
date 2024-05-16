@@ -38,7 +38,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 0.45f;
+			g_camera.m_zoom = 25.0f * 0.45f;
 		}
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -190,7 +190,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 0.35f;
+			g_camera.m_zoom = 25.0f * 0.35f;
 		}
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -265,7 +265,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {1.0f, 5.0f};
-			g_camera.m_zoom = 0.25f;
+			g_camera.m_zoom = 25.0f * 0.25f;
 		}
 
 		{
@@ -402,7 +402,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {1.5f, 16.0f};
-			g_camera.m_zoom = 0.8f;
+			g_camera.m_zoom = 25.0f * 0.8f;
 		}
 
 		m_groundId = b2_nullBodyId;
@@ -681,7 +681,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {1.0f, 5.0f};
-			g_camera.m_zoom = 0.25f;
+			g_camera.m_zoom = 25.0f * 0.25f;
 		}
 
 		{
@@ -732,7 +732,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 9.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 		}
 
 		settings.drawJoints = false;

@@ -8,7 +8,7 @@ in vec2 f_points[8];
 flat in int f_count;
 in float f_radius;
 in vec4 f_color;
-in float f_zoom;
+in float f_thickness;
 
 out vec4 fragColor;
 
@@ -80,13 +80,27 @@ void main()
     float dw = sdConvexPolygon(f_position, f_points, f_count);
     float d = abs(dw - f_radius);
 
-    float borderThickness = 0.07 * f_zoom;
-
     // roll the fill alpha down at the border
-    vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(f_radius, f_radius + borderThickness, dw)));
+    vec4 back = vec4(fillColor.rgb, fillColor.a * smoothstep(f_radius + f_thickness, f_radius, dw));
 
     // roll the border alpha down from 1 to 0 across the border thickness
-    vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+    vec4 front = vec4(borderColor.rgb, smoothstep(f_thickness, 0.0f, d));
 
     fragColor = blend_colors(front, back);
+
+    // todo debugging
+    // float resy = 3.0f / f_thickness;
+
+    // if (resy < 539.9f)
+    // {
+    //     fragColor = vec4(1, 0, 0, 1);
+    // }
+    // else if (resy > 540.1f)
+    // {
+    //     fragColor = vec4(0, 1, 0, 1);
+    // }
+    // else
+    // {
+    //     fragColor = vec4(0, 0, 1, 1);
+    // }
 }
