@@ -68,11 +68,6 @@ void main()
     // resolution.y = pixelScale * scale
     f_thickness = 3.0f / (pixelScale * scale);
 
-    // if (v_instanceCount == 4)
-    //{
-    //	f_color = vec4(0, 0, 1, 1);
-    // }
-
     // scale up and transform quad to fit polygon
     float x = v_instanceTransform.x;
     float y = v_instanceTransform.y;

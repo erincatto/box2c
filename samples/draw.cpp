@@ -61,7 +61,7 @@ b2Vec2 Camera::ConvertScreenToWorld(b2Vec2 ps)
 	float v = (h - ps.y) / h;
 
 	float ratio = w / h;
-	b2Vec2 extents = {m_zoom * ratio * 25.0f, m_zoom * 25.0f};
+	b2Vec2 extents = {m_zoom * ratio, m_zoom};
 
 	b2Vec2 lower = b2Sub(m_center, extents);
 	b2Vec2 upper = b2Add(m_center, extents);
@@ -76,8 +76,7 @@ b2Vec2 Camera::ConvertWorldToScreen(b2Vec2 pw)
 	float h = float(m_height);
 	float ratio = w / h;
 
-	// todo get rid of this random factor of 25
-	b2Vec2 extents = {m_zoom * ratio * 25.0f, m_zoom * 25.0f};
+	b2Vec2 extents = {m_zoom * ratio, m_zoom};
 
 	b2Vec2 lower = b2Sub(m_center, extents);
 	b2Vec2 upper = b2Add(m_center, extents);
@@ -95,7 +94,7 @@ b2Vec2 Camera::ConvertWorldToScreen(b2Vec2 pw)
 void Camera::BuildProjectionMatrix(float* m, float zBias)
 {
 	float ratio = float(m_width) / float(m_height);
-	b2Vec2 extents = {m_zoom * ratio * 25.0f, m_zoom * 25.0f};
+	b2Vec2 extents = {m_zoom * ratio, m_zoom};
 
 	b2Vec2 lower = b2Sub(m_center, extents);
 	b2Vec2 upper = b2Add(m_center, extents);
@@ -650,9 +649,7 @@ struct GLCircles
 		g_camera.BuildProjectionMatrix(proj, 0.2f);
 
 		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-
-		// todo camera zoom is scaled by 25
-		glUniform1f(m_pixelScaleUniform, g_camera.m_height / (25.0f * g_camera.m_zoom));
+		glUniform1f(m_pixelScaleUniform, g_camera.m_height / g_camera.m_zoom);
 
 		glBindVertexArray(m_vaoId);
 
@@ -713,17 +710,19 @@ struct GLSolidCircles
 	{
 		m_programId = CreateProgramFromFiles("samples/data/solid_circle.vs", "samples/data/solid_circle.fs");
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
-		int vertexAttribute = 0;
-		int transformInstance = 1;
-		int radiusInstance = 2;
-		int colorInstance = 3;
+		m_pixelScaleUniform = glGetUniformLocation(m_programId, "pixelScale");
+
 
 		// Generate
 		glGenVertexArrays(1, &m_vaoId);
 		glGenBuffers(2, m_vboIds);
 
 		glBindVertexArray(m_vaoId);
+
+		int vertexAttribute = 0;
+		int transformInstance = 1;
+		int radiusInstance = 2;
+		int colorInstance = 3;
 		glEnableVertexAttribArray(vertexAttribute);
 		glEnableVertexAttribArray(transformInstance);
 		glEnableVertexAttribArray(radiusInstance);
@@ -794,7 +793,7 @@ struct GLSolidCircles
 		g_camera.BuildProjectionMatrix(proj, 0.2f);
 
 		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-		glUniform1f(m_zoomUniform, g_camera.m_zoom);
+		glUniform1f(m_pixelScaleUniform, g_camera.m_height / g_camera.m_zoom);
 
 		glBindVertexArray(m_vaoId);
 
@@ -836,7 +835,7 @@ struct GLSolidCircles
 	GLuint m_vboIds[2];
 	GLuint m_programId;
 	GLint m_projectionUniform;
-	GLint m_zoomUniform;
+	GLint m_pixelScaleUniform;
 };
 
 struct CapsuleData
@@ -855,7 +854,8 @@ struct GLSolidCapsules
 		m_programId = CreateProgramFromFiles("samples/data/solid_capsule.vs", "samples/data/solid_capsule.fs");
 
 		m_projectionUniform = glGetUniformLocation(m_programId, "projectionMatrix");
-		m_zoomUniform = glGetUniformLocation(m_programId, "zoom");
+		m_pixelScaleUniform = glGetUniformLocation(m_programId, "pixelScale");
+
 		int vertexAttribute = 0;
 		int transformInstance = 1;
 		int radiusInstance = 2;
@@ -956,7 +956,7 @@ struct GLSolidCapsules
 		g_camera.BuildProjectionMatrix(proj, 0.2f);
 
 		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-		glUniform1f(m_zoomUniform, g_camera.m_zoom);
+		glUniform1f(m_pixelScaleUniform, g_camera.m_height / g_camera.m_zoom);
 
 		glBindVertexArray(m_vaoId);
 
@@ -998,7 +998,7 @@ struct GLSolidCapsules
 	GLuint m_vboIds[2];
 	GLuint m_programId;
 	GLint m_projectionUniform;
-	GLint m_zoomUniform;
+	GLint m_pixelScaleUniform;
 };
 
 struct PolygonData
@@ -1134,9 +1134,7 @@ struct GLSolidPolygons
 		g_camera.BuildProjectionMatrix(proj, 0.2f);
 
 		glUniformMatrix4fv(m_projectionUniform, 1, GL_FALSE, proj);
-
-		// todo camera zoom is scaled by 25
-		glUniform1f(m_pixelScaleUniform, g_camera.m_height / (25.0f * g_camera.m_zoom));
+		glUniform1f(m_pixelScaleUniform, g_camera.m_height / g_camera.m_zoom);
 
 		glBindVertexArray(m_vaoId);
 		glBindBuffer(GL_ARRAY_BUFFER, m_vboIds[1]);

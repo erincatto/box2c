@@ -30,7 +30,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 1.75f;
+			g_camera.m_zoom = 25.0f * 1.75f;
 		}
 
 		m_groundId = b2_nullBodyId;
@@ -225,7 +225,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 6.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 		}
 
 		{
@@ -452,7 +452,7 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 			g_camera.m_center = {0.0f, 5.0f};
 		}
 
@@ -666,8 +666,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {5.0f, 24.0f};
-			g_camera.m_zoom = 1.1f;
+			g_camera.m_center = {4.0f, 17.0f};
+			g_camera.m_zoom = 27.5f;
 		}
 
 		{
@@ -783,7 +783,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 14.0f};
-			g_camera.m_zoom = 0.6f;
+			g_camera.m_zoom = 25.0f * 0.6f;
 		}
 
 		{
@@ -851,7 +851,7 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.25f;
+			g_camera.m_zoom = 25.0f * 0.25f;
 			g_camera.m_center = {0.0f, 5.0f};
 		}
 
@@ -1012,7 +1012,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 5.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 		}
 
 		b2Vec2 points1[] = {{40.0f, 1.0f}, {0.0f, 0.0f}, {-40.0f, 0.0f}, {-40.0f, -1.0f}, {0.0f, -1.0f}, {40.0f, -1.0f}};
@@ -1090,7 +1090,7 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.55f;
+			g_camera.m_zoom = 25.0f * 0.55f;
 			g_camera.m_center = {2.0f, 8.0f};
 		}
 
@@ -1159,7 +1159,7 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.55f;
+			g_camera.m_zoom = 25.0f * 0.55f;
 			g_camera.m_center = {2.0f, 8.0f};
 		}
 

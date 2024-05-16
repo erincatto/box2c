@@ -7,7 +7,7 @@ in vec2 f_position;
 in vec4 f_color;
 in float f_thickness;
 
-out vec4 color;
+out vec4 fragColor;
 
 void main()
 {
@@ -19,5 +19,5 @@ void main()
     float dw = length(w);
     float d = abs(dw - radius);
 
-    color = vec4(f_color.rgb, smoothstep(f_thickness, 0.0, d));
+    fragColor = vec4(f_color.rgb, smoothstep(f_thickness, 0.0, d));
 }

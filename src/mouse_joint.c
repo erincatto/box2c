@@ -153,6 +153,9 @@ void b2SolveMouseJoint(b2JointSim* base, b2StepContext* context)
 		wB += iB * impulse;
 	}
 
+	float gravity = 10.0f;
+	float maxImpulse = mB > 0.0f ? 100.0f * gravity * context->h / mB : 0.0f;
+
 	{
 		b2Rot dqB = stateB->deltaRotation;
 		b2Vec2 rB = b2RotateVector(dqB, joint->anchorB);
@@ -169,8 +172,19 @@ void b2SolveMouseJoint(b2JointSim* base, b2StepContext* context)
 		b2Vec2 impulse;
 		impulse.x = -massScale * b.x - impulseScale * joint->linearImpulse.x;
 		impulse.y = -massScale * b.y - impulseScale * joint->linearImpulse.y;
+
+		b2Vec2 oldImpulse = joint->linearImpulse;
 		joint->linearImpulse.x += impulse.x;
 		joint->linearImpulse.y += impulse.y;
+
+		float mag = b2Length(joint->linearImpulse);
+		if (mag > maxImpulse)
+		{
+			joint->linearImpulse = b2MulSV(maxImpulse, b2Normalize(joint->linearImpulse));
+		}
+
+		impulse.x = joint->linearImpulse.x - oldImpulse.x;
+		impulse.y = joint->linearImpulse.y - oldImpulse.y;
 
 		vB = b2MulAdd(vB, mB, impulse);
 		wB += iB * b2Cross(rB, impulse);

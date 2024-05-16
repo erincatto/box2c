@@ -25,7 +25,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, -1.2f};
-			g_camera.m_zoom = 0.1f;
+			g_camera.m_zoom = 25.0f * 0.1f;
 		}
 
 		m_circle1 = {{0.0f, 0.0f}, 0.5f};
@@ -476,7 +476,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {500.0f, 500.0f};
-			g_camera.m_zoom = 21.0f;
+			g_camera.m_zoom = 25.0f * 21.0f;
 		}
 
 		m_fill = 0.25f;
@@ -883,6 +883,12 @@ public:
 	explicit RayCast(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 20.0f};
+			g_camera.m_zoom = 17.5f;
+		}
+
 		m_circle = {{0.0f, 0.0f}, 2.0f};
 		m_capsule = {{-1.0f, 1.0f}, {1.0f, -1.0f}, 1.5f};
 		m_box = b2MakeBox(2.0f, 2.0f);
@@ -1392,7 +1398,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {2.0f, 14.0f};
-			g_camera.m_zoom = 0.75f;
+			g_camera.m_zoom = 25.0f * 0.75f;
 		}
 
 		// Ground body
@@ -1888,7 +1894,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 10.0f};
-			g_camera.m_zoom = 0.7f;
+			g_camera.m_zoom = 25.0f * 0.7f;
 		}
 
 		{
@@ -2227,7 +2233,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {1.8f, 15.0f};
-			g_camera.m_zoom = 0.45f;
+			g_camera.m_zoom = 25.0f * 0.45f;
 		}
 
 		m_capcapCache = b2_emptyDistanceCache;
@@ -2828,6 +2834,12 @@ public:
 	explicit SmoothManifold(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {2.0f, 20.0f};
+			g_camera.m_zoom = 21.0f;
+		}
+
 		m_shapeType = e_boxShape;
 		m_transform = {{0.0f, 20.0f}, b2Rot_identity};
 		m_angle = 0.0f;
@@ -3116,7 +3128,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {-1.5f, 1.0f};
-			g_camera.m_zoom = 0.2f;
+			g_camera.m_zoom = 25.0f * 0.2f;
 		}
 
 #if 1
@@ -3355,7 +3367,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.6f, 2.0f};
-			g_camera.m_zoom = 0.18f;
+			g_camera.m_zoom = 25.0f * 0.18f;
 		}
 	}
 

@@ -87,4 +87,20 @@ void main()
     vec4 front = vec4(borderColor.rgb, smoothstep(f_thickness, 0.0f, d));
 
     fragColor = blend_colors(front, back);
+
+    // todo debugging
+    // float resy = 3.0f / f_thickness;
+
+    // if (resy < 539.9f)
+    // {
+    //     fragColor = vec4(1, 0, 0, 1);
+    // }
+    // else if (resy > 540.1f)
+    // {
+    //     fragColor = vec4(0, 1, 0, 1);
+    // }
+    // else
+    // {
+    //     fragColor = vec4(0, 0, 1, 1);
+    // }
 }

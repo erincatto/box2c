@@ -644,12 +644,12 @@ int main(int, char**)
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_Z) == GLFW_PRESS)
 		{
 			// Zoom out
-			g_camera.m_zoom = b2MinFloat(1.005f * g_camera.m_zoom, 20.0f);
+			g_camera.m_zoom = b2MinFloat(1.005f * g_camera.m_zoom, 100.0f);
 		}
 		else if (glfwGetKey(g_mainWindow, GLFW_KEY_X) == GLFW_PRESS)
 		{
 			// Zoom in
-			g_camera.m_zoom = B2_MAX(0.995f * g_camera.m_zoom, 0.02f);
+			g_camera.m_zoom = b2MaxFloat(0.995f * g_camera.m_zoom, 0.5f);
 		}
 
 		glfwGetWindowSize(g_mainWindow, &g_camera.m_width, &g_camera.m_height);
