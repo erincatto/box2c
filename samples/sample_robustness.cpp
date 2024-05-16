@@ -19,6 +19,12 @@ class HighMassRatio1 : public Sample
 	explicit HighMassRatio1(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {3.0f, 14.0f};
+			g_camera.m_zoom = 25.0f;
+		}
+
 		float extent = 1.0f;
 
 		{
@@ -77,6 +83,12 @@ class HighMassRatio2 : public Sample
 	explicit HighMassRatio2(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 16.5f};
+			g_camera.m_zoom = 25.0f;
+		}
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
@@ -134,7 +146,7 @@ class OverlapRecovery : public Sample
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 2.5f};
-			g_camera.m_zoom = 0.15f;
+			g_camera.m_zoom = 25.0f * 0.15f;
 		}
 
 		m_bodyIds = nullptr;

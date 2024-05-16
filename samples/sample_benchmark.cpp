@@ -37,7 +37,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {8.0f, 53.0f};
-			g_camera.m_zoom = 2.35f;
+			g_camera.m_zoom = 25.0f * 2.35f;
 		}
 
 		settings.drawJoints = false;
@@ -285,7 +285,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {1.5f, 10.0f};
-			g_camera.m_zoom = 0.6f;
+			g_camera.m_zoom = 25.0f * 0.6f;
 		}
 
 		b2BodyId groundId;
@@ -396,7 +396,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {1.0f, -5.5};
-			g_camera.m_zoom = 3.4f;
+			g_camera.m_zoom = 25.0f * 3.4f;
 			settings.drawJoints = false;
 		}
 
@@ -583,7 +583,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 50.0f};
-			g_camera.m_zoom = 2.2f;
+			g_camera.m_zoom = 25.0f * 2.2f;
 		}
 
 #ifdef NDEBUG
@@ -646,14 +646,14 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {16.0f, 110.0f};
-			g_camera.m_zoom = 5.0f;
+			g_camera.m_zoom = 25.0f * 5.0f;
 		}
 
 		m_extent = 0.5f;
 		m_round = 0.0f;
 		m_baseCount = 10;
-		m_rowCount = g_sampleDebug ? 4 : 20;
-		m_columnCount = g_sampleDebug ? 4 : 20;
+		m_rowCount = g_sampleDebug ? 4 : 13;
+		m_columnCount = g_sampleDebug ? 4 : 14;
 		m_groundId = b2_nullBodyId;
 		m_bodyIds = nullptr;
 		m_bodyCount = 0;
@@ -807,7 +807,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 50.0f};
-			g_camera.m_zoom = 2.2f;
+			g_camera.m_zoom = 25.0f * 2.2f;
 		}
 
 		float groundSize = 100.0f;
@@ -923,7 +923,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 50.0f};
-			g_camera.m_zoom = 2.2f;
+			g_camera.m_zoom = 25.0f * 2.2f;
 		}
 
 		float groundSize = 100.0f;
@@ -1066,8 +1066,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 2.5f;
 			g_camera.m_center = {60.0f, -57.0f};
+			g_camera.m_zoom = 25.0f * 2.5f;
 		}
 
 		constexpr int N = g_sampleDebug ? 10 : 100;
@@ -1169,7 +1169,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {60.0f, 6.0f};
-			g_camera.m_zoom = 1.6f;
+			g_camera.m_zoom = 25.0f * 1.6f;
 		}
 
 		b2World_SetGravity(m_worldId, b2Vec2_zero);
@@ -1363,7 +1363,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {18.0f, 115.0f};
-			g_camera.m_zoom = 5.5f;
+			g_camera.m_zoom = 25.0f * 5.5f;
 		}
 
 		float grid = 1.0f;

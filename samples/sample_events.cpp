@@ -32,7 +32,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 1.333f;
+			g_camera.m_zoom = 25.0f * 1.333f;
 		}
 		
 		settings.drawJoints = false;
@@ -345,7 +345,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 0.0f};
-			g_camera.m_zoom = 1.75f;
+			g_camera.m_zoom = 25.0f * 1.75f;
 		}
 
 		{
@@ -674,7 +674,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.5f, 7.5f};
-			g_camera.m_zoom = 0.4f;
+			g_camera.m_zoom = 25.0f * 0.4f;
 		}
 
 		b2World_SetPreSolveCallback(m_worldId, PreSolveStatic, this);
@@ -917,8 +917,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.55f;
 			g_camera.m_center = {2.0f, 8.0f};
+			g_camera.m_zoom = 25.0f * 0.55f;
 		}
 
 		{

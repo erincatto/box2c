@@ -36,7 +36,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = m_viewPosition;
-			g_camera.m_zoom = 1.0f;
+			g_camera.m_zoom = 25.0f * 1.0f;
 			settings.drawJoints = false;
 			settings.useCameraBounds = true;
 		}

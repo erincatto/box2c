@@ -6,7 +6,6 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
-#include "box2d/color.h"
 #include "box2d/geometry.h"
 #include "box2d/hull.h"
 #include "box2d/math_functions.h"
@@ -22,8 +21,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {0.0f, 3.0f};
-			g_camera.m_zoom = 0.2f;
+			g_camera.m_center = {0.0f, 2.5f};
+			g_camera.m_zoom = 3.5f;
 		}
 
 		float extent = 1.0f;
@@ -48,6 +47,8 @@ public:
 	void Step(Settings& settings) override
 	{
 		Sample::Step(settings);
+
+		//g_draw.DrawCircle({0.0f, 2.0f}, 1.0f, b2_colorWhite);
 	}
 
 	static Sample* Create(Settings& settings)
@@ -70,6 +71,12 @@ public:
 	explicit TiltedStack(Settings& settings)
 		: Sample(settings)
 	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {7.5f, 7.5f};
+			g_camera.m_zoom = 20.0f;
+		}
+
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.position = {0.0f, -1.0f};
@@ -80,7 +87,7 @@ public:
 			b2CreatePolygonShape(groundId, &shapeDef, &box);
 		}
 
-		for (int32_t i = 0; i < e_rows * e_columns; ++i)
+		for (int i = 0; i < e_rows * e_columns; ++i)
 		{
 			m_bodies[i] = b2_nullBodyId;
 		}
@@ -95,16 +102,16 @@ public:
 		float dx = 5.0f;
 		float xroot = -0.5f * dx * (e_columns - 1.0f);
 
-		for (int32_t j = 0; j < e_columns; ++j)
+		for (int j = 0; j < e_columns; ++j)
 		{
 			float x = xroot + j * dx;
 
-			for (int32_t i = 0; i < e_rows; ++i)
+			for (int i = 0; i < e_rows; ++i)
 			{
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 
-				int32_t n = j * e_rows + i;
+				int n = j * e_rows + i;
 
 				bodyDef.position = {x + offset * i, 0.5f + 1.0f * i};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
@@ -147,8 +154,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {-2.0f, 6.5f};
-			g_camera.m_zoom = 0.4f;
+			g_camera.m_center = {-7.0f, 9.0f};
+			g_camera.m_zoom = 14.0f;
 		}
 
 		{
@@ -164,19 +171,19 @@ public:
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
+		for (int i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		for (int32_t i = 0; i < e_maxBullets; ++i)
+		for (int i = 0; i < e_maxBullets; ++i)
 		{
 			m_bullets[i] = b2_nullBodyId;
 		}
 
 		m_shapeType = e_boxShape;
 		m_rowCount = e_maxRows;
-		m_columnCount = 1;
+		m_columnCount = 5;
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -185,7 +192,7 @@ public:
 
 	void CreateStacks()
 	{
-		for (int32_t i = 0; i < e_maxRows * e_maxColumns; ++i)
+		for (int i = 0; i < e_maxRows * e_maxColumns; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodies[i]))
 			{
@@ -218,16 +225,16 @@ public:
 		float dx = -3.0f;
 		float xroot = 8.0f;
 
-		for (int32_t j = 0; j < m_columnCount; ++j)
+		for (int j = 0; j < m_columnCount; ++j)
 		{
 			float x = xroot + j * dx;
 
-			for (int32_t i = 0; i < m_rowCount; ++i)
+			for (int i = 0; i < m_rowCount; ++i)
 			{
 				b2BodyDef bodyDef = b2DefaultBodyDef();
 				bodyDef.type = b2_dynamicBody;
 
-				int32_t n = j * m_rowCount + i;
+				int n = j * m_rowCount + i;
 
 				float shift = (i % 2 == 0 ? -offset : offset);
 				bodyDef.position = {x + shift, 0.5f + 1.0f * i};
@@ -250,11 +257,11 @@ public:
 
 	void DestroyBody()
 	{
-		for (int32_t j = 0; j < m_columnCount; ++j)
+		for (int j = 0; j < m_columnCount; ++j)
 		{
-			for (int32_t i = 0; i < m_rowCount; ++i)
+			for (int i = 0; i < m_rowCount; ++i)
 			{
-				int32_t n = j * m_rowCount + i;
+				int n = j * m_rowCount + i;
 
 				if (B2_IS_NON_NULL(m_bodies[n]))
 				{
@@ -268,7 +275,7 @@ public:
 
 	void DestroyBullets()
 	{
-		for (int32_t i = 0; i < e_maxBullets; ++i)
+		for (int i = 0; i < e_maxBullets; ++i)
 		{
 			b2BodyId bullet = m_bullets[i];
 
@@ -288,7 +295,7 @@ public:
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 4.0f;
 
-		for (int32_t i = 0; i < m_bulletCount; ++i)
+		for (int i = 0; i < m_bulletCount; ++i)
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
@@ -369,9 +376,9 @@ public:
 
 	b2BodyId m_bullets[e_maxBullets];
 	b2BodyId m_bodies[e_maxRows * e_maxColumns];
-	int32_t m_columnCount;
-	int32_t m_rowCount;
-	int32_t m_bulletCount;
+	int m_columnCount;
+	int m_rowCount;
+	int m_bulletCount;
 	ShapeType m_shapeType;
 	ShapeType m_bulletType;
 };
@@ -386,7 +393,7 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 			g_camera.m_center = {0.0f, 5.0f};
 		}
 
@@ -411,7 +418,7 @@ public:
 
 		m_flip = false;
 
-		for (int32_t i = 0; i < 9; ++i)
+		for (int i = 0; i < 9; ++i)
 		{
 			m_bodyIds[i] = b2_nullBodyId;
 		}
@@ -421,7 +428,7 @@ public:
 
 	void CreateBodies()
 	{
-		for (int32_t i = 0; i < 9; ++i)
+		for (int i = 0; i < 9; ++i)
 		{
 			if (B2_IS_NON_NULL(m_bodyIds[i]))
 			{
@@ -535,7 +542,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 8.0f};
-			g_camera.m_zoom = 0.35f;
+			g_camera.m_zoom = 25.0f * 0.35f;
 		}
 
 		b2Vec2 ps1[9] = {{16.0f, 0.0f},
@@ -631,7 +638,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 4.0f};
-			g_camera.m_zoom = 0.25f;
+			g_camera.m_zoom = 25.0f * 0.25f;
 		}
 
 		{
@@ -690,7 +697,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.0f, 10.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 		}
 
 		{
@@ -761,7 +768,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.75f, 0.9f};
-			g_camera.m_zoom = 0.05f;
+			g_camera.m_zoom = 25.0f * 0.05f;
 		}
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();

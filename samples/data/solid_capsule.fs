@@ -6,7 +6,7 @@
 in vec2 f_position;
 in vec4 f_color;
 in float f_length;
-in float f_zoom;
+in float f_thickness;
 
 out vec4 color;
 
@@ -33,7 +33,7 @@ vec4 blend_colors(vec4 front,vec4 back)
 void main()
 {
     // radius in unit quad
-    float radius= 0.5 * (2.0 - f_length);
+    float radius = 0.5 * (2.0 - f_length);
     
     vec4 borderColor = f_color;
     vec4 fillColor = 0.6f * borderColor;
@@ -46,18 +46,16 @@ void main()
     vec2 w = f_position - v1;
     float we = dot(w, e);
     vec2 b = w - e * clamp(we / dot(e, e), 0.0, 1.0);
-    float dw = sqrt(dot(b, b));
+    float dw = length(b);
     
     // SDF union of capsule and line segment
     float d = min(dw, abs(dw - radius));
     
-    float borderThickness = 0.07 * f_zoom;
-    
     // roll the fill alpha down at the border
-    vec4 back = vec4(fillColor.rgb, fillColor.a * (1.0 - smoothstep(radius, radius + borderThickness, dw)));
-    
+    vec4 back = vec4(fillColor.rgb, fillColor.a * smoothstep(radius + f_thickness, radius, dw));
+
     // roll the border alpha down from 1 to 0 across the border thickness
-    vec4 front = vec4(borderColor.rgb, 1.0 - smoothstep(0.0, borderThickness, d));
+    vec4 front = vec4(borderColor.rgb, smoothstep(f_thickness, 0.0f, d));
     
     color = blend_colors(front, back);
 }

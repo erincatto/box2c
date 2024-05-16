@@ -21,7 +21,7 @@ class BodyType : public Sample
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {0.8f, 6.4f};
-			g_camera.m_zoom = 0.4f;
+			g_camera.m_zoom = 25.0f * 0.4f;
 		}
 
 		m_type = b2_dynamicBody;
@@ -303,7 +303,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {-2.0f, 7.0f};
-			g_camera.m_zoom = 0.4f;
+			g_camera.m_zoom = 25.0f * 0.4f;
 		}
 
 		// Ground body
@@ -483,7 +483,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {2.3f, 10.0f};
-			g_camera.m_zoom = 0.5f;
+			g_camera.m_zoom = 25.0f * 0.5f;
 		}
 
 		b2BodyId groundId = b2_nullBodyId;
@@ -577,7 +577,7 @@ public:
 		if (settings.restart == false)
 		{
 			g_camera.m_center = {3.0f, 50.0f};
-			g_camera.m_zoom = 2.2f;
+			g_camera.m_zoom = 25.0f * 2.2f;
 		}
 
 		b2BodyId groundId = b2_nullBodyId;
