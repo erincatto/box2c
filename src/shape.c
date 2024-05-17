@@ -577,7 +577,7 @@ b2ShapeExtent b2ComputeShapeExtent(const b2Shape* shape, b2Vec2 localCenter)
 				minExtent = b2MinFloat(minExtent, planeOffset);
 
 				float distanceSqr = b2LengthSquared(b2Sub(v, localCenter));
-				maxExtentSqr = B2_MAX(maxExtentSqr, distanceSqr);
+				maxExtentSqr = b2MaxFloat(maxExtentSqr, distanceSqr);
 			}
 
 			extent.minExtent = minExtent + poly->radius;

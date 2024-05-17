@@ -63,6 +63,17 @@ float b2WeldJoint_GetAngularDampingRatio(b2JointId jointId)
 	return joint->weldJoint.angularDampingRatio;
 }
 
+b2Vec2 b2GetWeldJointForce(b2World* world, b2JointSim* base)
+{
+	b2Vec2 force = b2MulSV(world->inv_h, base->weldJoint.linearImpulse);
+	return force;
+}
+
+float b2GetWeldJointTorque(b2World* world, b2JointSim* base)
+{
+	return world->inv_h * base->weldJoint.angularImpulse;
+}
+
 // Point-to-point constraint
 // C = p2 - p1
 // Cdot = v2 - v1

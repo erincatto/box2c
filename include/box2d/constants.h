@@ -3,14 +3,18 @@
 
 #pragma once
 
-/// @file
-/// Constants used by box2d.
-/// box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless
-/// degrees are indicated.
-/// Some values can be overridden by using a compiler definition.
-/// Other values cannot be modified without causing stability and/or performance problems.
-///	Although most of these are not user configurable, it can be interesting for a user to see
-///	these to understand the tuning values Box2D uses.
+/**
+ * @defgroup constants Constants
+ * @brief All the constants Box2D uses internally.
+ * Constants used by box2d.
+ * box2d uses meters-kilograms-seconds (MKS) units. Angles are always in radians unless
+ * degrees are indicated.
+ * Some values can be overridden by using a compiler definition.
+ * Other values cannot be modified without causing stability and/or performance problems.
+ * Although most of these are not user configurable, it can be interesting for a user to see
+ * these to understand the tuning values Box2D uses.
+ * @{
+ */
 
 #ifdef BOX2D_USER_CONSTANTS
 	#include "user_constants.h"
@@ -94,3 +98,5 @@ typedef struct b2Version
 
 /// Current version.
 static const b2Version b2_version = {3, 0, 0};
+
+/**@}*/

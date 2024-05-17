@@ -12,6 +12,77 @@
 #include "box2d/box2d.h"
 #include "box2d/debug_draw.h"
 
+void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	joint->motorJoint.linearOffset = linearOffset;
+}
+
+b2Vec2 b2MotorJoint_GetLinearOffset(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	return joint->motorJoint.linearOffset;
+}
+
+void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	joint->motorJoint.angularOffset = angularOffset;
+}
+
+float b2MotorJoint_GetAngularOffset(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	return joint->motorJoint.angularOffset;
+}
+
+void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	joint->motorJoint.maxForce = b2MaxFloat(0.0f, maxForce);
+}
+
+float b2MotorJoint_GetMaxForce(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	return joint->motorJoint.maxForce;
+}
+
+void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	joint->motorJoint.maxTorque = b2MaxFloat(0.0f, maxTorque);
+}
+
+float b2MotorJoint_GetMaxTorque(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	return joint->motorJoint.maxTorque;
+}
+
+void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	joint->motorJoint.correctionFactor = b2ClampFloat(correctionFactor, 0.0f, 1.0f);
+}
+
+float b2MotorJoint_GetCorrectionFactor(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
+	return joint->motorJoint.correctionFactor;
+}
+
+b2Vec2 b2GetMotorJointForce(b2World* world, b2JointSim* base)
+{
+	b2Vec2 force = b2MulSV(world->inv_h, base->motorJoint.linearImpulse);
+	return force;
+}
+
+float b2GetMotorJointTorque(b2World* world, b2JointSim* base)
+{
+	return world->inv_h * base->motorJoint.angularImpulse;
+}
+
 // Point-to-point constraint
 // C = p2 - p1
 // Cdot = v2 - v1
@@ -198,81 +269,7 @@ void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useB
 	bodyB->angularVelocity = wB;
 }
 
-void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.linearOffset = linearOffset;
-}
 
-b2Vec2 b2MotorJoint_GetLinearOffset(b2JointId jointId)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	return joint->motorJoint.linearOffset;
-}
-
-void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.angularOffset = angularOffset;
-}
-
-float b2MotorJoint_GetAngularOffset(b2JointId jointId)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	return joint->motorJoint.angularOffset;
-}
-
-void b2MotorJoint_SetMaxForce(b2JointId jointId, float maxForce)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.maxForce = B2_MAX(0.0f, maxForce);
-}
-
-float b2MotorJoint_GetMaxForce(b2JointId jointId)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	return joint->motorJoint.maxForce;
-}
-
-void b2MotorJoint_SetMaxTorque(b2JointId jointId, float maxTorque)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.maxTorque = B2_MAX(0.0f, maxTorque);
-}
-
-float b2MotorJoint_GetMaxTorque(b2JointId jointId)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	return joint->motorJoint.maxTorque;
-}
-
-void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correctionFactor)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.correctionFactor = b2ClampFloat(correctionFactor, 0.0f, 1.0f);
-}
-
-float b2MotorJoint_GetCorrectionFactor(b2JointId jointId)
-{
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	return joint->motorJoint.correctionFactor;
-}
-
-b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId)
-{
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	b2MotorJoint* joint = &base->motorJoint;
-	b2Vec2 force = b2MulSV(world->inv_h, joint->linearImpulse);
-	return force;
-}
-
-float b2MotorJoint_GetConstraintTorque(b2JointId jointId)
-{
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	return world->inv_h * base->motorJoint.angularImpulse;
-}
 
 #if 0
 void b2DumpMotorJoint()

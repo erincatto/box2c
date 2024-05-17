@@ -240,13 +240,13 @@ B2_API void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity);
 /// Apply a force at a world point. If the force is not
 /// applied at the center of mass, it will generate a torque and
 /// affect the angular velocity. This wakes up the body.
-/// @param force the world force vector, usually in Newtons (N).
+/// @param force the world force vector, usually in newtons (N).
 /// @param point the world position of the point of application.
 /// @param wake also wake up the body
 B2_API void b2Body_ApplyForce(b2BodyId bodyId, b2Vec2 force, b2Vec2 point, bool wake);
 
 /// Apply a force to the center of mass. This wakes up the body.
-/// @param force the world force vector, usually in Newtons (N).
+/// @param force the world force vector, usually in newtons (N).
 /// @param wake also wake up the body
 B2_API void b2Body_ApplyForceToCenter(b2BodyId bodyId, b2Vec2 force, bool wake);
 
@@ -620,6 +620,12 @@ B2_API void* b2Joint_GetUserData(b2JointId jointId);
 /// Wake the bodies connect to this joint
 B2_API void b2Joint_WakeBodies(b2JointId jointId);
 
+/// Get the current constraint force for this joint
+B2_API b2Vec2 b2Joint_GetConstraintForce(b2JointId jointId);
+
+/// Get the current constraint torque for this joint
+B2_API float b2Joint_GetConstraintTorque(b2JointId jointId);
+
 /**
  * @defgroup distance_joint Distance Joint
  * @brief Functions for the distance joint.
@@ -644,6 +650,7 @@ B2_API float b2DistanceJoint_GetLength(b2JointId jointId);
 /// Enable/disable the distance joint spring. When disabled the distance joint is rigid.
 B2_API void b2DistanceJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
+/// Is the distance joint spring enabled?
 B2_API bool b2DistanceJoint_IsSpringEnabled(b2JointId jointId);
 
 /// Set the spring stiffness in Hertz
@@ -662,6 +669,7 @@ B2_API float b2DistanceJoint_GetDampingRatio(b2JointId jointId);
 ///	and the limit has no effect.
 B2_API void b2DistanceJoint_EnableLimit(b2JointId jointId, bool enableLimit);
 
+/// Is the distance joint limit enabled?
 B2_API bool b2DistanceJoint_IsLimitEnabled(b2JointId jointId);
 
 /// Set the minimum and maximum length parameters of a distance joint
@@ -676,19 +684,26 @@ B2_API float b2DistanceJoint_GetMaxLength(b2JointId jointId);
 /// Get the current length of a distance joint
 B2_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
 
+/// Enable/disable the distance joint motor
 B2_API void b2DistanceJoint_EnableMotor(b2JointId jointId, bool enableMotor);
 
+/// Is the distance joint motor enabled?
 B2_API bool b2DistanceJoint_IsMotorEnabled(b2JointId jointId);
 
+/// Set the distance joint motor speed, typically in meters per second
 B2_API void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed);
 
+/// Get the distance joint motor speed, typically in meters per second
 B2_API float b2DistanceJoint_GetMotorSpeed(b2JointId jointId);
 
-B2_API float b2DistanceJoint_GetMotorForce(b2JointId jointId);
-
+/// Set the distance joint maximum motor force, typically in newtons
 B2_API void b2DistanceJoint_SetMaxMotorForce(b2JointId jointId, float force);
 
+/// Get the distance joint maximum motor force, typically in newtons
 B2_API float b2DistanceJoint_GetMaxMotorForce(b2JointId jointId);
+
+/// Get the distance joint current motor force, typically in newtons
+B2_API float b2DistanceJoint_GetMotorForce(b2JointId jointId);
 
 /** @} */
 
@@ -732,14 +747,7 @@ B2_API void b2MotorJoint_SetCorrectionFactor(b2JointId jointId, float correction
 /// @return the correction factor for a motor joint
 B2_API float b2MotorJoint_GetCorrectionFactor(b2JointId jointId);
 
-/// Get the current constraint force for a motor joint
-B2_API b2Vec2 b2MotorJoint_GetConstraintForce(b2JointId jointId);
-
-/// Get the current constraint torque for a motor joint
-B2_API float b2MotorJoint_GetConstraintTorque(b2JointId jointId);
-
-/** @} */
-
+/**@}*/
 
 /**
  * @defgroup mouse_joint Mouse Joint
@@ -763,16 +771,16 @@ B2_API b2Vec2 b2MouseJoint_GetTarget(b2JointId jointId);
 /// Set the spring stiffness in Hertz
 B2_API void b2MouseJoint_SetSpringHertz(b2JointId jointId, float hertz);
 
-/// Set the spring damping ratio (non-dimensional)
-B2_API void b2MouseJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio);
-
 /// Get the Hertz of a mouse joint
 B2_API float b2MouseJoint_GetHertz(b2JointId jointId);
+
+/// Set the spring damping ratio (non-dimensional)
+B2_API void b2MouseJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio);
 
 /// Get the damping ratio of a mouse joint
 B2_API float b2MouseJoint_GetDampingRatio(b2JointId jointId);
 
-/** @} */
+/**@}*/
 
 /**
  * @defgroup prismatic_joint Prismatic Joint
@@ -845,12 +853,6 @@ B2_API void b2PrismaticJoint_SetMaxMotorForce(b2JointId jointId, float force);
 /// @return the maximum force for a prismatic joint motor
 B2_API float b2PrismaticJoint_GetMaxMotorForce(b2JointId jointId);
 
-/// Get the current constraint force for a prismatic joint
-B2_API b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId);
-
-/// Get the current constraint torque for a prismatic joint
-B2_API float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId);
-
 /** @} */
 
 /**
@@ -921,13 +923,7 @@ B2_API void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 /// @return the maximum torque for a revolute joint motor
 B2_API float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId);
 
-/// Get the current constraint force for a revolute joint
-B2_API b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId);
-
-/// Get the current constraint torque for a revolute joint
-B2_API float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId);
-
-/** @} */
+/**@}*/
 
 /**
  * @defgroup weld_joint Weld Joint
@@ -979,8 +975,10 @@ B2_API float b2WeldJoint_GetAngularDampingRatio(b2JointId jointId);
 ///	@see b2WheelJointDef for details
 B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def);
 
+/// Enable/disable the spring on a wheel joint.
 B2_API void b2WheelJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
+/// Is the wheel joint spring enabled?
 B2_API bool b2WheelJoint_IsSpringEnabled(b2JointId jointId);
 
 /// Set the wheel joint stiffness in Hertz
@@ -1031,12 +1029,6 @@ B2_API void b2WheelJoint_SetMaxMotorTorque(b2JointId jointId, float torque);
 /// @return the wheel joint maximum motor torque
 B2_API float b2WheelJoint_GetMaxMotorTorque(b2JointId jointId);
 
-/// Get the current wheel joint constraint force
-B2_API b2Vec2 b2WheelJoint_GetConstraintForce(b2JointId jointId);
+/**@}*/
 
-/// Get the current wheel joint constraint torque
-B2_API float b2WheelJoint_GetConstraintTorque(b2JointId jointId);
-
-/** @} */
-
-/** @} */
+/**@}*/

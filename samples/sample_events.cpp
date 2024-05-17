@@ -882,7 +882,7 @@ public:
 
 		if (settings.hertz > 0.0f)
 		{
-			m_jumpDelay = B2_MAX(0.0f, m_jumpDelay - 1.0f / settings.hertz);
+			m_jumpDelay = b2MaxFloat(0.0f, m_jumpDelay - 1.0f / settings.hertz);
 		}
 	}
 

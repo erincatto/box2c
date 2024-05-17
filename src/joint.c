@@ -874,6 +874,91 @@ void b2Joint_WakeBodies(b2JointId jointId)
 	b2WakeBody(world, bodyB);
 }
 
+extern b2Vec2 b2GetDistanceJointForce(b2World* world, b2JointSim* base);
+extern b2Vec2 b2GetMotorJointForce(b2World* world, b2JointSim* base);
+extern b2Vec2 b2GetMouseJointForce(b2World* world, b2JointSim* base);
+extern b2Vec2 b2GetPrismaticJointForce(b2World* world, b2JointSim* base);
+extern b2Vec2 b2GetRevoluteJointForce(b2World* world, b2JointSim* base);
+extern b2Vec2 b2GetWeldJointForce(b2World* world, b2JointSim* base);
+extern b2Vec2 b2GetWheelJointForce(b2World* world, b2JointSim* base);
+
+b2Vec2 b2Joint_GetConstraintForce(b2JointId jointId)
+{
+	b2World* world = b2GetWorld(jointId.world0);
+	b2Joint* joint = b2GetJointFullId(world, jointId);
+	b2JointSim* base = b2GetJointSim(world, joint);
+
+	switch (joint->type)
+	{
+	case b2_distanceJoint:
+		return b2GetDistanceJointForce(world, base);
+
+	case b2_motorJoint:
+		return b2GetMotorJointForce(world, base);
+
+	case b2_mouseJoint:
+		return b2GetMouseJointForce(world, base);
+
+	case b2_prismaticJoint:
+		return b2GetPrismaticJointForce(world, base);
+
+	case b2_revoluteJoint:
+		return b2GetRevoluteJointForce(world, base);
+
+	case b2_weldJoint:
+		return b2GetWeldJointForce(world, base);
+
+	case b2_wheelJoint:
+		return b2GetWheelJointForce(world, base);
+
+	default:
+		B2_ASSERT(false);
+		return b2Vec2_zero;
+	}
+}
+
+extern float b2GetMotorJointTorque(b2World* world, b2JointSim* base);
+extern float b2GetMouseJointTorque(b2World* world, b2JointSim* base);
+extern float b2GetPrismaticJointTorque(b2World* world, b2JointSim* base);
+extern float b2GetRevoluteJointTorque(b2World* world, b2JointSim* base);
+extern float b2GetWeldJointTorque(b2World* world, b2JointSim* base);
+extern float b2GetWheelJointTorque(b2World* world, b2JointSim* base);
+
+float b2Joint_GetConstraintTorque(b2JointId jointId)
+{
+	b2World* world = b2GetWorld(jointId.world0);
+	b2Joint* joint = b2GetJointFullId(world, jointId);
+	b2JointSim* base = b2GetJointSim(world, joint);
+
+	switch (joint->type)
+	{
+	case b2_distanceJoint:
+		return 0.0f;
+
+	case b2_motorJoint:
+		return b2GetMotorJointTorque(world, base);
+
+	case b2_mouseJoint:
+		return b2GetMouseJointTorque(world, base);
+
+	case b2_prismaticJoint:
+		return b2GetPrismaticJointTorque(world, base);
+
+	case b2_revoluteJoint:
+		return b2GetRevoluteJointTorque(world, base);
+
+	case b2_weldJoint:
+		return b2GetWeldJointTorque(world, base);
+
+	case b2_wheelJoint:
+		return b2GetWheelJointTorque(world, base);
+
+	default:
+		B2_ASSERT(false);
+		return 0.0f;
+	}
+}
+
 extern void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context);
 extern void b2PrepareMotorJoint(b2JointSim* base, b2StepContext* context);
 extern void b2PrepareMouseJoint(b2JointSim* base, b2StepContext* context);

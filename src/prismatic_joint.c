@@ -89,7 +89,7 @@ void b2PrismaticJoint_SetLimits(b2JointId jointId, float lower, float upper)
 	if (lower != joint->prismaticJoint.lowerTranslation || upper != joint->prismaticJoint.upperTranslation)
 	{
 		joint->prismaticJoint.lowerTranslation = b2MinFloat(lower, upper);
-		joint->prismaticJoint.upperTranslation = B2_MAX(lower, upper);
+		joint->prismaticJoint.upperTranslation = b2MaxFloat(lower, upper);
 		joint->prismaticJoint.lowerImpulse = 0.0f;
 		joint->prismaticJoint.upperImpulse = 0.0f;
 	}
@@ -142,11 +142,8 @@ float b2PrismaticJoint_GetMaxMotorForce(b2JointId jointId)
 	return joint->prismaticJoint.maxMotorForce;
 }
 
-b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
+b2Vec2 b2GetPrismaticJointForce(b2World* world, b2JointSim* base)
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
-
 	int idA = base->bodyIdA;
 	b2Transform transformA = b2GetBodyTransform(world, idA);
 
@@ -163,10 +160,8 @@ b2Vec2 b2PrismaticJoint_GetConstraintForce(b2JointId jointId)
 	return force;
 }
 
-float b2PrismaticJoint_GetConstraintTorque(b2JointId jointId)
+float b2GetPrismaticJointTorque(b2World* world, b2JointSim* base)
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_prismaticJoint);
 	return world->inv_h * base->prismaticJoint.impulse.y;
 }
 
@@ -440,7 +435,7 @@ void b2SolvePrismaticJoint(b2JointSim* base, b2StepContext* context, bool useBia
 			float oldImpulse = joint->lowerImpulse;
 			float Cdot = b2Dot(axisA, b2Sub(vB, vA)) + a2 * wB - a1 * wA;
 			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
-			joint->lowerImpulse = B2_MAX(oldImpulse + impulse, 0.0f);
+			joint->lowerImpulse = b2MaxFloat(oldImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
 
 			b2Vec2 P = b2MulSV(impulse, axisA);
@@ -479,7 +474,7 @@ void b2SolvePrismaticJoint(b2JointSim* base, b2StepContext* context, bool useBia
 			// sign flipped
 			float Cdot = b2Dot(axisA, b2Sub(vA, vB)) + a1 * wA - a2 * wB;
 			float impulse = -joint->axialMass * massScale * (Cdot + bias) - impulseScale * oldImpulse;
-			joint->upperImpulse = B2_MAX(oldImpulse + impulse, 0.0f);
+			joint->upperImpulse = b2MaxFloat(oldImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
 
 			b2Vec2 P = b2MulSV(impulse, axisA);

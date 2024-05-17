@@ -47,6 +47,17 @@ float b2MouseJoint_GetDampingRatio(b2JointId jointId)
 	return base->mouseJoint.dampingRatio;
 }
 
+b2Vec2 b2GetMouseJointForce(b2World* world, b2JointSim* base)
+{
+	b2Vec2 force = b2MulSV(world->inv_h, base->mouseJoint.linearImpulse);
+	return force;
+}
+
+float b2GetMouseJointTorque(b2World* world, b2JointSim* base)
+{
+	return world->inv_h * base->mouseJoint.angularImpulse;
+}
+
 void b2PrepareMouseJoint(b2JointSim* base, b2StepContext* context)
 {
 	B2_ASSERT(base->type == b2_mouseJoint);

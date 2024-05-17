@@ -275,7 +275,7 @@ void b2SolveOverflowContacts(b2StepContext* context, bool useBias)
 			}
 			else if (useBias)
 			{
-				velocityBias = B2_MAX(softness.biasRate * s, -pushout);
+				velocityBias = b2MaxFloat(softness.biasRate * s, -pushout);
 				massScale = softness.massScale;
 				impulseScale = softness.impulseScale;
 			}
@@ -418,7 +418,7 @@ void b2ApplyOverflowRestitution(b2StepContext* context)
 
 				// clamp the accumulated impulse
 				// todo should this be stored?
-				float newImpulse = B2_MAX(cp->normalImpulse + impulse, 0.0f);
+				float newImpulse = b2MaxFloat(cp->normalImpulse + impulse, 0.0f);
 				impulse = newImpulse - cp->normalImpulse;
 				cp->normalImpulse = newImpulse;
 				cp->maxNormalImpulse = b2MaxFloat(cp->maxNormalImpulse, impulse);

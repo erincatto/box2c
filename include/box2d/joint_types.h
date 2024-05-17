@@ -144,7 +144,7 @@ typedef struct b2MouseJointDef
 	/// Damping ratio, non-dimensional
 	float dampingRatio;
 
-	/// Maximum force, typically in Newtons
+	/// Maximum force, typically in newtons
 	float maxForce;
 
 	/// Set this flag to true if the attached sims should collide.

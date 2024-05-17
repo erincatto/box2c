@@ -208,7 +208,7 @@ public:
 
 						// Don't put a function call into a macro.
 						float value = RandomFloat(-1.0f, 1.0f);
-						box.radius = 0.25f * B2_MAX(0.0f, value);
+						box.radius = 0.25f * b2MaxFloat(0.0f, value);
 						b2CreatePolygonShape(m_bodies[index], &shapeDef, &box);
 					}
 					else

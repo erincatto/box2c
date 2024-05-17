@@ -542,7 +542,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 
 				b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
 				bodySim->minExtent = b2MinFloat(bodySim->minExtent, extent.minExtent);
-				bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+				bodySim->maxExtent = b2MaxFloat(bodySim->maxExtent, extent.maxExtent);
 
 				shapeId = s->nextShapeId;
 			}
@@ -612,7 +612,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 
 		b2ShapeExtent extent = b2ComputeShapeExtent(s, localCenter);
 		bodySim->minExtent = b2MinFloat(bodySim->minExtent, extent.minExtent);
-		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+		bodySim->maxExtent = b2MaxFloat(bodySim->maxExtent, extent.maxExtent);
 
 		shapeId = s->nextShapeId;
 	}

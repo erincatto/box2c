@@ -717,7 +717,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount)
 	b2StepContext context = {0};
 	context.world = world;
 	context.dt = timeStep;
-	context.subStepCount = B2_MAX(1, subStepCount);
+	context.subStepCount = b2MaxInt(1, subStepCount);
 
 	if (timeStep > 0.0f)
 	{

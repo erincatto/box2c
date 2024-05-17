@@ -10,11 +10,6 @@
 #include <math.h>
 #include <stdbool.h>
 
-// todo these macros are not safe due to no sync point
-
-/// Macro to get the maximum of two values
-#define B2_MAX(A, B) ((A) > (B) ? (A) : (B))
-
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {1.0f, 0.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {1.0f, 0.0f}};
@@ -481,15 +476,24 @@ B2_INLINE b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 	return c;
 }
 
+/// Is this a valid number? Not NaN or infinity.
 B2_API bool b2IsValid(float a);
+
+/// Is this a valid vector? Not NaN or infinity.
 B2_API bool b2Vec2_IsValid(b2Vec2 v);
+
+/// Is this a valid rotation? Not NaN or infinity. Is normalized.
 B2_API bool b2Rot_IsValid(b2Rot q);
+
+/// Is this a valid bounding box? Not Nan or infinity. Upper bound greater than or equal to lower bound.
 B2_API bool b2AABB_IsValid(b2AABB aabb);
 
-/// Convert this vector into a unit vector
+/// Convert a vector into a unit vector if possible, otherwise returns the zero vector.
 B2_API b2Vec2 b2Normalize(b2Vec2 v);
 
-/// This asserts of the vector is too short
+/// Convert a vector into a unit vector if possible, otherwise asserts.
 B2_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
 
+/// Convert a vector into a unit vector if possible, otherwise returns the zero vector. Also
+///	outputs the length.
 B2_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
