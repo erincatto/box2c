@@ -30,12 +30,12 @@
 	#define B2_LITERAL(T) (T)
 #endif
 
-/// Prototype for user allocation function.
+/// Prototype for user allocation function
 ///	@param size the allocation size in bytes
 ///	@param alignment the required alignment, guaranteed to be a power of 2
 typedef void* b2AllocFcn(unsigned int size, int alignment);
 
-/// Prototype for user free function.
+/// Prototype for user free function
 ///	@param mem the memory previously allocated through `b2AllocFcn`
 typedef void b2FreeFcn(void* mem);
 
@@ -46,9 +46,9 @@ typedef int b2AssertFcn(const char* condition, const char* fileName, int lineNum
 ///	set during application startup.
 B2_API void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 
-/// @return the total bytes allocated by Box2D.
+/// @return the total bytes allocated by Box2D
 B2_API int b2GetByteCount(void);
 
-/// Override the default assert callback.
+/// Override the default assert callback
 ///	@param assertFcn a non-null assert callback
 B2_API void b2SetAssertFcn(b2AssertFcn* assertFcn);

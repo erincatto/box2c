@@ -3,6 +3,12 @@
 
 #pragma once
 
+/**
+ * @defgroup math Math
+ * @brief Vector math types and functions
+ * @{
+ */
+
 /// 2D vector
 /// This can be used to represent a point or free vector
 typedef struct b2Vec2
@@ -39,3 +45,5 @@ typedef struct b2AABB
 	b2Vec2 lowerBound;
 	b2Vec2 upperBound;
 } b2AABB;
+
+/**@}*/

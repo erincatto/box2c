@@ -1,14 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-/**
- * @file types.h
- * @brief types used by the Box2D API
- *
- * Mostly definition structures
- * @see http://www.box2d.org
- */
-
 #pragma once
 
 #include "api.h"
@@ -21,6 +13,7 @@
 #include <stdint.h>
 
 /// Result from b2World_RayCastClosest
+/// @ingroup world
 typedef struct b2RayResult
 {
 	b2ShapeId shapeId;
@@ -319,6 +312,7 @@ typedef struct b2ChainDef
 	bool isLoop;
 } b2ChainDef;
 
+//! @cond
 /// Profiling data. Times are in milliseconds.
 typedef struct b2Profile
 {
@@ -362,6 +356,7 @@ typedef struct b2Counters
 	int32_t taskCount;
 	int32_t colorCounts[b2_graphColorCount];
 } b2Counters;
+//! @endcond
 
 /// Use this to initialize your world definition
 /// @ingroup world

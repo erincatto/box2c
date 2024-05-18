@@ -15,7 +15,7 @@
 
 #include "box2d/distance.h"
 #include "box2d/event_types.h"
-#include "box2d/manifold.h"
+#include "box2d/collision.h"
 
 #include <float.h>
 #include <math.h>

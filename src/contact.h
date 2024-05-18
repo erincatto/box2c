@@ -6,7 +6,7 @@
 #include "core.h"
 
 #include "box2d/distance.h"
-#include "box2d/manifold.h"
+#include "box2d/collision.h"
 #include "box2d/types.h"
 
 typedef struct b2Shape b2Shape;

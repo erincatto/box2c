@@ -75,39 +75,6 @@ void b2DynamicTree_Destroy(b2DynamicTree* tree)
 	memset(tree, 0, sizeof(b2DynamicTree));
 }
 
-void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree)
-{
-	if (outTree->nodeCapacity < inTree->nodeCapacity)
-	{
-		b2Free(outTree->nodes, outTree->nodeCapacity * sizeof(b2TreeNode));
-		outTree->nodeCapacity = inTree->nodeCapacity;
-		outTree->nodes = (b2TreeNode*)b2Alloc(outTree->nodeCapacity * sizeof(b2TreeNode));
-	}
-
-	memcpy(outTree->nodes, inTree->nodes, inTree->nodeCapacity * sizeof(b2TreeNode));
-	outTree->root = inTree->root;
-	outTree->nodeCount = inTree->nodeCount;
-	outTree->freeList = inTree->freeList;
-	outTree->proxyCount = inTree->proxyCount;
-
-	// Hook up free list.
-	// TODO_ERIN make this optional?
-	// TODO_ERIN perhaps find tail of existing free list and append
-	int32_t inCapacity = inTree->nodeCapacity;
-	int32_t outCapacity = outTree->nodeCapacity;
-	if (outCapacity > inCapacity)
-	{
-		for (int32_t i = inCapacity; i < outCapacity - 1; ++i)
-		{
-			outTree->nodes[i].next = i + 1;
-			outTree->nodes[i].height = -1;
-		}
-		outTree->nodes[outCapacity - 1].next = outTree->freeList;
-		outTree->nodes[outCapacity - 1].height = -1;
-		outTree->freeList = inCapacity;
-	}
-}
-
 // Allocate a node from the pool. Grow the pool if necessary.
 static int32_t b2AllocateNode(b2DynamicTree* tree)
 {
@@ -1132,7 +1099,7 @@ void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree)
 
 void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 {
-	// Build array of leaves. Free the rest.
+	// shift all AABBs
 	for (int32_t i = 0; i < tree->nodeCapacity; ++i)
 	{
 		b2TreeNode* n = tree->nodes + i;
@@ -1143,7 +1110,7 @@ void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin)
 	}
 }
 
-int b2DynamicTree_GetByteCount(b2DynamicTree* tree)
+int b2DynamicTree_GetByteCount(const b2DynamicTree* tree)
 {
 	size_t size = sizeof(b2DynamicTree) + sizeof(b2TreeNode) * tree->nodeCapacity +
 				  tree->rebuildCapacity * (sizeof(int32_t) + sizeof(b2AABB) + sizeof(b2Vec2) + sizeof(int32_t));

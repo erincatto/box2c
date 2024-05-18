@@ -13,6 +13,12 @@ typedef struct b2Polygon b2Polygon;
 typedef struct b2Segment b2Segment;
 typedef struct b2SmoothSegment b2SmoothSegment;
 
+/**
+ * @defgroup collision Collision
+ * @brief Functions for colliding pairs of shapes
+ * @{
+ */
+
 /// A manifold point is a contact point belonging to a contact
 /// manifold. It holds details related to the geometry and dynamics
 /// of the contact points.
@@ -104,3 +110,5 @@ B2_API b2Manifold b2CollideSmoothSegmentAndCapsule(const b2SmoothSegment* smooth
 /// Compute the collision manifold between a smooth segment and a rounded polygon.
 B2_API b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegmentA, b2Transform xfA,
 												   const b2Polygon* polygonB, b2Transform xfB, b2DistanceCache* cache);
+
+/**@}*/

@@ -10,46 +10,59 @@
 #include <math.h>
 #include <stdbool.h>
 
+/**
+ * @addtogroup math
+ * @{
+ */
+
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {1.0f, 0.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {1.0f, 0.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
+/// @return the minimum of two floats
 B2_INLINE float b2MinFloat(float a, float b)
 {
 	return a < b ? a : b;
 }
 
+/// @return the maximum of two floats
 B2_INLINE float b2MaxFloat(float a, float b)
 {
 	return a > b ? a : b;
 }
 
+/// @return the absolute value of a float
 B2_INLINE float b2AbsFloat(float a)
 {
 	return a < 0 ? -a : a;
 }
 
+/// @return a float clamped between a lower and upper bound
 B2_INLINE float b2ClampFloat(float a, float lower, float upper)
 {
 	return a < lower ? lower : (a > upper ? upper : a);
 }
 
+/// @return the minimum of two integers
 B2_INLINE int b2MinInt(int a, int b)
 {
 	return a < b ? a : b;
 }
 
+/// @return the maximum of two integers
 B2_INLINE int b2MaxInt(int a, int b)
 {
 	return a > b ? a : b;
 }
 
+/// @return the absolute value of an integer
 B2_INLINE int b2AbsInt(int a)
 {
 	return a < 0 ? -a : a;
 }
 
+/// @return an integer clamped between a lower and upper bound
 B2_INLINE int b2ClampInt(int a, int lower, int upper)
 {
 	return a < lower ? lower : (a > upper ? upper : a);
@@ -67,15 +80,13 @@ B2_INLINE float b2Cross(b2Vec2 a, b2Vec2 b)
 	return a.x * b.y - a.y * b.x;
 }
 
-/// Perform the cross product on a vector and a scalar. In 2D this produces
-/// a vector.
+/// Perform the cross product on a vector and a scalar. In 2D this produces a vector.
 B2_INLINE b2Vec2 b2CrossVS(b2Vec2 v, float s)
 {
 	return B2_LITERAL(b2Vec2){s * v.y, -s * v.x};
 }
 
-/// Perform the cross product on a scalar and a vector. In 2D this produces
-/// a vector.
+/// Perform the cross product on a scalar and a vector. In 2D this produces a vector.
 B2_INLINE b2Vec2 b2CrossSV(float s, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){-s * v.y, s * v.x};
@@ -178,18 +189,19 @@ B2_INLINE b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
-/// Get the length of this vector (the norm).
+/// Get the length of this vector (the norm)
 B2_INLINE float b2Length(b2Vec2 v)
 {
 	return sqrtf(v.x * v.x + v.y * v.y);
 }
 
-/// Get the length squared of this vector.
+/// Get the length squared of this vector
 B2_INLINE float b2LengthSquared(b2Vec2 v)
 {
 	return v.x * v.x + v.y * v.y;
 }
 
+/// Get the distance between two points
 B2_INLINE float b2Distance(b2Vec2 a, b2Vec2 b)
 {
 	float dx = b.x - a.x;
@@ -258,8 +270,7 @@ B2_INLINE b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
 	return qn;
 }
 
-/// Compute the angular velocity necessary to rotate between two
-///	rotations over a give time
+/// Compute the angular velocity necessary to rotate between two rotations over a give time
 ///	@param q1 initial rotation
 ///	@param q2 final rotation
 ///	@param inv_h inverse time step
@@ -326,7 +337,7 @@ B2_INLINE b2Rot b2InvMulRot(b2Rot q, b2Rot r)
 	return qr;
 }
 
-// relative angle between b and a (rot_b * inv(rot_a))
+/// relative angle between b and a (rot_b * inv(rot_a))
 B2_INLINE float b2RelativeAngle(b2Rot b, b2Rot a)
 {
 	// sin(b - a) = bs * ac - bc * as
@@ -336,6 +347,7 @@ B2_INLINE float b2RelativeAngle(b2Rot b, b2Rot a)
 	return atan2f(s, c);
 }
 
+/// Convert an angle in the range [-2*pi, 2*pi] into the range [-pi, pi]
 B2_INLINE float b2UnwindAngle(float angle)
 {
 	if (angle < -b2_pi)
@@ -497,3 +509,5 @@ B2_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
 /// Convert a vector into a unit vector if possible, otherwise returns the zero vector. Also
 ///	outputs the length.
 B2_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
+
+/**@}*/
