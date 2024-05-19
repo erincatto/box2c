@@ -8,7 +8,6 @@
 #include "box2d/box2d.h"
 #include "box2d/color.h"
 #include "box2d/geometry.h"
-#include "box2d/hull.h"
 
 #include <imgui.h>
 
@@ -552,7 +551,7 @@ public:
 	{
 		Sample::Step(settings);
 
-		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure3);
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure);
 	}
 
 	static Sample* Create(Settings& settings)

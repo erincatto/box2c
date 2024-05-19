@@ -7,7 +7,8 @@
 
 #include <stdint.h>
 
-/// Timer for profiling. This has platform specific code and may not work on every platform.
+// Timer for profiling. This has platform specific code and may not work on every platform.
+
 typedef struct b2Timer
 {
 #if defined(_WIN32)

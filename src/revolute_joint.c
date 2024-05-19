@@ -103,7 +103,7 @@ void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
 	if (lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle)
 	{
 		joint->revoluteJoint.lowerAngle = b2MinFloat(lower, upper);
-		joint->revoluteJoint.upperAngle = B2_MAX(lower, upper);
+		joint->revoluteJoint.upperAngle = b2MaxFloat(lower, upper);
 		joint->revoluteJoint.lowerImpulse = 0.0f;
 		joint->revoluteJoint.upperImpulse = 0.0f;
 	}
@@ -156,19 +156,15 @@ float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId)
 	return joint->revoluteJoint.maxMotorTorque;
 }
 
-b2Vec2 b2RevoluteJoint_GetConstraintForce(b2JointId jointId)
+b2Vec2 b2GetRevoluteJointForce(b2World* world, b2JointSim* base)
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	b2Vec2 force = b2MulSV(world->inv_h, joint->revoluteJoint.linearImpulse);
+	b2Vec2 force = b2MulSV(world->inv_h, base->revoluteJoint.linearImpulse);
 	return force;
 }
 
-float b2RevoluteJoint_GetConstraintTorque(b2JointId jointId)
+float b2GetRevoluteJointTorque(b2World* world, b2JointSim* base)
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	const b2RevoluteJoint* revolute = &joint->revoluteJoint;
+	const b2RevoluteJoint* revolute = &base->revoluteJoint;
 	float torque = world->inv_h * (revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse);
 	return torque;
 }
@@ -381,7 +377,7 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 			float Cdot = wB - wA;
 			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->lowerImpulse;
-			joint->lowerImpulse = B2_MAX(joint->lowerImpulse + impulse, 0.0f);
+			joint->lowerImpulse = b2MaxFloat(joint->lowerImpulse + impulse, 0.0f);
 			impulse = joint->lowerImpulse - oldImpulse;
 
 			wA -= iA * impulse;
@@ -412,7 +408,7 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 			float Cdot = wA - wB;
 			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->upperImpulse;
-			joint->upperImpulse = B2_MAX(joint->upperImpulse + impulse, 0.0f);
+			joint->upperImpulse = b2MaxFloat(joint->upperImpulse + impulse, 0.0f);
 			impulse = joint->upperImpulse - oldImpulse;
 
 			// sign flipped on applied impulse
@@ -506,8 +502,8 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 
 	b2HexColor c1 = b2_colorGray70;
-	b2HexColor c2 = b2_colorGreen2;
-	b2HexColor c3 = b2_colorRed2;
+	b2HexColor c2 = b2_colorGreen;
+	b2HexColor c3 = b2_colorRed;
 
 	const float L = drawSize;
 	//draw->DrawPoint(pA, 3.0f, b2_colorGray40, draw->context);
@@ -540,10 +536,10 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 		draw->DrawSegment(pB, b2Add(pB, rhi), c3, draw->context);
 
 		b2Vec2 ref = (b2Vec2){L * cosf(joint->referenceAngle), L * sinf(joint->referenceAngle)};
-		draw->DrawSegment(pB, b2Add(pB, ref), b2_colorBlue2, draw->context);
+		draw->DrawSegment(pB, b2Add(pB, ref), b2_colorBlue, draw->context);
 	}
 
-	b2HexColor color = b2_colorGold2;
+	b2HexColor color = b2_colorGold;
 	draw->DrawSegment(transformA.p, pA, color, draw->context);
 	draw->DrawSegment(pA, pB, color, draw->context);
 	draw->DrawSegment(transformB.p, pB, color, draw->context);

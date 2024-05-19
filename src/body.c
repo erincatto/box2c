@@ -542,7 +542,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 
 				b2ShapeExtent extent = b2ComputeShapeExtent(s, b2Vec2_zero);
 				bodySim->minExtent = b2MinFloat(bodySim->minExtent, extent.minExtent);
-				bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+				bodySim->maxExtent = b2MaxFloat(bodySim->maxExtent, extent.maxExtent);
 
 				shapeId = s->nextShapeId;
 			}
@@ -612,7 +612,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 
 		b2ShapeExtent extent = b2ComputeShapeExtent(s, localCenter);
 		bodySim->minExtent = b2MinFloat(bodySim->minExtent, extent.minExtent);
-		bodySim->maxExtent = B2_MAX(bodySim->maxExtent, extent.maxExtent);
+		bodySim->maxExtent = b2MaxFloat(bodySim->maxExtent, extent.maxExtent);
 
 		shapeId = s->nextShapeId;
 	}
@@ -700,17 +700,18 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 	b2BroadPhase* broadPhase = &world->broadPhase;
 
 	b2Transform transform = bodySim->transform;
-	float margin = b2_aabbMargin;
+	const float margin = b2_aabbMargin;
+	const float speculativeDistance = b2_speculativeDistance;
 
 	int shapeId = body->headShapeId;
 	while (shapeId != B2_NULL_INDEX)
 	{
 		b2Shape* shape = world->shapeArray + shapeId;
 		b2AABB aabb = b2ComputeShapeAABB(shape, transform);
-		aabb.lowerBound.x -= b2_speculativeDistance;
-		aabb.lowerBound.y -= b2_speculativeDistance;
-		aabb.upperBound.x += b2_speculativeDistance;
-		aabb.upperBound.y += b2_speculativeDistance;
+		aabb.lowerBound.x -= speculativeDistance;
+		aabb.lowerBound.y -= speculativeDistance;
+		aabb.upperBound.x += speculativeDistance;
+		aabb.upperBound.y += speculativeDistance;
 		shape->aabb = aabb;
 
 		if (b2AABB_Contains(shape->fatAABB, aabb) == false)

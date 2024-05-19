@@ -191,6 +191,9 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 
 	bool enableContinuous = world->enableContinuous;
 
+	const float speculativeDistance = b2_speculativeDistance;
+	const float aabbMargin = b2_aabbMargin;
+
 	B2_ASSERT(startIndex <= endIndex);
 
 	for (int simIndex = startIndex; simIndex < endIndex; ++simIndex)
@@ -321,10 +324,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 			else
 			{
 				b2AABB aabb = b2ComputeShapeAABB(shape, transform);
-				aabb.lowerBound.x -= b2_speculativeDistance;
-				aabb.lowerBound.y -= b2_speculativeDistance;
-				aabb.upperBound.x += b2_speculativeDistance;
-				aabb.upperBound.y += b2_speculativeDistance;
+				aabb.lowerBound.x -= speculativeDistance;
+				aabb.lowerBound.y -= speculativeDistance;
+				aabb.upperBound.x += speculativeDistance;
+				aabb.upperBound.y += speculativeDistance;
 				shape->aabb = aabb;
 
 				B2_ASSERT(shape->enlargedAABB == false);
@@ -332,10 +335,10 @@ static void b2FinalizeBodiesTask(int startIndex, int endIndex, uint32_t threadIn
 				if (b2AABB_Contains(shape->fatAABB, aabb) == false)
 				{
 					b2AABB fatAABB;
-					fatAABB.lowerBound.x = aabb.lowerBound.x - b2_aabbMargin;
-					fatAABB.lowerBound.y = aabb.lowerBound.y - b2_aabbMargin;
-					fatAABB.upperBound.x = aabb.upperBound.x + b2_aabbMargin;
-					fatAABB.upperBound.y = aabb.upperBound.y + b2_aabbMargin;
+					fatAABB.lowerBound.x = aabb.lowerBound.x - aabbMargin;
+					fatAABB.lowerBound.y = aabb.lowerBound.y - aabbMargin;
+					fatAABB.upperBound.x = aabb.upperBound.x + aabbMargin;
+					fatAABB.upperBound.y = aabb.upperBound.y + aabbMargin;
 					shape->fatAABB = fatAABB;
 
 					shape->enlargedAABB = true;
@@ -960,6 +963,9 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		shapeId = fastShape->nextShapeId;
 	}
 
+	const float speculativeDistance = b2_speculativeDistance;
+	const float aabbMargin = b2_aabbMargin;
+
 	if (context.fraction < 1.0f)
 	{
 		// Handle time of impact event
@@ -982,19 +988,19 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 
 			// Must recompute aabb at the interpolated transform
 			b2AABB aabb = b2ComputeShapeAABB(shape, transform);
-			aabb.lowerBound.x -= b2_speculativeDistance;
-			aabb.lowerBound.y -= b2_speculativeDistance;
-			aabb.upperBound.x += b2_speculativeDistance;
-			aabb.upperBound.y += b2_speculativeDistance;
+			aabb.lowerBound.x -= speculativeDistance;
+			aabb.lowerBound.y -= speculativeDistance;
+			aabb.upperBound.x += speculativeDistance;
+			aabb.upperBound.y += speculativeDistance;
 			shape->aabb = aabb;
 
 			if (b2AABB_Contains(shape->fatAABB, aabb) == false)
 			{
 				b2AABB fatAABB;
-				fatAABB.lowerBound.x = aabb.lowerBound.x - b2_aabbMargin;
-				fatAABB.lowerBound.y = aabb.lowerBound.y - b2_aabbMargin;
-				fatAABB.upperBound.x = aabb.upperBound.x + b2_aabbMargin;
-				fatAABB.upperBound.y = aabb.upperBound.y + b2_aabbMargin;
+				fatAABB.lowerBound.x = aabb.lowerBound.x - aabbMargin;
+				fatAABB.lowerBound.y = aabb.lowerBound.y - aabbMargin;
+				fatAABB.upperBound.x = aabb.upperBound.x + aabbMargin;
+				fatAABB.upperBound.y = aabb.upperBound.y + aabbMargin;
 				shape->fatAABB = fatAABB;
 
 				shape->enlargedAABB = true;
@@ -1023,10 +1029,10 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 			if (b2AABB_Contains(shape->fatAABB, shape->aabb) == false)
 			{
 				b2AABB fatAABB;
-				fatAABB.lowerBound.x = shape->aabb.lowerBound.x - b2_aabbMargin;
-				fatAABB.lowerBound.y = shape->aabb.lowerBound.y - b2_aabbMargin;
-				fatAABB.upperBound.x = shape->aabb.upperBound.x + b2_aabbMargin;
-				fatAABB.upperBound.y = shape->aabb.upperBound.y + b2_aabbMargin;
+				fatAABB.lowerBound.x = shape->aabb.lowerBound.x - aabbMargin;
+				fatAABB.lowerBound.y = shape->aabb.lowerBound.y - aabbMargin;
+				fatAABB.upperBound.x = shape->aabb.upperBound.x + aabbMargin;
+				fatAABB.upperBound.y = shape->aabb.upperBound.y + aabbMargin;
 				shape->fatAABB = fatAABB;
 
 				shape->enlargedAABB = true;

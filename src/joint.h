@@ -10,7 +10,7 @@ typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;
 typedef struct b2World b2World;
 
-/// A joint edge is used to connect sims and joints together
+/// A joint edge is used to connect bodies and joints together
 /// in a joint graph where each body is a node and each joint
 /// is an edge. A joint edge belongs to a doubly linked list
 /// maintained in each attached body. Each joint has two joint
@@ -112,6 +112,7 @@ typedef struct b2MouseJoint
 	b2Vec2 targetA;
 	float hertz;
 	float dampingRatio;
+	float maxForce;
 
 	b2Vec2 linearImpulse;
 	float angularImpulse;
@@ -237,7 +238,7 @@ typedef struct b2WheelJoint
 	bool enableLimit;
 } b2WheelJoint;
 
-/// The base joint class. Joints are used to constraint two sims together in
+/// The base joint class. Joints are used to constraint two bodies together in
 /// various fashions. Some joints also feature limits and motors.
 typedef struct b2JointSim
 {

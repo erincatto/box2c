@@ -6,7 +6,6 @@
 
 #include "core.h"
 
-#include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/timer.h"
 
@@ -616,7 +615,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 	}
 
 #if B2_GJK_DEBUG
-	b2_gjkMaxIters = B2_MAX(b2_gjkMaxIters, iter);
+	b2_gjkMaxIters = b2MaxInt(b2_gjkMaxIters, iter);
 #endif
 
 	// Prepare output
@@ -644,7 +643,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 			// the points move smoothly.
 			float rA = proxyA->radius;
 			float rB = proxyB->radius;
-			output.distance = B2_MAX(0.0f, output.distance - rA - rB);
+			output.distance = b2MaxFloat(0.0f, output.distance - rA - rB);
 			b2Vec2 normal = b2Normalize(b2Sub(output.pointB, output.pointA));
 			b2Vec2 offsetA = (b2Vec2){rA * normal.x, rA * normal.y};
 			b2Vec2 offsetB = (b2Vec2){rB * normal.x, rB * normal.y};
@@ -703,12 +702,13 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	b2Vec2 v = b2Sub(wA, wB);
 
 	// Sigma is the target distance between proxies
-	const float sigma = B2_MAX(b2_linearSlop, radius - b2_linearSlop);
+	const float linearSlop = b2_linearSlop;
+	const float sigma = b2MaxFloat(linearSlop, radius - linearSlop);
 
 	// Main iteration loop.
 	const int32_t k_maxIters = 20;
 	int32_t iter = 0;
-	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * b2_linearSlop)
+	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * linearSlop)
 	{
 		B2_ASSERT(simplex.count < 3);
 
@@ -1054,7 +1054,7 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 	float tMax = input->tMax;
 
 	float totalRadius = proxyA->radius + proxyB->radius;
-	float target = B2_MAX(b2_linearSlop, totalRadius - b2_linearSlop);
+	float target = b2MaxFloat(b2_linearSlop, totalRadius - b2_linearSlop);
 	float tolerance = 0.25f * b2_linearSlop;
 	B2_ASSERT(target > tolerance);
 
@@ -1231,7 +1231,7 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 			}
 
 #if B2_TOI_DEBUG
-			b2_toiMaxRootIters = B2_MAX(b2_toiMaxRootIters, rootIterCount);
+			b2_toiMaxRootIters = b2MaxInt(b2_toiMaxRootIters, rootIterCount);
 #endif
 
 			++pushBackIter;
@@ -1262,10 +1262,10 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 	}
 
 #if B2_TOI_DEBUG
-	b2_toiMaxIters = B2_MAX(b2_toiMaxIters, iter);
+	b2_toiMaxIters = b2MaxInt(b2_toiMaxIters, iter);
 
 	float time = b2GetMilliseconds(&timer);
-	b2_toiMaxTime = B2_MAX(b2_toiMaxTime, time);
+	b2_toiMaxTime = b2MaxFloat(b2_toiMaxTime, time);
 	b2_toiTime += time;
 #endif
 

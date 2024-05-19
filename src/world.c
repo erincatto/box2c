@@ -28,7 +28,6 @@
 // needed for dll export
 #include "box2d/box2d.h"
 #include "box2d/color.h"
-#include "box2d/constants.h"
 #include "box2d/debug_draw.h"
 #include "box2d/distance.h"
 #include "box2d/event_types.h"
@@ -38,6 +37,7 @@
 #include <stdio.h>
 #include <string.h>
 
+_Static_assert(b2_maxWorlds > 0, "must be 1 or more");
 b2World b2_worlds[b2_maxWorlds];
 
 b2World* b2GetWorldFromId(b2WorldId id)
@@ -423,7 +423,7 @@ static void b2Collide(b2StepContext* context)
 	b2TracyCZoneNC(collide, "Collide", b2_colorDarkOrchid, true);
 
 	// Tasks that can be done in parallel with the narrow-phase
-	// - rebuild the collision tree for dynamic and kinematic sims to keep their query performance good
+	// - rebuild the collision tree for dynamic and kinematic bodies to keep their query performance good
 	world->userTreeTask = world->enqueueTaskFcn(&b2UpdateTreesTask, 1, 1, world, world->userTaskContext);
 	world->taskCount += 1;
 	world->activeTaskCount += world->userTreeTask == NULL ? 0 : 1;
@@ -717,7 +717,7 @@ void b2World_Step(b2WorldId worldId, float timeStep, int subStepCount)
 	b2StepContext context = {0};
 	context.world = world;
 	context.dt = timeStep;
-	context.subStepCount = B2_MAX(1, subStepCount);
+	context.subStepCount = b2MaxInt(1, subStepCount);
 
 	if (timeStep > 0.0f)
 	{
@@ -819,7 +819,7 @@ static void b2DrawShape(b2DebugDraw* draw, b2Shape* shape, b2Transform xf, b2Hex
 			b2Vec2 p2 = b2TransformPoint(xf, segment->point2);
 			draw->DrawSegment(p1, p2, color, draw->context);
 			draw->DrawPoint(p2, 4.0f, color, draw->context);
-			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2_colorPaleGreen4, draw->context);
+			draw->DrawSegment(p1, b2Lerp(p1, p2, 0.1f), b2_colorPaleGreen, draw->context);
 		}
 		break;
 
@@ -862,7 +862,7 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 		}
 		else if (body->setIndex == b2_disabledSet)
 		{
-			color = b2_colorSlateGray2;
+			color = b2_colorSlateGray;
 		}
 		else if (shape->isSensor)
 		{
@@ -886,7 +886,7 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 		}
 		else if (body->setIndex == b2_awakeSet)
 		{
-			color = b2_colorPink3;
+			color = b2_colorPink;
 		}
 		else
 		{
@@ -905,7 +905,7 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 						{aabb.upperBound.x, aabb.upperBound.y},
 						{aabb.lowerBound.x, aabb.upperBound.y}};
 
-		draw->DrawPolygon(vs, 4, b2_colorGold2, draw->context);
+		draw->DrawPolygon(vs, 4, b2_colorGold, draw->context);
 	}
 
 	return true;
@@ -920,11 +920,11 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 	const float k_impulseScale = 1.0f;
 	const float k_axisScale = 0.3f;
 	b2HexColor speculativeColor = b2_colorGray30;
-	b2HexColor addColor = b2_colorGreen1;
-	b2HexColor persistColor = b2_colorBlue1;
+	b2HexColor addColor = b2_colorGreen;
+	b2HexColor persistColor = b2_colorBlue;
 	b2HexColor normalColor = b2_colorGray90;
 	b2HexColor impulseColor = b2_colorMagenta;
-	b2HexColor frictionColor = b2_colorYellow2;
+	b2HexColor frictionColor = b2_colorYellow;
 
 	b2HexColor graphColors[b2_graphColorCount] = {b2_colorRed,		 b2_colorOrange,	b2_colorYellow, b2_colorGreen,
 												  b2_colorCyan,		 b2_colorBlue,		b2_colorViolet, b2_colorPink,
@@ -999,6 +999,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 				}
 			}
 
+			const float linearSlop = b2_linearSlop;
 			if (draw->drawContacts && body->type == b2_dynamicBody && body->setIndex == b2_awakeSet)
 			{
 				int contactKey = body->headContactKey;
@@ -1038,7 +1039,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 								draw->DrawPoint(point->point, pointSize, graphColors[contact->colorIndex], draw->context);
 								// g_draw.DrawString(point->position, "%d", point->color);
 							}
-							else if (point->separation > b2_linearSlop)
+							else if (point->separation > linearSlop)
 							{
 								// Speculative
 								draw->DrawPoint(point->point, 5.0f, speculativeColor, draw->context);
@@ -1142,7 +1143,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					}
 					else if (body->setIndex == b2_disabledSet)
 					{
-						color = b2_colorSlateGray2;
+						color = b2_colorSlateGray;
 					}
 					else if (shape->isSensor)
 					{
@@ -1166,7 +1167,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					}
 					else if (body->setIndex == b2_awakeSet)
 					{
-						color = b2_colorPink3;
+						color = b2_colorPink;
 					}
 					else
 					{
@@ -1197,7 +1198,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 
 	if (draw->drawAABBs)
 	{
-		b2HexColor color = b2_colorGold2;
+		b2HexColor color = b2_colorGold;
 
 		int setCount = b2Array(world->solverSetArray).count;
 		for (int setIndex = 0; setIndex < setCount; ++setIndex)
@@ -1263,12 +1264,14 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 	{
 		const float k_impulseScale = 1.0f;
 		const float k_axisScale = 0.3f;
+		const float linearSlop = b2_linearSlop;
+
 		b2HexColor speculativeColor = b2_colorGray30;
-		b2HexColor addColor = b2_colorGreen1;
-		b2HexColor persistColor = b2_colorBlue1;
+		b2HexColor addColor = b2_colorGreen;
+		b2HexColor persistColor = b2_colorBlue;
 		b2HexColor normalColor = b2_colorGray90;
 		b2HexColor impulseColor = b2_colorMagenta;
-		b2HexColor frictionColor = b2_colorYellow2;
+		b2HexColor frictionColor = b2_colorYellow;
 
 		b2HexColor colors[b2_graphColorCount] = {b2_colorRed,		b2_colorOrange,	   b2_colorYellow, b2_colorGreen,
 												 b2_colorCyan,		b2_colorBlue,	   b2_colorViolet, b2_colorPink,
@@ -1297,7 +1300,7 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 						draw->DrawPoint(point->point, pointSize, colors[colorIndex], draw->context);
 						// g_draw.DrawString(point->position, "%d", point->color);
 					}
-					else if (point->separation > b2_linearSlop)
+					else if (point->separation > linearSlop)
 					{
 						// Speculative
 						draw->DrawPoint(point->point, 5.0f, speculativeColor, draw->context);
@@ -1662,6 +1665,7 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 	s.stackUsed = b2GetMaxStackAllocation(&world->stackAllocator);
 	s.byteCount = b2GetByteCount();
 	s.taskCount = world->taskCount;
+
 	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		s.colorCounts[i] = world->constraintGraph.colors[i].contacts.count + world->constraintGraph.colors[i].joints.count;
@@ -1983,7 +1987,7 @@ static float RayCastCallback(const b2RayCastInput* input, int proxyId, int shape
 	return input->maxFraction;
 }
 
-void b2World_RayCast(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
+void b2World_CastRay(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter, b2CastResultFcn* fcn,
 					 void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -2025,7 +2029,7 @@ static float b2RayCastClosestFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal,
 	return fraction;
 }
 
-b2RayResult b2World_RayCastClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter)
+b2RayResult b2World_CastRayClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2QueryFilter filter)
 {
 	b2RayResult result = {0};
 
@@ -2089,7 +2093,7 @@ static float ShapeCastCallback(const b2ShapeCastInput* input, int proxyId, int s
 	return input->maxFraction;
 }
 
-void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
+void b2World_CastCircle(b2WorldId worldId, const b2Circle* circle, b2Transform originTransform, b2Vec2 translation,
 						b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -2125,7 +2129,7 @@ void b2World_CircleCast(b2WorldId worldId, const b2Circle* circle, b2Transform o
 	}
 }
 
-void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
+void b2World_CastCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Transform originTransform, b2Vec2 translation,
 						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);
@@ -2162,7 +2166,7 @@ void b2World_CapsuleCast(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 	}
 }
 
-void b2World_PolygonCast(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
+void b2World_CastPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transform originTransform, b2Vec2 translation,
 						 b2QueryFilter filter, b2CastResultFcn* fcn, void* context)
 {
 	b2World* world = b2GetWorldFromId(worldId);

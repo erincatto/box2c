@@ -11,7 +11,6 @@
 #include "box2d/box2d.h"
 #include "box2d/color.h"
 #include "box2d/geometry.h"
-#include "box2d/hull.h"
 #include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
@@ -203,7 +202,7 @@ public:
 
 		if (m_explode)
 		{
-			g_draw.DrawCircle(m_explosionPosition, radius, b2_colorAzure3);
+			g_draw.DrawCircle(m_explosionPosition, radius, b2_colorAzure);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)

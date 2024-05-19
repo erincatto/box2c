@@ -3,6 +3,15 @@
 
 #pragma once
 
+/**
+ * @defgroup math Math
+ * @brief Vector math types and functions
+ * @{
+ */
+
+/// https://en.wikipedia.org/wiki/Pi
+#define b2_pi 3.14159265359f
+
 /// 2D vector
 /// This can be used to represent a point or free vector
 typedef struct b2Vec2
@@ -40,8 +49,4 @@ typedef struct b2AABB
 	b2Vec2 upperBound;
 } b2AABB;
 
-/// Color for debug drawing. Each value has the range [0,1].
-typedef struct b2Color
-{
-	float r, g, b, a;
-} b2Color;
+/**@}*/

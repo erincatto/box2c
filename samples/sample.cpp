@@ -8,8 +8,8 @@
 
 #include "box2d/box2d.h"
 #include "box2d/callbacks.h"
-#include "box2d/hull.h"
-#include "box2d/manifold.h"
+#include "box2d/geometry.h"
+#include "box2d/collision.h"
 #include "box2d/math_cpp.h"
 #include "box2d/math_functions.h"
 
@@ -118,7 +118,7 @@ Sample::~Sample()
 void Sample::DrawTitle(const char* string)
 {
 	g_draw.DrawString(5, 5, string);
-	m_textLine = int32_t(26.0f);
+	m_textLine = int(26.0f);
 }
 
 struct QueryContext
@@ -174,18 +174,16 @@ void Sample::MouseDown(b2Vec2 p, int button, int mod)
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			m_groundBodyId = b2CreateBody(m_worldId, &bodyDef);
 
-			b2MouseJointDef jd = b2DefaultMouseJointDef();
-			jd.bodyIdA = m_groundBodyId;
-			jd.bodyIdB = queryContext.bodyId;
-			jd.target = p;
-			jd.hertz = 5.0f;
-			jd.dampingRatio = 0.7f;
-			m_mouseJointId = b2CreateMouseJoint(m_worldId, &jd);
+			b2MouseJointDef mouseDef = b2DefaultMouseJointDef();
+			mouseDef.bodyIdA = m_groundBodyId;
+			mouseDef.bodyIdB = queryContext.bodyId;
+			mouseDef.target = p;
+			mouseDef.hertz = 5.0f;
+			mouseDef.dampingRatio = 0.7f;
+			mouseDef.maxForce = 1000.0f * b2Body_GetMass(queryContext.bodyId);
+			m_mouseJointId = b2CreateMouseJoint(m_worldId, &mouseDef);
 
 			b2Body_SetAwake(queryContext.bodyId, true);
-
-			// todo for breakpoint
-			jd.hertz += 0;
 		}
 	}
 }
@@ -274,7 +272,7 @@ void Sample::Step(Settings& settings)
 	b2World_EnableWarmStarting(m_worldId, settings.enableWarmStarting);
 	b2World_EnableContinuous(m_worldId, settings.enableContinuous);
 
-	for (int32_t i = 0; i < 1; ++i)
+	for (int i = 0; i < 1; ++i)
 	{
 		b2World_Step(m_worldId, timeStep, settings.subStepCount);
 		m_taskCount = 0;
@@ -301,10 +299,12 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "tree height static/movable = %d/%d", s.staticTreeHeight, s.treeHeight);
 		m_textLine += m_textIncrement;
 
-		int32_t totalCount = 0;
+		int totalCount = 0;
 		char buffer[256] = {0};
-		int32_t offset = snprintf(buffer, 256, "colors: ");
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		static_assert(std::size(s.colorCounts) == 12);
+
+		int offset = snprintf(buffer, 256, "colors: ");
+		for (int i = 0; i < 12; ++i)
 		{
 			offset += snprintf(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
 			totalCount += s.colorCounts[i];

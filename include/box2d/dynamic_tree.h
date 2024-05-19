@@ -9,7 +9,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/**
+ * @defgroup tree Dynamic Tree
+ * The dynamic tree is a binary AABB tree to organize and query large numbers of geometric objects
+ *
+ * Box2D uses the dynamic tree internally to sort collision shapes into a binary bounding volume hierarchy.
+ * This data structure may have uses in games for organizing other geometry data and may be used independently
+ * of Box2D rigid body simulation.
+ *
+ * @{
+ */
+
+/// The default category bit for a tree proxy. Used for collision filtering.
 #define b2_defaultCategoryBits (0x00000001)
+
+/// Convenience mask bits to use when you don't need collision filtering and just want
+///	all results.
 #define b2_defaultMaskBits (0xFFFFFFFF)
 
 typedef struct b2RayCastInput b2RayCastInput;
@@ -79,9 +94,6 @@ B2_API int32_t b2DynamicTree_CreateProxy(b2DynamicTree* tree, b2AABB aabb, uint3
 
 /// Destroy a proxy. This asserts if the id is invalid.
 B2_API void b2DynamicTree_DestroyProxy(b2DynamicTree* tree, int32_t proxyId);
-
-// Clone one tree to another, reusing storage in the outTree if possible
-B2_API void b2DynamicTree_Clone(b2DynamicTree* outTree, const b2DynamicTree* inTree);
 
 /// Move a proxy to a new AABB by removing and reinserting into the tree.
 B2_API void b2DynamicTree_MoveProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aabb);
@@ -165,7 +177,7 @@ B2_API int32_t b2DynamicTree_Rebuild(b2DynamicTree* tree, bool fullBuild);
 B2_API void b2DynamicTree_ShiftOrigin(b2DynamicTree* tree, b2Vec2 newOrigin);
 
 /// Get the number of bytes used by this tree
-B2_API int b2DynamicTree_GetByteCount(b2DynamicTree* tree);
+B2_API int b2DynamicTree_GetByteCount(const b2DynamicTree* tree);
 
 /// Get proxy user data
 /// @return the proxy user data or 0 if the id is invalid
@@ -179,3 +191,5 @@ B2_INLINE b2AABB b2DynamicTree_GetAABB(const b2DynamicTree* tree, int32_t proxyI
 {
 	return tree->nodes[proxyId].aabb;
 }
+
+/**@}*/
