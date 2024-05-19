@@ -6,7 +6,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
-#include "box2d/dynamic_tree.h"
+#include "box2d/collision.h"
 #include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
@@ -140,8 +140,8 @@ public:
 		{
 			for (int32_t i = 0; i < cache->count; ++i)
 			{
-				b2Vec2 pointA = b2TransformPoint(input->transformA, input->proxyA.vertices[cache->indexA[i]]);
-				b2Vec2 pointB = b2TransformPoint(input->transformB, input->proxyB.vertices[cache->indexB[i]]);
+				b2Vec2 pointA = b2TransformPoint(input->transformA, input->proxyA.points[cache->indexA[i]]);
+				b2Vec2 pointB = b2TransformPoint(input->transformB, input->proxyB.points[cache->indexB[i]]);
 				g_draw.DrawPoint(pointA, 5.0f, b2_colorGreen);
 				g_draw.DrawPoint(pointB, 5.0f, b2_colorRed);
 			}

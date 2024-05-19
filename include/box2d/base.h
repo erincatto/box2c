@@ -59,33 +59,33 @@ B2_API int b2GetByteCount(void);
 ///	@param assertFcn a non-null assert callback
 B2_API void b2SetAssertFcn(b2AssertFcn* assertFcn);
 
-/// Version numbering scheme.
-/// See http://en.wikipedia.org/wiki/Software_versioning
+/// Version numbering scheme
+/// See https://semver.org/
 typedef struct b2Version
 {
-	/// significant changes
+	/// Significant changes
 	int major;
 
-	/// incremental changes
+	/// Incremental changes
 	int minor;
 
-	/// bug fixes
+	/// Bug fixes
 	int revision;
 } b2Version;
 
+/// Get the current version of Box2D
 B2_API b2Version b2GetVersion(void);
 
-// Timer for profiling. This has platform specific code and may not work on every platform.
-
+/// Timer for profiling. This has platform specific code and may not work on every platform.
 typedef struct b2Timer
 {
 #if defined(_WIN32)
-	int64_t start;
+	int64_t start; ///< internal
 #elif defined(__linux__) || defined(__APPLE__)
-	unsigned long long start_sec;
-	unsigned long long start_usec;
+	unsigned long long start_sec;  ///< internal
+	unsigned long long start_usec; ///< internal
 #else
-	int32_t dummy;
+	int32_t dummy; ///< internal
 #endif
 } b2Timer;
 
