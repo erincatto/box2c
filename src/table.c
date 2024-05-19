@@ -16,6 +16,8 @@
 _Atomic int g_probeCount;
 #endif
 
+// todo compare with https://github.com/skeeto/scratch/blob/master/set32/set32.h
+
 b2HashSet b2CreateSet(int32_t capacity)
 {
 	b2HashSet set = {0};

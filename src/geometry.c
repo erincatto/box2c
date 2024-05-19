@@ -8,10 +8,11 @@
 #include "shape.h"
 
 #include "box2d/distance.h"
-#include "box2d/hull.h"
 #include "box2d/math_functions.h"
 
 #include <float.h>
+
+_Static_assert(b2_maxPolygonVertices > 2, "must be 3 or more");
 
 bool b2IsValidRay(const b2RayCastInput* input)
 {

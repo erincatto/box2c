@@ -4,8 +4,17 @@
 #pragma once
 
 #include "api.h"
-#include "constants.h"
 #include "geometry.h"
+
+/**
+ * @defgroup distance Distance
+ * Functions for computing the distance between shapes.
+ *
+ * These are advanced functions you can use to perform distance calculations. There
+ * are functions for computing the closest points between shapes, doing linear shape casts,
+ * and doing rotational shape casts. The latter is called time of impact (TOI).
+ * @{
+ */
 
 /// Result of computing the distance between two line segments
 typedef struct b2SegmentDistanceResult
@@ -78,7 +87,6 @@ typedef struct b2ShapeCastPairInput
 } b2ShapeCastPairInput;
 
 /// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
-/// @returns true if hit, false if there is no hit or an initial overlap
 B2_API b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input);
 
 /// Make a proxy for use in GJK and related functions.
@@ -99,6 +107,7 @@ typedef struct b2Sweep
 	b2Rot q1, q2;
 } b2Sweep;
 
+/// Evaluate the transform sweep at a specific time.
 B2_API b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time);
 
 /// Input parameters for b2TimeOfImpact
@@ -135,3 +144,5 @@ typedef struct b2TOIOutput
 /// non-tunneling collisions. If you change the time interval, you should call this function
 /// again.
 B2_API b2TOIOutput b2TimeOfImpact(const b2TOIInput* input);
+
+/**@}*/

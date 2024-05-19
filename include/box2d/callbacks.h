@@ -19,10 +19,13 @@ typedef struct b2Manifold b2Manifold;
 ///	The startIndex and endIndex are expected in the range [0, itemCount) where itemCount is the argument to b2EnqueueTaskCallback
 /// below. Box2D expects startIndex < endIndex and will execute a loop like this:
 ///
+///	@code{.c}
 /// for (int i = startIndex; i < endIndex; ++i)
 ///	{
 ///		DoWork();
 ///	}
+///	@endcode
+///	@ingroup world
 typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t workerIndex, void* taskContext);
 
 /// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
@@ -35,16 +38,18 @@ typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t worke
 ///	In general the range [startIndex, endIndex) send to b2TaskCallback should obey:
 ///	endIndex - startIndex >= minRange
 ///	The exception of course is when itemCount < minRange.
+///	@ingroup world
 typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext,
 									void* userContext);
 
 /// Finishes a user task object that wraps a Box2D task.
+///	@ingroup world
 typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 
 /// Prototype for a pre-solve callback.
 /// This is called after a contact is updated. This allows you to inspect a
 /// contact before it goes to the solver. If you are careful, you can modify the
-/// contact manifold (e.g. disable contact).
+/// contact manifold (e.g. modify the normal).
 /// Notes:
 ///	- this function must be thread-safe
 ///	- this is only called if the shape has enabled presolve events
@@ -52,19 +57,20 @@ typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 /// - this is not called for sensors
 /// - the supplied manifold has impulse values from the previous step
 ///	Return false if you want to disable the contact this step
+///	@warning Do not attempt to modify the world inside this callback
+///	@ingroup world
 typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
 
 /// Prototype callback for overlap queries.
-/// See b2World_QueryAABB
-/// Called for each shape found in the query AABB.
+/// Called for each shape found in the query.
+/// @see b2World_QueryAABB
 /// @return false to terminate the query.
+///	@ingroup world
 typedef bool b2OverlapResultFcn(b2ShapeId shapeId, void* context);
 
 /// Prototype callback for ray casts.
-/// See b2World::RayCast
 /// Called for each shape found in the query. You control how the ray cast
 /// proceeds by returning a float:
-/// #todo rework this to return penetration
 /// return -1: ignore this shape and continue
 /// return 0: terminate the ray cast
 /// return fraction: clip the ray to this point
@@ -73,6 +79,8 @@ typedef bool b2OverlapResultFcn(b2ShapeId shapeId, void* context);
 /// @param point the point of initial intersection
 /// @param normal the normal vector at the point of intersection
 /// @param fraction the fraction along the ray at the point of intersection
-/// @return -1 to filter, 0 to terminate, fraction to clip the ray for
-/// closest hit, 1 to continue
+///	@param context the user context
+/// @return -1 to filter, 0 to terminate, fraction to clip the ray for closest hit, 1 to continue
+/// @see b2World_CastRay
+///	@ingroup world
 typedef float b2CastResultFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);

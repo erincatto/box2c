@@ -4,6 +4,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "settings.h"
 
+// todo consider using https://github.com/skeeto/pdjson
 #include <jsmn.h>
 
 #include <assert.h>

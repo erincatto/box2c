@@ -4,7 +4,6 @@
 #include "box2d/geometry.h"
 #include "box2d/math_functions.h"
 #include "test_macros.h"
-#include "box2d/hull.h"
 
 #include <float.h>
 

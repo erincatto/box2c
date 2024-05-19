@@ -7,7 +7,6 @@
 
 #include "box2d/box2d.h"
 #include "box2d/geometry.h"
-#include "box2d/hull.h"
 #include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
@@ -105,7 +104,7 @@ public:
 		else
 		{
 			float h = 0.1f;
-			b2Polygon box = b2MakeBox(10.0f * h, h);
+			b2Polygon box = b2MakeBox(20.0f * h, h);
 			b2CreatePolygonShape(m_bodyId, &shapeDef, &box);
 		}
 	}

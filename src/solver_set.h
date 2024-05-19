@@ -10,9 +10,9 @@ typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
 
 // This holds solver set data. The following sets are used:
-// - static set for all static sims (no contacts or joints)
-// - active set for all active sims with body states (no contacts or joints)
-// - disabled set for disabled sims and their joints
+// - static set for all static bodies (no contacts or joints)
+// - active set for all active bodies with body states (no contacts or joints)
+// - disabled set for disabled bodies and their joints
 // - all further sets are sleeping island sets along with their contacts and joints
 // The purpose of solver sets is to achieve high memory locality.
 // https://www.youtube.com/watch?v=nZNd5FjSquk

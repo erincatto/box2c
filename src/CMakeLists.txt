@@ -31,7 +31,6 @@ set(BOX2D_SOURCE_FILES
 	hull.c
 	id_pool.c
 	id_pool.h
-	implementation.c
 	island.c
 	island.h
 	joint.c
@@ -54,7 +53,6 @@ set(BOX2D_SOURCE_FILES
 	table.h
 	timer.c
 	types.c
-	user_constants.h.in
 	util.h
 	weld_joint.c
 	wheel_joint.c
@@ -67,16 +65,14 @@ set(BOX2D_API_FILES
 	../include/box2d/box2d.h
 	../include/box2d/callbacks.h
 	../include/box2d/color.h
-	../include/box2d/constants.h
+	../include/box2d/collision.h
 	../include/box2d/debug_draw.h
 	../include/box2d/distance.h
 	../include/box2d/dynamic_tree.h
 	../include/box2d/event_types.h
 	../include/box2d/geometry.h
-	../include/box2d/hull.h
 	../include/box2d/id.h
 	../include/box2d/joint_types.h
-	../include/box2d/manifold.h
 	../include/box2d/math_functions.h
 	../include/box2d/math_cpp.h
 	../include/box2d/math_types.h
@@ -91,12 +87,6 @@ set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 add_library(box2d ${BOX2D_SOURCE_FILES} ${BOX2D_API_FILES})
-
-if (BOX2D_USER_CONSTANTS)
-	# this file allows users to override constants
-	configure_file(user_constants.h.in user_constants.h)
-	target_compile_definitions(box2d PUBLIC BOX2D_USER_CONSTANTS)
-endif()
 
 # Generate box2d_export.h to handles shared library builds
 # turned this off to make Box2D easier to use without cmake

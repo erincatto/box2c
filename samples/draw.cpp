@@ -4,7 +4,6 @@
 #include "draw.h"
 #include "shader.h"
 
-#include "box2d/constants.h"
 #include "box2d/math_cpp.h"
 #include "box2d/math_functions.h"
 
@@ -925,7 +924,7 @@ struct GLSolidCapsules
 	{
 		b2Vec2 d = p2 - p1;
 		float length = b2Length(d);
-		if (length < b2_linearSlop)
+		if (length < 0.001f)
 		{
 			printf("WARNING: sample app: capsule too short!\n");
 			return;

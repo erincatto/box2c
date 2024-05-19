@@ -4,57 +4,64 @@
 #pragma once
 
 #include "api.h"
-#include "constants.h"
 #include "math_types.h"
 
 #include <math.h>
 #include <stdbool.h>
 
-// todo these macros are not safe due to no sync point
-
-/// Macro to get the maximum of two values
-#define B2_MAX(A, B) ((A) > (B) ? (A) : (B))
+/**
+ * @addtogroup math
+ * @{
+ */
 
 static const b2Vec2 b2Vec2_zero = {0.0f, 0.0f};
 static const b2Rot b2Rot_identity = {1.0f, 0.0f};
 static const b2Transform b2Transform_identity = {{0.0f, 0.0f}, {1.0f, 0.0f}};
 static const b2Mat22 b2Mat22_zero = {{0.0f, 0.0f}, {0.0f, 0.0f}};
 
+/// @return the minimum of two floats
 B2_INLINE float b2MinFloat(float a, float b)
 {
 	return a < b ? a : b;
 }
 
+/// @return the maximum of two floats
 B2_INLINE float b2MaxFloat(float a, float b)
 {
 	return a > b ? a : b;
 }
 
+/// @return the absolute value of a float
 B2_INLINE float b2AbsFloat(float a)
 {
 	return a < 0 ? -a : a;
 }
 
+/// @return a float clamped between a lower and upper bound
 B2_INLINE float b2ClampFloat(float a, float lower, float upper)
 {
 	return a < lower ? lower : (a > upper ? upper : a);
 }
 
+/// @return the minimum of two integers
 B2_INLINE int b2MinInt(int a, int b)
 {
 	return a < b ? a : b;
 }
 
+/// @return the maximum of two integers
 B2_INLINE int b2MaxInt(int a, int b)
 {
 	return a > b ? a : b;
 }
 
+/// @return the absolute value of an integer
 B2_INLINE int b2AbsInt(int a)
 {
 	return a < 0 ? -a : a;
 }
 
+/// @return an integer clamped between a lower and upper bound
 B2_INLINE int b2ClampInt(int a, int lower, int upper)
 {
 	return a < lower ? lower : (a > upper ? upper : a);
@@ -72,15 +79,13 @@ B2_INLINE float b2Cross(b2Vec2 a, b2Vec2 b)
 	return a.x * b.y - a.y * b.x;
 }
 
-/// Perform the cross product on a vector and a scalar. In 2D this produces
-/// a vector.
+/// Perform the cross product on a vector and a scalar. In 2D this produces a vector.
 B2_INLINE b2Vec2 b2CrossVS(b2Vec2 v, float s)
 {
 	return B2_LITERAL(b2Vec2){s * v.y, -s * v.x};
 }
 
-/// Perform the cross product on a scalar and a vector. In 2D this produces
-/// a vector.
+/// Perform the cross product on a scalar and a vector. In 2D this produces a vector.
 B2_INLINE b2Vec2 b2CrossSV(float s, b2Vec2 v)
 {
 	return B2_LITERAL(b2Vec2){-s * v.y, s * v.x};
@@ -174,7 +179,7 @@ B2_INLINE b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
-/// Component-wise clamp vector so v into the range [a, b]
+/// Component-wise clamp vector v into the range [a, b]
 B2_INLINE b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
@@ -183,18 +188,19 @@ B2_INLINE b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
-/// Get the length of this vector (the norm).
+/// Get the length of this vector (the norm)
 B2_INLINE float b2Length(b2Vec2 v)
 {
 	return sqrtf(v.x * v.x + v.y * v.y);
 }
 
-/// Get the length squared of this vector.
+/// Get the length squared of this vector
 B2_INLINE float b2LengthSquared(b2Vec2 v)
 {
 	return v.x * v.x + v.y * v.y;
 }
 
+/// Get the distance between two points
 B2_INLINE float b2Distance(b2Vec2 a, b2Vec2 b)
 {
 	float dx = b.x - a.x;
@@ -263,8 +269,7 @@ B2_INLINE b2Rot b2IntegrateRotation(b2Rot q1, float deltaAngle)
 	return qn;
 }
 
-/// Compute the angular velocity necessary to rotate between two
-///	rotations over a give time
+/// Compute the angular velocity necessary to rotate between two rotations over a give time
 ///	@param q1 initial rotation
 ///	@param q2 final rotation
 ///	@param inv_h inverse time step
@@ -331,7 +336,7 @@ B2_INLINE b2Rot b2InvMulRot(b2Rot q, b2Rot r)
 	return qr;
 }
 
-// relative angle between b and a (rot_b * inv(rot_a))
+/// relative angle between b and a (rot_b * inv(rot_a))
 B2_INLINE float b2RelativeAngle(b2Rot b, b2Rot a)
 {
 	// sin(b - a) = bs * ac - bc * as
@@ -341,6 +346,7 @@ B2_INLINE float b2RelativeAngle(b2Rot b, b2Rot a)
 	return atan2f(s, c);
 }
 
+/// Convert an angle in the range [-2*pi, 2*pi] into the range [-pi, pi]
 B2_INLINE float b2UnwindAngle(float angle)
 {
 	if (angle < -b2_pi)
@@ -481,15 +487,35 @@ B2_INLINE b2AABB b2AABB_Union(b2AABB a, b2AABB b)
 	return c;
 }
 
+/// Is this a valid number? Not NaN or infinity.
 B2_API bool b2IsValid(float a);
+
+/// Is this a valid vector? Not NaN or infinity.
 B2_API bool b2Vec2_IsValid(b2Vec2 v);
+
+/// Is this a valid rotation? Not NaN or infinity. Is normalized.
 B2_API bool b2Rot_IsValid(b2Rot q);
+
+/// Is this a valid bounding box? Not Nan or infinity. Upper bound greater than or equal to lower bound.
 B2_API bool b2AABB_IsValid(b2AABB aabb);
 
-/// Convert this vector into a unit vector
+/// Convert a vector into a unit vector if possible, otherwise returns the zero vector.
 B2_API b2Vec2 b2Normalize(b2Vec2 v);
 
-/// This asserts of the vector is too short
+/// Convert a vector into a unit vector if possible, otherwise asserts.
 B2_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
 
+/// Convert a vector into a unit vector if possible, otherwise returns the zero vector. Also
+///	outputs the length.
 B2_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
+
+/// Box2D bases all length units on meters, but you may need different units for your game.
+/// You can set this value to use different units. This should be done at application startup
+///	and only modified once. Default value is 1.
+///	@warning This must be modified before any calls to Box2D
+B2_API void b2SetLengthUnitsPerMeter(float lengthUnits);
+
+/// Get the current length units per meter.
+B2_API float b2GetLengthUnitsPerMeter(void);
+
+/**@}*/

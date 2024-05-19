@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/hull.h"
+#include "box2d/geometry.h"
 
 #include "core.h"
 
@@ -10,7 +10,7 @@
 #include <float.h>
 
 // quickhull recursion
-static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int32_t count)
+static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int count)
 {
 	b2Hull hull;
 	hull.count = 0;
@@ -25,16 +25,16 @@ static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int32_t count)
 
 	// discard points left of e and find point furthest to the right of e
 	b2Vec2 rightPoints[b2_maxPolygonVertices];
-	int32_t rightCount = 0;
+	int rightCount = 0;
 
-	int32_t bestIndex = 0;
+	int bestIndex = 0;
 	float bestDistance = b2Cross(b2Sub(ps[bestIndex], p1), e);
 	if (bestDistance > 0.0f)
 	{
 		rightPoints[rightCount++] = ps[bestIndex];
 	}
 
-	for (int32_t i = 1; i < count; ++i)
+	for (int i = 1; i < count; ++i)
 	{
 		float distance = b2Cross(b2Sub(ps[i], p1), e);
 		if (distance > bestDistance)
@@ -63,14 +63,14 @@ static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int32_t count)
 	b2Hull hull2 = b2RecurseHull(bestPoint, p2, rightPoints, rightCount);
 
 	// stitch together hulls
-	for (int32_t i = 0; i < hull1.count; ++i)
+	for (int i = 0; i < hull1.count; ++i)
 	{
 		hull.points[hull.count++] = hull1.points[i];
 	}
 
 	hull.points[hull.count++] = bestPoint;
 
-	for (int32_t i = 0; i < hull2.count; ++i)
+	for (int i = 0; i < hull2.count; ++i)
 	{
 		hull.points[hull.count++] = hull2.points[i];
 	}
@@ -84,7 +84,7 @@ static b2Hull b2RecurseHull(b2Vec2 p1, b2Vec2 p2, b2Vec2* ps, int32_t count)
 // - merges vertices based on b2_linearSlop
 // - removes collinear points using b2_linearSlop
 // - returns an empty hull if it fails
-b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
+b2Hull b2ComputeHull(const b2Vec2* points, int count)
 {
 	b2Hull hull;
 	hull.count = 0;
@@ -102,9 +102,10 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 	// Perform aggressive point welding. First point always remains.
 	// Also compute the bounding box for later.
 	b2Vec2 ps[b2_maxPolygonVertices];
-	int32_t n = 0;
-	const float tolSqr = 16.0f * b2_linearSlop * b2_linearSlop;
-	for (int32_t i = 0; i < count; ++i)
+	int n = 0;
+	const float linearSlop = b2_linearSlop;
+	const float tolSqr = 16.0f * linearSlop * linearSlop;
+	for (int i = 0; i < count; ++i)
 	{
 		aabb.lowerBound = b2Min(aabb.lowerBound, points[i]);
 		aabb.upperBound = b2Max(aabb.upperBound, points[i]);
@@ -112,7 +113,7 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 		b2Vec2 vi = points[i];
 
 		bool unique = true;
-		for (int32_t j = 0; j < i; ++j)
+		for (int j = 0; j < i; ++j)
 		{
 			b2Vec2 vj = points[j];
 
@@ -138,9 +139,9 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 
 	// Find an extreme point as the first point on the hull
 	b2Vec2 c = b2AABB_Center(aabb);
-	int32_t f1 = 0;
+	int f1 = 0;
 	float dsq1 = b2DistanceSquared(c, ps[f1]);
-	for (int32_t i = 1; i < n; ++i)
+	for (int i = 1; i < n; ++i)
 	{
 		float dsq = b2DistanceSquared(c, ps[i]);
 		if (dsq > dsq1)
@@ -155,9 +156,9 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 	ps[f1] = ps[n - 1];
 	n = n - 1;
 
-	int32_t f2 = 0;
+	int f2 = 0;
 	float dsq2 = b2DistanceSquared(p1, ps[f2]);
-	for (int32_t i = 1; i < n; ++i)
+	for (int i = 1; i < n; ++i)
 	{
 		float dsq = b2DistanceSquared(p1, ps[i]);
 		if (dsq > dsq2)
@@ -174,23 +175,23 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 
 	// split the points into points that are left and right of the line p1-p2.
 	b2Vec2 rightPoints[b2_maxPolygonVertices - 2];
-	int32_t rightCount = 0;
+	int rightCount = 0;
 
 	b2Vec2 leftPoints[b2_maxPolygonVertices - 2];
-	int32_t leftCount = 0;
+	int leftCount = 0;
 
 	b2Vec2 e = b2Normalize(b2Sub(p2, p1));
 
-	for (int32_t i = 0; i < n; ++i)
+	for (int i = 0; i < n; ++i)
 	{
 		float d = b2Cross(b2Sub(ps[i], p1), e);
 
 		// slop used here to skip points that are very close to the line p1-p2
-		if (d >= 2.0f * b2_linearSlop)
+		if (d >= 2.0f * linearSlop)
 		{
 			rightPoints[rightCount++] = ps[i];
 		}
-		else if (d <= -2.0f * b2_linearSlop)
+		else if (d <= -2.0f * linearSlop)
 		{
 			leftPoints[leftCount++] = ps[i];
 		}
@@ -209,14 +210,14 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 	// stitch hulls together, preserving CCW winding order
 	hull.points[hull.count++] = p1;
 
-	for (int32_t i = 0; i < hull1.count; ++i)
+	for (int i = 0; i < hull1.count; ++i)
 	{
 		hull.points[hull.count++] = hull1.points[i];
 	}
 
 	hull.points[hull.count++] = p2;
 
-	for (int32_t i = 0; i < hull2.count; ++i)
+	for (int i = 0; i < hull2.count; ++i)
 	{
 		hull.points[hull.count++] = hull2.points[i];
 	}
@@ -229,11 +230,11 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 	{
 		searching = false;
 
-		for (int32_t i = 0; i < hull.count; ++i)
+		for (int i = 0; i < hull.count; ++i)
 		{
-			int32_t i1 = i;
-			int32_t i2 = (i + 1) % hull.count;
-			int32_t i3 = (i + 2) % hull.count;
+			int i1 = i;
+			int i2 = (i + 1) % hull.count;
+			int i3 = (i + 2) % hull.count;
 
 			b2Vec2 s1 = hull.points[i1];
 			b2Vec2 s2 = hull.points[i2];
@@ -243,10 +244,10 @@ b2Hull b2ComputeHull(const b2Vec2* points, int32_t count)
 			b2Vec2 r = b2Normalize(b2Sub(s3, s1));
 
 			float distance = b2Cross(b2Sub(s2, s1), r);
-			if (distance <= 2.0f * b2_linearSlop)
+			if (distance <= 2.0f * linearSlop)
 			{
 				// remove midpoint from hull
-				for (int32_t j = i2; j < hull.count - 1; ++j)
+				for (int j = i2; j < hull.count - 1; ++j)
 				{
 					hull.points[j] = hull.points[j + 1];
 				}
@@ -277,15 +278,15 @@ bool b2ValidateHull(const b2Hull* hull)
 	}
 
 	// test that every point is behind every edge
-	for (int32_t i = 0; i < hull->count; ++i)
+	for (int i = 0; i < hull->count; ++i)
 	{
 		// create an edge vector
-		int32_t i1 = i;
-		int32_t i2 = i < hull->count - 1 ? i1 + 1 : 0;
+		int i1 = i;
+		int i2 = i < hull->count - 1 ? i1 + 1 : 0;
 		b2Vec2 p = hull->points[i1];
 		b2Vec2 e = b2Normalize(b2Sub(hull->points[i2], p));
 
-		for (int32_t j = 0; j < hull->count; ++j)
+		for (int j = 0; j < hull->count; ++j)
 		{
 			// skip points that subtend the current edge
 			if (j == i1 || j == i2)
@@ -302,11 +303,12 @@ bool b2ValidateHull(const b2Hull* hull)
 	}
 
 	// test for collinear points
-	for (int32_t i = 0; i < hull->count; ++i)
+	const float linearSlop = b2_linearSlop;
+	for (int i = 0; i < hull->count; ++i)
 	{
-		int32_t i1 = i;
-		int32_t i2 = (i + 1) % hull->count;
-		int32_t i3 = (i + 2) % hull->count;
+		int i1 = i;
+		int i2 = (i + 1) % hull->count;
+		int i3 = (i + 2) % hull->count;
 
 		b2Vec2 p1 = hull->points[i1];
 		b2Vec2 p2 = hull->points[i2];
@@ -315,7 +317,7 @@ bool b2ValidateHull(const b2Hull* hull)
 		b2Vec2 e = b2Normalize(b2Sub(p3, p1));
 
 		float distance = b2Cross(b2Sub(p2, p1), e);
-		if (distance <= b2_linearSlop)
+		if (distance <= linearSlop)
 		{
 			// p1-p2-p3 are collinear
 			return false;
