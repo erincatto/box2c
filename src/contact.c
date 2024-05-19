@@ -17,6 +17,7 @@
 
 #include <float.h>
 #include <math.h>
+#include <stddef.h>
 
 // Contacts and determinism
 // A deterministic simulation requires contacts to exist in the same order in b2Island no matter the thread count.
