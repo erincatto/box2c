@@ -4,6 +4,7 @@
 #include "aabb.h"
 #include "allocate.h"
 #include "core.h"
+#include "util.h"
 
 #include "box2d/dynamic_tree.h"
 #include "box2d/math_functions.h"
