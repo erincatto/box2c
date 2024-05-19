@@ -1182,7 +1182,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawPoint(target, 4.0f, c1, draw->context);
 			draw->DrawPoint(pB, 4.0f, c1, draw->context);
 
-			b2HexColor c2 = b2_colorGray80;
+			b2HexColor c2 = b2_colorGray8;
 			draw->DrawSegment(target, pB, c2, draw->context);
 		}
 		break;

@@ -500,7 +500,7 @@ void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
 
-	b2HexColor c1 = b2_colorGray70;
+	b2HexColor c1 = b2_colorGray7;
 	b2HexColor c2 = b2_colorGreen;
 	b2HexColor c3 = b2_colorRed;
 

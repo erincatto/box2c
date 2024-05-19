@@ -911,10 +911,10 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 
 	const float k_impulseScale = 1.0f;
 	const float k_axisScale = 0.3f;
-	b2HexColor speculativeColor = b2_colorGray30;
+	b2HexColor speculativeColor = b2_colorGray3;
 	b2HexColor addColor = b2_colorGreen;
 	b2HexColor persistColor = b2_colorBlue;
-	b2HexColor normalColor = b2_colorGray90;
+	b2HexColor normalColor = b2_colorGray9;
 	b2HexColor impulseColor = b2_colorMagenta;
 	b2HexColor frictionColor = b2_colorYellow;
 
@@ -1258,10 +1258,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		const float k_axisScale = 0.3f;
 		const float linearSlop = b2_linearSlop;
 
-		b2HexColor speculativeColor = b2_colorGray30;
+		b2HexColor speculativeColor = b2_colorGray3;
 		b2HexColor addColor = b2_colorGreen;
 		b2HexColor persistColor = b2_colorBlue;
-		b2HexColor normalColor = b2_colorGray90;
+		b2HexColor normalColor = b2_colorGray9;
 		b2HexColor impulseColor = b2_colorMagenta;
 		b2HexColor frictionColor = b2_colorYellow;
 

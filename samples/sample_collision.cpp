@@ -1663,7 +1663,7 @@ public:
 		m_textLine += m_textIncrement;
 
 		b2HexColor color1 = b2_colorGreen;
-		b2HexColor color2 = b2_colorGray80;
+		b2HexColor color2 = b2_colorGray8;
 		b2HexColor color3 = b2_colorMagenta;
 
 		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
@@ -3271,16 +3271,16 @@ public:
 		{
 			if (m_radiusA > 0.0f)
 			{
-				g_draw.DrawCircle(vertices[0], m_radiusA, b2_colorGray90);
+				g_draw.DrawCircle(vertices[0], m_radiusA, b2_colorGray9);
 			}
 			else
 			{
-				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorGray90);
+				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorGray9);
 			}
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countA, b2_colorGray90);
+			g_draw.DrawPolygon(vertices, m_countA, b2_colorGray9);
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
