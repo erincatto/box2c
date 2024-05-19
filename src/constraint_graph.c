@@ -46,15 +46,15 @@ void b2CreateGraph(b2ConstraintGraph* graph, int bodyCapacity)
 	}
 }
 
-void b2DestroyGraph(b2ConstraintGraph* graph, b2BlockAllocator* allocator)
+void b2DestroyGraph(b2ConstraintGraph* graph)
 {
 	for (int i = 0; i < b2_graphColorCount; ++i)
 	{
 		b2GraphColor* color = graph->colors + i;
 		b2DestroyBitSet(&color->bodySet);
 
-		b2DestroyContactArray(allocator, &color->contacts);
-		b2DestroyJointArray(allocator, &color->joints);
+		b2DestroyContactArray(&color->contacts);
+		b2DestroyJointArray(&color->joints);
 	}
 }
 
@@ -136,7 +136,7 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 	contact->colorIndex = colorIndex;
 	contact->localIndex = color->contacts.count;
 
-	b2ContactSim* newContact = b2AddContact(&world->blockAllocator, &color->contacts);
+	b2ContactSim* newContact = b2AddContact(&color->contacts);
 	memcpy(newContact, contactSim, sizeof(b2ContactSim));
 
 	// todo perhaps skip this if the contact is already awake
@@ -282,7 +282,7 @@ b2JointSim* b2CreateJointInGraph(b2World* world, b2Joint* joint)
 
 	int colorIndex = b2AssignJointColor(graph, bodyIdA, bodyIdB, staticA, staticB);
 
-	b2JointSim* jointSim = b2AddJoint(&world->blockAllocator, &graph->colors[colorIndex].joints);
+	b2JointSim* jointSim = b2AddJoint(&graph->colors[colorIndex].joints);
 	joint->colorIndex = colorIndex;
 	joint->localIndex = graph->colors[colorIndex].joints.count - 1;
 	return jointSim;

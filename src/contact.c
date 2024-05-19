@@ -298,7 +298,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 
 	// Contacts are created as non-touching. Later if they are found to be touching
 	// they will link islands and be moved into the constraint graph.
-	b2ContactSim* contactSim = b2AddContact(&world->blockAllocator, &set->contacts);
+	b2ContactSim* contactSim = b2AddContact(&set->contacts);
 	contactSim->contactId = contactId;
 
 #if B2_VALIDATE

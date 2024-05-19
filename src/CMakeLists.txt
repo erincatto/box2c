@@ -7,8 +7,6 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
-	block_allocator.c
-	block_allocator.h
 	block_array.c
 	block_array.h
 	body.c

@@ -9,7 +9,6 @@
 #include "allocate.h"
 #include "array.h"
 #include "bitset.h"
-#include "block_allocator.h"
 #include "block_array.h"
 #include "body.h"
 #include "broad_phase.h"
@@ -104,7 +103,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->worldId = (uint16_t)worldId;
 	world->inUse = true;
 
-	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(2048);
 	b2CreateBroadPhase(&world->broadPhase);
 	b2CreateGraph(&world->constraintGraph, 16);
@@ -264,7 +262,7 @@ void b2DestroyWorld(b2WorldId worldId)
 
 	b2DestroyArray(world->solverSetArray, sizeof(b2SolverSet));
 
-	b2DestroyGraph(&world->constraintGraph, &world->blockAllocator);
+	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyIdPool(&world->bodyIdPool);
@@ -275,7 +273,6 @@ void b2DestroyWorld(b2WorldId worldId)
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroyIdPool(&world->solverSetIdPool);
 
-	b2DestroyBlockAllocator(&world->blockAllocator);
 	b2DestroyStackAllocator(&world->stackAllocator);
 
 	// Wipe world but preserve revision
@@ -384,7 +381,7 @@ static void b2AddNonTouchingContact(b2World* world, b2Contact* contact, b2Contac
 	contact->colorIndex = B2_NULL_INDEX;
 	contact->localIndex = set->contacts.count;
 
-	b2ContactSim* newContactSim = b2AddContact(&world->blockAllocator, &set->contacts);
+	b2ContactSim* newContactSim = b2AddContact(&set->contacts);
 	memcpy(newContactSim, contactSim, sizeof(b2ContactSim));
 }
 

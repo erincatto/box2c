@@ -48,7 +48,7 @@ b2Island* b2CreateIsland(b2World* world, int setIndex)
 	island->parentIsland = B2_NULL_INDEX;
 	island->constraintRemoveCount = 0;
 
-	b2IslandSim* islandSim = b2AddIsland(&world->blockAllocator, &set->islands);
+	b2IslandSim* islandSim = b2AddIsland(&set->islands);
 	islandSim->islandId = islandId;
 
 	return island;

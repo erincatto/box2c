@@ -3,7 +3,7 @@
 
 #include "block_array.h"
 
-#include "block_allocator.h"
+#include "allocate.h"
 #include "body.h"
 #include "contact.h"
 #include "core.h"
@@ -14,96 +14,96 @@
 
 #define B2_INITIAL_CAPACITY 16
 
-b2BodySimArray b2CreateBodySimArray(b2BlockAllocator* allocator, int capacity)
+b2BodySimArray b2CreateBodySimArray(int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2BodySimArray){b2AllocBlock(allocator, capacity * sizeof(b2BodySim)), 0, capacity};
+		return (b2BodySimArray){b2Alloc(capacity * sizeof(b2BodySim)), 0, capacity};
 	}
 
 	return (b2BodySimArray){0};
 }
 
-b2BodyStateArray b2CreateBodyStateArray(b2BlockAllocator* allocator, int capacity)
+b2BodyStateArray b2CreateBodyStateArray(int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2BodyStateArray){b2AllocBlock(allocator, capacity * sizeof(b2BodyState)), 0, capacity};
+		return (b2BodyStateArray){b2Alloc(capacity * sizeof(b2BodyState)), 0, capacity};
 	}
 
 	return (b2BodyStateArray){0};
 }
 
-b2ContactArray b2CreateContactArray(b2BlockAllocator* allocator, int capacity)
+b2ContactArray b2CreateContactArray(int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2ContactArray){b2AllocBlock(allocator, capacity * sizeof(b2ContactSim)), 0, capacity};
+		return (b2ContactArray){b2Alloc(capacity * sizeof(b2ContactSim)), 0, capacity};
 	}
 
 	return (b2ContactArray){0};
 }
 
-b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity)
+b2JointArray b2CreateJointArray(int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2JointArray){b2AllocBlock(allocator, capacity * sizeof(b2JointSim)), 0, capacity};
+		return (b2JointArray){b2Alloc(capacity * sizeof(b2JointSim)), 0, capacity};
 	}
 
 	return (b2JointArray){0};
 }
 
-b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity)
+b2IslandArray b2CreateIslandArray(int capacity)
 {
 	if (capacity > 0)
 	{
-		return (b2IslandArray){b2AllocBlock(allocator, capacity * sizeof(b2IslandSim)), 0, capacity};
+		return (b2IslandArray){b2Alloc(capacity * sizeof(b2IslandSim)), 0, capacity};
 	}
 
 	return (b2IslandArray){0};
 }
 
-void b2DestroyBodySimArray(b2BlockAllocator* allocator, b2BodySimArray* array)
+void b2DestroyBodySimArray(b2BodySimArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2BodySim));
+	b2Free(array->data, array->capacity * sizeof(b2BodySim));
 }
 
-void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* array)
+void b2DestroyBodyStateArray(b2BodyStateArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2BodyState));
+	b2Free(array->data, array->capacity * sizeof(b2BodyState));
 }
 
-void b2DestroyContactArray(b2BlockAllocator* allocator, b2ContactArray* array)
+void b2DestroyContactArray(b2ContactArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2ContactSim));
+	b2Free(array->data, array->capacity * sizeof(b2ContactSim));
 }
 
-void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array)
+void b2DestroyJointArray(b2JointArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2JointSim));
+	b2Free(array->data, array->capacity * sizeof(b2JointSim));
 }
 
-void b2DestroyIslandArray(b2BlockAllocator* allocator, b2IslandArray* array)
+void b2DestroyIslandArray(b2IslandArray* array)
 {
-	b2FreeBlock(allocator, array->data, array->capacity * sizeof(b2IslandSim));
+	b2Free(array->data, array->capacity * sizeof(b2IslandSim));
 }
 
-b2BodySim* b2AddBodySim(b2BlockAllocator* allocator, b2BodySimArray* array)
+b2BodySim* b2AddBodySim(b2BodySimArray* array)
 {
 	int elementSize = sizeof(b2BodySim);
 	if (array->capacity == 0)
 	{
 		B2_ASSERT(array->count == 0);
-		array->data = b2AllocBlock(allocator, B2_INITIAL_CAPACITY * elementSize);
+		array->data = b2Alloc(B2_INITIAL_CAPACITY * elementSize);
 		array->capacity = B2_INITIAL_CAPACITY;
 	}
 	else if (array->count == array->capacity)
 	{
 		int newCapacity = 2 * array->capacity;
-		b2BodySim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2BodySim* newElements = b2Alloc(newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		b2Free(array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
@@ -113,21 +113,21 @@ b2BodySim* b2AddBodySim(b2BlockAllocator* allocator, b2BodySimArray* array)
 	return element;
 }
 
-b2BodyState* b2AddBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array)
+b2BodyState* b2AddBodyState(b2BodyStateArray* array)
 {
 	int elementSize = sizeof(b2BodyState);
 	if (array->capacity == 0)
 	{
 		B2_ASSERT(array->count == 0);
-		array->data = b2AllocBlock(allocator, B2_INITIAL_CAPACITY * elementSize);
+		array->data = b2Alloc(B2_INITIAL_CAPACITY * elementSize);
 		array->capacity = B2_INITIAL_CAPACITY;
 	}
 	else if (array->count == array->capacity)
 	{
 		int newCapacity = 2 * array->capacity;
-		b2BodyState* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2BodyState* newElements = b2Alloc(newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		b2Free(array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
@@ -137,21 +137,21 @@ b2BodyState* b2AddBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array
 	return element;
 }
 
-b2ContactSim* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
+b2ContactSim* b2AddContact(b2ContactArray* array)
 {
 	int elementSize = sizeof(b2ContactSim);
 	if (array->capacity == 0)
 	{
 		B2_ASSERT(array->count == 0);
-		array->data = b2AllocBlock(allocator, B2_INITIAL_CAPACITY * elementSize);
+		array->data = b2Alloc(B2_INITIAL_CAPACITY * elementSize);
 		array->capacity = B2_INITIAL_CAPACITY;
 	}
 	else if (array->count == array->capacity)
 	{
 		int newCapacity = 2 * array->capacity;
-		b2ContactSim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2ContactSim* newElements = b2Alloc(newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		b2Free(array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
@@ -161,21 +161,21 @@ b2ContactSim* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array)
 	return element;
 }
 
-b2JointSim* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
+b2JointSim* b2AddJoint(b2JointArray* array)
 {
 	int elementSize = sizeof(b2JointSim);
 	if (array->capacity == 0)
 	{
 		B2_ASSERT(array->count == 0);
-		array->data = b2AllocBlock(allocator, B2_INITIAL_CAPACITY * elementSize);
+		array->data = b2Alloc(B2_INITIAL_CAPACITY * elementSize);
 		array->capacity = B2_INITIAL_CAPACITY;
 	}
 	else if (array->count == array->capacity)
 	{
 		int newCapacity = 2 * array->capacity;
-		b2JointSim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2JointSim* newElements = b2Alloc(newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		b2Free(array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}
@@ -185,21 +185,21 @@ b2JointSim* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array)
 	return element;
 }
 
-b2IslandSim* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array)
+b2IslandSim* b2AddIsland(b2IslandArray* array)
 {
 	int elementSize = sizeof(b2IslandSim);
 	if (array->capacity == 0)
 	{
 		B2_ASSERT(array->count == 0);
-		array->data = b2AllocBlock(allocator, B2_INITIAL_CAPACITY * elementSize);
+		array->data = b2Alloc(B2_INITIAL_CAPACITY * elementSize);
 		array->capacity = B2_INITIAL_CAPACITY;
 	}
 	else if (array->count == array->capacity)
 	{
 		int newCapacity = 2 * array->capacity;
-		b2IslandSim* newElements = b2AllocBlock(allocator, newCapacity * elementSize);
+		b2IslandSim* newElements = b2Alloc(newCapacity * elementSize);
 		memcpy(newElements, array->data, array->capacity * elementSize);
-		b2FreeBlock(allocator, array->data, array->capacity * elementSize);
+		b2Free(array->data, array->capacity * elementSize);
 		array->data = newElements;
 		array->capacity = newCapacity;
 	}

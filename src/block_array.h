@@ -3,7 +3,6 @@
 
 #pragma once
 
-typedef struct b2BlockAllocator b2BlockAllocator;
 typedef struct b2BodySim b2BodySim;
 typedef struct b2BodyState b2BodyState;
 typedef struct b2ContactSim b2ContactSim;
@@ -47,23 +46,23 @@ typedef struct b2JointArray
 
 // These provide a way to create an array with a specified capacity. If the capacity is not
 // known, you may use zero initialization.
-b2BodySimArray b2CreateBodySimArray(b2BlockAllocator* allocator, int capacity);
-b2BodyStateArray b2CreateBodyStateArray(b2BlockAllocator* allocator, int capacity);
-b2ContactArray b2CreateContactArray(b2BlockAllocator* allocator, int capacity);
-b2IslandArray b2CreateIslandArray(b2BlockAllocator* allocator, int capacity);
-b2JointArray b2CreateJointArray(b2BlockAllocator* allocator, int capacity);
+b2BodySimArray b2CreateBodySimArray(int capacity);
+b2BodyStateArray b2CreateBodyStateArray(int capacity);
+b2ContactArray b2CreateContactArray(int capacity);
+b2IslandArray b2CreateIslandArray(int capacity);
+b2JointArray b2CreateJointArray(int capacity);
 
-void b2DestroyBodySimArray(b2BlockAllocator* allocator, b2BodySimArray* array);
-void b2DestroyBodyStateArray(b2BlockAllocator* allocator, b2BodyStateArray* array);
-void b2DestroyContactArray(b2BlockAllocator* allocator, b2ContactArray* array);
-void b2DestroyIslandArray(b2BlockAllocator* allocator, b2IslandArray* array);
-void b2DestroyJointArray(b2BlockAllocator* allocator, b2JointArray* array);
+void b2DestroyBodySimArray(b2BodySimArray* array);
+void b2DestroyBodyStateArray(b2BodyStateArray* array);
+void b2DestroyContactArray(b2ContactArray* array);
+void b2DestroyIslandArray(b2IslandArray* array);
+void b2DestroyJointArray(b2JointArray* array);
 
-b2BodySim* b2AddBodySim(b2BlockAllocator* allocator, b2BodySimArray* array);
-b2BodyState* b2AddBodyState(b2BlockAllocator* allocator, b2BodyStateArray* array);
-b2ContactSim* b2AddContact(b2BlockAllocator* allocator, b2ContactArray* array);
-b2IslandSim* b2AddIsland(b2BlockAllocator* allocator, b2IslandArray* array);
-b2JointSim* b2AddJoint(b2BlockAllocator* allocator, b2JointArray* array);
+b2BodySim* b2AddBodySim(b2BodySimArray* array);
+b2BodyState* b2AddBodyState(b2BodyStateArray* array);
+b2ContactSim* b2AddContact(b2ContactArray* array);
+b2IslandSim* b2AddIsland(b2IslandArray* array);
+b2JointSim* b2AddJoint(b2JointArray* array);
 
 // Returns the index of the element moved into the empty slot (or B2_NULL_INDEX)
 // todo have these return the id directly?

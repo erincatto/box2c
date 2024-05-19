@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "block_allocator.h"
 #include "bitset.h"
 #include "broad_phase.h"
 #include "constraint_graph.h"
@@ -47,7 +46,6 @@ typedef struct b2TaskContext
 /// management facilities.
 typedef struct b2World
 {
-	b2BlockAllocator blockAllocator;
 	b2StackAllocator stackAllocator;
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;

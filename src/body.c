@@ -233,7 +233,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	int bodyId = b2AllocId(&world->bodyIdPool);
 
 	b2SolverSet* set = world->solverSetArray + setId;
-	b2BodySim* bodySim = b2AddBodySim(&world->blockAllocator, &set->sims);
+	b2BodySim* bodySim = b2AddBodySim(&set->sims);
 	*bodySim = (b2BodySim){0};
 	bodySim->transform.p = def->position;
 	bodySim->transform.q = b2MakeRot(def->angle);
@@ -260,7 +260,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (setId == b2_awakeSet)
 	{
-		b2BodyState* bodyState = b2AddBodyState(&world->blockAllocator, &set->states);
+		b2BodyState* bodyState = b2AddBodyState(&set->states);
 		B2_ASSERT(((uintptr_t)bodyState & 0x1F) == 0);
 
 		*bodyState = (b2BodyState){0};

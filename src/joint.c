@@ -198,7 +198,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		joint->setIndex = b2_disabledSet;
 		joint->localIndex = set->joints.count;
 
-		jointSim = b2AddJoint(&world->blockAllocator, &set->joints);
+		jointSim = b2AddJoint(&set->joints);
 		jointSim->jointId = jointId;
 		jointSim->bodyIdA = bodyIdA;
 		jointSim->bodyIdB = bodyIdB;
@@ -210,7 +210,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		joint->setIndex = b2_staticSet;
 		joint->localIndex = set->joints.count;
 
-		jointSim = b2AddJoint(&world->blockAllocator, &set->joints);
+		jointSim = b2AddJoint(&set->joints);
 		jointSim->jointId = jointId;
 		jointSim->bodyIdA = bodyIdA;
 		jointSim->bodyIdB = bodyIdB;
@@ -243,7 +243,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		b2SolverSet* set = world->solverSetArray + setIndex;
 		joint->setIndex = setIndex;
 		joint->localIndex = set->joints.count;
-		jointSim = b2AddJoint(&world->blockAllocator, &set->joints);
+		jointSim = b2AddJoint(&set->joints);
 		jointSim->jointId = jointId;
 		jointSim->bodyIdA = bodyIdA;
 		jointSim->bodyIdB = bodyIdB;
