@@ -1,4 +1,4 @@
-# Common Module (NOT UPDATED for Box2D version 3.0)
+# Common functionality
 The Common module contains settings, memory management, and vector math.
 
 ## Settings

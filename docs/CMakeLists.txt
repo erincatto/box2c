@@ -27,7 +27,7 @@ doxygen_add_docs(doc
                 "${CMAKE_SOURCE_DIR}/include/box2d"
                 "overview.md"
                 "hello.md"
-                "testbed.md"
+                "samples.md"
                 "common.md"
                 "collision.md"
                 "dynamics.md"
