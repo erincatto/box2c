@@ -11,8 +11,6 @@
 #include "joint.h"
 #include "world.h"
 
-#include "box2d/event_types.h"
-
 #include <string.h>
 
 void b2DestroySolverSet(b2World* world, int setIndex)

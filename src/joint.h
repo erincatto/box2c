@@ -4,7 +4,7 @@
 
 #include "solver.h"
 
-#include "box2d/joint_types.h"
+#include "box2d/types.h"
 
 typedef struct b2DebugDraw b2DebugDraw;
 typedef struct b2StepContext b2StepContext;

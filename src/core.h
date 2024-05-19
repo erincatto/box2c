@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "box2d/api.h"
+#include "box2d/base.h"
 
 #define B2_NULL_INDEX (-1)
 

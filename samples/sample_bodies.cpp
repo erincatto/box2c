@@ -6,8 +6,6 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
-#include "box2d/color.h"
-#include "box2d/geometry.h"
 
 #include <imgui.h>
 

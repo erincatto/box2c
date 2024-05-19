@@ -3,13 +3,49 @@
 
 #pragma once
 
-#include "api.h"
-#include "callbacks.h"
+#include "base.h"
+#include "collision.h"
 #include "id.h"
-#include "math_types.h"
+#include "math_functions.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+
+/// Task interface
+/// This is prototype for a Box2D task. Your task system is expected to invoke the Box2D task with these arguments.
+/// The task spans a range of the parallel-for: [startIndex, endIndex)
+/// The worker index must correctly identify each worker in the user thread pool, expected in [0, workerCount).
+///	A worker must only exist on only one thread at a time and is analogous to the thread index.
+/// The task context is the context pointer sent from Box2D when it is enqueued.
+///	The startIndex and endIndex are expected in the range [0, itemCount) where itemCount is the argument to b2EnqueueTaskCallback
+/// below. Box2D expects startIndex < endIndex and will execute a loop like this:
+///
+///	@code{.c}
+/// for (int i = startIndex; i < endIndex; ++i)
+///	{
+///		DoWork();
+///	}
+///	@endcode
+///	@ingroup world
+typedef void b2TaskCallback(int32_t startIndex, int32_t endIndex, uint32_t workerIndex, void* taskContext);
+
+/// These functions can be provided to Box2D to invoke a task system. These are designed to work well with enkiTS.
+/// Returns a pointer to the user's task object. May be nullptr. A nullptr indicates to Box2D that the work was executed
+///	serially within the callback and there is no need to call b2FinishTaskCallback.
+///	The itemCount is the number of Box2D work items that are to be partitioned among workers by the user's task system.
+///	This is essentially a parallel-for. The minRange parameter is a suggestion of the minimum number of items to assign
+///	per worker to reduce overhead. For example, suppose the task is small and that itemCount is 16. A minRange of 8 suggests
+///	that your task system should split the work items among just two workers, even if you have more available.
+///	In general the range [startIndex, endIndex) send to b2TaskCallback should obey:
+///	endIndex - startIndex >= minRange
+///	The exception of course is when itemCount < minRange.
+///	@ingroup world
+typedef void* b2EnqueueTaskCallback(b2TaskCallback* task, int32_t itemCount, int32_t minRange, void* taskContext,
+									void* userContext);
+
+/// Finishes a user task object that wraps a Box2D task.
+///	@ingroup world
+typedef void b2FinishTaskCallback(void* userTask, void* userContext);
 
 /// Result from b2World_RayCastClosest
 /// @ingroup world
@@ -72,6 +108,10 @@ typedef struct b2WorldDef
 	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;
 } b2WorldDef;
+
+/// Use this to initialize your world definition
+/// @ingroup world
+B2_API b2WorldDef b2DefaultWorldDef();
 
 /// The body simulation type.
 /// Each body is one of these three types. The type determines how the body behaves in the simulation.
@@ -156,6 +196,10 @@ typedef struct b2BodyDef
 	bool automaticMass;
 } b2BodyDef;
 
+/// Use this to initialize your body definition
+/// @ingroup body
+B2_API b2BodyDef b2DefaultBodyDef();
+
 /// This is used to filter collision on shapes. It affects shape-vs-shape collision
 ///	and shape-versus-query collision (such as b2World_CastRay).
 /// @ingroup shape
@@ -193,6 +237,10 @@ typedef struct b2Filter
 	int32_t groupIndex;
 } b2Filter;
 
+/// Use this to initialize your filter
+/// @ingroup shape
+B2_API b2Filter b2DefaultFilter();
+
 /// The query filter is used to filter collisions between queries and shapes. For example,
 ///	you may want a ray-cast representing a projectile to hit players and the static environment
 ///	but not debris.
@@ -206,6 +254,10 @@ typedef struct b2QueryFilter
 	/// query would accept for collision.
 	uint32_t maskBits;
 } b2QueryFilter;
+
+/// Use this to initialize your query filter
+/// @ingroup shape
+B2_API b2QueryFilter b2DefaultQueryFilter();
 
 /// Shape type
 /// @ingroup shape
@@ -274,6 +326,10 @@ typedef struct b2ShapeDef
 
 } b2ShapeDef;
 
+/// Use this to initialize your shape definition
+/// @ingroup shape
+B2_API b2ShapeDef b2DefaultShapeDef();
+
 /// Used to create a chain of edges. This is designed to eliminate ghost collisions with some limitations.
 ///	- chains are one-sided
 ///	- chains have no mass and should be used on static bodies
@@ -311,6 +367,10 @@ typedef struct b2ChainDef
 	/// Indicates a closed chain formed by connecting the first and last points
 	bool isLoop;
 } b2ChainDef;
+
+/// Use this to initialize your chain definition
+/// @ingroup shape
+B2_API b2ChainDef b2DefaultChainDef();
 
 //! @cond
 /// Profiling data. Times are in milliseconds.
@@ -358,26 +418,927 @@ typedef struct b2Counters
 } b2Counters;
 //! @endcond
 
-/// Use this to initialize your world definition
-/// @ingroup world
-B2_API b2WorldDef b2DefaultWorldDef();
+/// Joint type enumeration
+///
+/// This is useful because all joint types use b2JointId and sometimes you
+/// want to get the type of a joint.
+/// @ingroup joint
+typedef enum b2JointType
+{
+	b2_distanceJoint,
+	b2_motorJoint,
+	b2_mouseJoint,
+	b2_prismaticJoint,
+	b2_revoluteJoint,
+	b2_weldJoint,
+	b2_wheelJoint,
+} b2JointType;
 
-/// Use this to initialize your body definition
-/// @ingroup body
-B2_API b2BodyDef b2DefaultBodyDef();
+/// Distance joint definition
+///
+/// This requires defining an anchor point on both
+/// bodies and the non-zero distance of the distance joint. The definition uses
+/// local anchor points so that the initial configuration can violate the
+/// constraint slightly. This helps when saving and loading a game.
+/// @ingroup distance_joint
+typedef struct b2DistanceJointDef
+{
+	/// The first attached body
+	b2BodyId bodyIdA;
 
-/// Use this to initialize your filter
-/// @ingroup shape
-B2_API b2Filter b2DefaultFilter();
+	/// The second attached body
+	b2BodyId bodyIdB;
 
-/// Use this to initialize your query filter
-/// @ingroup shape
-B2_API b2QueryFilter b2DefaultQueryFilter();
+	/// The local anchor point relative to bodyA's origin
+	b2Vec2 localAnchorA;
 
-/// Use this to initialize your shape definition
-/// @ingroup shape
-B2_API b2ShapeDef b2DefaultShapeDef();
+	/// The local anchor point relative to bodyB's origin
+	b2Vec2 localAnchorB;
 
-/// Use this to initialize your chain definition
-/// @ingroup shape
-B2_API b2ChainDef b2DefaultChainDef();
+	/// The rest length of this joint. Clamped to a stable minimum value.
+	float length;
+
+	/// Enable the distance constraint to behave like a spring. If false
+	///	then the distance joint will be rigid, overriding the limit and motor.
+	bool enableSpring;
+
+	/// The spring linear stiffness Hertz, cycles per second
+	float hertz;
+
+	/// The spring linear damping ratio, non-dimensional
+	float dampingRatio;
+
+	/// Enable/disable the joint limit
+	bool enableLimit;
+
+	/// Minimum length. Clamped to a stable minimum value.
+	float minLength;
+
+	/// Maximum length. Must be greater than or equal to the minimum length.
+	float maxLength;
+
+	/// Enable/disable the joint motor
+	bool enableMotor;
+
+	/// The maximum motor force, usually in newtons
+	float maxMotorForce;
+
+	/// The desired motor speed, usually in meters per second
+	float motorSpeed;
+
+	/// Set this flag to true if the attached bodies should collide
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
+} b2DistanceJointDef;
+
+/// Use this to initialize your joint definition
+/// @ingroup distance_joint
+B2_API b2DistanceJointDef b2DefaultDistanceJointDef();
+
+/// A motor joint is used to control the relative motion between two bodies
+///
+/// A typical usage is to control the movement of a dynamic body with respect to the ground.
+/// @ingroup motor_joint
+typedef struct b2MotorJointDef
+{
+	/// The first attached body
+	b2BodyId bodyIdA;
+
+	/// The second attached body
+	b2BodyId bodyIdB;
+
+	/// Position of bodyB minus the position of bodyA, in bodyA's frame
+	b2Vec2 linearOffset;
+
+	/// The bodyB angle minus bodyA angle in radians
+	float angularOffset;
+
+	/// The maximum motor force in newtons
+	float maxForce;
+
+	/// The maximum motor torque in newton-meters
+	float maxTorque;
+
+	/// Position correction factor in the range [0,1]
+	float correctionFactor;
+
+	/// Set this flag to true if the attached bodies should collide
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
+} b2MotorJointDef;
+
+/// Use this to initialize your joint definition
+/// @ingroup motor_joint
+B2_API b2MotorJointDef b2DefaultMotorJointDef();
+
+/// A mouse joint is used to make a point on a body track a specified world point.
+///
+/// This a soft constraint and allows the constraint to stretch without
+/// applying huge forces. This also applies rotation constraint heuristic to improve control.
+/// @ingroup mouse_joint
+typedef struct b2MouseJointDef
+{
+	/// The first attached body.
+	b2BodyId bodyIdA;
+
+	/// The second attached body.
+	b2BodyId bodyIdB;
+
+	/// The initial target point in world space
+	b2Vec2 target;
+
+	/// Stiffness in hertz
+	float hertz;
+
+	/// Damping ratio, non-dimensional
+	float dampingRatio;
+
+	/// Maximum force, typically in newtons
+	float maxForce;
+
+	/// Set this flag to true if the attached bodies should collide.
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+
+} b2MouseJointDef;
+
+/// Use this to initialize your joint definition
+/// @ingroup mouse_joint
+B2_API b2MouseJointDef b2DefaultMouseJointDef();
+
+/// Prismatic joint definition
+///
+/// This requires defining a line of motion using an axis and an anchor point.
+/// The definition uses local anchor points and a local axis so that the initial
+/// configuration can violate the constraint slightly. The joint translation is zero
+/// when the local anchor points coincide in world space.
+/// @ingroup prismatic_joint
+typedef struct b2PrismaticJointDef
+{
+	/// The first attached body
+	b2BodyId bodyIdA;
+
+	/// The second attached body
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin
+	b2Vec2 localAnchorB;
+
+	/// The local translation unit axis in bodyA
+	b2Vec2 localAxisA;
+
+	/// The constrained angle between the bodies: bodyB_angle - bodyA_angle
+	float referenceAngle;
+
+	/// Enable a linear spring along the prismatic joint axis
+	bool enableSpring;
+
+	/// The spring stiffness Hertz, cycles per second
+	float hertz;
+
+	/// The spring damping ratio, non-dimensional
+	float dampingRatio;
+
+	/// Enable/disable the joint limit
+	bool enableLimit;
+
+	/// The lower translation limit
+	float lowerTranslation;
+
+	/// The upper translation limit
+	float upperTranslation;
+
+	/// Enable/disable the joint motor
+	bool enableMotor;
+
+	/// The maximum motor force, typically in newtons
+	float maxMotorForce;
+
+	/// The desired motor speed, typically in meters per second
+	float motorSpeed;
+
+	/// Set this flag to true if the attached bodies should collide
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+} b2PrismaticJointDef;
+
+/// Use this to initialize your joint definition
+/// @ingroupd prismatic_joint
+B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef();
+
+/// Revolute joint definition
+///
+/// This requires defining an anchor point where the bodies are joined.
+/// The definition uses local anchor points so that the
+/// initial configuration can violate the constraint slightly. You also need to
+/// specify the initial relative angle for joint limits. This helps when saving
+/// and loading a game.
+/// The local anchor points are measured from the body's origin
+/// rather than the center of mass because:
+/// 1. you might not know where the center of mass will be
+/// 2. if you add/remove shapes from a body and recompute the mass, the joints will be broken
+/// @ingroup revolute_joint
+typedef struct b2RevoluteJointDef
+{
+	/// The first attached body
+	b2BodyId bodyIdA;
+
+	/// The second attached body
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin
+	b2Vec2 localAnchorB;
+
+	/// The bodyB angle minus bodyA angle in the reference state (radians).
+	/// This defines the zero angle for the joint limit.
+	float referenceAngle;
+
+	/// Enable a rotational spring on the revolute hinge axis
+	bool enableSpring;
+
+	/// The spring stiffness Hertz, cycles per second
+	float hertz;
+
+	/// The spring damping ratio, non-dimensional
+	float dampingRatio;
+
+	/// A flag to enable joint limits
+	bool enableLimit;
+
+	/// The lower angle for the joint limit in radians
+	float lowerAngle;
+
+	/// The upper angle for the joint limit in radians
+	float upperAngle;
+
+	/// A flag to enable the joint motor
+	bool enableMotor;
+
+	/// The maximum motor torque, typically in newton-meters
+	float maxMotorTorque;
+
+	/// The desired motor speed in radians per second
+	float motorSpeed;
+
+	/// Scale the debug draw
+	float drawSize;
+
+	/// Set this flag to true if the attached bodies should collide
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+} b2RevoluteJointDef;
+
+/// Use this to initialize your joint definition.
+/// @ingroup revolute_joint
+B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef();
+
+/// Weld joint definition
+///
+/// A weld joint connect to bodies together rigidly. This constraint provides springs to mimic
+///	soft-body simulation.
+/// @note The approximate solver in Box2D cannot hold many bodies together rigidly
+/// @ingroup weld_joint
+typedef struct b2WeldJointDef
+{
+	/// The first attached body
+	b2BodyId bodyIdA;
+
+	/// The second attached body
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin
+	b2Vec2 localAnchorB;
+
+	/// The bodyB angle minus bodyA angle in the reference state (radians)
+	float referenceAngle;
+
+	/// Linear stiffness expressed as Hertz (cycles per second). Use zero for maximum stiffness.
+	float linearHertz;
+
+	/// Angular stiffness as Hertz (cycles per second). Use zero for maximum stiffness.
+	float angularHertz;
+
+	/// Linear damping ratio, non-dimensional. Use 1 for critical damping.
+	float linearDampingRatio;
+
+	/// Linear damping ratio, non-dimensional. Use 1 for critical damping.
+	float angularDampingRatio;
+
+	/// Set this flag to true if the attached bodies should collide
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+} b2WeldJointDef;
+
+/// Use this to initialize your joint definition
+/// @ingroup weld_joint
+B2_API b2WeldJointDef b2DefaultWeldJointDef();
+
+/// Wheel joint definition
+///
+/// This requires defining a line of motion using an axis and an anchor point.
+/// The definition uses local  anchor points and a local axis so that the initial
+/// configuration can violate the constraint slightly. The joint translation is zero
+/// when the local anchor points coincide in world space.
+/// @ingroup wheel_joint
+typedef struct b2WheelJointDef
+{
+	/// The first attached body
+	b2BodyId bodyIdA;
+
+	/// The second attached body
+	b2BodyId bodyIdB;
+
+	/// The local anchor point relative to bodyA's origin
+	b2Vec2 localAnchorA;
+
+	/// The local anchor point relative to bodyB's origin
+	b2Vec2 localAnchorB;
+
+	/// The local translation unit axis in bodyA
+	b2Vec2 localAxisA;
+
+	/// Enable a linear spring along the local axis
+	bool enableSpring;
+
+	/// Spring stiffness in Hertz
+	float hertz;
+
+	/// Spring damping ratio, non-dimensional
+	float dampingRatio;
+
+	/// Enable/disable the joint linear limit
+	bool enableLimit;
+
+	/// The lower translation limit
+	float lowerTranslation;
+
+	/// The upper translation limit
+	float upperTranslation;
+
+	/// Enable/disable the joint rotational motor
+	bool enableMotor;
+
+	/// The maximum motor torque, typically in newton-meters
+	float maxMotorTorque;
+
+	/// The desired motor speed in radians per second
+	float motorSpeed;
+
+	/// Set this flag to true if the attached bodies should collide
+	bool collideConnected;
+
+	/// User data pointer
+	void* userData;
+} b2WheelJointDef;
+
+/// Use this to initialize your joint definition
+/// @ingroup wheel_joint
+B2_API b2WheelJointDef b2DefaultWheelJointDef();
+
+/**
+ * @defgroup events Events
+ * World event types.
+ *
+ * Events are used to collect events that occur during the world time step. These events
+ * are then available to query after the time step is complete. This is preferable to callbacks
+ * because Box2D uses multi-threaded simulation.
+ *
+ * Also when events occur in the simulation step it may be problematic to modify the world, which is
+ * often what applications want to do when events occur.
+ *
+ * With event arrays, you can scan the events in a loop and modify the world. However, you need to be careful
+ * that some event data may become invalid. There are several samples that show how to do this safely.
+ *
+ * @{
+ */
+
+/// A begin touch event is generated when a shape starts to overlap a sensor shape.
+typedef struct b2SensorBeginTouchEvent
+{
+	/// The id of the sensor shape
+	b2ShapeId sensorShapeId;
+
+	/// The id of the dynamic shape that began touching the sensor shape
+	b2ShapeId visitorShapeId;
+} b2SensorBeginTouchEvent;
+
+/// An end touch event is generated when a shape stops overlapping a sensor shape.
+typedef struct b2SensorEndTouchEvent
+{
+	/// The id of the sensor shape
+	b2ShapeId sensorShapeId;
+
+	/// The id of the dynamic shape that stopped touching the sensor shape
+	b2ShapeId visitorShapeId;
+} b2SensorEndTouchEvent;
+
+/// Sensor events are buffered in the Box2D world and are available
+///	as begin/end overlap event arrays after the time step is complete.
+///	Note: these may become invalid if bodies and/or shapes are destroyed
+typedef struct b2SensorEvents
+{
+	/// Array of sensor begin touch events
+	b2SensorBeginTouchEvent* beginEvents;
+
+	/// Array of sensor end touch events
+	b2SensorEndTouchEvent* endEvents;
+
+	/// The number of begin touch events
+	int32_t beginCount;
+
+	/// The number of end touch events
+	int32_t endCount;
+} b2SensorEvents;
+
+/// A begin touch event is generated when two shapes begin touching.
+typedef struct b2ContactBeginTouchEvent
+{
+	/// Id of the first shape
+	b2ShapeId shapeIdA;
+
+	/// Id of the second shape
+	b2ShapeId shapeIdB;
+} b2ContactBeginTouchEvent;
+
+/// An end touch event is generated when two shapes stop touching.
+typedef struct b2ContactEndTouchEvent
+{
+	/// Id of the first shape
+	b2ShapeId shapeIdA;
+
+	/// Id of the second shape
+	b2ShapeId shapeIdB;
+} b2ContactEndTouchEvent;
+
+/// A hit touch event is generated when two shapes collide with a speed faster than the hit speed threshold.
+typedef struct b2ContactHitEvent
+{
+	/// Id of the first shape
+	b2ShapeId shapeIdA;
+
+	/// Id of the second shape
+	b2ShapeId shapeIdB;
+
+	/// Point where the shapes hit
+	b2Vec2 point;
+
+	/// Normal vector pointing from shape A to shape B
+	b2Vec2 normal;
+
+	/// The speed the shapes are approaching. Always positive. Typically in meters per second.
+	float approachSpeed;
+} b2ContactHitEvent;
+
+/// Contact events are buffered in the Box2D world and are available
+///	as event arrays after the time step is complete.
+///	Note: these may become invalid if bodies and/or shapes are destroyed
+typedef struct b2ContactEvents
+{
+	/// Array of begin touch events
+	b2ContactBeginTouchEvent* beginEvents;
+
+	/// Array of end touch events
+	b2ContactEndTouchEvent* endEvents;
+
+	/// Array of hit events
+	b2ContactHitEvent* hitEvents;
+
+	/// Number of begin touch events
+	int32_t beginCount;
+
+	/// Number of end touch events
+	int32_t endCount;
+
+	/// Number of hit events
+	int32_t hitCount;
+} b2ContactEvents;
+
+/// Body move events triggered when a body moves.
+/// Triggered when a body moves due to simulation. Not reported for bodies moved by the user.
+/// This also has a flag to indicate that the body went to sleep so the application can also
+/// sleep that actor/entity/object associated with the body.
+/// On the other hand if the flag does not indicate the body went to sleep then the application
+/// can treat the actor/entity/object associated with the body as awake.
+///	This is an efficient way for an application to update game object transforms rather than
+///	calling functions such as b2Body_GetTransform() because this data is delivered as a contiguous array
+///	and it is only populated with bodies that have moved.
+///	@note If sleeping is disabled all dynamic and kinematic bodies will trigger move events.
+typedef struct b2BodyMoveEvent
+{
+	b2Transform transform;
+	b2BodyId bodyId;
+	void* userData;
+	bool fellAsleep;
+} b2BodyMoveEvent;
+
+/// Body events are buffered in the Box2D world and are available
+///	as event arrays after the time step is complete.
+///	Note: this date becomes invalid if bodies are destroyed
+typedef struct b2BodyEvents
+{
+	/// Array of move events
+	b2BodyMoveEvent* moveEvents;
+
+	/// Number of move events
+	int32_t moveCount;
+} b2BodyEvents;
+
+/// The contact data for two shapes. By convention the manifold normal points
+///	from shape A to shape B.
+///	@see b2Shape_GetContactData() and b2Body_GetContactData()
+typedef struct b2ContactData
+{
+	b2ShapeId shapeIdA;
+	b2ShapeId shapeIdB;
+	b2Manifold manifold;
+} b2ContactData;
+
+/**@}*/
+
+/// Prototype for a pre-solve callback.
+/// This is called after a contact is updated. This allows you to inspect a
+/// contact before it goes to the solver. If you are careful, you can modify the
+/// contact manifold (e.g. modify the normal).
+/// Notes:
+///	- this function must be thread-safe
+///	- this is only called if the shape has enabled presolve events
+/// - this is called only for awake dynamic bodies
+/// - this is not called for sensors
+/// - the supplied manifold has impulse values from the previous step
+///	Return false if you want to disable the contact this step
+///	@warning Do not attempt to modify the world inside this callback
+///	@ingroup world
+typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
+
+/// Prototype callback for overlap queries.
+/// Called for each shape found in the query.
+/// @see b2World_QueryAABB
+/// @return false to terminate the query.
+///	@ingroup world
+typedef bool b2OverlapResultFcn(b2ShapeId shapeId, void* context);
+
+/// Prototype callback for ray casts.
+/// Called for each shape found in the query. You control how the ray cast
+/// proceeds by returning a float:
+/// return -1: ignore this shape and continue
+/// return 0: terminate the ray cast
+/// return fraction: clip the ray to this point
+/// return 1: don't clip the ray and continue
+/// @param shapeId the shape hit by the ray
+/// @param point the point of initial intersection
+/// @param normal the normal vector at the point of intersection
+/// @param fraction the fraction along the ray at the point of intersection
+///	@param context the user context
+/// @return -1 to filter, 0 to terminate, fraction to clip the ray for closest hit, 1 to continue
+/// @see b2World_CastRay
+///	@ingroup world
+typedef float b2CastResultFcn(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context);
+
+/// These colors are used for debug draw.
+typedef enum b2HexColor
+{
+	b2_colorAliceBlue = 0xf0f8ff,
+	b2_colorAntiqueWhite = 0xfaebd7,
+	b2_colorAqua = 0x00ffff,
+	b2_colorAquamarine = 0x7fffd4,
+	b2_colorAzure = 0xf0ffff,
+	b2_colorBeige = 0xf5f5dc,
+	b2_colorBisque = 0xffe4c4,
+	b2_colorBlack = 0x000000,
+	b2_colorBlanchedAlmond = 0xffebcd,
+	b2_colorBlue = 0x0000ff,
+	b2_colorBlueViolet = 0x8a2be2,
+	b2_colorBrown = 0xa52a2a,
+	b2_colorBurlywood = 0xdeb887,
+	b2_colorCadetBlue = 0x5f9ea0,
+	b2_colorChartreuse = 0x7fff00,
+	b2_colorChocolate = 0xd2691e,
+	b2_colorCoral = 0xff7f50,
+	b2_colorCornflowerBlue = 0x6495ed,
+	b2_colorCornsilk = 0xfff8dc,
+	b2_colorCrimson = 0xdc143c,
+	b2_colorCyan = 0x00ffff,
+	b2_colorDarkBlue = 0x00008b,
+	b2_colorDarkCyan = 0x008b8b,
+	b2_colorDarkGoldenrod = 0xb8860b,
+	b2_colorDarkGray = 0xa9a9a9,
+	b2_colorDarkGreen = 0x006400,
+	b2_colorDarkKhaki = 0xbdb76b,
+	b2_colorDarkMagenta = 0x8b008b,
+	b2_colorDarkOliveGreen = 0x556b2f,
+	b2_colorDarkOrange = 0xff8c00,
+	b2_colorDarkOrchid = 0x9932cc,
+	b2_colorDarkRed = 0x8b0000,
+	b2_colorDarkSalmon = 0xe9967a,
+	b2_colorDarkSeaGreen = 0x8fbc8f,
+	b2_colorDarkSlateBlue = 0x483d8b,
+	b2_colorDarkSlateGray = 0x2f4f4f,
+	b2_colorDarkTurquoise = 0x00ced1,
+	b2_colorDarkViolet = 0x9400d3,
+	b2_colorDeepPink = 0xff1493,
+	b2_colorDeepSkyBlue = 0x00bfff,
+	b2_colorDimGray = 0x696969,
+	b2_colorDodgerBlue = 0x1e90ff,
+	b2_colorFirebrick = 0xb22222,
+	b2_colorFloralWhite = 0xfffaf0,
+	b2_colorForestGreen = 0x228b22,
+	b2_colorFuchsia = 0xff00ff,
+	b2_colorGainsboro = 0xdcdcdc,
+	b2_colorGhostWhite = 0xf8f8ff,
+	b2_colorGold = 0xffd700,
+	b2_colorGoldenrod = 0xdaa520,
+	b2_colorGray = 0xbebebe,
+	b2_colorGray0 = 0x000000,
+	b2_colorGray1 = 0x030303,
+	b2_colorGray10 = 0x1a1a1a,
+	b2_colorGray100 = 0xffffff,
+	b2_colorGray11 = 0x1c1c1c,
+	b2_colorGray12 = 0x1f1f1f,
+	b2_colorGray13 = 0x212121,
+	b2_colorGray14 = 0x242424,
+	b2_colorGray15 = 0x262626,
+	b2_colorGray16 = 0x292929,
+	b2_colorGray17 = 0x2b2b2b,
+	b2_colorGray18 = 0x2e2e2e,
+	b2_colorGray19 = 0x303030,
+	b2_colorGray2 = 0x050505,
+	b2_colorGray20 = 0x333333,
+	b2_colorGray21 = 0x363636,
+	b2_colorGray22 = 0x383838,
+	b2_colorGray23 = 0x3b3b3b,
+	b2_colorGray24 = 0x3d3d3d,
+	b2_colorGray25 = 0x404040,
+	b2_colorGray26 = 0x424242,
+	b2_colorGray27 = 0x454545,
+	b2_colorGray28 = 0x474747,
+	b2_colorGray29 = 0x4a4a4a,
+	b2_colorGray3 = 0x080808,
+	b2_colorGray30 = 0x4d4d4d,
+	b2_colorGray31 = 0x4f4f4f,
+	b2_colorGray32 = 0x525252,
+	b2_colorGray33 = 0x545454,
+	b2_colorGray34 = 0x575757,
+	b2_colorGray35 = 0x595959,
+	b2_colorGray36 = 0x5c5c5c,
+	b2_colorGray37 = 0x5e5e5e,
+	b2_colorGray38 = 0x616161,
+	b2_colorGray39 = 0x636363,
+	b2_colorGray4 = 0x0a0a0a,
+	b2_colorGray40 = 0x666666,
+	b2_colorGray41 = 0x696969,
+	b2_colorGray42 = 0x6b6b6b,
+	b2_colorGray43 = 0x6e6e6e,
+	b2_colorGray44 = 0x707070,
+	b2_colorGray45 = 0x737373,
+	b2_colorGray46 = 0x757575,
+	b2_colorGray47 = 0x787878,
+	b2_colorGray48 = 0x7a7a7a,
+	b2_colorGray49 = 0x7d7d7d,
+	b2_colorGray5 = 0x0d0d0d,
+	b2_colorGray50 = 0x7f7f7f,
+	b2_colorGray51 = 0x828282,
+	b2_colorGray52 = 0x858585,
+	b2_colorGray53 = 0x878787,
+	b2_colorGray54 = 0x8a8a8a,
+	b2_colorGray55 = 0x8c8c8c,
+	b2_colorGray56 = 0x8f8f8f,
+	b2_colorGray57 = 0x919191,
+	b2_colorGray58 = 0x949494,
+	b2_colorGray59 = 0x969696,
+	b2_colorGray6 = 0x0f0f0f,
+	b2_colorGray60 = 0x999999,
+	b2_colorGray61 = 0x9c9c9c,
+	b2_colorGray62 = 0x9e9e9e,
+	b2_colorGray63 = 0xa1a1a1,
+	b2_colorGray64 = 0xa3a3a3,
+	b2_colorGray65 = 0xa6a6a6,
+	b2_colorGray66 = 0xa8a8a8,
+	b2_colorGray67 = 0xababab,
+	b2_colorGray68 = 0xadadad,
+	b2_colorGray69 = 0xb0b0b0,
+	b2_colorGray7 = 0x121212,
+	b2_colorGray70 = 0xb3b3b3,
+	b2_colorGray71 = 0xb5b5b5,
+	b2_colorGray72 = 0xb8b8b8,
+	b2_colorGray73 = 0xbababa,
+	b2_colorGray74 = 0xbdbdbd,
+	b2_colorGray75 = 0xbfbfbf,
+	b2_colorGray76 = 0xc2c2c2,
+	b2_colorGray77 = 0xc4c4c4,
+	b2_colorGray78 = 0xc7c7c7,
+	b2_colorGray79 = 0xc9c9c9,
+	b2_colorGray8 = 0x141414,
+	b2_colorGray80 = 0xcccccc,
+	b2_colorGray81 = 0xcfcfcf,
+	b2_colorGray82 = 0xd1d1d1,
+	b2_colorGray83 = 0xd4d4d4,
+	b2_colorGray84 = 0xd6d6d6,
+	b2_colorGray85 = 0xd9d9d9,
+	b2_colorGray86 = 0xdbdbdb,
+	b2_colorGray87 = 0xdedede,
+	b2_colorGray88 = 0xe0e0e0,
+	b2_colorGray89 = 0xe3e3e3,
+	b2_colorGray9 = 0x171717,
+	b2_colorGray90 = 0xe5e5e5,
+	b2_colorGray91 = 0xe8e8e8,
+	b2_colorGray92 = 0xebebeb,
+	b2_colorGray93 = 0xededed,
+	b2_colorGray94 = 0xf0f0f0,
+	b2_colorGray95 = 0xf2f2f2,
+	b2_colorGray96 = 0xf5f5f5,
+	b2_colorGray97 = 0xf7f7f7,
+	b2_colorGray98 = 0xfafafa,
+	b2_colorGray99 = 0xfcfcfc,
+	b2_colorGreen = 0x00ff00,
+	b2_colorGreenYellow = 0xadff2f,
+	b2_colorHoneydew = 0xf0fff0,
+	b2_colorHotPink = 0xff69b4,
+	b2_colorIndianRed = 0xcd5c5c,
+	b2_colorIndigo = 0x4b0082,
+	b2_colorIvory = 0xfffff0,
+	b2_colorKhaki = 0xf0e68c,
+	b2_colorLavender = 0xe6e6fa,
+	b2_colorLavenderBlush = 0xfff0f5,
+	b2_colorLawnGreen = 0x7cfc00,
+	b2_colorLemonChiffon = 0xfffacd,
+	b2_colorLightBlue = 0xadd8e6,
+	b2_colorLightCoral = 0xf08080,
+	b2_colorLightCyan = 0xe0ffff,
+	b2_colorLightGoldenrod = 0xeedd82,
+	b2_colorLightGoldenrodYellow = 0xfafad2,
+	b2_colorLightGray = 0xd3d3d3,
+	b2_colorLightGreen = 0x90ee90,
+	b2_colorLightPink = 0xffb6c1,
+	b2_colorLightSalmon = 0xffa07a,
+	b2_colorLightSeaGreen = 0x20b2aa,
+	b2_colorLightSkyBlue = 0x87cefa,
+	b2_colorLightSlateBlue = 0x8470ff,
+	b2_colorLightSlateGray = 0x778899,
+	b2_colorLightSteelBlue = 0xb0c4de,
+	b2_colorLightYellow = 0xffffe0,
+	b2_colorLime = 0x00ff00,
+	b2_colorLimeGreen = 0x32cd32,
+	b2_colorLinen = 0xfaf0e6,
+	b2_colorMagenta = 0xff00ff,
+	b2_colorMaroon = 0xb03060,
+	b2_colorMediumAquamarine = 0x66cdaa,
+	b2_colorMediumBlue = 0x0000cd,
+	b2_colorMediumOrchid = 0xba55d3,
+	b2_colorMediumPurple = 0x9370db,
+	b2_colorMediumSeaGreen = 0x3cb371,
+	b2_colorMediumSlateBlue = 0x7b68ee,
+	b2_colorMediumSpringGreen = 0x00fa9a,
+	b2_colorMediumTurquoise = 0x48d1cc,
+	b2_colorMediumVioletRed = 0xc71585,
+	b2_colorMidnightBlue = 0x191970,
+	b2_colorMintCream = 0xf5fffa,
+	b2_colorMistyRose = 0xffe4e1,
+	b2_colorMoccasin = 0xffe4b5,
+	b2_colorNavajoWhite = 0xffdead,
+	b2_colorNavy = 0x000080,
+	b2_colorNavyBlue = 0x000080,
+	b2_colorOldLace = 0xfdf5e6,
+	b2_colorOlive = 0x808000,
+	b2_colorOliveDrab = 0x6b8e23,
+	b2_colorOrange = 0xffa500,
+	b2_colorOrangeRed = 0xff4500,
+	b2_colorOrchid = 0xda70d6,
+	b2_colorPaleGoldenrod = 0xeee8aa,
+	b2_colorPaleGreen = 0x98fb98,
+	b2_colorPaleTurquoise = 0xafeeee,
+	b2_colorPaleVioletRed = 0xdb7093,
+	b2_colorPapayaWhip = 0xffefd5,
+	b2_colorPeachPuff = 0xffdab9,
+	b2_colorPeru = 0xcd853f,
+	b2_colorPink = 0xffc0cb,
+	b2_colorPlum = 0xdda0dd,
+	b2_colorPowderBlue = 0xb0e0e6,
+	b2_colorPurple = 0xa020f0,
+	b2_colorRebeccaPurple = 0x663399,
+	b2_colorRed = 0xff0000,
+	b2_colorRosyBrown = 0xbc8f8f,
+	b2_colorRoyalBlue = 0x4169e1,
+	b2_colorSaddleBrown = 0x8b4513,
+	b2_colorSalmon = 0xfa8072,
+	b2_colorSandyBrown = 0xf4a460,
+	b2_colorSeaGreen = 0x2e8b57,
+	b2_colorSeashell = 0xfff5ee,
+	b2_colorSienna = 0xa0522d,
+	b2_colorSilver = 0xc0c0c0,
+	b2_colorSkyBlue = 0x87ceeb,
+	b2_colorSlateBlue = 0x6a5acd,
+	b2_colorSlateGray = 0x708090,
+	b2_colorSnow = 0xfffafa,
+	b2_colorSpringGreen = 0x00ff7f,
+	b2_colorSteelBlue = 0x4682b4,
+	b2_colorTan = 0xd2b48c,
+	b2_colorTeal = 0x008080,
+	b2_colorThistle = 0xd8bfd8,
+	b2_colorTomato = 0xff6347,
+	b2_colorTurquoise = 0x40e0d0,
+	b2_colorViolet = 0xee82ee,
+	b2_colorVioletRed = 0xd02090,
+	b2_colorWheat = 0xf5deb3,
+	b2_colorWhite = 0xffffff,
+	b2_colorWhiteSmoke = 0xf5f5f5,
+	b2_colorYellow = 0xffff00,
+	b2_colorYellowGreen = 0x9acd32,
+} b2HexColor;
+
+/// This struct holds callbacks you can implement to draw a Box2D world.
+///	@ingroup world
+typedef struct b2DebugDraw
+{
+	/// Draw a closed polygon provided in CCW order.
+	void (*DrawPolygon)(const b2Vec2* vertices, int vertexCount, b2HexColor color, void* context);
+
+	/// Draw a solid closed polygon provided in CCW order.
+	void (*DrawSolidPolygon)(b2Transform transform, const b2Vec2* vertices, int vertexCount, float radius, b2HexColor color,
+							 void* context);
+
+	/// Draw a circle.
+	void (*DrawCircle)(b2Vec2 center, float radius, b2HexColor color, void* context);
+
+	/// Draw a solid circle.
+	void (*DrawSolidCircle)(b2Transform transform, float radius, b2HexColor color, void* context);
+
+	/// Draw a capsule.
+	void (*DrawCapsule)(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context);
+
+	/// Draw a solid capsule.
+	void (*DrawSolidCapsule)(b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context);
+
+	/// Draw a line segment.
+	void (*DrawSegment)(b2Vec2 p1, b2Vec2 p2, b2HexColor color, void* context);
+
+	/// Draw a transform. Choose your own length scale.
+	void (*DrawTransform)(b2Transform transform, void* context);
+
+	/// Draw a point.
+	void (*DrawPoint)(b2Vec2 p, float size, b2HexColor color, void* context);
+
+	/// Draw a string.
+	void (*DrawString)(b2Vec2 p, const char* s, void* context);
+
+	/// Bounds to use if restricting drawing to a rectangular region
+	b2AABB drawingBounds;
+
+	/// Option to restrict drawing to a rectangular region. May suffer from unstable depth sorting.
+	bool useDrawingBounds;
+
+	/// Option to draw shapes
+	bool drawShapes;
+
+	/// Option to draw joints
+	bool drawJoints;
+
+	/// Option to draw additional information for joints
+	bool drawJointExtras;
+
+	/// Option to draw the bounding boxes for shapes
+	bool drawAABBs;
+
+	/// Option to draw the mass and center of mass of dynamic bodies
+	bool drawMass;
+
+	/// Option to draw contact points
+	bool drawContacts;
+
+	/// Option to visualize the graph coloring used for contacts and joints
+	bool drawGraphColors;
+
+	/// Option to draw contact normals
+	bool drawContactNormals;
+
+	/// Option to draw contact normal impulses
+	bool drawContactImpulses;
+
+	/// Option to draw contact friction impulses
+	bool drawFrictionImpulses;
+
+	/// User context that is passed as an argument to drawing callback functions
+	void* context;
+} b2DebugDraw;

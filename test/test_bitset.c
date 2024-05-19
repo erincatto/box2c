@@ -3,7 +3,6 @@
 
 #include "test_macros.h"
 #include "bitset.h"
-#include "box2d/timer.h"
 
 #define COUNT 169
 

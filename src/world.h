@@ -11,7 +11,7 @@
 #include "island.h"
 #include "stack_allocator.h"
 
-#include "box2d/callbacks.h"
+#include "box2d/types.h"
 
 typedef struct b2ContactSim b2ContactSim;
 

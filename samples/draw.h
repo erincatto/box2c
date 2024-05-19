@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "box2d/debug_draw.h"
 #include "box2d/types.h"
 
 //

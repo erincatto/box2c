@@ -25,14 +25,6 @@
 #include "stack_allocator.h"
 #include "util.h"
 
-// needed for dll export
-#include "box2d/box2d.h"
-#include "box2d/color.h"
-#include "box2d/debug_draw.h"
-#include "box2d/distance.h"
-#include "box2d/event_types.h"
-#include "box2d/timer.h"
-
 #include <float.h>
 #include <stdio.h>
 #include <string.h>

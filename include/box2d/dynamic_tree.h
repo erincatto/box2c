@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "api.h"
-#include "math_types.h"
+#include "base.h"
+#include "math_functions.h"
 
 #include <stdbool.h>
 #include <stdint.h>

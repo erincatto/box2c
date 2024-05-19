@@ -12,8 +12,6 @@
 #include "x86/avx2.h"
 #include "x86/fma.h"
 
-#include "box2d/color.h"
-
 // Soft contact constraints with sub-stepping support
 // http://mmacklin.com/smallsteps.pdf
 // https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf

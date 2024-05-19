@@ -11,7 +11,6 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/event_types.h"
 
 static b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
 {

@@ -5,9 +5,9 @@
 
 #include "box2d/id.h"
 #include "box2d/collision.h"
-#include "box2d/timer.h"
 #include "box2d/types.h"
 
+// todo this include is slow
 #include "TaskScheduler.h"
 
 #include <stdlib.h>

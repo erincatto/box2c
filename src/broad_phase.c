@@ -16,8 +16,6 @@
 #include "util.h"
 #include "world.h"
 
-#include "box2d/color.h"
-
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <string.h>

@@ -5,7 +5,6 @@
 
 #include "core.h"
 
-#include "box2d/distance.h"
 #include "box2d/collision.h"
 #include "box2d/types.h"
 

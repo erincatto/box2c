@@ -6,10 +6,7 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
-#include "box2d/color.h"
-#include "box2d/distance.h"
 #include "box2d/dynamic_tree.h"
-#include "box2d/geometry.h"
 #include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>

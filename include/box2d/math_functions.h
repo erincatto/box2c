@@ -3,11 +3,58 @@
 
 #pragma once
 
-#include "api.h"
-#include "math_types.h"
+#include "base.h"
 
 #include <math.h>
 #include <stdbool.h>
+
+/**
+ * @defgroup math Math
+ * @brief Vector math types and functions
+ * @{
+ */
+
+/// https://en.wikipedia.org/wiki/Pi
+#define b2_pi 3.14159265359f
+
+/// 2D vector
+/// This can be used to represent a point or free vector
+typedef struct b2Vec2
+{
+	/// coordinates
+	float x, y;
+} b2Vec2;
+
+/// 2D rotation
+/// This is similar to using a complex number for rotation
+typedef struct b2Rot
+{
+	/// cosine and sine
+	float c, s;
+} b2Rot;
+
+/// A 2D rigid transform
+typedef struct b2Transform
+{
+	b2Vec2 p;
+	b2Rot q;
+} b2Transform;
+
+/// A 2-by-2 Matrix
+typedef struct b2Mat22
+{
+	/// columns
+	b2Vec2 cx, cy;
+} b2Mat22;
+
+/// Axis-aligned bounding box
+typedef struct b2AABB
+{
+	b2Vec2 lowerBound;
+	b2Vec2 upperBound;
+} b2AABB;
+
+/**@}*/
 
 /**
  * @addtogroup math
@@ -517,5 +564,80 @@ B2_API void b2SetLengthUnitsPerMeter(float lengthUnits);
 
 /// Get the current length units per meter.
 B2_API float b2GetLengthUnitsPerMeter(void);
+
+/**@}*/
+
+/**
+ * @defgroup math_cpp C++ Math
+ * @brief Math operator overloads for C++
+ * @{
+ */
+
+#ifdef __cplusplus
+
+/// Unary add one vector to another
+inline void operator+=(b2Vec2& a, b2Vec2 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+}
+
+/// Unary subtract one vector from another
+inline void operator-=(b2Vec2& a, b2Vec2 b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+}
+
+/// Unary multiply a vector by a scalar
+inline void operator*=(b2Vec2& a, float b)
+{
+	a.x *= b;
+	a.y *= b;
+}
+
+/// Unary negate a vector
+inline b2Vec2 operator-(b2Vec2 a)
+{
+	return {-a.x, -a.y};
+}
+
+/// Binary vector addition
+inline b2Vec2 operator+(b2Vec2 a, b2Vec2 b)
+{
+	return {a.x + b.x, a.y + b.y};
+}
+
+/// Binary vector subtraction
+inline b2Vec2 operator-(b2Vec2 a, b2Vec2 b)
+{
+	return {a.x - b.x, a.y - b.y};
+}
+
+/// Binary scalar and vector multiplication
+inline b2Vec2 operator*(float a, b2Vec2 b)
+{
+	return {a * b.x, a * b.y};
+}
+
+/// Binary scalar and vector multiplication
+inline b2Vec2 operator*(b2Vec2 a, float b)
+{
+	return {a.x * b, a.y * b};
+}
+
+/// Binary vector equality
+inline bool operator==(b2Vec2 a, b2Vec2 b)
+{
+	return a.x == b.x && a.y == b.y;
+}
+
+/// Binary vector inequality
+inline bool operator!=(b2Vec2 a, b2Vec2 b)
+{
+	return a.x != b.x || a.y != b.y;
+}
+
+#endif
 
 /**@}*/

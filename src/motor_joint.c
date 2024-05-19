@@ -10,7 +10,6 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/debug_draw.h"
 
 void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
 {

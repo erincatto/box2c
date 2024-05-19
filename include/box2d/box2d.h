@@ -3,21 +3,12 @@
 
 #pragma once
 
-#include "api.h"
-#include "callbacks.h"
-#include "event_types.h"
-#include "geometry.h"
+#include "base.h"
+#include "collision.h"
 #include "id.h"
-#include "joint_types.h"
 #include "types.h"
 
 #include <stdbool.h>
-
-typedef struct b2Capsule b2Capsule;
-typedef struct b2Circle b2Circle;
-typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2Polygon b2Polygon;
-typedef struct b2Segment b2Segment;
 
 /**
  * @defgroup world World

@@ -12,9 +12,6 @@
 #include "util.h"
 #include "world.h"
 
-#include "box2d/color.h"
-#include "box2d/timer.h"
-
 #include <stddef.h>
 
 b2Island* b2CreateIsland(b2World* world, int setIndex)

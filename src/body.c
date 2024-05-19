@@ -18,7 +18,6 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/event_types.h"
 #include "box2d/id.h"
 
 #include <string.h>

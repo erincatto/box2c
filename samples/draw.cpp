@@ -4,7 +4,6 @@
 #include "draw.h"
 #include "shader.h"
 
-#include "box2d/math_cpp.h"
 #include "box2d/math_functions.h"
 
 #include <vector>
