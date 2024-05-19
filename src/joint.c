@@ -15,6 +15,8 @@
 // needed for dll export
 #include "box2d/box2d.h"
 
+#include <stddef.h>
+
 b2DistanceJointDef b2DefaultDistanceJointDef()
 {
 	b2DistanceJointDef def = {0};
