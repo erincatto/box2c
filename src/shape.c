@@ -12,6 +12,8 @@
 // needed for dll export
 #include "box2d/box2d.h"
 
+#include <stddef.h>
+
 static b2Shape* b2GetShape(b2World* world, b2ShapeId shapeId)
 {
 	int id = shapeId.index1 - 1;
