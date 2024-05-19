@@ -570,6 +570,8 @@ B2_API float b2GetLengthUnitsPerMeter(void);
 /**
  * @defgroup math_cpp C++ Math
  * @brief Math operator overloads for C++
+ *
+ * See math_functions.h for details.
  * @{
  */
 

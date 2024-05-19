@@ -35,7 +35,7 @@ doxygen_add_docs(doc
                 "overview.md"
                 "hello.md"
                 "samples.md"
-                "common.md"
+                "base.md"
                 "collision.md"
                 "dynamics.md"
                 "loose_ends.md"
