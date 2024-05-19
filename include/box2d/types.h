@@ -5,7 +5,6 @@
 
 #include "api.h"
 #include "callbacks.h"
-#include "constants.h"
 #include "id.h"
 #include "math_types.h"
 
@@ -99,7 +98,7 @@ typedef struct b2BodyDef
 	b2BodyType type;
 
 	/// The initial world position of the body. Bodies should be created with the desired position.
-	/// @warning Creating bodies at the origin and then moving them nearly doubles the cost of body creation, especially
+	/// @note Creating bodies at the origin and then moving them nearly doubles the cost of body creation, especially
 	///	if the body is moved after shapes have been added.
 	b2Vec2 position;
 
@@ -113,7 +112,7 @@ typedef struct b2BodyDef
 	float angularVelocity;
 
 	/// Linear damping is use to reduce the linear velocity. The damping parameter
-	/// can be larger than 1.0f but the damping effect becomes sensitive to the
+	/// can be larger than 1 but the damping effect becomes sensitive to the
 	/// time step when the damping parameter is large.
 	///	Generally linear damping is undesirable because it makes objects move slowly
 	///	as if they are floating.
@@ -227,6 +226,7 @@ typedef enum b2ShapeType
 	/// A smooth segment owned by a chain shape
 	b2_smoothSegmentShape,
 
+	/// The number of shape types
 	b2_shapeTypeCount
 } b2ShapeType;
 
@@ -286,7 +286,7 @@ typedef struct b2ShapeDef
 ///	- you may overlap two open chains on their first three and/or last three points to get smooth collision
 ///	- a chain shape creates multiple smooth edges shapes on the body
 /// https://en.wikipedia.org/wiki/Polygonal_chain
-///	@warning DO NOT use chain shapes unless you understand the limitations. This is an advanced feature!
+///	@warning Do not use chain shapes unless you understand the limitations. This is an advanced feature.
 /// @ingroup shape
 typedef struct b2ChainDef
 {
@@ -354,7 +354,7 @@ typedef struct b2Counters
 	int32_t treeHeight;
 	int32_t byteCount;
 	int32_t taskCount;
-	int32_t colorCounts[b2_graphColorCount];
+	int32_t colorCounts[12];
 } b2Counters;
 //! @endcond
 

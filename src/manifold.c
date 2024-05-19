@@ -139,6 +139,7 @@ b2Manifold b2CollideCapsuleAndCircle(const b2Capsule* capsuleA, b2Transform xfA,
 b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB)
 {
 	b2Manifold manifold = {0};
+	const float speculativeDistance = b2_speculativeDistance;
 
 	b2Transform xf = b2InvMulTransforms(xfA, xfB);
 
@@ -165,7 +166,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		}
 	}
 
-	if (separation > radius + b2_speculativeDistance)
+	if (separation > radius + speculativeDistance)
 	{
 		return manifold;
 	}
@@ -185,7 +186,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		// Circle center is closest to v1 and safely outside the polygon
 		b2Vec2 normal = b2Normalize(b2Sub(c, v1));
 		separation = b2Dot(b2Sub(c, v1), normal);
-		if (separation > radius + b2_speculativeDistance)
+		if (separation > radius + speculativeDistance)
 		{
 			return manifold;
 		}
@@ -208,7 +209,7 @@ b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA,
 		// Circle center is closest to v2 and safely outside the polygon
 		b2Vec2 normal = b2Normalize(b2Sub(c, v2));
 		separation = b2Dot(b2Sub(c, v2), normal);
-		if (separation > radius + b2_speculativeDistance)
+		if (separation > radius + speculativeDistance)
 		{
 			return manifold;
 		}

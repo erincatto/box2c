@@ -11,7 +11,6 @@
 
 #include "box2d/api.h"
 #include "box2d/box2d.h"
-#include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/timer.h"
 
@@ -567,7 +566,8 @@ int main(int, char**)
 	// MSAA
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
-	snprintf(buffer, 128, "Box2D Version %d.%d.%d (alpha)", b2_version.major, b2_version.minor, b2_version.revision);
+	b2Version version = b2GetVersion();
+	snprintf(buffer, 128, "Box2D Version %d.%d.%d (alpha)", version.major, version.minor, version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{

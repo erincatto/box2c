@@ -178,7 +178,7 @@ void b2WarmStartMotorJoint(b2JointSim* base, b2StepContext* context)
 
 	b2MotorJoint* joint = &base->motorJoint;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2BodyState* bodyA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
@@ -202,7 +202,7 @@ void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useB
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2MotorJoint* joint = &base->motorJoint;

@@ -1052,7 +1052,7 @@ public:
 			}
 		}
 
-		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure3);
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure);
 
 		g_draw.DrawString(5, m_textLine, "sleep count: %d", m_sleepCount);
 		m_textLine += m_textIncrement;

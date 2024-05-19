@@ -551,7 +551,7 @@ public:
 	{
 		Sample::Step(settings);
 
-		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure3);
+		g_draw.DrawCircle(m_explosionPosition, m_explosionRadius, b2_colorAzure);
 	}
 
 	static Sample* Create(Settings& settings)

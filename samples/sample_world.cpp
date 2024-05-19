@@ -202,7 +202,7 @@ public:
 
 		if (m_explode)
 		{
-			g_draw.DrawCircle(m_explosionPosition, radius, b2_colorAzure3);
+			g_draw.DrawCircle(m_explosionPosition, radius, b2_colorAzure);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/constants.h"
 #include "box2d/distance.h"
 #include "box2d/math_functions.h"
 #include "test_macros.h"
@@ -80,7 +79,7 @@ static int ShapeCastTest(void)
 	b2CastOutput output = b2ShapeCast(&input);
 
 	ENSURE(output.hit);
-	ENSURE_SMALL(output.fraction - 0.5f, b2_linearSlop);
+	ENSURE_SMALL(output.fraction - 0.5f, 0.005f);
 
 	return 0;
 }
@@ -108,7 +107,7 @@ static int TimeOfImpactTest(void)
 	b2TOIOutput output = b2TimeOfImpact(&input);
 
 	ENSURE(output.state == b2_toiStateHit);
-	ENSURE_SMALL(output.t - 0.5f, b2_linearSlop);
+	ENSURE_SMALL(output.t - 0.5f, 0.005f);
 
 	return 0;
 }

@@ -180,7 +180,7 @@ void b2WarmStartWeldJoint(b2JointSim* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2WeldJoint* joint = &base->weldJoint;
@@ -207,7 +207,7 @@ void b2SolveWeldJoint(b2JointSim* base, const b2StepContext* context, bool useBi
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2WeldJoint* joint = &base->weldJoint;

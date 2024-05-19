@@ -175,13 +175,13 @@ public:
 
 		for (int32_t i = 0; i < m_count; ++i)
 		{
-			g_draw.DrawPoint(m_points[i], 5.0f, b2_colorBlue2);
+			g_draw.DrawPoint(m_points[i], 5.0f, b2_colorBlue);
 			g_draw.DrawString(b2Add(m_points[i], {0.1f, 0.1f}), "%d", i);
 		}
 
 		for (int32_t i = 0; i < hull.count; ++i)
 		{
-			g_draw.DrawPoint(hull.points[i], 6.0f, b2_colorGreen2);
+			g_draw.DrawPoint(hull.points[i], 6.0f, b2_colorGreen);
 		}
 	}
 

@@ -4,7 +4,6 @@
 #pragma once
 
 #include "api.h"
-#include "constants.h"
 #include "math_types.h"
 
 #include <math.h>
@@ -180,7 +179,7 @@ B2_INLINE b2Vec2 b2Max(b2Vec2 a, b2Vec2 b)
 	return c;
 }
 
-/// Component-wise clamp vector so v into the range [a, b]
+/// Component-wise clamp vector v into the range [a, b]
 B2_INLINE b2Vec2 b2Clamp(b2Vec2 v, b2Vec2 a, b2Vec2 b)
 {
 	b2Vec2 c;
@@ -509,5 +508,14 @@ B2_API b2Vec2 b2NormalizeChecked(b2Vec2 v);
 /// Convert a vector into a unit vector if possible, otherwise returns the zero vector. Also
 ///	outputs the length.
 B2_API b2Vec2 b2GetLengthAndNormalize(float* length, b2Vec2 v);
+
+/// Box2D bases all length units on meters, but you may need different units for your game.
+/// You can set this value to use different units. This should be done at application startup
+///	and only modified once. Default value is 1.
+///	@warning This must be modified before any calls to Box2D
+B2_API void b2SetLengthUnitsPerMeter(float lengthUnits);
+
+/// Get the current length units per meter.
+B2_API float b2GetLengthUnitsPerMeter(void);
 
 /**@}*/

@@ -287,7 +287,7 @@ void b2WarmStartDistanceJoint(b2JointSim* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
@@ -319,7 +319,7 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2DistanceJoint* joint = &base->distanceJoint;
@@ -539,7 +539,7 @@ void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 		if (joint->maxLength < b2_huge)
 		{
 			//draw->DrawPoint(pMax, 4.0f, c3, draw->context);
-			draw->DrawSegment(b2Sub(pMax, offset), b2Add(pMax, offset), b2_colorRed3, draw->context);
+			draw->DrawSegment(b2Sub(pMax, offset), b2Add(pMax, offset), b2_colorRed, draw->context);
 		}
 
 		if (joint->minLength > b2_linearSlop && joint->maxLength < b2_huge)
@@ -555,6 +555,6 @@ void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transf
 	if (joint->hertz > 0.0f && joint->enableSpring)
 	{
 		b2Vec2 pRest = b2MulAdd(pA, joint->length, axis);
-		draw->DrawPoint(pRest, 4.0f, b2_colorBlue2, draw->context);
+		draw->DrawPoint(pRest, 4.0f, b2_colorBlue, draw->context);
 	}
 }

@@ -12,6 +12,8 @@
 
 #include <float.h>
 
+_Static_assert(b2_maxPolygonVertices > 2, "must be 3 or more");
+
 bool b2IsValidRay(const b2RayCastInput* input)
 {
 	bool isValid = b2Vec2_IsValid(input->origin) && b2Vec2_IsValid(input->translation) && b2IsValid(input->maxFraction) &&

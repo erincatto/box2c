@@ -406,16 +406,16 @@ public:
 		if (m_drawBodyAABBs)
 		{
 			b2AABB aabb = b2Body_ComputeAABB(m_table1Id);
-			g_draw.DrawAABB(aabb, b2_colorYellow3);
+			g_draw.DrawAABB(aabb, b2_colorYellow);
 
 			aabb = b2Body_ComputeAABB(m_table2Id);
-			g_draw.DrawAABB(aabb, b2_colorYellow3);
+			g_draw.DrawAABB(aabb, b2_colorYellow);
 
 			aabb = b2Body_ComputeAABB(m_ship1Id);
-			g_draw.DrawAABB(aabb, b2_colorYellow3);
+			g_draw.DrawAABB(aabb, b2_colorYellow);
 
 			aabb = b2Body_ComputeAABB(m_ship2Id);
-			g_draw.DrawAABB(aabb, b2_colorYellow3);
+			g_draw.DrawAABB(aabb, b2_colorYellow);
 		}
 	}
 

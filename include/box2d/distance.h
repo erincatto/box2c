@@ -4,7 +4,6 @@
 #pragma once
 
 #include "api.h"
-#include "constants.h"
 #include "geometry.h"
 
 /**

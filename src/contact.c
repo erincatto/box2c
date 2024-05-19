@@ -29,10 +29,10 @@
 // - These results are ordered according to the order of the broad-phase move array
 // - The move array is ordered according to the shape creation order using a bitset.
 // - The island/shape/body order is determined by creation order
-// - Logically contacts are only created for awake sims, so they are immediately added to the awake contact array (serially)
+// - Logically contacts are only created for awake bodies, so they are immediately added to the awake contact array (serially)
 //
 // Island linking:
-// - The awake contact array is built from the body-contact graph for all awake sims in awake islands.
+// - The awake contact array is built from the body-contact graph for all awake bodies in awake islands.
 // - Awake contacts are solved in parallel and they generate contact state changes.
 // - These state changes may link islands together using union find.
 // - The state changes are ordered using a bit array that encompasses all contacts
@@ -316,7 +316,7 @@ void b2CreateContact(b2World* world, b2Shape* shapeA, b2Shape* shapeB)
 	contactSim->shapeIdA = shapeIdA;
 	contactSim->shapeIdB = shapeIdB;
 	contactSim->cache = b2_emptyDistanceCache;
-	contactSim->manifold = b2_emptyManifold;
+	contactSim->manifold = (b2Manifold){0};
 	contactSim->friction = b2MixFriction(shapeA->friction, shapeB->friction);
 	contactSim->restitution = b2MixRestitution(shapeA->restitution, shapeB->restitution);
 	contactSim->tangentSpeed = 0.0f;

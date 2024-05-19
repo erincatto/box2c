@@ -5,9 +5,8 @@
 
 #include "block_array.h"
 
-#include "box2d/constants.h"
+#include "box2d/math_types.h"
 
-//#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -106,11 +105,11 @@ typedef struct b2StepContext
 	int* enlargedShapes;
 	int enlargedShapeCount;
 
-	// Array of fast sims that need continuous collision handling
+	// Array of fast bodies that need continuous collision handling
 	int* fastBodies;
 	_Atomic int fastBodyCount;
 
-	// Array of bullet sims that need continuous collision handling
+	// Array of bullet bodies that need continuous collision handling
 	int* bulletBodies;
 	_Atomic int bulletBodyCount;
 

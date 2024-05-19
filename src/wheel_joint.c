@@ -280,7 +280,7 @@ void b2WarmStartWheelJoint(b2JointSim* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2WheelJoint* joint = &base->wheelJoint;
@@ -321,12 +321,12 @@ void b2SolveWheelJoint(b2JointSim* base, b2StepContext* context, bool useBias)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2WheelJoint* joint = &base->wheelJoint;
 
-	// This is a dummy body to represent a static body since static sims don't have a solver body.
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	b2BodyState dummyBody = {0};
 
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
@@ -539,10 +539,10 @@ void b2DrawWheelJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transform
 	b2Vec2 axis = b2RotateVector(transformA.q, joint->localAxisA);
 
 	b2HexColor c1 = b2_colorGray70;
-	b2HexColor c2 = b2_colorGreen2;
-	b2HexColor c3 = b2_colorRed2;
+	b2HexColor c2 = b2_colorGreen;
+	b2HexColor c3 = b2_colorRed;
 	b2HexColor c4 = b2_colorGray40;
-	b2HexColor c5 = b2_colorBlue2;
+	b2HexColor c5 = b2_colorBlue;
 
 	draw->DrawSegment(pA, pB, c5, draw->context);
 

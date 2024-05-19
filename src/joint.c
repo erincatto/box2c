@@ -1169,7 +1169,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 	b2Vec2 pA = b2TransformPoint(transformA, jointSim->localOriginAnchorA);
 	b2Vec2 pB = b2TransformPoint(transformB, jointSim->localOriginAnchorB);
 
-	b2HexColor color = b2_colorDarkSeaGreen3;
+	b2HexColor color = b2_colorDarkSeaGreen;
 
 	switch (joint->type)
 	{

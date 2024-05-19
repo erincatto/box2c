@@ -21,7 +21,7 @@ typedef struct b2World b2World;
 // Reserve island jobs
 // - island job does a DFS to merge/split islands. Mutex to allocate new islands. Split islands sent to different jobs.
 
-// Persistent island for awake sims, joints, and contacts
+// Persistent island for awake bodies, joints, and contacts
 // https://en.wikipedia.org/wiki/Component_(graph_theory)
 // https://en.wikipedia.org/wiki/Dynamic_connectivity
 // map from int to solver set and index

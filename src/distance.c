@@ -6,7 +6,6 @@
 
 #include "core.h"
 
-#include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/timer.h"
 
@@ -703,12 +702,13 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	b2Vec2 v = b2Sub(wA, wB);
 
 	// Sigma is the target distance between proxies
-	const float sigma = b2MaxFloat(b2_linearSlop, radius - b2_linearSlop);
+	const float linearSlop = b2_linearSlop;
+	const float sigma = b2MaxFloat(linearSlop, radius - linearSlop);
 
 	// Main iteration loop.
 	const int32_t k_maxIters = 20;
 	int32_t iter = 0;
-	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * b2_linearSlop)
+	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * linearSlop)
 	{
 		B2_ASSERT(simplex.count < 3);
 

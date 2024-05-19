@@ -9,6 +9,9 @@
  * @{
  */
 
+/// https://en.wikipedia.org/wiki/Pi
+#define b2_pi 3.14159265359f
+
 /// 2D vector
 /// This can be used to represent a point or free vector
 typedef struct b2Vec2

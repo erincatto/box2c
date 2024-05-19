@@ -1,14 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/dynamic_tree.h"
-
 #include "aabb.h"
 #include "allocate.h"
 #include "core.h"
-#include "util.h"
 
-#include "box2d/constants.h"
+#include "box2d/dynamic_tree.h"
+#include "box2d/math_functions.h"
 
 #include <float.h>
 #include <string.h>

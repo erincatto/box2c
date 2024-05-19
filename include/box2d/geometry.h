@@ -4,18 +4,21 @@
 #pragma once
 
 #include "api.h"
-#include "constants.h"
 #include "types.h"
 
 typedef struct b2Hull b2Hull;
 
 /**
  * @defgroup geometry Geometry
- * @brief todo
+ * @brief Geometry types and algorithms
  *
- * todo
+ * Definitions of circles, capsules, segments, and polygons. Various algorithms to compute hulls, mass properties, and so on.
  * @{
  */
+
+/// The maximum number of vertices on a convex polygon. Changing this affects performance even if you
+///	don't use more vertices.
+#define b2_maxPolygonVertices 8
 
 /// Low level ray-cast input data
 typedef struct b2RayCastInput

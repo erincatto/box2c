@@ -2,12 +2,22 @@
 // SPDX-License-Identifier: MIT
 
 #include "core.h"
-#include "box2d/constants.h"
+#include "box2d/math_functions.h"
 
 #include <stdio.h>
 
-_Static_assert(b2_maxPolygonVertices > 2, "must be 3 or more");
-_Static_assert(b2_maxWorlds > 0, "must be 1 or more");
+float b2_lengthUnitsPerMeter = 1.0f;
+
+void b2SetLengthUnitsPerMeter(float lengthUnits)
+{
+	B2_ASSERT(b2IsValid(lengthUnits) && lengthUnits > 0.0f);
+	b2_lengthUnitsPerMeter = lengthUnits;
+}
+
+float b2GetLengthUnitsPerMeter(void)
+{
+	return b2_lengthUnitsPerMeter;
+}
 
 static int b2DefaultAssertFcn(const char* condition, const char* fileName, int lineNumber)
 {
@@ -23,4 +33,9 @@ void b2SetAssertFcn(b2AssertFcn* assertFcn)
 {
 	B2_ASSERT(assertFcn != NULL);
 	b2AssertHandler = assertFcn;
+}
+
+b2Version b2GetVersion(void)
+{
+	return (b2Version){3, 0, 0};
 }

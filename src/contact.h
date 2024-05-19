@@ -30,7 +30,7 @@ enum b2ContactFlags
 	b2_contactEnableContactEvents = 0x00000200,
 };
 
-// A contact edge is used to connect sims and contacts together
+// A contact edge is used to connect bodies and contacts together
 // in a contact graph where each body is a node and each contact
 // is an edge. A contact edge belongs to a doubly linked list
 // maintained in each attached body. Each contact has two contact

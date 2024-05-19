@@ -37,15 +37,18 @@ static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
 static void b2UpdateShapeAABBs(b2Shape* shape, b2Transform transform, b2ProxyType proxyType)
 {
 	// Compute a bounding box with a speculative margin
+	const float speculativeDistance = b2_speculativeDistance;
+	const float aabbMargin = b2_aabbMargin;
+
 	b2AABB aabb = b2ComputeShapeAABB(shape, transform);
-	aabb.lowerBound.x -= b2_speculativeDistance;
-	aabb.lowerBound.y -= b2_speculativeDistance;
-	aabb.upperBound.x += b2_speculativeDistance;
-	aabb.upperBound.y += b2_speculativeDistance;
+	aabb.lowerBound.x -= speculativeDistance;
+	aabb.lowerBound.y -= speculativeDistance;
+	aabb.upperBound.x += speculativeDistance;
+	aabb.upperBound.y += speculativeDistance;
 	shape->aabb = aabb;
 
 	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
-	float margin = proxyType == b2_staticProxy ? b2_speculativeDistance : b2_aabbMargin;
+	float margin = proxyType == b2_staticProxy ? speculativeDistance : aabbMargin;
 	b2AABB fatAABB;
 	fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
 	fatAABB.lowerBound.y = aabb.lowerBound.y - margin;

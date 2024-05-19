@@ -298,7 +298,7 @@ void b2WarmStartPrismaticJoint(b2JointSim* base, b2StepContext* context)
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2PrismaticJoint* joint = &base->prismaticJoint;
@@ -343,7 +343,7 @@ void b2SolvePrismaticJoint(b2JointSim* base, b2StepContext* context, bool useBia
 	float iA = base->invIA;
 	float iB = base->invIB;
 
-	// dummy state for static sims
+	// dummy state for static bodies
 	b2BodyState dummyState = b2_identityBodyState;
 
 	b2PrismaticJoint* joint = &base->prismaticJoint;
@@ -520,7 +520,7 @@ void b2SolvePrismaticJoint(b2JointSim* base, b2StepContext* context, bool useBia
 		float k22 = iA + iB;
 		if (k22 == 0.0f)
 		{
-			// For sims with fixed rotation.
+			// For bodies with fixed rotation.
 			k22 = 1.0f;
 		}
 
@@ -585,9 +585,9 @@ void b2DrawPrismaticJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform trans
 	b2Vec2 axis = b2RotateVector(transformA.q, joint->localAxisA);
 
 	b2HexColor c1 = b2_colorGray70;
-	b2HexColor c2 = b2_colorGreen2;
-	b2HexColor c3 = b2_colorRed2;
-	b2HexColor c4 = b2_colorBlue2;
+	b2HexColor c2 = b2_colorGreen;
+	b2HexColor c3 = b2_colorRed;
+	b2HexColor c4 = b2_colorBlue;
 	b2HexColor c5 = b2_colorGray40;
 	
 	draw->DrawSegment(pA, pB, c5, draw->context);

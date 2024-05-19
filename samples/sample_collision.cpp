@@ -504,7 +504,7 @@ public:
 		m_validate = true;
 	}
 
-	~DynamicTree()
+	~DynamicTree() override
 	{
 		free(m_proxies);
 		free(m_moveBuffer);
@@ -529,7 +529,7 @@ public:
 		bool isStatic = false;
 		m_tree = b2DynamicTree_Create();
 
-		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
+		const b2Vec2 aabbMargin = {0.1f, 0.1f};
 
 		for (int i = 0; i < m_rowCount; ++i)
 		{
@@ -705,10 +705,10 @@ public:
 			g_draw.DrawPoint(m_endPoint, 5.0f, b2_colorRed);
 		}
 
-		b2HexColor c = b2_colorBlue2;
-		b2HexColor qc = b2_colorGreen2;
+		b2HexColor c = b2_colorBlue;
+		b2HexColor qc = b2_colorGreen;
 
-		const b2Vec2 aabbMargin = {b2_aabbMargin, b2_aabbMargin};
+		const b2Vec2 aabbMargin = {0.1f, 0.1f};
 
 		for (int i = 0; i < m_proxyCount; ++i)
 		{
@@ -1060,7 +1060,7 @@ public:
 		b2Vec2 increment = {10.0f, 0.0f};
 
 		b2HexColor color1 = b2_colorYellow;
-		b2HexColor dim1 = b2_colorYellow4;
+		b2HexColor dim1 = b2_colorBeige;
 
 		b2CastOutput output = {0};
 		float maxFraction = 1.0f;
@@ -1665,9 +1665,9 @@ public:
 
 		m_textLine += m_textIncrement;
 
-		b2HexColor color1 = b2_colorGreen3;
+		b2HexColor color1 = b2_colorGreen;
 		b2HexColor color2 = b2_colorGray80;
-		b2HexColor color3 = b2_colorMagenta2;
+		b2HexColor color3 = b2_colorMagenta;
 
 		b2Vec2 rayTranslation = b2Sub(m_rayEnd, m_rayStart);
 
@@ -2389,7 +2389,7 @@ public:
 
 		b2HexColor color1 = b2_colorAquamarine;
 		b2HexColor color2 = b2_colorMagenta;
-		b2HexColor dim1 = b2_colorAquamarine3;
+		b2HexColor dim1 = b2_colorDarkCyan;
 
 		if (m_enableCaching == false)
 		{
@@ -3295,16 +3295,16 @@ public:
 		{
 			if (m_radiusB > 0.0f)
 			{
-				g_draw.DrawCircle(vertices[0], m_radiusB, b2_colorGreen2);
+				g_draw.DrawCircle(vertices[0], m_radiusB, b2_colorGreen);
 			}
 			else
 			{
-				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorGreen2);
+				g_draw.DrawPoint(vertices[0], 5.0f, b2_colorGreen);
 			}
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen2);
+			g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen);
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -3331,9 +3331,9 @@ public:
 		if (output.hit)
 		{
 			b2Vec2 p1 = output.point;
-			g_draw.DrawPoint(p1, 10.0f, b2_colorRed2);
+			g_draw.DrawPoint(p1, 10.0f, b2_colorRed);
 			b2Vec2 p2 = b2MulAdd(p1, 1.0f, output.normal);
-			g_draw.DrawSegment(p1, p2, b2_colorRed2);
+			g_draw.DrawSegment(p1, p2, b2_colorRed);
 		}
 
 		g_draw.DrawSegment(m_transformB.p, b2Add(m_transformB.p, m_translationB), b2_colorGray);
@@ -3412,7 +3412,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen2);
+		g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen);
 
 		// Draw B at t = hit_time
 		transformB = b2GetSweepTransform(&sweepB, output.t);
@@ -3428,7 +3428,7 @@ public:
 		{
 			vertices[i] = b2TransformPoint(transformB, m_verticesB[i]);
 		}
-		g_draw.DrawPolygon(vertices, m_countB, b2_colorRed2);
+		g_draw.DrawPolygon(vertices, m_countB, b2_colorRed);
 
 		if (output.state == b2_toiStateHit)
 		{

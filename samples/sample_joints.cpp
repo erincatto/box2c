@@ -2240,7 +2240,7 @@ public:
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
-		bodyDef.sleepThreshold = 0.01f * b2_lengthUnitsPerMeter;
+		bodyDef.sleepThreshold = 0.01f;
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		b2Capsule capsule = {{-2.5f, 0.0f}, {2.5f, 0.0f}, 0.15f};

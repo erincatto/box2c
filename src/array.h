@@ -5,6 +5,8 @@
 
 #include "core.h"
 
+// todo compare with https://github.com/skeeto/growable-buf
+
 typedef struct b2ArrayHeader
 {
 	int count;

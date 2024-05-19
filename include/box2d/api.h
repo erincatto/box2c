@@ -52,3 +52,19 @@ B2_API int b2GetByteCount(void);
 /// Override the default assert callback
 ///	@param assertFcn a non-null assert callback
 B2_API void b2SetAssertFcn(b2AssertFcn* assertFcn);
+
+/// Version numbering scheme.
+/// See http://en.wikipedia.org/wiki/Software_versioning
+typedef struct b2Version
+{
+	/// significant changes
+	int major;
+
+	/// incremental changes
+	int minor;
+
+	/// bug fixes
+	int revision;
+} b2Version;
+
+B2_API b2Version b2GetVersion(void);

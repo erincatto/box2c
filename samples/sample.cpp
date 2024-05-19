@@ -118,7 +118,7 @@ Sample::~Sample()
 void Sample::DrawTitle(const char* string)
 {
 	g_draw.DrawString(5, 5, string);
-	m_textLine = int32_t(26.0f);
+	m_textLine = int(26.0f);
 }
 
 struct QueryContext
@@ -272,7 +272,7 @@ void Sample::Step(Settings& settings)
 	b2World_EnableWarmStarting(m_worldId, settings.enableWarmStarting);
 	b2World_EnableContinuous(m_worldId, settings.enableContinuous);
 
-	for (int32_t i = 0; i < 1; ++i)
+	for (int i = 0; i < 1; ++i)
 	{
 		b2World_Step(m_worldId, timeStep, settings.subStepCount);
 		m_taskCount = 0;
@@ -299,10 +299,12 @@ void Sample::Step(Settings& settings)
 		g_draw.DrawString(5, m_textLine, "tree height static/movable = %d/%d", s.staticTreeHeight, s.treeHeight);
 		m_textLine += m_textIncrement;
 
-		int32_t totalCount = 0;
+		int totalCount = 0;
 		char buffer[256] = {0};
-		int32_t offset = snprintf(buffer, 256, "colors: ");
-		for (int32_t i = 0; i < b2_graphColorCount; ++i)
+		static_assert(std::size(s.colorCounts) == 12);
+
+		int offset = snprintf(buffer, 256, "colors: ");
+		for (int i = 0; i < 12; ++i)
 		{
 			offset += snprintf(buffer + offset, 256 - offset, "%d/", s.colorCounts[i]);
 			totalCount += s.colorCounts[i];
