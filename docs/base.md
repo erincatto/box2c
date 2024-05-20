@@ -40,7 +40,7 @@ not create threads. The Samples application shows how to do this using the open 
 Multi-threading is established for each Box2D world you create and must be hooked up to
 the world definition. See `b2TaskCallback()`, `b2EnqueueTaskCallback()`, and `b2FinishTaskCallback()` for more details. Also see `b2WorldDef::workerCount`, `b2WorldDef::enqueueTask`, and `b2WorldDef::finishTask`.
 
-The multi-threading design for Box2D is focused on [data parallelism](https://en.wikipedia.org/wiki/Data_parallelism). The idea is to use multiple cores to complete the world simulation as fast as possible. Box2D multi-threading is not designed for [task parallelism](https://en.wikipedia.org/wiki/Task_parallelism). Often in games you may have a render thread and an audio thread that do work in isolated from the main thread. Those are examples of task parallelism.
+The multi-threading design for Box2D is focused on [data parallelism](https://en.wikipedia.org/wiki/Data_parallelism). The idea is to use multiple cores to complete the world simulation as fast as possible. Box2D multi-threading is not designed for [task parallelism](https://en.wikipedia.org/wiki/Task_parallelism). Often in games you may have a render thread and an audio thread that do work in isolation from the main thread. Those are examples of task parallelism.
 
 So when you design your game loop, you should let Box2D *go wide* and use multiple cores to finish its work quickly, without other threads trying to interact with the Box2D world.
 

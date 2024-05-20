@@ -725,7 +725,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 			// They body could be disabled
 			if (shape->proxyKey != B2_NULL_INDEX)
 			{
-				b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB);
+				b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB, shape->filter.maskBits);
 			}
 		}
 
@@ -1129,7 +1129,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		while (shapeId != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapeArray + shapeId;
-			b2BufferMove(&world->broadPhase, shape->proxyKey);
+			b2BufferMove(&world->broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 			shapeId = shape->nextShapeId;
 		}
 	}

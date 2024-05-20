@@ -1158,46 +1158,6 @@ void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_
 	}
 }
 
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context)
-{
-	int32_t stack[b2_treeStackSize];
-	int32_t stackCount = 0;
-	stack[stackCount++] = tree->root;
-
-	while (stackCount > 0)
-	{
-		int32_t nodeId = stack[--stackCount];
-		if (nodeId == B2_NULL_INDEX)
-		{
-			continue;
-		}
-
-		const b2TreeNode* node = tree->nodes + nodeId;
-
-		if (b2AABB_Overlaps(node->aabb, aabb))
-		{
-			if (b2IsLeaf(node))
-			{
-				// callback to user code with proxy id
-				bool proceed = callback(nodeId, node->userData, context);
-				if (proceed == false)
-				{
-					return;
-				}
-			}
-			else
-			{
-				B2_ASSERT(stackCount < b2_treeStackSize - 1);
-				if (stackCount < b2_treeStackSize - 1)
-				{
-					stack[stackCount++] = node->child1;
-					stack[stackCount++] = node->child2;
-				}
-			}
-		}
-	}
-}
-
 void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
 						   b2TreeRayCastCallbackFcn* callback, void* context)
 {

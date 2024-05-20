@@ -677,10 +677,6 @@ typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, int32_t userData, void* con
 B2_API void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
 										b2TreeQueryCallbackFcn* callback, void* context);
 
-/// Query an AABB for overlapping proxies. The callback class
-/// is called for each proxy that overlaps the supplied AABB.
-B2_API void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context);
-
 /// This function receives clipped raycast input for a proxy. The function
 /// returns the new ray fraction.
 /// - return a value of 0 to terminate the ray cast

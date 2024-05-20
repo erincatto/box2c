@@ -38,7 +38,7 @@ void b2CreateBroadPhase(b2BroadPhase* bp)
 
 	// TODO_ERIN initial size in b2WorldDef?
 	bp->moveSet = b2CreateSet(16);
-	bp->moveArray = b2CreateArray(sizeof(int), 16);
+	bp->moveArray = b2CreateArray(sizeof(b2MovedProxy), 16);
 
 	bp->moveResults = NULL;
 	bp->movePairs = NULL;
@@ -62,7 +62,7 @@ void b2DestroyBroadPhase(b2BroadPhase* bp)
 	}
 
 	b2DestroySet(&bp->moveSet);
-	b2DestroyArray(bp->moveArray, sizeof(int));
+	b2DestroyArray(bp->moveArray, sizeof(b2MovedProxy));
 	b2DestroySet(&bp->pairSet);
 
 	memset(bp, 0, sizeof(b2BroadPhase));
@@ -85,7 +85,7 @@ static inline void b2UnBufferMove(b2BroadPhase* bp, int proxyKey)
 		int count = b2Array(bp->moveArray).count;
 		for (int i = 0; i < count; ++i)
 		{
-			if (bp->moveArray[i] == proxyKey)
+			if (bp->moveArray[i].proxyKey == proxyKey)
 			{
 				b2Array_RemoveSwap(bp->moveArray, i);
 				break;
@@ -94,7 +94,7 @@ static inline void b2UnBufferMove(b2BroadPhase* bp, int proxyKey)
 	}
 }
 
-int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex,
+int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, uint32_t maskBits, int shapeIndex,
 							 bool forcePairCreation)
 {
 	B2_ASSERT(0 <= proxyType && proxyType < b2_proxyTypeCount);
@@ -102,7 +102,7 @@ int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aab
 	int proxyKey = B2_PROXY_KEY(proxyId, proxyType);
 	if (proxyType != b2_staticProxy || forcePairCreation)
 	{
-		b2BufferMove(bp, proxyKey);
+		b2BufferMove(bp, (b2MovedProxy){proxyKey, maskBits});
 	}
 	return proxyKey;
 }
@@ -121,16 +121,16 @@ void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey)
 	b2DynamicTree_DestroyProxy(bp->trees + proxyType, proxyId);
 }
 
-void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
+void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb, uint32_t maskBits)
 {
 	b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
 	int proxyId = B2_PROXY_ID(proxyKey);
 
 	b2DynamicTree_MoveProxy(bp->trees + proxyType, proxyId, aabb);
-	b2BufferMove(bp, proxyKey);
+	b2BufferMove(bp, (b2MovedProxy){proxyKey, maskBits});
 }
 
-void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb, uint32_t maskBits)
 {
 	B2_ASSERT(proxyKey != B2_NULL_INDEX);
 	int typeIndex = B2_PROXY_TYPE(proxyKey);
@@ -139,7 +139,7 @@ void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb)
 	B2_ASSERT(typeIndex == b2_movableProxy);
 
 	b2DynamicTree_EnlargeProxy(bp->trees + typeIndex, proxyId, aabb);
-	b2BufferMove(bp, proxyKey);
+	b2BufferMove(bp, (b2MovedProxy){proxyKey, maskBits});
 }
 
 typedef struct b2MovePair
@@ -280,7 +280,7 @@ void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* c
 		queryContext.moveResult = bp->moveResults + i;
 		queryContext.moveResult->pairList = NULL;
 
-		int proxyKey = bp->moveArray[i];
+		int proxyKey = bp->moveArray[i].proxyKey;
 		if (proxyKey == B2_NULL_INDEX)
 		{
 			// proxy was destroyed after it moved
@@ -288,6 +288,7 @@ void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* c
 		}
 
 		b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
+		uint32_t maskBits = bp->moveArray[i].maskBits;
 
 		// todo moving this choice to a higher level
 		//B2_ASSERT(proxyType == b2_movableProxy);
@@ -306,10 +307,10 @@ void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* c
 		if (proxyType == b2_movableProxy)
 		{
 			queryContext.queryTreeType = b2_staticProxy;
-			b2DynamicTree_Query(bp->trees + b2_staticProxy, fatAABB, b2PairQueryCallback, &queryContext);
+			b2DynamicTree_QueryFiltered(bp->trees + b2_staticProxy, fatAABB, maskBits, b2PairQueryCallback, &queryContext);
 		}
 		queryContext.queryTreeType = b2_movableProxy;
-		b2DynamicTree_Query(bp->trees + b2_movableProxy, fatAABB, b2PairQueryCallback, &queryContext);
+		b2DynamicTree_QueryFiltered(bp->trees + b2_movableProxy, fatAABB, maskBits, b2PairQueryCallback, &queryContext);
 	}
 
 	b2TracyCZoneEnd(pair_task);

@@ -1,58 +1,70 @@
-# Collision Module (NOT UPDATED for Box2D version 3.0)
-The Collision module contains shapes and functions that operate on them.
-The module also contains a dynamic tree and broad-phase to acceleration
-collision processing of large systems.
+# Collision
+Box2D provides geometric types and functions. These include:
+- raw geometry: circles, capsules, segments, and convex polygons
+- convex hull and related convenience functions
+- mass and bounding box computation
+- local ray and shape casts
+- contact manifolds
+- shape distance
+- generic shape cast
+- time of impact
+- dynamic-tree
 
-The collision module is designed to be usable outside of the dynamic
-system. For example, you can use the dynamic tree for other aspects of
-your game besides physics.
+The collision interface is designed to be usable outside of rigid body simulation.
+For example, you can use the dynamic-tree for other aspects of your game besides physics.
 
-However, the main purpose of Box2D is to provide a rigid body physics
-engine, so the using the collision module by itself may feel limited for
-some applications. Likewise, I will not make a strong effort to document
-it or polish the APIs.
+However, the main purpose of Box2D is to be a rigid body physics
+engine. So the collision interface only contains features that are also useful in
+the physics simulation.
 
 ## Shapes
 Shapes describe collision geometry and may be used independently of
 physics simulation. At a minimum, you should understand how to create
-shapes that can be later attached to rigid bodies.
+primitives that can be later attached to rigid bodies.
 
-Box2D shapes implement the b2Shape base class. The base class defines
-functions to:
-- Test a point for overlap with the shape.
-- Perform a ray cast against the shape.
-- Compute the shape's AABB.
-- Compute the mass properties of the shape.
+Box2D primitives support several operations:
+- Test a point for overlap with the primitive
+- Perform a ray cast against the primitive
+- Compute the primitive's AABB
+- Compute the mass properties of the primitive
 
-In addition, each shape has a type member and a radius. The radius even
-applies to polygons, as discussed below.
+### Circles
+Circles have a center and radius. Circles are solid.
 
-Keep in mind that a shape does not know about bodies and stand apart
-from the dynamics system. Shapes are stored in a compact form that is
-optimized for size and performance. As such, shapes are not easily moved
-around. You have to manually set the shape vertex positions to move a
-shape. However, when a shape is attached to a body using a fixture, the
-shapes move rigidly with the host body. In summary:
-- When a shape is **not** attached to a body, you can view it's vertices as being expressed in world-space.
-- When a shape is attached to a body, you can view it's vertices as being expressed in local coordinates.
+![Circle](images/circle.svg)
 
-### Circle Shapes
-Circle shapes have a position and radius. Circles are solid. You cannot
-make a hollow circle using the circle shape.
-
-```cpp
-b2CircleShape circle;
-circle.m_p.Set(2.0f, 3.0f);
-circle.m_radius = 0.5f;
+```c
+b2Circle circle;
+circle.center = (b2Vec2){2.0f, 3.0f};
+circle.radius = 0.5f;
 ```
 
-### Polygon Shapes
-Polygon shapes are solid convex polygons. A polygon is convex when all
+You can also initialize a circle and other structures inline. This is an equivalent circle:
+
+```c
+b2Circle circle = {{2.0f, 3.0f}, 0.5f};
+```
+
+### Capsules
+Capsules have two center points and a radius. The center points are the centers of two
+semicircles that are connected by a rectangle.
+
+![Capsule](images/capsule.svg)
+
+```c
+b2Capsule capsule;
+capsule.center1 = (b2Vec2){1.0f, 1.0f};
+capsule.center1 = (b2Vec2){2.0f, 3.0f};
+capsule.radius = 0.25f;
+```
+
+### Polygons
+Polygons are solid convex polygons. A polygon is convex when all
 line segments connecting two points in the interior do not cross any
 edge of the polygon. Polygons are solid and never hollow. A polygon must
 have 3 or more vertices.
 
-![Convex and Concave Polygons](images/convex_concave.gif)
+![Convex and Concave Polygons](images/convex_concave.gif){html: width=30%}
 
 Polygons vertices are stored with a counter clockwise winding (CCW). We
 must be careful because the notion of CCW is with respect to a
@@ -60,7 +72,7 @@ right-handed coordinate system with the z-axis pointing out of the
 plane. This might turn out to be clockwise on your screen, depending on
 your coordinate system conventions.
 
-![Polygon Winding Order](images/winding.svg)
+![Polygon Winding Order](images/winding.svg){html: width=30%}
 
 The polygon members are public, but you should use initialization
 functions to create a polygon. The initialization functions create
@@ -101,7 +113,7 @@ the polygon. The skin is used in stacking scenarios to keep polygons
 slightly separated. This allows continuous collision to work against the
 core polygon.
 
-![Polygon Skin](images/skinned_polygon.svg)
+![Polygon Skin](images/skinned_polygon.svg){html: width=30%}
 
 The polygon skin helps prevent tunneling by keeping the polygons
 separated. This results in small gaps between the shapes. Your visual
@@ -136,7 +148,7 @@ see a box colliding with an internal vertex. These *ghost* collisions
 are caused when the polygon collides with an internal vertex generating
 an internal collision normal.
 
-![Ghost Collision](images/ghost_collision.svg)
+![Ghost Collision](images/ghost_collision.svg){html: width=30%}
 
 If edge1 did not exist this collision would seem fine. With edge1
 present, the internal collision seems like a bug. But normally when
@@ -146,7 +158,7 @@ Fortunately, the edge shape provides a mechanism for eliminating ghost
 collisions by storing the adjacent *ghost* vertices. Box2D uses these
 ghost vertices to prevent internal collisions.
 
-![Ghost Vertices](images/ghost_vertices.svg)
+![Ghost Vertices](images/ghost_vertices.svg){html: width=30%}
 
 The Box2D algorithm for dealing with ghost collisions only supports
 one-sided collision. The front face is to the right when looking from the first
@@ -193,14 +205,14 @@ chain.CreateLoop(vs, 4);
 
 The edge normal depends on the winding order. A counter-clockwise winding order orients the normal outwards and a clockwise winding order orients the normal inwards.
 
-![Chain Shape Outwards Loop](images/chain_loop_outwards.svg)
+![Chain Shape Outwards Loop](images/chain_loop_outwards.svg){html: width=30%}
 
-![Chain Shape Inwards Loop](images/chain_loop_inwards.svg)
+![Chain Shape Inwards Loop](images/chain_loop_inwards.svg){html: width=30%}
 
 You may have a scrolling game world and would like to connect several chains together.
 You can connect chains together using ghost vertices, like we did with b2EdgeShape.
 
-![Chain Shape](images/chain_shape.svg)
+![Chain Shape](images/chain_shape.svg){html: width=30%}
 
 ```cpp
 b2ChainShape::CreateChain(const b2Vec2* vertices, int32 count,
@@ -212,7 +224,7 @@ might not. The code that prevents ghost collisions assumes there are no
 self-intersections of the chain. Also, very close vertices can cause
 problems. Make sure all your edges are longer than b2_linearSlop (5mm).
 
-![Self Intersection is Bad](images/self_intersect.svg)
+![Self Intersection is Bad](images/self_intersect.svg){html: width=30%}
 
 Each edge in the chain is treated as a child shape and can be accessed
 by index. When a chain shape is connected to a body, each edge gets its
@@ -298,7 +310,7 @@ These points share the same normal vector so Box2D groups them into a
 manifold structure. The contact solver takes advantage of this to
 improve stacking stability.
 
-![Contact Manifold](images/manifolds.svg)
+![Contact Manifold](images/manifolds.svg){html: width=30%}
 
 Normally you don't need to compute contact manifolds directly, however
 you will likely use the results produced in the simulation.
@@ -347,13 +359,13 @@ shapes. The distance function needs both shapes to be converted into a
 b2DistanceProxy. There is also some caching used to warm start the
 distance function for repeated calls.
 
-![Distance Function](images/distance.svg)
+![Distance Function](images/distance.svg){html: width=30%}
 
 ### Time of Impact
 If two shapes are moving fast, they may *tunnel* through each other in a
 single time step.
 
-![Tunneling](images/tunneling2.svg)
+![Tunneling](images/tunneling2.svg){html: width=30%}
 
 The `b2TimeOfImpact` function is used to determine the time when two
 moving shapes collide. This is called the *time of impact* (TOI). The
@@ -371,9 +383,9 @@ ensures the shapes do not cross on that axis. This might miss collisions
 that are clear at the final positions. While this approach may miss some
 collisions, it is very fast and adequate for tunnel prevention.
 
-![Captured Collision](images/captured_toi.svg)
+![Captured Collision](images/captured_toi.svg){html: width=30%}
 
-![Missed Collision](images/missed_toi.svg)
+![Missed Collision](images/missed_toi.svg){html: width=30%}
 
 It is difficult to put a restriction on the rotation magnitude. There
 may be cases where collisions are missed for small rotations. Normally,
@@ -409,9 +421,9 @@ A region query uses the tree to find all leaf AABBs that overlap a query
 AABB. This is faster than a brute force approach because many shapes can
 be skipped.
 
-![Raycast](images/raycast.svg)
+![Raycast](images/raycast.svg){html: width=30%}
 
-![Overlap Test](images/overlap_test.svg)
+![Overlap Test](images/overlap_test.svg){html: width=30%}
 
 Normally you will not use the dynamic tree directly. Rather you will go
 through the b2World class for ray casts and region queries. If you plan

@@ -692,7 +692,7 @@ void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Tr
 	b2UpdateShapeAABBs(shape, transform, type);
 
 	// Create proxies in the broad-phase.
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->id, forcePairCreation);
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->filter.maskBits, shape->id, forcePairCreation);
 	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_proxyTypeCount);
 }
 
@@ -908,7 +908,7 @@ b2Filter b2Shape_GetFilter(b2ShapeId shapeId)
 	return shape->filter;
 }
 
-static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
+static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies, bool destroyProxy)
 {
 	b2Body* body = b2GetBody(world, shape->bodyId);
 
@@ -936,7 +936,19 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies)
 	{
 		b2ProxyType proxyType = B2_PROXY_TYPE(shape->proxyKey);
 		b2UpdateShapeAABBs(shape, transform, proxyType);
-		b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->fatAABB);
+
+		if (destroyProxy)
+		{
+			b2BroadPhase_DestroyProxy(&world->broadPhase, shape->proxyKey);
+
+			bool forcePairCreation = true;
+			shape->proxyKey = b2BroadPhase_CreateProxy(&world->broadPhase, proxyType, shape->fatAABB, shape->filter.categoryBits,
+													   shape->filter.maskBits, shapeId, forcePairCreation);
+		}
+		else
+		{
+			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->fatAABB, shape->filter.maskBits);
+		}
 	}
 	else
 	{
@@ -956,11 +968,21 @@ void b2Shape_SetFilter(b2ShapeId shapeId, b2Filter filter)
 	}
 
 	b2Shape* shape = b2GetShape(world, shapeId);
+	if (filter.maskBits == shape->filter.maskBits &&
+		filter.categoryBits == shape->filter.categoryBits &&
+		filter.groupIndex == shape->filter.groupIndex)
+	{
+		return;
+	}
+
+	// If the category bits change, I need to destroy the proxy because it affects the tree sorting.
+	bool destroyProxy = filter.categoryBits == shape->filter.categoryBits;
+
 	shape->filter = filter;
 
 	// need to wake bodies because a filter change may destroy contacts
 	bool wakeBodies = true;
-	b2ResetProxy(world, shape, wakeBodies);
+	b2ResetProxy(world, shape, wakeBodies, destroyProxy);
 }
 
 void b2Shape_EnableSensorEvents(b2ShapeId shapeId, bool flag)
@@ -1101,7 +1123,8 @@ void b2Shape_SetCircle(b2ShapeId shapeId, const b2Circle* circle)
 
 	// need to wake bodies so they can react to the shape change
 	bool wakeBodies = true;
-	b2ResetProxy(world, shape, wakeBodies);
+	bool destroyProxy = true;
+	b2ResetProxy(world, shape, wakeBodies, destroyProxy);
 }
 
 void b2Shape_SetCapsule(b2ShapeId shapeId, const b2Capsule* capsule)
@@ -1118,7 +1141,8 @@ void b2Shape_SetCapsule(b2ShapeId shapeId, const b2Capsule* capsule)
 
 	// need to wake bodies so they can react to the shape change
 	bool wakeBodies = true;
-	b2ResetProxy(world, shape, wakeBodies);
+	bool destroyProxy = true;
+	b2ResetProxy(world, shape, wakeBodies, destroyProxy);
 }
 
 void b2Shape_SetSegment(b2ShapeId shapeId, const b2Segment* segment)
@@ -1135,7 +1159,8 @@ void b2Shape_SetSegment(b2ShapeId shapeId, const b2Segment* segment)
 
 	// need to wake bodies so they can react to the shape change
 	bool wakeBodies = true;
-	b2ResetProxy(world, shape, wakeBodies);
+	bool destroyProxy = true;
+	b2ResetProxy(world, shape, wakeBodies, destroyProxy);
 }
 
 void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon)
@@ -1152,7 +1177,8 @@ void b2Shape_SetPolygon(b2ShapeId shapeId, const b2Polygon* polygon)
 
 	// need to wake bodies so they can react to the shape change
 	bool wakeBodies = true;
-	b2ResetProxy(world, shape, wakeBodies);
+	bool destroyProxy = true;
+	b2ResetProxy(world, shape, wakeBodies, destroyProxy);
 }
 
 b2ChainId b2Shape_GetParentChain(b2ShapeId shapeId)

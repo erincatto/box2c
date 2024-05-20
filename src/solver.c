@@ -949,11 +949,11 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		// Store this for later
 		fastShape->aabb = box2;
 
-		b2DynamicTree_Query(staticTree, box, b2ContinuousQueryCallback, &context);
+		b2DynamicTree_QueryFiltered(staticTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
 
 		if (isBullet)
 		{
-			b2DynamicTree_Query(movableTree, box, b2ContinuousQueryCallback, &context);
+			b2DynamicTree_QueryFiltered(movableTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
 		}
 
 		shapeId = fastShape->nextShapeId;
@@ -1752,13 +1752,13 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 					{
 						B2_ASSERT(shape->isFast == false);
 
-						b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+						b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB, shape->filter.maskBits);
 						shape->enlargedAABB = false;
 					}
 					else if (shape->isFast)
 					{
 						// Shape is fast. It's aabb will be enlarged in continuous collision.
-						b2BufferMove(broadPhase, shape->proxyKey);
+						b2BufferMove(broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 					}
 
 					shapeId = shape->nextShapeId;

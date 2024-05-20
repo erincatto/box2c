@@ -824,7 +824,7 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 
 			if (shape->proxyKey != B2_NULL_INDEX)
 			{
-				b2BufferMove(&world->broadPhase, shape->proxyKey);
+				b2BufferMove(&world->broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 			}
 
 			shapeId = shape->nextShapeId;
