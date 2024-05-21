@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "box2d/box2d.h"
+
 _Static_assert(b2_maxWorlds > 0, "must be 1 or more");
 b2World b2_worlds[b2_maxWorlds];
 
