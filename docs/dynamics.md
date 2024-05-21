@@ -425,7 +425,7 @@ to get information about the current contacts. Be careful, because the
 contact list may not contain all the contacts that existed during the
 previous time step.
 
-## Fixtures
+## Shapes
 Recall that shapes don't know about bodies and may be used independently
 of the physics simulation. Therefore Box2D provides the b2Fixture class
 to attach shapes to bodies. A body may have zero or more fixtures. A
@@ -604,6 +604,67 @@ has already been created. You can get and set the b2Filter structure on
 an existing fixture using b2Fixture::GetFilterData and
 b2Fixture::SetFilterData. Note that changing the filter data will not
 add or remove contacts until the next time step (see the World class).
+
+### Chain Shapes
+
+The chain shape provides an efficient way to connect many segments together
+to construct your static game worlds. Chain shapes automatically
+eliminate ghost collisions and provide one-sided collision.
+
+If you don't care about ghost collisions, you can just create a bunch of
+two-sided segment shapes. The performance is similar.
+
+The simplest way to use chain shapes is to create loops. Simply provide an
+array of vertices.
+
+```c
+b2Vec2 vs[4] = {
+    {1.7f, 0.0f},
+    {1.0f, 0.25f},
+    {0.0f, 0.0f},
+    {-1.7f, 0.4f}};
+
+b2ChainShape chain;
+chain.CreateLoop(vs, 4);
+```
+
+The edge normal depends on the winding order. A counter-clockwise winding order orients the normal outwards and a clockwise winding order orients the normal inwards.
+
+![Chain Shape Outwards Loop](images/chain_loop_outwards.svg)
+
+![Chain Shape Inwards Loop](images/chain_loop_inwards.svg)
+
+You may have a scrolling game world and would like to connect several chains together.
+You can connect chains together using ghost vertices, like we did with b2EdgeShape.
+
+![Chain Shape](images/chain_shape.svg)
+
+```cpp
+b2ChainShape::CreateChain(const b2Vec2* vertices, int32 count,
+		const b2Vec2& prevVertex, const b2Vec2& nextVertex);
+```
+
+Self-intersection of chain shapes is not supported. It might work, it
+might not. The code that prevents ghost collisions assumes there are no
+self-intersections of the chain. Also, very close vertices can cause
+problems. Make sure all your edges are longer than b2_linearSlop (5mm).
+
+![Self Intersection is Bad](images/self_intersect.svg){html: width=30%}
+
+Each edge in the chain is treated as a child shape and can be accessed
+by index. When a chain shape is connected to a body, each edge gets its
+own bounding box in the broad-phase collision tree.
+
+```cpp
+// Visit each child edge.
+for (int32 i = 0; i < chain.GetChildCount(); ++i)
+{
+    b2EdgeShape edge;
+    chain.GetChildEdge(&edge, i);
+
+    ...
+}
+```
 
 ### Sensors
 Sometimes game logic needs to know when two fixtures overlap yet there

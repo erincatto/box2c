@@ -307,10 +307,10 @@ void b2FindPairsTask(int startIndex, int endIndex, uint32_t threadIndex, void* c
 		if (proxyType == b2_movableProxy)
 		{
 			queryContext.queryTreeType = b2_staticProxy;
-			b2DynamicTree_QueryFiltered(bp->trees + b2_staticProxy, fatAABB, maskBits, b2PairQueryCallback, &queryContext);
+			b2DynamicTree_Query(bp->trees + b2_staticProxy, fatAABB, maskBits, b2PairQueryCallback, &queryContext);
 		}
 		queryContext.queryTreeType = b2_movableProxy;
-		b2DynamicTree_QueryFiltered(bp->trees + b2_movableProxy, fatAABB, maskBits, b2PairQueryCallback, &queryContext);
+		b2DynamicTree_Query(bp->trees + b2_movableProxy, fatAABB, maskBits, b2PairQueryCallback, &queryContext);
 	}
 
 	b2TracyCZoneEnd(pair_task);

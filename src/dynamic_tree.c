@@ -1117,7 +1117,7 @@ int b2DynamicTree_GetByteCount(const b2DynamicTree* tree)
 	return (int)size;
 }
 
-void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
 								 void* context)
 {
 	int32_t stack[b2_treeStackSize];

@@ -469,7 +469,7 @@ bool b2ShouldShapesCollide(b2Filter filterA, b2Filter filterB)
 	return collide;
 }
 
-static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB)
+static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB, b2DistanceCache* cache)
 {
 	b2DistanceInput input;
 	input.proxyA = b2MakeShapeDistanceProxy(shapeA);
@@ -478,8 +478,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 	input.transformB = xfB;
 	input.useRadii = true;
 
-	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(cache, &input);
 
 	return output.distance < 10.0f * FLT_EPSILON;
 }
@@ -495,7 +494,7 @@ bool b2UpdateContact(b2World* world, b2ContactSim* contactSim, b2Shape* shapeA, 
 	if (shapeA->isSensor || shapeB->isSensor)
 	{
 		// Sensors don't generate manifolds or hit events
-		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB);
+		touching = b2TestShapeOverlap(shapeA, transformA, shapeB, transformB, &contactSim->cache);
 	}
 	else
 	{

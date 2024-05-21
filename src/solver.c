@@ -949,11 +949,11 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		// Store this for later
 		fastShape->aabb = box2;
 
-		b2DynamicTree_QueryFiltered(staticTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
+		b2DynamicTree_Query(staticTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
 
 		if (isBullet)
 		{
-			b2DynamicTree_QueryFiltered(movableTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
+			b2DynamicTree_Query(movableTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
 		}
 
 		shapeId = fastShape->nextShapeId;

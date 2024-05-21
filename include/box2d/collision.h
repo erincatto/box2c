@@ -674,7 +674,7 @@ typedef bool b2TreeQueryCallbackFcn(int32_t proxyId, int32_t userData, void* con
 
 /// Query an AABB for overlapping proxies. The callback class
 /// is called for each proxy that overlaps the supplied AABB.
-B2_API void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
+B2_API void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits,
 										b2TreeQueryCallbackFcn* callback, void* context);
 
 /// This function receives clipped raycast input for a proxy. The function
@@ -689,14 +689,18 @@ typedef float b2TreeRayCastCallbackFcn(const b2RayCastInput* input, int32_t prox
 /// The callback also performs the any collision filtering. This has performance
 /// roughly equal to k * log(n), where k is the number of collisions and n is the
 /// number of proxies in the tree.
-/// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
-/// @param callback a callback class that is called for each proxy that is hit by the ray.
+///	Bit-wise filtering using mask bits can greatly improve performance in some scenarios.
+///	@param tree the dynamic tree to ray cast
+/// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1)
+///	@param maskBits filter bits: `bool accept = (maskBits & node->categoryBits) != 0;`
+/// @param callback a callback class that is called for each proxy that is hit by the ray
+///	@param context user context that is passed to the callback
 B2_API void b2DynamicTree_RayCast(const b2DynamicTree* tree, const b2RayCastInput* input, uint32_t maskBits,
 								  b2TreeRayCastCallbackFcn* callback, void* context);
 
-/// This function receives clipped raycast input for a proxy. The function
+/// This function receives clipped ray-cast input for a proxy. The function
 /// returns the new ray fraction.
-/// - return a value of 0 to terminate the ray cast
+/// - return a value of 0 to terminate the ray-cast
 /// - return a value less than input->maxFraction to clip the ray
 /// - return a value of input->maxFraction to continue the ray cast without clipping
 typedef float b2TreeShapeCastCallbackFcn(const b2ShapeCastInput* input, int32_t proxyId, int32_t userData, void* context);
@@ -706,8 +710,11 @@ typedef float b2TreeShapeCastCallbackFcn(const b2ShapeCastInput* input, int32_t 
 /// The callback also performs the any collision filtering. This has performance
 /// roughly equal to k * log(n), where k is the number of collisions and n is the
 /// number of proxies in the tree.
+///	@param tree the dynamic tree to ray cast
 /// @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
-/// @param callback a callback class that is called for each proxy that is hit by the ray.
+///	@param maskBits filter bits: `bool accept = (maskBits & node->categoryBits) != 0;`
+/// @param callback a callback class that is called for each proxy that is hit by the shape
+///	@param context user context that is passed to the callback
 B2_API void b2DynamicTree_ShapeCast(const b2DynamicTree* tree, const b2ShapeCastInput* input, uint32_t maskBits,
 									b2TreeShapeCastCallbackFcn* callback, void* context);
 

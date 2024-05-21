@@ -59,12 +59,12 @@ capsule.radius = 0.25f;
 ```
 
 ### Polygons
-Polygons are solid convex polygons. A polygon is convex when all
+Box2D polygons are solid convex polygons. A polygon is convex when all
 line segments connecting two points in the interior do not cross any
 edge of the polygon. Polygons are solid and never hollow. A polygon must
 have 3 or more vertices.
 
-![Convex and Concave Polygons](images/convex_concave.gif){html: width=30%}
+![Convex and Concave Polygons](images/convex_concave.svg)
 
 Polygons vertices are stored with a counter clockwise winding (CCW). We
 must be careful because the notion of CCW is with respect to a
@@ -72,78 +72,82 @@ right-handed coordinate system with the z-axis pointing out of the
 plane. This might turn out to be clockwise on your screen, depending on
 your coordinate system conventions.
 
-![Polygon Winding Order](images/winding.svg){html: width=30%}
+![Polygon Winding Order](images/winding.svg)
 
 The polygon members are public, but you should use initialization
 functions to create a polygon. The initialization functions create
 normal vectors and perform validation.
 
-You can create a polygon shape by passing in a vertex array. The maximal
-size of the array is controlled by `b2_maxPolygonVertices` which has a
-default value of 8. This is sufficient to describe most convex polygons.
+Polygons in Box2D have a maximum of 8 vertices, as controlled by #b2_maxPolygonVertices.
+If you have more complex shapes, I recommend to use multiple polygons.
 
-The `b2PolygonShape::Set` function automatically computes the convex hull
-and establishes the proper winding order. This function is fast when the
-number of vertices is low. If you increase `b2_maxPolygonVertices`, then
-the convex hull computation might become slow. Also note that the convex
-hull function may eliminate and/or re-order the points you provide.
-Vertices that are closer than `b2_linearSlop` may be merged.
+There are a few ways to create polygons. You can attempt to create them manually,
+but this is not recommend. Instead there are several functions provided to create them.
 
-```cpp
-// This defines a triangle in CCW order.
-b2Vec2 vertices[3];
-vertices[0].Set(0.0f, 0.0f);
-vertices[1].Set(1.0f, 0.0f);
-vertices[2].Set(0.0f, 1.0f);
+For example if you need a square or box you can use these functions:
 
-int32 count = 3;
-b2PolygonShape polygon;
-polygon.Set(vertices, count);
+```c
+b2Polygon square = b2MakeSquare(0.5f);
+b2Polygon box = b2MakeBox(0.5f, 1.0f);
 ```
 
-The polygon shape has some convenience functions to create boxes.
+The values provided to these functions are *extents*, which are half-widths or half-heights. This goes well
+with circles and capsules using radii instead of diameters.
 
-```cpp
-void SetAsBox(float hx, float hy);
-void SetAsBox(float hx, float hy, const b2Vec2& center, float angle);
+Box2D also supports rounded polygons. These are convex polygons with a thick rounded skin.
+
+```c
+b2Polygon roundedBox = b2MakeRoundedBox(0.5f, 1.0f, 0.25f);
 ```
 
-Polygons inherit a radius from b2Shape. The radius creates a skin around
-the polygon. The skin is used in stacking scenarios to keep polygons
-slightly separated. This allows continuous collision to work against the
-core polygon.
+If you want a box that is not centered on the body origin, you can use an offset box.
 
-![Polygon Skin](images/skinned_polygon.svg){html: width=30%}
+```c
+b2Vec2 center = {1.0f, 0.0f};
+float angle = b2_pi / 4.0f;
+b2Polygon offsetBox = b2MakeOffsetBox(0.5f, 1.0f, center, angle);
+```
 
-The polygon skin helps prevent tunneling by keeping the polygons
-separated. This results in small gaps between the shapes. Your visual
-representation can be larger than the polygon to hide any gaps.
+If you want a more general convex polygon, you can compute the hull using `b2ComputeHull()`. Then you can
+create a polygon from the hull. You can make this rounded or not.
 
-![Skin Collision](images/skin_collision.svg)
+```c
+b2Vec2 points[] = {{-1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f}};
+b2Hull hull = b2ComputeHull(points, 3);
+float radius = 0.1f;
+b2Polygon roundedTriangle = b2MakePolygon(&hull, radius);
+```
 
-Not that polygon skin is only provided to help with continuous collision.
-The purpose is not to simulate rounded polygons.
+If you have an automatic process for generating convex polygons, you may feed a degenerate set of points to `b2ComputeHull()`. You should check that the hull was created successfully before creating the polygon or you will get an assertion.
 
-### Edge Shapes
-Edge shapes are line segments. These are provided to assist in making a
-free-form static environment for your game. A major limitation of edge
-shapes is that they can collide with circles and polygons but not with
+```c
+b2Hull questionableHull = b2ComputeHull(randomPoints, 8);
+if (questionableHull.count == 0)
+{
+    // handle failure
+}
+```
+
+### Segments
+Segments are line segments. A major limitation of segment
+shapes is that they can collide with circles, capsules, and polygons but not with
 themselves. The collision algorithms used by Box2D require that at least
-one of two colliding shapes have volume. Edge shapes have no volume, so
-edge-edge collision is not possible.
+one of two colliding shapes has volume. Segment shapes have no volume, so
+segment-segment collision is not possible.
 
-```cpp
-// This an edge shape.
-b2Vec2 v1(0.0f, 0.0f);
-b2Vec2 v2(1.0f, 0.0f);
+```c
+b2Segment segment1;
+segment1.point1 = (b2Vec2){0.0f, 0.0f};
+segment2.point2 = (b2Vec2){1.0f, 0.0f};
 
-b2EdgeShape edge;
-edge.SetTwoSided(v1, v2);
+// equivalent
+b2Segment segment2 = {{0.0f, 0.0f}, {1.0f, 0.0f}};
 ```
 
+### Ghost Collisions
 In many cases a game environment is constructed by connecting several
-edge shapes end-to-end. This can give rise to an unexpected artifact
-when a polygon slides along the chain of edges. In the figure below we
+segment shapes end-to-end. This can give rise to an unexpected artifact
+when a polygon slides along the chain of segment. In the figure below we
 see a box colliding with an internal vertex. These *ghost* collisions
 are caused when the polygon collides with an internal vertex generating
 an internal collision normal.
@@ -154,7 +158,7 @@ If edge1 did not exist this collision would seem fine. With edge1
 present, the internal collision seems like a bug. But normally when
 Box2D collides two shapes, it views them in isolation.
 
-Fortunately, the edge shape provides a mechanism for eliminating ghost
+Fortunately, the smooth segment shape provides a mechanism for eliminating ghost
 collisions by storing the adjacent *ghost* vertices. Box2D uses these
 ghost vertices to prevent internal collisions.
 
@@ -165,142 +169,74 @@ one-sided collision. The front face is to the right when looking from the first
 vertex towards the second vertex. This matches the CCW winding order
 used by polygons.
 
-```cpp
-// This is an edge shape with ghost vertices.
-b2Vec2 v0(1.7f, 0.0f);
-b2Vec2 v1(1.0f, 0.25f);
-b2Vec2 v2(0.0f, 0.0f);
-b2Vec2 v3(-1.7f, 0.4f);
+### Smooth segment
 
-b2EdgeShape edge;
-edge.SetOneSided(v0, v1, v2, v3);
+Smooth segments use a concept called *ghost vertices* that Box2D can use to eliminate ghost
+collisions.
+
+```c
+b2SmoothSegment smoothSegment = {0};
+smoothSegment.ghost1 = (b2Vec2){1.7f, 0.0f};
+smoothSegment.segment = (b2Segment){{1.0f, 0.25f}, {0.0f, 0.0f}};
+smoothSegment.ghost2 = (b2Vec2){-1.7f, 0.4f};
 ```
 
-In general stitching edges together this way is a bit wasteful and
-tedious. This brings us to chain shapes.
+These ghost vertices must align with vertices of neighboring smooth segments, making them
+tedious and error-prone to setup.
 
-### Chain Shapes
-
-The chain shape provides an efficient way to connect many edges together
-to construct your static game worlds. Chain shapes automatically
-eliminate ghost collisions and provide one-sided collision. The collision is
-one-sided to eliminate ghost collisions.
-
-If you don't care about ghost collisions, you can just create a bunch of
-two-sided edge shapes. The efficiency is similar.
-
-The simplest way to use chain shapes is to create loops. Simply provide an
-array of vertices.
-
-```cpp
-b2Vec2 vs[4];
-vs[0].Set(1.7f, 0.0f);
-vs[1].Set(1.0f, 0.25f);
-vs[2].Set(0.0f, 0.0f);
-vs[3].Set(-1.7f, 0.4f);
-
-b2ChainShape chain;
-chain.CreateLoop(vs, 4);
-```
-
-The edge normal depends on the winding order. A counter-clockwise winding order orients the normal outwards and a clockwise winding order orients the normal inwards.
-
-![Chain Shape Outwards Loop](images/chain_loop_outwards.svg){html: width=30%}
-
-![Chain Shape Inwards Loop](images/chain_loop_inwards.svg){html: width=30%}
-
-You may have a scrolling game world and would like to connect several chains together.
-You can connect chains together using ghost vertices, like we did with b2EdgeShape.
-
-![Chain Shape](images/chain_shape.svg){html: width=30%}
-
-```cpp
-b2ChainShape::CreateChain(const b2Vec2* vertices, int32 count,
-		const b2Vec2& prevVertex, const b2Vec2& nextVertex);
-```
-
-Self-intersection of chain shapes is not supported. It might work, it
-might not. The code that prevents ghost collisions assumes there are no
-self-intersections of the chain. Also, very close vertices can cause
-problems. Make sure all your edges are longer than b2_linearSlop (5mm).
-
-![Self Intersection is Bad](images/self_intersect.svg){html: width=30%}
-
-Each edge in the chain is treated as a child shape and can be accessed
-by index. When a chain shape is connected to a body, each edge gets its
-own bounding box in the broad-phase collision tree.
-
-```cpp
-// Visit each child edge.
-for (int32 i = 0; i < chain.GetChildCount(); ++i)
-{
-    b2EdgeShape edge;
-    chain.GetChildEdge(&edge, i);
-
-    ...
-}
-```
+Normally you will have no need to create smooth segments directly. There are convenience functions
+for creating chains of smooth segments on rigid bodies. See `b2ChainDef` and `b2CreateChain()`.
 
 ## Geometric Queries
-You can perform a couple geometric queries on a single shape.
+You can perform a geometric queries on a single shape.
 
 ### Shape Point Test
 You can test a point for overlap with a shape. You provide a transform
 for the shape and a world point.
 
-```cpp
-b2Transform transform;
-transform.SetIdentity();
-b2Vec2 point(5.0f, 2.0f);
-
-bool hit = shape->TestPoint(transform, point);
+```c
+b2Vec2 point = {5.0f, 2.0f};
+bool hit = b2PointInCapsule(point, &myCapsule);
 ```
 
-Edge and chain shapes always return false, even if the chain is a loop.
+See also `b2PointInCircle()` and `b2PointInPolygon()`.
 
-### Shape Ray Cast
-You can cast a ray at a shape to get the point of first intersection and normal vector. A child index is included for chain shapes because the ray cast will only check a single edge at a time.
+### Ray Cast
+You can cast a ray at a shape to get the point of first intersection and normal vector.
 
 > **Caution**:
 > No hit will register if the ray starts inside a convex shape like a circle or polygon. This is consistent with Box2D treating convex shapes as solid. 
->
 
-```cpp
-b2Transfrom transform;
-transform.SetIdentity();
-
+```c
 b2RayCastInput input;
-input.p1.Set(0.0f, 0.0f);
-input.p2.Set(1.0f, 0.0f);
+input.origin = (b2Vec2){0.0f, 0.0f};
+input.translation = (b2Vec2){1.0f, 0.0f};
 input.maxFraction = 1.0f;
-int32 childIndex = 0;
 
-b2RayCastOutput output;
-bool hit = shape->RayCast(&output, input, transform, childIndex);
-
-if (hit)
+b2CastOutput output = b2RayCastPolygon(&input, &myPolygon);
+if (output.hit == true)
 {
-    b2Vec2 hitPoint = input.p1 + output.fraction * (input.p2 -- input.p1);
-    ...
+    // do something
 }
 ```
 
-## Pairwise Functions
-The Collision module contains functions that take a pair of shapes and compute some results. These include:
-- Overlap
-- Contact manifolds
-- Distance
-- Time of impact
+### Shape Cast
+You can also cast a shape at another shape. This uses an abstract way of describing the moving shape. It is represented as a point cloud with a radius. This implies a convex shape even if the input data is not convex. The internal algorithm (GJK) will essentially only use the convex portion.
 
-### Overlap
-You can test two shapes for overlap using this function:
+```c
+b2ShapeCastInput input;
+input.points[0] = (b2Vec2){1.0f, 0.0f};
+input.points[1] = (b2Vec2){2.0f, -3.0f};
+input.radius = 0.2f;
+input.translation = (b2Vec2){1.0f, 0.0f};
+input.maxFraction = 1.0f;
 
-```cpp
-b2Transform xfA = ..., xfB = ...;
-bool overlap = b2TestOverlap(shapeA, indexA, shapeB, indexB, xfA, xfB);
+b2CastOutput output = b2ShapeCastPolygon(&input, &myPolygon);
+if (output.hit == true)
+{
+    // do something
+}
 ```
-
-Again you must provide child indices to for the case of chain shapes.
 
 ### Contact Manifolds
 Box2D has functions to compute contact points for overlapping shapes. If
@@ -310,7 +246,7 @@ These points share the same normal vector so Box2D groups them into a
 manifold structure. The contact solver takes advantage of this to
 improve stacking stability.
 
-![Contact Manifold](images/manifolds.svg){html: width=30%}
+![Contact Manifold](images/manifolds.svg)
 
 Normally you don't need to compute contact manifolds directly, however
 you will likely use the results produced in the simulation.
@@ -320,7 +256,7 @@ points. The normal and points are held in local coordinates. As a
 convenience for the contact solver, each point stores the normal and
 tangential (friction) impulses.
 
-The data stored in b2Manifold is optimized for internal use. If you need
+The data stored in `b2Manifold is optimized for internal use. If you need
 this data, it is usually best to use the b2WorldManifold structure to
 generate the world coordinates of the contact normal and points. You
 need to provide a b2Manifold and the shape transforms and radii.

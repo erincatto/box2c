@@ -934,7 +934,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_QueryFiltered(world->broadPhase.trees + i, draw->drawingBounds, b2_defaultMaskBits, DrawQueryCallback, &drawContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, b2_defaultMaskBits, DrawQueryCallback, &drawContext);
 	}
 
 	uint32_t wordCount = world->debugBodySet.blockCount;
@@ -1810,7 +1810,7 @@ void b2World_OverlapAABB(b2WorldId worldId, b2AABB aabb, b2QueryFilter filter, b
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_QueryFiltered(world->broadPhase.trees + i, aabb, filter.maskBits, TreeQueryCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeQueryCallback, &worldContext);
 	}
 }
 
@@ -1885,7 +1885,7 @@ void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transfor
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_QueryFiltered(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
 }
 
@@ -1909,7 +1909,7 @@ void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Trans
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_QueryFiltered(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
 }
 
@@ -1933,7 +1933,7 @@ void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Trans
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_QueryFiltered(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
 }
 
@@ -2401,7 +2401,7 @@ void b2World_Explode(b2WorldId worldId, b2Vec2 position, float radius, float mag
 	aabb.upperBound.x = position.x + radius;
 	aabb.upperBound.y = position.y + radius;
 
-	b2DynamicTree_QueryFiltered(world->broadPhase.trees + b2_movableProxy, aabb, b2_defaultMaskBits, ExplosionCallback, &explosionContext);
+	b2DynamicTree_Query(world->broadPhase.trees + b2_movableProxy, aabb, b2_defaultMaskBits, ExplosionCallback, &explosionContext);
 }
 
 #if B2_VALIDATE
