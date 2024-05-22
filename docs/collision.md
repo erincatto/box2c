@@ -158,7 +158,7 @@ If edge1 did not exist this collision would seem fine. With edge1
 present, the internal collision seems like a bug. But normally when
 Box2D collides two shapes, it views them in isolation.
 
-Fortunately, the smooth segment shape provides a mechanism for eliminating ghost
+b2SmoothSegment provides a mechanism for eliminating ghost
 collisions by storing the adjacent *ghost* vertices. Box2D uses these
 ghost vertices to prevent internal collisions.
 
@@ -238,64 +238,15 @@ if (output.hit == true)
 }
 ```
 
-### Contact Manifolds
-Box2D has functions to compute contact points for overlapping shapes. If
-we consider circle-circle or circle-polygon, we can only get one contact
-point and normal. In the case of polygon-polygon we can get two points.
-These points share the same normal vector so Box2D groups them into a
-manifold structure. The contact solver takes advantage of this to
-improve stacking stability.
-
-![Contact Manifold](images/manifolds.svg)
-
-Normally you don't need to compute contact manifolds directly, however
-you will likely use the results produced in the simulation.
-
-The b2Manifold structure holds a normal vector and up to two contact
-points. The normal and points are held in local coordinates. As a
-convenience for the contact solver, each point stores the normal and
-tangential (friction) impulses.
-
-The data stored in `b2Manifold is optimized for internal use. If you need
-this data, it is usually best to use the b2WorldManifold structure to
-generate the world coordinates of the contact normal and points. You
-need to provide a b2Manifold and the shape transforms and radii.
-
-```cpp
-b2WorldManifold worldManifold;
-worldManifold.Initialize(&manifold, transformA, shapeA.m_radius,
-transformB, shapeB.m_radius);
-
-for (int32 i = 0; i < manifold.pointCount; ++i)
-{
-    b2Vec2 point = worldManifold.points[i];
-    ...
-}
-```
-
-Notice that the world manifold uses the point count from the original
-manifold.
-
-During simulation shapes may move and the manifolds may change. Points
-may be added or removed. You can detect this using b2GetPointStates.
-
-```cpp
-b2PointState state1[2], state2[2];
-b2GetPointStates(state1, state2, &manifold1, &manifold2);
-
-if (state1[0] == b2_removeState)
-{
-    // process event
-}
-```
+Even more generic, you can use `b2ShapeCast()` to linearly cast one point cloud at another point cloud. All shape cast functions use this internally.
 
 ### Distance
-The `b2Distance` function can be used to compute the distance between two
+`b2ShapeDistance()` function can be used to compute the distance between two
 shapes. The distance function needs both shapes to be converted into a
-b2DistanceProxy. There is also some caching used to warm start the
-distance function for repeated calls.
+`b2DistanceProxy` (which are point clouds with radii). There is also some caching used to warm start the
+distance function for repeated calls. This might make your use case faster.
 
-![Distance Function](images/distance.svg){html: width=30%}
+![Distance Function](images/distance.svg)
 
 ### Time of Impact
 If two shapes are moving fast, they may *tunnel* through each other in a
@@ -303,18 +254,12 @@ single time step.
 
 ![Tunneling](images/tunneling2.svg){html: width=30%}
 
-The `b2TimeOfImpact` function is used to determine the time when two
-moving shapes collide. This is called the *time of impact* (TOI). The
-main purpose of `b2TimeOfImpact` is for tunnel prevention. In particular,
-it is designed to prevent moving objects from tunneling outside of
-static level geometry.
+The `b2TimeOfImpact()` function is used to determine the time when two moving shapes collide.
+This is called the *time of impact* (TOI). The main purpose of `b2TimeOfImpact()` is for
+tunnel prevention. Box2D uses this internally to prevent moving objects from tunneling through of
+static shapes.
 
-This function accounts for rotation and translation of both shapes,
-however if the rotations are large enough, then the function may miss a
-collision. However the function will still report a non-overlapped time
-and will capture all translational collisions.
-
-The time of impact function identities an initial separating axis and
+The `b2TimeOfImpact()` identities an initial separating axis and
 ensures the shapes do not cross on that axis. This might miss collisions
 that are clear at the final positions. While this approach may miss some
 collisions, it is very fast and adequate for tunnel prevention.
@@ -335,10 +280,27 @@ transforms of the shapes.
 You can use fixed rotations to perform a *shape cast*. In this case, the
 time of impact function will not miss any collisions.
 
+### Contact Manifolds
+Box2D has functions to compute contact points for overlapping shapes. If
+we consider circle-circle or circle-polygon, we can only get one contact
+point and normal. In the case of polygon-polygon we can get two points.
+These points share the same normal vector so Box2D groups them into a
+manifold structure. The contact solver takes advantage of this to
+improve stacking stability.
+
+![Contact Manifold](images/manifolds.svg)
+
+Normally you don't need to compute contact manifolds directly, however
+you will likely use the results produced in the simulation.
+
+The `b2Manifold` structure holds a normal vector and up to two contact
+points. The contact points store the normal and tangential (friction) impulses
+computed in the rigid body simulation.
+
 ## Dynamic Tree
-The b2DynamicTree class is used by Box2D to organize large numbers of
+`b2DynamicTree` is used by Box2D to organize large numbers of
 shapes efficiently. The class does not know about shapes. Instead it
-operates on axis-aligned bounding boxes (AABBs) with user data pointers.
+operates on axis-aligned bounding boxes (`b2AABB`) with user data integers.
 
 The dynamic tree is a hierarchical AABB tree. Each internal node in the
 tree has two children. A leaf node is a single user AABB. The tree uses
@@ -362,20 +324,6 @@ be skipped.
 ![Overlap Test](images/overlap_test.svg){html: width=30%}
 
 Normally you will not use the dynamic tree directly. Rather you will go
-through the b2World class for ray casts and region queries. If you plan
+through the `b2World` functions for ray casts and region queries. If you plan
 to instantiate your own dynamic tree, you can learn how to use it by
 looking at how Box2D uses it.
-
-## Broad-phase
-Collision processing in a physics step can be divided into narrow-phase
-and broad-phase. In the narrow-phase we compute contact points between
-pairs of shapes. Imagine we have N shapes. Using brute force, we would
-need to perform the narrow-phase for N*N/2 pairs.
-
-The b2BroadPhase class reduces this load by using a dynamic tree for
-pair management. This greatly reduces the number of narrow-phase calls.
-
-Normally you do not interact with the broad-phase directly. Instead,
-Box2D creates and manages a broad-phase internally. Also, b2BroadPhase
-is designed with Box2D's simulation loop in mind, so it is likely not
-suited for other use cases.

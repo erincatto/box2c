@@ -1,55 +1,55 @@
-# Dynamics Module (Out Of Date)
-The Dynamics module is the most complex part of Box2D and is the part
-you likely interact with the most. The Dynamics module sits on top of
-the Common and Collision modules, so you should be somewhat familiar
+# Simulation
+Rigid body simulation is the primary feature of Box2D. It is the most complex part of
+Box2D and is the part you likely interact with the most. Simulations sits on top of
+the base and collision functions, so you should be somewhat familiar
 with those by now.
 
-The Dynamics module contains:
-- fixture class
-- rigid body class
-- contact class
-- joint classes
-- world class
-- listener classes
+Rigid body simulation contains:
+- worlds
+- bodies
+- shapes
+- contacts
+- joints
+- events
 
-There are many dependencies between these classes so it is difficult to
-describe one class without referring to another. In the following, you
-may see some references to classes that have not been described yet.
-Therefore, you may want to quickly skim this chapter before reading it
+There are many dependencies between these objects so it is difficult to
+describe one without referring to another. In the following, you
+may see some references to objects that have not been described yet.
+Therefore, you may want to quickly skim this section before reading it
 closely.
 
-The dynamics module is covered in the following chapters.
-
-## Bodies
-Bodies have position and velocity. You can apply forces, torques, and
-impulses to bodies. Bodies can be static, kinematic, or dynamic. Here
+## Rigid Bodies
+Rigid bodies, or just *bodies* have position and velocity. You can apply forces, torques,
+and impulses to bodies. Bodies can be static, kinematic, or dynamic. Here
 are the body type definitions:
 
 ### Body types
 
-#### b2_staticBody
-A static body does not move under simulation and behaves as if it has
-infinite mass. Internally, Box2D stores zero for the mass and the
-inverse mass. Static bodies can be moved manually by the user. A static
-body has zero velocity. Static bodies do not collide with other static
-or kinematic bodies.
+#b2_staticBody:
+A static body does not move under simulation and behaves as if it has infinite mass.
+Internally, Box2D stores zero for the mass and the inverse mass. A static body has zero
+velocity. Static bodies do not collide with other static or kinematic bodies. Static
+bodies can be moved manually by the user, but this should be avoided because it may
+result in missed collisions and other undesirable behavior.
 
-#### b2_kinematicBody
+#b2_kinematicBody:
 A kinematic body moves under simulation according to its velocity.
 Kinematic bodies do not respond to forces. They can be moved manually by
 the user, but normally a kinematic body is moved by setting its
 velocity. A kinematic body behaves as if it has infinite mass, however,
 Box2D stores zero for the mass and the inverse mass. Kinematic bodies do
-not collide with other kinematic or static bodies.
+not collide with other kinematic or static bodies. Generally you should use
+a kinematic body if you want a shape to be animated and not affected by
+forces or collisions.
 
-#### b2_dynamicBody
+#b2_dynamicBody:
 A dynamic body is fully simulated. They can be moved manually by the
 user, but normally they move according to forces. A dynamic body can
 collide with all body types. A dynamic body always has finite, non-zero
 mass. If you try to set the mass of a dynamic body to zero, it will
 automatically acquire a mass of one kilogram and it won't rotate.
 
-Bodies are the backbone for fixtures (shapes). Bodies carry fixtures and
+Bodies are the backbone for shapes. Bodies carry fixtures and
 move them around in the world. Bodies are always rigid bodies in Box2D.
 That means that two fixtures attached to the same rigid body never move
 relative to each other and fixtures attached to the same body don't
