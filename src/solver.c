@@ -14,7 +14,6 @@
 #include "shape.h"
 #include "solver_set.h"
 #include "stack_allocator.h"
-#include "util.h"
 #include "world.h"
 
 // for mm_pause

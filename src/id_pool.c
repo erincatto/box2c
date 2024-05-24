@@ -4,7 +4,6 @@
 #include "id_pool.h"
 
 #include "array.h"
-#include "util.h"
 
 b2IdPool b2CreateIdPool()
 {

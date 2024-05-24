@@ -4,7 +4,6 @@
 #include "aabb.h"
 #include "allocate.h"
 #include "core.h"
-#include "util.h"
 
 #include "box2d/collision.h"
 #include "box2d/math_functions.h"

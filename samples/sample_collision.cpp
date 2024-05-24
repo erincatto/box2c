@@ -3125,7 +3125,7 @@ public:
 			g_camera.m_zoom = 25.0f * 0.2f;
 		}
 
-#if 1
+#if 0
 		// box swept against a triangle
 		m_vAs[0] = {-0.5f, 1.0f};
 		m_vAs[1] = {0.5f, 1.0f};
@@ -3143,6 +3143,25 @@ public:
 		m_transformA.p = {0.0f, 0.25f};
 		m_transformA.q = b2Rot_identity;
 		m_transformB.p = {-4.0f, 0.0f};
+		m_transformB.q = b2Rot_identity;
+		m_translationB = {8.0f, 0.0f};
+#elif 1
+		// box swept against a segment
+		m_vAs[0] = {-2.0f, 0.0f};
+		m_vAs[1] = {2.0f, 0.0f};
+		m_countA = 2;
+		m_radiusA = 0.0f;
+
+		m_vBs[0] = {-0.25f, -0.25f};
+		m_vBs[1] = {0.25f, -0.25f};
+		m_vBs[2] = {0.25f, 0.25f};
+		m_vBs[3] = {-0.25f, 0.25f};
+		m_countB = 4;
+		m_radiusB = 0.25f;
+
+		m_transformA.p = {0.0f, 0.0};
+		m_transformA.q = b2MakeRot(0.25f * b2_pi);
+		m_transformB.p = {-8.0f, 0.0f};
 		m_transformB.q = b2Rot_identity;
 		m_translationB = {8.0f, 0.0f};
 #elif 0
@@ -3280,7 +3299,7 @@ public:
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countA, b2_colorGray9);
+			g_draw.DrawSolidPolygon(b2Transform_identity, vertices, m_countA, m_radiusA, b2_colorGray9);
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -3301,7 +3320,7 @@ public:
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countB, b2_colorGreen);
+			g_draw.DrawSolidPolygon(b2Transform_identity, vertices, m_countB, m_radiusB, b2_colorGreen);
 		}
 
 		for (int32_t i = 0; i < m_countB; ++i)
@@ -3322,7 +3341,7 @@ public:
 		}
 		else
 		{
-			g_draw.DrawPolygon(vertices, m_countB, b2_colorOrange);
+			g_draw.DrawSolidPolygon(b2Transform_identity, vertices, m_countB, m_radiusB, b2_colorOrange);
 		}
 
 		if (output.hit)

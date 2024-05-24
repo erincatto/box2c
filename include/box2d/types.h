@@ -107,6 +107,9 @@ typedef struct b2WorldDef
 
 	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2WorldDef;
 
 /// Use this to initialize your world definition
@@ -194,6 +197,9 @@ typedef struct b2BodyDef
 	/// Automatically compute mass and related properties on this body from shapes.
 	/// Triggers whenever a shape is add/removed/changed. Default is true.
 	bool automaticMass;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2BodyDef;
 
 /// Use this to initialize your body definition
@@ -324,6 +330,8 @@ typedef struct b2ShapeDef
 	///	when there are many static shapes.
 	bool forceContactCreation;
 
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2ShapeDef;
 
 /// Use this to initialize your shape definition
@@ -366,6 +374,9 @@ typedef struct b2ChainDef
 
 	/// Indicates a closed chain formed by connecting the first and last points
 	bool isLoop;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2ChainDef;
 
 /// Use this to initialize your chain definition
@@ -492,6 +503,8 @@ typedef struct b2DistanceJointDef
 	/// User data pointer
 	void* userData;
 
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2DistanceJointDef;
 
 /// Use this to initialize your joint definition
@@ -531,6 +544,8 @@ typedef struct b2MotorJointDef
 	/// User data pointer
 	void* userData;
 
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2MotorJointDef;
 
 /// Use this to initialize your joint definition
@@ -568,6 +583,8 @@ typedef struct b2MouseJointDef
 	/// User data pointer
 	void* userData;
 
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2MouseJointDef;
 
 /// Use this to initialize your joint definition
@@ -633,6 +650,9 @@ typedef struct b2PrismaticJointDef
 
 	/// User data pointer
 	void* userData;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2PrismaticJointDef;
 
 /// Use this to initialize your joint definition
@@ -704,6 +724,9 @@ typedef struct b2RevoluteJointDef
 
 	/// User data pointer
 	void* userData;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2RevoluteJointDef;
 
 /// Use this to initialize your joint definition.
@@ -750,6 +773,9 @@ typedef struct b2WeldJointDef
 
 	/// User data pointer
 	void* userData;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2WeldJointDef;
 
 /// Use this to initialize your joint definition
@@ -812,6 +838,9 @@ typedef struct b2WheelJointDef
 
 	/// User data pointer
 	void* userData;
+
+	/// A cookie used internally to detect a valid definition
+	int32_t secretCookie;
 } b2WheelJointDef;
 
 /// Use this to initialize your joint definition

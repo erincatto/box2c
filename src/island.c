@@ -9,7 +9,6 @@
 #include "core.h"
 #include "joint.h"
 #include "solver_set.h"
-#include "util.h"
 #include "world.h"
 
 #include <stddef.h>

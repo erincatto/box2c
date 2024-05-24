@@ -51,7 +51,6 @@ set(BOX2D_SOURCE_FILES
 	table.h
 	timer.c
 	types.c
-	util.h
 	weld_joint.c
 	wheel_joint.c
 	world.c

@@ -520,20 +520,19 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
-	const int32_t k_maxIters = 20;
+	const int k_maxIters = 20;
 
 	// These store the vertices of the last simplex so that we
 	// can check for duplicates and prevent cycling.
-	int32_t saveA[3], saveB[3];
-	int32_t saveCount = 0;
+	int saveA[3], saveB[3];
 
 	// Main iteration loop.
-	int32_t iter = 0;
+	int iter = 0;
 	while (iter < k_maxIters)
 	{
 		// Copy simplex so we can identify duplicates.
-		saveCount = simplex.count;
-		for (int32_t i = 0; i < saveCount; ++i)
+		int saveCount = simplex.count;
+		for (int i = 0; i < saveCount; ++i)
 		{
 			saveA[i] = vertices[i]->indexA;
 			saveB[i] = vertices[i]->indexB;
@@ -594,7 +593,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 		// Check for duplicate support points. This is the main termination criteria.
 		bool duplicate = false;
-		for (int32_t i = 0; i < saveCount; ++i)
+		for (int i = 0; i < saveCount; ++i)
 		{
 			if (vertex->indexA == saveA[i] && vertex->indexB == saveB[i])
 			{
@@ -694,9 +693,9 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
 
 	// Get an initial point in A - B
-	int32_t indexA = b2FindSupport(&proxyA, b2Neg(r));
+	int indexA = b2FindSupport(&proxyA, b2Neg(r));
 	b2Vec2 wA = proxyA.points[indexA];
-	int32_t indexB = b2FindSupport(&proxyB, r);
+	int indexB = b2FindSupport(&proxyB, r);
 	b2Vec2 wB = proxyB.points[indexB];
 	b2Vec2 v = b2Sub(wA, wB);
 
@@ -705,8 +704,8 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	const float sigma = b2MaxFloat(linearSlop, radius - linearSlop);
 
 	// Main iteration loop.
-	const int32_t k_maxIters = 20;
-	int32_t iter = 0;
+	const int k_maxIters = 20;
+	int iter = 0;
 	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * linearSlop)
 	{
 		B2_ASSERT(simplex.count < 3);
@@ -815,8 +814,8 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 // Warning: writing to these globals significantly slows multi-threading performance
 #if B2_TOI_DEBUG
 float b2_toiTime, b2_toiMaxTime;
-int32_t b2_toiCalls, b2_toiIters, b2_toiMaxIters;
-int32_t b2_toiRootIters, b2_toiMaxRootIters;
+int b2_toiCalls, b2_toiIters, b2_toiMaxIters;
+int b2_toiRootIters, b2_toiMaxRootIters;
 #endif
 
 typedef enum b2SeparationType
@@ -843,7 +842,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 
 	f.proxyA = proxyA;
 	f.proxyB = proxyB;
-	int32_t count = cache->count;
+	int count = cache->count;
 	B2_ASSERT(0 < count && count < 3);
 
 	f.sweepA = *sweepA;
@@ -912,7 +911,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 	return f;
 }
 
-float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_t* indexB, float t)
+static float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_t* indexB, float t)
 {
 	b2Transform xfA = b2GetSweepTransform(&f->sweepA, t);
 	b2Transform xfB = b2GetSweepTransform(&f->sweepB, t);

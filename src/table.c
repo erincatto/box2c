@@ -6,7 +6,6 @@
 #include "allocate.h"
 #include "core.h"
 #include "ctz.h"
-#include "util.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>

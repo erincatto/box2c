@@ -67,7 +67,7 @@ typedef struct b2JointId
 typedef struct b2ChainId
 {
 	int32_t index1;
-	int16_t world0;
+	uint16_t world0;
 	uint16_t revision;
 } b2ChainId;
 

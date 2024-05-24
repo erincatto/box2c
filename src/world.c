@@ -22,7 +22,6 @@
 #include "solver.h"
 #include "solver_set.h"
 #include "stack_allocator.h"
-#include "util.h"
 
 #include <float.h>
 #include <stdio.h>
@@ -81,6 +80,7 @@ static void b2DefaultFinishTaskFcn(void* userTask, void* userContext)
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	_Static_assert(b2_maxWorlds < UINT16_MAX, "b2_maxWorlds limit exceeded");
+	b2CheckDef(def);
 
 	int worldId = B2_NULL_INDEX;
 	for (int i = 0; i < b2_maxWorlds; ++i)

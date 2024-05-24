@@ -13,7 +13,6 @@
 #include "contact.h"
 #include "core.h"
 #include "shape.h"
-#include "util.h"
 #include "world.h"
 
 #include <stdatomic.h>

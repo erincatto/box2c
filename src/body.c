@@ -13,7 +13,6 @@
 #include "joint.h"
 #include "shape.h"
 #include "solver_set.h"
-#include "util.h"
 #include "world.h"
 
 // needed for dll export
@@ -178,6 +177,7 @@ static void b2DestroyBodyContacts(b2World* world, b2Body* body, bool wakeBodies)
 
 b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
+	b2CheckDef(def);
 	B2_ASSERT(b2Vec2_IsValid(def->position));
 	B2_ASSERT(b2IsValid(def->angle));
 	B2_ASSERT(b2Vec2_IsValid(def->linearVelocity));

@@ -10,7 +10,6 @@
 #include "shape.h"
 #include "solver_set.h"
 #include "table.h"
-#include "util.h"
 #include "world.h"
 
 #include "box2d/collision.h"
