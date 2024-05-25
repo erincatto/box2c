@@ -44,13 +44,106 @@ if (b2Body_IsValid(myBodyId) == false)
 }
 ```
 
+## World
+The Box2D world contains the bodies and joints. It manages all aspects
+of the simulation and allows for asynchronous queries (like AABB queries
+and ray-casts). Much of your interactions with Box2D will be with a
+world object, using `b2WorldId`.
+
+### World Definition
+Worlds are created using a *definition* structure. This is temporary structure that
+you can use to configure options for world creation. You **must** initialize the world definition
+using `b2DefaultWorldDef()`.
+
+```c
+b2WorldDef worldDef = b2DefaultWorldDef();
+```
+
+The world definition has lots of options, but for most you will use the defaults. You may want to set the gravity:
+
+```c
+worldDef.gravity = (b2Vec2){0.0f, -10.0f};
+```
+
+If your game doesn't need sleep, you can get a performance boost by completely disabling sleep:
+
+```c
+worldDef.enableSleep = false;
+```
+
+You can also configure multithreading to improve performance:
+
+```c
+worldDef.workerCount = 4;
+worldDef.enqueueTask = myAddTaskFunction;
+worldDef.finishTask = myFinishTaskFunction;
+worldDef.userTaskContext = &myTaskSystem;
+```
+
+See b2TaskCallback(), b2EnqueueTaskCallback(), and b2FinishTaskCallback() for details.
+
+### Creating and Destroying a World
+Creating a world is done using a world definition.
+
+```c
+b2WorldId myWorldId = new b2World(gravity, doSleep);
+
+// ... do stuff ...
+
+delete myWorld;
+```
+
+### Using a World
+The world class contains factories for creating and destroying bodies
+and joints. These factories are discussed later in the sections on
+bodies and joints. There are some other interactions with b2World that I
+will cover now.
+
+### Simulation
+The world class is used to drive the simulation. You specify a time step
+and a velocity and position iteration count. For example:
+
+```c
+float timeStep = 1.0f / 60.f;
+int32 velocityIterations = 10;
+int32 positionIterations = 8;
+myWorld->Step(timeStep, velocityIterations, positionIterations);
+```
+
+After the time step you can examine your bodies and joints for
+information. Most likely you will grab the position off the bodies so
+that you can update your actors and render them. You can perform the
+time step anywhere in your game loop, but you should be aware of the
+order of things. For example, you must create bodies before the time
+step if you want to get collision results for the new bodies in that
+frame.
+
+As I discussed above in the HelloWorld tutorial, you should use a fixed
+time step. By using a larger time step you can improve performance in
+low frame rate scenarios. But generally you should use a time step no
+larger than 1/30 seconds. A time step of 1/60 seconds will usually
+deliver a high quality simulation.
+
+The iteration count controls how many times the constraint solver sweeps
+over all the contacts and joints in the world. More iteration always
+yields a better simulation. But don't trade a small time step for a
+large iteration count. 60Hz and 10 iterations is far better than 30Hz
+and 20 iterations.
+
+After stepping, you should clear any forces you have applied to your
+bodies. This is done with the command `b2World::ClearForces`. This lets
+you take multiple sub-steps with the same force field.
+
+```c
+myWorld->ClearForces();
+```
+
 ## Rigid Bodies
 Rigid bodies, or just *bodies* have position and velocity. You can apply forces, torques,
 and impulses to bodies. Bodies can be static, kinematic, or dynamic. Here
 are the body type definitions:
 
 ### Body types
-
 #b2_staticBody:
 A static body does not move under simulation and behaves as if it has infinite mass.
 Internally, Box2D stores zero for the mass and the inverse mass. A static body has zero
@@ -168,23 +261,31 @@ damping value between 0 and 0.1. I generally do not use linear damping
 because it makes bodies look like they are floating.
 
 ```c
-b2BodyDef bodyDef;
 bodyDef.linearDamping = 0.0f;
 bodyDef.angularDamping = 0.01f;
 ```
 
-Damping is approximated for stability and performance. At small damping
+Damping is approximated to improve performance. At small damping
 values the damping effect is mostly independent of the time step. At
 larger damping values, the damping effect will vary with the time step.
 This is not an issue if you use a fixed time step (recommended).
 
+Here's some math for the curious:
+```
+Differential equation: dv/dt + c * v = 0
+Solution: v(t) = v0 * exp(-c * t)
+Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v(t) * exp(-c * dt)
+v2 = exp(-c * dt) * v1
+Pade approximation:
+v2 = v1 * 1 / (1 + c * dt)
+```
+
 ### Gravity Scale
 You can use the gravity scale to adjust the gravity on a single body. Be
-careful though, increased gravity can decrease stability.
+careful though, a large gravity magnitude can decrease stability.
 
 ```c
 // Set the gravity scale to zero so this body will float
-b2BodyDef bodyDef;
 bodyDef.gravityScale = 0.0f;
 ```
 
@@ -203,9 +304,8 @@ The body definition lets you specify whether a body can sleep and
 whether a body is created sleeping.
 
 ```c
-b2BodyDef bodyDef;
-bodyDef.allowSleep = true;
-bodyDef.awake = true;
+bodyDef.enableSleep = true;
+bodyDef.isAwake = true;
 ```
 
 ### Fixed Rotation
@@ -214,7 +314,6 @@ rotation. Such a body should not rotate, even under load. You can use
 the fixed rotation setting to achieve this:
 
 ```c
-b2BodyDef bodyDef;
 bodyDef.fixedRotation = true;
 ```
 
@@ -222,7 +321,7 @@ The fixed rotation flag causes the rotational inertia and its inverse to
 be set to zero.
 
 ### Bullets
-Game simulation usually generates a sequence of images that are played
+Game simulation usually generates a sequence of transorms that are played
 at some frame rate. This is called discrete simulation. In discrete
 simulation, rigid bodies can move by a large amount in one time step. If
 a physics engine doesn't account for the large motion, you may see some
@@ -234,8 +333,7 @@ dynamic bodies from tunneling through static bodies. This is done by
 sweeping shapes from their old position to their new positions. The
 engine looks for new collisions during the sweep and computes the time
 of impact (TOI) for these collisions. Bodies are moved to their first
-TOI and then the solver performs a sub-step to complete the full time
-step. There may be additional TOI events within a sub-step.
+TOI at the end of the time step.
 
 Normally CCD is not used between dynamic bodies. This is done to keep
 performance reasonable. In some game scenarios you need dynamic bodies
@@ -243,38 +341,36 @@ to use CCD. For example, you may want to shoot a high speed bullet at a
 stack of dynamic bricks. Without CCD, the bullet might tunnel through
 the bricks.
 
-Fast moving objects in Box2D can be labeled as bullets. Bullets will
-perform CCD with both static and dynamic bodies. You should decide what
+Fast moving objects in Box2D can be configured as *bullets*. Bullets will
+perform CCD with all body types, but not other bullets. You should decide what
 bodies should be bullets based on your game design. If you decide a body
 should be treated as a bullet, use the following setting.
 
 ```c
-b2BodyDef bodyDef;
-bodyDef.bullet = true;
+bodyDef.isBullet = true;
 ```
 
 The bullet flag only affects dynamic bodies.
 
-### Activation
+### Disabling
 You may wish a body to be created but not participate in collision or
-dynamics. This state is similar to sleeping except the body will not be
-woken by other bodies and the body's shapes will not be placed in the
-broad-phase. This means the body will not participate in collisions, ray
+simulation. This state is similar to sleeping except the body will not be
+woken by other bodies and the body's shapes will not collide with anything.
+This means the body will not participate in collisions, ray
 casts, etc.
 
-You can create a body in an inactive state and later re-activate it.
+You can create a body as disabled and later enable it.
 
 ```c
-b2BodyDef bodyDef;
-bodyDef.active = true;
+bodyDef.isEnabled = false;
 ```
 
-Joints may be connected to inactive bodies. These joints will not be
-simulated. You should be careful when you activate a body that its
+Joints may be connected to disabled bodies. These joints will not be
+simulated. You should be careful when you enable a body that its
 joints are not distorted.
 
-Note that activating a body is almost as expensive as creating the body
-from scratch. So you should not use activation for streaming worlds. Use
+Note that enabling a body is almost as expensive as creating the body
+from scratch. So you should not use body disabling for streaming worlds. Use
 creation/destruction for streaming worlds to save memory.
 
 ### User Data
@@ -283,11 +379,10 @@ application objects to bodies. You should be consistent to use the same
 object type for all body user data.
 
 ```c
-b2BodyDef bodyDef;
-bodyDef.userData.pointer = reinterpret_cast<uintptr_t>(&myActor);
+bodyDef.userData = &myGameObject;
 ```
 
-### Body Factory
+### Body Creation
 Bodies are created and destroyed using a body factory provided by the
 world class. This lets the world create the body with an efficient
 allocator and add the body to the world data structure.
@@ -1535,69 +1630,7 @@ world->SetContactFilter(&filter);
 // filter remains in scope ...
 ```
 
-## World
-The `b2World` class contains the bodies and joints. It manages all aspects
-of the simulation and allows for asynchronous queries (like AABB queries
-and ray-casts). Much of your interactions with Box2D will be with a
-b2World object.
 
-### Creating and Destroying a World
-Creating a world is fairly simple. You just need to provide a gravity
-vector and a Boolean indicating if bodies can sleep. Usually you will
-create and destroy a world using new and delete.
-
-```c
-b2World* myWorld = new b2World(gravity, doSleep);
-
-// ... do stuff ...
-
-delete myWorld;
-```
-
-### Using a World
-The world class contains factories for creating and destroying bodies
-and joints. These factories are discussed later in the sections on
-bodies and joints. There are some other interactions with b2World that I
-will cover now.
-
-### Simulation
-The world class is used to drive the simulation. You specify a time step
-and a velocity and position iteration count. For example:
-
-```c
-float timeStep = 1.0f / 60.f;
-int32 velocityIterations = 10;
-int32 positionIterations = 8;
-myWorld->Step(timeStep, velocityIterations, positionIterations);
-```
-
-After the time step you can examine your bodies and joints for
-information. Most likely you will grab the position off the bodies so
-that you can update your actors and render them. You can perform the
-time step anywhere in your game loop, but you should be aware of the
-order of things. For example, you must create bodies before the time
-step if you want to get collision results for the new bodies in that
-frame.
-
-As I discussed above in the HelloWorld tutorial, you should use a fixed
-time step. By using a larger time step you can improve performance in
-low frame rate scenarios. But generally you should use a time step no
-larger than 1/30 seconds. A time step of 1/60 seconds will usually
-deliver a high quality simulation.
-
-The iteration count controls how many times the constraint solver sweeps
-over all the contacts and joints in the world. More iteration always
-yields a better simulation. But don't trade a small time step for a
-large iteration count. 60Hz and 10 iterations is far better than 30Hz
-and 20 iterations.
-
-After stepping, you should clear any forces you have applied to your
-bodies. This is done with the command `b2World::ClearForces`. This lets
-you take multiple sub-steps with the same force field.
-
-```c
-myWorld->ClearForces();
-```
 
 ### Exploring the World
 The world is a container for bodies, contacts, and joints. You can grab

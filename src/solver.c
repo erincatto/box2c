@@ -55,9 +55,9 @@ static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContex
 
 		// Apply forces, torque, gravity, and damping
 		// Apply damping.
-		// ODE: dv/dt + c * v = 0
+		// Differential equation: dv/dt + c * v = 0
 		// Solution: v(t) = v0 * exp(-c * t)
-		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v(t) * exp(-c * dt)
 		// v2 = exp(-c * dt) * v1
 		// Pade approximation:
 		// v2 = v1 * 1 / (1 + c * dt)

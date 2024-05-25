@@ -859,6 +859,10 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 		{
 			color = b2_colorWheat;
 		}
+		else if (bodySim->isBullet && body->setIndex == b2_awakeSet)
+		{
+			color = b2_colorTurquoise;
+		}
 		else if (body->isSpeedCapped)
 		{
 			color = b2_colorYellow;
@@ -1139,6 +1143,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					else if (shape->isSensor)
 					{
 						color = b2_colorWheat;
+					}
+					else if (bodySim->isBullet && body->setIndex == b2_awakeSet)
+					{
+						color = b2_colorTurquoise;
 					}
 					else if (body->isSpeedCapped)
 					{
