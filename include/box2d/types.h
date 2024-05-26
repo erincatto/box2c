@@ -59,7 +59,7 @@ typedef struct b2RayResult
 } b2RayResult;
 
 /// World definition used to create a simulation world.
-/// Must be initialized using b2DefaultWorldDef.
+/// Must be initialized using b2DefaultWorldDef().
 /// @ingroup world
 typedef struct b2WorldDef
 {
@@ -108,8 +108,8 @@ typedef struct b2WorldDef
 	/// User context that is provided to enqueueTask and finishTask
 	void* userTaskContext;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2WorldDef;
 
 /// Use this to initialize your world definition
@@ -134,6 +134,7 @@ typedef enum b2BodyType
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 ///	Body definitions are temporary objects used to bundle creation parameters.
+/// Must be initialized using b2DefaultBodyDef().
 /// @ingroup body
 typedef struct b2BodyDef
 {
@@ -198,8 +199,8 @@ typedef struct b2BodyDef
 	/// Triggers whenever a shape is add/removed/changed. Default is true.
 	bool automaticMass;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2BodyDef;
 
 /// Use this to initialize your body definition
@@ -291,6 +292,7 @@ typedef enum b2ShapeType
 /// Used to create a shape.
 /// This is a temporary object used to bundle shape creation parameters. You may use
 ///	the same shape definition to create multiple shapes.
+/// Must be initialized using b2DefaultShapeDef().
 /// @ingroup shape
 typedef struct b2ShapeDef
 {
@@ -330,8 +332,8 @@ typedef struct b2ShapeDef
 	///	when there are many static shapes.
 	bool forceContactCreation;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2ShapeDef;
 
 /// Use this to initialize your shape definition
@@ -350,6 +352,7 @@ B2_API b2ShapeDef b2DefaultShapeDef();
 ///	- you may overlap two open chains on their first three and/or last three points to get smooth collision
 ///	- a chain shape creates multiple smooth edges shapes on the body
 /// https://en.wikipedia.org/wiki/Polygonal_chain
+/// Must be initialized using b2DefaultChainDef().
 ///	@warning Do not use chain shapes unless you understand the limitations. This is an advanced feature.
 /// @ingroup shape
 typedef struct b2ChainDef
@@ -375,8 +378,8 @@ typedef struct b2ChainDef
 	/// Indicates a closed chain formed by connecting the first and last points
 	bool isLoop;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2ChainDef;
 
 /// Use this to initialize your chain definition

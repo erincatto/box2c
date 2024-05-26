@@ -156,7 +156,7 @@ extern float b2_lengthUnitsPerMeter;
 // Used to prevent the compiler from warning about unused variables
 #define B2_MAYBE_UNUSED(x) ((void)(x))
 
-// Use to validate definitions
+// Use to validate definitions. Do not take my cookie.
 #define B2_SECRET_COOKIE 1152023
 
-#define b2CheckDef(DEF) B2_ASSERT(DEF->secretCookie == B2_SECRET_COOKIE)
+#define b2CheckDef(DEF) B2_ASSERT(DEF->internalValue == B2_SECRET_COOKIE)
