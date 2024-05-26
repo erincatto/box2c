@@ -80,34 +80,41 @@ worldDef.finishTask = myFinishTaskFunction;
 worldDef.userTaskContext = &myTaskSystem;
 ```
 
-See b2TaskCallback(), b2EnqueueTaskCallback(), and b2FinishTaskCallback() for details.
+Multithreading is not required but it can improve performance substantially. Read more [here](#multi).
 
 ### Creating and Destroying a World
 Creating a world is done using a world definition.
 
 ```c
-b2WorldId myWorldId = new b2World(gravity, doSleep);
+b2WorldId myWorldId = b2CreateWorld(&worldDef);
 
 // ... do stuff ...
 
-delete myWorld;
+b2DestroyWorld(myWorldId);
+
+// Nullify id for safety
+myWorldId = b2_nullWorldId;
 ```
 
+You can create up to 128 worlds. These worlds do not interact and may be simulated in parallel.
+
+When you destroy a world, every body, shape, and joint is also destroyed. This is much faster
+than destroying individual objects.
+
 ### Using a World
-The world class contains factories for creating and destroying bodies
-and joints. These factories are discussed later in the sections on
-bodies and joints. There are some other interactions with b2World that I
+The world is used for creating and destroying bodies
+and joints. These interfaces are discussed later in the sections on
+bodies and joints. There are some other interactions with Box2D worlds that I
 will cover now.
 
 ### Simulation
-The world class is used to drive the simulation. You specify a time step
+The world is used to drive the simulation. You specify a time step
 and a velocity and position iteration count. For example:
 
 ```c
 float timeStep = 1.0f / 60.f;
-int32 velocityIterations = 10;
-int32 positionIterations = 8;
-myWorld->Step(timeStep, velocityIterations, positionIterations);
+int32_t subSteps = 10;
+b2World_Step(myWorldId, timeStep, subSteps);
 ```
 
 After the time step you can examine your bodies and joints for
@@ -121,22 +128,18 @@ frame.
 As I discussed above in the HelloWorld tutorial, you should use a fixed
 time step. By using a larger time step you can improve performance in
 low frame rate scenarios. But generally you should use a time step no
-larger than 1/30 seconds. A time step of 1/60 seconds will usually
+larger than 1/30 seconds (30Hz). A time step of 1/60 seconds (60Hz) will usually
 deliver a high quality simulation.
 
-The iteration count controls how many times the constraint solver sweeps
-over all the contacts and joints in the world. More iteration always
-yields a better simulation. But don't trade a small time step for a
-large iteration count. 60Hz and 10 iterations is far better than 30Hz
-and 20 iterations.
+The sub-step count is used to increase accuracy. By sub-stepping the solver
+divides up time into small increments and the bodies move by a small amount.
+This allows joints and contacts to respond with finer detail. The recommended
+sub-step count is 4. However, increasing the sub-step count may improve 
+accuracy. For example, long joint chains will stretch less with more sub-steps.
 
-After stepping, you should clear any forces you have applied to your
-bodies. This is done with the command `b2World::ClearForces`. This lets
-you take multiple sub-steps with the same force field.
-
-```c
-myWorld->ClearForces();
-```
+The scissor lift sample shown [here](#samples) works better with more sub-steps
+and is configured to use 8 sub-steps. With a primary time step of 1/60 seconds,
+the scissor lift is taking sub-steps of 1/480 seconds!
 
 ## Rigid Bodies
 Rigid bodies, or just *bodies* have position and velocity. You can apply forces, torques,
@@ -168,9 +171,8 @@ automatically acquire a mass of one kilogram and it won't rotate.
 > Generally you should not set the transform on bodies after creation.
 > Box2D treats this as a teleport and may result in undesirable behavior.
 
-Bodies are the backbone for shapes. Bodies carry shapes and
-move them around in the world. Bodies are always rigid bodies in Box2D.
-That means that two shapes attached to the same rigid body never move
+Bodies carry shapes and move them around in the world. Bodies are always
+rigid bodies in Box2D. That means that two shapes attached to the same rigid body never move
 relative to each other and shapes attached to the same body don't
 collide.
 
@@ -195,7 +197,7 @@ body definition.
 b2BodyDef myBodyDef = b2DefaultBodyDef();
 ```
 
-This ensures the body definition is valid and this is **mandatory**.
+This ensures the body definition is valid and this initialization is **mandatory**.
 
 Box2D copies the data out of the body definition; it does not keep a
 pointer to the body definition. This means you can recycle a body
@@ -270,15 +272,28 @@ values the damping effect is mostly independent of the time step. At
 larger damping values, the damping effect will vary with the time step.
 This is not an issue if you use a fixed time step (recommended).
 
-Here's some math for the curious:
-```
-Differential equation: dv/dt + c * v = 0
-Solution: v(t) = v0 * exp(-c * t)
-Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v(t) * exp(-c * dt)
-v2 = exp(-c * dt) * v1
-Pade approximation:
-v2 = v1 * 1 / (1 + c * dt)
-```
+Here's some math for the curious. A first-order different equation for velocity damping is:
+
+\f[
+\frac{dv}{dt} + c v = 0
+\f]
+
+The solution with initial velocity \f$v_0\f$ is
+\f[
+v = v_0 e^{-c t}
+\f]
+
+Across a single time step \f$h\f$ the velocity evolves like so
+\f[
+v(t + h) = v_0 e^{-c (t + h)} = v_0 e^{-c t} e^{-c h} = v(t) e^{-c h}
+\f]
+
+Using the [Pade approximation](https://en.wikipedia.org/wiki/Pad%C3%A9_table)
+\f[
+v(t + h) \approx \frac{1}{1 + c h} v(t)
+\f]
+
+This is the formula used in the Box2D solver.
 
 ### Gravity Scale
 You can use the gravity scale to adjust the gravity on a single body. Be
@@ -384,7 +399,7 @@ bodyDef.userData = &myGameObject;
 
 ### Body Creation
 Bodies are created and destroyed using a body factory provided by the
-world class. This lets the world create the body with an efficient
+world. This lets the world create the body with an efficient
 allocator and add the body to the world data structure.
 
 ```c
@@ -522,7 +537,7 @@ if (myBody->IsAwake() == true)
 ```
 
 ### Coordinate Transformations
-The body class has some utility functions to help you transform points
+The body has some utility functions to help you transform points
 and vectors between local and world space. If you don't understand
 these concepts, please read \"Essential Mathematics for Games and
 Interactive Applications\" by Jim Van Verth and Lars Bishop. These
@@ -556,7 +571,7 @@ previous time step.
 
 ## Shapes
 Recall that shapes don't know about bodies and may be used independently
-of the physics simulation. Therefore Box2D provides the b2Shape class
+of the physics simulation. Therefore Box2D provides the b2Shape
 to attach shapes to bodies. A body may have zero or more shapes. A
 body with multiple shapes is sometimes called a *compound body.*
 
@@ -732,10 +747,9 @@ Sometimes you might need to change collision filtering after a shape
 has already been created. You can get and set the b2Filter structure on
 an existing shape using b2Shape::GetFilterData and
 b2Shape::SetFilterData. Note that changing the filter data will not
-add or remove contacts until the next time step (see the World class).
+add or remove contacts until the next time step (see the b2WorldId).
 
 ### Chain Shapes
-
 The chain shape provides an efficient way to connect many segments together
 to construct your static game worlds. Chain shapes automatically
 eliminate ghost collisions and provide one-sided collision.
@@ -865,7 +879,7 @@ brings up an old issue:
 > **Caution**:
 > Don't try to create a joint on the stack or on the heap using new or
 > malloc. You must create and destroy bodies and joints using the create
-> and destroy methods of the b2World class.
+> and destroy methods of the world.
 
 Here's an example of the lifetime of a revolute joint:
 
@@ -895,7 +909,7 @@ The lifetime of a joint is not simple. Heed this warning well:
 
 This precaution is not always necessary. You may organize your game
 engine so that joints are always destroyed before the attached bodies.
-In this case you don't need to implement the listener class. See the
+In this case you don't need to implement the listener. See the
 section on Implicit Destruction for details.
 
 ### Using Joints
@@ -1284,8 +1298,8 @@ Contacts are objects created by Box2D to manage collision between two
 shapes. If the shape has children, such as a chain shape, then a
 contact exists for each relevant child. There are different kinds of
 contacts, derived from b2Contact, for managing contact between different
-kinds of shapes. For example there is a contact class for managing
-polygon-polygon collision and another contact class for managing
+kinds of shapes. For example there is a contact for managing
+polygon-polygon collision and another contact for managing
 circle-circle collision.
 
 Here is some terminology associated with contacts.
@@ -1338,9 +1352,9 @@ until the AABBs stop overlapping. Box2D takes the latter approach
 because it lets the system cache information to improve performance.
 
 ### Contact Class
-As mentioned before, the contact class is created and destroyed by
+As mentioned before, the contact is created and destroyed by
 Box2D. Contact objects are not created by the user. However, you are
-able to access the contact class and interact with it.
+able to access the contact and interact with it.
 
 You can access the raw contact manifold:
 
@@ -1414,29 +1428,12 @@ described below.
 > contacts that occur in the middle of the time step. Use
 > b2ContactListener to get the most accurate results.
 
-### Contact Listener
+### Contact Events
 You can receive contact data by implementing b2ContactListener. The
 contact listener supports several events: begin, end, pre-solve, and
 post-solve.
 
-```c
-class MyContactListener : public b2ContactListener
-{
-public:
 
-void BeginContact(b2Contact* contact)
-{ /* handle begin event */ }
-
-void EndContact(b2Contact* contact)
-{ /* handle end event */ }
-
-void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
-{ /* handle pre-solve event */ }
-
-void PostSolve(b2Contact* contact, const b2ContactImpulse* impulse)
-{ /* handle post-solve event */ }
-};
-```
 
 > **Caution**:
 > Do not keep a reference to the pointers sent to b2ContactListener.
@@ -1595,7 +1592,7 @@ This is called contact filtering, because some interactions are filtered
 out.
 
 Box2D allows you to achieve custom contact filtering by implementing a
-b2ContactFilter class. This class requires you to implement a
+b2ContactFilter. This requires you to implement a
 ShouldCollide function that receives two b2Shape pointers. Your function
 returns true if the shapes should collide.
 
@@ -1706,28 +1703,25 @@ Obviously to make this work, GameCrazyBodyDestroyer must be honest about
 what it has destroyed.
 
 ### AABB Queries
-Sometimes you want to determine all the shapes in a region. The b2World
-class has a fast log(N) method for this using the broad-phase data
+Sometimes you want to determine all the shapes in a region. The world has a fast
+log(N) method for this using the broad-phase data
 structure. You provide an AABB in world coordinates and an
-implementation of b2QueryCallback. The world calls your class with each
+implementation of b2QueryCallback. The world calls your3 with each
 shape whose AABB overlaps the query AABB. Return true to continue the
 query, otherwise return false. For example, the following code finds all
 the shapes that potentially intersect a specified AABB and wakes up
 all of the associated bodies.
 
 ```c
-class MyQueryCallback : public b2QueryCallback
-{
-public:
-    bool ReportShape(b2Shape* shape)
-    {
-        b2Body* body = shape->GetBody();
-        body->SetAwake(true);
 
-        // Return true to continue the query.
-        return true;
-    }
-};
+bool MyQueryCallback(b2Shape* shape, void* context)
+{
+    b2Body* body = shape->GetBody();
+    body->SetAwake(true);
+
+    // Return true to continue the query.
+    return true;
+}
 
 // Elsewhere ...
 MyQueryCallback callback;
@@ -1742,8 +1736,8 @@ You cannot make any assumptions about the order of the callbacks.
 
 ### Ray Casts
 You can use ray casts to do line-of-sight checks, fire guns, etc. You
-perform a ray cast by implementing a callback class and providing the
-start and end points. The world class calls your class with each shape
+perform a ray cast by implementing a callback function and providing the
+start and end points. The world calls your function with each shape
 hit by the ray. Your callback is provided with the shape, the point of
 intersection, the unit normal vector, and the fractional distance along
 the ray. You cannot make any assumptions about the order of the
@@ -1763,30 +1757,25 @@ ray cast will proceed as if the shape does not exist.
 Here is an example:
 
 ```c
-// This class captures the closest hit shape.
-class MyRayCastCallback : public b2RayCastCallback
+// This struct captures the closest hit shape.
+struct MyRayCastContext
 {
-public:
-    MyRayCastCallback()
-    {
-        m_shape = NULL;
-    }
-
-    float ReportShape(b2Shape* shape, const b2Vec2& point,
-                        const b2Vec2& normal, float fraction)
-    {
-        m_shape = shape;
-        m_point = point;
-        m_normal = normal;
-        m_fraction = fraction;
-        return fraction;
-    }
-
     b2Shape* m_shape;
     b2Vec2 m_point;
     b2Vec2 m_normal;
     float m_fraction;
 };
+
+float ReportShape(b2Shape* shape, const b2Vec2& point,
+                    const b2Vec2& normal, float fraction)
+{
+    m_shape = shape;
+    m_point = point;
+    m_normal = normal;
+    m_fraction = fraction;
+    return fraction;
+}
+
 
 // Elsewhere ...
 MyRayCastCallback callback;

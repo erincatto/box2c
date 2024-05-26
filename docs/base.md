@@ -1,4 +1,4 @@
-# Base functionality
+# Foundations
 Box2D provides minimal base functionality for allocation hooks and vector math. The C interface
 means most runtime data and types are internal.
 
@@ -22,7 +22,16 @@ You can provide a custom allocator using `b2SetAllocator()` and you can get the 
 
 ## Version
 The b2Version structure holds the current version so you can query this
-at run-time using `b2GetVersion()`
+at run-time using `b2GetVersion()`.
+
+```c
+b2Version version = b2GetVersion();
+
+if (version.major >= 3)
+{
+    // do something
+}
+```
 
 ## Vector Math
 Box2D includes a small vector math library including types `b2Vec2`, `b2Rot`, and `b2AABB`. This has been
@@ -31,8 +40,8 @@ members are exposed, so you may use them freely in your application.
 
 The math library is kept simple to make Box2D easy to port and maintain.
 
-## Multi-threading
-Box2D has been highly optimized for multi-threading. Multi-threading is not required and by default Box2D will run single-threaded. If performance is important for your application, you should consider using the multi-threading interface.
+## Multithreading {#multi}
+Box2D has been highly optimized for multithreading. Multithreading is not required and by default Box2D will run single-threaded. If performance is important for your application, you should consider using the multi-threading interface.
 
 Box2D multi-threading has been designed to work with your application's task system. Box2D does
 not create threads. The Samples application shows how to do this using the open source tasks system [enkiTS](https://github.com/dougbinks/enkiTS).
@@ -49,3 +58,4 @@ So when you design your game loop, you should let Box2D *go wide* and use multip
 > the Box2D world during simulation or from multiple threads will result in a [race condition](https://en.wikipedia.org/wiki/Race_condition).
 
 It *is safe* to do raycasts, shapecasts, and overlap tests from multiple threads outside of `b2World_Step()`. Generally, any read-only operation is safe to do multi-threaded outside of `b2World_Step()`. This can be very useful if you have multi-threaded game logic.
+

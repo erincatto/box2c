@@ -421,20 +421,20 @@ B2_INLINE b2Vec2 b2InvRotateVector(b2Rot q, b2Vec2 v)
 }
 
 /// Transform a point (e.g. local space to world space)
-B2_INLINE b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
+B2_INLINE b2Vec2 b2TransformPoint(b2Transform t, const b2Vec2 p)
 {
-	float x = (xf.q.c * p.x - xf.q.s * p.y) + xf.p.x;
-	float y = (xf.q.s * p.x + xf.q.c * p.y) + xf.p.y;
+	float x = (t.q.c * p.x - t.q.s * p.y) + t.p.x;
+	float y = (t.q.s * p.x + t.q.c * p.y) + t.p.y;
 
 	return B2_LITERAL(b2Vec2){x, y};
 }
 
 /// Inverse transform a point (e.g. world space to local space)
-B2_INLINE b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
+B2_INLINE b2Vec2 b2InvTransformPoint(b2Transform t, const b2Vec2 p)
 {
-	float vx = p.x - xf.p.x;
-	float vy = p.y - xf.p.y;
-	return B2_LITERAL(b2Vec2){xf.q.c * vx + xf.q.s * vy, -xf.q.s * vx + xf.q.c * vy};
+	float vx = p.x - t.p.x;
+	float vy = p.y - t.p.y;
+	return B2_LITERAL(b2Vec2){t.q.c * vx + t.q.s * vy, -t.q.s * vx + t.q.c * vy};
 }
 
 /// v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p

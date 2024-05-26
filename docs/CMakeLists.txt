@@ -1,6 +1,10 @@
 find_package(Doxygen REQUIRED dot)
 
 set(DOXYGEN_PROJECT_NAME "Box2D")
+set(DOXYGEN_GENERATE_HTML YES)
+set(DOXYGEN_USE_MATHJAX YES)
+set(DOXYGEN_MATHJAX_VERSION MathJax_3)
+set(DOXYGEN_MATHJAX_FORMAT SVG)
 set(DOXYGEN_EXTRACT_ALL NO)
 set(DOXYGEN_FILE_PATTERNS *.h)
 set(DOXYGEN_EXCLUDE_PATTERNS timer.h)
@@ -32,6 +36,7 @@ set(DOXYGEN_HTML_COLORSTYLE DARK)
 # this tells doxygen to label structs as structs intead of classes
 set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
 set(DOXYGEN_WARN_IF_INCOMPLETE_DOC NO)
+
 
 doxygen_add_docs(doc
                 "${CMAKE_SOURCE_DIR}/include/box2d"

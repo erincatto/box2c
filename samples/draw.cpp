@@ -1212,9 +1212,9 @@ void DrawSegmentFcn(b2Vec2 p1, b2Vec2 p2, b2HexColor color, void* context)
 	static_cast<Draw*>(context)->DrawSegment(p1, p2, color);
 }
 
-void DrawTransformFcn(b2Transform xf, void* context)
+void DrawTransformFcn(b2Transform transform, void* context)
 {
-	static_cast<Draw*>(context)->DrawTransform(xf);
+	static_cast<Draw*>(context)->DrawTransform(transform);
 }
 
 void DrawPointFcn(b2Vec2 p, float size, b2HexColor color, void* context)
@@ -1349,8 +1349,7 @@ void Draw::DrawCircle(b2Vec2 center, float radius, b2HexColor color)
 
 void Draw::DrawSolidCircle(b2Transform transform, b2Vec2 center, float radius, b2HexColor color)
 {
-	b2Transform xf = transform;
-	xf.p = b2TransformPoint(transform, center);
+	transform.p = b2TransformPoint(transform, center);
 	m_solidCircles->AddCircle(transform, radius, color);
 }
 
@@ -1417,15 +1416,15 @@ void Draw::DrawSegment(b2Vec2 p1, b2Vec2 p2, b2HexColor color)
 	m_lines->AddLine(p1, p2, color);
 }
 
-void Draw::DrawTransform(b2Transform xf)
+void Draw::DrawTransform(b2Transform transform)
 {
 	const float k_axisScale = 0.2f;
-	b2Vec2 p1 = xf.p;
+	b2Vec2 p1 = transform.p;
 
-	b2Vec2 p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetXAxis(xf.q));
+	b2Vec2 p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetXAxis(transform.q));
 	m_lines->AddLine(p1, p2, b2_colorRed);
 
-	p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetYAxis(xf.q));
+	p2 = b2MulAdd(p1, k_axisScale, b2Rot_GetYAxis(transform.q));
 	m_lines->AddLine(p1, p2, b2_colorGreen);
 }
 
