@@ -323,6 +323,9 @@ typedef struct b2ShapeDef
 	/// Enable hit events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
 	bool enableHitEvents;
 
+	/// Enable custom shape pair collision filtering.
+	bool enableCustomFiltering;
+
 	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 	///	and must be carefully handled due to multi-threading. Ignored for sensors.
 	bool enablePreSolveEvents;
@@ -1009,6 +1012,19 @@ typedef struct b2ContactData
 } b2ContactData;
 
 /**@}*/
+
+/// Prototype for a contact filter callback.
+/// This is called when a contact pair is considered for collision. This allows you to
+///	perform custom logic to prevent collision between shapes. This is only called if
+///	one of the two shapes has custom filtering enabled. @see b2ShapeDef.
+/// Notes:
+///	- this function must be thread-safe
+///	- this is only called if one of the two shapes has enabled custom filtering
+/// - this is called only for awake dynamic bodies
+///	Return false if you want to disable the collision
+///	@warning Do not attempt to modify the world inside this callback
+///	@ingroup world
+typedef bool b2CustomFilterFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
 
 /// Prototype for a pre-solve callback.
 /// This is called after a contact is updated. This allows you to inspect a

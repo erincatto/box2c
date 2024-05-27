@@ -19,7 +19,7 @@ b2WorldDef b2DefaultWorldDef()
 	def.jointDampingRatio = 2.0f;
 	def.enableSleep = true;
 	def.enableContinous = true;
-	def.secretCookie = B2_SECRET_COOKIE;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -33,7 +33,7 @@ b2BodyDef b2DefaultBodyDef()
 	def.isAwake = true;
 	def.isEnabled = true;
 	def.automaticMass = true;
-	def.secretCookie = B2_SECRET_COOKIE;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -57,7 +57,7 @@ b2ShapeDef b2DefaultShapeDef()
 	def.filter = b2DefaultFilter();
 	def.enableSensorEvents = true;
 	def.enableContactEvents = true;
-	def.secretCookie = B2_SECRET_COOKIE;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -66,6 +66,6 @@ b2ChainDef b2DefaultChainDef()
 	b2ChainDef def = {0};
 	def.friction = 0.6f;
 	def.filter = b2DefaultFilter();
-	def.secretCookie = B2_SECRET_COOKIE;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }

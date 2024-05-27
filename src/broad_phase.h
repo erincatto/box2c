@@ -15,6 +15,7 @@ typedef struct b2MoveResult b2MoveResult;
 typedef struct b2StackAllocator b2StackAllocator;
 typedef struct b2World b2World;
 
+// todo kinematic tree to support large kinematic compounds
 typedef enum b2ProxyType
 {
 	b2_staticProxy = 0,
@@ -65,6 +66,8 @@ typedef struct b2BroadPhase
 
 void b2CreateBroadPhase(b2BroadPhase* bp);
 void b2DestroyBroadPhase(b2BroadPhase* bp);
+
+// todo get rid of mask bits for proxies because this breaks groups
 int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, uint32_t maskBits, int shapeIndex, bool forcePairCreation);
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey);
 

@@ -385,7 +385,7 @@ simulated. You should be careful when you enable a body that its
 joints are not distorted.
 
 Note that enabling a body is almost as expensive as creating the body
-from scratch. So you should not use body disabling for streaming worlds. Use
+from scratch. So you should not use body disabling for streaming worlds. Instead, use
 creation/destruction for streaming worlds to save memory.
 
 ### User Data
@@ -397,36 +397,36 @@ object type for all body user data.
 bodyDef.userData = &myGameObject;
 ```
 
+This is most often when you receive results from a query such as a ray-cast
+or event and you want to get back to your game object.
+
 ### Body Creation
-Bodies are created and destroyed using a body factory provided by the
-world. This lets the world create the body with an efficient
-allocator and add the body to the world data structure.
+Bodies are created and destroyed using a world id. This lets the world create
+the body with an efficient allocator and add the body to the world data structure.
 
 ```c
-b2World* myWorld;
-b2Body* dynamicBody = myWorld->CreateBody(&bodyDef);
+b2BodyId myBodyId = b2CreateBody(myWorldId, &bodyDef);
 
 // ... do stuff ...
 
-myWorld->DestroyBody(dynamicBody);
-dynamicBody = nullptr;
-```
+b2DestroyBody(myBodyId);
 
-> **Caution**:
-> You should never use new or malloc to create a body. The world won't
-> know about the body and the body won't be properly initialized.
+// Nullify body id for safety
+myBodyId = b2_nullBodyId;
+```
 
 Box2D does not keep a reference to the body definition or any of the
 data it holds (except user data pointers). So you can create temporary
 body definitions and reuse the same body definitions.
 
-Box2D allows you to avoid destroying bodies by deleting your b2World
-object, which does all the cleanup work for you. However, you should be
-mindful to nullify body pointers that you keep in your game engine.
+Box2D allows you to avoid destroying bodies by destroying the world
+directly using `b2DestroyWorld()`, which does all the cleanup work for you.
+However, you should be mindful to nullify body ids that you keep in your application.
 
 When you destroy a body, the attached shapes and joints are
 automatically destroyed. This has important implications for how you
-manage shape and joint pointers.
+manage shape and joint ids. You should nullify these ids after destroying
+a body.
 
 ### Using a Body
 After creating a body, there are many operations you can perform on the
@@ -445,23 +445,27 @@ body at run-time. This is usually done when you have special game
 scenarios that require altering the mass.
 
 ```c
-void b2Body::SetMassData(const b2MassData* data);
+b2MassData myMassData;
+myMassData.mass = 10.0f;
+myMassData.center = (b2Vec2){0.0f, 0.0f};
+myMassData.I = 100.0f;
+b2Body_SetMassData(myBodyId, &myMassData);
 ```
 
 After setting a body's mass directly, you may wish to revert to the
 natural mass dictated by the shapes. You can do this with:
 
 ```c
-void b2Body::ResetMassData();
+b2Body_ApplyMassFromShapes(myBodyId);
 ```
 
 The body's mass data is available through the following functions:
 
 ```c
-float b2Body::GetMass() const;
-float b2Body::GetInertia() const;
-const b2Vec2& b2Body::GetLocalCenter() const;
-void b2Body::GetMassData(b2MassData* data) const;
+float mass = b2Body_GetMass(myBodyId);
+float inertia = b2Body_GetInertiaTensor(myBodyId);
+b2Vec2 localCenter b2Body_GetLocalCenterOfMass(myBodyId);
+b2MassData massData = b2Body_GetMassData(myBodyId);
 ```
 
 ### State Information
@@ -469,31 +473,36 @@ There are many aspects to the body's state. You can access this state
 data efficiently through the following functions:
 
 ```c
-void b2Body::SetType(b2BodyType type);
-b2BodyType b2Body::GetType();
-void b2Body::SetBullet(bool flag);
-bool b2Body::IsBullet() const;
-void b2Body::SetSleepingAllowed(bool flag);
-bool b2Body::IsSleepingAllowed() const;
-void b2Body::SetAwake(bool flag);
-bool b2Body::IsAwake() const;
-void b2Body::SetEnabled(bool flag);
-bool b2Body::IsEnabled() const;
-void b2Body::SetFixedRotation(bool flag);
-bool b2Body::IsFixedRotation() const;
+b2Body_SetType(myBodyId, b2_kinematicBody);
+b2BodyType bodyType = b2Body_GetType(myBodyId);
+b2Body_SetBullet(myBodyId, true);
+bool isBullet = b2Body_IsBullet(myBodyId);
+b2Body_EnableSleep(myBodyId, false);
+bool isSleepEnabled = b2Body_IsSleepingEnabled(mybodyId);
+b2Body_SetAwake(myBodyId, true);
+bool isAwake = b2Body_IsAwake(myBodyId);
+b2Body_Disable(myBodyId);
+bool isEnabled = b2Body_IsEnabled(myBodyId);
+b2Body_SetFixedRotation(myBodyId, true);
+bool isFixedRotation = b2Body_IsFixedRotation(myBodyId);
 ```
+
+Please see the comments on these functions for more details.
 
 ### Position and Velocity
 You can access the position and rotation of a body. This is common when
-rendering your associated game actor. You can also set the position,
+rendering your associated game actor. You can also set the position and rotation,
 although this is less common since you will normally use Box2D to
 simulate movement.
 
+Keep in mind that the Box2D interface uses *radians*.
+
 ```c
-bool b2Body::SetTransform(const b2Vec2& position, float angle);
-const b2Transform& b2Body::GetTransform() const;
-const b2Vec2& b2Body::GetPosition() const;
-float b2Body::GetAngle() const;
+b2Body_SetTransform(myBodyId, position, angleInRadians);
+b2Transform transform = b2Body_GetTransform(myBodyId);
+b2Vec2 position = b2Body_GetPosition(myBodyId);
+b2Rot rotation = b2Body_GetRotation(myBodyId);
+float angleInRadians = b2Body_GetAngle(myBodyId);
 ```
 
 You can access the center of mass position in local and world
@@ -504,114 +513,128 @@ body that is square. The body origin might be a corner of the square,
 while the center of mass is located at the center of the square.
 
 ```c
-const b2Vec2& b2Body::GetWorldCenter() const;
-const b2Vec2& b2Body::GetLocalCenter() const;
+b2Vec2 worldCenter = b2Body_GetWorldCenterOfMass(myBodyId);
+b2Vec2 localCenter = b2Body_GetLocalCenterOfMass(myBodyId);
 ```
 
 You can access the linear and angular velocity. The linear velocity is
 for the center of mass. Therefore, the linear velocity may change if the
-mass properties change.
+mass properties change. Since Box2D uses radians, the angular velocity is
+in radians per second.
+
+```c
+b2Vec2 linearVelocity = b2Body_GetLinearVelocity(myBodyId);
+float angularVelocity = b2Body_GetAngularVelocity(myBodyId);
+```
 
 ### Forces and Impulses
 You can apply forces, torques, and impulses to a body. When you apply a
-force or an impulse, you provide a world point where the load is
+force or an impulse, you can provide a world point where the load is
 applied. This often results in a torque about the center of mass.
 
 ```c
-void b2Body::ApplyForce(const b2Vec2& force, const b2Vec2& point);
-void b2Body::ApplyTorque(float torque);
-void b2Body::ApplyLinearImpulse(const b2Vec2& impulse, const b2Vec2& point);
-void b2Body::ApplyAngularImpulse(float impulse);
+b2Body_ApplyForce(myBodyId, force, worldPoint, wake);
+b2Body_ApplyTorque(myBodyId, torque, wake);
+b2Body_ApplyLinearImpulse(myBodyId, linearImpulse, worldPoint, wake);
+b2Body_ApplyAngularImpulse(myBodyId, angularImpulse, wake);
 ```
 
-Applying a force, torque, or impulse wakes the body. Sometimes this is
-undesirable. For example, you may be applying a steady force and want to
-allow the body to sleep to improve performance. In this case you can use
-the following code.
+Applying a force, torque, or impulse optionally wakes the body. If you don't
+wake the body and it is asleep, the force or impulse will be ignored.
+
+You can also apply a force and linear impulse to the center of mass to avoid rotation.
 
 ```c
-if (myBody->IsAwake() == true)
-{
-    myBody->ApplyForce(myForce, myPoint);
-}
+b2Body_ApplyForceToCenter(myBodyId, force, wake);
+b2Body_ApplyLinearImpulseToCenter(myBodyId, linearImpulse, wake);
 ```
+
+> **Caution**:
+> Since Box2D uses sub-stepping, you should not apply a steady impulse
+> for several frames. Instead you should apply a force which Box2D will
+> spread out evenly across the sub-steps, resulting in smoother movement.
 
 ### Coordinate Transformations
 The body has some utility functions to help you transform points
 and vectors between local and world space. If you don't understand
 these concepts, please read \"Essential Mathematics for Games and
-Interactive Applications\" by Jim Van Verth and Lars Bishop. These
-functions are efficient (when inlined).
+Interactive Applications\" by Jim Van Verth and Lars Bishop.
 
 ```c
-b2Vec2 b2Body::GetWorldPoint(const b2Vec2& localPoint);
-b2Vec2 b2Body::GetWorldVector(const b2Vec2& localVector);
-b2Vec2 b2Body::GetLocalPoint(const b2Vec2& worldPoint);
-b2Vec2 b2Body::GetLocalVector(const b2Vec2& worldVector);
+b2Vec2 worldPoint = b2Body_GetWorldPoint(myBodyId, localPoint);
+b2Vec2 worldVector = b2Body_GetWorldVector(myBodyId, localVector);
+b2Vec2 localPoint = b2Body_GetLocalPoint(myBodyId, worldPoint);
+b2Vec2 localVector = b2Body_GetLocalVector(myBodyId, worldVector);
 ```
 
-### Acessing Shapes, Joints, and Contacts
-You can iterate over a body's shapes. This is mainly useful if you
-need to access the shape's user data.
+### Acessing Shapes and Joints
+You can access the shapes on a body. You can get the number of shapes first.
 
 ```c
-for (b2Shape* f = body->GetShapeList(); f; f = f->GetNext())
+int shapeCount = b2Body_GetShapeCount(myBodyId);
+```
+
+If you have bodies with many shapes, you can allocate an array now or if you
+know the number is limited you can use a fixed size array.
+
+```c
+b2ShapeId shapeIds[10];
+int returnCount = b2Body_GetShapes(myBodyId, shapeIds, 10);
+
+for (int i = 0; i < returnCount; ++i)
 {
-    MyShapeData* data = (MyShapeData*)f->GetUserData();
-    // do something with data ...
+    b2ShapeId shapeId = shapeIds[i];
+
+    // do something with shapeId
 }
 ```
 
-You can similarly iterate over the body's joint list.
-
-The body also provides a list of associated contacts. You can use this
-to get information about the current contacts. Be careful, because the
-contact list may not contain all the contacts that existed during the
-previous time step.
+You can similarly get an array of the joints on a body.
 
 ## Shapes
-Recall that shapes don't know about bodies and may be used independently
-of the physics simulation. Therefore Box2D provides the b2Shape
-to attach shapes to bodies. A body may have zero or more shapes. A
-body with multiple shapes is sometimes called a *compound body.*
+A body may have zero or more shapes. A body with multiple shapes is sometimes
+called a *compound body.*
 
 Shapes hold the following:
-- a single shape
-- broad-phase proxies
+- a single shape primitive
 - density, friction, and restitution
 - collision filtering flags
-- back pointer to the parent body
+- parent body id
 - user data
 - sensor flag
 
 These are described in the following sections.
 
 ### Shape Creation
-Shapes are created by initializing a shape definition and then
-passing the definition to the parent body.
+Shapes are created by initializing a shape definition and a shape primitive.
+These are passed to a creation function specific to each shape type.
 
 ```c
-b2Body* myBody;
-b2ShapeDef shapeDef;
-shapeDef.shape = &myShape;
-shapeDef.density = 1.0f;
-b2Shape* myShape = myBody->CreateShape(&shapeDef);
+b2ShapeDef shapeDef = b2DefaultShapeDef();
+shapeDef.density = 10.0f;
+shapeDef.friction = 0.7f;
+
+b2Polygon box = b2MakeBox(0.5f, 1.0f);
+b2ShapeId myShapeId = b2CreatePolygonShape(myBodyId, &shapeDef, &box);
 ```
 
 This creates the shape and attaches it to the body. You do not need to
-store the shape pointer since the shape will automatically be
+store the shape id since the shape will automatically be
 destroyed when the parent body is destroyed. You can create multiple
-shapes on a single body.
+shapes on a single body. However, you may wish to store the shape id if you plan
+to change properties on it later.
 
 You can destroy a shape on the parent body. You may do this to model a
 breakable object. Otherwise you can just leave the shape alone and let
 the body destruction take care of destroying the attached shapes.
 
 ```c
-myBody->DestroyShape(myShape);
+b2DestroyShape(myShapeId);
 ```
 
-Material properties such as density, friction, and restitution are associted with shapes instead of bodies. Since you can attach multiple shapes to a body, this allows for more possible setups. For example, you can make a car that is heavier in the back.
+Material properties such as density, friction, and restitution are associated with shapes
+instead of bodies. Since you can attach multiple shapes to a body, this allows for more
+possible setups. For example, you can make a car that is heavier in the back.
 
 ### Density
 The shape density is used to compute the mass properties of the parent
@@ -620,76 +643,63 @@ similar densities for all your shapes. This will improve stacking
 stability.
 
 The mass of a body is not adjusted when you set the density. You must
-call ResetMassData for this to occur.
+call `b2Body_ApplyMassFromShapes()` for this to occur. Generally you should establish
+the shape density in `b2ShapeDef` and avoid modifying it later because this
+can be expensive, especially on a compound body.
 
 ```c
-b2Shape* shape;
-shape->SetDensity(5.0f);
-b2Body*
-body->ResetMassData();
+b2Shape_SetDensity(myShapeId, 5.0f);
+b2Body_ApplyMassFromShapes(myBodyId);
 ```
 
 ### Friction
 Friction is used to make objects slide along each other realistically.
 Box2D supports static and dynamic friction, but uses the same parameter
-for both. Friction is simulated accurately in Box2D and the friction
-strength is proportional to the normal force (this is called Coulomb
-friction). The friction parameter is usually set between 0 and 1, but
+for both. Box2D attempts to simulation friction accurately and the friction
+strength is proportional to the normal force. This is called [Coulomb
+friction](https://en.wikipedia.org/wiki/Friction). The friction parameter
+is usually set between 0 and 1, but
 can be any non-negative value. A friction value of 0 turns off friction
 and a value of 1 makes the friction strong. When the friction force is
 computed between two shapes, Box2D must combine the friction parameters
 of the two parent shapes. This is done with the geometric mean:
 
 ```c
-b2Shape* shapeA;
-b2Shape* shapeB;
-float friction;
-friction = sqrtf(shapeA->friction * shapeB->friction);
+float mixedFriction = sqrtf(b2Shape_GetFriction(shapeIdA) * b2Shape_GetFriction(shapeIdB));
 ```
 
-So if one shape has zero friction then the contact will have zero
-friction.
-
-You can override the default mixed friction using
-`b2Contact::SetFriction`. This is usually done in the `b2ContactListener`
-callback.
+If one shape has zero friction then the mixed friction will be zero.
 
 ### Restitution
-Restitution is used to make objects bounce. The restitution value is
+[Restitution](https://en.wikipedia.org/wiki/Coefficient_of_restitution) is used to make
+objects bounce. The restitution value is
 usually set to be between 0 and 1. Consider dropping a ball on a table.
 A value of zero means the ball won't bounce. This is called an
-inelastic collision. A value of one means the ball's velocity will be
-exactly reflected. This is called a perfectly elastic collision.
+*inelastic* collision. A value of one means the ball's velocity will be
+exactly reflected. This is called a *perfectly elastic* collision.
 Restitution is combined using the following formula.
 
 ```c
-b2Shape* shapeA;
-b2Shape* shapeB;
-float restitution;
-restitution = b2Max(shapeA->restitution, shapeB->restitution);
+float mixedRestitution = sqrtf(b2Shape_GetRestitution(shapeIdA) * b2Shape_GetRestitution(shapeIdB));
 ```
 
 Restitution is combined this way so that you can have a bouncy super
 ball without having a bouncy floor.
 
-You can override the default mixed restitution using
-`b2Contact::SetRestitution`. This is usually done in the b2ContactListener
-callback.
-
 When a shape develops multiple contacts, restitution is simulated
-approximately. This is because Box2D uses an iterative solver. Box2D
+approximately. This is because Box2D uses an sequential solver. Box2D
 also uses inelastic collisions when the collision velocity is small.
-This is done to prevent jitter. See `b2_velocityThreshold`.
+This is done to prevent jitter. See `b2WorldDef::restitutionThreshold`.
 
 ### Filtering
-Collision filtering allows you to prevent collision between shapes.
+Collision filtering allows you to efficiently prevent collision between shapes.
 For example, say you make a character that rides a bicycle. You want the
 bicycle to collide with the terrain and the character to collide with
 the terrain, but you don't want the character to collide with the
 bicycle (because they must overlap). Box2D supports such collision
 filtering using categories and groups.
 
-Box2D supports 16 collision categories. For each shape you can specify
+Box2D supports 32 collision categories. For each shape you can specify
 which category it belongs to. You also specify what other categories
 this shape can collide with. For example, you could specify in a
 multiplayer game that all players don't collide with each other and
@@ -697,20 +707,21 @@ monsters don't collide with each other, but players and monsters should
 collide. This is done with masking bits. For example:
 
 ```c
-b2ShapeDef playerShapeDef, monsterShapeDef;
-playerShapeDef.filter.categoryBits = 0x0002;
-monsterShapeDef.filter.categoryBits = 0x0004;
-playerShapeDef.filter.maskBits = 0x0004;
-monsterShapeDef.filter.maskBits = 0x0002;
+b2ShapeDef playerShapeDef = b2DefaultShapeDef();
+b2ShapeDef monsterShapeDef = b2DefaultShapeDef();
+playerShapeDef.filter.categoryBits = 0x00000002;
+monsterShapeDef.filter.categoryBits = 0x00000004;
+playerShapeDef.filter.maskBits = 0x00000004;
+monsterShapeDef.filter.maskBits = 0x00000002;
 ```
 
 Here is the rule for a collision to occur:
 
 ```c
-uint16 catA = shapeA.filter.categoryBits;
-uint16 maskA = shapeA.filter.maskBits;
-uint16 catB = shapeB.filter.categoryBits;
-uint16 maskB = shapeB.filter.maskBits;
+uint32_t catA = shapeA.filter.categoryBits;
+uint32_t maskA = shapeA.filter.maskBits;
+uint32_t catB = shapeB.filter.categoryBits;
+uint32_t maskB = shapeB.filter.maskBits;
 
 if ((catA & maskB) != 0 && (catB & maskA) != 0)
 {
@@ -744,13 +755,13 @@ list:
 - You can optionally enable/disable collision between shapes on bodies connected by a joint.
 
 Sometimes you might need to change collision filtering after a shape
-has already been created. You can get and set the b2Filter structure on
-an existing shape using b2Shape::GetFilterData and
-b2Shape::SetFilterData. Note that changing the filter data will not
-add or remove contacts until the next time step (see the b2WorldId).
+has already been created. You can get and set the `b2Filter` structure on
+an existing shape using `b2Shape_GetFilter()` and
+`b2Shape_SetFilter()`. Note that changing the filter is expensive because
+it causes contacts to be destroyed.
 
 ### Chain Shapes
-The chain shape provides an efficient way to connect many segments together
+The chain shape provides an efficient way to connect many line segments together
 to construct your static game worlds. Chain shapes automatically
 eliminate ghost collisions and provide one-sided collision.
 
@@ -761,52 +772,50 @@ The simplest way to use chain shapes is to create loops. Simply provide an
 array of vertices.
 
 ```c
-b2Vec2 vs[4] = {
+b2Vec2 points[4] = {
     {1.7f, 0.0f},
     {1.0f, 0.25f},
     {0.0f, 0.0f},
     {-1.7f, 0.4f}};
 
-b2ChainShape chain;
-chain.CreateLoop(vs, 4);
+b2ChainDef chainDef = b2DefaultChainDef();
+chainDef.points = points;
+chainDef.count = 4;
+
+b2ChainId myChainId = b2CreateChain(myBodyId, &chainDef);
+
+// Later ...
+b2DestroyChain(myChainId);
+
+// Nullify id for safety
+myChainId = b2_nullChainId;
 ```
 
-The edge normal depends on the winding order. A counter-clockwise winding order orients the normal outwards and a clockwise winding order orients the normal inwards.
+The segment normal depends on the winding order. A counter-clockwise winding order orients the normal outwards and a clockwise winding order orients the normal inwards.
 
 ![Chain Shape Outwards Loop](images/chain_loop_outwards.svg)
 
 ![Chain Shape Inwards Loop](images/chain_loop_inwards.svg)
 
 You may have a scrolling game world and would like to connect several chains together.
-You can connect chains together using ghost vertices, like we did with b2EdgeShape.
+You can connect chains together using ghost vertices. To do this you must have the first three or last three points
+of each chain overlap. See the sample `ChainLink` for details.
 
 ![Chain Shape](images/chain_shape.svg)
-
-```c
-b2ChainShape::CreateChain(const b2Vec2* vertices, int32 count,
-		const b2Vec2& prevVertex, const b2Vec2& nextVertex);
-```
 
 Self-intersection of chain shapes is not supported. It might work, it
 might not. The code that prevents ghost collisions assumes there are no
 self-intersections of the chain. Also, very close vertices can cause
-problems. Make sure all your edges are longer than b2_linearSlop (5mm).
+problems. Make sure all your points are more than than about a centimeter apart.
 
 ![Self Intersection is Bad](images/self_intersect.svg){html: width=30%}
 
-Each edge in the chain is treated as a child shape and can be accessed
-by index. When a chain shape is connected to a body, each edge gets its
-own bounding box in the broad-phase collision tree.
+Each segment in the chain is created as a `b2SmoothSegment` shape on the body. If you have the
+shape id for a smooth segment shape, you can get the owning chain id. This will return `b2_nullChainId`
+if the shape is not a smooth segment.
 
 ```c
-// Visit each child edge.
-for (int32 i = 0; i < chain.GetChildCount(); ++i)
-{
-    b2EdgeShape edge;
-    chain.GetChildEdge(&edge, i);
-
-    ...
-}
+b2ChainId chainId = b2SHape_GetParentChain(myShapeId);
 ```
 
 ### Sensors
@@ -818,13 +827,310 @@ You can flag any shape as being a sensor. Sensors may be static,
 kinematic, or dynamic. Remember that you may have multiple shapes per
 body and you can have any mix of sensors and solid shapes. Also,
 sensors only form contacts when at least one body is dynamic, so you
-will not get a contact for kinematic versus kinematic, kinematic versus
-static, or static versus static.
+will not get sensors overlap detection for kinematic versus kinematic,
+kinematic versus static, or static versus static. Finally sensors do not
+detect other sensors. 
 
-Sensors do not generate contact points. There are two ways to get the
-state of a sensor:
-1. `b2Contact::IsTouching`
-2. `b2ContactListener::BeginContact` and `b2ContactListener::EndContact`
+Sensor overlap detection is achieved using events, which are described
+below.
+
+
+## Contacts
+Contacts internal objects created by Box2D to manage collision between pairs of
+shapes. They are fundamental to rigid body simulation in games.
+
+### Terminology
+Contacts have a fair bit of terminology that are important to review.
+
+#### contact point
+A contact point is a point where two shapes touch. Box2D approximates
+contact with a small number of points. Specifically, contact between
+two shapes has 0, 1, or 2 points. This is possible because Box2D uses
+convex shapes.
+
+#### contact normal
+A contact normal is a unit vector that points from one shape to another.
+By convention, the normal points from shapeA to shapeB.
+
+#### contact separation
+Separation is the opposite of penetration. Separation is negative when
+shapes overlap.
+
+#### contact manifold
+Contact between two convex polygons may generate up to 2 contact points.
+Both of these points use the same normal, so they are grouped into a
+contact manifold, which is an approximation of a continuous region of
+contact.
+
+#### normal impulse
+The normal force is the force applied at a contact point to prevent the
+shapes from penetrating. For convenience, Box2D uses impulses. The
+normal impulse is just the normal force multiplied by the time step. Since
+Box2D uses sub-stepping, this is the sub-step time step.
+
+#### tangent impulse
+The tangent force is generated at a contact point to simulate friction.
+For convenience, this is stored as an impulse.
+
+#### contact point id
+Box2D tries to re-use the contact impulse results from a time step as the
+initial guess for the next time step. Box2D uses contact point ids to match
+contact points across time steps. The ids contain geometric features
+indices that help to distinguish one contact point from another.
+
+#### speculative contact
+When two shapes are close together, Box2D will create up to two contact
+points even if the shapes are not touching. This lets Box2D anticipate
+collision to improve behavior. Speculative contact points have positive
+separation.
+
+### Contact Lifetime
+Contacts are created when two shape's AABBs overlap. Sometimes
+collision filtering will prevent the creation of contacts. Contacts are
+destroyed with the AABBs cease to overlap.
+
+So you might gather that there may be contacts created for shapes that
+are not touching (just their AABBs). Well, this is correct. It's a
+\"chicken or egg\" problem. We don't know if we need a contact object
+until one is created to analyze the collision. We could delete the
+contact right away if the shapes are not touching, or we can just wait
+until the AABBs stop overlapping. Box2D takes the latter approach
+because it lets the system cache information to improve performance.
+
+### Contact Data
+As mentioned before, the contact is created and destroyed by
+Box2D. Contact data is not created by the user. However, you are
+able to access the contact data.
+
+You can get contact data from shapes or bodies. The contact data
+on a shape is a sub-set of the contact data on a body. The contact
+data is only returned for touching contacts. Contacts that are not
+touching provide no meaningful information for an application.
+
+Contact data is returned in arrays. So first you can ask a shape or
+body how much space you'll need in your array. This number is conservative
+and the actual number of contacts you'll receive may be less than
+this number, but never more.
+
+```c
+int shapeContactCapacity = b2Shape_GetContactCapacity(myShapeId);
+int bodyContactCapacity = b2Body_GetContactCapacity(myBodyId);
+```
+
+Now you can access the contact data. You could allocate array space to
+get all the contact data in all cases, or you could use a fixed size
+array and get a limited number of results.
+
+```c
+b2ContactData contactData[10];
+int shapeContactCount = b2Shape_GetContactData(myShapeId, contactData, 10);
+int bodyContactCount = b2Body_GetContactData(myBodyId, contactData, 10);
+```
+
+The contact data contacts the two shape ids and the manifold.
+
+```c
+for (int i = 0; i < bodyContactCount; ++i)
+{
+    b2ContactData* data = contactData + i;
+    printf("point count = %d\n", data->manifold.pointCount);
+}
+```
+
+Getting contact data off shapes and bodies is not the most efficient
+way to handle contact data. Instead you should use contact events.
+
+### Sensor Events
+Sensor events are available after every call to `b2World_Step()`.
+Sensor events are the best way to get information about sensors overlaps. There are
+events for when a shape begins to overlap with a sensor.
+
+```c
+b2SensorEvents sensorEvents = b2World_GetSensorEvents(myWorldId);
+for (int i = 0; i < sensorEvents.beginCount; ++i)
+{
+    b2SensorBeginTouchEvent* beginTouch = sensorEvents.beginEvents + i;
+    void* myUserData = b2Shape_GetUserData(beginTouch->visitorShapeId);
+    // process begin event
+}
+```
+
+And there are events when a shape stops overlapping with a sensor.
+
+```c
+for (int i = 0; i < sensorEvents.endCount; ++i)
+{
+    b2SensorEndTouchEvent* endTouch = sensorEvents.endEvents + i;
+    void* myUserData = b2Shape_GetUserData(endTouch->visitorShapeId);
+    // process end event
+}
+```
+
+You will not get end events if a shape is destroyed. Sensor events should
+be processed after the world step and before other game logic. This should
+help you avoid processing stale data.
+
+Sensor events are only enabled for a non-sensor shape if `b2ShapeDef::enableSensorEvents`
+is true.
+
+### Contact Events
+Contact events are available after each world step. Like sensor events these should be
+retrieved and processed before performing other game logic. Otherwise
+you may be accessing orphaned/invalid data.
+
+You can access all contact events in a single data structure. This is much more efficient
+than using functions like `b2Body_GetContactData()`.
+
+```c
+b2ContactEvents contactEvents = b2World_GetContactEvents(myWorldId);
+```
+
+None of this data applies to sensors. All events involve at least on dynamic body.
+
+Hit events are generate
+
+#### Contact Touch Event
+`b2ContactBeginTouchEvent` is recorded when two shapes begin touching. These only
+contain the two shape ids.
+
+```c
+for (int i = 0; i < contactEvents.beginCount; ++i)
+{
+    b2ContactBeginTouchEvent* beginEvent = contactEvents.beginEvents + i;
+    // do stuff
+}
+```
+
+`b2ContactEndTouchEvent` is recorded when two shapes stop touching. These only
+contain the two shape ids.
+
+```c
+for (int i = 0; i < contactEvents.endCount; ++i)
+{
+    b2ContactEndTouchEvent* endEvent = contactEvents.endEvents + i;
+    // do stuff
+}
+```
+
+The end touch events are not generate when you destroy a shape or the body that owns it.
+
+Shapes only generate begin and end touch events if `b2ShapeDef::enableContactEvents` is true.
+
+#### Hit Events
+Typically in games you are mainly concerned about getting contact events for when
+two shapes collide at a high speed so you can play a sound and/or particle effect. Hit
+events are the answer for this.
+
+```c
+for (int i = 0; i < contactEvents.hitCount; ++i)
+{
+    b2ContactHitEvent* hitEvent = contactEvents.hitEvents + i;
+    if (hitEvent->approachSpeed > 10.0f)
+    {
+        // play sound
+    }
+}
+```
+
+Shapes only generate hit events if `b2ShapeDef::enableHitEvents` is true.
+
+### Contact Filtering
+Often in a game you don't want all objects to collide. For example, you
+may want to create a door that only certain characters can pass through.
+This is called contact filtering, because some interactions are filtered
+out.
+
+Box2D allows you to achieve custom contact filtering by implementing a
+b2ContactFilter. This requires you to implement a
+ShouldCollide function that receives two b2Shape pointers. Your function
+returns true if the shapes should collide.
+
+The default implementation of ShouldCollide uses the b2FilterData
+defined in Chapter 6, Shapes.
+
+```c
+bool b2ContactFilter::ShouldCollide(b2Shape* shapeA, b2Shape* shapeB)
+{
+    const b2Filter& filterA = shapeA->GetFilterData();
+    const b2Filter& filterB = shapeB->GetFilterData();
+
+    if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
+    {
+        return filterA.groupIndex > 0;
+    }
+
+    bool collideA = (filterA.maskBits & filterB.categoryBits) != 0;
+    bool collideB = (filterA.categoryBits & filterB.maskBits) != 0
+    bool collide =  collideA && collideB;
+    return collide;
+}
+```
+
+At run-time you can create an instance of your contact filter and
+register it with b2World::SetContactFilter. Make sure your filter stays
+in scope while the world exists.
+
+```c
+MyContactFilter filter;
+world->SetContactFilter(&filter);
+// filter remains in scope ...
+```
+
+### Advanced Contact Handling
+
+#### Custom Filtering
+
+#### Pre-Solve Callback
+This is called after collision detection, but before collision
+resolution. This gives you a chance to disable the contact based on the
+current configuration. For example, you can implement a one-sided
+platform using this callback and calling b2Contact::SetEnabled(false).
+The contact will be re-enabled each time through collision processing,
+so you will need to disable the contact every time-step. The pre-solve
+event may be fired multiple times per time step per contact due to
+continuous collision detection.
+
+```c
+void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
+{
+    b2WorldManifold worldManifold;
+    contact->GetWorldManifold(&worldManifold);
+    if (worldManifold.normal.y < -0.5f)
+    {
+        contact->SetEnabled(false);
+    }
+}
+```
+
+The pre-solve event is also a good place to determine the point state
+and the approach velocity of collisions.
+
+```c
+void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
+{
+    b2WorldManifold worldManifold;
+    contact->GetWorldManifold(&worldManifold);
+
+    b2PointState state1[2], state2[2];
+    b2GetPointStates(state1, state2, oldManifold, contact->GetManifold());
+
+    if (state2[0] == b2_addState)
+    {
+        const b2Body* bodyA = contact->GetShapeA()->GetBody();
+        const b2Body* bodyB = contact->GetShapeB()->GetBody();
+        b2Vec2 point = worldManifold.points[0];
+        b2Vec2 vA = bodyA->GetLinearVelocityFromWorldPoint(point);
+        b2Vec2 vB = bodyB->GetLinearVelocityFromWorldPoint(point);
+
+        float approachVelocity = b2Dot(vB -- vA, worldManifold.normal);
+
+        if (approachVelocity > 1.0f)
+        {
+            MyPlayCollisionSound();
+        }
+    }
+}
+```
 
 ## Joints
 Joints are used to constrain bodies to the world or to each other.
@@ -1293,339 +1599,6 @@ suspension. The rotation allows the wheel to rotate. You can specify an rotation
 motor to drive the wheel and to apply braking. See b2WheelJoint, wheel_joint.cpp,
 and car.cpp for details.
 
-## Contacts
-Contacts are objects created by Box2D to manage collision between two
-shapes. If the shape has children, such as a chain shape, then a
-contact exists for each relevant child. There are different kinds of
-contacts, derived from b2Contact, for managing contact between different
-kinds of shapes. For example there is a contact for managing
-polygon-polygon collision and another contact for managing
-circle-circle collision.
-
-Here is some terminology associated with contacts.
-
-##### contact point
-A contact point is a point where two shapes touch. Box2D approximates
-contact with a small number of points.
-
-##### contact normal
-A contact normal is a unit vector that points from one shape to another.
-By convention, the normal points from shapeA to shapeB.
-
-##### contact separation
-Separation is the opposite of penetration. Separation is negative when
-shapes overlap. It is possible that future versions of Box2D will create
-contact points with positive separation, so you may want to check the
-sign when contact points are reported.
-
-##### contact manifold
-Contact between two convex polygons may generate up to 2 contact points.
-Both of these points use the same normal, so they are grouped into a
-contact manifold, which is an approximation of a continuous region of
-contact.
-
-##### normal impulse
-The normal force is the force applied at a contact point to prevent the
-shapes from penetrating. For convenience, Box2D works with impulses. The
-normal impulse is just the normal force multiplied by the time step.
-
-##### tangent impulse
-The tangent force is generated at a contact point to simulate friction.
-For convenience, this is stored as an impulse.
-
-##### contact ids
-Box2D tries to re-use the contact force results from a time step as the
-initial guess for the next time step. Box2D uses contact ids to match
-contact points across time steps. The ids contain geometric features
-indices that help to distinguish one contact point from another.
-
-Contacts are created when two shape's AABBs overlap. Sometimes
-collision filtering will prevent the creation of contacts. Contacts are
-destroyed with the AABBs cease to overlap.
-
-So you might gather that there may be contacts created for shapes that
-are not touching (just their AABBs). Well, this is correct. It's a
-\"chicken or egg\" problem. We don't know if we need a contact object
-until one is created to analyze the collision. We could delete the
-contact right away if the shapes are not touching, or we can just wait
-until the AABBs stop overlapping. Box2D takes the latter approach
-because it lets the system cache information to improve performance.
-
-### Contact Class
-As mentioned before, the contact is created and destroyed by
-Box2D. Contact objects are not created by the user. However, you are
-able to access the contact and interact with it.
-
-You can access the raw contact manifold:
-
-```c
-b2Manifold* b2Contact::GetManifold();
-const b2Manifold* b2Contact::GetManifold() const;
-```
-
-You can potentially modify the manifold, but this is generally not
-supported and is for advanced usage.
-
-There is a helper function to get the `b2WorldManifold`:
-
-```c
-void b2Contact::GetWorldManifold(b2WorldManifold* worldManifold) const;
-```
-
-This uses the current positions of the bodies to compute world positions
-of the contact points.
-
-Sensors do not create manifolds, so for them use:
-
-```c
-bool touching = sensorContact->IsTouching();
-```
-
-This function also works for non-sensors.
-
-You can get the shapes from a contact. From those you can get the
-bodies.
-
-```c
-b2Shape* shapeA = myContact->GetShapeA();
-b2Body* bodyA = shapeA->GetBody();
-MyActor* actorA = (MyActor*)bodyA->GetUserData().pointer;
-```
-
-You can disable a contact. This only works inside the
-b2ContactListener::PreSolve event, discussed below.
-
-### Accessing Contacts
-You can get access to contacts in several ways. You can access the
-contacts directly on the world and body structures. You can also
-implement a contact listener.
-
-You can iterate over all contacts in the world:
-
-```c
-for (b2Contact* c = myWorld->GetContactList(); c; c = c->GetNext())
-{
-    // process c
-}
-```
-
-You can also iterate over all the contacts on a body. These are stored
-in a graph using a contact edge structure.
-
-```c
-for (b2ContactEdge* ce = myBody->GetContactList(); ce; ce = ce->next)
-{
-    b2Contact* c = ce->contact;
-    // process c
-}
-```
-
-You can also access contacts using the contact listener that is
-described below.
-
-> **Caution**:
-> Accessing contacts off b2World and b2Body may miss some transient
-> contacts that occur in the middle of the time step. Use
-> b2ContactListener to get the most accurate results.
-
-### Contact Events
-You can receive contact data by implementing b2ContactListener. The
-contact listener supports several events: begin, end, pre-solve, and
-post-solve.
-
-
-
-> **Caution**:
-> Do not keep a reference to the pointers sent to b2ContactListener.
-> Instead make a deep copy of the contact point data into your own buffer.
-> The example below shows one way of doing this.
-
-At run-time you can create an instance of the listener and register it
-with b2World::SetContactListener. Be sure your listener remains in scope
-while the world object exists.
-
-#### Begin Contact Event
-This is called when two shapes begin to overlap. This is called for
-sensors and non-sensors. This event can only occur inside the time step.
-
-####  End Contact Event
-This is called when two shapes cease to overlap. This is called for
-sensors and non-sensors. This may be called when a body is destroyed, so
-this event can occur outside the time step.
-
-#### Pre-Solve Event
-This is called after collision detection, but before collision
-resolution. This gives you a chance to disable the contact based on the
-current configuration. For example, you can implement a one-sided
-platform using this callback and calling b2Contact::SetEnabled(false).
-The contact will be re-enabled each time through collision processing,
-so you will need to disable the contact every time-step. The pre-solve
-event may be fired multiple times per time step per contact due to
-continuous collision detection.
-
-```c
-void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
-{
-    b2WorldManifold worldManifold;
-    contact->GetWorldManifold(&worldManifold);
-    if (worldManifold.normal.y < -0.5f)
-    {
-        contact->SetEnabled(false);
-    }
-}
-```
-
-The pre-solve event is also a good place to determine the point state
-and the approach velocity of collisions.
-
-```c
-void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
-{
-    b2WorldManifold worldManifold;
-    contact->GetWorldManifold(&worldManifold);
-
-    b2PointState state1[2], state2[2];
-    b2GetPointStates(state1, state2, oldManifold, contact->GetManifold());
-
-    if (state2[0] == b2_addState)
-    {
-        const b2Body* bodyA = contact->GetShapeA()->GetBody();
-        const b2Body* bodyB = contact->GetShapeB()->GetBody();
-        b2Vec2 point = worldManifold.points[0];
-        b2Vec2 vA = bodyA->GetLinearVelocityFromWorldPoint(point);
-        b2Vec2 vB = bodyB->GetLinearVelocityFromWorldPoint(point);
-
-        float approachVelocity = b2Dot(vB -- vA, worldManifold.normal);
-
-        if (approachVelocity > 1.0f)
-        {
-            MyPlayCollisionSound();
-        }
-    }
-}
-```
-
-#### Post-Solve Event
-The post solve event is where you can gather collision impulse results.
-If you don't care about the impulses, you should probably just implement
-the pre-solve event.
-
-It is tempting to implement game logic that alters the physics world
-inside a contact callback. For example, you may have a collision that
-applies damage and try to destroy the associated actor and its rigid
-body. However, Box2D does not allow you to alter the physics world
-inside a callback because you might destroy objects that Box2D is
-currently processing, leading to orphaned pointers.
-
-The recommended practice for processing contact points is to buffer all
-contact data that you care about and process it after the time step. You
-should always process the contact points immediately after the time
-step; otherwise some other client code might alter the physics world,
-invalidating the contact buffer. When you process the contact buffer you
-can alter the physics world, but you still need to be careful that you
-don't orphan pointers stored in the contact point buffer. The testbed
-has example contact point processing that is safe from orphaned
-pointers.
-
-This code from the CollisionProcessing test shows how to handle orphaned
-bodies when processing the contact buffer. Here is an excerpt. Be sure
-to read the comments in the listing. This code assumes that all contact
-points have been buffered in the b2ContactPoint array m_points.
-
-```c
-// We are going to destroy some bodies according to contact
-// points. We must buffer the bodies that should be destroyed
-// because they may belong to multiple contact points.
-const int32 k_maxNuke = 6;
-b2Body* nuke[k_maxNuke];
-int32 nukeCount = 0;
-
-// Traverse the contact buffer. Destroy bodies that
-// are touching heavier bodies.
-for (int32 i = 0; i < m_pointCount; ++i)
-{
-    ContactPoint* point = m_points + i;
-    b2Body* bodyA = point->shapeA->GetBody();
-    b2Body* bodyB = point->ShapeB->GetBody();
-    float massA = bodyA->GetMass();
-    float massB = bodyB->GetMass();
-
-    if (massA > 0.0f && massB > 0.0f)
-    {
-        if (massB > massA)
-        {
-            nuke[nukeCount++] = bodyA;
-        }
-        else
-        {
-            nuke[nukeCount++] = bodyB;
-        }
-
-        if (nukeCount == k_maxNuke)
-        {
-            break;
-        }
-    }
-}
-
-// Sort the nuke array to group duplicates.
-std::sort(nuke, nuke + nukeCount);
-
-// Destroy the bodies, skipping duplicates.
-int32 i = 0;
-while (i < nukeCount)
-{
-    b2Body* b = nuke[i++];
-    while (i < nukeCount && nuke[i] == b)
-    {
-        ++i;
-    }
-
-    m_world->DestroyBody(b);
-}
-```
-
-### Contact Filtering
-Often in a game you don't want all objects to collide. For example, you
-may want to create a door that only certain characters can pass through.
-This is called contact filtering, because some interactions are filtered
-out.
-
-Box2D allows you to achieve custom contact filtering by implementing a
-b2ContactFilter. This requires you to implement a
-ShouldCollide function that receives two b2Shape pointers. Your function
-returns true if the shapes should collide.
-
-The default implementation of ShouldCollide uses the b2FilterData
-defined in Chapter 6, Shapes.
-
-```c
-bool b2ContactFilter::ShouldCollide(b2Shape* shapeA, b2Shape* shapeB)
-{
-    const b2Filter& filterA = shapeA->GetFilterData();
-    const b2Filter& filterB = shapeB->GetFilterData();
-
-    if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
-    {
-        return filterA.groupIndex > 0;
-    }
-
-    bool collideA = (filterA.maskBits & filterB.categoryBits) != 0;
-    bool collideB = (filterA.categoryBits & filterB.maskBits) != 0
-    bool collide =  collideA && collideB;
-    return collide;
-}
-```
-
-At run-time you can create an instance of your contact filter and
-register it with b2World::SetContactFilter. Make sure your filter stays
-in scope while the world exists.
-
-```c
-MyContactFilter filter;
-world->SetContactFilter(&filter);
-// filter remains in scope ...
-```
 
 
 

@@ -115,6 +115,9 @@ B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 ///	@see b2WorldDef::hitEventThreshold
 B2_API void b2World_SetHitEventThreshold(b2WorldId worldId, float value);
 
+/// Register the custom filter callback. This is optional.
+B2_API void b2World_SetCustomFilterCallback(b2WorldId worldId, b2CustomFilterFcn* fcn, void* context);
+
 /// Register the pre-solve callback. This is optional.
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 
