@@ -132,7 +132,7 @@ Degenerate points may be coincident and/or collinear. For the hull to be viable,
 
 ### Segments
 Segments are line segments. Segment
-shapes can collide with circles, capsules, and polygons but not with other line segemnts.
+shapes can collide with circles, capsules, and polygons but not with other line segments.
 The collision algorithms used by Box2D require that at least
 one of two colliding shapes has sufficiently positive area. Segment shapes have no area, so
 segment-segment collision is not possible.
@@ -246,7 +246,7 @@ Even more generic, you can use `b2ShapeCast()` to linearly cast one point cloud 
 `b2ShapeDistance()` function can be used to compute the distance between two
 shapes. The distance function needs both shapes to be converted into a
 `b2DistanceProxy` (which are point clouds with radii). There is also some caching used to warm start the
-distance function for repeated calls. This can improve performance when the shapes move by small amounds.
+distance function for repeated calls. This can improve performance when the shapes move by small amounts.
 
 ![Distance Function](images/distance.svg)
 
@@ -323,7 +323,7 @@ A region query uses the tree to find all leaf AABBs that overlap a query
 AABB. This is faster than a brute force approach because many shapes can
 be skipped.
 
-![Raycast](images/raycast.svg){html: width=30%}
+![Ray-cast](images/raycast.svg){html: width=30%}
 
 ![Overlap Test](images/overlap_test.svg){html: width=30%}
 

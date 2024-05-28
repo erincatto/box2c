@@ -104,7 +104,7 @@ don't move a shape around on the body. Moving or modifying a shape that
 is on a body is possible with certain functions, but it should not be part
 of normal simulation. The reason is simple: a body with
 morphing shapes is not a rigid body, but Box2D is a rigid body engine.
-Many of the alogirthms in Box2D are based on the rigid body model.
+Many of the algorithms in Box2D are based on the rigid body model.
 If this is violated you may get unexpected behavior.
 
 ## Creating a Dynamic Body

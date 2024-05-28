@@ -55,4 +55,4 @@ So when you design your game loop, you should let Box2D *go wide* and use multip
 > While Box2D is designed for multithreading, its interface is *not* thread-safe. Modifying
 > the Box2D world during simulation or from multiple threads will result in a [race condition](https://en.wikipedia.org/wiki/Race_condition).
 
-It *is safe* to do raycasts, shapecasts, and overlap tests from multiple threads outside of `b2World_Step()`. Generally, any read-only operation is safe to do multithreaded outside of `b2World_Step()`. This can be very useful if you have multithreaded game logic.
+It *is safe* to do ray-casts, shape-casts, and overlap tests from multiple threads outside of `b2World_Step()`. Generally, any read-only operation is safe to do multithreaded outside of `b2World_Step()`. This can be very useful if you have multithreaded game logic.

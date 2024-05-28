@@ -34,7 +34,7 @@ b2WorldDef worldDef = b2DefaultWorldDef();
 worldDef.gravity = gravity;
 b2WorldId worldId = b2CreateWorld(&worldDef);
 ```
-There is now a required world defition. C does not have constructors, so you need to initialize **ALL** structures that you pass to Box2D. Box2D provides and initialization helper for almost all structures. For example `b2DefaultWorldDef()` is used here to initialize `b2WorldDef`. `b2WorldDef` provides many options, but the defaults are good enough to get going.
+There is now a required world definition. C does not have constructors, so you need to initialize **ALL** structures that you pass to Box2D. Box2D provides and initialization helper for almost all structures. For example `b2DefaultWorldDef()` is used here to initialize `b2WorldDef`. `b2WorldDef` provides many options, but the defaults are good enough to get going.
 
 In Version 3.0, Box2D objects are generally hidden and you only have an identifier. This keeps the API small. So when you create a world you just get a `b2WorldId` which you should treat as an atomic object, like `int` or `float`. It is small and should be passed by value.
 
@@ -73,7 +73,7 @@ Version 3.0:
 b2DestroyBody(bodyId);
 bodyId = b2_nullBodyId;
 ```
-Notice there is a little magic here in Version 3.0. `b2BodyId` knows what world it comes from. So you do not need to provide `worldId` when destroying the body. Version 3.0 supports up to 32 worlds. This may increased or be overriden in the future.
+Notice there is a little magic here in Version 3.0. `b2BodyId` knows what world it comes from. So you do not need to provide `worldId` when destroying the body. Version 3.0 supports up to 128 worlds. This may increased or be overridden in the future.
 
 There is a significant behavior change with body destruction in Version 3.0.
 > Destroying a body no longer destroys the attached joints, it is up to you to destroy them.
@@ -107,9 +107,9 @@ shapeDef.friction = 0.3f;
 b2ShapeId shapeId = b2CreatePolygonShape(bodyId, &shapeDef, &box);
 ```
 
-So basically v2.4 shapes are no longer shapes, they are _geometry_ with no inheritance (of course). This freed the term _shape_ to be used where _fixture_ was used before. In v3.0 the shape definition is generic and there are different functions for creating each shape type, such as `b2CreateCircleShape` or `b2CreateSegmentShape`.
+So basically v2.4 shapes are no longer shapes, they are *primitives* with no inheritance (of course). This freed the term _shape_ to be used where _fixture_ was used before. In v3.0 the shape definition is generic and there are different functions for creating each shape type, such as `b2CreateCircleShape` or `b2CreateSegmentShape`.
 
-Again notice the structure initialization with `b2_defaultShapeDef`. Unfortunately we cannot have meaningful definitions with zero initialization. You must initialize your structures.
+Again notice the structure initialization with `b2DefaultShapeDef()`. Unfortunately we cannot have meaningful definitions with zero initialization. You must initialize your structures.
 
 Another important change for shapes is that the default density in the shape definition is now 1 instead of 0. Static and kinematic bodies will ignore the density. You can now make an entire game without touching the density.
 
@@ -205,20 +205,16 @@ The friction joint has been removed since it is a subset of the motor joint.
 
 The pulley and gear joints have been removed. I'm not quite happy with how they work and plan to implement improved versions in the future.
 
-There is one major change related to joints and related to reducing the number of callbacks. It is now required that you destroy joints before destroying the attached bodies. There is no implicit desctruction of joints and therefore no implicit joint destruction callback.
-
-> You must destroy joints before destroying the attached bodies. This means you need to keep track of your joint ids.
-
 ### New solver
-There is a new solver that uses sub-stepping. Intead of specifying velocity iterations or position iterations, you now specify the number of sub-steps.
+There is a new solver that uses sub-stepping. Instead of specifying velocity iterations or position iterations, you now specify the number of sub-steps.
 ```c
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount);
 ```
-It is recommend to start with 4 sub-steps and adjust as needed. The sub-stepping only computes contact points once per full time step, so contact events are for the full time step.
+It is recommended to start with 4 sub-steps and adjust as needed. The sub-stepping only computes contact points once per full time step, so contact events are for the full time step.
 
-With a sub-stepping solver you need to think differently about how you interact with bodies. Externally applied impulses or velocity adjustments no longer exist after the first sub-step. So if you try to control the movement of a body by setting the velocity every time step then you may get unexpected results. You will get more predicatable results by applying a force and/or torque. Forces and torques are spread across all time steps.
+With a sub-stepping solver you need to think differently about how you interact with bodies. Externally applied impulses or velocity adjustments no longer exist after the first sub-step. So if you try to control the movement of a body by setting the velocity every time step then you may get unexpected results. You will get more predictable results by applying a force and/or torque. Forces and torques are spread across all time steps.
 
-If you want full control over the movement of a body, considering setting the body type to `b2_kinematicBody`. Prefably this is done in the `b2BodyDef`:
+If you want full control over the movement of a body, considering setting the body type to `b2_kinematicBody`. Preferably this is done in the `b2BodyDef`:
 ```c
 b2BodyDef bodyDef = b2DefaultBodyDef();
 bodyDef.type = b2_kinematicBody;
@@ -244,8 +240,10 @@ typedef struct b2ContactEvents
 {
 	b2ContactBeginTouchEvent* beginEvents;
 	b2ContactEndTouchEvent* endEvents;
+  b2ContactHitEvent* hitEvents;
 	int beginCount;
 	int endCount;
+  int hitCount;
 } b2ContactEvents;
 ```
 You can loop through these events after the time step. These events are in deterministic order, even with multithreading. See the `sample_events.cpp` file for examples.
@@ -263,12 +261,13 @@ int count = b2Shape_GetContactData(shapeId, contactData, 10);
 ```
 This includes contact data for contacts reported in begin events. This data is also in deterministic order.
 
-Presolve contact modification is available using a callback.
+Pre-solve contact modification is available using a callback.
 ```c
 typedef bool b2PreSolveFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context);
 void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
 ```
-You can define a presolve callback and register that with the world. You can also provide a context variable that will be passed back to your callback. This is **not** enough to get a presolve callback. You also need to enable it on your shape using `enablePreSolveEvents` in `b2ShapeDef`. This is false by default.
+You can define a pre-solve callback and register that with the world. You can also provide a context variable that will be passed back to your callback. This is **not** enough to get a pre-solve callback. You also need to enable it on your shape using `enablePreSolveEvents` in `b2ShapeDef`. This is false by default.
+
 > Pre-solve callbacks are dangerous. You must avoid race conditions and you must understand that behavior may not be deterministic. This is especially true if you have multiple pre-solve callbacks that are sensitive to order.
 
 ### Sensors
@@ -289,8 +288,7 @@ This query filter is tested against `b2Filter` on shapes that the query encounte
 Ray casts now take an origin and translation rather than start and end points. This convention works better with the added shape cast functions.
 
 ### World iteration
-Iterating over all bodies/shapes/joints/contacts in a world is very inefficient and has been removed from Version 3.0. Instead, you
-should be using `b2BodyEvents` and `b2ContactEvents`. This is very efficient and data-oriented.
+Iterating over all bodies/shapes/joints/contacts in a world is very inefficient and has been removed from Version 3.0. Instead, you should be using `b2BodyEvents` and `b2ContactEvents`. Events are efficient and data-oriented.
 
 ### Library configuration
 Version 3.0 offers more library configuration. You can override the allocator and you can intercept assertions by registering global callbacks. These are for expert users and they must be thread safe.
@@ -298,4 +296,3 @@ Version 3.0 offers more library configuration. You can override the allocator an
 void b2SetAllocator(b2AllocFcn* allocFcn, b2FreeFcn* freeFcn);
 void b2SetAssertFcn(b2AssertFcn* assertFcn);
 ```
-

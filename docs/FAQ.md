@@ -86,7 +86,7 @@ Box2D uses approximate methods for a few reasons.
 What this means is that constraints are not perfectly rigid and sometimes you will see some bounce even when the restitution is zero.
 Box2D uses [Gauss-Seidel](https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method) to approximately solve constraints.
 Box2D also uses [Semi-implicit Euler](https://en.wikipedia.org/wiki/Semi-implicit_Euler_method) to approximately solve the differential equations.
-Box2D also does not have exact collision. There is no continuous collision between dynamic shapes. Slow moving shapes may have small overlap for a few time steps. In extreme stacking scenarios, shapse may have sustained overlap.
+Box2D also does not have exact collision. There is no continuous collision between dynamic shapes. Slow moving shapes may have small overlap for a few time steps. In extreme stacking scenarios, shapes may have sustained overlap.
 
 ## Making Games
 

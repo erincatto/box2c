@@ -195,7 +195,7 @@ system, because values are harder to communicate and may become non-intuitive.
 
 ## Ids and Definitions
 Fast memory management plays a central role in the design of the Box2D
-inteface. When you create a world, body, shape or joint, you will receive
+interface. When you create a world, body, shape or joint, you will receive
 a handle called an *id*. These ids are opaque and are passed to various functions
 to access the underlying data.
 
@@ -203,7 +203,7 @@ These ids provide some safety. If you use an id after it has been freed you will
 usually get an assertion. All ids support 64k generations of safety. All ids
 also have a corresponding function you can call to check if it is valid.
 
-When you create a world, body, shape, or joint, you need to provide a definition strucure.
+When you create a world, body, shape, or joint, you need to provide a definition structure.
 These definitions contain all the information needed to build the Box2D object. By using
 this approach I can prevent construction errors, keep the number of function parameters
 small, provide sensible defaults, and reduce the number of accessors.
@@ -230,7 +230,7 @@ b2DestroyBody(myBodyId);
 myBodyId = b2_nullBodyId;
 ```
 
-Notice that the body id is set to null using the constant `b2_nullBodyId`. You should treate
+Notice that the body id is set to null using the constant `b2_nullBodyId`. You should treat
 ids as opaque data, however you may zero initialize all Box2D ids and they will be considered
 *null*.
 
