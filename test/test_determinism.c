@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/box2d.h"
-#include "box2d/geometry.h"
 #include "box2d/math_functions.h"
 #include "box2d/types.h"
 #include "test_macros.h"
@@ -176,7 +175,7 @@ void TiltedStacks(int testIndex, int workerCount)
 	enkiDeleteTaskScheduler(scheduler);
 }
 
-// Test multi-threaded determinism.
+// Test multithreaded determinism.
 int DeterminismTest(void)
 {
 	// Test 1 : 4 threads

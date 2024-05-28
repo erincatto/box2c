@@ -14,12 +14,7 @@
 #include "shape.h"
 #include "solver_set.h"
 #include "stack_allocator.h"
-#include "util.h"
 #include "world.h"
-
-#include "box2d/color.h"
-#include "box2d/event_types.h"
-#include "box2d/timer.h"
 
 // for mm_pause
 #include "x86/sse2.h"
@@ -60,9 +55,9 @@ static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContex
 
 		// Apply forces, torque, gravity, and damping
 		// Apply damping.
-		// ODE: dv/dt + c * v = 0
+		// Differential equation: dv/dt + c * v = 0
 		// Solution: v(t) = v0 * exp(-c * t)
-		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+		// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v(t) * exp(-c * dt)
 		// v2 = exp(-c * dt) * v1
 		// Pade approximation:
 		// v2 = v1 * 1 / (1 + c * dt)
@@ -799,6 +794,7 @@ struct b2ContinuousContext
 	float fraction;
 };
 
+// todo this may lead to pauses for scenarios where pre-solve would disable collision
 static bool b2ContinuousQueryCallback(int proxyId, int shapeId, void* context)
 {
 	B2_MAYBE_UNUSED(proxyId);
@@ -953,11 +949,11 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		// Store this for later
 		fastShape->aabb = box2;
 
-		b2DynamicTree_Query(staticTree, box, b2ContinuousQueryCallback, &context);
+		b2DynamicTree_Query(staticTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
 
 		if (isBullet)
 		{
-			b2DynamicTree_Query(movableTree, box, b2ContinuousQueryCallback, &context);
+			b2DynamicTree_Query(movableTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
 		}
 
 		shapeId = fastShape->nextShapeId;
@@ -1756,13 +1752,13 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 					{
 						B2_ASSERT(shape->isFast == false);
 
-						b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
+						b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB, shape->filter.maskBits);
 						shape->enlargedAABB = false;
 					}
 					else if (shape->isFast)
 					{
 						// Shape is fast. It's aabb will be enlarged in continuous collision.
-						b2BufferMove(broadPhase, shape->proxyKey);
+						b2BufferMove(broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 					}
 
 					shapeId = shape->nextShapeId;

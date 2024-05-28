@@ -3,21 +3,12 @@
 
 #pragma once
 
-#include "api.h"
-#include "callbacks.h"
-#include "event_types.h"
-#include "geometry.h"
+#include "base.h"
+#include "collision.h"
 #include "id.h"
-#include "joint_types.h"
 #include "types.h"
 
 #include <stdbool.h>
-
-typedef struct b2Capsule b2Capsule;
-typedef struct b2Circle b2Circle;
-typedef struct b2DebugDraw b2DebugDraw;
-typedef struct b2Polygon b2Polygon;
-typedef struct b2Segment b2Segment;
 
 /**
  * @defgroup world World
@@ -123,6 +114,9 @@ B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId, float value);
 /// Typically in meters per second.
 ///	@see b2WorldDef::hitEventThreshold
 B2_API void b2World_SetHitEventThreshold(b2WorldId worldId, float value);
+
+/// Register the custom filter callback. This is optional.
+B2_API void b2World_SetCustomFilterCallback(b2WorldId worldId, b2CustomFilterFcn* fcn, void* context);
 
 /// Register the pre-solve callback. This is optional.
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context);
@@ -512,7 +506,7 @@ B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId, bool flag);
 B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
 
 /// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
-///	and must be carefully handled due to multi-threading. Ignored for sensors.
+///	and must be carefully handled due to multithreading. Ignored for sensors.
 ///	@see b2PreSolveFcn
 B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag);
 

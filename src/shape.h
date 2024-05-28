@@ -5,8 +5,6 @@
 
 #include "world.h"
 
-#include "box2d/distance.h"
-#include "box2d/geometry.h"
 #include "box2d/types.h"
 
 typedef struct b2BroadPhase b2BroadPhase;

@@ -3,11 +3,58 @@
 
 #pragma once
 
-#include "api.h"
-#include "math_types.h"
+#include "base.h"
 
 #include <math.h>
 #include <stdbool.h>
+
+/**
+ * @defgroup math Math
+ * @brief Vector math types and functions
+ * @{
+ */
+
+/// https://en.wikipedia.org/wiki/Pi
+#define b2_pi 3.14159265359f
+
+/// 2D vector
+/// This can be used to represent a point or free vector
+typedef struct b2Vec2
+{
+	/// coordinates
+	float x, y;
+} b2Vec2;
+
+/// 2D rotation
+/// This is similar to using a complex number for rotation
+typedef struct b2Rot
+{
+	/// cosine and sine
+	float c, s;
+} b2Rot;
+
+/// A 2D rigid transform
+typedef struct b2Transform
+{
+	b2Vec2 p;
+	b2Rot q;
+} b2Transform;
+
+/// A 2-by-2 Matrix
+typedef struct b2Mat22
+{
+	/// columns
+	b2Vec2 cx, cy;
+} b2Mat22;
+
+/// Axis-aligned bounding box
+typedef struct b2AABB
+{
+	b2Vec2 lowerBound;
+	b2Vec2 upperBound;
+} b2AABB;
+
+/**@}*/
 
 /**
  * @addtogroup math
@@ -374,20 +421,20 @@ B2_INLINE b2Vec2 b2InvRotateVector(b2Rot q, b2Vec2 v)
 }
 
 /// Transform a point (e.g. local space to world space)
-B2_INLINE b2Vec2 b2TransformPoint(b2Transform xf, const b2Vec2 p)
+B2_INLINE b2Vec2 b2TransformPoint(b2Transform t, const b2Vec2 p)
 {
-	float x = (xf.q.c * p.x - xf.q.s * p.y) + xf.p.x;
-	float y = (xf.q.s * p.x + xf.q.c * p.y) + xf.p.y;
+	float x = (t.q.c * p.x - t.q.s * p.y) + t.p.x;
+	float y = (t.q.s * p.x + t.q.c * p.y) + t.p.y;
 
 	return B2_LITERAL(b2Vec2){x, y};
 }
 
 /// Inverse transform a point (e.g. world space to local space)
-B2_INLINE b2Vec2 b2InvTransformPoint(b2Transform xf, const b2Vec2 p)
+B2_INLINE b2Vec2 b2InvTransformPoint(b2Transform t, const b2Vec2 p)
 {
-	float vx = p.x - xf.p.x;
-	float vy = p.y - xf.p.y;
-	return B2_LITERAL(b2Vec2){xf.q.c * vx + xf.q.s * vy, -xf.q.s * vx + xf.q.c * vy};
+	float vx = p.x - t.p.x;
+	float vy = p.y - t.p.y;
+	return B2_LITERAL(b2Vec2){t.q.c * vx + t.q.s * vy, -t.q.s * vx + t.q.c * vy};
 }
 
 /// v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p
@@ -517,5 +564,82 @@ B2_API void b2SetLengthUnitsPerMeter(float lengthUnits);
 
 /// Get the current length units per meter.
 B2_API float b2GetLengthUnitsPerMeter(void);
+
+/**@}*/
+
+/**
+ * @defgroup math_cpp C++ Math
+ * @brief Math operator overloads for C++
+ *
+ * See math_functions.h for details.
+ * @{
+ */
+
+#ifdef __cplusplus
+
+/// Unary add one vector to another
+inline void operator+=(b2Vec2& a, b2Vec2 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+}
+
+/// Unary subtract one vector from another
+inline void operator-=(b2Vec2& a, b2Vec2 b)
+{
+	a.x -= b.x;
+	a.y -= b.y;
+}
+
+/// Unary multiply a vector by a scalar
+inline void operator*=(b2Vec2& a, float b)
+{
+	a.x *= b;
+	a.y *= b;
+}
+
+/// Unary negate a vector
+inline b2Vec2 operator-(b2Vec2 a)
+{
+	return {-a.x, -a.y};
+}
+
+/// Binary vector addition
+inline b2Vec2 operator+(b2Vec2 a, b2Vec2 b)
+{
+	return {a.x + b.x, a.y + b.y};
+}
+
+/// Binary vector subtraction
+inline b2Vec2 operator-(b2Vec2 a, b2Vec2 b)
+{
+	return {a.x - b.x, a.y - b.y};
+}
+
+/// Binary scalar and vector multiplication
+inline b2Vec2 operator*(float a, b2Vec2 b)
+{
+	return {a * b.x, a * b.y};
+}
+
+/// Binary scalar and vector multiplication
+inline b2Vec2 operator*(b2Vec2 a, float b)
+{
+	return {a.x * b, a.y * b};
+}
+
+/// Binary vector equality
+inline bool operator==(b2Vec2 a, b2Vec2 b)
+{
+	return a.x == b.x && a.y == b.y;
+}
+
+/// Binary vector inequality
+inline bool operator!=(b2Vec2 a, b2Vec2 b)
+{
+	return a.x != b.x || a.y != b.y;
+}
+
+#endif
 
 /**@}*/

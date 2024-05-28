@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "box2d/api.h"
+#include "box2d/base.h"
 
 #define B2_NULL_INDEX (-1)
 
@@ -109,43 +109,54 @@ extern b2AssertFcn* b2AssertHandler;
 
 extern float b2_lengthUnitsPerMeter;
 
-/// Used to detect bad values. Positions greater than about 16km will have precision
-/// problems, so 100km as a limit should be fine in all cases.
+// Used to detect bad values. Positions greater than about 16km will have precision
+// problems, so 100km as a limit should be fine in all cases.
 #define b2_huge (100000.0f * b2_lengthUnitsPerMeter)
 
-/// Maximum parallel workers. Used to size some static arrays.
+// Maximum parallel workers. Used to size some static arrays.
 #define b2_maxWorkers 64
 
-/// Maximum number of colors in the constraint graph. Constraints that cannot
-///	find a color are added to the overflow set which are solved single-threaded.
+// Maximum number of colors in the constraint graph. Constraints that cannot
+//	find a color are added to the overflow set which are solved single-threaded.
 #define b2_graphColorCount 12
 
-/// A small length used as a collision and constraint tolerance. Usually it is
-/// chosen to be numerically significant, but visually insignificant. In meters.
-/// @warning modifying this can have a significant impact on stability
+// A small length used as a collision and constraint tolerance. Usually it is
+// chosen to be numerically significant, but visually insignificant. In meters.
+// @warning modifying this can have a significant impact on stability
 #define b2_linearSlop (0.005f * b2_lengthUnitsPerMeter)
 
-/// Maximum number of simultaneous worlds that can be allocated
+// Maximum number of simultaneous worlds that can be allocated
 #define b2_maxWorlds 128
 
-/// The maximum translation of a body per time step. This limit is very large and is used
-/// to prevent numerical problems. You shouldn't need to adjust this. Meters.
-/// @warning modifying this can have a significant impact on stability
+// The maximum translation of a body per time step. This limit is very large and is used
+// to prevent numerical problems. You shouldn't need to adjust this. Meters.
+// @warning modifying this can have a significant impact on stability
 #define b2_maxTranslation (4.0f * b2_lengthUnitsPerMeter)
 
-/// The maximum rotation of a body per time step. This limit is very large and is used
-/// to prevent numerical problems. You shouldn't need to adjust this.
-/// @warning modifying this can have a significant impact on stability
+// The maximum rotation of a body per time step. This limit is very large and is used
+// to prevent numerical problems. You shouldn't need to adjust this.
+// @warning modifying this can have a significant impact on stability
 #define b2_maxRotation (0.25f * b2_pi)
 
-/// @warning modifying this can have a significant impact on performance and stability
+// @warning modifying this can have a significant impact on performance and stability
 #define b2_speculativeDistance (4.0f * b2_linearSlop)
 
-/// This is used to fatten AABBs in the dynamic tree. This allows proxies
-/// to move by a small amount without triggering a tree adjustment.
-/// This is in meters.
-/// @warning modifying this can have a significant impact on performance
+// This is used to fatten AABBs in the dynamic tree. This allows proxies
+// to move by a small amount without triggering a tree adjustment.
+// This is in meters.
+// @warning modifying this can have a significant impact on performance
 #define b2_aabbMargin (0.1f * b2_lengthUnitsPerMeter)
 
-/// The time that a body must be still before it will go to sleep. In seconds.
+// The time that a body must be still before it will go to sleep. In seconds.
 #define b2_timeToSleep 0.5f
+
+// Returns the number of elements of an array
+#define B2_ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
+
+// Used to prevent the compiler from warning about unused variables
+#define B2_MAYBE_UNUSED(x) ((void)(x))
+
+// Use to validate definitions. Do not take my cookie.
+#define B2_SECRET_COOKIE 1152023
+
+#define b2CheckDef(DEF) B2_ASSERT(DEF->internalValue == B2_SECRET_COOKIE)

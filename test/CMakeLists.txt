@@ -2,7 +2,6 @@
 
 add_executable(test
     main.c
-    test_allocator.c
     test_bitset.c
     test_collision.c
     test_determinism.c

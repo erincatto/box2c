@@ -9,20 +9,19 @@
 #include "shape.h"
 #include "solver.h"
 #include "solver_set.h"
-#include "util.h"
 #include "world.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/color.h"
-#include "box2d/debug_draw.h"
-#include "box2d/joint_types.h"
+
+#include <stddef.h>
 
 b2DistanceJointDef b2DefaultDistanceJointDef()
 {
 	b2DistanceJointDef def = {0};
 	def.length = 1.0f;
 	def.maxLength = b2_huge;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -32,6 +31,7 @@ b2MotorJointDef b2DefaultMotorJointDef()
 	def.maxForce = 1.0f;
 	def.maxTorque = 1.0f;
 	def.correctionFactor = 0.3f;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -41,6 +41,7 @@ b2MouseJointDef b2DefaultMouseJointDef()
 	def.hertz = 4.0f;
 	def.dampingRatio = 1.0f;
 	def.maxForce = 1.0f;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -48,6 +49,7 @@ b2PrismaticJointDef b2DefaultPrismaticJointDef()
 {
 	b2PrismaticJointDef def = {0};
 	def.localAxisA = (b2Vec2){1.0f, 0.0f};
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -55,12 +57,14 @@ b2RevoluteJointDef b2DefaultRevoluteJointDef()
 {
 	b2RevoluteJointDef def = {0};
 	def.drawSize = 0.25f;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
 b2WeldJointDef b2DefaultWeldJointDef()
 {
 	b2WeldJointDef def = {0};
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -71,6 +75,7 @@ b2WheelJointDef b2DefaultWheelJointDef()
 	def.enableSpring = true;
 	def.hertz = 1.0f;
 	def.dampingRatio = 0.7f;
+	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
@@ -199,7 +204,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		joint->setIndex = b2_disabledSet;
 		joint->localIndex = set->joints.count;
 
-		jointSim = b2AddJoint(&world->blockAllocator, &set->joints);
+		jointSim = b2AddJoint(&set->joints);
 		jointSim->jointId = jointId;
 		jointSim->bodyIdA = bodyIdA;
 		jointSim->bodyIdB = bodyIdB;
@@ -211,7 +216,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		joint->setIndex = b2_staticSet;
 		joint->localIndex = set->joints.count;
 
-		jointSim = b2AddJoint(&world->blockAllocator, &set->joints);
+		jointSim = b2AddJoint(&set->joints);
 		jointSim->jointId = jointId;
 		jointSim->bodyIdA = bodyIdA;
 		jointSim->bodyIdB = bodyIdB;
@@ -244,7 +249,7 @@ static b2JointPair b2CreateJoint(b2World* world, b2Body* bodyA, b2Body* bodyB, v
 		b2SolverSet* set = world->solverSetArray + setIndex;
 		joint->setIndex = setIndex;
 		joint->localIndex = set->joints.count;
-		jointSim = b2AddJoint(&world->blockAllocator, &set->joints);
+		jointSim = b2AddJoint(&set->joints);
 		jointSim->jointId = jointId;
 		jointSim->bodyIdA = bodyIdA;
 		jointSim->bodyIdB = bodyIdB;
@@ -325,6 +330,7 @@ static void b2DestroyContactsBetweenBodies(b2World* world, b2Body* bodyA, b2Body
 
 b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -377,6 +383,7 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId, const b2DistanceJointDef* def
 
 b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -414,6 +421,7 @@ b2JointId b2CreateMotorJoint(b2WorldId worldId, const b2MotorJointDef* def)
 
 b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -449,6 +457,7 @@ b2JointId b2CreateMouseJoint(b2WorldId worldId, const b2MouseJointDef* def)
 
 b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -502,6 +511,7 @@ b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointDef* def
 
 b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -554,6 +564,7 @@ b2JointId b2CreatePrismaticJoint(b2WorldId worldId, const b2PrismaticJointDef* d
 
 b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -595,6 +606,7 @@ b2JointId b2CreateWeldJoint(b2WorldId worldId, const b2WeldJointDef* def)
 
 b2JointId b2CreateWheelJoint(b2WorldId worldId, const b2WheelJointDef* def)
 {
+	b2CheckDef(def);
 	b2World* world = b2GetWorldFromId(worldId);
 
 	B2_ASSERT(world->locked == false);
@@ -825,7 +837,7 @@ void b2Joint_SetCollideConnected(b2JointId jointId, bool shouldCollide)
 
 			if (shape->proxyKey != B2_NULL_INDEX)
 			{
-				b2BufferMove(&world->broadPhase, shape->proxyKey);
+				b2BufferMove(&world->broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 			}
 
 			shapeId = shape->nextShapeId;
@@ -1185,7 +1197,7 @@ void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint)
 			draw->DrawPoint(target, 4.0f, c1, draw->context);
 			draw->DrawPoint(pB, 4.0f, c1, draw->context);
 
-			b2HexColor c2 = b2_colorGray80;
+			b2HexColor c2 = b2_colorGray8;
 			draw->DrawSegment(target, pB, c2, draw->context);
 		}
 		break;

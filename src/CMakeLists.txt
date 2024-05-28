@@ -7,8 +7,6 @@ set(BOX2D_SOURCE_FILES
 	array.h
 	bitset.c
 	bitset.h
-	block_allocator.c
-	block_allocator.h
 	block_array.c
 	block_array.h
 	body.c
@@ -53,7 +51,6 @@ set(BOX2D_SOURCE_FILES
 	table.h
 	timer.c
 	types.c
-	util.h
 	weld_joint.c
 	wheel_joint.c
 	world.c
@@ -61,22 +58,11 @@ set(BOX2D_SOURCE_FILES
 )
 
 set(BOX2D_API_FILES
-	../include/box2d/api.h
+	../include/box2d/base.h
 	../include/box2d/box2d.h
-	../include/box2d/callbacks.h
-	../include/box2d/color.h
 	../include/box2d/collision.h
-	../include/box2d/debug_draw.h
-	../include/box2d/distance.h
-	../include/box2d/dynamic_tree.h
-	../include/box2d/event_types.h
-	../include/box2d/geometry.h
 	../include/box2d/id.h
-	../include/box2d/joint_types.h
 	../include/box2d/math_functions.h
-	../include/box2d/math_cpp.h
-	../include/box2d/math_types.h
-	../include/box2d/timer.h
 	../include/box2d/types.h
 )
 

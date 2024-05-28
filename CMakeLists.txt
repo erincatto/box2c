@@ -3,7 +3,7 @@ include(FetchContent)
 
 project(box2d
 	VERSION 3.0.0
-	DESCRIPTION "A 2D physics engine for games"
+	DESCRIPTION "A 2D physics engine"
 	HOMEPAGE_URL "https://box2d.org"
 	LANGUAGES C CXX
 )

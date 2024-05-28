@@ -5,7 +5,7 @@
 #include "table.h"
 #include "test_macros.h"
 
-#include "box2d/timer.h"
+#include "box2d/base.h"
 
 #include <stdatomic.h>
 

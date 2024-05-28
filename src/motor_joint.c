@@ -10,7 +10,6 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/debug_draw.h"
 
 void b2MotorJoint_SetLinearOffset(b2JointId jointId, b2Vec2 linearOffset)
 {
@@ -27,7 +26,7 @@ b2Vec2 b2MotorJoint_GetLinearOffset(b2JointId jointId)
 void b2MotorJoint_SetAngularOffset(b2JointId jointId, float angularOffset)
 {
 	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_motorJoint);
-	joint->motorJoint.angularOffset = angularOffset;
+	joint->motorJoint.angularOffset = b2ClampFloat(angularOffset, -b2_pi, b2_pi);
 }
 
 float b2MotorJoint_GetAngularOffset(b2JointId jointId)
@@ -148,6 +147,7 @@ void b2PrepareMotorJoint(b2JointSim* base, b2StepContext* context)
 	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
 	joint->deltaCenter = b2Sub(b2Sub(bodySimB->center, bodySimA->center), joint->linearOffset);
 	joint->deltaAngle = b2RelativeAngle(bodySimB->transform.q, bodySimA->transform.q) - joint->angularOffset;
+	joint->deltaAngle = b2UnwindAngle(joint->deltaAngle);
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
@@ -217,6 +217,8 @@ void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useB
 	// angular constraint
 	{
 		float angularSeperation = b2RelativeAngle(bodyB->deltaRotation, bodyA->deltaRotation) + joint->deltaAngle;
+		angularSeperation = b2UnwindAngle(angularSeperation);
+
 		float angularBias = context->inv_h * joint->correctionFactor * angularSeperation;
 
 		float Cdot = wB - wA;
@@ -268,8 +270,6 @@ void b2SolveMotorJoint(b2JointSim* base, const b2StepContext* context, bool useB
 	bodyB->linearVelocity = vB;
 	bodyB->angularVelocity = wB;
 }
-
-
 
 #if 0
 void b2DumpMotorJoint()

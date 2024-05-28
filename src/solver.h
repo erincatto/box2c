@@ -5,7 +5,7 @@
 
 #include "block_array.h"
 
-#include "box2d/math_types.h"
+#include "box2d/math_functions.h"
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 // Shared library macros
 #if defined(_MSC_VER) && defined(box2d_EXPORTS)
 	// build the Windows DLL
@@ -19,16 +21,26 @@
 #endif
 
 // C++ macros
+// clang-format off
 #ifdef __cplusplus
 	#define B2_API extern "C" BOX2D_EXPORT
 	#define B2_INLINE inline
 	#define B2_LITERAL(T) T
+	#define B2_ZERO_INIT {}
 #else
 	#define B2_API BOX2D_EXPORT
 	#define B2_INLINE static inline
 	/// Used for C literals like (b2Vec2){1.0f, 2.0f} where C++ requires b2Vec2{1.0f, 2.0f}
 	#define B2_LITERAL(T) (T)
+	#define B2_ZERO_INIT {0}
 #endif
+// clang-format on
+
+/**
+ * @defgroup base Base
+ * Base functionality
+ * @{
+ */
 
 /// Prototype for user allocation function
 ///	@param size the allocation size in bytes
@@ -54,17 +66,42 @@ B2_API int b2GetByteCount(void);
 B2_API void b2SetAssertFcn(b2AssertFcn* assertFcn);
 
 /// Version numbering scheme.
-/// See http://en.wikipedia.org/wiki/Software_versioning
+/// See https://semver.org/
 typedef struct b2Version
 {
-	/// significant changes
+	/// Significant changes
 	int major;
 
-	/// incremental changes
+	/// Incremental changes
 	int minor;
 
-	/// bug fixes
+	/// Bug fixes
 	int revision;
 } b2Version;
 
+/// Get the current version of Box2D
 B2_API b2Version b2GetVersion(void);
+
+/**@}*/
+
+//! @cond
+// Timer for profiling. This has platform specific code and may not work on every platform.
+typedef struct b2Timer
+{
+#if defined(_WIN32)
+	int64_t start;
+#elif defined(__linux__) || defined(__APPLE__)
+	unsigned long long start_sec;
+	unsigned long long start_usec;
+#else
+	int32_t dummy;
+#endif
+} b2Timer;
+
+B2_API b2Timer b2CreateTimer(void);
+B2_API int64_t b2GetTicks(b2Timer* timer);
+B2_API float b2GetMilliseconds(const b2Timer* timer);
+B2_API float b2GetMillisecondsAndReset(b2Timer* timer);
+B2_API void b2SleepMilliseconds(int milliseconds);
+B2_API void b2Yield();
+//! @endcond

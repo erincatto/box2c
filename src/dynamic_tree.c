@@ -4,9 +4,8 @@
 #include "aabb.h"
 #include "allocate.h"
 #include "core.h"
-#include "util.h"
 
-#include "box2d/dynamic_tree.h"
+#include "box2d/collision.h"
 #include "box2d/math_functions.h"
 
 #include <float.h>
@@ -822,7 +821,7 @@ void b2DynamicTree_EnlargeProxy(b2DynamicTree* tree, int32_t proxyId, b2AABB aab
 	}
 }
 
-int32_t b2DynamicTree_GetHeight(const b2DynamicTree* tree)
+int b2DynamicTree_GetHeight(const b2DynamicTree* tree)
 {
 	if (tree->root == B2_NULL_INDEX)
 	{
@@ -859,7 +858,7 @@ float b2DynamicTree_GetAreaRatio(const b2DynamicTree* tree)
 }
 
 // Compute the height of a sub-tree.
-static int32_t b2ComputeHeight(const b2DynamicTree* tree, int32_t nodeId)
+static int b2ComputeHeight(const b2DynamicTree* tree, int32_t nodeId)
 {
 	B2_ASSERT(0 <= nodeId && nodeId < tree->nodeCapacity);
 	b2TreeNode* node = tree->nodes + nodeId;
@@ -874,9 +873,9 @@ static int32_t b2ComputeHeight(const b2DynamicTree* tree, int32_t nodeId)
 	return 1 + b2MaxInt16(height1, height2);
 }
 
-int32_t b2DynamicTree_ComputeHeight(const b2DynamicTree* tree)
+int b2DynamicTree_ComputeHeight(const b2DynamicTree* tree)
 {
-	int32_t height = b2ComputeHeight(tree, tree->root);
+	int height = b2ComputeHeight(tree, tree->root);
 	return height;
 }
 
@@ -1022,7 +1021,7 @@ int32_t b2DynamicTree_GetMaxBalance(const b2DynamicTree* tree)
 
 void b2DynamicTree_RebuildBottomUp(b2DynamicTree* tree)
 {
-	int32_t* nodes = (int32_t*)b2Alloc(tree->nodeCount * sizeof(int32_t));
+	int32_t* nodes = b2Alloc(tree->nodeCount * sizeof(int32_t));
 	int32_t count = 0;
 
 	// Build array of leaves. Free the rest.
@@ -1117,7 +1116,7 @@ int b2DynamicTree_GetByteCount(const b2DynamicTree* tree)
 	return (int)size;
 }
 
-void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
+void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, uint32_t maskBits, b2TreeQueryCallbackFcn* callback,
 								 void* context)
 {
 	int32_t stack[b2_treeStackSize];
@@ -1135,46 +1134,6 @@ void b2DynamicTree_QueryFiltered(const b2DynamicTree* tree, b2AABB aabb, uint32_
 		const b2TreeNode* node = tree->nodes + nodeId;
 
 		if (b2AABB_Overlaps(node->aabb, aabb) && (node->categoryBits & maskBits) != 0)
-		{
-			if (b2IsLeaf(node))
-			{
-				// callback to user code with proxy id
-				bool proceed = callback(nodeId, node->userData, context);
-				if (proceed == false)
-				{
-					return;
-				}
-			}
-			else
-			{
-				B2_ASSERT(stackCount < b2_treeStackSize - 1);
-				if (stackCount < b2_treeStackSize - 1)
-				{
-					stack[stackCount++] = node->child1;
-					stack[stackCount++] = node->child2;
-				}
-			}
-		}
-	}
-}
-
-void b2DynamicTree_Query(const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context)
-{
-	int32_t stack[b2_treeStackSize];
-	int32_t stackCount = 0;
-	stack[stackCount++] = tree->root;
-
-	while (stackCount > 0)
-	{
-		int32_t nodeId = stack[--stackCount];
-		if (nodeId == B2_NULL_INDEX)
-		{
-			continue;
-		}
-
-		const b2TreeNode* node = tree->nodes + nodeId;
-
-		if (b2AABB_Overlaps(node->aabb, aabb))
 		{
 			if (b2IsLeaf(node))
 			{

@@ -1,13 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/geometry.h"
-
 #include "aabb.h"
 #include "core.h"
 #include "shape.h"
 
-#include "box2d/distance.h"
+#include "box2d/collision.h"
 #include "box2d/math_functions.h"
 
 #include <float.h>

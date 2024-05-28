@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "box2d/debug_draw.h"
 #include "box2d/types.h"
 
 //
@@ -44,7 +43,7 @@ public:
 
 	void DrawSegment(b2Vec2 p1, b2Vec2 p2, b2HexColor color);
 
-	void DrawTransform(b2Transform xf);
+	void DrawTransform(b2Transform transform);
 
 	void DrawPoint(b2Vec2 p, float size, b2HexColor color);
 

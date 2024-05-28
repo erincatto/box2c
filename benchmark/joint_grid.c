@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/box2d.h"
-#include "box2d/geometry.h"
 #include "box2d/math_functions.h"
 
 #include <stdlib.h>

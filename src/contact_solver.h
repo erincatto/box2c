@@ -5,8 +5,6 @@
 
 #include "solver.h"
 
-#include "box2d/math_types.h"
-
 #include "x86/avx.h"
 
 typedef struct b2ContactSim b2ContactSim;

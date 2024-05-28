@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "box2d/box2d.h"
-#include "box2d/geometry.h"
+#include "box2d/collision.h"
 #include "box2d/math_functions.h"
 #include "test_macros.h"
 
@@ -15,12 +15,9 @@
 // with your rendering engine in your game engine.
 int HelloWorld(void)
 {
-	// Define the gravity vector.
-	b2Vec2 gravity = {0.0f, -10.0f};
-
 	// Construct a world object, which will hold and simulate the rigid bodies.
 	b2WorldDef worldDef = b2DefaultWorldDef();
-	worldDef.gravity = gravity;
+	worldDef.gravity = (b2Vec2){0.0f, -10.0f};
 
 	b2WorldId worldId = b2CreateWorld(&worldDef);
 	ENSURE(b2World_IsValid(worldId));
@@ -68,13 +65,13 @@ int HelloWorld(void)
 	// second (60Hz) and 4 sub-steps. This provides a high quality simulation
 	// in most game scenarios.
 	float timeStep = 1.0f / 60.0f;
-	int32_t subStepCount = 4;
+	int subStepCount = 4;
 
 	b2Vec2 position = b2Body_GetPosition(bodyId);
 	float angle = b2Body_GetAngle(bodyId);
 
 	// This is our little game loop.
-	for (int32_t i = 0; i < 90; ++i)
+	for (int i = 0; i < 90; ++i)
 	{
 		// Instruct the world to perform a single step of simulation.
 		// It is generally best to keep the time step and iterations fixed.

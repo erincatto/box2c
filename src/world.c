@@ -9,7 +9,6 @@
 #include "allocate.h"
 #include "array.h"
 #include "bitset.h"
-#include "block_allocator.h"
 #include "block_array.h"
 #include "body.h"
 #include "broad_phase.h"
@@ -23,19 +22,12 @@
 #include "solver.h"
 #include "solver_set.h"
 #include "stack_allocator.h"
-#include "util.h"
-
-// needed for dll export
-#include "box2d/box2d.h"
-#include "box2d/color.h"
-#include "box2d/debug_draw.h"
-#include "box2d/distance.h"
-#include "box2d/event_types.h"
-#include "box2d/timer.h"
 
 #include <float.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "box2d/box2d.h"
 
 _Static_assert(b2_maxWorlds > 0, "must be 1 or more");
 b2World b2_worlds[b2_maxWorlds];
@@ -88,6 +80,7 @@ static void b2DefaultFinishTaskFcn(void* userTask, void* userContext)
 b2WorldId b2CreateWorld(const b2WorldDef* def)
 {
 	_Static_assert(b2_maxWorlds < UINT16_MAX, "b2_maxWorlds limit exceeded");
+	b2CheckDef(def);
 
 	int worldId = B2_NULL_INDEX;
 	for (int i = 0; i < b2_maxWorlds; ++i)
@@ -112,7 +105,6 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	world->worldId = (uint16_t)worldId;
 	world->inUse = true;
 
-	world->blockAllocator = b2CreateBlockAllocator();
 	world->stackAllocator = b2CreateStackAllocator(2048);
 	b2CreateBroadPhase(&world->broadPhase);
 	b2CreateGraph(&world->constraintGraph, 16);
@@ -272,7 +264,7 @@ void b2DestroyWorld(b2WorldId worldId)
 
 	b2DestroyArray(world->solverSetArray, sizeof(b2SolverSet));
 
-	b2DestroyGraph(&world->constraintGraph, &world->blockAllocator);
+	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase(&world->broadPhase);
 
 	b2DestroyIdPool(&world->bodyIdPool);
@@ -283,7 +275,6 @@ void b2DestroyWorld(b2WorldId worldId)
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroyIdPool(&world->solverSetIdPool);
 
-	b2DestroyBlockAllocator(&world->blockAllocator);
 	b2DestroyStackAllocator(&world->stackAllocator);
 
 	// Wipe world but preserve revision
@@ -392,7 +383,7 @@ static void b2AddNonTouchingContact(b2World* world, b2Contact* contact, b2Contac
 	contact->colorIndex = B2_NULL_INDEX;
 	contact->localIndex = set->contacts.count;
 
-	b2ContactSim* newContactSim = b2AddContact(&world->blockAllocator, &set->contacts);
+	b2ContactSim* newContactSim = b2AddContact(&set->contacts);
 	memcpy(newContactSim, contactSim, sizeof(b2ContactSim));
 }
 
@@ -868,6 +859,10 @@ static bool DrawQueryCallback(int proxyId, int shapeId, void* context)
 		{
 			color = b2_colorWheat;
 		}
+		else if (bodySim->isBullet && body->setIndex == b2_awakeSet)
+		{
+			color = b2_colorTurquoise;
+		}
 		else if (body->isSpeedCapped)
 		{
 			color = b2_colorYellow;
@@ -919,10 +914,10 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 
 	const float k_impulseScale = 1.0f;
 	const float k_axisScale = 0.3f;
-	b2HexColor speculativeColor = b2_colorGray30;
+	b2HexColor speculativeColor = b2_colorGray3;
 	b2HexColor addColor = b2_colorGreen;
 	b2HexColor persistColor = b2_colorBlue;
-	b2HexColor normalColor = b2_colorGray90;
+	b2HexColor normalColor = b2_colorGray9;
 	b2HexColor impulseColor = b2_colorMagenta;
 	b2HexColor frictionColor = b2_colorYellow;
 
@@ -943,7 +938,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, DrawQueryCallback, &drawContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, b2_defaultMaskBits, DrawQueryCallback, &drawContext);
 	}
 
 	uint32_t wordCount = world->debugBodySet.blockCount;
@@ -1149,6 +1144,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 					{
 						color = b2_colorWheat;
 					}
+					else if (bodySim->isBullet && body->setIndex == b2_awakeSet)
+					{
+						color = b2_colorTurquoise;
+					}
 					else if (body->isSpeedCapped)
 					{
 						color = b2_colorYellow;
@@ -1266,10 +1265,10 @@ void b2World_Draw(b2WorldId worldId, b2DebugDraw* draw)
 		const float k_axisScale = 0.3f;
 		const float linearSlop = b2_linearSlop;
 
-		b2HexColor speculativeColor = b2_colorGray30;
+		b2HexColor speculativeColor = b2_colorGray3;
 		b2HexColor addColor = b2_colorGreen;
 		b2HexColor persistColor = b2_colorBlue;
-		b2HexColor normalColor = b2_colorGray90;
+		b2HexColor normalColor = b2_colorGray9;
 		b2HexColor impulseColor = b2_colorMagenta;
 		b2HexColor frictionColor = b2_colorYellow;
 
@@ -1819,7 +1818,7 @@ void b2World_OverlapAABB(b2WorldId worldId, b2AABB aabb, b2QueryFilter filter, b
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeQueryCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeQueryCallback, &worldContext);
 	}
 }
 
@@ -1894,7 +1893,7 @@ void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transfor
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
 }
 
@@ -1918,7 +1917,7 @@ void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Trans
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
 }
 
@@ -1942,7 +1941,7 @@ void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Trans
 
 	for (int i = 0; i < b2_proxyTypeCount; ++i)
 	{
-		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, TreeOverlapCallback, &worldContext);
+		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
 }
 
@@ -2410,7 +2409,7 @@ void b2World_Explode(b2WorldId worldId, b2Vec2 position, float radius, float mag
 	aabb.upperBound.x = position.x + radius;
 	aabb.upperBound.y = position.y + radius;
 
-	b2DynamicTree_Query(world->broadPhase.trees + b2_movableProxy, aabb, ExplosionCallback, &explosionContext);
+	b2DynamicTree_Query(world->broadPhase.trees + b2_movableProxy, aabb, b2_defaultMaskBits, ExplosionCallback, &explosionContext);
 }
 
 #if B2_VALIDATE

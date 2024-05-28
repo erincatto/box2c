@@ -3,16 +3,9 @@
 
 #pragma once
 
-#include <stdint.h>
+#include "box2d/base.h"
 
-// clang-format off
-#ifdef __cplusplus
-	#define B2_ZERO_INIT {}
-#else
-	/// Used for C zero initialization, such as b2BodyId id = {0} where C++ requires b2BodyId id = {}
-	#define B2_ZERO_INIT {0}
-#endif
-// clang-format on
+#include <stdint.h>
 
 /**
  * @defgroup id Ids
@@ -74,7 +67,7 @@ typedef struct b2JointId
 typedef struct b2ChainId
 {
 	int32_t index1;
-	int16_t world0;
+	uint16_t world0;
 	uint16_t revision;
 } b2ChainId;
 

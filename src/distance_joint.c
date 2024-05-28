@@ -12,8 +12,6 @@
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/debug_draw.h"
-#include "box2d/joint_types.h"
 
 #include <stdio.h>
 

@@ -5,7 +5,6 @@
 #include "sample.h"
 #include "settings.h"
 
-#include "box2d/geometry.h"
 #include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>

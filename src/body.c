@@ -13,12 +13,10 @@
 #include "joint.h"
 #include "shape.h"
 #include "solver_set.h"
-#include "util.h"
 #include "world.h"
 
 // needed for dll export
 #include "box2d/box2d.h"
-#include "box2d/event_types.h"
 #include "box2d/id.h"
 
 #include <string.h>
@@ -179,6 +177,7 @@ static void b2DestroyBodyContacts(b2World* world, b2Body* body, bool wakeBodies)
 
 b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
+	b2CheckDef(def);
 	B2_ASSERT(b2Vec2_IsValid(def->position));
 	B2_ASSERT(b2IsValid(def->angle));
 	B2_ASSERT(b2Vec2_IsValid(def->linearVelocity));
@@ -234,7 +233,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	int bodyId = b2AllocId(&world->bodyIdPool);
 
 	b2SolverSet* set = world->solverSetArray + setId;
-	b2BodySim* bodySim = b2AddBodySim(&world->blockAllocator, &set->sims);
+	b2BodySim* bodySim = b2AddBodySim(&set->sims);
 	*bodySim = (b2BodySim){0};
 	bodySim->transform.p = def->position;
 	bodySim->transform.q = b2MakeRot(def->angle);
@@ -261,7 +260,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 
 	if (setId == b2_awakeSet)
 	{
-		b2BodyState* bodyState = b2AddBodyState(&world->blockAllocator, &set->states);
+		b2BodyState* bodyState = b2AddBodyState(&set->states);
 		B2_ASSERT(((uintptr_t)bodyState & 0x1F) == 0);
 
 		*bodyState = (b2BodyState){0};
@@ -726,7 +725,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 			// They body could be disabled
 			if (shape->proxyKey != B2_NULL_INDEX)
 			{
-				b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB);
+				b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB, shape->filter.maskBits);
 			}
 		}
 
@@ -1130,7 +1129,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		while (shapeId != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapeArray + shapeId;
-			b2BufferMove(&world->broadPhase, shape->proxyKey);
+			b2BufferMove(&world->broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 			shapeId = shape->nextShapeId;
 		}
 	}

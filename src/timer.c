@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/timer.h"
+#include "box2d/base.h"
 
 #if defined(_WIN32)
 

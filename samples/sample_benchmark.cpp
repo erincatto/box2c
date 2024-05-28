@@ -7,7 +7,6 @@
 #include "settings.h"
 
 #include "box2d/box2d.h"
-#include "box2d/geometry.h"
 #include "box2d/math_functions.h"
 
 #include <GLFW/glfw3.h>
@@ -1452,3 +1451,58 @@ public:
 };
 
 static int sampleCompound = RegisterSample("Benchmark", "Compound", BenchmarkCompound::Create);
+
+class BenchmarkKinematic : public Sample
+{
+public:
+	explicit BenchmarkKinematic(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 0.0f};
+			g_camera.m_zoom = 150.0f;
+		}
+
+		float grid = 1.0f;
+
+#ifdef NDEBUG
+		int span = 100;
+#else
+		int span = 20;
+#endif
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_kinematicBody;
+		bodyDef.angularVelocity = 1.0f;
+		// defer mass properties to avoid n-squared mass computations
+		bodyDef.automaticMass = false;
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.filter.categoryBits = 1;
+		shapeDef.filter.maskBits = 2;
+
+		b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+
+		for (int i = -span; i < span; ++i)
+		{
+			float y = i * grid;
+			for (int j = -span; j < span; ++j)
+			{
+				float x = j * grid;
+				b2Polygon square = b2MakeOffsetBox(0.5f * grid, 0.5f * grid, {x, y}, 0.0f);
+				b2CreatePolygonShape(bodyId, &shapeDef, &square);
+			}
+		}
+
+		// All shapes have been added so I can efficiently compute the mass properties.
+		b2Body_ApplyMassFromShapes(bodyId);
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new BenchmarkKinematic(settings);
+	}
+};
+
+static int sampleKinematic = RegisterSample("Benchmark", "Kinematic", BenchmarkKinematic::Create);

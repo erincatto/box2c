@@ -9,10 +9,9 @@
 #include "sample.h"
 #include "settings.h"
 
-#include "box2d/api.h"
+#include "box2d/base.h"
 #include "box2d/box2d.h"
 #include "box2d/math_functions.h"
-#include "box2d/timer.h"
 
 #include <glad/glad.h>
 // Keep glad.h before glfw3.h

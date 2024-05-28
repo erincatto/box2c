@@ -2,12 +2,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/distance.h"
 
 #include "core.h"
 
+#include "box2d/collision.h"
 #include "box2d/math_functions.h"
-#include "box2d/timer.h"
 
 #include <float.h>
 
@@ -116,7 +115,7 @@ b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
 	b2DistanceProxy proxy;
 	for (int32_t i = 0; i < count; ++i)
 	{
-		proxy.vertices[i] = vertices[i];
+		proxy.points[i] = vertices[i];
 	}
 	proxy.count = count;
 	proxy.radius = radius;
@@ -136,10 +135,10 @@ static b2Vec2 b2Weight3(float a1, b2Vec2 w1, float a2, b2Vec2 w2, float a3, b2Ve
 static int32_t b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
 {
 	int32_t bestIndex = 0;
-	float bestValue = b2Dot(proxy->vertices[0], direction);
+	float bestValue = b2Dot(proxy->points[0], direction);
 	for (int32_t i = 1; i < proxy->count; ++i)
 	{
-		float value = b2Dot(proxy->vertices[i], direction);
+		float value = b2Dot(proxy->points[i], direction);
 		if (value > bestValue)
 		{
 			bestIndex = i;
@@ -204,8 +203,8 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 		b2SimplexVertex* v = vertices[i];
 		v->indexA = cache->indexA[i];
 		v->indexB = cache->indexB[i];
-		b2Vec2 wALocal = proxyA->vertices[v->indexA];
-		b2Vec2 wBLocal = proxyB->vertices[v->indexB];
+		b2Vec2 wALocal = proxyA->points[v->indexA];
+		b2Vec2 wBLocal = proxyB->points[v->indexB];
 		v->wA = b2TransformPoint(transformA, wALocal);
 		v->wB = b2TransformPoint(transformB, wBLocal);
 		v->w = b2Sub(v->wB, v->wA);
@@ -220,8 +219,8 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 		b2SimplexVertex* v = vertices[0];
 		v->indexA = 0;
 		v->indexB = 0;
-		b2Vec2 wALocal = proxyA->vertices[0];
-		b2Vec2 wBLocal = proxyB->vertices[0];
+		b2Vec2 wALocal = proxyA->points[0];
+		b2Vec2 wBLocal = proxyB->points[0];
 		v->wA = b2TransformPoint(transformA, wALocal);
 		v->wB = b2TransformPoint(transformB, wBLocal);
 		v->w = b2Sub(v->wB, v->wA);
@@ -495,7 +494,7 @@ void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 
 #define B2_GJK_DEBUG 0
 
-// Warning: writing to these globals significantly slows multi-threading performance
+// Warning: writing to these globals significantly slows multithreading performance
 #if B2_GJK_DEBUG
 int32_t b2_gjkCalls;
 int32_t b2_gjkIters;
@@ -521,20 +520,19 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
-	const int32_t k_maxIters = 20;
+	const int k_maxIters = 20;
 
 	// These store the vertices of the last simplex so that we
 	// can check for duplicates and prevent cycling.
-	int32_t saveA[3], saveB[3];
-	int32_t saveCount = 0;
+	int saveA[3], saveB[3];
 
 	// Main iteration loop.
-	int32_t iter = 0;
+	int iter = 0;
 	while (iter < k_maxIters)
 	{
 		// Copy simplex so we can identify duplicates.
-		saveCount = simplex.count;
-		for (int32_t i = 0; i < saveCount; ++i)
+		int saveCount = simplex.count;
+		for (int i = 0; i < saveCount; ++i)
 		{
 			saveA[i] = vertices[i]->indexA;
 			saveB[i] = vertices[i]->indexB;
@@ -581,9 +579,9 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 		// Compute a tentative new simplex vertex using support points.
 		b2SimplexVertex* vertex = vertices[simplex.count];
 		vertex->indexA = b2FindSupport(proxyA, b2InvRotateVector(transformA.q, b2Neg(d)));
-		vertex->wA = b2TransformPoint(transformA, proxyA->vertices[vertex->indexA]);
+		vertex->wA = b2TransformPoint(transformA, proxyA->points[vertex->indexA]);
 		vertex->indexB = b2FindSupport(proxyB, b2InvRotateVector(transformB.q, d));
-		vertex->wB = b2TransformPoint(transformB, proxyB->vertices[vertex->indexB]);
+		vertex->wB = b2TransformPoint(transformB, proxyB->points[vertex->indexB]);
 		vertex->w = b2Sub(vertex->wB, vertex->wA);
 
 		// Iteration count is equated to the number of support point calls.
@@ -595,7 +593,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 		// Check for duplicate support points. This is the main termination criteria.
 		bool duplicate = false;
-		for (int32_t i = 0; i < saveCount; ++i)
+		for (int i = 0; i < saveCount; ++i)
 		{
 			if (vertex->indexA == saveA[i] && vertex->indexB == saveB[i])
 			{
@@ -678,7 +676,7 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 
 	for (int i = 0; i < proxyB.count; ++i)
 	{
-		proxyB.vertices[i] = b2TransformPoint(xf, input->proxyB.vertices[i]);
+		proxyB.points[i] = b2TransformPoint(xf, input->proxyB.points[i]);
 	}
 	
 	float radius = proxyA.radius + proxyB.radius;
@@ -695,10 +693,10 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
 
 	// Get an initial point in A - B
-	int32_t indexA = b2FindSupport(&proxyA, b2Neg(r));
-	b2Vec2 wA = proxyA.vertices[indexA];
-	int32_t indexB = b2FindSupport(&proxyB, r);
-	b2Vec2 wB = proxyB.vertices[indexB];
+	int indexA = b2FindSupport(&proxyA, b2Neg(r));
+	b2Vec2 wA = proxyA.points[indexA];
+	int indexB = b2FindSupport(&proxyB, r);
+	b2Vec2 wB = proxyB.points[indexB];
 	b2Vec2 v = b2Sub(wA, wB);
 
 	// Sigma is the target distance between proxies
@@ -706,8 +704,8 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	const float sigma = b2MaxFloat(linearSlop, radius - linearSlop);
 
 	// Main iteration loop.
-	const int32_t k_maxIters = 20;
-	int32_t iter = 0;
+	const int k_maxIters = 20;
+	int iter = 0;
 	while (iter < k_maxIters && b2Length(v) > sigma + 0.5f * linearSlop)
 	{
 		B2_ASSERT(simplex.count < 3);
@@ -716,9 +714,9 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 
 		// Support in direction -v (A - B)
 		indexA = b2FindSupport(&proxyA, b2Neg(v));
-		wA = proxyA.vertices[indexA];
+		wA = proxyA.points[indexA];
 		indexB = b2FindSupport(&proxyB, v);
-		wB = proxyB.vertices[indexB];
+		wB = proxyB.points[indexB];
 		b2Vec2 p = b2Sub(wA, wB);
 
 		// -v is a normal at p, normalize to work with sigma
@@ -813,11 +811,11 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 
 #define B2_TOI_DEBUG 0
 
-// Warning: writing to these globals significantly slows multi-threading performance
+// Warning: writing to these globals significantly slows multithreading performance
 #if B2_TOI_DEBUG
 float b2_toiTime, b2_toiMaxTime;
-int32_t b2_toiCalls, b2_toiIters, b2_toiMaxIters;
-int32_t b2_toiRootIters, b2_toiMaxRootIters;
+int b2_toiCalls, b2_toiIters, b2_toiMaxIters;
+int b2_toiRootIters, b2_toiMaxRootIters;
 #endif
 
 typedef enum b2SeparationType
@@ -844,7 +842,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 
 	f.proxyA = proxyA;
 	f.proxyB = proxyB;
-	int32_t count = cache->count;
+	int count = cache->count;
 	B2_ASSERT(0 < count && count < 3);
 
 	f.sweepA = *sweepA;
@@ -856,8 +854,8 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 	if (count == 1)
 	{
 		f.type = b2_pointsType;
-		b2Vec2 localPointA = proxyA->vertices[cache->indexA[0]];
-		b2Vec2 localPointB = proxyB->vertices[cache->indexB[0]];
+		b2Vec2 localPointA = proxyA->points[cache->indexA[0]];
+		b2Vec2 localPointB = proxyB->points[cache->indexB[0]];
 		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
 		b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
 		f.axis = b2Normalize(b2Sub(pointB, pointA));
@@ -869,8 +867,8 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 	{
 		// Two points on B and one on A.
 		f.type = b2_faceBType;
-		b2Vec2 localPointB1 = proxyB->vertices[cache->indexB[0]];
-		b2Vec2 localPointB2 = proxyB->vertices[cache->indexB[1]];
+		b2Vec2 localPointB1 = proxyB->points[cache->indexB[0]];
+		b2Vec2 localPointB2 = proxyB->points[cache->indexB[1]];
 
 		f.axis = b2CrossVS(b2Sub(localPointB2, localPointB1), 1.0f);
 		f.axis = b2Normalize(f.axis);
@@ -879,7 +877,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 		f.localPoint = (b2Vec2){0.5f * (localPointB1.x + localPointB2.x), 0.5f * (localPointB1.y + localPointB2.y)};
 		b2Vec2 pointB = b2TransformPoint(xfB, f.localPoint);
 
-		b2Vec2 localPointA = proxyA->vertices[cache->indexA[0]];
+		b2Vec2 localPointA = proxyA->points[cache->indexA[0]];
 		b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
 
 		float s = b2Dot(b2Sub(pointA, pointB), normal);
@@ -892,8 +890,8 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 
 	// Two points on A and one or two points on B.
 	f.type = b2_faceAType;
-	b2Vec2 localPointA1 = proxyA->vertices[cache->indexA[0]];
-	b2Vec2 localPointA2 = proxyA->vertices[cache->indexA[1]];
+	b2Vec2 localPointA1 = proxyA->points[cache->indexA[0]];
+	b2Vec2 localPointA2 = proxyA->points[cache->indexA[1]];
 
 	f.axis = b2CrossVS(b2Sub(localPointA2, localPointA1), 1.0f);
 	f.axis = b2Normalize(f.axis);
@@ -902,7 +900,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 	f.localPoint = (b2Vec2){0.5f * (localPointA1.x + localPointA2.x), 0.5f * (localPointA1.y + localPointA2.y)};
 	b2Vec2 pointA = b2TransformPoint(xfA, f.localPoint);
 
-	b2Vec2 localPointB = proxyB->vertices[cache->indexB[0]];
+	b2Vec2 localPointB = proxyB->points[cache->indexB[0]];
 	b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
 
 	float s = b2Dot(b2Sub(pointB, pointA), normal);
@@ -913,7 +911,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 	return f;
 }
 
-float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_t* indexB, float t)
+static float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_t* indexB, float t)
 {
 	b2Transform xfA = b2GetSweepTransform(&f->sweepA, t);
 	b2Transform xfB = b2GetSweepTransform(&f->sweepB, t);
@@ -928,8 +926,8 @@ float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_
 			*indexA = b2FindSupport(f->proxyA, axisA);
 			*indexB = b2FindSupport(f->proxyB, axisB);
 
-			b2Vec2 localPointA = f->proxyA->vertices[*indexA];
-			b2Vec2 localPointB = f->proxyB->vertices[*indexB];
+			b2Vec2 localPointA = f->proxyA->points[*indexA];
+			b2Vec2 localPointB = f->proxyB->points[*indexB];
 
 			b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
 			b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
@@ -948,7 +946,7 @@ float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_
 			*indexA = -1;
 			*indexB = b2FindSupport(f->proxyB, axisB);
 
-			b2Vec2 localPointB = f->proxyB->vertices[*indexB];
+			b2Vec2 localPointB = f->proxyB->points[*indexB];
 			b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
 
 			float separation = b2Dot(b2Sub(pointB, pointA), normal);
@@ -965,7 +963,7 @@ float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_
 			*indexB = -1;
 			*indexA = b2FindSupport(f->proxyA, axisA);
 
-			b2Vec2 localPointA = f->proxyA->vertices[*indexA];
+			b2Vec2 localPointA = f->proxyA->points[*indexA];
 			b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
 
 			float separation = b2Dot(b2Sub(pointA, pointB), normal);
@@ -990,8 +988,8 @@ float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_
 	{
 		case b2_pointsType:
 		{
-			b2Vec2 localPointA = f->proxyA->vertices[indexA];
-			b2Vec2 localPointB = f->proxyB->vertices[indexB];
+			b2Vec2 localPointA = f->proxyA->points[indexA];
+			b2Vec2 localPointB = f->proxyB->points[indexB];
 
 			b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
 			b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
@@ -1005,7 +1003,7 @@ float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_
 			b2Vec2 normal = b2RotateVector(xfA.q, f->axis);
 			b2Vec2 pointA = b2TransformPoint(xfA, f->localPoint);
 
-			b2Vec2 localPointB = f->proxyB->vertices[indexB];
+			b2Vec2 localPointB = f->proxyB->points[indexB];
 			b2Vec2 pointB = b2TransformPoint(xfB, localPointB);
 
 			float separation = b2Dot(b2Sub(pointB, pointA), normal);
@@ -1017,7 +1015,7 @@ float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_
 			b2Vec2 normal = b2RotateVector(xfB.q, f->axis);
 			b2Vec2 pointB = b2TransformPoint(xfB, f->localPoint);
 
-			b2Vec2 localPointA = f->proxyA->vertices[indexA];
+			b2Vec2 localPointA = f->proxyA->points[indexA];
 			b2Vec2 pointA = b2TransformPoint(xfA, localPointA);
 
 			float separation = b2Dot(b2Sub(pointA, pointB), normal);

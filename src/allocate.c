@@ -5,7 +5,7 @@
 
 #include "core.h"
 
-#include "box2d/api.h"
+#include "box2d/base.h"
 
 #if defined(B2_COMPILER_MSVC)
 #define _CRTDBG_MAP_ALLOC
