@@ -494,7 +494,7 @@ void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 
 #define B2_GJK_DEBUG 0
 
-// Warning: writing to these globals significantly slows multi-threading performance
+// Warning: writing to these globals significantly slows multithreading performance
 #if B2_GJK_DEBUG
 int32_t b2_gjkCalls;
 int32_t b2_gjkIters;
@@ -811,7 +811,7 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 
 #define B2_TOI_DEBUG 0
 
-// Warning: writing to these globals significantly slows multi-threading performance
+// Warning: writing to these globals significantly slows multithreading performance
 #if B2_TOI_DEBUG
 float b2_toiTime, b2_toiMaxTime;
 int b2_toiCalls, b2_toiIters, b2_toiMaxIters;

@@ -175,7 +175,7 @@ void TiltedStacks(int testIndex, int workerCount)
 	enkiDeleteTaskScheduler(scheduler);
 }
 
-// Test multi-threaded determinism.
+// Test multithreaded determinism.
 int DeterminismTest(void)
 {
 	// Test 1 : 4 threads

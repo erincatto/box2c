@@ -324,7 +324,7 @@ typedef struct b2ShapeDef
 	bool enableHitEvents;
 
 	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
-	///	and must be carefully handled due to multi-threading. Ignored for sensors.
+	///	and must be carefully handled due to threading. Ignored for sensors.
 	bool enablePreSolveEvents;
 
 	/// Normally shapes on static bodies don't invoke contact creation when they are added to the world. This overrides
@@ -856,7 +856,7 @@ B2_API b2WheelJointDef b2DefaultWheelJointDef();
  *
  * Events are used to collect events that occur during the world time step. These events
  * are then available to query after the time step is complete. This is preferable to callbacks
- * because Box2D uses multi-threaded simulation.
+ * because Box2D uses multithreaded simulation.
  *
  * Also when events occur in the simulation step it may be problematic to modify the world, which is
  * often what applications want to do when events occur.

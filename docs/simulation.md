@@ -1,7 +1,7 @@
 # Simulation
 Rigid body simulation is the primary feature of Box2D. It is the most complex part of
-Box2D and is the part you likely interact with the most. Simulations sits on top of
-the base and collision functions, so you should be somewhat familiar
+Box2D and is the part you will likely interact with the most. Simulation sits on top of
+the foundation and collision types and functions, so you should be somewhat familiar
 with those by now.
 
 Rigid body simulation contains:
@@ -31,7 +31,7 @@ This helps to reduce cache misses drastically and also allows for [SIMD](https:/
 optimizations.
 
 So you will be dealing with `b2WorldId`, `b2BodyId`, etc. These are small opaque structures that you
-will pass around by value, just like pointer. Box2D creation functions return an id. Functions
+will pass around by value, just like pointers. Box2D creation functions return an id. Functions
 that operate on Box2D objects take ids.
 
 ```c
@@ -86,7 +86,7 @@ worldDef.userTaskContext = &myTaskSystem;
 
 Multithreading is not required but it can improve performance substantially. Read more [here](#multi).
 
-### Creating and Destroying a World
+### World Lifetime
 Creating a world is done using a world definition.
 
 ```c
@@ -105,15 +105,9 @@ You can create up to 128 worlds. These worlds do not interact and may be simulat
 When you destroy a world, every body, shape, and joint is also destroyed. This is much faster
 than destroying individual objects.
 
-### Using a World
-The world is used for creating and destroying bodies
-and joints. These interfaces are discussed later in the sections on
-bodies and joints. There are some other interactions with Box2D worlds that I
-will cover now.
-
 ### Simulation
 The world is used to drive the simulation. You specify a time step
-and a velocity and position iteration count. For example:
+and a sub-step count. For example:
 
 ```c
 float timeStep = 1.0f / 60.f;
@@ -123,13 +117,15 @@ b2World_Step(myWorldId, timeStep, subSteps);
 
 After the time step you can examine your bodies and joints for
 information. Most likely you will grab the position off the bodies so
-that you can update your actors and render them. You can perform the
-time step anywhere in your game loop, but you should be aware of the
+that you can update your game objects and render them. Or more optimally, you
+will use `b2World_GetBodyEvents()`.
+
+You can perform the time step anywhere in your game loop, but you should be aware of the
 order of things. For example, you must create bodies before the time
 step if you want to get collision results for the new bodies in that
 frame.
 
-As I discussed above in the HelloWorld tutorial, you should use a fixed
+As I discussed in the [HelloWorld tutorial](#hello), you should use a fixed
 time step. By using a larger time step you can improve performance in
 low frame rate scenarios. But generally you should use a time step no
 larger than 1/30 seconds (30Hz). A time step of 1/60 seconds (60Hz) will usually
@@ -143,7 +139,7 @@ accuracy. For example, long joint chains will stretch less with more sub-steps.
 
 The scissor lift sample shown [here](#samples) works better with more sub-steps
 and is configured to use 8 sub-steps. With a primary time step of 1/60 seconds,
-the scissor lift is taking sub-steps of 1/480 seconds!
+the scissor lift is taking sub-steps at 480Hz!
 
 ## Rigid Bodies
 Rigid bodies, or just *bodies* have position and velocity. You can apply forces, torques,
@@ -166,16 +162,15 @@ a kinematic body if you want a shape to be animated and not affected by
 forces or collisions.
 
 #b2_dynamicBody:
-A dynamic body is fully simulated and move according to forces. A dynamic body can
-collide with all body types. A dynamic body always has finite, non-zero
-mass. If you try to set the mass of a dynamic body to zero, it will
-automatically acquire a mass of one kilogram and it won't rotate.
+A dynamic body is fully simulated and moves according to forces and torques.
+A dynamic body can collide with all body types. A dynamic body always has
+finite, non-zero mass.
 
 > **Caution**:
 > Generally you should not set the transform on bodies after creation.
 > Box2D treats this as a teleport and may result in undesirable behavior.
 
-Bodies carry shapes and move them around in the world. Bodies are always
+Bodies carry shapes and moves them around in the world. Bodies are always
 rigid bodies in Box2D. That means that two shapes attached to the same rigid body never move
 relative to each other and shapes attached to the same body don't
 collide.
@@ -190,11 +185,11 @@ entities. You should also keep body ids so you can destroy them
 when you are done with them.
 
 ### Body Definition
-Before a body is created you must create a body definition (b2BodyDef).
+Before a body is created you must create a body definition (`b2BodyDef`).
 The body definition holds the data needed to create and initialize a
 body correctly.
 
-Because Box2D uses a C API, a function is provided to create a valid
+Because Box2D uses a C API, a function is provided to create a default
 body definition.
 
 ```c
@@ -221,7 +216,7 @@ bodyDef.type = b2_dynamicBody;
 ```
 
 ### Position and Angle
-The body definition gives you the chance to initialize the position and rotation of
+The body definition gives you the chance to initialize the position and angle of
 the body on creation. This has far better performance than creating the body at the
 world origin and then moving the body.
 
@@ -239,16 +234,15 @@ velocity for the center of mass, not the body origin.
 
 When you are building the body definition, you may not know where the
 center of mass is located. Therefore you specify the position of the
-body's origin. You may also specify the body's angle in radians, which
-is not affected by the position of the center of mass. If you later
+body's origin. You may also specify the body's angle in radians. If you later
 change the mass properties of the body, then the center of mass may move
-on the body, but the origin position does not change and the attached
+on the body, but the origin position and body angle does not change and the attached
 shapes and joints do not move.
 
 ```c
 b2BodyDef bodyDef = b2DefaultBodyDef();
-bodyDef.position = (b2Vec2){0.0f, 2.0f}; // the body origin
-bodyDef.angle = 0.25f * b2_pi; // the body rotation in radians.
+bodyDef.position = (b2Vec2){0.0f, 2.0f};
+bodyDef.angle = 0.25f * b2_pi;
 ```
 
 A rigid body is a frame of reference. You can define shapes and
@@ -261,14 +255,13 @@ different than friction because friction only occurs with contact.
 Damping is not a replacement for friction and the two effects are
 used together.
 
-Damping parameters should be between 0 and infinity, with 0 meaning no
-damping, and infinity meaning full damping. Normally you will use a
-damping value between 0 and 0.1. I generally do not use linear damping
+Damping parameter are non-negative. Normally you will use a
+damping value between 0 and 1. I generally do not use linear damping
 because it makes bodies look like they are floating.
 
 ```c
 bodyDef.linearDamping = 0.0f;
-bodyDef.angularDamping = 0.01f;
+bodyDef.angularDamping = 0.1f;
 ```
 
 Damping is approximated to improve performance. At small damping
@@ -292,7 +285,8 @@ Across a single time step \f$h\f$ the velocity evolves like so
 v(t + h) = v_0 e^{-c (t + h)} = v_0 e^{-c t} e^{-c h} = v(t) e^{-c h}
 \f]
 
-Using the [Pade approximation](https://en.wikipedia.org/wiki/Pad%C3%A9_table)
+Using the [Pade approximation](https://en.wikipedia.org/wiki/Pad%C3%A9_table) for the
+exponential function gives the update formula:
 \f[
 v(t + h) \approx \frac{1}{1 + c h} v(t)
 \f]
@@ -327,9 +321,11 @@ bodyDef.enableSleep = true;
 bodyDef.isAwake = true;
 ```
 
+The `isAwake` flag is ignored if `enableSleep` is false.
+
 ### Fixed Rotation
 You may want a rigid body, such as a character, to have a fixed
-rotation. Such a body should not rotate, even under load. You can use
+rotation. Such a body does not rotate, even under load. You can use
 the fixed rotation setting to achieve this:
 
 ```c
@@ -340,12 +336,12 @@ The fixed rotation flag causes the rotational inertia and its inverse to
 be set to zero.
 
 ### Bullets
-Game simulation usually generates a sequence of transorms that are played
+Game simulation usually generates a sequence of transforms that are played
 at some frame rate. This is called discrete simulation. In discrete
 simulation, rigid bodies can move by a large amount in one time step. If
 a physics engine doesn't account for the large motion, you may see some
 objects incorrectly pass through each other. This effect is called
-tunneling.
+*tunneling*.
 
 By default, Box2D uses continuous collision detection (CCD) to prevent
 dynamic bodies from tunneling through static bodies. This is done by
@@ -382,6 +378,9 @@ You can create a body as disabled and later enable it.
 
 ```c
 bodyDef.isEnabled = false;
+
+// Later ...
+b2Body_Enable(myBodyId);
 ```
 
 Joints may be connected to disabled bodies. These joints will not be
@@ -401,10 +400,11 @@ object type for all body user data.
 bodyDef.userData = &myGameObject;
 ```
 
-This is most often when you receive results from a query such as a ray-cast
-or event and you want to get back to your game object.
+This is useful when you receive results from a query such as a ray-cast
+or event and you want to get back to your game object. You can acquire the
+use data from a body using `b2Body_GetUserData()`.
 
-### Body Creation
+### Body Lifetime
 Bodies are created and destroyed using a world id. This lets the world create
 the body with an efficient allocator and add the body to the world data structure.
 
@@ -474,7 +474,7 @@ b2MassData massData = b2Body_GetMassData(myBodyId);
 
 ### State Information
 There are many aspects to the body's state. You can access this state
-data efficiently through the following functions:
+data through the following functions:
 
 ```c
 b2Body_SetType(myBodyId, b2_kinematicBody);
@@ -486,6 +486,7 @@ bool isSleepEnabled = b2Body_IsSleepingEnabled(mybodyId);
 b2Body_SetAwake(myBodyId, true);
 bool isAwake = b2Body_IsAwake(myBodyId);
 b2Body_Disable(myBodyId);
+b2Body_Enable(myBodyId);
 bool isEnabled = b2Body_IsEnabled(myBodyId);
 b2Body_SetFixedRotation(myBodyId, true);
 bool isFixedRotation = b2Body_IsFixedRotation(myBodyId);
@@ -495,7 +496,7 @@ Please see the comments on these functions for more details.
 
 ### Position and Velocity
 You can access the position and rotation of a body. This is common when
-rendering your associated game actor. You can also set the position and rotation,
+rendering your associated game object. You can also set the position and angle,
 although this is less common since you will normally use Box2D to
 simulate movement.
 
@@ -544,7 +545,7 @@ b2Body_ApplyAngularImpulse(myBodyId, angularImpulse, wake);
 ```
 
 Applying a force, torque, or impulse optionally wakes the body. If you don't
-wake the body and it is asleep, the force or impulse will be ignored.
+wake the body and it is asleep, then the force or impulse will be ignored.
 
 You can also apply a force and linear impulse to the center of mass to avoid rotation.
 
@@ -561,7 +562,7 @@ b2Body_ApplyLinearImpulseToCenter(myBodyId, linearImpulse, wake);
 ### Coordinate Transformations
 The body has some utility functions to help you transform points
 and vectors between local and world space. If you don't understand
-these concepts, please read \"Essential Mathematics for Games and
+these concepts, I recommend reading \"Essential Mathematics for Games and
 Interactive Applications\" by Jim Van Verth and Lars Bishop.
 
 ```c
@@ -578,7 +579,7 @@ You can access the shapes on a body. You can get the number of shapes first.
 int shapeCount = b2Body_GetShapeCount(myBodyId);
 ```
 
-If you have bodies with many shapes, you can allocate an array now or if you
+If you have bodies with many shapes, you can allocate an array or if you
 know the number is limited you can use a fixed size array.
 
 ```c
@@ -601,7 +602,7 @@ Many bodies may not have moved because they are sleeping. Also iterating across 
 will have lots of cache misses.
 
 Box2D provides `b2BodyEvents` that you can access after every call to `b2World_Step()` to get
-an array of body movement events.
+an array of body movement events. Since this data is contiguous, it is cache friendly.
 
 ```c
 b2BodyEvents events = b2World_GetBodyEvents(m_worldId);
@@ -625,7 +626,7 @@ A body may have zero or more shapes. A body with multiple shapes is sometimes
 called a *compound body.*
 
 Shapes hold the following:
-- a single shape primitive
+- a shape primitive
 - density, friction, and restitution
 - collision filtering flags
 - parent body id
@@ -634,7 +635,7 @@ Shapes hold the following:
 
 These are described in the following sections.
 
-### Shape Creation
+### Shape Lifetime
 Shapes are created by initializing a shape definition and a shape primitive.
 These are passed to a creation function specific to each shape type.
 
@@ -649,9 +650,11 @@ b2ShapeId myShapeId = b2CreatePolygonShape(myBodyId, &shapeDef, &box);
 
 This creates the shape and attaches it to the body. You do not need to
 store the shape id since the shape will automatically be
-destroyed when the parent body is destroyed. You can create multiple
-shapes on a single body. However, you may wish to store the shape id if you plan
+destroyed when the parent body is destroyed. However, you may wish to store the shape id if you plan
 to change properties on it later.
+
+You can create multiple shapes on a single body. They all can contribute
+to the mass of the body. These shapes never collide with each other and may overlap.
 
 You can destroy a shape on the parent body. You may do this to model a
 breakable object. Otherwise you can just leave the shape alone and let
@@ -684,14 +687,15 @@ b2Body_ApplyMassFromShapes(myBodyId);
 ### Friction
 Friction is used to make objects slide along each other realistically.
 Box2D supports static and dynamic friction, but uses the same parameter
-for both. Box2D attempts to simulation friction accurately and the friction
+for both. Box2D attempts to simulate friction accurately and the friction
 strength is proportional to the normal force. This is called [Coulomb
 friction](https://en.wikipedia.org/wiki/Friction). The friction parameter
 is usually set between 0 and 1, but
 can be any non-negative value. A friction value of 0 turns off friction
 and a value of 1 makes the friction strong. When the friction force is
 computed between two shapes, Box2D must combine the friction parameters
-of the two parent shapes. This is done with the geometric mean:
+of the two parent shapes. This is done with the
+[geometric mean](https://en.wikipedia.org/wiki/Geometric_mean):
 
 ```c
 float mixedFriction = sqrtf(b2Shape_GetFriction(shapeIdA) * b2Shape_GetFriction(shapeIdB));
@@ -709,7 +713,7 @@ exactly reflected. This is called a *perfectly elastic* collision.
 Restitution is combined using the following formula.
 
 ```c
-float mixedRestitution = sqrtf(b2Shape_GetRestitution(shapeIdA) * b2Shape_GetRestitution(shapeIdB));
+float mixedRestitution = b2MaxFloat(b2Shape_GetRestitution(shapeIdA), b2Shape_GetRestitution(shapeIdB));
 ```
 
 Restitution is combined this way so that you can have a bouncy super

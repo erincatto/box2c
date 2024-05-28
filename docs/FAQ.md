@@ -104,7 +104,7 @@ Box2D does not have any support for coordinate frame wrapping. You would likely 
 ### Is Box2D deterministic?
 For the same input, and same binary, Box2D will reproduce any simulation. Box2D does not use any random numbers nor base any computation on random events (such as timers, etc).
 
-Box2D is also derministic under multi-threading. A simulation using two threads will give the same result as eight threads.
+Box2D is also deterministic under multithreading. A simulation using two threads will give the same result as eight threads.
 
 However, people often want more stringent determinism. People often want to know if Box2D can produce identical results on different binaries and on different platforms. Currently this is not provided, but the situation may improve in a future update.
 

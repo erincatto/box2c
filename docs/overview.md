@@ -14,8 +14,8 @@ concepts, such as mass, force, torque, and impulses. If not, please
 first consult Google search and Wikipedia.
 
 Box2D was created as part of a physics tutorial at the Game Developer
-Conference. You can get these tutorials from the download section of
-box2d.org.
+Conference. You can get these tutorials from the publications section of
+[box2d.org](https://box2d.org/publications/).
 
 Since Box2D is written in C, you are expected to be experienced in C
 programming. Box2D should not be your first C programming project! You
@@ -46,14 +46,14 @@ There is also a [Discord server](https://discord.gg/NKYgCBP) and a
 [subreddit](https://reddit.com/r/box2d) for Box2D.
 
 ## Core Concepts
-Box2D works with several fundamental concepts and objects. We briefly
+Box2D works with several fundamental concepts and objects. I briefly
 define these objects here and more details are given later in this
 document.
 
 ### rigid body
 A chunk of matter that is so strong that the distance between any two
 bits of matter on the chunk is constant. They are hard like a diamond.
-In the following discussion we use body interchangeably with rigid body.
+In the following discussion I use *body* interchangeably with rigid body.
 
 ### shape
 A shape binds collision geometry to a body and adds material properties such as
@@ -63,8 +63,8 @@ collision system (broad-phase) so that it can collide with other shapes.
 ### constraint
 A constraint is a physical connection that removes degrees of freedom
 from bodies. A 2D body has 3 degrees of freedom (two translation
-coordinates and one rotation coordinate). If we take a body and pin it
-to the wall (like a pendulum) we have constrained the body to the wall.
+coordinates and one rotation coordinate). If I take a body and pin it
+to the wall (like a pendulum) I have constrained the body to the wall.
 At this point the body can only rotate about the pin, so the constraint
 has removed 2 degrees of freedom.
 
@@ -97,14 +97,14 @@ have a damping ratio to let you specify how quickly the spring will come to
 rest.
 
 ### world
-A physics world is a collection of bodies, shapes, and constraints
+A physics world is a collection of bodies, shapes, joints, and contacts
 that interact together. Box2D supports the creation of multiple worlds which
 are completely independent.
 
 ### solver
 The physics world has a solver that is used to advance time and to
 resolve contact and joint constraints. The Box2D solver is a high
-performance iterative solver that operates in order N time, where N is
+performance sequential solver that operates in order N time, where N is
 the number of constraints.
 
 ### continuous collision
@@ -151,19 +151,9 @@ Unfortunately this will lead to a poor simulation and possibly weird
 behavior. An object of length 200 pixels would be seen by Box2D as the
 size of a 45 story building.
 
-However, you may adjust the unit system in Box2D using the function
-`b2SetLengthUnitsPerMeter()`. You may use this to use pixel based units and
-you will need to decide how many pixels represent a meter. You will also
-need to figure out reasonable values for gravity, density, force, and torque.
-One of the benefits of using MKS units for physics simulation is that you
-can use real world values to get reasonable results.
-
-It is also harder to get support for using Box2D if you change the unit
-system, because values are harder to communicate and may become non-intuitive.
-
 > **Caution**: 
-> Box2D is tuned for MKS units. Keep the size of moving objects roughly
-> between 0.1 and 10 meters. You'll need to use some scaling system when
+> Box2D is tuned for MKS units. Keep the size of moving objects larger than 1cm.
+> You'll need to use some scaling system when
 > you render your environment and actors. The Box2D samples application
 > does this by using an OpenGL viewport transform. Do not use pixel units
 > unless you understand the implications.
@@ -184,15 +174,24 @@ stability.
 > kilometers, which is much larger than most game worlds.
 
 Box2D uses radians for angles. The body rotation is stored a complex number,
-so when you access the angle of a body, it will be between -pi and pi radians.
+so when you access the angle of a body, it will be between \f$-\pi\f$ and \f$\pi\f$ radians.
 
 > **Caution**:
 > Box2D uses radians, not degrees.
 
 ## Changing the length units
-Advanced users may change the length unit calling `b2SetLengthUnitsPerMeter()`
+Advanced users may change the length unit by calling `b2SetLengthUnitsPerMeter()`
 at application startup. If you keep Box2D in a shared library, you will need
 to call this if the shared library is reloaded.
+
+If you change the length units to pixels you will need to decide how many pixels
+represent a meter. You will also
+need to figure out reasonable values for gravity, density, force, and torque.
+One of the benefits of using MKS units for physics simulation is that you
+can use real world values to get reasonable results.
+
+It is also harder to get support for using Box2D if you change the unit
+system, because values are harder to communicate and may become non-intuitive.
 
 ## Ids and Definitions
 Fast memory management plays a central role in the design of the Box2D
@@ -202,11 +201,11 @@ to access the underlying data.
 
 These ids provide some safety. If you use an id after it has been freed you will
 usually get an assertion. All ids support 64k generations of safety. All ids
-also have a coresponding function you can call to check if it is valid.
+also have a corresponding function you can call to check if it is valid.
 
 When you create a world, body, shape, or joint, you need to provide a definition strucure.
 These definitions contain all the information needed to build the Box2D object. By using
-this approach we can prevent construction errors, keep the number of function parameters
+this approach I can prevent construction errors, keep the number of function parameters
 small, provide sensible defaults, and reduce the number of accessors.
 
 Here is an example of body creation:
@@ -231,7 +230,7 @@ b2DestroyBody(myBodyId);
 myBodyId = b2_nullBodyId;
 ```
 
-Notice that the body id is set to null using constant `b2_nullBodyId`. You should treate
+Notice that the body id is set to null using the constant `b2_nullBodyId`. You should treate
 ids as opaque data, however you may zero initialize all Box2D ids and they will be considered
 *null*.
 

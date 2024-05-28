@@ -506,7 +506,7 @@ B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId, bool flag);
 B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
 
 /// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
-///	and must be carefully handled due to multi-threading. Ignored for sensors.
+///	and must be carefully handled due to multithreading. Ignored for sensors.
 ///	@see b2PreSolveFcn
 B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId, bool flag);
 
