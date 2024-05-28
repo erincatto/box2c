@@ -18,13 +18,17 @@ may see some references to objects that have not been described yet.
 Therefore, you may want to quickly skim this section before reading it
 closely.
 
-## Handles (Ids)
+## Ids
 Box2D has a C interface. Typically in a C/C++ library when you create an object with a long lifetime
 you will keep a pointer (or smart pointer) to the object.
 
 Box2D works differently. Instead of pointers, you are given an *id* when you create an object.
 This *id* acts as a [handle](https://en.wikipedia.org/wiki/Handle_(computing)) and help avoid
 problems with [dangling pointers](https://en.wikipedia.org/wiki/Dangling_pointer).
+
+This also allows Box2D to use [data-oriented design](https://en.wikipedia.org/wiki/Data-oriented_design) internally.
+This helps to reduce cache misses drastically and also allows for [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)
+optimizations.
 
 So you will be dealing with `b2WorldId`, `b2BodyId`, etc. These are small opaque structures that you
 will pass around by value, just like pointer. Box2D creation functions return an id. Functions
@@ -591,6 +595,31 @@ for (int i = 0; i < returnCount; ++i)
 
 You can similarly get an array of the joints on a body.
 
+### Body Events
+While you can gather transforms from all your bodies after every time step, this is inefficient.
+Many bodies may not have moved because they are sleeping. Also iterating across many bodies
+will have lots of cache misses.
+
+Box2D provides `b2BodyEvents` that you can access after every call to `b2World_Step()` to get
+an array of body movement events.
+
+```c
+b2BodyEvents events = b2World_GetBodyEvents(m_worldId);
+for (int i = 0; i < events.moveCount; ++i)
+{
+    const b2BodyMoveEvent* event = events.moveEvents + i;
+    MyGameObject* gameObject = event->userData;
+    MoveGameObject(gameObject, event->transform);
+    if (event->fellAsleep)
+    {
+        SleepGameObject(gameObject);
+    }
+}
+```
+
+The body event also indicates if the body fell asleep this time step. This might be useful to
+optimize your application.
+
 ## Shapes
 A body may have zero or more shapes. A body with multiple shapes is sometimes
 called a *compound body.*
@@ -691,7 +720,7 @@ approximately. This is because Box2D uses an sequential solver. Box2D
 also uses inelastic collisions when the collision velocity is small.
 This is done to prevent jitter. See `b2WorldDef::restitutionThreshold`.
 
-### Filtering
+### Filtering {#filtering}
 Collision filtering allows you to efficiently prevent collision between shapes.
 For example, say you make a character that rides a bicycle. You want the
 bicycle to collide with the terrain and the character to collide with
@@ -702,17 +731,30 @@ filtering using categories and groups.
 Box2D supports 32 collision categories. For each shape you can specify
 which category it belongs to. You also specify what other categories
 this shape can collide with. For example, you could specify in a
-multiplayer game that all players don't collide with each other and
-monsters don't collide with each other, but players and monsters should
-collide. This is done with masking bits. For example:
+multiplayer game that all players don't collide with each other. Rather
+than identifying all the situations where things should not collide, I recommend
+identifying all the situations where things should collide. This way you
+don't get into situations where you are using 
+[double negatives](https://en.wikipedia.org/wiki/Double_negative).
+This is done with masking bits. For example:
 
 ```c
+enum MyCategories
+{
+    PLAYER = 0x00000002,
+    MONSTER = 0x00000004,
+};
+
 b2ShapeDef playerShapeDef = b2DefaultShapeDef();
 b2ShapeDef monsterShapeDef = b2DefaultShapeDef();
-playerShapeDef.filter.categoryBits = 0x00000002;
-monsterShapeDef.filter.categoryBits = 0x00000004;
-playerShapeDef.filter.maskBits = 0x00000004;
-monsterShapeDef.filter.maskBits = 0x00000002;
+playerShapeDef.filter.categoryBits = PLAYER;
+monsterShapeDef.filter.categoryBits = MONSTER;
+
+// Players collide with monters, but not with other players
+playerShapeDef.filter.maskBits = MONSTER;
+
+// Monsters collide with players and other monsters
+monsterShapeDef.filter.maskBits = PLAYER | MONSTER;
 ```
 
 Here is the rule for a collision to occur:
@@ -1033,6 +1075,8 @@ for (int i = 0; i < contactEvents.hitCount; ++i)
 ```
 
 Shapes only generate hit events if `b2ShapeDef::enableHitEvents` is true.
+I recommend you only enable this for shapes that need hit events because
+it creates some overhead.
 
 ### Contact Filtering
 Often in a game you don't want all objects to collide. For example, you
@@ -1040,97 +1084,59 @@ may want to create a door that only certain characters can pass through.
 This is called contact filtering, because some interactions are filtered
 out.
 
-Box2D allows you to achieve custom contact filtering by implementing a
-b2ContactFilter. This requires you to implement a
-ShouldCollide function that receives two b2Shape pointers. Your function
-returns true if the shapes should collide.
-
-The default implementation of ShouldCollide uses the b2FilterData
-defined in Chapter 6, Shapes.
-
-```c
-bool b2ContactFilter::ShouldCollide(b2Shape* shapeA, b2Shape* shapeB)
-{
-    const b2Filter& filterA = shapeA->GetFilterData();
-    const b2Filter& filterB = shapeB->GetFilterData();
-
-    if (filterA.groupIndex == filterB.groupIndex && filterA.groupIndex != 0)
-    {
-        return filterA.groupIndex > 0;
-    }
-
-    bool collideA = (filterA.maskBits & filterB.categoryBits) != 0;
-    bool collideB = (filterA.categoryBits & filterB.maskBits) != 0
-    bool collide =  collideA && collideB;
-    return collide;
-}
-```
-
-At run-time you can create an instance of your contact filter and
-register it with b2World::SetContactFilter. Make sure your filter stays
-in scope while the world exists.
-
-```c
-MyContactFilter filter;
-world->SetContactFilter(&filter);
-// filter remains in scope ...
-```
+Contact filtering is setup on shapes and is covered [here](#filtering).
 
 ### Advanced Contact Handling
 
-#### Custom Filtering
+#### Custom Filtering Callback
+For the best performance, use the contact filtering provided by `b2Filter`.
+However, in some cases you may need custom filtering. You can do
+this by registering a custom filter callback that implements `b2CustomFilterFcn()`.
+
+```c
+bool MyCustomFilter(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context)
+{
+    MyGame* myGame = context;
+    return myGame->WantsCollision(shapeIdA, shapeIdB);
+}
+
+// Elsewhere
+b2World_SetCustomFilterCallback(myWorldId, MyCustomFilter, myGame);
+```
+
+This function must be thread safe and must not attempt to read or write the Box2D world.
+Otherwise you will get a [race condition](https://en.wikipedia.org/wiki/Race_condition). 
 
 #### Pre-Solve Callback
 This is called after collision detection, but before collision
 resolution. This gives you a chance to disable the contact based on the
 current configuration. For example, you can implement a one-sided
-platform using this callback and calling b2Contact::SetEnabled(false).
+platform using this callback.
+
 The contact will be re-enabled each time through collision processing,
-so you will need to disable the contact every time-step. The pre-solve
-event may be fired multiple times per time step per contact due to
-continuous collision detection.
+so you will need to disable the contact every time-step. This impl
 
 ```c
-void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
+bool MyPreSolve(b2ShapeId shapeIdA, b2ShapeId shapeIdB, b2Manifold* manifold, void* context)
 {
-    b2WorldManifold worldManifold;
-    contact->GetWorldManifold(&worldManifold);
-    if (worldManifold.normal.y < -0.5f)
+    MyGame* myGame = context;
+
+    if (myGame->IsHittingBelowPlatform(shapeIdA, shapeIdB, manifold))
     {
-        contact->SetEnabled(false);
+        return false;
     }
+
+    return true;
 }
+
+// Elswhere
+b2World_SetPreSolveCallback(myWorldId, MyPreSolve, myGame);
 ```
 
-The pre-solve event is also a good place to determine the point state
-and the approach velocity of collisions.
+Note this currently does not work with high speed collisions, so you may see a
+pause in those situations.
 
-```c
-void PreSolve(b2Contact* contact, const b2Manifold* oldManifold)
-{
-    b2WorldManifold worldManifold;
-    contact->GetWorldManifold(&worldManifold);
-
-    b2PointState state1[2], state2[2];
-    b2GetPointStates(state1, state2, oldManifold, contact->GetManifold());
-
-    if (state2[0] == b2_addState)
-    {
-        const b2Body* bodyA = contact->GetShapeA()->GetBody();
-        const b2Body* bodyB = contact->GetShapeB()->GetBody();
-        b2Vec2 point = worldManifold.points[0];
-        b2Vec2 vA = bodyA->GetLinearVelocityFromWorldPoint(point);
-        b2Vec2 vB = bodyB->GetLinearVelocityFromWorldPoint(point);
-
-        float approachVelocity = b2Dot(vB -- vA, worldManifold.normal);
-
-        if (approachVelocity > 1.0f)
-        {
-            MyPlayCollisionSound();
-        }
-    }
-}
-```
+See the `Platformer` sample for more details.
 
 ## Joints
 Joints are used to constrain bodies to the world or to each other.
@@ -1139,7 +1145,8 @@ can be combined in many different ways to create interesting motions.
 
 Some joints provide limits so you can control the range of motion. Some
 joint provide motors which can be used to drive the joint at a
-prescribed speed until a prescribed force/torque is exceeded.
+prescribed speed until a prescribed force/torque is exceeded. And some
+joints provide springs with damping.
 
 Joint motors can be used in many ways. You can use motors to control
 position by specifying a joint velocity that is proportional to the
@@ -1150,175 +1157,182 @@ motor will attempt to keep the joint from moving until the load becomes
 too strong.
 
 ### Joint Definition
-Each joint type has a definition that derives from b2JointDef. All
+Each joint type has an associated joint definition. All
 joints are connected between two different bodies. One body may be static.
 Joints between static and/or kinematic bodies are allowed, but have no
 effect and use some processing time.
 
+If a joint is connected to a disabled body, that joint is effectively disabled.
+When the both bodies on a joint become enabled, the joint will automatically
+be enabled as well. In other words, you do not need to explicitly enable
+or disable a joint.
+
 You can specify user data for any joint type and you can provide a flag
 to prevent the attached bodies from colliding with each other. This is
-actually the default behavior and you must set the collideConnected
+the default behavior and you must set the collideConnected
 Boolean to allow collision between to connected bodies.
 
 Many joint definitions require that you provide some geometric data.
 Often a joint will be defined by anchor points. These are points fixed
 in the attached bodies. Box2D requires these points to be specified in
 local coordinates. This way the joint can be specified even when the
-current body transforms violate the joint constraint \-\-- a common
-occurrence when a game is saved and reloaded. Additionally, some joint
-definitions need to know the default relative angle between the bodies.
+current body transforms violate the joint constraint. Additionally, some joint
+definitions need a reference angle between the bodies.
 This is necessary to constrain rotation correctly.
-
-Initializing the geometric data can be tedious, so many joints have
-initialization functions that use the current body transforms to remove
-much of the work. However, these initialization functions should usually
-only be used for prototyping. Production code should define the geometry
-directly. This will make joint behavior more robust.
 
 The rest of the joint definition data depends on the joint type. We
 cover these now.
 
-### Joint Factory
-Joints are created and destroyed using the world factory methods. This
-brings up an old issue:
-
-> **Caution**:
-> Don't try to create a joint on the stack or on the heap using new or
-> malloc. You must create and destroy bodies and joints using the create
-> and destroy methods of the world.
+### Joint Lifetime
+Joints are created using creation functions supplied for each joint type. They are destroyed
+with a shared function. All joint types share a single id type `b2JointId`.
 
 Here's an example of the lifetime of a revolute joint:
 
 ```c
-b2World* myWorld;
-b2RevoluteJointDef jointDef;
-jointDef.bodyA = myBodyA;
-jointDef.bodyB = myBodyB;
-jointDef.anchorPoint = myBodyA->GetCenterPosition();
+b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+jointDef.bodyIdA = myBodyA;
+jointDef.bodyIdB = myBodyB;
+jointDef.localAnchorA = (b2Vec2){0.0f, 0.0f};
+jointDef.localAnchorB = (b2Vec2){1.0f, 2.0f};
 
-b2RevoluteJoint* joint = (b2RevoluteJoint*)myWorld->CreateJoint(&jointDef);
+b2JointId myJointId = b2CreateRevoluteJoint(myWorldId, &jointDef);
 
 // ... do stuff ...
 
-myWorld->DestroyJoint(joint);
-joint = nullptr;
+b2DestroyJoint(myJointId);
+myJointId = b2_nullJointId;
 ```
 
-It is always good to nullify your pointer after they are destroyed. This
-will make the program crash in a controlled manner if you try to reuse
-the pointer.
+It is always good to nullify your ids after they are destroyed. 
 
-The lifetime of a joint is not simple. Heed this warning well:
+The lifetime of a joint is not simple. Joints cannot exist detached from a body. 
+So when a body is destroyed, all joints attached to that body are automatically destroyed.
+This means you need to be careful to avoid using joint ids when the attached body was
+destroyed. Box2D will assert if you use a dangling joint id.
 
 > **Caution**:
 > Joints are destroyed when an attached body is destroyed.
 
-This precaution is not always necessary. You may organize your game
-engine so that joints are always destroyed before the attached bodies.
-In this case you don't need to implement the listener. See the
-section on Implicit Destruction for details.
+Fortunately you can check if your joint id is valid.
+
+```c
+if (b2Joint_IsValid(myJointId) == false)
+{
+    myJointId = b2_nullJointId;
+}
+```
+
+This is certainly useful, but should not be overused because if you are creating
+and destroying many joints, this may eventually alias to a different joint. All ids have
+a limit of 64k generations.
 
 ### Using Joints
 Many simulations create the joints and don't access them again until
 they are destroyed. However, there is a lot of useful data contained in
 joints that you can use to create a rich simulation.
 
-First of all, you can get the bodies, anchor points, and user data from
+First of all, you can get the type, bodies, anchor points, and user data from
 a joint.
 
 ```c
-b2Body* b2Joint::GetBodyA();
-b2Body* b2Joint::GetBodyB();
-b2Vec2 b2Joint::GetAnchorA();
-b2Vec2 b2Joint::GetAnchorB();
-void* b2Joint::GetUserData();
+b2JointType jointType = b2Joint_GetType(myJointId);
+b2BodyId bodyIdA = b2Joint_GetBodyA(myJointId);
+b2BodyId bodyIdB = b2Joint_GetBodyB(myJointId);
+b2Vec2 localAnchorA = b2Joint_GetLocalAnchorA(myJointId);
+b2Vec2 localAnchorB = b2Joint_GetLocalAnchorB(myJointId);
+void* myUserData = b2Joint_GetUserData(myJointId);
 ```
 
-All joints have a reaction force and torque. This the reaction force
-applied to body 2 at the anchor point. You can use reaction forces to
+All joints have a reaction force and torque. This is the reaction force
+applied to body B at the anchor point. You can use reaction forces to
 break joints or trigger other game events. These functions may do some
 computations, so don't call them if you don't need the result.
 
 ```c
-b2Vec2 b2Joint::GetReactionForce();
-float b2Joint::GetReactionTorque();
+b2Vec2 force = b2Joint_GetConstraintForce(myJointId);
+float torque = b2Joint_GetConstraintTorque(myJointId);
 ```
+
+See the sample `BreakableJoint` for more details.
 
 ### Distance Joint
 One of the simplest joint is a distance joint which says that the
 distance between two points on two bodies must be constant. When you
 specify a distance joint the two bodies should already be in place. Then
-you specify the two anchor points in world coordinates. The first anchor
-point is connected to body 1, and the second anchor point is connected
-to body 2. These points imply the length of the distance constraint.
+you specify the two anchor points in local coordinates. The first anchor
+point is connected to body A, and the second anchor point is connected
+to body B. These points imply the length of the distance constraint.
 
-![Distance Joint](images/distance_joint.gif)
+![Distance Joint](images/distance_joint.svg)
 
-Here is an example of a distance joint definition. In this case we
-decide to allow the bodies to collide.
+Here is an example of a distance joint definition. In this case I
+decided to allow the bodies to collide.
 
 ```c
-b2DistanceJointDef jointDef;
-jointDef.Initialize(myBodyA, myBodyB, worldAnchorOnBodyA,
-worldAnchorOnBodyB);
+b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+jointDef.bodyIdA = myBodyIdA;
+jointDef.bodyIdB = myBodyIdB;
+jointDef.localAnchorA = (b2Vec2){1.0f, -3.0f};
+jointDef.localAnchorB = (b2Vec2){0.0f, 0.5f};
+jointDef.length = 4.0f;
 jointDef.collideConnected = true;
+
+b2JointId myJointId = b2CreateDistanceJoint(myWorldId, &jointDef);
 ```
 
 The distance joint can also be made soft, like a spring-damper
-connection. See the Web example in the testbed to see how this behaves.
+connection. See the `DistanceJoint` sample to see how this behaves.
 
-Softness is achieved by tuning two constants in the definition:
-stiffness and damping. It can be non-intuitive setting these values directly
-since they have units in terms on Newtons. Box2D provides and API to compute
-these values in terms of frequency and damping ratio.
+Softness is achieved by enabling the spring and tuning two values in the definition:
+Hertz and damping ratio.
+
 ```c
-void b2LinearStiffness(float& stiffness, float& damping,
-	float frequencyHertz, float dampingRatio,
-	const b2Body* bodyA, const b2Body* bodyB);
+jointDef.enableSpring = true;
+jointDef.hertz = 2.0f;
+jointDef.dampingRatio = 0.5f;
 ```
 
 Think of the frequency as the frequency of a harmonic oscillator (like a
 guitar string). The frequency is specified in Hertz. Typically the frequency
 should be less than a half the frequency of the time step. So if you are using
 a 60Hz time step, the frequency of the distance joint should be less than 30Hz.
-The reason is related to the Nyquist frequency.
+The reason is related to the [Nyquist frequency](https://en.wikipedia.org/wiki/Nyquist_frequency).
 
-The damping ratio is non-dimensional and is typically between 0 and 1,
-but can be larger. At 1, the damping is critical (all oscillations
-should vanish).
-
-```c
-float frequencyHz = 4.0f;
-float dampingRatio = 0.5f;
-b2LinearStiffness(jointDef.stiffness, jointDef.damping, frequencyHz, dampingRatio, jointDef.bodyA, jointDef.bodyB);
-```
+The damping ratio controls how fast the oscillations dissipate. A damping
+ratio of one is [critical damping](https://en.wikipedia.org/wiki/Damping) and prevents
+oscilation.
 
 It is also possible to define a minimum and maximum length for the distance joint.
-See `b2DistanceJointDef` for details.
+You can even motorize the distance joint to adjust its length dynamically.
+See `b2DistanceJointDef` and the `DistanceJoint` sample for details.
 
 ### Revolute Joint
 A revolute joint forces two bodies to share a common anchor point, often
-called a hinge point. The revolute joint has a single degree of freedom:
+called a hinge point or pivot. The revolute joint has a single degree of freedom:
 the relative rotation of the two bodies. This is called the joint angle.
 
-![Revolute Joint](images/revolute_joint.gif)
+![Revolute Joint](images/revolute_joint.svg)
 
-To specify a revolute you need to provide two bodies and a single anchor
-point in world space. The initialization function assumes that the
-bodies are already in the correct position.
-
-In this example, two bodies are connected by a revolute joint at the
-first body's center of mass.
+Like all joints, the anchor points are specified in local coordinates.
+However, you can use the body utility functions to simplify this.
 
 ```c
-b2RevoluteJointDef jointDef;
-jointDef.Initialize(myBodyA, myBodyB, myBodyA->GetWorldCenter());
+b2Vec2 worldPivot = {10.0f, -4.0f};
+b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+jointDef.bodyIdA = myBodyIdA;
+jointDef.bodyIdB = myBodyIdB;
+jointDef.localAnchorA = b2Body_GetLocalPoint(myBodyIdA, worldPivot);
+jointDef.localAnchorB = b2Body_GetLocalPoint(myBodyIdB, worldPivot);
+
+b2JointId myJointId = b2CreateRevoluteJoint(myWorldId, &jointDef);
 ```
 
-The revolute joint angle is positive when bodyB rotates CCW about the
-angle point. Like all angles in Box2D, the revolute angle is measured in
+The revolute joint angle is positive when bodyB rotates counter-clockwise
+about the
+anchor point. Like all angles in Box2D, the revolute angle is measured in
 radians. By convention the revolute joint angle is zero when the joint
-is created using Initialize(), regardless of the current rotation of the
+is created, regardless of the current rotation of the
 two bodies.
 
 In some cases you might wish to control the joint angle. For this, the
@@ -1329,9 +1343,8 @@ bound. The limit will apply as much torque as needed to make this
 happen. The limit range should include zero, otherwise the joint will
 lurch when the simulation begins.
 
-A joint motor allows you to specify the joint speed (the time derivative
-of the angle). The speed can be negative or positive. A motor can have
-infinite force, but this is usually not desirable. Recall the eternal
+A joint motor allows you to specify the joint speed. The speed can be negative or
+positive. A motor can have infinite force, but this is usually not desirable. Recall the eternal
 question:
 
 > *What happens when an irresistible force meets an immovable object?*
@@ -1352,8 +1365,12 @@ joint has a limit and a motor enabled. The motor is setup to simulate
 joint friction.
 
 ```c
-b2RevoluteJointDef jointDef;
-jointDef.Initialize(bodyA, bodyB, myBodyA->GetWorldCenter());
+b2Vec2 worldPivot = {10.0f, -4.0f};
+b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+jointDef.bodyIdA = myBodyIdA;
+jointDef.bodyIdB = myBodyIdB;
+jointDef.localAnchorA = b2Body_GetLocalPoint(myBodyIdA, worldPivot);
+jointDef.localAnchorB = b2Body_GetLocalPoint(myBodyIdB, worldPivot);
 jointDef.lowerAngle = -0.5f * b2_pi; // -90 degrees
 jointDef.upperAngle = 0.25f * b2_pi; // 45 degrees
 jointDef.enableLimit = true;
@@ -1364,16 +1381,16 @@ jointDef.enableMotor = true;
 You can access a revolute joint's angle, speed, and motor torque.
 
 ```c
-float b2RevoluteJoint::GetJointAngle() const;
-float b2RevoluteJoint::GetJointSpeed() const;
-float b2RevoluteJoint::GetMotorTorque() const;
+float angleInRadians = b2RevoluteJoint_GetAngle(myJointId);
+float speed = b2RevoluteJoint_GetMotorSpeed(myJointId);
+float currentTorque = b2RevoluteJoint_GetMotorTorque(myJointId);
 ```
 
 You also update the motor parameters each step.
 
 ```c
-void b2RevoluteJoint::SetMotorSpeed(float speed);
-void b2RevoluteJoint::SetMaxMotorTorque(float torque);
+b2RevoluteJoint_SetMotorSpeed(myJointId, 20.0f);
+b2RevoluteJoint_SetMaxMotorTorque(myJointId, 100.0f);
 ```
 
 Joint motors have some interesting abilities. You can update the joint
@@ -1383,7 +1400,7 @@ a sine-wave or according to whatever function you want.
 ```c
 // ... Game Loop Begin ...
 
-myJoint->SetMotorSpeed(cosf(0.5f * time));
+b2RevoluteJoint_SetMotorSpeed(myJointId, cosf(0.5f * time));
 
 // ... Game Loop End ...
 ```
@@ -1393,9 +1410,9 @@ You can also use joint motors to track a desired joint angle. For example:
 ```c
 // ... Game Loop Begin ...
 
-float angleError = myJoint->GetJointAngle() - angleTarget;
+float angleError = b2RevoluteJoint_GetAngle(myJointId) - angleTarget;
 float gain = 0.1f;
-myJoint->SetMotorSpeed(-gain * angleError);
+b2RevoluteJoint_SetMotorSpeed(myJointId, -gain * angleError);
 
 // ... Game Loop End ...
 ```
@@ -1408,7 +1425,7 @@ A prismatic joint allows for relative translation of two bodies along a
 specified axis. A prismatic joint prevents relative rotation. Therefore,
 a prismatic joint has a single degree of freedom.
 
-![Prismatic Joint](images/prismatic_joint.gif)
+![Prismatic Joint](images/prismatic_joint.svg)
 
 The prismatic joint definition is similar to the revolute joint
 description; just substitute translation for angle and force for torque.
@@ -1446,107 +1463,12 @@ void PrismaticJoint::SetMotorSpeed(float speed);
 void PrismaticJoint::SetMotorForce(float force);
 ```
 
-### Pulley Joint
-A pulley is used to create an idealized pulley. The pulley connects two
-bodies to ground and to each other. As one body goes up, the other goes
-down. The total length of the pulley rope is conserved according to the
-initial configuration.
-
-```
-length1 + length2 == constant
-```
-
-You can supply a ratio that simulates a block and tackle. This causes
-one side of the pulley to extend faster than the other. At the same time
-the constraint force is smaller on one side than the other. You can use
-this to create mechanical leverage.
-
-```
-length1 + ratio * length2 == constant
-```
-
-For example, if the ratio is 2, then length1 will vary at twice the rate
-of length2. Also the force in the rope attached to body1 will have half
-the constraint force as the rope attached to body2.
-
-![Pulley Joint](images/pulley_joint.gif)
-
-Pulleys can be troublesome when one side is fully extended. The rope on
-the other side will have zero length. At this point the constraint
-equations become singular (bad). You should configure collision shapes
-to prevent this.
-
-Here is an example pulley definition:
-
-```c
-b2Vec2 anchor1 = myBody1->GetWorldCenter();
-b2Vec2 anchor2 = myBody2->GetWorldCenter();
-
-b2Vec2 groundAnchor1(p1.x, p1.y + 10.0f);
-b2Vec2 groundAnchor2(p2.x, p2.y + 12.0f);
-
-float ratio = 1.0f;
-
-b2PulleyJointDef jointDef;
-jointDef.Initialize(myBody1, myBody2, groundAnchor1, groundAnchor2, anchor1, anchor2, ratio);
-```
-
-Pulley joints provide the current lengths.
-
-```c
-float PulleyJoint::GetLengthA() const;
-float PulleyJoint::GetLengthB() const;
-```
-
-### Gear Joint
-If you want to create a sophisticated mechanical contraption you might
-want to use gears. In principle you can create gears in Box2D by using
-compound shapes to model gear teeth. This is not very efficient and
-might be tedious to author. You also have to be careful to line up the
-gears so the teeth mesh smoothly. Box2D has a simpler method of creating
-gears: the gear joint.
-
-![Gear Joint](images/gear_joint.gif)
-
-The gear joint can only connect revolute and/or prismatic joints.
-
-Like the pulley ratio, you can specify a gear ratio. However, in this
-case the gear ratio can be negative. Also keep in mind that when one
-joint is a revolute joint (angular) and the other joint is prismatic
-(translation), and then the gear ratio will have units of length or one
-over length.
-
-```
-coordinate1 + ratio * coordinate2 == constant
-```
-
-Here is an example gear joint. The bodies myBodyA and myBodyB are any
-bodies from the two joints, as long as they are not the same bodies.
-
-```c
-b2GearJointDef jointDef;
-jointDef.bodyA = myBodyA;
-jointDef.bodyB = myBodyB;
-jointDef.joint1 = myRevoluteJoint;
-jointDef.joint2 = myPrismaticJoint;
-jointDef.ratio = 2.0f * b2_pi / myLength;
-```
-
-Note that the gear joint depends on two other joints. This creates a
-fragile situation. What happens if those joints are deleted?
-
-> **Caution**:
-> Always delete gear joints before the revolute/prismatic joints on the
-> gears. Otherwise your code will crash in a bad way due to the orphaned
-> joint pointers in the gear joint. You should also delete the gear joint
-> before you delete any of the bodies involved.
-
 ### Mouse Joint
-The mouse joint is used in the testbed to manipulate bodies with the
+The mouse joint is used in the smaples to manipulate bodies with the
 mouse. It attempts to drive a point on a body towards the current
 position of the cursor. There is no restriction on rotation.
 
-The mouse joint definition has a target point, maximum force, frequency,
+The mouse joint definition has a target point, maximum force, Hertz,
 and damping ratio. The target point initially coincides with the body's
 anchor point. The maximum force is used to prevent violent reactions
 when multiple dynamic bodies interact. You can make this as large as you
@@ -1567,150 +1489,130 @@ for details.
 
 ### Weld Joint
 The weld joint attempts to constrain all relative motion between two
-bodies. See the Cantilever.h in the testbed to see how the weld joint
+bodies. See the `Cantilever` sample to see how the weld joint
 behaves.
 
 It is tempting to use the weld joint to define breakable structures.
-However, the Box2D solver is iterative so the joints are a bit soft. So
-chains of bodies connected by weld joints will flex.
+However, the Box2D solver is approximate so the joints can be soft in some
+cases regardless of the joint settings. So chains of bodies connected by weld
+joints will flex.
 
-Instead it is better to create breakable bodies starting with a single
-body with multiple shapes. When the body breaks, you can destroy a
-shape and recreate it on a new body. See the Breakable example in the
-testbed.
-
-### Friction Joint
-The friction joint is used for top-down friction. The joint provides 2D
-translational friction and angular friction. See b2FrictionJoint.h and
-apply_force.cpp for details.
+See the `ContactEvent` sample for an example of how to merge and split bodies.
 
 ### Motor Joint
 A motor joint lets you control the motion of a body by specifying target
 position and rotation offsets. You can set the maximum motor force and
 torque that will be applied to reach the target position and rotation.
 If the body is blocked, it will stop and the contact forces will be
-proportional the maximum motor force and torque. See b2MotorJoint and
-motor_joint.cpp for details.
+proportional the maximum motor force and torque. See `b2MotorJointDef` and
+the `MotorJoint` sample for details.
 
 ### Wheel Joint
 The wheel joint is designed specifically for vehicles. It provides a translation
 and rotation. The translation has a spring and damper to simulate the vehicle
 suspension. The rotation allows the wheel to rotate. You can specify an rotational
-motor to drive the wheel and to apply braking. See b2WheelJoint, wheel_joint.cpp,
-and car.cpp for details.
+motor to drive the wheel and to apply braking. See `b2WheelJointDef` and the `Drive`
+sample for details.
 
+You may also use the wheel joint where you want free rotation and translation along
+an axis. See the `ScissorLift` sample for details.
 
+## Spatial Queries {#spatial}
+Spatial queries allow you to intestigate the world geometrically. There are overlap queries,
+ray casts, and shape casts. These allow you to do things like:
+- find a treasure chest near the player
+- shoot a laser beam and destroy all asteroids in the path
+- throw a grenade that is represented as a circle moving along a parabolic path
 
-
-### Exploring the World
-The world is a container for bodies, contacts, and joints. You can grab
-the body, contact, and joint lists off the world and iterate over them.
-For example, this code wakes up all the bodies in the world:
-
-```c
-for (b2Body* b = myWorld->GetBodyList(); b; b = b->GetNext())
-{
-    b->SetAwake(true);
-}
-```
-
-Unfortunately real programs can be more complicated. For example, the
-following code is broken:
-
-```c
-for (b2Body* b = myWorld->GetBodyList(); b; b = b->GetNext())
-{
-    GameActor* myActor = (GameActor*)b->GetUserData().pointer;
-    if (myActor->IsDead())
-    {
-        myWorld->DestroyBody(b); // ERROR: now GetNext returns garbage.
-    }
-}
-```
-
-Everything goes ok until a body is destroyed. Once a body is destroyed,
-its next pointer becomes invalid. So the call to `b2Body::GetNext()` will
-return garbage. The solution to this is to copy the next pointer before
-destroying the body.
-
-```c
-b2Body* node = myWorld->GetBodyList();
-while (node)
-{
-    b2Body* b = node;
-    node = node->GetNext();
-    
-    GameActor* myActor = (GameActor*)b->GetUserData().pointer;
-    if (myActor->IsDead())
-    {
-        myWorld->DestroyBody(b);
-    }
-}
-```
-
-This safely destroys the current body. However, you may want to call a
-game function that may destroy multiple bodies. In this case you need to
-be very careful. The solution is application specific, but for
-convenience I'll show one method of solving the problem.
-
-```c
-b2Body* node = myWorld->GetBodyList();
-while (node)
-{
-    b2Body* b = node;
-    node = node->GetNext();
-
-    GameActor* myActor = (GameActor*)b->GetUserData().pointer;
-    if (myActor->IsDead())
-    {
-        bool otherBodiesDestroyed = GameCrazyBodyDestroyer(b);
-        if (otherBodiesDestroyed)
-        {
-            node = myWorld->GetBodyList();
-        }
-    }
-}
-```
-
-Obviously to make this work, GameCrazyBodyDestroyer must be honest about
-what it has destroyed.
-
-### AABB Queries
+### Overlap Queries
 Sometimes you want to determine all the shapes in a region. The world has a fast
-log(N) method for this using the broad-phase data
-structure. You provide an AABB in world coordinates and an
-implementation of b2QueryCallback. The world calls your3 with each
+log(N) method for this using the broad-phase data structure. Box2D provides these
+overlap tests:
+- axis-aligned bound box (AABB) overlap
+- circle overlap
+- capsule overlap
+- polygon overlap
+
+#### Query Filtering
+An basic understanding of query filtering is needed before considering the specific queries.
+Shape versus shape filtering was discussed [here](#filtering). A similar setup is used
+for queries. This lets your queries only consider certain categories of shapes, it also
+lets your shapes ignore certain queries.
+
+Just like shapes, queries themselves can have a category. For example, you can have a `CAMERA`
+or `PROJECTILE` category.
+
+```c
+enum MyCategories
+{
+    STATIC = 0x00000001,
+    PLAYER = 0x00000002,
+    MONSTER = 0x00000004,
+    WINDOW = 0x00000008,
+    CAMERA = 0x00000010,
+    PROJECTILE = 0x00000020,
+};
+
+// Grenades collide with the static world, monsters, and windows but
+// not players or other projectiles.
+b2QueryFilter grenadeFilter;
+grenadeFilter.categoryBits = PROJECTILE;
+grenadeFilter.maskBits = STATIC | MONSTER | WINDOW;
+
+// The view collides with the static world, monsters, and players.
+b2QueryFilter viewFilter;
+viewFilter.categoryBits = CAMERA;
+viewFilter.maskBits = STATIC | PLAYER | MONSTER;
+```
+
+If you want to query everything you can use `b2DefaultQueryFilter()`;
+
+#### AABB Overlap
+You provide an AABB in world coordinates and an
+implementation of `b2OverlapResultFcn()`. The world calls your function with each
 shape whose AABB overlaps the query AABB. Return true to continue the
 query, otherwise return false. For example, the following code finds all
 the shapes that potentially intersect a specified AABB and wakes up
 all of the associated bodies.
 
 ```c
-
-bool MyQueryCallback(b2Shape* shape, void* context)
+bool MyOverlapCallback(b2ShapeId shapeId, void* context)
 {
-    b2Body* body = shape->GetBody();
-    body->SetAwake(true);
+    b2BodyId bodyId = b2Shape_GetBody(shapeId);
+    b2Body_SetAwake(bodyId, true);
 
     // Return true to continue the query.
     return true;
 }
 
 // Elsewhere ...
-MyQueryCallback callback;
+MyOverlapCallback callback;
 b2AABB aabb;
-
-aabb.lowerBound.Set(-1.0f, -1.0f);
-aabb.upperBound.Set(1.0f, 1.0f);
-myWorld->Query(&callback, aabb);
+aabb.lowerBound = (b2Vec2){-1.0f, -1.0f};
+aabb.upperBound = (b2Vec2){1.0f, 1.0f};
+b2QueryFilter filter = b2DefaultQueryFilter();
+b2World_OverlapAABB(myWorldId, aabb, filter, MyOverlapCallback, &myGame);
 ```
 
-You cannot make any assumptions about the order of the callbacks.
+Do not make any assumptions about the order of the callback. The order shapes
+are returned to your callback may seem arbitrary.
+
+#### Shape Overlap
+The AABB overlap is very fast but not very accurate because it only considers
+the shape bounding box. If you want an accurate overlap test, you can use a shape
+overlap query. For example, here is how you can get all shapes that overlap
+with a query circle.
+
+```c
+b2Circle circle = {b2Vec2_zero, 0.2f};
+b2World_OverlapCircle(myWorldId, &circle, b2Transform_identity, grenadeFilter, MyOverlapCallback, &myGame);
+```
 
 ### Ray Casts
 You can use ray casts to do line-of-sight checks, fire guns, etc. You
-perform a ray cast by implementing a callback function and providing the
-start and end points. The world calls your function with each shape
+perform a ray cast by implementing the `b2CastResultFcn()` callback
+function and providing the
+start point and translation. The world calls your function with each shape
 hit by the ray. Your callback is provided with the shape, the point of
 intersection, the unit normal vector, and the fractional distance along
 the ray. You cannot make any assumptions about the order of the
@@ -1730,34 +1632,71 @@ ray cast will proceed as if the shape does not exist.
 Here is an example:
 
 ```c
-// This struct captures the closest hit shape.
+// This struct captures the closest hit shape
 struct MyRayCastContext
 {
-    b2Shape* m_shape;
-    b2Vec2 m_point;
-    b2Vec2 m_normal;
-    float m_fraction;
+    b2ShapeId shapeId;
+    b2Vec2 point;
+    b2Vec2 normal;
+    float fraction;
 };
 
-float ReportShape(b2Shape* shape, const b2Vec2& point,
-                    const b2Vec2& normal, float fraction)
+float MyCastCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
 {
-    m_shape = shape;
-    m_point = point;
-    m_normal = normal;
-    m_fraction = fraction;
+    MyRayCastContext* myContext = context;
+    myContext->shape = shape;
+    myContext->point = point;
+    myContext->normal = normal;
+    myContext->fraction = fraction;
     return fraction;
 }
 
-
 // Elsewhere ...
-MyRayCastCallback callback;
-b2Vec2 point1(-1.0f, 0.0f);
-b2Vec2 point2(3.0f, 1.0f);
-myWorld->RayCast(&callback, point1, point2);
+MyRayCastContext context = {0};
+b2Vec2 origin = {-1.0f, 0.0f};
+b2Vec2 end(3.0f, 1.0f);
+b2Vec2 translation = b2Sub(end, origin);
+b2World_CastRay(myWorldId, origin, translation, viewFilter, MyCastCallback, &context);
 ```
 
-> **Caution**:
-> Due to round-off errors, ray casts can sneak through small cracks
-> between polygons in your static environment. If this is not acceptable
-> in your application, trying slightly overlapping your polygons.
+Ray cast results may delivered in an arbitrary order. This doesn't affect the result for closest point ray
+casts (except in ties). When you are collecting multiple hits along the ray, you may want to sort them according
+to the hit fraction. See the `RayCastWorld` sample for details.
+
+### Shape casts
+Shape casts are similar to ray casts. You can view a ray cast as tracing a point along a line. A shape cast
+allows you to trace a shape along a line. Since shapes can have rotation, you provide an origin transform instead
+of and origin point.
+
+```c
+// This struct captures the closest hit shape
+struct MyRayCastContext
+{
+    b2ShapeId shapeId;
+    b2Vec2 point;
+    b2Vec2 normal;
+    float fraction;
+};
+
+float MyCastCallback(b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context)
+{
+    MyRayCastContext* myContext = context;
+    myContext->shape = shape;
+    myContext->point = point;
+    myContext->normal = normal;
+    myContext->fraction = fraction;
+    return fraction;
+}
+
+// Elsewhere ...
+MyRayCastContext context = {0};
+b2Circle circle = {b2Vec2_zero, {0.05f}};
+b2Transform originTransform;
+originTransform.p = (b2Vec2){-1.0f, 0.0f};
+originTransform.q = b2Rot_identity;
+b2Vec2 translation = {10.0f, -5.0f};
+b2World_CastCircle(myWorldId, &circle, originTransform, translation, grenadeFilter, MyCastCallback, &context);
+```
+
+Otherwise, shape casts are setup identically to ray casts. You can expect shape casts to generally be slower
+than ray casts. So only use a shape cast if a ray cast won't do.

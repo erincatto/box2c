@@ -323,9 +323,6 @@ typedef struct b2ShapeDef
 	/// Enable hit events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
 	bool enableHitEvents;
 
-	/// Enable custom shape pair collision filtering.
-	bool enableCustomFiltering;
-
 	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 	///	and must be carefully handled due to multi-threading. Ignored for sensors.
 	bool enablePreSolveEvents;
@@ -509,8 +506,8 @@ typedef struct b2DistanceJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2DistanceJointDef;
 
 /// Use this to initialize your joint definition
@@ -550,8 +547,8 @@ typedef struct b2MotorJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2MotorJointDef;
 
 /// Use this to initialize your joint definition
@@ -589,8 +586,8 @@ typedef struct b2MouseJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2MouseJointDef;
 
 /// Use this to initialize your joint definition
@@ -657,8 +654,8 @@ typedef struct b2PrismaticJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2PrismaticJointDef;
 
 /// Use this to initialize your joint definition
@@ -731,8 +728,8 @@ typedef struct b2RevoluteJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2RevoluteJointDef;
 
 /// Use this to initialize your joint definition.
@@ -780,8 +777,8 @@ typedef struct b2WeldJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2WeldJointDef;
 
 /// Use this to initialize your joint definition
@@ -845,8 +842,8 @@ typedef struct b2WheelJointDef
 	/// User data pointer
 	void* userData;
 
-	/// A cookie used internally to detect a valid definition
-	int32_t secretCookie;
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int32_t internalValue;
 } b2WheelJointDef;
 
 /// Use this to initialize your joint definition
@@ -1024,7 +1021,7 @@ typedef struct b2ContactData
 ///	Return false if you want to disable the collision
 ///	@warning Do not attempt to modify the world inside this callback
 ///	@ingroup world
-typedef bool b2CustomFilterFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB);
+typedef bool b2CustomFilterFcn(b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* context);
 
 /// Prototype for a pre-solve callback.
 /// This is called after a contact is updated. This allows you to inspect a

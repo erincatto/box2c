@@ -1473,7 +1473,7 @@ public:
 static int sampleFixedRotation = RegisterSample("Joints", "Fixed Rotation", FixedRotation::Create);
 
 // This sample shows how to break joints when the internal reaction force becomes large.
-class ReactionForce : public Sample
+class BreakableJoint : public Sample
 {
 public:
 	enum
@@ -1481,7 +1481,7 @@ public:
 		e_count = 6
 	};
 
-	explicit ReactionForce(Settings& settings)
+	explicit BreakableJoint(Settings& settings)
 		: Sample(settings)
 	{
 		if (settings.restart == false)
@@ -1702,7 +1702,7 @@ public:
 
 	static Sample* Create(Settings& settings)
 	{
-		return new ReactionForce(settings);
+		return new BreakableJoint(settings);
 	}
 
 
@@ -1710,7 +1710,7 @@ public:
 	float m_breakForce;
 };
 
-static int sampleReactionForce = RegisterSample("Joints", "Reaction Force", ReactionForce::Create);
+static int sampleBreakableJoint = RegisterSample("Joints", "Breakable", BreakableJoint::Create);
 
 // This shows how you can implement a constraint outside of Box2D
 class UserConstraint : public Sample

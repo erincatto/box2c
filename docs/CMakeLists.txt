@@ -7,7 +7,6 @@ set(DOXYGEN_MATHJAX_VERSION MathJax_3)
 set(DOXYGEN_MATHJAX_FORMAT SVG)
 set(DOXYGEN_EXTRACT_ALL NO)
 set(DOXYGEN_FILE_PATTERNS *.h)
-set(DOXYGEN_EXCLUDE_PATTERNS timer.h)
 set(DOXYGEN_ENABLE_PREPROCESSING YES)
 set(DOXYGEN_MACRO_EXPANSION YES)
 set(DOXYGEN_EXPAND_ONLY_PREDEF YES)
@@ -37,18 +36,17 @@ set(DOXYGEN_HTML_COLORSTYLE DARK)
 set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
 set(DOXYGEN_WARN_IF_INCOMPLETE_DOC NO)
 
-
 doxygen_add_docs(doc
                 "${CMAKE_SOURCE_DIR}/include/box2d"
                 "overview.md"
                 "hello.md"
                 "samples.md"
-                "base.md"
+                "foundation.md"
                 "collision.md"
-                "dynamics.md"
+                "simulation.md"
                 "loose_ends.md"
-                "references.md"
-                "FAQ.md"
+                "reading.md"
+                "faq.md"
                 "migration.md"
                 ALL
                 COMMENT "Generate HTML documentation")

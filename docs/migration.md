@@ -286,6 +286,12 @@ Version 2.4 has `b2World::QueryAABB` and `b2World::RayCast`. This functionality 
 Another new feature is `b2QueryFilter` which allows you to filter raycast results before they reach your callback.
 This query filter is tested against `b2Filter` on shapes that the query encounters.
 
+Ray casts now take an origin and translation rather than start and end points. This convention works better with the added shape cast functions.
+
+### World iteration
+Iterating over all bodies/shapes/joints/contacts in a world is very inefficient and has been removed from Version 3.0. Instead, you
+should be using `b2BodyEvents` and `b2ContactEvents`. This is very efficient and data-oriented.
+
 ### Library configuration
 Version 3.0 offers more library configuration. You can override the allocator and you can intercept assertions by registering global callbacks. These are for expert users and they must be thread safe.
 ```c

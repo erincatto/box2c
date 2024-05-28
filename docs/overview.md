@@ -28,8 +28,8 @@ should be comfortable with compiling, linking, and debugging.
 
 ## Scope
 This manual covers the majority of the Box2D API. However, not every
-aspect is covered. Please look at the samples application included
-with Box2D to learn more.
+aspect is covered. Please look at the Reference section and samples
+application included with Box2D to learn more.
 
 This manual is only updated with new releases. The latest version of
 Box2D may be out of sync with this manual.
@@ -120,9 +120,11 @@ contact constraints between bodies before they touch.
 ### events
 World simulation leads to the creation of events that are available at the end
 of the time step:
+
 - body movement events
 - contact begin and end events
 - contact hit events
+
 These events allow your application to react to changes in the simulation.
 
 ## Modules

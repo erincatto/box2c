@@ -794,6 +794,7 @@ struct b2ContinuousContext
 	float fraction;
 };
 
+// todo this may lead to pauses for scenarios where pre-solve would disable collision
 static bool b2ContinuousQueryCallback(int proxyId, int shapeId, void* context)
 {
 	B2_MAYBE_UNUSED(proxyId);
