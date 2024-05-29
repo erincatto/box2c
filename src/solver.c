@@ -839,13 +839,25 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeId, void* context)
 	}
 
 	// Skip filtered bodies
-
 	b2CheckIndex(world->bodyArray, fastBodySim->bodyId);
 	b2Body* fastBody = world->bodyArray + fastBodySim->bodyId;
 	canCollide = b2ShouldBodiesCollide(world, fastBody, body);
 	if (canCollide == false)
 	{
 		return true;
+	}
+
+	// Custom user filtering
+	b2CustomFilterFcn* customFilterFcn = world->customFilterFcn;
+	if (customFilterFcn != NULL)
+	{
+		b2ShapeId idA = {shape->id + 1, world->worldId, shape->revision};
+		b2ShapeId idB = {fastShape->id + 1, world->worldId, fastShape->revision};
+		canCollide = customFilterFcn(idA, idB, world->customFilterContext);
+		if (canCollide == false)
+		{
+			return true;
+		}
 	}
 
 	// Prevent pausing on smooth segment junctions
@@ -914,8 +926,9 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 	xf2.q = sweep.q2;
 	xf2.p = b2Sub(sweep.c2, b2RotateVector(sweep.q2, sweep.localCenter));
 
-	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticProxy;
-	b2DynamicTree* movableTree = world->broadPhase.trees + b2_movableProxy;
+	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
+	b2DynamicTree* kinematicTree = world->broadPhase.trees + b2_kinematicBody;
+	b2DynamicTree* dynamicTree = world->broadPhase.trees + b2_dynamicBody;
 
 	struct b2ContinuousContext context;
 	context.world = world;
@@ -949,11 +962,12 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		// Store this for later
 		fastShape->aabb = box2;
 
-		b2DynamicTree_Query(staticTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
+		b2DynamicTree_Query(staticTree, box, b2_defaultMaskBits, b2ContinuousQueryCallback, &context);
 
 		if (isBullet)
 		{
-			b2DynamicTree_Query(movableTree, box, fastShape->filter.maskBits, b2ContinuousQueryCallback, &context);
+			b2DynamicTree_Query(kinematicTree, box, b2_defaultMaskBits, b2ContinuousQueryCallback, &context);
+			b2DynamicTree_Query(dynamicTree, box, b2_defaultMaskBits, b2ContinuousQueryCallback, &context);
 		}
 
 		shapeId = fastShape->nextShapeId;
@@ -1752,13 +1766,13 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 					{
 						B2_ASSERT(shape->isFast == false);
 
-						b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB, shape->filter.maskBits);
+						b2BroadPhase_EnlargeProxy(broadPhase, shape->proxyKey, shape->fatAABB);
 						shape->enlargedAABB = false;
 					}
 					else if (shape->isFast)
 					{
 						// Shape is fast. It's aabb will be enlarged in continuous collision.
-						b2BufferMove(broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
+						b2BufferMove(broadPhase, shape->proxyKey);
 					}
 
 					shapeId = shape->nextShapeId;
@@ -1808,7 +1822,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	// Serially enlarge broad-phase proxies for fast shapes
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
-		b2DynamicTree* movableTree = broadPhase->trees + b2_movableProxy;
+		b2DynamicTree* dynamicTree = broadPhase->trees + b2_dynamicBody;
 		b2Body* bodies = world->bodyArray;
 		b2Shape* shapes = world->shapeArray;
 
@@ -1846,12 +1860,12 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 				int proxyKey = shape->proxyKey;
 				int proxyId = B2_PROXY_ID(proxyKey);
-				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_movableProxy);
+				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
 
 				// all fast shapes should already be in the move buffer
 				B2_ASSERT(b2ContainsKey(&broadPhase->moveSet, proxyKey + 1));
 
-				b2DynamicTree_EnlargeProxy(movableTree, proxyId, shape->fatAABB);
+				b2DynamicTree_EnlargeProxy(dynamicTree, proxyId, shape->fatAABB);
 
 				shapeId = shape->nextShapeId;
 			}
@@ -1892,12 +1906,12 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 
 				int proxyKey = shape->proxyKey;
 				int proxyId = B2_PROXY_ID(proxyKey);
-				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_movableProxy);
+				B2_ASSERT(B2_PROXY_TYPE(proxyKey) == b2_dynamicBody);
 
 				// all fast shapes should already be in the move buffer
 				B2_ASSERT(b2ContainsKey(&broadPhase->moveSet, proxyKey + 1));
 
-				b2DynamicTree_EnlargeProxy(movableTree, proxyId, shape->fatAABB);
+				b2DynamicTree_EnlargeProxy(dynamicTree, proxyId, shape->fatAABB);
 
 				shapeId = shape->nextShapeId;
 			}

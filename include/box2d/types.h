@@ -129,6 +129,9 @@ typedef enum b2BodyType
 
 	/// positive mass, velocity determined by forces, moved by solver
 	b2_dynamicBody = 2,
+
+	/// number of body types
+	b2_bodyTypeCount,
 } b2BodyType;
 
 /// A body definition holds all the data needed to construct a rigid body.

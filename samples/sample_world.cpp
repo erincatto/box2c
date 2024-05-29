@@ -130,7 +130,7 @@ public:
 				for (int i = 0; i < 5; ++i)
 				{
 					Donut donut;
-					donut.Spawn(m_worldId, position, 0.75f, donutIndex + 1, NULL);
+					donut.Spawn(m_worldId, position, 0.75f, 0, NULL);
 					donutIndex += 1;
 					position.x += 2.0f;
 				}

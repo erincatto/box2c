@@ -138,6 +138,9 @@ typedef struct b2World
 	b2PreSolveFcn* preSolveFcn;
 	void* preSolveContext;
 
+	b2CustomFilterFcn* customFilterFcn;
+	void* customFilterContext;
+
 	int workerCount;
 	b2EnqueueTaskCallback* enqueueTaskFcn;
 	b2FinishTaskCallback* finishTaskFcn;
