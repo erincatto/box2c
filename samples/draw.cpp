@@ -1451,9 +1451,9 @@ void Draw::DrawString(int x, int y, const char* string, ...)
 	va_end(arg);
 }
 
-void Draw::DrawString(b2Vec2 pw, const char* string, ...)
+void Draw::DrawString(b2Vec2 p, const char* string, ...)
 {
-	b2Vec2 ps = g_camera.ConvertWorldToScreen(pw);
+	b2Vec2 ps = g_camera.ConvertWorldToScreen(p);
 
 	va_list arg;
 	va_start(arg, string);

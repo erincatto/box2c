@@ -366,6 +366,7 @@ public:
 			bodyDef.gravityScale = 0.0f;
 			bodyDef.linearDamping = 0.5f;
 			bodyDef.angularDamping = 0.5f;
+			bodyDef.isBullet = true;
 			m_playerId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Circle circle = {{0.0f, 0.0f}, 1.0f};
@@ -1011,7 +1012,6 @@ public:
 
 		ImGui::End();
 	}
-
 
 	void Step(Settings& settings) override
 	{
