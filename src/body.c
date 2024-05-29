@@ -725,7 +725,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 			// They body could be disabled
 			if (shape->proxyKey != B2_NULL_INDEX)
 			{
-				b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB, shape->filter.maskBits);
+				b2BroadPhase_MoveProxy(broadPhase, shape->proxyKey, fatAABB);
 			}
 		}
 
@@ -1040,7 +1040,8 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			shapeId = shape->nextShapeId;
 			b2DestroyShapeProxy(shape, &world->broadPhase);
 			bool forcePairCreation = true;
-			b2CreateShapeProxy(shape, &world->broadPhase, b2_movableProxy, transform, forcePairCreation);
+			b2BodyType proxyType = type;
+			b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, forcePairCreation);
 		}
 	}
 	else if (type == b2_staticBody)
@@ -1114,7 +1115,7 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 			shapeId = shape->nextShapeId;
 			b2DestroyShapeProxy(shape, &world->broadPhase);
 			bool forcePairCreation = true;
-			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticProxy, transform, forcePairCreation);
+			b2CreateShapeProxy(shape, &world->broadPhase, b2_staticBody, transform, forcePairCreation);
 		}
 	}
 	else
@@ -1122,15 +1123,17 @@ void b2Body_SetType(b2BodyId bodyId, b2BodyType type)
 		B2_ASSERT(originalType == b2_dynamicBody || originalType == b2_kinematicBody);
 		B2_ASSERT(type == b2_dynamicBody || type == b2_kinematicBody);
 
-		// Converting between kinematic and dynamic is much simpler
-
-		// Touch the broad-phase proxies to ensure the correct contacts get created
+		// Recreate shape proxies in static tree.
+		b2Transform transform = b2GetBodyTransformQuick(world, body);
 		int shapeId = body->headShapeId;
 		while (shapeId != B2_NULL_INDEX)
 		{
 			b2Shape* shape = world->shapeArray + shapeId;
-			b2BufferMove(&world->broadPhase, (b2MovedProxy){shape->proxyKey, shape->filter.maskBits});
 			shapeId = shape->nextShapeId;
+			b2DestroyShapeProxy(shape, &world->broadPhase);
+			b2BodyType proxyType = type;
+			bool forcePairCreation = true;
+			b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, forcePairCreation);
 		}
 	}
 
@@ -1513,7 +1516,7 @@ void b2Body_Enable(b2BodyId bodyId)
 	b2Transform transform = b2GetBodyTransformQuick(world, body);
 
 	// Add shapes to broad-phase
-	b2ProxyType proxyType = setId == b2_staticSet ? b2_staticProxy : b2_movableProxy;
+	b2BodyType proxyType = body->type;
 	bool forcePairCreation = true;
 	int shapeId = body->headShapeId;
 	while (shapeId != B2_NULL_INDEX)

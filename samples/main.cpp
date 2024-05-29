@@ -566,7 +566,7 @@ int main(int, char**)
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
 	b2Version version = b2GetVersion();
-	snprintf(buffer, 128, "Box2D Version %d.%d.%d (alpha)", version.major, version.minor, version.revision);
+	snprintf(buffer, 128, "Box2D Version %d.%d.%d (beta)", version.major, version.minor, version.revision);
 
 	if (GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor())
 	{

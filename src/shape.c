@@ -35,7 +35,7 @@ static b2ChainShape* b2GetChainShape(b2World* world, b2ChainId chainId)
 	return chain;
 }
 
-static void b2UpdateShapeAABBs(b2Shape* shape, b2Transform transform, b2ProxyType proxyType)
+static void b2UpdateShapeAABBs(b2Shape* shape, b2Transform transform, b2BodyType proxyType)
 {
 	// Compute a bounding box with a speculative margin
 	const float speculativeDistance = b2_speculativeDistance;
@@ -49,7 +49,7 @@ static void b2UpdateShapeAABBs(b2Shape* shape, b2Transform transform, b2ProxyTyp
 	shape->aabb = aabb;
 
 	// Smaller margin for static bodies. Cannot be zero due to TOI tolerance.
-	float margin = proxyType == b2_staticProxy ? speculativeDistance : aabbMargin;
+	float margin = proxyType == b2_staticBody ? speculativeDistance : aabbMargin;
 	b2AABB fatAABB;
 	fatAABB.lowerBound.x = aabb.lowerBound.x - margin;
 	fatAABB.lowerBound.y = aabb.lowerBound.y - margin;
@@ -129,7 +129,7 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 
 	if (body->setIndex != b2_disabledSet)
 	{
-		b2ProxyType proxyType = body->setIndex == b2_staticSet ? b2_staticProxy : b2_movableProxy;
+		b2BodyType proxyType = body->type;
 		b2CreateShapeProxy(shape, &world->broadPhase, proxyType, transform, def->forceContactCreation);
 	}
 
@@ -687,15 +687,15 @@ b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input, const b2Shape* shap
 	return output;
 }
 
-void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2ProxyType type, b2Transform transform, bool forcePairCreation)
+void b2CreateShapeProxy(b2Shape* shape, b2BroadPhase* bp, b2BodyType type, b2Transform transform, bool forcePairCreation)
 {
 	B2_ASSERT(shape->proxyKey == B2_NULL_INDEX);
 
 	b2UpdateShapeAABBs(shape, transform, type);
 
 	// Create proxies in the broad-phase.
-	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->filter.maskBits, shape->id, forcePairCreation);
-	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_proxyTypeCount);
+	shape->proxyKey = b2BroadPhase_CreateProxy(bp, type, shape->fatAABB, shape->filter.categoryBits, shape->id, forcePairCreation);
+	B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) < b2_bodyTypeCount);
 }
 
 void b2DestroyShapeProxy(b2Shape* shape, b2BroadPhase* bp)
@@ -936,7 +936,7 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies, bool d
 	b2Transform transform = b2GetBodyTransformQuick(world, body);
 	if (shape->proxyKey != B2_NULL_INDEX)
 	{
-		b2ProxyType proxyType = B2_PROXY_TYPE(shape->proxyKey);
+		b2BodyType proxyType = B2_PROXY_TYPE(shape->proxyKey);
 		b2UpdateShapeAABBs(shape, transform, proxyType);
 
 		if (destroyProxy)
@@ -945,16 +945,16 @@ static void b2ResetProxy(b2World* world, b2Shape* shape, bool wakeBodies, bool d
 
 			bool forcePairCreation = true;
 			shape->proxyKey = b2BroadPhase_CreateProxy(&world->broadPhase, proxyType, shape->fatAABB, shape->filter.categoryBits,
-													   shape->filter.maskBits, shapeId, forcePairCreation);
+													   shapeId, forcePairCreation);
 		}
 		else
 		{
-			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->fatAABB, shape->filter.maskBits);
+			b2BroadPhase_MoveProxy(&world->broadPhase, shape->proxyKey, shape->fatAABB);
 		}
 	}
 	else
 	{
-		b2ProxyType proxyType = body->type == b2_staticBody ? b2_staticProxy : b2_movableProxy;
+		b2BodyType proxyType = body->type;
 		b2UpdateShapeAABBs(shape, transform, proxyType);
 	}
 

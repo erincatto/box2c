@@ -100,9 +100,12 @@ b2WorldId b2CreateWorld(const b2WorldDef* def)
 	b2InitializeContactRegisters();
 
 	b2World* world = b2_worlds + worldId;
+	uint16_t revision = world->revision;
+
 	*world = (b2World){0};
 
 	world->worldId = (uint16_t)worldId;
+	world->revision = revision;
 	world->inUse = true;
 
 	world->stackAllocator = b2CreateStackAllocator(2048);
@@ -936,7 +939,7 @@ static void b2DrawWithBounds(b2World* world, b2DebugDraw* draw)
 
 	struct DrawContext drawContext = {world, draw};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, draw->drawingBounds, b2_defaultMaskBits, DrawQueryCallback, &drawContext);
 	}
@@ -1655,11 +1658,12 @@ b2Counters b2World_GetCounters(b2WorldId worldId)
 	s.jointCount = b2GetIdCount(&world->jointIdPool);
 	s.islandCount = b2GetIdCount(&world->islandIdPool);
 
-	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticProxy;
+	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
 	s.staticTreeHeight = b2DynamicTree_GetHeight(staticTree);
 
-	b2DynamicTree* tree = world->broadPhase.trees + b2_movableProxy;
-	s.treeHeight = b2DynamicTree_GetHeight(tree);
+	b2DynamicTree* dynamicTree = world->broadPhase.trees + b2_dynamicBody;
+	b2DynamicTree* kinematicTree = world->broadPhase.trees + b2_kinematicBody;
+	s.treeHeight = b2MaxInt(b2DynamicTree_GetHeight(dynamicTree), b2DynamicTree_GetHeight(kinematicTree));
 
 	s.stackUsed = b2GetMaxStackAllocation(&world->stackAllocator);
 	s.byteCount = b2GetByteCount();
@@ -1706,8 +1710,9 @@ void b2World_DumpMemoryStats(b2WorldId worldId)
 
 	// broad-phase
 	fprintf(file, "broad-phase\n");
-	fprintf(file, "static tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_staticProxy));
-	fprintf(file, "movable tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_movableProxy));
+	fprintf(file, "static tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_staticBody));
+	fprintf(file, "kinematic tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_kinematicBody));
+	fprintf(file, "dynamic tree: %d\n", b2DynamicTree_GetByteCount(world->broadPhase.trees + b2_dynamicBody));
 	b2HashSet* moveSet = &world->broadPhase.moveSet;
 	fprintf(file, "moveSet: %d (%d, %d)\n", b2GetHashSetBytes(moveSet), moveSet->count, moveSet->capacity);
 	fprintf(file, "moveArray: %d\n", b2GetArrayBytes(world->broadPhase.moveArray, sizeof(int)));
@@ -1816,7 +1821,7 @@ void b2World_OverlapAABB(b2WorldId worldId, b2AABB aabb, b2QueryFilter filter, b
 
 	WorldQueryContext worldContext = {world, fcn, filter, context};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeQueryCallback, &worldContext);
 	}
@@ -1891,7 +1896,7 @@ void b2World_OverlapCircle(b2WorldId worldId, const b2Circle* circle, b2Transfor
 		world, fcn, filter, b2MakeProxy(&circle->center, 1, circle->radius), transform, context,
 	};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
@@ -1915,7 +1920,7 @@ void b2World_OverlapCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Trans
 		world, fcn, filter, b2MakeProxy(&capsule->center1, 2, capsule->radius), transform, context,
 	};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
@@ -1939,7 +1944,7 @@ void b2World_OverlapPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Trans
 		world, fcn, filter, b2MakeProxy(polygon->vertices, polygon->count, polygon->radius), transform, context,
 	};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_Query(world->broadPhase.trees + i, aabb, filter.maskBits, TreeOverlapCallback, &worldContext);
 	}
@@ -2003,7 +2008,7 @@ void b2World_CastRay(b2WorldId worldId, b2Vec2 origin, b2Vec2 translation, b2Que
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
 
@@ -2045,7 +2050,7 @@ b2RayResult b2World_CastRayClosest(b2WorldId worldId, b2Vec2 origin, b2Vec2 tran
 	b2RayCastInput input = {origin, translation, 1.0f};
 	WorldRayCastContext worldContext = {world, b2RayCastClosestFcn, filter, 1.0f, &result};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_RayCast(world->broadPhase.trees + i, &input, filter.maskBits, RayCastCallback, &worldContext);
 
@@ -2115,7 +2120,7 @@ void b2World_CastCircle(b2WorldId worldId, const b2Circle* circle, b2Transform o
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
@@ -2152,7 +2157,7 @@ void b2World_CastCapsule(b2WorldId worldId, const b2Capsule* capsule, b2Transfor
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
@@ -2191,7 +2196,7 @@ void b2World_CastPolygon(b2WorldId worldId, const b2Polygon* polygon, b2Transfor
 
 	WorldRayCastContext worldContext = {world, fcn, filter, 1.0f, context};
 
-	for (int i = 0; i < b2_proxyTypeCount; ++i)
+	for (int i = 0; i < b2_bodyTypeCount; ++i)
 	{
 		b2DynamicTree_ShapeCast(world->broadPhase.trees + i, &input, filter.maskBits, ShapeCastCallback, &worldContext);
 
@@ -2293,6 +2298,13 @@ void b2World_Dump()
 	b2CloseDump();
 }
 #endif
+
+void b2World_SetCustomFilterCallback(b2WorldId worldId, b2CustomFilterFcn* fcn, void* context)
+{
+	b2World* world = b2GetWorldFromId(worldId);
+	world->customFilterFcn = fcn;
+	world->customFilterContext = context;
+}
 
 void b2World_SetPreSolveCallback(b2WorldId worldId, b2PreSolveFcn* fcn, void* context)
 {
@@ -2409,7 +2421,7 @@ void b2World_Explode(b2WorldId worldId, b2Vec2 position, float radius, float mag
 	aabb.upperBound.x = position.x + radius;
 	aabb.upperBound.y = position.y + radius;
 
-	b2DynamicTree_Query(world->broadPhase.trees + b2_movableProxy, aabb, b2_defaultMaskBits, ExplosionCallback, &explosionContext);
+	b2DynamicTree_Query(world->broadPhase.trees + b2_dynamicBody, aabb, b2_defaultMaskBits, ExplosionCallback, &explosionContext);
 }
 
 #if B2_VALIDATE
@@ -2603,11 +2615,12 @@ void b2ValidateSolverSets(b2World* world)
 						}
 						else if (setIndex == b2_staticSet)
 						{
-							B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) == b2_staticProxy);
+							B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) == b2_staticBody);
 						}
 						else
 						{
-							B2_ASSERT(B2_PROXY_TYPE(shape->proxyKey) == b2_movableProxy);
+							b2BodyType proxyType = B2_PROXY_TYPE(shape->proxyKey);
+							B2_ASSERT(proxyType == b2_kinematicBody || proxyType == b2_dynamicBody);
 						}
 
 						prevShapeId = shapeId;

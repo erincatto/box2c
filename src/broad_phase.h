@@ -15,31 +15,17 @@ typedef struct b2MoveResult b2MoveResult;
 typedef struct b2StackAllocator b2StackAllocator;
 typedef struct b2World b2World;
 
-// todo kinematic tree to support large kinematic compounds
-typedef enum b2ProxyType
-{
-	b2_staticProxy = 0,
-	b2_movableProxy = 1,
-	b2_proxyTypeCount = 2
-} b2ProxyType;
-
-// Store the proxy type in the lower 1 bit of the proxy key. This leaves 31 bits for the id.
-#define B2_PROXY_TYPE(KEY) ((b2ProxyType)((KEY) & 1))
-#define B2_PROXY_ID(KEY) ((KEY) >> 1)
-#define B2_PROXY_KEY(ID, TYPE) (((ID) << 1) | (TYPE))
-
-typedef struct b2MovedProxy
-{
-	int proxyKey;
-	uint32_t maskBits;
-} b2MovedProxy;
+// Store the proxy type in the lower 2 bits of the proxy key. This leaves 30 bits for the id.
+#define B2_PROXY_TYPE(KEY) ((b2BodyType)((KEY) & 3))
+#define B2_PROXY_ID(KEY) ((KEY) >> 2)
+#define B2_PROXY_KEY(ID, TYPE) (((ID) << 2) | (TYPE))
 
 /// The broad-phase is used for computing pairs and performing volume queries and ray casts.
 /// This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
 /// It is up to the client to consume the new pairs and to track subsequent overlap.
 typedef struct b2BroadPhase
 {
-	b2DynamicTree trees[b2_proxyTypeCount];
+	b2DynamicTree trees[b2_bodyTypeCount];
 	int proxyCount;
 
 	// The move set and array are used to track shapes that have moved significantly
@@ -48,7 +34,7 @@ typedef struct b2BroadPhase
 	// todo implement a 32bit hash set for faster lookup
 	// todo moveSet can grow quite large on the first time step and remain large
 	b2HashSet moveSet;
-	b2MovedProxy* moveArray;
+	int* moveArray;
 
 	// These are the results from the pair query and are used to create new contacts
 	// in deterministic order.
@@ -67,12 +53,11 @@ typedef struct b2BroadPhase
 void b2CreateBroadPhase(b2BroadPhase* bp);
 void b2DestroyBroadPhase(b2BroadPhase* bp);
 
-// todo get rid of mask bits for proxies because this breaks groups
-int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2ProxyType proxyType, b2AABB aabb, uint32_t categoryBits, uint32_t maskBits, int shapeIndex, bool forcePairCreation);
+int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex, bool forcePairCreation);
 void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey);
 
-void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb, uint32_t maskBits);
-void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb, uint32_t maskBits);
+void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb);
+void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb);
 
 void b2BroadPhase_RebuildTrees(b2BroadPhase* bp);
 
@@ -86,21 +71,10 @@ void b2ValidateNoEnlarged(const b2BroadPhase* bp);
 
 // This is what triggers new contact pairs to be created
 // Warning: this must be called in deterministic order
-static inline void b2BufferMove(b2BroadPhase* bp, b2MovedProxy queryProxy)
+static inline void b2BufferMove(b2BroadPhase* bp, int queryProxy)
 {
-	// todo moving this choice to a higher level
-	// Why only mobile proxies? Because we need to be able insert a large number of static shapes
-	// without triggering a large number of pair updates that do nothing.
-	// If you need to spawn non-moving shapes close to dynamic bodies then use kinematic bodies.
-	//b2ProxyType proxyType = B2_PROXY_TYPE(proxyKey);
-	//if (proxyType != b2_movableProxy)
-	//{
-	//	B2_ASSERT(false);
-	//	return;
-	//}
-
 	// Adding 1 because 0 is the sentinel
-	bool alreadyAdded = b2AddKey(&bp->moveSet, queryProxy.proxyKey + 1);
+	bool alreadyAdded = b2AddKey(&bp->moveSet, queryProxy + 1);
 	if (alreadyAdded == false)
 	{
 		b2Array_Push(bp->moveArray, queryProxy);
