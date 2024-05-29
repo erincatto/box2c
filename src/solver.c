@@ -827,6 +827,12 @@ static bool b2ContinuousQueryCallback(int proxyId, int shapeId, void* context)
 		return true;
 	}
 
+	// Skip sensors
+	if (shape->isSensor == true)
+	{
+		return true;
+	}
+
 	b2CheckIndex(world->bodyArray, shape->bodyId);
 	b2Body* body = world->bodyArray + shape->bodyId;
 	b2BodySim* bodySim = b2GetBodySim(world, body);
@@ -948,6 +954,8 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		b2Shape* fastShape = shapes + shapeId;
 		B2_ASSERT(fastShape->isFast == true);
 
+		shapeId = fastShape->nextShapeId;
+
 		// Clear flag (keep set on body)
 		fastShape->isFast = false;
 
@@ -962,6 +970,12 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 		// Store this for later
 		fastShape->aabb = box2;
 
+		// No continuous collision for sensors
+		if (fastShape->isSensor)
+		{
+			continue;
+		}
+
 		b2DynamicTree_Query(staticTree, box, b2_defaultMaskBits, b2ContinuousQueryCallback, &context);
 
 		if (isBullet)
@@ -969,8 +983,6 @@ static void b2SolveContinuous(b2World* world, int bodySimIndex)
 			b2DynamicTree_Query(kinematicTree, box, b2_defaultMaskBits, b2ContinuousQueryCallback, &context);
 			b2DynamicTree_Query(dynamicTree, box, b2_defaultMaskBits, b2ContinuousQueryCallback, &context);
 		}
-
-		shapeId = fastShape->nextShapeId;
 	}
 
 	const float speculativeDistance = b2_speculativeDistance;

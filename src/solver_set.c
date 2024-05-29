@@ -294,7 +294,8 @@ void b2TrySleepIsland(b2World* world, int islandId)
 				B2_ASSERT(0 <= localIndex && localIndex < awakeSet->contacts.count);
 				b2ContactSim* contactSim = awakeSet->contacts.data + localIndex;
 
-				B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 && contactSim->manifold.pointCount == 0);
+				B2_ASSERT(contactSim->manifold.pointCount == 0);
+				B2_ASSERT((contact->flags & b2_contactTouchingFlag) == 0 || (contact->flags & b2_contactSensorFlag) != 0);
 
 				// move the non-touching contact to the disabled set
 				contact->setIndex = b2_disabledSet;

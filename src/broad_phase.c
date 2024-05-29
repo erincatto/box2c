@@ -224,6 +224,12 @@ static bool b2PairQueryCallback(int proxyId, int shapeId, void* context)
 		return true;
 	}
 
+	// Sensors don't collide with other sensors
+	if (shapeA->isSensor == true && shapeB->isSensor == true)
+	{
+		return true;
+	}
+
 	// Does a joint override collision?
 	b2Body* bodyA = b2GetBody(world, bodyIdA);
 	b2Body* bodyB = b2GetBody(world, bodyIdB);
