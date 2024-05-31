@@ -13,7 +13,7 @@ typedef struct b2World b2World;
 
 enum b2ContactFlags
 {
-	// Set when the non-sensor shapes are touching.
+	// Set when the solid shapes are touching.
 	b2_contactTouchingFlag = 0x00000001,
 
 	// Contact has a hit event
@@ -23,6 +23,7 @@ enum b2ContactFlags
 	b2_contactSensorFlag = 0x0000004,
 
 	// Set when a sensor is touching
+	// todo this is not used, perhaps have b2Body_GetSensorContactData()
 	b2_contactSensorTouchingFlag = 0x00000008,
 
 	// This contact wants sensor events

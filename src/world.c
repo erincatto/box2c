@@ -343,12 +343,11 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 			b2Vec2 centerOffsetA = b2RotateVector(transformA.q, bodySimA->localCenter);
 			b2Vec2 centerOffsetB = b2RotateVector(transformB.q, bodySimB->localCenter);
 
+			// This updates solid contacts and sensors
 			bool touching =
 				b2UpdateContact(world, contactSim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB);
 
-			// Move
-
-			// State changes that affect island connectivity
+			// State changes that affect island connectivity. Also contact and sensor events.
 			if (touching == true && wasTouching == false)
 			{
 				contactSim->simFlags |= b2_simStartedTouching;
