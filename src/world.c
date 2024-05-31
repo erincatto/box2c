@@ -343,12 +343,11 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 			b2Vec2 centerOffsetA = b2RotateVector(transformA.q, bodySimA->localCenter);
 			b2Vec2 centerOffsetB = b2RotateVector(transformB.q, bodySimB->localCenter);
 
+			// This updates solid contacts and sensors
 			bool touching =
 				b2UpdateContact(world, contactSim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB);
 
-			// Move
-
-			// State changes that affect island connectivity
+			// State changes that affect island connectivity. Also contact and sensor events.
 			if (touching == true && wasTouching == false)
 			{
 				contactSim->simFlags |= b2_simStartedTouching;
@@ -562,6 +561,7 @@ static void b2Collide(b2StepContext* context)
 				B2_ASSERT(contact->islandId == B2_NULL_INDEX);
 				if ((flags & b2_contactSensorFlag) != 0)
 				{
+					// Contact is a sensor
 					if ((flags & b2_contactEnableSensorEvents) != 0)
 					{
 						if (shapeA->isSensor)
@@ -578,10 +578,11 @@ static void b2Collide(b2StepContext* context)
 					}
 
 					contactSim->simFlags &= ~b2_simStartedTouching;
-					contact->flags |= b2_contactTouchingFlag;
+					contact->flags |= b2_contactSensorTouchingFlag;
 				}
 				else
 				{
+					// Contact is solid
 					if (flags & b2_contactEnableContactEvents)
 					{
 						b2ContactBeginTouchEvent event = {shapeIdA, shapeIdB};
@@ -615,10 +616,12 @@ static void b2Collide(b2StepContext* context)
 			else if (simFlags & b2_simStoppedTouching)
 			{
 				contactSim->simFlags &= ~b2_simStoppedTouching;
-				contact->flags &= ~b2_contactTouchingFlag;
 
 				if ((flags & b2_contactSensorFlag) != 0)
 				{
+					// Contact is a sensor
+					contact->flags &= ~b2_contactSensorTouchingFlag;
+
 					if ((flags & b2_contactEnableSensorEvents) != 0)
 					{
 						if (shapeA->isSensor)
@@ -633,9 +636,13 @@ static void b2Collide(b2StepContext* context)
 							b2Array_Push(world->sensorEndEventArray, event);
 						}
 					}
+
 				}
 				else
 				{
+					// Contact is solid
+					contact->flags &= ~b2_contactTouchingFlag;
+
 					if (contact->flags & b2_contactEnableContactEvents)
 					{
 						b2ContactEndTouchEvent event = {shapeIdA, shapeIdB};
@@ -2891,13 +2898,18 @@ void b2ValidateContacts(b2World* world)
 		allocatedContactCount += 1;
 
 		bool touching = (contact->flags & b2_contactTouchingFlag) != 0;
+		bool sensorTouching = (contact->flags & b2_contactSensorTouchingFlag) != 0;
+		bool isSensor = (contact->flags & b2_contactSensorFlag) != 0;
+
+		B2_ASSERT(touching == false || sensorTouching == false);
+		B2_ASSERT(touching == false || isSensor == false);
 
 		int setId = contact->setIndex;
 
 		if (setId == b2_awakeSet)
 		{
 			// If touching and not a sensor
-			if (touching && (contact->flags & b2_contactSensorFlag) == 0)
+			if (touching && isSensor == false)
 			{
 				B2_ASSERT(0 <= contact->colorIndex && contact->colorIndex < b2_graphColorCount);
 			}
@@ -2909,11 +2921,11 @@ void b2ValidateContacts(b2World* world)
 		else if (setId >= b2_firstSleepingSet)
 		{
 			// Only touching contacts allowed in a sleeping set
-			B2_ASSERT(touching == true);
+			B2_ASSERT(touching == true && isSensor == false);
 		}
 		else
 		{
-			// Sleeping and non-touching contacts belong in the disabled set
+			// Sleeping and non-touching contacts or sensor contacts belong in the disabled set
 			B2_ASSERT(touching == false && setId == b2_disabledSet);
 		}
 
@@ -2922,10 +2934,10 @@ void b2ValidateContacts(b2World* world)
 		B2_ASSERT(contactSim->bodyIdA == contact->edges[0].bodyId);
 		B2_ASSERT(contactSim->bodyIdB == contact->edges[1].bodyId);
 
+		// Sim touching is true for solid and sensor contacts
 		bool simTouching = (contactSim->simFlags & b2_simTouchingFlag) != 0;
-		B2_ASSERT(touching == simTouching);
-		// A touching contact should have contact points unless it is a sensor
-		B2_ASSERT(simTouching == (contactSim->manifold.pointCount > 0) || (contact->flags & b2_contactSensorFlag) != 0);
+		B2_ASSERT(touching == simTouching || sensorTouching == simTouching);
+
 		B2_ASSERT(0 <= contactSim->manifold.pointCount && contactSim->manifold.pointCount <= 2);
 	}
 

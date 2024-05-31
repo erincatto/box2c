@@ -482,7 +482,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 	return output.distance < 10.0f * FLT_EPSILON;
 }
 
-// Update the contact manifold and touching status.
+// Update the contact manifold and touching status. Also updates sensor overlap.
 // Note: do not assume the shape AABBs are overlapping or are valid.
 bool b2UpdateContact(b2World* world, b2ContactSim* contactSim, b2Shape* shapeA, b2Transform transformA, b2Vec2 centerOffsetA,
 					 b2Shape* shapeB, b2Transform transformB, b2Vec2 centerOffsetB)
