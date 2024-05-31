@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "box2d/base.h"
+#include "base.h"
 
 #include <stdint.h>
 

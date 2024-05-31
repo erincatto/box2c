@@ -34,7 +34,7 @@ b2WorldDef worldDef = b2DefaultWorldDef();
 worldDef.gravity = gravity;
 b2WorldId worldId = b2CreateWorld(&worldDef);
 ```
-There is now a required world definition. C does not have constructors, so you need to initialize **ALL** structures that you pass to Box2D. Box2D provides and initialization helper for almost all structures. For example `b2DefaultWorldDef()` is used here to initialize `b2WorldDef`. `b2WorldDef` provides many options, but the defaults are good enough to get going.
+There is now a required world definition. C does not have constructors, so you need to initialize **ALL** structures that you pass to Box2D. Box2D provides an initialization helper for almost all structures. For example `b2DefaultWorldDef()` is used here to initialize `b2WorldDef`. `b2WorldDef` provides many options, but the defaults are good enough to get going.
 
 In Version 3.0, Box2D objects are generally hidden and you only have an identifier. This keeps the API small. So when you create a world you just get a `b2WorldId` which you should treat as an atomic object, like `int` or `float`. It is small and should be passed by value.
 
@@ -75,10 +75,8 @@ bodyId = b2_nullBodyId;
 ```
 Notice there is a little magic here in Version 3.0. `b2BodyId` knows what world it comes from. So you do not need to provide `worldId` when destroying the body. Version 3.0 supports up to 128 worlds. This may increased or be overridden in the future.
 
-There is a significant behavior change with body destruction in Version 3.0.
-> Destroying a body no longer destroys the attached joints, it is up to you to destroy them.
-
-Shapes are still destroyed automatically. However, `b2DestructionListener` is gone. This holds to the theme of fewer callbacks.
+Shapes and joints are still destroyed automatically. However, `b2DestructionListener` is gone. This holds to the theme of fewer callbacks. However, you can now use 
+`b2Shape_IsValid()` and `b2Joint_IsValid()`.
 
 ### Creating a shape
 Shape creation has been streamlined in Version 3.0. `b2Fixture` is gone. I feel like it was a confusing concept so I hope you don't miss it.
