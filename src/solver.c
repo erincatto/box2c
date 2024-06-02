@@ -1669,8 +1669,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	// Report hit events
 	// todo perhaps optimize this with a bitset
 	{
-		b2ContactHitEvent* events = world->contactHitArray;
-		B2_ASSERT(b2Array(events).count == 0);
+		B2_ASSERT(b2Array(world->contactHitArray).count == 0);
 
 		float threshold = world->hitEventThreshold;
 		b2GraphColor* colors = world->constraintGraph.colors;
@@ -1716,7 +1715,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 					event.shapeIdA = (b2ShapeId){shapeA->id + 1, world->worldId, shapeA->revision};
 					event.shapeIdB = (b2ShapeId){shapeB->id + 1, world->worldId, shapeB->revision};
 
-					b2Array_Push(events, event);
+					b2Array_Push(world->contactHitArray, event);
 				}
 			}
 		}
