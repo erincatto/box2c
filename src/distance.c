@@ -109,11 +109,11 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
 
 // todo try not copying
-b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int32_t count, float radius)
+b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int count, float radius)
 {
 	count = b2MinInt(count, b2_maxPolygonVertices);
 	b2DistanceProxy proxy;
-	for (int32_t i = 0; i < count; ++i)
+	for (int i = 0; i < count; ++i)
 	{
 		proxy.points[i] = vertices[i];
 	}
@@ -132,11 +132,11 @@ static b2Vec2 b2Weight3(float a1, b2Vec2 w1, float a2, b2Vec2 w2, float a3, b2Ve
 	return (b2Vec2){a1 * w1.x + a2 * w2.x + a3 * w3.x, a1 * w1.y + a2 * w2.y + a3 * w3.y};
 }
 
-static int32_t b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
+static int b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
 {
-	int32_t bestIndex = 0;
+	int bestIndex = 0;
 	float bestValue = b2Dot(proxy->points[0], direction);
-	for (int32_t i = 1; i < proxy->count; ++i)
+	for (int i = 1; i < proxy->count; ++i)
 	{
 		float value = b2Dot(proxy->points[i], direction);
 		if (value > bestValue)
@@ -155,38 +155,15 @@ typedef struct b2SimplexVertex
 	b2Vec2 wB;		// support point in proxyB
 	b2Vec2 w;		// wB - wA
 	float a;		// barycentric coordinate for closest point
-	int32_t indexA; // wA index
-	int32_t indexB; // wB index
+	int indexA; // wA index
+	int indexB; // wB index
 } b2SimplexVertex;
 
 typedef struct b2Simplex
 {
 	b2SimplexVertex v1, v2, v3;
-	int32_t count;
+	int count;
 } b2Simplex;
-
-static float b2Simplex_Metric(const b2Simplex* s)
-{
-	switch (s->count)
-	{
-		case 0:
-			B2_ASSERT(false);
-			return 0.0f;
-
-		case 1:
-			return 0.0f;
-
-		case 2:
-			return b2Distance(s->v1.w, s->v2.w);
-
-		case 3:
-			return b2Cross(b2Sub(s->v2.w, s->v1.w), b2Sub(s->v3.w, s->v1.w));
-
-		default:
-			B2_ASSERT(false);
-			return 0.0f;
-	}
-}
 
 static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2DistanceProxy* proxyA, b2Transform transformA,
 										const b2DistanceProxy* proxyB, b2Transform transformB)
@@ -198,7 +175,7 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 	s.count = cache->count;
 
 	b2SimplexVertex* vertices[] = {&s.v1, &s.v2, &s.v3};
-	for (int32_t i = 0; i < s.count; ++i)
+	for (int i = 0; i < s.count; ++i)
 	{
 		b2SimplexVertex* v = vertices[i];
 		v->indexA = cache->indexA[i];
@@ -233,10 +210,9 @@ static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2Di
 
 static void b2MakeSimplexCache(b2DistanceCache* cache, const b2Simplex* simplex)
 {
-	cache->metric = b2Simplex_Metric(simplex);
 	cache->count = (uint16_t)simplex->count;
 	const b2SimplexVertex* vertices[] = {&simplex->v1, &simplex->v2, &simplex->v3};
-	for (int32_t i = 0; i < simplex->count; ++i)
+	for (int i = 0; i < simplex->count; ++i)
 	{
 		cache->indexA[i] = (uint8_t)vertices[i]->indexA;
 		cache->indexB[i] = (uint8_t)vertices[i]->indexB;
@@ -496,9 +472,9 @@ void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 
 // Warning: writing to these globals significantly slows multithreading performance
 #if B2_GJK_DEBUG
-int32_t b2_gjkCalls;
-int32_t b2_gjkIters;
-int32_t b2_gjkMaxIters;
+int b2_gjkCalls;
+int b2_gjkIters;
+int b2_gjkMaxIters;
 #endif
 
 b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input)
@@ -911,7 +887,7 @@ b2SeparationFunction b2MakeSeparationFunction(const b2DistanceCache* cache, cons
 	return f;
 }
 
-static float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA, int32_t* indexB, float t)
+static float b2FindMinSeparation(const b2SeparationFunction* f, int* indexA, int* indexB, float t)
 {
 	b2Transform xfA = b2GetSweepTransform(&f->sweepA, t);
 	b2Transform xfB = b2GetSweepTransform(&f->sweepB, t);
@@ -979,7 +955,7 @@ static float b2FindMinSeparation(const b2SeparationFunction* f, int32_t* indexA,
 }
 
 //
-float b2EvaluateSeparation(const b2SeparationFunction* f, int32_t indexA, int32_t indexB, float t)
+float b2EvaluateSeparation(const b2SeparationFunction* f, int indexA, int indexB, float t)
 {
 	b2Transform xfA = b2GetSweepTransform(&f->sweepA, t);
 	b2Transform xfB = b2GetSweepTransform(&f->sweepB, t);
@@ -1057,8 +1033,8 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 	B2_ASSERT(target > tolerance);
 
 	float t1 = 0.0f;
-	const int32_t k_maxIterations = 20;
-	int32_t iter = 0;
+	const int k_maxIterations = 20;
+	int iter = 0;
 
 	// Prepare input for distance query.
 	b2DistanceCache cache = {0};
@@ -1102,14 +1078,14 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 #if 0
 		// Dump the curve seen by the root finder
 		{
-			const int32_t N = 100;
+			const int N = 100;
 			float dx = 1.0f / N;
 			float xs[N + 1];
 			float fs[N + 1];
 
 			float x = 0.0f;
 
-			for (int32_t i = 0; i <= N; ++i)
+			for (int i = 0; i <= N; ++i)
 			{
 				sweepA.GetTransform(&xfA, x);
 				sweepB.GetTransform(&xfB, x);
@@ -1129,11 +1105,11 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 		// resolving the deepest point. This loop is bounded by the number of vertices.
 		bool done = false;
 		float t2 = tMax;
-		int32_t pushBackIter = 0;
+		int pushBackIter = 0;
 		for (;;)
 		{
 			// Find the deepest point at t2. Store the witness point indices.
-			int32_t indexA, indexB;
+			int indexA, indexB;
 			float s2 = b2FindMinSeparation(&fcn, &indexA, &indexB, t2);
 
 			// Is the final configuration separated?
@@ -1178,7 +1154,7 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 			}
 
 			// Compute 1D root of: f(x) - target = 0
-			int32_t rootIterCount = 0;
+			int rootIterCount = 0;
 			float a1 = t1, a2 = t2;
 			for (;;)
 			{

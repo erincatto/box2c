@@ -326,9 +326,6 @@ typedef struct b2DistanceProxy
 ///	use zero initialization.
 typedef struct b2DistanceCache
 {
-	/// Length or area
-	float metric; 
-
 	/// The number of stored simplex points
 	uint16_t count;
 
