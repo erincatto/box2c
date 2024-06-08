@@ -199,7 +199,7 @@ public:
 
 		m_box = b2MakeSquare(0.5f);
 
-		m_transform.p = {0.0f, -1.0f};
+		m_transform.p = {0.55f, -0.70f};
 		m_transform.q = b2Rot_identity;
 		m_angle = 0.0f;
 

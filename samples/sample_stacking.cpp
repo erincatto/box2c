@@ -383,6 +383,62 @@ public:
 
 static int sampleVerticalStack = RegisterSample("Stacking", "Vertical Stack", VerticalStack::Create);
 
+// This shows how to handle high gravity and small shapes using a small time step
+class CircleStack : public Sample
+{
+public:
+	explicit CircleStack(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, 2.0f};
+			g_camera.m_zoom = 3.0f;
+			settings.hertz = 360.0f;
+			settings.subStepCount = 2;
+		}
+
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			b2Segment segment = {{-10.0f, 0.0f}, {10.0f, 0.0f}};
+			b2CreateSegmentShape(groundId, &shapeDef, &segment);
+		}
+
+		b2World_SetGravity(m_worldId, {0.0f, -20.0f});
+		b2World_SetContactTuning(m_worldId, 0.25f * 360.0f, 10.0f, 3.0f);
+
+		b2Circle circle = {};
+		circle.radius = 0.1f;
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+
+		float y = 0.5f;
+
+		for (int i = 0; i < 20; ++i)
+		{
+			bodyDef.position.y = y;
+
+			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
+			b2CreateCircleShape(bodyId, &shapeDef, &circle);
+
+			y += 1.0f;
+		}
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new CircleStack(settings);
+	}
+};
+
+static int sampleCircleStack = RegisterSample("Stacking", "Circle Stack", CircleStack::Create);
+
+
 class Cliff : public Sample
 {
 public:
