@@ -39,9 +39,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
 	option(BOX2D_AVX2 "Enable AVX2 (faster)" ON)
 endif()
 
-# Needed for samples.exe to find box2d.dll
-# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+if(PROJECT_IS_TOP_LEVEL)
+	# Needed for samples.exe to find box2d.dll
+	# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+endif()
 
 # C++17 needed for imgui
 set(CMAKE_CXX_STANDARD 17)
