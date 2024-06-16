@@ -1,127 +1,202 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <!-- https://cdn.jsdelivr.net/gh/erincatto/box2c@main/benchmark/amd7950x/joint_grid.csv -->
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Box2D Benchmarks</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 </head>
 
 <body>
-    <div id="wrapper">
-        <canvas id="joint_grid"></canvas>
-    </div>
+    <h1>Box2D Benchmarks</h1>
 
-    <div id="wrapper">
-        <canvas id="large_pyramid"></canvas>
-    </div>
+    <label for="csvSelect">Select Benchmark:</label>
+    <select id="csvSelect">
+        <option value="">--Benchmark--</option>
+    </select>
 
-    <div id="wrapper">
-        <canvas id="many_pyramids"></canvas>
-    </div>
+    <button id="loadButton">Load Data</button>
 
-    <div id="wrapper">
-        <canvas id="smash"></canvas>
-    </div>
+    <canvas id="myChart"></canvas>
 
-    <div id="wrapper">
-        <canvas id="tumbler"></canvas>
-    </div>
-</body>
+    <script>
+        // Replace 'your_username' and 'your_repository' with your GitHub username and repository name
+        const repoUrl = 'https://raw.githubusercontent.com/erincatto/box2c/main/benchmark';
 
-</html>
+        const benchmarks = [
+            {
+                label: 'Joint Grid',
+                file: 'joint_grid.csv',
+                description: '10k Circles, 19800 Revolute Joints'
+            },
+            {
+                label: 'Large Pyramid',
+                file: 'large_pyramid.csv',
+                description: '5050 boxes'
+            },
+            {
+                label: 'Many Pyramids',
+                file: 'many_pyramids.csv',
+                description: '400 x 55 boxes'
+            },
+            {
+                label: 'Smash',
+                file: 'smash.csv',
+                description: 'Large Box Colliding with 9600 Small Boxes'
+            },
+            {
+                label: 'Tumbler',
+                file: 'tumbler.csv',
+                description: '2026 Small Boxes Tumbling in a Large Hollow Box'
+            }
+        ];
 
-<script>
-    function makeChart(csvData, divName, title) {
-        var threadLabels = csvData.map(function (d) {
-            return d.threads;
-        });
-        var fpsData = csvData.map(function (d) {
-            return +d.fps;
-        });
+        const processors = ['amd7950x'];
 
-        var idealData = [];
-        var count = fpsData.length;
-        idealData.push(fpsData[0]);
-        var i;
-        for (i = 1; i < count; ++i)
-        {
-            idealData.push(fpsData[0] * (i + 1));
+        const csvSelect = document.getElementById('csvSelect');
+        const loadButton = document.getElementById('loadButton');
+        let chart = null;
+
+        // Populate the select element
+        for (var i = 0; i < benchmarks.length; ++i) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = benchmarks[i].label;
+            csvSelect.appendChild(option);
         }
 
-        var chart = new Chart(divName, {
-            type: "line",
-            data: {
-                labels: threadLabels,
-                datasets: [
-                    {
-                        fill: false,
-                        borderColor: 'rgb(75, 192, 192)',
-                        data: fpsData,
-                    },
-                    {
-                        fill: false,
-                        pointStyle: false,
-                        borderDash: [5, 5],
-                        //borderColor: 'rgb(75, 192, 192)',
-                        data: idealData,
+        async function fetchCSV(url) {
+            const response = await fetch(url);
+            return response.text();
+        }
+
+        // async function fetchBranches() {
+        //     const url = `https://api.github.com/repos/${username}/${repository}/branches`;
+        //     const response = await fetch(url);
+        //     if (!response.ok) {
+        //         throw new Error(`HTTP error! status: ${response.status}`);
+        //     }
+        //     return response.json();
+        // }
+
+        // async function populateBranches() {
+        //     try {
+        //         const branches = await fetchBranches();
+        //         branchSelect.innerHTML = ''; // Clear existing options
+
+        //         branches.forEach(branch => {
+        //             const option = document.createElement('option');
+        //             option.value = branch.name;
+        //             option.textContent = branch.name;
+        //             branchSelect.appendChild(option);
+        //         });
+
+        //         // Select the first branch by default
+        //         if (branches.length > 0) {
+        //             currentBranch = branches[0].name;
+        //             branchSelect.value = currentBranch;
+        //         }
+        //     } catch (error) {
+        //         console.error('Error fetching branches:', error);
+        //         branchSelect.innerHTML = '<option value="">Error loading branches</option>';
+        //     }
+        // }
+
+        async function loadData(file) {
+            const datasets = [];
+
+            for (const processor of processors) {
+                const csvUrl = repoUrl + '/' + processor + '/' + file;
+
+                console.log(csvUrl);
+
+                try {
+                    const csv = await fetchCSV(csvUrl);
+                    const csvResult = Papa.parse(csv, {header: true, skipEmptyLines: true});
+                    const data = csvResult.data;
+
+                    console.log(data);
+
+                    datasets.push({
+                        label: processor,
+                        data: data.map(row => ({ x: row.threads, y: row.fps })),
+                        fill: false
+                    });
+                }
+                catch (error) {
+                    console.error(`Error loading the CSV file (${csvUrl}):`, error);
+                    throw new Error('Failed to load the CSV file. It may be missing or inaccessible.');
+                }
+            }
+
+            return datasets;
+        }
+
+        async function createChart(datasets, index) {
+            const ctx = document.getElementById('myChart').getContext('2d');
+
+            const benchmark = benchmarks[index];
+
+            //console.log(benchmark);
+
+            if (chart) {
+                chart.destroy(); // Destroy the previous chart if it exists
+            }
+
+            chart = new Chart(ctx,
+                {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: benchmark.label + ': ' + benchmark.description,
+                            },
+                            legend: {
+                                display: true
+                            },
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom'
+                            }
+                        }
                     }
-                ]
-            },
-            options: {
-                plugins: {
-                    title: {
-                        display: true,
-                        text: title,
-                    },
-                    legend: {
-                        display: false
-                    },
-                },
-                responsive: true,
-                scales: {
-                    x: {
-                        display: true,
-                        title: {
-                            display: true,
-                            text: 'thread count',
-                        }
-                    },
-                    y: {
-                        display: true,
-                        title: {
-                            display: true,
-                            text: 'fps',
-                        }
-                    },
+                });
+        }
+
+        // connect button listener
+        loadButton.addEventListener('click', async () => {
+            const index = parseInt(csvSelect.value);
+            console.log(index);
+            if (isNaN(index)) {
+                alert('Please select a benchmark');
+            }
+            else {
+                try {
+                    const benchmark = benchmarks[index];
+                    const datasets = await loadData(benchmark.file);
+                    console.log(datasets);
+
+                    await createChart(datasets, index);
+                }
+                catch (error) {
+                    // failed to load data
+                    alert(error.message);
+                    if (chart) {
+                        chart.destroy();
+                        chart = null;
+                    }
                 }
             }
         });
-    }
+    </script>
+</body>
 
-    d3.csv("amd7950x/joint_grid.csv").get(function (data) {
-        console.log(data);
-        makeChart(data, 'joint_grid', 'Joint Grid: 10k Circles, 19800 Revolute Joints, CPU: AMD 7950x');
-    });
-
-    d3.csv("amd7950x/large_pyramid.csv").get(function (data) {
-        console.log(data);
-        makeChart(data, 'large_pyramid', 'Large Pyramid: 5050 boxes, CPU: AMD 7950x');
-    });
-
-    d3.csv("amd7950x/many_pyramids.csv").get(function (data) {
-        console.log(data);
-        makeChart(data, 'many_pyramids', 'Many Pyramids: 400 x 55 boxes, CPU: AMD 7950x');
-    });
-    
-    d3.csv("amd7950x/smash.csv").get(function (data) {
-        console.log(data);
-        makeChart(data, 'smash', 'Large Box Colliding with 9600 Small Boxes, CPU: AMD 7950x');
-    });
-    
-    d3.csv("amd7950x/tumbler.csv").get(function (data) {
-        console.log(data);
-        makeChart(data, 'tumbler', 'Tumbler: 2026 Small Boxes Tumbling in a Large Hollow Box, CPU: AMD 7950x');
-    });
-</script>
+</html>

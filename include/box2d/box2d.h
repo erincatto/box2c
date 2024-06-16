@@ -896,9 +896,6 @@ B2_API b2JointId b2CreateRevoluteJoint(b2WorldId worldId, const b2RevoluteJointD
 /// Enable/disable the revolute joint spring
 B2_API void b2RevoluteJoint_EnableSpring(b2JointId jointId, bool enableSpring);
 
-/// Is the revolute joint limit enabled?
-B2_API bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId);
-
 /// Set the revolute joint spring stiffness in Hertz
 B2_API void b2RevoluteJoint_SetSpringHertz(b2JointId jointId, float hertz);
 
