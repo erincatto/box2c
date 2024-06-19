@@ -761,23 +761,30 @@ void b2Body_SetLinearVelocity(b2BodyId bodyId, b2Vec2 linearVelocity)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
+
+	if (body->setIndex >= b2_firstSleepingSet && b2LengthSquared(linearVelocity) > 0.0f)
+	{
+		b2WakeBody(world, body);
+	}
+
 	b2BodyState* state = b2GetBodyState(world, body);
 	if (state == NULL)
 	{
 		return;
 	}
-
 	state->linearVelocity = linearVelocity;
-	if (b2LengthSquared(linearVelocity) > 0.0f)
-	{
-		b2WakeBody(world, body);
-	}
 }
 
 void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
+
+	if (body->setIndex >= b2_firstSleepingSet && angularVelocity != 0.0f)
+	{
+		b2WakeBody(world, body);
+	}
+
 	b2BodyState* state = b2GetBodyState(world, body);
 	if (state == NULL)
 	{
@@ -785,10 +792,6 @@ void b2Body_SetAngularVelocity(b2BodyId bodyId, float angularVelocity)
 	}
 
 	state->angularVelocity = angularVelocity;
-	if (angularVelocity != 0.0f)
-	{
-		b2WakeBody(world, body);
-	}
 }
 
 void b2Body_ApplyForce(b2BodyId bodyId, b2Vec2 force, b2Vec2 point, bool wake)
