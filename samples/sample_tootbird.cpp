@@ -329,6 +329,23 @@ public:
 
 	static int FindSupport(const b2Vec2* points, int count, b2Vec2 direction)
 	{
+		int bestIndex = 0;
+		float bestValue = b2Dot(points[0], direction);
+		for (int i = 1; i < count; ++i)
+		{
+			float value = b2Dot(points[i], direction);
+			if (value > bestValue)
+			{
+				bestIndex = i;
+				bestValue = value;
+			}
+		}
+
+		return bestIndex;
+	}
+
+	static int FindSupport2(const b2Vec2* points, int count, b2Vec2 direction)
+	{
 		// support(N, A) - support(-N, B)
 		b2Vec2 negatedDirection = -direction;
 		int bestIndex = 0;
@@ -381,11 +398,11 @@ public:
 		return simplex;
 	}
 	
-	NormalResult GetNextNormal(Simplex* simplex, b2Vec2 support, b2Vec2 normal, float depth, int supportIndex)
+	NormalResult GetNextNormal(Simplex* simplex, b2Vec2 support, b2Vec2 bestNormal, float bestDepth, int supportIndex)
 	{
-		b2Vec2 searchTarget = b2MaxFloat(0.0f, depth) * normal;
-		float tol = 1e-6f;
-		float terminationEpsilon = depth < 0.0f ? tol - depth : tol;
+		// if depth > 0 then search target is origin projected on the best plane (toot bird)
+		// else the search target is the origin (GJK)
+		b2Vec2 searchTarget = b2MaxFloat(0.0f, bestDepth) * bestNormal;
 
 		if (supportIndex >= 0)
 		{
@@ -432,10 +449,25 @@ public:
 			closestPoint = ClosestPointOnSegment(searchTarget, simplex->v1.p, simplex->v2.p);
 		}
 
-		float distanceSqr = b2LengthSquared(closestPoint);
-		bool converged = distanceSqr < terminationEpsilon * terminationEpsilon;
+		b2Vec2 simplexToTarget = searchTarget - closestPoint;
 
-		b2Vec2 nextNormal = -b2Normalize(closestPoint);
+		// Termination condition
+		float distanceSqr = b2LengthSquared(simplexToTarget);
+		float tol = 1e-6f;
+		bool converged;
+		if (bestDepth < 0.0f)
+		{
+			// separation converged?
+			float bestSeparation = -bestDepth;
+			converged = distanceSqr < (bestSeparation + tol) * (bestSeparation + tol);
+		}
+		else
+		{
+			// search target is on the simplex
+			converged = distanceSqr < tol * tol;
+		}
+
+		b2Vec2 nextNormal = b2Normalize(simplexToTarget);
 		NormalResult result = {nextNormal, converged};
 		return result;
 	}
@@ -460,8 +492,14 @@ public:
 		int iteration = 0;
 		for (; iteration < maximumIterations; ++iteration)
 		{
-			int supportIndex = FindSupport(points, count, normalResult.nextNormal);
+			if (normalResult.converged)
+			{
+				break;
+			}
+
+			int supportIndex = FindSupport2(points, count, normalResult.nextNormal);
 			b2Vec2 support = b2Vec2_zero - points[supportIndex];
+
 			float depth = b2Dot(support, normalResult.nextNormal);
 			if (depth < refinedDepth)
 			{
@@ -474,11 +512,11 @@ public:
 				break;
 			}
 
-			normalResult = GetNextNormal(simplex, b2Vec2_zero, refinedNormal, refinedDepth, supportIndex);
+			normalResult = GetNextNormal(simplex, support, refinedNormal, refinedDepth, supportIndex);
 		}
 
 		result.normal = refinedNormal;
-		result.witness = ComputeClosestPoint(simplex);
+		result.witness = -ComputeClosestPoint(simplex);
 		result.depth = refinedDepth;
 		result.iterations = iteration;
 		return result;
@@ -486,7 +524,7 @@ public:
 
 	DepthResult FindMinimumDepth(b2Vec2* points, int count, b2Vec2 initialNormal, Simplex* simplex, float maximumIterations)
 	{
-		int supportIndex = FindSupport(points, count, initialNormal);
+		int supportIndex = FindSupport2(points, count, initialNormal);
 		b2Vec2 initialSupport = b2Vec2_zero - points[supportIndex];
 		float initialDepth = b2Dot(initialSupport, initialNormal);
 		*simplex = CreateSimplex(initialNormal, initialSupport, supportIndex);
@@ -524,9 +562,10 @@ public:
 		*vertex = {points[index], 1.0f, index};
 		simplex.count = 1;
 
-		// Initial toot bird is origin projected onto support plane
-		float tootBirdSeparation = -b2Dot(points[index], normal);
-		b2Vec2 tootBird = -tootBirdSeparation * normal;
+		// Initial target is origin projected onto support plane.
+		// If the separation is positive then use the GJK search direction (target is the origin)
+		float maxSeparation = -b2Dot(points[index], normal);
+		b2Vec2 target = -b2MinFloat(0.0f, maxSeparation) * normal;
 
 		int iter;
 		for (iter = 0; iter < m_maxIterations; ++iter)
@@ -540,17 +579,16 @@ public:
 			else
 			{
 				assert(simplex.count == 2);
-				cp = ClosestPointOnSegment(tootBird, simplex.v1.p, simplex.v2.p);
+				cp = ClosestPointOnSegment(target, simplex.v1.p, simplex.v2.p);
 			}
 
-			if (tootBirdSeparation > 0.0f)
+			if (maxSeparation > 0.0f)
 			{
-				direction = -cp;
+				// GJK direction
+				target = b2Vec2_zero;
 			}
-			else
-			{
-				direction = tootBird - cp;
-			}
+
+			direction = target - cp;
 
 			if (b2LengthSquared(direction) < 0.00001f)
 			{
@@ -569,18 +607,18 @@ public:
 			// dot(origin + b * normal - points[index], normal) = 0
 			// b = dot(points[index], normal)
 			// tb = b * normal
-			// vector from simplex vertex to tootBird
+			// vector from simplex vertex to target
 			// d = tb - points[index]
 			//   = dot(points[index], normal) * normal - points[index]
 
 			// Reduce simplex
 			if (simplex.count == 2)
 			{
-				ReduceSimplex2(&simplex, tootBird);
+				ReduceSimplex2(&simplex, target);
 			}
 			else if (simplex.count == 3)
 			{
-				ReduceSimplex3(&simplex, tootBird);
+				ReduceSimplex3(&simplex, target);
 				if (simplex.count == 3)
 				{
 					// Something is wrong
@@ -592,10 +630,10 @@ public:
 			float separation = -b2Dot(points[index], normal);
 
 			// Is the candidate an improvement?
-			if (separation > tootBirdSeparation)
+			if (separation > maxSeparation)
 			{
-				tootBird = -separation * normal;
-				tootBirdSeparation = separation;
+				target = -b2MinFloat(0.0f, separation) * normal;
+				maxSeparation = separation;
 			}
 		}
 		
@@ -607,10 +645,10 @@ public:
 			g_draw.DrawPoint(vertices[i]->p, 5.0f, simplexColors[i]);
 		}
 
-		g_draw.DrawPoint(tootBird, 3.0f, b2_colorPaleTurquoise);
+		g_draw.DrawPoint(target, 3.0f, b2_colorPaleTurquoise);
 		g_draw.DrawTransform(b2Transform_identity);
 
-		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %g", iter, tootBirdSeparation);
+		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %g", iter, maxSeparation);
 		m_textLine += m_textIncrement;
 	}
 	#else
@@ -633,13 +671,13 @@ public:
 		b2HexColor simplexColors[3] = {b2_colorRed, b2_colorGreen, b2_colorBlue};
 		for (int i = 0; i < simplex.count; ++i)
 		{
-			g_draw.DrawPoint(vertices[i].p, 5.0f, simplexColors[i]);
+			g_draw.DrawPoint(-vertices[i].p, 8.0f, simplexColors[i]);
 		}
 
-		g_draw.DrawPoint(result.witness, 3.0f, b2_colorPaleTurquoise);
+		g_draw.DrawPoint(result.witness, 5.0f, b2_colorYellow);
 		g_draw.DrawTransform(b2Transform_identity);
 
-		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %g", result.iterations, -result.depth);
+		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %.3f", result.iterations, -result.depth);
 		m_textLine += m_textIncrement;
 	}
 	#endif

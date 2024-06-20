@@ -1345,7 +1345,7 @@ b2Vec2 b2Shape_GetClosestPoint(b2ShapeId shapeId, b2Vec2 target)
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	return output.pointA;
 }

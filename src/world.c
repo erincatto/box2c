@@ -1873,7 +1873,7 @@ static bool TreeOverlapCallback(int proxyId, int shapeId, void* context)
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	if (output.distance > 0.0f)
 	{
@@ -2374,7 +2374,7 @@ static bool ExplosionCallback(int proxyId, int shapeId, void* context)
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	if (output.distance > explosionContext->radius)
 	{

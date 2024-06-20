@@ -564,7 +564,7 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 	input.useRadii = false;
 
 	// todo faster b2ShapeDistance with no transforms?
-	b2DistanceOutput output = b2ShapeDistance(cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(cache, &input, NULL, 0);
 
 	if (output.distance > radius + b2_speculativeDistance)
 	{
@@ -1003,7 +1003,7 @@ b2Manifold b2CollideSmoothSegmentAndPolygon(const b2SmoothSegment* smoothSegment
 	input.transformB = b2Transform_identity;
 	input.useRadii = false;
 
-	b2DistanceOutput output = b2ShapeDistance(cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(cache, &input, NULL, 0);
 
 	if (output.distance > radiusB + b2_speculativeDistance)
 	{

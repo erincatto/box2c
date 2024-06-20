@@ -357,19 +357,38 @@ typedef struct b2DistanceInput
 	bool useRadii;
 } b2DistanceInput;
 
-/// Output for b2Distance
+/// Output for b2ShapeDistance
 typedef struct b2DistanceOutput
 {
 	b2Vec2 pointA; ///< Closest point on shapeA
 	b2Vec2 pointB; ///< Closest point on shapeB
 	float distance;	///< The final distance, zero if overlapped
 	int32_t iterations; ///< Number of GJK iterations used
+	int32_t simplexCount; ///< The number of simplexes stored in the simplex array
 } b2DistanceOutput;
 
-/// Compute the closest points between two shapes. Supports any combination of:
-/// b2Circle, b2Polygon, b2EdgeShape. The simplex cache is input/output.
-/// On the first call set b2SimplexCache.count to zero.
-B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input);
+/// Simplex vertex for debugging the GJK algorithm
+typedef struct b2SimplexVertex
+{
+	b2Vec2 wA;	///< support point in proxyA
+	b2Vec2 wB;	///< support point in proxyB
+	b2Vec2 w;	///< wB - wA
+	float a;	///< barycentric coordinate for closest point
+	int indexA; ///< wA index
+	int indexB; ///< wB index
+} b2SimplexVertex;
+
+/// Simplex from the GJK algorithm
+typedef struct b2Simplex
+{
+	b2SimplexVertex v1, v2, v3; ///< vertices
+	int count; ///< number of valid vertices
+} b2Simplex;
+
+/// Compute the closest points between two shapes represented as point clouds.
+/// b2DistanceCache cache is input/output. On the first call set b2DistanceCache.count to zero.
+///	The underlying GJK algorithm may be debugged by passing in debug simplexes and capacity. You may pass in NULL and 0 for these.
+B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes, int simplexCapacity);
 
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastPairInput

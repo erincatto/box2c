@@ -477,7 +477,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 	input.transformB = xfB;
 	input.useRadii = true;
 
-	b2DistanceOutput output = b2ShapeDistance(cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(cache, &input, NULL, 0);
 
 	return output.distance < 10.0f * FLT_EPSILON;
 }

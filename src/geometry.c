@@ -458,7 +458,7 @@ bool b2PointInPolygon(b2Vec2 point, const b2Polygon* shape)
 	input.useRadii = false;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	return output.distance <= shape->radius;
 }

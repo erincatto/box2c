@@ -149,22 +149,6 @@ static int b2FindSupport(const b2DistanceProxy* proxy, b2Vec2 direction)
 	return bestIndex;
 }
 
-typedef struct b2SimplexVertex
-{
-	b2Vec2 wA;		// support point in proxyA
-	b2Vec2 wB;		// support point in proxyB
-	b2Vec2 w;		// wB - wA
-	float a;		// barycentric coordinate for closest point
-	int indexA; // wA index
-	int indexB; // wB index
-} b2SimplexVertex;
-
-typedef struct b2Simplex
-{
-	b2SimplexVertex v1, v2, v3;
-	int count;
-} b2Simplex;
-
 static b2Simplex b2MakeSimplexFromCache(const b2DistanceCache* cache, const b2DistanceProxy* proxyA, b2Transform transformA,
 										const b2DistanceProxy* proxyB, b2Transform transformB)
 {
@@ -219,6 +203,13 @@ static void b2MakeSimplexCache(b2DistanceCache* cache, const b2Simplex* simplex)
 	}
 }
 
+// Compute the search direction from the current simplex.
+// This is the vector pointing from the closest point on the simplex
+// to the origin.
+// A more accurate search direction can be computed by using the normal
+// vector of the simplex. For example, the normal vector of a line segment
+// can be computed more accurately because it does not involve barycentric
+// coordinates.
 b2Vec2 b2ComputeSimplexSearchDirection(const b2Simplex* simplex)
 {
 	switch (simplex->count)
@@ -233,12 +224,12 @@ b2Vec2 b2ComputeSimplexSearchDirection(const b2Simplex* simplex)
 			if (sgn > 0.0f)
 			{
 				// Origin is left of e12.
-				return b2CrossSV(1.0f, e12);
+				return b2LeftPerp(e12);
 			}
 			else
 			{
 				// Origin is right of e12.
-				return b2CrossVS(e12, 1.0f);
+				return b2RightPerp(e12);
 			}
 		}
 
@@ -468,21 +459,9 @@ void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 	s->count = 3;
 }
 
-#define B2_GJK_DEBUG 0
-
-// Warning: writing to these globals significantly slows multithreading performance
-#if B2_GJK_DEBUG
-int b2_gjkCalls;
-int b2_gjkIters;
-int b2_gjkMaxIters;
-#endif
-
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes,
+								 int simplexCapacity)
 {
-#if B2_GJK_DEBUG
-	++b2_gjkCalls;
-#endif
-
 	b2DistanceOutput output = {0};
 
 	const b2DistanceProxy* proxyA = &input->proxyA;
@@ -494,12 +473,18 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 	// Initialize the simplex.
 	b2Simplex simplex = b2MakeSimplexFromCache(cache, proxyA, transformA, proxyB, transformB);
 
+	int simplexIndex = 0;
+	if (simplexes != NULL && simplexIndex < simplexCapacity)
+	{
+		simplexes[simplexIndex] = simplex;
+		simplexIndex += 1;
+	}
+
 	// Get simplex vertices as an array.
 	b2SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
 	const int k_maxIters = 20;
 
-	// These store the vertices of the last simplex so that we
-	// can check for duplicates and prevent cycling.
+	// These store the vertices of the last simplex so that we can check for duplicates and prevent cycling.
 	int saveA[3], saveB[3];
 
 	// Main iteration loop.
@@ -537,6 +522,12 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 			break;
 		}
 
+		if (simplexes != NULL && simplexIndex < simplexCapacity)
+		{
+			simplexes[simplexIndex] = simplex;
+			simplexIndex += 1;
+		}
+
 		// Get search direction.
 		b2Vec2 d = b2ComputeSimplexSearchDirection(&simplex);
 
@@ -553,6 +544,7 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 		}
 
 		// Compute a tentative new simplex vertex using support points.
+		// support = support(b, d) - support(a, -d)
 		b2SimplexVertex* vertex = vertices[simplex.count];
 		vertex->indexA = b2FindSupport(proxyA, b2InvRotateVector(transformA.q, b2Neg(d)));
 		vertex->wA = b2TransformPoint(transformA, proxyA->points[vertex->indexA]);
@@ -562,10 +554,6 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 
 		// Iteration count is equated to the number of support point calls.
 		++iter;
-
-#if B2_GJK_DEBUG
-		++b2_gjkIters;
-#endif
 
 		// Check for duplicate support points. This is the main termination criteria.
 		bool duplicate = false;
@@ -588,14 +576,17 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 		++simplex.count;
 	}
 
-#if B2_GJK_DEBUG
-	b2_gjkMaxIters = b2MaxInt(b2_gjkMaxIters, iter);
-#endif
+	if (simplexes != NULL && simplexIndex < simplexCapacity)
+	{
+		simplexes[simplexIndex] = simplex;
+		simplexIndex += 1;
+	}
 
 	// Prepare output
 	b2ComputeSimplexWitnessPoints(&output.pointA, &output.pointB, &simplex);
 	output.distance = b2Distance(output.pointA, output.pointB);
 	output.iterations = iter;
+	output.simplexCount = simplexIndex;
 
 	// Cache the simplex
 	b2MakeSimplexCache(cache, &simplex);
@@ -1054,7 +1045,7 @@ b2TOIOutput b2TimeOfImpact(const b2TOIInput* input)
 		// to get a separating axis.
 		distanceInput.transformA = xfA;
 		distanceInput.transformB = xfB;
-		b2DistanceOutput distanceOutput = b2ShapeDistance(&cache, &distanceInput);
+		b2DistanceOutput distanceOutput = b2ShapeDistance(&cache, &distanceInput, NULL, 0);
 
 		// If the shapes are overlapped, we give up on continuous collision.
 		if (distanceOutput.distance <= 0.0f)
