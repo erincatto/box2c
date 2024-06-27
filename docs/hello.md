@@ -122,7 +122,7 @@ the origin.
 ```c
 b2BodyDef bodyDef = b2DefaultBodyDef();
 bodyDef.type = b2_dynamicBody;
-bodyDef.position.Set(0.0f, 4.0f);
+bodyDef.position = (b2Vec2){0.0f, 4.0f};
 b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
 ```
 

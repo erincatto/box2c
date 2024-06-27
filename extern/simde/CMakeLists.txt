@@ -9,7 +9,6 @@ add_library(
 	simde-align.h 
 	simde-arch.h 
 	simde-common.h 
-	simde-complex.h 
 	simde-constify.h 
 	simde-detect-clang.h 
 	simde-diagnostic.h 

@@ -18,9 +18,31 @@ static inline uint32_t b2CTZ32(uint32_t block)
 	return index;
 }
 
+// This function doesn't need to be fast, so using the Ivy Bridge fallback.
 static inline uint32_t b2CLZ32(uint32_t value)
 {
+	#if 1
+	
+	// Use BSR (Bit Scan Reverse) which is available on Ivy Bridge
+	unsigned long index;
+	if (_BitScanReverse(&index, value))
+	{
+		// BSR gives the index of the most significant 1-bit
+		// We need to invert this to get the number of leading zeros
+		return 31 - index;
+	}
+	else
+	{
+		// If x is 0, BSR sets the zero flag and doesn't modify index
+		// LZCNT should return 32 for an input of 0
+		return 32;
+	}
+
+	#else
+
 	return __lzcnt(value);
+
+	#endif
 }
 
 static inline uint32_t b2CTZ64(uint64_t block)

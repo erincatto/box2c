@@ -92,7 +92,7 @@ typedef struct b2MassData
 	b2Vec2 center;
 
 	/// The rotational inertia of the shape about the local origin.
-	float I;
+	float rotationalInertia;
 } b2MassData;
 
 /// A solid circle
@@ -299,7 +299,7 @@ typedef struct b2SegmentDistanceResult
 	/// The barycentric coordinate on the first segment
 	float fraction1;
 
-	/// The barycentric coordinate on the first segment
+	/// The barycentric coordinate on the second segment
 	float fraction2;
 
 	/// The squared distance between the closest points
@@ -338,7 +338,7 @@ typedef struct b2DistanceCache
 
 static const b2DistanceCache b2_emptyDistanceCache = B2_ZERO_INIT;
 
-/// Input for b2Distance
+/// Input for b2ShapeDistance
 typedef struct b2DistanceInput
 {
 	/// The proxy for shape A
@@ -389,6 +389,37 @@ typedef struct b2Simplex
 /// b2DistanceCache cache is input/output. On the first call set b2DistanceCache.count to zero.
 ///	The underlying GJK algorithm may be debugged by passing in debug simplexes and capacity. You may pass in NULL and 0 for these.
 B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes, int simplexCapacity);
+
+/// Input for b2ShapeSeparation
+typedef struct b2SeparationInput
+{
+	/// The proxy for shape A
+	b2DistanceProxy proxyA;
+
+	/// The proxy for shape B
+	b2DistanceProxy proxyB;
+
+	/// The world transform for shape A
+	b2Transform transformA;
+
+	/// The world transform for shape B
+	b2Transform transformB;
+
+	/// The initial search direction
+	b2Vec2 searchDirection;
+} b2SeparationInput;
+
+/// Output for b2ShapeSeparation
+typedef struct b2SeparationOutput
+{
+	b2Vec2 pointA;			///< Closest point on shapeA
+	b2Vec2 pointB;			///< Closest point on shapeB
+	float separation;		///< The final separation, negative if overlapped
+	int32_t iterations;		///< Number of iterations used
+	int32_t simplexCount;	///< The number of simplexes stored in the simplex array
+} b2SeparationOutput;
+
+B2_API b2SeparationOutput b2ShapeSeparation(const b2SeparationInput* input, b2Simplex* simplexes, int simplexCapacity);
 
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastPairInput

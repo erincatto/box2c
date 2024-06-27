@@ -620,6 +620,31 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 	return output;
 }
 
+b2SeparationOutput b2ShapeSeparation(const b2SeparationInput* input, b2Simplex* simplexes, int simplexCapacity)
+{
+	const b2DistanceProxy* proxyA = &input->proxyA;
+	const b2DistanceProxy* proxyB = &input->proxyB;
+
+	b2Transform transformA = input->transformA;
+	b2Transform transformB = input->transformB;
+
+	b2Vec2 searchDirection = input->searchDirection;
+
+	int indexA = b2FindSupport(proxyA, b2InvRotateVector(transformA.q, b2Neg(searchDirection)));
+	b2Vec2 wA = b2TransformPoint(transformA, proxyA->points[indexA]);
+	int indexB = b2FindSupport(proxyB, b2InvRotateVector(transformB.q, searchDirection));
+	b2Vec2 wB = b2TransformPoint(transformB, proxyB->points[indexB]);
+	b2Vec2 w = b2Sub(wB, wA);
+
+	b2Vec2 initialSupport = b2Sub(wB, wA);
+	float initialSeparation = b2Dot(initialSupport, searchDirection);
+
+	b2Simplex simplex = b2CreateSimplex(initialNormal, initialSupport, supportIndex);
+
+	DepthResult result = Refine(points, count, simplex, initialNormal, initialDepth, maximumIterations);
+	return result;
+}
+
 // GJK-raycast
 // Algorithm by Gino van den Bergen.
 // "Smooth Mesh Contacts with GJK" in Game Physics Pearls. 2010

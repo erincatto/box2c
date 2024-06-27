@@ -566,7 +566,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		b2MassData massData = b2ComputeShapeMass(s);
 		bodySim->mass += massData.mass;
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
-		bodySim->I += massData.I;
+		bodySim->I += massData.rotationalInertia;
 
 	}
 
@@ -1223,7 +1223,7 @@ b2Vec2 b2Body_GetWorldCenterOfMass(b2BodyId bodyId)
 void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 {
 	B2_ASSERT(b2IsValid(massData.mass) && massData.mass >= 0.0f);
-	B2_ASSERT(b2IsValid(massData.I) && massData.I >= 0.0f);
+	B2_ASSERT(b2IsValid(massData.rotationalInertia) && massData.rotationalInertia >= 0.0f);
 	B2_ASSERT(b2Vec2_IsValid(massData.center));
 
 	b2World* world = b2GetWorldLocked(bodyId.world0);
@@ -1236,7 +1236,7 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	b2BodySim* bodySim = b2GetBodySim(world, body);
 
 	bodySim->mass = massData.mass;
-	bodySim->I = massData.I;
+	bodySim->I = massData.rotationalInertia;
 	bodySim->localCenter = massData.center;
 
 	b2Vec2 center = b2TransformPoint(bodySim->transform, massData.center);
