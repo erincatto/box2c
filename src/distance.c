@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-
 #include "core.h"
 
 #include "box2d/collision.h"
@@ -459,8 +458,7 @@ void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
 	s->count = 3;
 }
 
-b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes,
-								 int simplexCapacity)
+b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes, int simplexCapacity)
 {
 	b2DistanceOutput output = {0};
 
@@ -620,30 +618,439 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 	return output;
 }
 
+#if 1
+//static int b2Support(const b2SeparationProxy* proxy, b2Vec2 direction)
+//{
+//	int bestIndex = 0;
+//	float bestValue = b2Dot(proxy->points[0], direction);
+//	for (int i = 1; i < proxy->count; ++i)
+//	{
+//		float value = b2Dot(proxy->points[i], direction);
+//		if (value > bestValue)
+//		{
+//			bestIndex = i;
+//			bestValue = value;
+//		}
+//	}
+//
+//	return bestIndex;
+//}
+
+struct b2Support
+{
+	b2Vec2 pointA, pointB, point;
+	int indexA, indexB;
+};
+
+// The normal vector points from A to B.
+// This is the opposite of the GJK search direction, but it is more intuitive for computing separation.
+// support = support_A(normal) - support_B(-normal)
+static struct b2Support b2ComputeSupport(const b2SeparationProxy* restrict proxyA, const b2SeparationProxy* restrict proxyB,
+										 b2Vec2 normal)
+{
+	int indexA = 0;
+	b2Vec2 pointA = proxyA->points[0];
+
+	{
+		float valueA = b2Dot(pointA, normal);
+		int countA = proxyA->count;
+		for (int i = 1; i < countA; ++i)
+		{
+			b2Vec2 p = proxyA->points[i];
+			float value = b2Dot(p, normal);
+			if (value > valueA)
+			{
+				indexA = i;
+				pointA = p;
+				valueA = value;
+			}
+		}
+	}
+
+	int indexB = 0;
+	b2Vec2 pointB = proxyB->points[0];
+
+	{
+		b2Vec2 negNormal = b2Neg(normal);
+		float valueB = b2Dot(pointB, negNormal);
+		int countB = proxyB->count;
+		for (int i = 1; i < countB; ++i)
+		{
+			b2Vec2 p = proxyB->points[i];
+			float value = b2Dot(p, negNormal);
+			if (value > valueB)
+			{
+				indexB = i;
+				pointB = p;
+				valueB = value;
+			}
+		}
+	}
+
+	b2Vec2 point = b2Sub(pointA, pointB);
+	return (struct b2Support){pointA, pointB, point, indexA, indexB};
+}
+
+static void b2ReduceSimplex2(b2Simplex* s, b2Vec2 target)
+{
+	b2Vec2 w1 = b2Sub(s->v1.w, target);
+	b2Vec2 w2 = b2Sub(s->v2.w, target);
+	b2Vec2 e12 = b2Sub(w2, w1);
+
+	// w1 region
+	float d12_2 = -b2Dot(w1, e12);
+	if (d12_2 <= 0.0f)
+	{
+		// a2 <= 0, so we clamp it to 0
+		s->v1.a = 1.0f;
+		s->count = 1;
+		return;
+	}
+
+	// w2 region
+	float d12_1 = b2Dot(w2, e12);
+	if (d12_1 <= 0.0f)
+	{
+		// a1 <= 0, so we clamp it to 0
+		s->v2.a = 1.0f;
+		s->count = 1;
+		s->v1 = s->v2;
+		return;
+	}
+
+	// Must be in e12 region.
+	float inv_d12 = 1.0f / (d12_1 + d12_2);
+	s->v1.a = d12_1 * inv_d12;
+	s->v2.a = d12_2 * inv_d12;
+	s->count = 2;
+}
+
+static void b2ReduceSimplex3(b2Simplex* s, b2Vec2 target)
+{
+	b2Vec2 w1 = b2Sub(s->v1.w, target);
+	b2Vec2 w2 = b2Sub(s->v2.w, target);
+	b2Vec2 w3 = b2Sub(s->v3.w, target);
+
+	// Edge12
+	// [1      1     ][a1] = [1]
+	// [w1.e12 w2.e12][a2] = [0]
+	// a3 = 0
+	b2Vec2 e12 = b2Sub(w2, w1);
+	float w1e12 = b2Dot(w1, e12);
+	float w2e12 = b2Dot(w2, e12);
+	float d12_1 = w2e12;
+	float d12_2 = -w1e12;
+
+	// Edge13
+	// [1      1     ][a1] = [1]
+	// [w1.e13 w3.e13][a3] = [0]
+	// a2 = 0
+	b2Vec2 e13 = b2Sub(w3, w1);
+	float w1e13 = b2Dot(w1, e13);
+	float w3e13 = b2Dot(w3, e13);
+	float d13_1 = w3e13;
+	float d13_2 = -w1e13;
+
+	// Edge23
+	// [1      1     ][a2] = [1]
+	// [w2.e23 w3.e23][a3] = [0]
+	// a1 = 0
+	b2Vec2 e23 = b2Sub(w3, w2);
+	float w2e23 = b2Dot(w2, e23);
+	float w3e23 = b2Dot(w3, e23);
+	float d23_1 = w3e23;
+	float d23_2 = -w2e23;
+
+	// Triangle123
+	float n123 = b2Cross(e12, e13);
+
+	float d123_1 = n123 * b2Cross(w2, w3);
+	float d123_2 = n123 * b2Cross(w3, w1);
+	float d123_3 = n123 * b2Cross(w1, w2);
+
+	// w1 region
+	if (d12_2 <= 0.0f && d13_2 <= 0.0f)
+	{
+		s->v1.a = 1.0f;
+		s->count = 1;
+		return;
+	}
+
+	// e12
+	if (d12_1 > 0.0f && d12_2 > 0.0f && d123_3 <= 0.0f)
+	{
+		float inv_d12 = 1.0f / (d12_1 + d12_2);
+		s->v1.a = d12_1 * inv_d12;
+		s->v2.a = d12_2 * inv_d12;
+		s->count = 2;
+		return;
+	}
+
+	// e13
+	if (d13_1 > 0.0f && d13_2 > 0.0f && d123_2 <= 0.0f)
+	{
+		float inv_d13 = 1.0f / (d13_1 + d13_2);
+		s->v1.a = d13_1 * inv_d13;
+		s->v3.a = d13_2 * inv_d13;
+		s->count = 2;
+		s->v2 = s->v3;
+		return;
+	}
+
+	// w2 region
+	if (d12_1 <= 0.0f && d23_2 <= 0.0f)
+	{
+		s->v2.a = 1.0f;
+		s->count = 1;
+		s->v1 = s->v2;
+		return;
+	}
+
+	// w3 region
+	if (d13_1 <= 0.0f && d23_1 <= 0.0f)
+	{
+		s->v3.a = 1.0f;
+		s->count = 1;
+		s->v1 = s->v3;
+		return;
+	}
+
+	// e23
+	if (d23_1 > 0.0f && d23_2 > 0.0f && d123_1 <= 0.0f)
+	{
+		float inv_d23 = 1.0f / (d23_1 + d23_2);
+		s->v2.a = d23_1 * inv_d23;
+		s->v3.a = d23_2 * inv_d23;
+		s->count = 2;
+		s->v1 = s->v3;
+	}
+
+	// The toot-bird cannot be contained
+	B2_ASSERT(false);
+}
+
+static b2Vec2 b2ClosestPointOnSegment(b2Vec2 q, b2Vec2 p1, b2Vec2 p2)
+{
+	// compute distance to line segment
+	b2Vec2 e12 = b2Sub(p2, p1);
+
+	// p1 region
+	float d12_2 = b2Dot(b2Sub(q, p1), e12);
+	if (d12_2 <= 0.0f)
+	{
+		return p1;
+	}
+
+	// p2 region
+	float d12_1 = b2Dot(b2Sub(p2, q), e12);
+	if (d12_1 <= 0.0f)
+	{
+		return p2;
+	}
+
+	// Must be in e12 region.
+	float inv_d12 = 1.0f / (d12_1 + d12_2);
+	b2Vec2 cp = {inv_d12 * (d12_1 * p1.x + d12_2 * p2.x), inv_d12 * (d12_1 * p1.y + d12_2 * p2.y)};
+	return cp;
+}
+
+struct b2NormalResult
+{
+	b2Vec2 normal;
+	bool converged;
+};
+
+struct b2NormalResult b2ComputeNextNormal(b2Simplex* simplex, const struct b2Support* support, b2Vec2 normal,
+												  float separation)
+{
+	// If separation < 0 then search target is origin projected on the best plane (toot-bird)
+	// otherwise the search target is the origin (same as GJK).
+	b2Vec2 target = b2MulSV(b2MaxFloat(0.0f, -separation), normal);
+
+	if (support != NULL)
+	{
+		// add support point to simplex
+		B2_ASSERT(simplex->count < 3);
+		b2SimplexVertex v = {support->pointA, support->pointB, support->point, 1.0f, support->indexA, support->indexB};
+		(&simplex->v1)[simplex->count] = v;
+		simplex->count += 1;
+	}
+
+	// reduce simplex
+	// dot(origin + b * normal - points[index], normal) = 0
+	// b = dot(points[index], normal)
+	// tb = b * normal
+	// vector from simplex vertex to tootBird
+	// d = tb - points[index]
+	//   = dot(points[index], normal) * normal - points[index]
+
+	// Reduce simplex
+	if (simplex->count == 2)
+	{
+		b2ReduceSimplex2(simplex, target);
+	}
+	else if (simplex->count == 3)
+	{
+		b2ReduceSimplex3(simplex, target);
+		if (simplex->count == 3)
+		{
+			// Something is wrong
+			B2_ASSERT(false);
+			return (struct b2NormalResult){0};
+		}
+	}
+
+	// Search direction is from current simplex to target
+	b2Vec2 closestPoint;
+	if (simplex->count == 1)
+	{
+		closestPoint = simplex->v1.w;
+	}
+	else
+	{
+		B2_ASSERT(simplex->count == 2);
+		// todo could this be the segment normal?
+		closestPoint = b2ClosestPointOnSegment(target, simplex->v1.w, simplex->v2.w);
+	}
+
+	b2Vec2 simplexToTarget = b2Sub(target, closestPoint);
+
+	// Termination condition
+	float distanceSqr = b2LengthSquared(simplexToTarget);
+	float tolerance = 1e-6f;
+	bool converged;
+	if (separation > 0.0f)
+	{
+		// separation converged
+		converged = distanceSqr < (separation + tolerance) * (separation + tolerance);
+	}
+	else
+	{
+		// search target is on the simplex
+		converged = distanceSqr < tolerance * tolerance;
+	}
+
+	b2Vec2 nextNormal = b2Normalize(simplexToTarget);
+	return (struct b2NormalResult){nextNormal, converged};
+}
+
+// Implements the toot-bird algorithm as documented here:
+// https://www.bepuentertainment.com/blog/2022/3/10/seeking-the-tootbird
+// Modified to use the GJK search direction if the separation is positive.
 b2SeparationOutput b2ShapeSeparation(const b2SeparationInput* input, b2Simplex* simplexes, int simplexCapacity)
 {
-	const b2DistanceProxy* proxyA = &input->proxyA;
-	const b2DistanceProxy* proxyB = &input->proxyB;
+	const b2SeparationProxy* proxyA = &input->proxyA;
+	const b2SeparationProxy* proxyB = &input->proxyB;
 
-	b2Transform transformA = input->transformA;
-	b2Transform transformB = input->transformB;
+	// Normal points from A to B
+	b2Vec2 normal = b2Sub(proxyB->centroid, proxyA->centroid);
+	if (b2LengthSquared(normal) < FLT_EPSILON)
+	{
+		normal = (b2Vec2){1.0f, 0.0f};
+	}
+	else
+	{
+		normal = b2Normalize(normal);
+	}
 
-	b2Vec2 searchDirection = input->searchDirection;
+	// support = support(A, normal) - support(B, -normal)
+	struct b2Support support = b2ComputeSupport(proxyA, proxyB, normal);
 
-	int indexA = b2FindSupport(proxyA, b2InvRotateVector(transformA.q, b2Neg(searchDirection)));
-	b2Vec2 wA = b2TransformPoint(transformA, proxyA->points[indexA]);
-	int indexB = b2FindSupport(proxyB, b2InvRotateVector(transformB.q, searchDirection));
-	b2Vec2 wB = b2TransformPoint(transformB, proxyB->points[indexB]);
-	b2Vec2 w = b2Sub(wB, wA);
+	float separation = -b2Dot(support.point, normal);
 
-	b2Vec2 initialSupport = b2Sub(wB, wA);
-	float initialSeparation = b2Dot(initialSupport, searchDirection);
+	b2SeparationOutput output = {0};
+	output.separation = separation;
+	output.witnessA[0] = support.indexA;
+	output.countA = 1;
+	output.witnessB[0] = support.indexB;
+	output.countB = 1;
 
-	b2Simplex simplex = b2CreateSimplex(initialNormal, initialSupport, supportIndex);
+	// todo enable after testing
+	//if (separation > b2_speculativeDistance)
+	//{
+	//	return output;
+	//}
 
-	DepthResult result = Refine(points, count, simplex, initialNormal, initialDepth, maximumIterations);
-	return result;
+	// Initialize simplex
+	b2Simplex simplex = {0};
+	//simplex.count = 0;
+
+	// todo struct b2SimplexVertex { b2Support support; float alpha; };
+	//simplex.v1 = (b2SimplexVertex){
+	//	.wA = support.pointA,
+	//	.wB = support.pointB,
+	//	.w = support.point,
+	//	.a = 1.0f,
+	//	.indexA = support.indexA,
+	//	.indexB = support.indexB,
+	//};
+
+	struct b2NormalResult directionResult = b2ComputeNextNormal(&simplex, &support, normal, separation);
+
+	int maximumIterations = 20;
+	int iteration = 0;
+	for (; iteration < maximumIterations; ++iteration)
+	{
+		if (directionResult.converged)
+		{
+			break;
+		}
+
+		support = b2ComputeSupport(proxyA, proxyB, directionResult.normal);
+
+		float s = -b2Dot(support.point, directionResult.normal);
+		if (s > separation)
+		{
+			separation = s;
+			normal = directionResult.normal;
+		}
+
+		directionResult = b2ComputeNextNormal(&simplex, &support, normal, separation);
+	}
+
+	// Prepare output
+	if (simplex.count == 1)
+	{
+		output.witnessA[0] = simplex.v1.indexA;
+		output.countA = 1;
+		output.witnessB[0] = simplex.v1.indexB;
+		output.countB = 1;
+	}
+	else
+	{
+		B2_ASSERT(simplex.count == 2);
+		output.witnessA[0] = simplex.v1.indexA;
+		output.witnessB[0] = simplex.v1.indexB;
+
+		if (simplex.v2.indexA == simplex.v1.indexA)
+		{
+			output.countA = 1;
+		}
+		else
+		{
+			output.witnessA[1] = simplex.v2.indexA;
+			output.countA = 2;
+		}
+
+		if (simplex.v2.indexB == simplex.v1.indexB)
+		{
+			output.countB = 1;
+		}
+		else
+		{
+			output.witnessB[1] = simplex.v2.indexB;
+			output.countB = 2;
+		}
+	}
+	output.separation = separation;
+	output.iterations = iteration;
+	
+	// todo
+	output.simplexCount = 0;
+
+	return output;
 }
+#endif
 
 // GJK-raycast
 // Algorithm by Gino van den Bergen.
@@ -670,7 +1077,7 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 	{
 		proxyB.points[i] = b2TransformPoint(xf, input->proxyB.points[i]);
 	}
-	
+
 	float radius = proxyA.radius + proxyB.radius;
 
 	b2Vec2 r = b2RotateVector(xf.q, input->translationB);
