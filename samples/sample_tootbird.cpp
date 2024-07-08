@@ -67,108 +67,37 @@ static void ReduceSimplex2(Simplex* s, b2Vec2 target)
 	s->count = 2;
 }
 
-static void ReduceSimplex3(Simplex* s, b2Vec2 target)
+static void ReduceSimplex3(Simplex* simplex, b2Vec2 target)
 {
-	b2Vec2 w1 = s->v1.p - target;
-	b2Vec2 w2 = s->v2.p - target;
-	b2Vec2 w3 = s->v3.p - target;
+	b2Vec2 v1 = simplex->v1.p;
+	b2Vec2 v2 = simplex->v2.p;
+	b2Vec2 v3 = simplex->v3.p;
 
-	// Edge12
-	// [1      1     ][a1] = [1]
-	// [w1.e12 w2.e12][a2] = [0]
-	// a3 = 0
-	b2Vec2 e12 = b2Sub(w2, w1);
-	float w1e12 = b2Dot(w1, e12);
-	float w2e12 = b2Dot(w2, e12);
-	float d12_1 = w2e12;
-	float d12_2 = -w1e12;
+	b2Vec2 e21 = b2Sub(v2, v1);
 
-	// Edge13
-	// [1      1     ][a1] = [1]
-	// [w1.e13 w3.e13][a3] = [0]
-	// a2 = 0
-	b2Vec2 e13 = b2Sub(w3, w1);
-	float w1e13 = b2Dot(w1, e13);
-	float w3e13 = b2Dot(w3, e13);
-	float d13_1 = w3e13;
-	float d13_2 = -w1e13;
+	// v3 should always be between v1 and v2
+	// Validate this by projecting v3 onto the axis between v1 and v2
+	assert(b2Dot(e21, b2Sub(v3, v1)) >= 0.0f && b2Dot(e21, b2Sub(v2, v3)) >= 0.0f);
 
-	// Edge23
-	// [1      1     ][a2] = [1]
-	// [w2.e23 w3.e23][a3] = [0]
-	// a1 = 0
-	b2Vec2 e23 = b2Sub(w3, w2);
-	float w2e23 = b2Dot(w2, e23);
-	float w3e23 = b2Dot(w3, e23);
-	float d23_1 = w3e23;
-	float d23_2 = -w2e23;
+	// dot(t - v0, v0 - v1) < dot(v0 - v2, v0 - v1)
+	// dot(t - v0 - (v0 - v2), v0 - v1) < 0
+	// dot(t - v2, v0 - v1) < 0
+	float side = b2Dot(b2Sub(target, v3), e21);
 
-	// Triangle123
-	float n123 = b2Cross(e12, e13);
-
-	float d123_1 = n123 * b2Cross(w2, w3);
-	float d123_2 = n123 * b2Cross(w3, w1);
-	float d123_3 = n123 * b2Cross(w1, w2);
-
-	// w1 region
-	if (d12_2 <= 0.0f && d13_2 <= 0.0f)
+	if (side <= 0.0f)
 	{
-		s->v1.alpha = 1.0f;
-		s->count = 1;
-		return;
+		simplex->v2 = simplex->v3;
+		simplex->count = 2;
+		// retain v1 and v3
+	}
+	else
+	{
+		// retain v2 and v3
+		simplex->v1 = simplex->v3;
+		simplex->count = 2;
 	}
 
-	// e12
-	if (d12_1 > 0.0f && d12_2 > 0.0f && d123_3 <= 0.0f)
-	{
-		float inv_d12 = 1.0f / (d12_1 + d12_2);
-		s->v1.alpha = d12_1 * inv_d12;
-		s->v2.alpha = d12_2 * inv_d12;
-		s->count = 2;
-		return;
-	}
-
-	// e13
-	if (d13_1 > 0.0f && d13_2 > 0.0f && d123_2 <= 0.0f)
-	{
-		float inv_d13 = 1.0f / (d13_1 + d13_2);
-		s->v1.alpha = d13_1 * inv_d13;
-		s->v3.alpha = d13_2 * inv_d13;
-		s->count = 2;
-		s->v2 = s->v3;
-		return;
-	}
-
-	// w2 region
-	if (d12_1 <= 0.0f && d23_2 <= 0.0f)
-	{
-		s->v2.alpha = 1.0f;
-		s->count = 1;
-		s->v1 = s->v2;
-		return;
-	}
-
-	// w3 region
-	if (d13_1 <= 0.0f && d23_1 <= 0.0f)
-	{
-		s->v3.alpha = 1.0f;
-		s->count = 1;
-		s->v1 = s->v3;
-		return;
-	}
-
-	// e23
-	if (d23_1 > 0.0f && d23_2 > 0.0f && d123_1 <= 0.0f)
-	{
-		float inv_d23 = 1.0f / (d23_1 + d23_2);
-		s->v2.alpha = d23_1 * inv_d23;
-		s->v3.alpha = d23_2 * inv_d23;
-		s->count = 2;
-		s->v1 = s->v3;
-		return;
-	}
-
-	// The tootBird cannot be contained
+	ReduceSimplex2(simplex, target);
 }
 
 static b2Vec2 ComputeClosestPoint(const Simplex* s)
@@ -213,7 +142,9 @@ public:
 
 		m_box = b2MakeSquare(0.5f);
 
-		m_transform.p = {0.405092537f, 0.0f};
+		m_transform.p = {0.1f, -0.1f};
+		//m_transform.p = {0.201851815f, -0.125462919f};
+		//m_transform.p = {0.138889074f, -0.138889074f};
 		m_transform.q = b2Rot_identity;
 		m_angle = 0.0f;
 
@@ -365,6 +296,41 @@ public:
 		return cp;
 	}
 
+	// More accurate than using the closest point
+	static b2Vec2 DirectionSegmentToTarget(b2Vec2 target, b2Vec2 p1, b2Vec2 p2, float* distanceSqr)
+	{
+		b2Vec2 e12 = b2Sub(p2, p1);
+
+		// p1 region
+		b2Vec2 tp1 = b2Sub(target, p1);
+		float v = b2Dot(tp1, e12);
+		if (v <= 0.0f)
+		{
+			*distanceSqr = b2LengthSquared(tp1);
+			return tp1;
+		}
+
+		// p2 region
+		b2Vec2 tp2 = b2Sub(target, p2);
+		float u = -b2Dot(tp2, e12);
+		if (u <= 0.0f)
+		{
+			*distanceSqr = b2LengthSquared(tp2);
+			return tp2;
+		}
+
+		float scale = 1.0f / (u + v);
+		b2Vec2 closestPoint = scale * (u * p1 + v * p2);
+		b2Vec2 tcp = b2Sub(target, closestPoint);
+		*distanceSqr = b2LengthSquared(tcp);
+
+		float sign = b2Cross(tp1, e12);
+		b2Vec2 direction = sign >= 0.0f ? b2RightPerp(e12) : b2LeftPerp(e12);
+
+		assert(b2Dot(direction, tcp) >= 0.0f || *distanceSqr < FLT_EPSILON);
+		return direction;
+	}
+
 	NormalResult GetNextNormal(Simplex* simplex, b2Vec2 support, b2Vec2 bestNormal, float bestDepth, int supportIndex)
 	{
 		// if depth > 0 then search target is origin projected on the best plane (toot bird)
@@ -405,22 +371,23 @@ public:
 		}
 
 		// Search direction is from current simplex to tootBird
-		b2Vec2 closestPoint;
+		b2Vec2 direction;
+		float distanceSqr;
 		if (simplex->count == 1)
 		{
-			closestPoint = simplex->v1.p;
+			direction = b2Sub(searchTarget, simplex->v1.p);
+			distanceSqr = b2LengthSquared(direction);
 		}
 		else
 		{
 			assert(simplex->count == 2);
-			closestPoint = ClosestPointOnSegment(searchTarget, simplex->v1.p, simplex->v2.p);
+			direction = DirectionSegmentToTarget(searchTarget, simplex->v1.p, simplex->v2.p, &distanceSqr);
 		}
 
-		b2Vec2 simplexToTarget = searchTarget - closestPoint;
+		b2Vec2 nextNormal = b2Normalize(direction);
 
 		// Termination condition
-		float distanceSqr = b2LengthSquared(simplexToTarget);
-		float tol = 1e-6f;
+		float tol = FLT_EPSILON;
 		bool converged;
 		if (bestDepth < 0.0f)
 		{
@@ -430,16 +397,14 @@ public:
 		}
 		else
 		{
-			// search target is on the simplex
-			converged = distanceSqr < tol * tol;
+			converged = distanceSqr < tol;
 		}
 
-		b2Vec2 nextNormal = b2Normalize(simplexToTarget);
 		NormalResult result = {nextNormal, converged};
 		return result;
 	}
 
-	DepthResult FindMinimumDepth(b2Vec2* points, int count, b2Vec2 initialNormal, Simplex* simplex, float maximumIterations)
+	DepthResult FindMinimumDepth(b2Vec2* points, int count, b2Vec2 initialNormal, Simplex* simplex, int maximumIterations)
 	{
 		int supportIndex = FindSupport2(points, count, initialNormal);
 		b2Vec2 initialSupport = b2Vec2_zero - points[supportIndex];
@@ -499,125 +464,6 @@ public:
 		return result;
 	}
 
-	#if 0
-	void Step(Settings&) override
-	{
-		b2Vec2 points[b2_maxPolygonVertices];
-		int count = m_box.count;
-		for (int i = 0; i < count; ++i)
-		{
-			points[i] = b2TransformPoint(m_transform, m_box.vertices[i]);
-		}
-
-		Simplex simplex = {};
-
-		// Initial search direction
-		b2Vec2 center = b2TransformPoint(m_transform, m_box.centroid);
-		b2Vec2 direction = -center;
-		if (b2LengthSquared(direction) < 0.00001f)
-		{
-			direction = {1.0f, 0.0f};
-		}
-		b2Vec2 normal = b2Normalize(direction);
-
-		SimplexVertex* vertices[] = {&simplex.v1, &simplex.v2, &simplex.v3};
-
-		// Initialize simplex and toot bird
-		int index = FindSupport(points, count, direction);
-		SimplexVertex* vertex = vertices[0];
-		*vertex = {points[index], 1.0f, index};
-		simplex.count = 1;
-
-		// Initial target is origin projected onto support plane.
-		// If the separation is positive then use the GJK search direction (target is the origin)
-		float maxSeparation = -b2Dot(points[index], normal);
-		b2Vec2 target = -b2MinFloat(0.0f, maxSeparation) * normal;
-
-		int iter;
-		for (iter = 0; iter < m_maxIterations; ++iter)
-		{
-			// Search direction is from current simplex to tootBird
-			b2Vec2 cp;
-			if (simplex.count == 1)
-			{
-				cp = simplex.v1.p;
-			}
-			else
-			{
-				assert(simplex.count == 2);
-				cp = ClosestPointOnSegment(target, simplex.v1.p, simplex.v2.p);
-			}
-
-			if (maxSeparation > 0.0f)
-			{
-				// GJK direction
-				target = b2Vec2_zero;
-			}
-
-			direction = target - cp;
-
-			if (b2LengthSquared(direction) < 0.00001f)
-			{
-				// converged
-				break;
-			}
-
-			normal = b2Normalize(direction);
-
-			// Use search direction and support point to grow simplex
-			vertex = vertices[simplex.count];
-			index = FindSupport(points, count, direction);
-			*vertex = {points[index], 1.0f, index};
-			simplex.count += 1;
-
-			// dot(origin + b * normal - points[index], normal) = 0
-			// b = dot(points[index], normal)
-			// tb = b * normal
-			// vector from simplex vertex to target
-			// d = tb - points[index]
-			//   = dot(points[index], normal) * normal - points[index]
-
-			// Reduce simplex
-			if (simplex.count == 2)
-			{
-				ReduceSimplex2(&simplex, target);
-			}
-			else if (simplex.count == 3)
-			{
-				ReduceSimplex3(&simplex, target);
-				if (simplex.count == 3)
-				{
-					// Something is wrong
-					break;
-				}
-			}
-
-			// Project origin onto support to get candidate toot bird
-			float separation = -b2Dot(points[index], normal);
-
-			// Is the candidate an improvement?
-			if (separation > maxSeparation)
-			{
-				target = -b2MinFloat(0.0f, separation) * normal;
-				maxSeparation = separation;
-			}
-		}
-		
-		g_draw.DrawPolygon(points, count, b2_colorMagenta);
-
-		b2HexColor simplexColors[3] = {b2_colorRed, b2_colorGreen, b2_colorBlue};
-		for (int i = 0; i < simplex.count; ++i)
-		{
-			g_draw.DrawPoint(vertices[i]->p, 5.0f, simplexColors[i]);
-		}
-
-		g_draw.DrawPoint(target, 3.0f, b2_colorPaleTurquoise);
-		g_draw.DrawTransform(b2Transform_identity);
-
-		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %g", iter, maxSeparation);
-		m_textLine += m_textIncrement;
-	}
-	#else
 	void Step(Settings&) override
 	{
 		b2Vec2 points[b2_maxPolygonVertices];
@@ -646,7 +492,7 @@ public:
 		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %.3f", result.iterations, -result.depth);
 		m_textLine += m_textIncrement;
 	}
-	#endif
+
 	static Sample* Create(Settings& settings)
 	{
 		return new SampleTootbird(settings);
