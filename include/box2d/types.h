@@ -155,7 +155,7 @@ typedef struct b2BodyDef
 	/// The initial linear velocity of the body's origin. Typically in meters per second.
 	b2Vec2 linearVelocity;
 
-	/// The initial angular velocity of the body. Typically in meters per second.
+	/// The initial angular velocity of the body. Radians per second.
 	float angularVelocity;
 
 	/// Linear damping is use to reduce the linear velocity. The damping parameter

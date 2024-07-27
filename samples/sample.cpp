@@ -77,8 +77,6 @@ static void TestMathCpp()
 
 Sample::Sample(Settings& settings)
 {
-	b2Vec2 gravity = {0.0f, -10.0f};
-
 	m_scheduler.Initialize(settings.workerCount);
 	m_taskCount = 0;
 

@@ -1051,7 +1051,6 @@ public:
 		b2Vec2 increment = {10.0f, 0.0f};
 
 		b2HexColor color1 = b2_colorYellow;
-		b2HexColor dim1 = b2_colorBeige;
 
 		b2CastOutput output = {0};
 		float maxFraction = 1.0f;
@@ -2222,7 +2221,8 @@ public:
 	{
 		if (settings.restart == false)
 		{
-			g_camera.m_center = {1.8f, 15.0f};
+			//g_camera.m_center = {1.8f, 15.0f};
+			g_camera.m_center = {1.8f, 0.0f};
 			g_camera.m_zoom = 25.0f * 0.45f;
 		}
 
@@ -2375,12 +2375,11 @@ public:
 
 	void Step(Settings&) override
 	{
-		b2Vec2 offset = {-10.0f, 10.0f};
+		b2Vec2 offset = {-10.0f, -5.0f};
 		b2Vec2 increment = {4.0f, 0.0f};
 
 		b2HexColor color1 = b2_colorAquamarine;
 		b2HexColor color2 = b2_colorMagenta;
-		b2HexColor dim1 = b2_colorDarkCyan;
 
 		if (m_enableCaching == false)
 		{
@@ -2549,19 +2548,20 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
-		offset = {-10.0f, 15.0f};
+		offset = {-10.0f, 0.0f};
 
 		// box-box
 		{
-			b2Polygon box = b2MakeSquare(0.5f);
+			b2Polygon box1 = b2MakeBox(2.0f, 0.1f);
+			b2Polygon box = b2MakeSquare(0.25f);
 
 			b2Transform transform1 = {offset, b2Rot_identity};
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform transform2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&box, transform1, &box, transform2, &m_boxboxCache);
+			b2Manifold m = b2CollidePolygons(&box1, transform1, &box, transform2, &m_boxboxCache);
 
-			g_draw.DrawSolidPolygon(transform1, box.vertices, box.count, box.radius, color1);
+			g_draw.DrawSolidPolygon(transform1, box1.vertices, box1.count, box1.radius, color1);
 			g_draw.DrawSolidPolygon(transform2, box.vertices, box.count, box.radius, color2);
 
 			DrawManifold(&m, transform1.p, transform2.p);
@@ -2631,6 +2631,7 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
+		#if 0
 		// wox-wox
 		{
 			b2Polygon wox = b2MakePolygon(&m_wedge, m_round);
@@ -2648,8 +2649,38 @@ public:
 
 			offset = b2Add(offset, increment);
 		}
+		#else
 
-		offset = {-10.0f, 20.0f};
+		// wox-wox
+		{
+			b2Vec2 p1s[3] = {{0.175740838, 0.224936664}, {-0.301293969, 0.194021404}, { -0.105151534, -0.432157338 }};
+			b2Vec2 p2s[3] = {{-0.427884758, -0.225028217}, {0.0566576123, -0.128772855}, { 0.176625848, 0.338923335 }};
+
+			b2Hull h1 = b2ComputeHull(p1s, 3);
+			b2Hull h2 = b2ComputeHull(p2s, 3);
+			b2Polygon w1 = b2MakePolygon(&h1, 0.158798501);
+			b2Polygon w2 = b2MakePolygon(&h2, 0.205900759);
+
+			b2Transform transform1 = {offset, b2Rot_identity};
+			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
+			// b2Transform transform2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
+
+			b2Manifold m = b2CollidePolygons(&w1, transform1, &w2, transform2, &m_woxwoxCache);
+
+			g_draw.DrawSolidPolygon(transform1, w1.vertices, w1.count, w1.radius, color1);
+			g_draw.DrawSolidPolygon(transform1, w1.vertices, w1.count, 0.0f, color1);
+			g_draw.DrawSolidPolygon(transform2, w2.vertices, w2.count, w2.radius, color2);
+			g_draw.DrawSolidPolygon(transform2, w2.vertices, w2.count, 0.0f, color2);
+
+			DrawManifold(&m, transform1.p, transform2.p);
+
+			offset = b2Add(offset, increment);
+		}
+
+		#endif
+
+
+		offset = {-10.0f, 5.0f};
 
 		// smooth-segment vs circle
 		{
@@ -3472,3 +3503,327 @@ public:
 };
 
 static int sampleTimeOfImpact = RegisterSample("Collision", "Time of Impact", TimeOfImpact::Create);
+
+class SeparationDebug : public Sample
+{
+public:
+	enum ShapeType
+	{
+		e_point,
+		e_segment,
+		e_triangle,
+		e_box,
+		e_rectangle
+	};
+
+	explicit SeparationDebug(Settings& settings)
+		: Sample(settings)
+	{
+		if (settings.restart == false)
+		{
+			g_camera.m_center = {0.0f, -1.2f};
+			g_camera.m_zoom = 25.0f * 0.1f;
+		}
+
+		m_point = b2Vec2_zero;
+		m_segment = {{-0.5f, 0.0f}, {0.5f, 0.0f}};
+
+		{
+			b2Vec2 points[3] = {{-0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f}};
+			b2Hull hull = b2ComputeHull(points, 3);
+			m_triangle = b2MakePolygon(&hull, 0.0f);
+		}
+
+		m_box = b2MakeSquare(0.5f);
+		m_rectangle = b2MakeBox(10.0f, 0.25f);
+
+		m_transform.p = {6.0f, 0.4f};
+		m_transform.q = b2Rot_identity;
+		m_angle = 0.0f;
+		m_maxIterations = 5;
+
+		m_startPoint = {0.0f, 0.0f};
+		m_basePosition = {0.0f, 0.0f};
+		m_baseAngle = 0.0f;
+
+		m_dragging = false;
+		m_rotating = false;
+		m_showIndices = false;
+
+		m_typeA = e_rectangle;
+		m_typeB = e_box;
+
+		m_proxyA = MakeProxy(m_typeA, b2Transform_identity, m_bufferA);
+	}
+
+	b2SeparationProxy MakeProxy(ShapeType type, b2Transform xf, b2Vec2* buffer)
+	{
+		b2SeparationProxy proxy = {};
+
+		switch (type)
+		{
+			case e_point:
+				buffer[0] = b2TransformPoint(xf, m_point);
+				proxy.points = buffer;
+				proxy.centroid = b2TransformPoint(xf, m_point);
+				proxy.count = 1;
+				break;
+
+			case e_segment:
+				buffer[0] = b2TransformPoint(xf, m_segment.point1);
+				buffer[1] = b2TransformPoint(xf, m_segment.point2);
+				proxy.points = buffer;
+				proxy.centroid = b2TransformPoint(xf, b2Lerp(buffer[0], buffer[1], 0.5f));
+				proxy.count = 2;
+				break;
+
+			case e_triangle:
+				buffer[0] = b2TransformPoint(xf, m_triangle.vertices[0]);
+				buffer[1] = b2TransformPoint(xf, m_triangle.vertices[1]);
+				buffer[2] = b2TransformPoint(xf, m_triangle.vertices[2]);
+				proxy.points = buffer;
+				proxy.centroid = b2TransformPoint(xf, (1.0f / 3.0f) * (buffer[0] + buffer[1] + buffer[2]));
+				proxy.count = 3;
+				break;
+
+			case e_box:
+				buffer[0] = b2TransformPoint(xf, m_box.vertices[0]);
+				buffer[1] = b2TransformPoint(xf, m_box.vertices[1]);
+				buffer[2] = b2TransformPoint(xf, m_box.vertices[2]);
+				buffer[3] = b2TransformPoint(xf, m_box.vertices[3]);
+				proxy.points = buffer;
+				proxy.centroid = b2TransformPoint(xf, m_box.centroid);
+				proxy.count = 4;
+				break;
+
+			case e_rectangle:
+				buffer[0] = b2TransformPoint(xf, m_rectangle.vertices[0]);
+				buffer[1] = b2TransformPoint(xf, m_rectangle.vertices[1]);
+				buffer[2] = b2TransformPoint(xf, m_rectangle.vertices[2]);
+				buffer[3] = b2TransformPoint(xf, m_rectangle.vertices[3]);
+				proxy.points = buffer;
+				proxy.centroid = b2TransformPoint(xf, m_rectangle.centroid);
+				proxy.count = 4;
+				break;
+
+			default:
+				assert(false);
+		}
+
+		return proxy;
+	}
+
+	void DrawShape(ShapeType type, b2Transform transform, b2HexColor color)
+	{
+		switch (type)
+		{
+			case e_point:
+			{
+				b2Vec2 p = b2TransformPoint(transform, m_point);
+				g_draw.DrawPoint(p, 5.0f, color);
+			}
+			break;
+
+			case e_segment:
+			{
+				b2Vec2 p1 = b2TransformPoint(transform, m_segment.point1);
+				b2Vec2 p2 = b2TransformPoint(transform, m_segment.point2);
+				g_draw.DrawSegment(p1, p2, color);
+			}
+			break;
+
+			case e_triangle:
+				g_draw.DrawSolidPolygon(transform, m_triangle.vertices, 3, 0.0f, color);
+				break;
+
+			case e_box:
+				g_draw.DrawSolidPolygon(transform, m_box.vertices, 4, 0.0f, color);
+				break;
+
+			case e_rectangle:
+				g_draw.DrawSolidPolygon(transform, m_rectangle.vertices, 4, 0.0f, color);
+				break;
+
+			default:
+				assert(false);
+		}
+	}
+
+	void UpdateUI() override
+	{
+		float height = 300.0f;
+		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+
+		ImGui::Begin("Separation", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		const char* shapeTypes[] = {"point", "segment", "triangle", "box", "rectangle"};
+		int shapeType = int(m_typeA);
+		if (ImGui::Combo("shape A", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes)))
+		{
+			m_typeA = ShapeType(shapeType);
+			m_proxyA = MakeProxy(m_typeA, b2Transform_identity, m_bufferA);
+		}
+
+		shapeType = int(m_typeB);
+		if (ImGui::Combo("shape B", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes)))
+		{
+			m_typeB = ShapeType(shapeType);
+		}
+
+		ImGui::Separator();
+
+		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
+
+		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		{
+			m_transform.q = b2MakeRot(m_angle);
+		}
+
+		ImGui::SliderInt("iterations", &m_maxIterations, 1, 10);
+		ImGui::Checkbox("show indices", &m_showIndices);
+
+		if (ImGui::Button("Reset"))
+		{
+			m_transform = b2Transform_identity;
+			m_angle = 0.0f;
+		}
+
+		ImGui::Separator();
+
+		ImGui::Text("mouse button 1: drag");
+		ImGui::Text("mouse button 1 + shift: rotate");
+
+		ImGui::End();
+	}
+
+	void MouseDown(b2Vec2 p, int button, int mods) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			if (mods == 0 && m_rotating == false)
+			{
+				m_dragging = true;
+				m_startPoint = p;
+				m_basePosition = m_transform.p;
+			}
+			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
+			{
+				m_rotating = true;
+				m_startPoint = p;
+				m_baseAngle = m_angle;
+			}
+		}
+	}
+
+	void MouseUp(b2Vec2, int button) override
+	{
+		if (button == GLFW_MOUSE_BUTTON_1)
+		{
+			m_dragging = false;
+			m_rotating = false;
+		}
+	}
+
+	void MouseMove(b2Vec2 p) override
+	{
+		if (m_dragging)
+		{
+			m_transform.p.x = m_basePosition.x + 0.5f * (p.x - m_startPoint.x);
+			m_transform.p.y = m_basePosition.y + 0.5f * (p.y - m_startPoint.y);
+		}
+		else if (m_rotating)
+		{
+			float dx = p.x - m_startPoint.x;
+			m_angle = b2ClampFloat(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
+			m_transform.q = b2MakeRot(m_angle);
+		}
+	}
+
+	void Step(Settings&) override
+	{
+		b2SeparationInput input = {0};
+
+		input.maxIterations = m_maxIterations;
+		input.proxyA = m_proxyA;
+		
+		b2Vec2 vertices[4];
+		input.proxyB = MakeProxy(m_typeB, m_transform, vertices);
+
+		b2SeparationOutput output = b2ShapeSeparation(&input, NULL, 0);
+
+		DrawShape(m_typeA, b2Transform_identity, b2_colorAqua);
+		DrawShape(m_typeB, m_transform, b2_colorBisque);
+
+		b2HexColor colors[2] = {b2_colorRed, b2_colorGreen};
+		for (int i = 0; i < output.countA; ++i)
+		{
+			int index = output.witnessA[i];
+			b2Vec2 p = input.proxyA.points[index];
+			g_draw.DrawPoint(p, 5.0f, colors[i]);
+		}
+
+		for (int i = 0; i < output.countB; ++i)
+		{
+			int index = output.witnessB[i];
+			b2Vec2 p = input.proxyB.points[index];
+			g_draw.DrawPoint(p, 5.0f, colors[i]);
+		}
+
+		g_draw.DrawTransform(b2Transform_identity);
+
+		if (m_showIndices)
+		{
+			for (int i = 0; i < m_proxyA.count; ++i)
+			{
+				b2Vec2 p = m_proxyA.points[i];
+				g_draw.DrawString(p, " %d", i);
+			}
+
+			for (int i = 0; i < input.proxyB.count; ++i)
+			{
+				b2Vec2 p = input.proxyB.points[i];
+				g_draw.DrawString(p, " %d", i);
+			}
+		}
+
+		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %.3f", output.iterations, output.separation);
+		m_textLine += m_textIncrement;
+	}
+
+	static Sample* Create(Settings& settings)
+	{
+		return new SeparationDebug(settings);
+	}
+
+	b2Polygon m_box;
+	b2Polygon m_rectangle;
+	b2Polygon m_triangle;
+	b2Vec2 m_point;
+	b2Segment m_segment;
+
+	ShapeType m_typeA;
+	ShapeType m_typeB;
+
+	b2Vec2 m_bufferA[4];
+	b2SeparationProxy m_proxyA;
+
+	b2Simplex m_simplexes[SIMPLEX_CAPACITY];
+	int m_simplexCount;
+	int m_simplexIndex;
+	int m_maxIterations;
+
+	b2Transform m_transform;
+	float m_angle;
+
+	b2Vec2 m_basePosition;
+	b2Vec2 m_startPoint;
+	float m_baseAngle;
+
+	bool m_dragging;
+	bool m_rotating;
+	bool m_showIndices;
+};
+
+static int sampleSeparationDebug = RegisterSample("Collision", "Separation Debug", SeparationDebug::Create);

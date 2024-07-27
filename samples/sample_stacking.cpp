@@ -182,6 +182,11 @@ public:
 		m_shapeType = e_boxShape;
 		m_rowCount = e_maxRows;
 		m_columnCount = 5;
+
+		// todo temp
+		m_rowCount = 1;
+		m_columnCount = 1;
+
 		m_bulletCount = 1;
 		m_bulletType = e_circleShape;
 
@@ -221,7 +226,7 @@ public:
 		}
 
 		float dx = -3.0f;
-		float xroot = 8.0f;
+		float xroot = -8.0f;
 
 		for (int j = 0; j < m_columnCount; ++j)
 		{
@@ -236,6 +241,10 @@ public:
 
 				float shift = (i % 2 == 0 ? -offset : offset);
 				bodyDef.position = {x + shift, 0.5f + 1.0f * i};
+
+				// todo temp
+				bodyDef.position.y -= 0.25f; 
+				
 				// bodyDef.position = {x + shift, 1.0f + 1.51f * i};
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -394,8 +403,6 @@ public:
 		{
 			g_camera.m_center = {0.0f, 2.0f};
 			g_camera.m_zoom = 3.0f;
-			settings.hertz = 360.0f;
-			settings.subStepCount = 2;
 		}
 
 		{

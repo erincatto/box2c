@@ -607,7 +607,7 @@ public:
 		shapeDef.density = 1.0f;
 
 		float h = 0.5f;
-		b2Polygon box = b2MakeSquare(h);
+		b2Polygon box = b2MakeRoundedBox(h - 0.05f, h - 0.05f, 0.05f);
 
 		float shift = 1.0f * h;
 

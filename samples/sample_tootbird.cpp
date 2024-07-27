@@ -140,13 +140,17 @@ public:
 			g_camera.m_zoom = 25.0f * 0.1f;
 		}
 
-		m_box = b2MakeSquare(0.5f);
+		m_box = b2MakeBox(10.0f, 0.25f);
 
-		m_transform.p = {0.1f, -0.1f};
+		m_transform.p = {6.0f, -0.1f};
 		//m_transform.p = {0.201851815f, -0.125462919f};
 		//m_transform.p = {0.138889074f, -0.138889074f};
 		m_transform.q = b2Rot_identity;
 		m_angle = 0.0f;
+
+		m_normal = b2Vec2_zero;
+		m_support = b2Vec2_zero;
+		m_target = b2Vec2_zero;
 
 		m_maxIterations = 10;
 
@@ -167,8 +171,8 @@ public:
 
 		ImGui::Begin("Tootbird", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
-		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("x offset", &m_transform.p.x, -5.0f, 5.0f, "%.2f");
+		ImGui::SliderFloat("y offset", &m_transform.p.y, -1.0f, 1.0f, "%.2f");
 
 		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
 		{
@@ -235,8 +239,9 @@ public:
 		}
 	}
 
-	static int FindSupport(const b2Vec2* points, int count, b2Vec2 direction)
+	static int FindSupport2(const b2Vec2* points, int count, b2Vec2 direction)
 	{
+		// support(N, A) - support(-N, B)
 		int bestIndex = 0;
 		float bestValue = b2Dot(points[0], direction);
 		for (int i = 1; i < count; ++i)
@@ -250,50 +255,6 @@ public:
 		}
 
 		return bestIndex;
-	}
-
-	static int FindSupport2(const b2Vec2* points, int count, b2Vec2 direction)
-	{
-		// support(N, A) - support(-N, B)
-		b2Vec2 negatedDirection = -direction;
-		int bestIndex = 0;
-		float bestValue = b2Dot(points[0], negatedDirection);
-		for (int i = 1; i < count; ++i)
-		{
-			float value = b2Dot(points[i], negatedDirection);
-			if (value > bestValue)
-			{
-				bestIndex = i;
-				bestValue = value;
-			}
-		}
-
-		return bestIndex;
-	}
-
-	static b2Vec2 ClosestPointOnSegment(b2Vec2 q, b2Vec2 p1, b2Vec2 p2)
-	{
-		// compute distance to line segment
-		b2Vec2 e12 = b2Sub(p2, p1);
-
-		// p1 region
-		float d12_2 = b2Dot(q - p1, e12);
-		if (d12_2 <= 0.0f)
-		{
-			return p1;
-		}
-
-		// p2 region
-		float d12_1 = b2Dot(p2 - q, e12);
-		if (d12_1 <= 0.0f)
-		{
-			return p2;
-		}
-
-		// Must be in e12 region.
-		float inv_d12 = 1.0f / (d12_1 + d12_2);
-		b2Vec2 cp = inv_d12 * (d12_1 * p1 + d12_2 * p2);
-		return cp;
 	}
 
 	// More accurate than using the closest point
@@ -336,6 +297,7 @@ public:
 		// if depth > 0 then search target is origin projected on the best plane (toot bird)
 		// else the search target is the origin (GJK)
 		b2Vec2 searchTarget = b2MaxFloat(0.0f, bestDepth) * bestNormal;
+		m_target = searchTarget;
 
 		if (supportIndex >= 0)
 		{
@@ -384,8 +346,6 @@ public:
 			direction = DirectionSegmentToTarget(searchTarget, simplex->v1.p, simplex->v2.p, &distanceSqr);
 		}
 
-		b2Vec2 nextNormal = b2Normalize(direction);
-
 		// Termination condition
 		float tol = FLT_EPSILON;
 		bool converged;
@@ -400,6 +360,7 @@ public:
 			converged = distanceSqr < tol;
 		}
 
+		b2Vec2 nextNormal = b2Normalize(direction);
 		NormalResult result = {nextNormal, converged};
 		return result;
 	}
@@ -407,8 +368,9 @@ public:
 	DepthResult FindMinimumDepth(b2Vec2* points, int count, b2Vec2 initialNormal, Simplex* simplex, int maximumIterations)
 	{
 		int supportIndex = FindSupport2(points, count, initialNormal);
-		b2Vec2 initialSupport = b2Vec2_zero - points[supportIndex];
+		b2Vec2 initialSupport = points[supportIndex];
 		float initialDepth = b2Dot(initialSupport, initialNormal);
+		m_support = initialSupport;
 
 		// Initialize simplex
 		simplex->count = 1;
@@ -439,7 +401,10 @@ public:
 			}
 
 			supportIndex = FindSupport2(points, count, normalResult.nextNormal);
-			b2Vec2 support = b2Vec2_zero - points[supportIndex];
+			b2Vec2 support = points[supportIndex];
+
+			m_normal = normalResult.nextNormal;
+			m_support = support;
 
 			float depth = b2Dot(support, normalResult.nextNormal);
 			if (depth < refinedDepth)
@@ -458,7 +423,7 @@ public:
 		}
 
 		result.normal = refinedNormal;
-		result.witness = -ComputeClosestPoint(simplex);
+		result.witness = ComputeClosestPoint(simplex);
 		result.depth = refinedDepth;
 		result.iterations = iteration;
 		return result;
@@ -474,8 +439,8 @@ public:
 		}
 
 		Simplex simplex = {};
-		b2Vec2 initialNormal = b2Normalize(m_transform.p);
-		DepthResult result = FindMinimumDepth(points, count, initialNormal, &simplex, m_maxIterations);
+		m_normal = -b2Normalize(m_transform.p);
+		DepthResult result = FindMinimumDepth(points, count, m_normal, &simplex, m_maxIterations);
 
 		g_draw.DrawPolygon(points, count, b2_colorMagenta);
 
@@ -483,11 +448,23 @@ public:
 		b2HexColor simplexColors[3] = {b2_colorRed, b2_colorGreen, b2_colorBlue};
 		for (int i = 0; i < simplex.count; ++i)
 		{
-			g_draw.DrawPoint(-vertices[i].p, 8.0f, simplexColors[i]);
+			g_draw.DrawPoint(vertices[i].p, 8.0f, simplexColors[i]);
+		}
+
+		if (m_showIndices)
+		{
+			for (int i = 0; i < count; ++i)
+			{
+				g_draw.DrawString(points[i], " %d", i);
+			}
 		}
 
 		g_draw.DrawPoint(result.witness, 5.0f, b2_colorYellow);
 		g_draw.DrawTransform(b2Transform_identity);
+
+		g_draw.DrawPoint(m_support, 5.0f, b2_colorLime);
+		g_draw.DrawSegment(m_support, m_support + 0.1f * m_normal, b2_colorLime);
+		g_draw.DrawPoint(m_target, 5.0f, b2_colorBlanchedAlmond);
 
 		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %.3f", result.iterations, -result.depth);
 		m_textLine += m_textIncrement;
@@ -505,6 +482,10 @@ public:
 
 	int m_maxIterations;
 
+	b2Vec2 m_normal;
+	b2Vec2 m_support;
+	b2Vec2 m_target;
+
 	b2Vec2 m_basePosition;
 	b2Vec2 m_startPoint;
 	float m_baseAngle;
@@ -516,296 +497,3 @@ public:
 
 static int sampleTootbird = RegisterSample("Toot bird", "Toot bird", SampleTootbird::Create);
 
-constexpr int SIMPLEX_CAPACITY = 20;
-
-class SeparationDebug : public Sample
-{
-public:
-	enum ShapeType
-	{
-		e_point,
-		e_segment,
-		e_triangle,
-		e_box
-	};
-
-
-	explicit SeparationDebug(Settings& settings)
-		: Sample(settings)
-	{
-		if (settings.restart == false)
-		{
-			g_camera.m_center = {0.0f, -1.2f};
-			g_camera.m_zoom = 25.0f * 0.1f;
-		}
-
-		m_point = b2Vec2_zero;
-		m_segment = {{-0.5f, 0.0f}, {0.5f, 0.0f}};
-
-		{
-			b2Vec2 points[3] = {{-0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f}};
-			b2Hull hull = b2ComputeHull(points, 3);
-			m_triangle = b2MakePolygon(&hull, 0.0f);
-		}
-
-		m_box = b2MakeSquare(0.5f);
-
-		// todo crashy
-		m_transform.p = {0.405092537f, 0.0f};
-		m_transform.p = {0.0f, 0.0f};
-		m_transform.q = b2Rot_identity;
-		m_angle = 0.0f;
-
-		m_startPoint = {0.0f, 0.0f};
-		m_basePosition = {0.0f, 0.0f};
-		m_baseAngle = 0.0f;
-
-		m_dragging = false;
-		m_rotating = false;
-		m_showIndices = false;
-
-		m_typeA = e_point;
-		m_typeB = e_box;
-
-		m_proxyA = MakeProxy(m_typeA);
-		m_proxyB = MakeProxy(m_typeB);
-	}
-
-	b2SeparationProxy MakeProxy(ShapeType type)
-	{
-		b2SeparationProxy proxy = {};
-
-		switch (type)
-		{
-			case e_point:
-				proxy.points[0] = b2Vec2_zero;
-				proxy.centroid = b2Vec2_zero;
-				proxy.count = 1;
-				break;
-
-			case e_segment:
-				proxy.points[0] = m_segment.point1;
-				proxy.points[1] = m_segment.point2;
-				proxy.centroid = b2Lerp(m_segment.point1, m_segment.point2, 0.5f);
-				proxy.count = 2;
-				break;
-
-			case e_triangle:
-				proxy.points[0] = m_triangle.vertices[0];
-				proxy.points[1] = m_triangle.vertices[1];
-				proxy.points[2] = m_triangle.vertices[2];
-				proxy.centroid =
-					(1.0f / 3.0f) * (m_triangle.vertices[0] + m_triangle.vertices[1] + m_triangle.vertices[2]);
-				proxy.count = 3;
-				break;
-
-			case e_box:
-				proxy.points[0] = m_box.vertices[0];
-				proxy.points[1] = m_box.vertices[1];
-				proxy.points[2] = m_box.vertices[2];
-				proxy.points[3] = m_box.vertices[3];
-				proxy.points[4] = m_box.centroid;
-				proxy.count = 4;
-				break;
-
-			default:
-				assert(false);
-		}
-
-		return proxy;
-	}
-
-	void DrawShape(ShapeType type, b2Transform transform, b2HexColor color)
-	{
-		switch (type)
-		{
-			case e_point:
-			{
-				b2Vec2 p = b2TransformPoint(transform, m_point);
-				g_draw.DrawPoint(p, 5.0f, color);
-			}
-			break;
-
-			case e_segment:
-			{
-				b2Vec2 p1 = b2TransformPoint(transform, m_segment.point1);
-				b2Vec2 p2 = b2TransformPoint(transform, m_segment.point2);
-				g_draw.DrawSegment(p1, p2, color);
-			}
-			break;
-
-			case e_triangle:
-				g_draw.DrawSolidPolygon(transform, m_triangle.vertices, 3, 0.0f, color);
-				break;
-
-			case e_box:
-				g_draw.DrawSolidPolygon(transform, m_box.vertices, 4, 0.0f, color);
-				break;
-
-			default:
-				assert(false);
-		}
-	}
-
-	void UpdateUI() override
-	{
-		float height = 300.0f;
-		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-
-		ImGui::Begin("Separation", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-
-		const char* shapeTypes[] = {"point", "segment", "triangle", "box"};
-		int shapeType = int(m_typeA);
-		if (ImGui::Combo("shape A", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes)))
-		{
-			m_typeA = ShapeType(shapeType);
-			m_proxyA = MakeProxy(m_typeA);
-		}
-
-		shapeType = int(m_typeB);
-		if (ImGui::Combo("shape B", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes)))
-		{
-			m_typeB = ShapeType(shapeType);
-			m_proxyB = MakeProxy(m_typeB);
-		}
-
-		ImGui::Separator();
-
-		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
-		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
-
-		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
-		{
-			m_transform.q = b2MakeRot(m_angle);
-		}
-
-		ImGui::Checkbox("show indices", &m_showIndices);
-
-		if (ImGui::Button("Reset"))
-		{
-			m_transform = b2Transform_identity;
-			m_angle = 0.0f;
-		}
-
-		ImGui::Separator();
-
-		ImGui::Text("mouse button 1: drag");
-		ImGui::Text("mouse button 1 + shift: rotate");
-
-		ImGui::End();
-	}
-
-	void MouseDown(b2Vec2 p, int button, int mods) override
-	{
-		if (button == GLFW_MOUSE_BUTTON_1)
-		{
-			if (mods == 0 && m_rotating == false)
-			{
-				m_dragging = true;
-				m_startPoint = p;
-				m_basePosition = m_transform.p;
-			}
-			else if (mods == GLFW_MOD_SHIFT && m_dragging == false)
-			{
-				m_rotating = true;
-				m_startPoint = p;
-				m_baseAngle = m_angle;
-			}
-		}
-	}
-
-	void MouseUp(b2Vec2, int button) override
-	{
-		if (button == GLFW_MOUSE_BUTTON_1)
-		{
-			m_dragging = false;
-			m_rotating = false;
-		}
-	}
-
-	void MouseMove(b2Vec2 p) override
-	{
-		if (m_dragging)
-		{
-			m_transform.p.x = m_basePosition.x + 0.5f * (p.x - m_startPoint.x);
-			m_transform.p.y = m_basePosition.y + 0.5f * (p.y - m_startPoint.y);
-		}
-		else if (m_rotating)
-		{
-			float dx = p.x - m_startPoint.x;
-			m_angle = b2ClampFloat(m_baseAngle + 1.0f * dx, -b2_pi, b2_pi);
-			m_transform.q = b2MakeRot(m_angle);
-		}
-	}
-
-	void Step(Settings&) override
-	{
-		b2SeparationInput input = {0};
-		input.proxyA = m_proxyA;
-
-		input.proxyB.count = m_proxyB.count;
-		for (int i = 0; i < m_box.count; ++i)
-		{
-			input.proxyB.points[i] = b2TransformPoint(m_transform, m_proxyB.points[i]);
-		}
-		input.proxyB.centroid = b2TransformPoint(m_transform, m_proxyB.centroid);
-
-		b2SeparationOutput output = b2ShapeSeparation(&input, NULL, 0);
-
-		DrawShape(m_typeA, b2Transform_identity, b2_colorAqua);
-		DrawShape(m_typeB, m_transform, b2_colorBisque);
-
-		b2HexColor colors[2] = {b2_colorRed, b2_colorGreen};
-		for (int i = 0; i < output.countA; ++i)
-		{
-			int index = output.witnessA[i];
-			b2Vec2 p = input.proxyA.points[index];
-			g_draw.DrawPoint(p, 5.0f, colors[i]);
-		}
-
-		for (int i = 0; i < output.countB; ++i)
-		{
-			int index = output.witnessB[i];
-			b2Vec2 p = input.proxyB.points[index];
-			g_draw.DrawPoint(p, 5.0f, colors[i]);
-		}
-
-		g_draw.DrawTransform(b2Transform_identity);
-
-		g_draw.DrawString(5, m_textLine, "iterations = %d, separation = %.3f", output.iterations, output.separation);
-		m_textLine += m_textIncrement;
-	}
-
-	static Sample* Create(Settings& settings)
-	{
-		return new SeparationDebug(settings);
-	}
-
-	b2Polygon m_box;
-	b2Polygon m_triangle;
-	b2Vec2 m_point;
-	b2Segment m_segment;
-
-	ShapeType m_typeA;
-	ShapeType m_typeB;
-	b2SeparationProxy m_proxyA;
-	b2SeparationProxy m_proxyB;
-
-	b2Simplex m_simplexes[SIMPLEX_CAPACITY];
-	int m_simplexCount;
-	int m_simplexIndex;
-
-	b2Transform m_transform;
-	float m_angle;
-
-	b2Vec2 m_basePosition;
-	b2Vec2 m_startPoint;
-	float m_baseAngle;
-
-	bool m_dragging;
-	bool m_rotating;
-	bool m_showIndices;
-};
-
-static int sampleSeparationDebug = RegisterSample("Toot bird", "Separation Debug", SeparationDebug::Create);

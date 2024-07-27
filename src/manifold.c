@@ -413,6 +413,231 @@ static b2Manifold b2ClipPolygons(const b2Polygon* polyA, const b2Polygon* polyB,
 	return manifold;
 }
 
+// Polygon clipper clips one edge against another.
+// This also generates vertex-vertex collision for the separated case.
+static b2Manifold b2ClipPolygons_NEW(const b2Polygon* polyA, const b2Polygon* polyB, int edgeA, int edgeB, bool overlapped, bool flip)
+{
+	b2Manifold manifold = {0};
+
+	// reference polygon
+	const b2Polygon* poly1;
+	int32_t i11, i12;
+
+	// incident polygon
+	const b2Polygon* poly2;
+	int32_t i21, i22;
+
+	if (flip)
+	{
+		poly1 = polyB;
+		poly2 = polyA;
+		i11 = edgeB;
+		i12 = edgeB + 1 < polyB->count ? edgeB + 1 : 0;
+		i21 = edgeA;
+		i22 = edgeA + 1 < polyA->count ? edgeA + 1 : 0;
+	}
+	else
+	{
+		poly1 = polyA;
+		poly2 = polyB;
+		i11 = edgeA;
+		i12 = edgeA + 1 < polyA->count ? edgeA + 1 : 0;
+		i21 = edgeB;
+		i22 = edgeB + 1 < polyB->count ? edgeB + 1 : 0;
+	}
+
+	b2Vec2 normal = poly1->normals[i11];
+
+	// Reference edge vertices
+	b2Vec2 v11 = poly1->vertices[i11];
+	b2Vec2 v12 = poly1->vertices[i12];
+
+	// Incident edge vertices
+	b2Vec2 v21 = poly2->vertices[i21];
+	b2Vec2 v22 = poly2->vertices[i22];
+
+	b2Vec2 tangent = b2CrossSV(1.0f, normal);
+
+	float lower1 = 0.0f;
+	float upper1 = b2Dot(b2Sub(v12, v11), tangent);
+
+	// Incident edge points opposite of tangent due to CCW winding
+	float upper2 = b2Dot(b2Sub(v21, v11), tangent);
+	float lower2 = b2Dot(b2Sub(v22, v11), tangent);
+
+	float r1 = poly1->radius;
+	float r2 = poly2->radius;
+	float radius = r1 + r2;
+
+	if (upper2 < lower1)
+	{
+		if (overlapped)
+		{
+			// should not be reached
+			return manifold;
+		}
+
+		if (flip == false)
+		{
+			normal = b2Sub(v21, v11);
+			if (b2LengthSquared(normal) < FLT_EPSILON)
+			{
+				return manifold;
+			}
+
+			float distance;
+			normal = b2GetLengthAndNormalize(&distance, normal);
+			b2Vec2 c1 = b2MulAdd(v11, r1, normal);
+			b2Vec2 c2 = b2MulAdd(v21, -r2, normal);
+
+			manifold.normal = normal;
+			manifold.points[0].anchorA = b2Lerp(c1, c2, 0.5f);
+			manifold.points[0].separation = distance - radius;
+			manifold.points[0].id = B2_MAKE_ID(i11, i21);
+			manifold.pointCount = 1;
+			return manifold;
+		}
+
+		normal = b2Sub(v11, v21);
+		if (b2LengthSquared(normal) < FLT_EPSILON)
+		{
+			return manifold;
+		}
+
+		float distance;
+		normal = b2GetLengthAndNormalize(&distance, normal);
+		b2Vec2 c1 = b2MulAdd(v11, -r1, normal);
+		b2Vec2 c2 = b2MulAdd(v21, r2, normal);
+
+		manifold.normal = normal;
+		manifold.points[0].anchorA = b2Lerp(c1, c2, 0.5f);
+		manifold.points[0].separation = distance - radius;
+		manifold.points[0].id = B2_MAKE_ID(i21, i11);
+		manifold.pointCount = 1;
+		return manifold;
+	}
+	
+	if (upper1 < lower2)
+	{
+		if (overlapped)
+		{
+			// should not be reached
+			return manifold;
+		}
+
+		if (flip == false)
+		{
+			normal = b2Sub(v22, v12);
+			if (b2LengthSquared(normal) < FLT_EPSILON)
+			{
+				return manifold;
+			}
+
+			float distance;
+			normal = b2GetLengthAndNormalize(&distance, normal);
+			b2Vec2 c1 = b2MulAdd(v12, r1, normal);
+			b2Vec2 c2 = b2MulAdd(v22, -r2, normal);
+
+			manifold.normal = normal;
+			manifold.points[0].anchorA = b2Lerp(c1, c2, 0.5f);
+			manifold.points[0].separation = distance - radius;
+			manifold.points[0].id = B2_MAKE_ID(i12, i22);
+			manifold.pointCount = 1;
+			return manifold;
+		}
+
+		normal = b2Sub(v12, v22);
+		if (b2LengthSquared(normal) < FLT_EPSILON)
+		{
+			return manifold;
+		}
+
+		float distance;
+		normal = b2GetLengthAndNormalize(&distance, normal);
+		b2Vec2 c1 = b2MulAdd(v12, -r1, normal);
+		b2Vec2 c2 = b2MulAdd(v22, r2, normal);
+
+		manifold.normal = normal;
+		manifold.points[0].anchorA = b2Lerp(c1, c2, 0.5f);
+		manifold.points[0].separation = distance - radius;
+		manifold.points[0].id = B2_MAKE_ID(i22, i12);
+		manifold.pointCount = 1;
+		return manifold;
+	}
+
+	b2Vec2 vLower;
+	if (lower2 < lower1 && upper2 - lower2 > FLT_EPSILON)
+	{
+		vLower = b2Lerp(v22, v21, (lower1 - lower2) / (upper2 - lower2));
+	}
+	else
+	{
+		vLower = v22;
+	}
+
+	b2Vec2 vUpper;
+	if (upper2 > upper1 && upper2 - lower2 > FLT_EPSILON)
+	{
+		vUpper = b2Lerp(v22, v21, (upper1 - lower2) / (upper2 - lower2));
+	}
+	else
+	{
+		vUpper = v21;
+	}
+
+	// TODO_ERIN vLower can be very close to vUpper, reduce to one point?
+
+	float separationLower = b2Dot(b2Sub(vLower, v11), normal);
+	float separationUpper = b2Dot(b2Sub(vUpper, v11), normal);
+
+	// Put contact points at midpoint, accounting for radii
+	vLower = b2MulAdd(vLower, 0.5f * (r1 - r2 - separationLower), normal);
+	vUpper = b2MulAdd(vUpper, 0.5f * (r1 - r2 - separationUpper), normal);
+
+	if (flip == false)
+	{
+		manifold.normal = normal;
+		b2ManifoldPoint* cp = manifold.points + 0;
+
+		{
+			cp->anchorA = vLower;
+			cp->separation = separationLower - radius;
+			cp->id = B2_MAKE_ID(i11, i22);
+			manifold.pointCount += 1;
+			cp += 1;
+		}
+
+		{
+			cp->anchorA = vUpper;
+			cp->separation = separationUpper - radius;
+			cp->id = B2_MAKE_ID(i12, i21);
+			manifold.pointCount += 1;
+		}
+	}
+	else
+	{
+		manifold.normal = b2Neg(normal);
+		b2ManifoldPoint* cp = manifold.points + 0;
+
+		{
+			cp->anchorA = vUpper;
+			cp->separation = separationUpper - radius;
+			cp->id = B2_MAKE_ID(i21, i12);
+			manifold.pointCount += 1;
+			cp += 1;
+		}
+
+		{
+			cp->anchorA = vLower;
+			cp->separation = separationLower - radius;
+			cp->id = B2_MAKE_ID(i22, i11);
+			manifold.pointCount += 1;
+		}
+	}
+
+	return manifold;
+}
+
 // Find the max separation between poly1 and poly2 using edge normals from poly1.
 static float b2FindMaxSeparation(int32_t* edgeIndex, const b2Polygon* poly1, const b2Polygon* poly2)
 {
@@ -507,6 +732,79 @@ static b2Manifold b2PolygonSAT(const b2Polygon* polyA, const b2Polygon* polyB)
 	return b2ClipPolygons(polyA, polyB, edgeA, edgeB, flip);
 }
 
+// This version works with separation
+static b2Manifold b2PolygonSAT_NEW(const b2Polygon* polyA, const b2Polygon* polyB)
+{
+	int32_t edgeA = 0;
+	float separationA = b2FindMaxSeparation(&edgeA, polyA, polyB);
+
+	int32_t edgeB = 0;
+	float separationB = b2FindMaxSeparation(&edgeB, polyB, polyA);
+
+	float radius = polyA->radius + polyB->radius;
+
+	if (separationA > b2_speculativeDistance + radius || separationB > b2_speculativeDistance + radius)
+	{
+		return (b2Manifold){0};
+	}
+
+	bool flip;
+	bool overlapped;
+
+	if (separationA > 0.0f && separationB > 0.0f)
+	{
+		
+	}
+
+	if (separationB > separationA)
+	{
+		flip = true;
+		overlapped = separationB <= 0.0f;
+
+		b2Vec2 searchDirection = polyB->normals[edgeB];
+
+		// Find the incident edge on polyA
+		int count = polyA->count;
+		const b2Vec2* normals = polyA->normals;
+		edgeA = 0;
+		float minDot = FLT_MAX;
+		for (int i = 0; i < count; ++i)
+		{
+			float dot = b2Dot(searchDirection, normals[i]);
+			if (dot < minDot)
+			{
+				minDot = dot;
+				edgeA = i;
+			}
+		}
+	}
+	else
+	{
+		flip = false;
+		overlapped = separationA <= 0.0f;
+
+		b2Vec2 searchDirection = polyA->normals[edgeA];
+
+		// Find the incident edge on polyB
+		int count = polyB->count;
+		const b2Vec2* normals = polyB->normals;
+		edgeB = 0;
+		float minDot = FLT_MAX;
+		for (int i = 0; i < count; ++i)
+		{
+			float dot = b2Dot(searchDirection, normals[i]);
+			if (dot < minDot)
+			{
+				minDot = dot;
+				edgeB = i;
+			}
+		}
+	}
+
+	return b2ClipPolygons_NEW(polyA, polyB, edgeA, edgeB, overlapped, flip);
+}
+
+
 // Due to speculation, every polygon is rounded
 // Algorithm:
 // compute distance
@@ -521,6 +819,10 @@ static b2Manifold b2PolygonSAT(const b2Polygon* polyA, const b2Polygon* polyB)
 //     vertex-vertex
 //   end
 // end
+
+#if 0
+
+// OLD
 b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB,
 							 b2DistanceCache* cache)
 {
@@ -674,6 +976,261 @@ b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Po
 		int32_t edgeB2 = edgeB1 == 0 ? countB - 1 : edgeB1 - 1;
 		dot1 = b2Dot(axis, localPolyB.normals[edgeB1]);
 		dot2 = b2Dot(axis, localPolyB.normals[edgeB2]);
+		edgeB = dot1 < dot2 ? edgeB1 : edgeB2;
+	}
+
+	manifold = b2ClipPolygons(&localPolyA, &localPolyB, edgeA, edgeB, flip);
+
+	if (manifold.pointCount > 0)
+	{
+		manifold.normal = b2RotateVector(xfA.q, manifold.normal);
+		for (int i = 0; i < manifold.pointCount; ++i)
+		{
+			b2ManifoldPoint* mp = manifold.points + i;
+			mp->anchorA = b2RotateVector(xfA.q, b2Add(mp->anchorA, origin));
+			mp->anchorB = b2Add(mp->anchorA, b2Sub(xfA.p, xfB.p));
+			mp->point = b2Add(xfA.p, mp->anchorA);
+		}
+	}
+
+	return manifold;
+}
+
+#else
+
+// New
+b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB,
+							 b2DistanceCache* cache)
+{
+	B2_MAYBE_UNUSED(cache);
+
+	b2Vec2 origin = polyA->vertices[0];
+
+	// Shift polyA to origin
+	// pw = q * pb + p
+	// pw = q * (pbs + origin) + p
+	// pw = q * pbs + (p + q * origin)
+	b2Transform sfA = {b2Add(xfA.p, b2RotateVector(xfA.q, origin)), xfA.q};
+	b2Transform xf = b2InvMulTransforms(sfA, xfB);
+
+	b2Polygon localPolyA;
+	localPolyA.count = polyA->count;
+	localPolyA.radius = polyA->radius;
+	localPolyA.vertices[0] = b2Vec2_zero;
+	localPolyA.normals[0] = polyA->normals[0];
+	for (int i = 1; i < localPolyA.count; ++i)
+	{
+		localPolyA.vertices[i] = b2Sub(polyA->vertices[i], origin);
+		localPolyA.normals[i] = polyA->normals[i];
+	}
+
+	// Put polyB in polyA's frame to reduce round-off error
+	b2Polygon localPolyB;
+	localPolyB.count = polyB->count;
+	localPolyB.radius = polyB->radius;
+	for (int i = 0; i < localPolyB.count; ++i)
+	{
+		localPolyB.vertices[i] = b2TransformPoint(xf, polyB->vertices[i]);
+		localPolyB.normals[i] = b2RotateVector(xf.q, polyB->normals[i]);
+	}
+
+	b2Manifold manifold = b2PolygonSAT_NEW(&localPolyA, &localPolyB);
+
+	if (manifold.pointCount > 0)
+	{
+		manifold.normal = b2RotateVector(xfA.q, manifold.normal);
+		for (int i = 0; i < manifold.pointCount; ++i)
+		{
+			b2ManifoldPoint* mp = manifold.points + i;
+
+			// anchor points relative to shape origin in world space
+			mp->anchorA = b2RotateVector(xfA.q, b2Add(mp->anchorA, origin));
+			mp->anchorB = b2Add(mp->anchorA, b2Sub(xfA.p, xfB.p));
+			mp->point = b2Add(xfA.p, mp->anchorA);
+		}
+	}
+
+	return manifold;
+}
+#endif
+
+b2Manifold b2CollidePolygonsToot(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB)
+{
+	b2Manifold manifold = {0};
+	float radius = polyA->radius + polyB->radius;
+	b2Vec2 origin = polyA->vertices[0];
+
+	// Shift polyA to origin
+	// pw = q * pb + p
+	// pw = q * (pbs + origin) + p
+	// pw = q * pbs + (p + q * origin)
+	b2Transform sfA = {b2Add(xfA.p, b2RotateVector(xfA.q, origin)), xfA.q};
+	b2Transform xf = b2InvMulTransforms(sfA, xfB);
+
+	b2SeparationInput input;
+
+	b2Polygon localPolyA;
+	localPolyA.count = polyA->count;
+	localPolyA.radius = polyA->radius;
+	localPolyA.vertices[0] = b2Vec2_zero;
+	localPolyA.normals[0] = polyA->normals[0];
+	for (int i = 1; i < localPolyA.count; ++i)
+	{
+		localPolyA.vertices[i] = b2Sub(polyA->vertices[i], origin);
+		localPolyA.normals[i] = polyA->normals[i];
+	}
+	b2Vec2 localCentroidA = b2Sub(polyA->centroid, origin);
+
+	// Put polyB in polyA's frame to reduce round-off error
+	b2Polygon localPolyB;
+	localPolyB.count = polyB->count;
+	localPolyB.radius = polyB->radius;
+	for (int i = 0; i < localPolyB.count; ++i)
+	{
+		localPolyB.vertices[i] = b2TransformPoint(xf, polyB->vertices[i]);
+		localPolyB.normals[i] = b2RotateVector(xf.q, polyB->normals[i]);
+	}
+	b2Vec2 localCentroidB = b2TransformPoint(xf, polyB->centroid);
+
+	input.proxyA = (b2SeparationProxy){localPolyA.vertices, localCentroidA, localPolyA.count};
+	input.proxyB = (b2SeparationProxy){localPolyB.vertices, localCentroidB, localPolyB.count};
+
+	// todo faster b2ShapeDistance with no transforms?
+	b2SeparationOutput output = b2ShapeSeparation(&input, NULL, 0);
+
+	if (output.separation > radius + b2_speculativeDistance)
+	{
+		return manifold;
+	}
+
+	if (output.countA == 1 && output.countB == 1)
+	{
+		// vertex-vertex collision
+		int indexA = output.witnessA[0];
+		int indexB = output.witnessB[0];
+		b2Vec2 pA = localPolyA.vertices[indexA];
+		b2Vec2 pB = localPolyB.vertices[indexB];
+
+		// note: this can be negative in some degenerate configurations
+		float separation = output.separation;
+		b2Vec2 normal = separation >= 0.0f ? b2Sub(pB, pA) : b2Sub(pA, pB);
+		if (b2LengthSquared(normal) > FLT_EPSILON)
+		{
+			normal = b2Normalize(normal);
+		}
+		else
+		{
+			// give up, maybe it doesn't matter
+			return manifold;
+		}
+
+		b2Vec2 contactPointA = b2MulAdd(pB, 0.5f * (localPolyA.radius - localPolyB.radius - separation), normal);
+
+		manifold.normal = b2RotateVector(xfA.q, normal);
+		b2ManifoldPoint* mp = manifold.points + 0;
+
+		// anchor points relative to shape origin in world space
+		mp->anchorA = b2RotateVector(xfA.q, b2Add(contactPointA, origin));
+		mp->anchorB = b2Add(mp->anchorA, b2Sub(xfA.p, xfB.p));
+		mp->point = b2Add(xfA.p, mp->anchorA);
+
+		mp->separation = separation - radius;
+		mp->id = B2_MAKE_ID(indexA, indexB);
+		manifold.pointCount = 1;
+		return manifold;
+	}
+
+	// vertex-edge collision
+	B2_ASSERT(output.countA == 2 || output.countB == 2);
+	bool flip;
+	int countA = localPolyA.count;
+	int countB = localPolyB.count;
+	int edgeA, edgeB;
+
+	int a1 = output.witnessA[0];
+	int a2 = output.witnessA[1];
+	int b1 = output.witnessB[0];
+	int b2 = output.witnessB[1];
+
+	if (output.countA == 1)
+	{
+		// 1 point on A, expect 2 points on B
+		B2_ASSERT(b1 != b2);
+
+		// Reference edge defined by first vertex on polygon B in CCW winding order
+		if (b1 < b2)
+		{
+			if (b1 == 0 && b2 == countB - 1)
+			{
+				edgeB = b2;
+			}
+			else
+			{
+				edgeB = b1;
+			}
+		}
+		else
+		{
+			if (b2 == 0 && b1 == countB - 1)
+			{
+				edgeB = b1;
+			}
+			else
+			{
+				edgeB = b2;
+			}
+		}
+
+		flip = true;
+
+		// Get the normal of the reference edge in polyA's frame.
+		b2Vec2 axis = localPolyB.normals[edgeB];
+
+		// Find the incident edge on polyA
+		// Limit search to edges adjacent to witness vertex on A
+		int edgeA1 = a1;
+		int edgeA2 = edgeA1 == 0 ? countA - 1 : edgeA1 - 1;
+		float dot1 = b2Dot(axis, localPolyA.normals[edgeA1]);
+		float dot2 = b2Dot(axis, localPolyA.normals[edgeA2]);
+		edgeA = dot1 < dot2 ? edgeA1 : edgeA2;
+	}
+	else
+	{
+		// Reference edge defined by first vertex on polygon A in CCW winding order
+		if (a1 < a2)
+		{
+			if (a1 == 0 && a2 == countA - 1)
+			{
+				edgeA = a2;
+			}
+			else
+			{
+				edgeA = a1;
+			}
+		}
+		else
+		{
+			if (a2 == 0 && a1 == countA - 1)
+			{
+				edgeA = a1;
+			}
+			else
+			{
+				edgeA = a2;
+			}
+		}
+
+		flip = false;
+
+		// Get the normal of the reference edge in polyB's frame.
+		b2Vec2 axis = localPolyA.normals[edgeA];
+
+		// Find the incident edge on polyB
+		// Limit search to edges adjacent to closest vertex
+		int edgeB1 = b1;
+		int edgeB2 = edgeB1 == 0 ? countB - 1 : edgeB1 - 1;
+		float dot1 = b2Dot(axis, localPolyB.normals[edgeB1]);
+		float dot2 = b2Dot(axis, localPolyB.normals[edgeB2]);
 		edgeB = dot1 < dot2 ? edgeB1 : edgeB2;
 	}
 

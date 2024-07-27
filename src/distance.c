@@ -618,24 +618,6 @@ b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* 
 	return output;
 }
 
-#if 1
-//static int b2Support(const b2SeparationProxy* proxy, b2Vec2 direction)
-//{
-//	int bestIndex = 0;
-//	float bestValue = b2Dot(proxy->points[0], direction);
-//	for (int i = 1; i < proxy->count; ++i)
-//	{
-//		float value = b2Dot(proxy->points[i], direction);
-//		if (value > bestValue)
-//		{
-//			bestIndex = i;
-//			bestValue = value;
-//		}
-//	}
-//
-//	return bestIndex;
-//}
-
 struct b2Support
 {
 	b2Vec2 pointA, pointB, point;
@@ -725,133 +707,74 @@ static void b2ReduceSimplex2(b2Simplex* s, b2Vec2 target)
 	s->count = 2;
 }
 
-static void b2ReduceSimplex3(b2Simplex* s, b2Vec2 target)
+static void b2ReduceSimplex3(b2Simplex* simplex, b2Vec2 target)
 {
-	b2Vec2 w1 = b2Sub(s->v1.w, target);
-	b2Vec2 w2 = b2Sub(s->v2.w, target);
-	b2Vec2 w3 = b2Sub(s->v3.w, target);
+	b2Vec2 v1 = simplex->v1.w;
+	b2Vec2 v2 = simplex->v2.w;
+	b2Vec2 v3 = simplex->v3.w;
 
-	// Edge12
-	// [1      1     ][a1] = [1]
-	// [w1.e12 w2.e12][a2] = [0]
-	// a3 = 0
-	b2Vec2 e12 = b2Sub(w2, w1);
-	float w1e12 = b2Dot(w1, e12);
-	float w2e12 = b2Dot(w2, e12);
-	float d12_1 = w2e12;
-	float d12_2 = -w1e12;
+	b2Vec2 e21 = b2Sub(v2, v1);
 
-	// Edge13
-	// [1      1     ][a1] = [1]
-	// [w1.e13 w3.e13][a3] = [0]
-	// a2 = 0
-	b2Vec2 e13 = b2Sub(w3, w1);
-	float w1e13 = b2Dot(w1, e13);
-	float w3e13 = b2Dot(w3, e13);
-	float d13_1 = w3e13;
-	float d13_2 = -w1e13;
+	// v3 should always be between v1 and v2 or a duplicate of v1 or v2
+	// Validate this by projecting v3 onto the axis between v1 and v2
+	//B2_ASSERT(b2Dot(e21, b2Sub(v3, v1)) >= 0.0f && b2Dot(e21, b2Sub(v2, v3)) >= 0.0f);
 
-	// Edge23
-	// [1      1     ][a2] = [1]
-	// [w2.e23 w3.e23][a3] = [0]
-	// a1 = 0
-	b2Vec2 e23 = b2Sub(w3, w2);
-	float w2e23 = b2Dot(w2, e23);
-	float w3e23 = b2Dot(w3, e23);
-	float d23_1 = w3e23;
-	float d23_2 = -w2e23;
+	// dot(t - v0, v0 - v1) < dot(v0 - v2, v0 - v1)
+	// dot(t - v0 - (v0 - v2), v0 - v1) < 0
+	// dot(t - v2, v0 - v1) < 0
+	float side = b2Dot(b2Sub(target, v3), e21);
 
-	// Triangle123
-	float n123 = b2Cross(e12, e13);
-
-	float d123_1 = n123 * b2Cross(w2, w3);
-	float d123_2 = n123 * b2Cross(w3, w1);
-	float d123_3 = n123 * b2Cross(w1, w2);
-
-	// w1 region
-	if (d12_2 <= 0.0f && d13_2 <= 0.0f)
+	if (side <= 0.0f)
 	{
-		s->v1.a = 1.0f;
-		s->count = 1;
-		return;
+		// retain v1 and v3
+		simplex->v2 = simplex->v3;
+		simplex->count = 2;
+	}
+	else
+	{
+		// retain v2 and v3
+		simplex->v1 = simplex->v3;
+		simplex->count = 2;
 	}
 
-	// e12
-	if (d12_1 > 0.0f && d12_2 > 0.0f && d123_3 <= 0.0f)
-	{
-		float inv_d12 = 1.0f / (d12_1 + d12_2);
-		s->v1.a = d12_1 * inv_d12;
-		s->v2.a = d12_2 * inv_d12;
-		s->count = 2;
-		return;
-	}
-
-	// e13
-	if (d13_1 > 0.0f && d13_2 > 0.0f && d123_2 <= 0.0f)
-	{
-		float inv_d13 = 1.0f / (d13_1 + d13_2);
-		s->v1.a = d13_1 * inv_d13;
-		s->v3.a = d13_2 * inv_d13;
-		s->count = 2;
-		s->v2 = s->v3;
-		return;
-	}
-
-	// w2 region
-	if (d12_1 <= 0.0f && d23_2 <= 0.0f)
-	{
-		s->v2.a = 1.0f;
-		s->count = 1;
-		s->v1 = s->v2;
-		return;
-	}
-
-	// w3 region
-	if (d13_1 <= 0.0f && d23_1 <= 0.0f)
-	{
-		s->v3.a = 1.0f;
-		s->count = 1;
-		s->v1 = s->v3;
-		return;
-	}
-
-	// e23
-	if (d23_1 > 0.0f && d23_2 > 0.0f && d123_1 <= 0.0f)
-	{
-		float inv_d23 = 1.0f / (d23_1 + d23_2);
-		s->v2.a = d23_1 * inv_d23;
-		s->v3.a = d23_2 * inv_d23;
-		s->count = 2;
-		s->v1 = s->v3;
-	}
-
-	// The toot-bird cannot be contained
-	B2_ASSERT(false);
+	b2ReduceSimplex2(simplex, target);
 }
 
-static b2Vec2 b2ClosestPointOnSegment(b2Vec2 q, b2Vec2 p1, b2Vec2 p2)
+static b2Vec2 b2DirectionSegmentToTarget(b2Vec2 target, b2Vec2 p1, b2Vec2 p2, float* distanceSqr)
 {
-	// compute distance to line segment
 	b2Vec2 e12 = b2Sub(p2, p1);
 
 	// p1 region
-	float d12_2 = b2Dot(b2Sub(q, p1), e12);
-	if (d12_2 <= 0.0f)
+	b2Vec2 delta1 = b2Sub(target, p1);
+	float v = b2Dot(delta1, e12);
+	if (v <= 0.0f)
 	{
-		return p1;
+		*distanceSqr = b2LengthSquared(delta1);
+		return delta1;
 	}
 
 	// p2 region
-	float d12_1 = b2Dot(b2Sub(p2, q), e12);
-	if (d12_1 <= 0.0f)
+	b2Vec2 delta2 = b2Sub(target, p2);
+	float u = -b2Dot(delta2, e12);
+	if (u <= 0.0f)
 	{
-		return p2;
+		*distanceSqr = b2LengthSquared(delta2);
+		return delta2;
 	}
 
-	// Must be in e12 region.
-	float inv_d12 = 1.0f / (d12_1 + d12_2);
-	b2Vec2 cp = {inv_d12 * (d12_1 * p1.x + d12_2 * p2.x), inv_d12 * (d12_1 * p1.y + d12_2 * p2.y)};
-	return cp;
+	float scale = 1.0f / (u + v);
+	b2Vec2 closestPoint = {scale * (u * p1.x + v * p2.x), scale * (u * p1.y + v * p2.y)};
+	b2Vec2 targetOffset = b2Sub(target, closestPoint);
+	*distanceSqr = b2LengthSquared(targetOffset);
+
+	// The segment perpendicular produces a more accurate direction than the vector between
+	// the closest point and the target (targetOffset).
+	float sign = b2Cross(delta1, e12);
+	b2Vec2 direction = sign >= 0.0f ? b2RightPerp(e12) : b2LeftPerp(e12);
+
+	B2_ASSERT(b2Dot(direction, targetOffset) >= 0.0f || *distanceSqr < FLT_EPSILON);
+
+	return direction;
 }
 
 struct b2NormalResult
@@ -860,6 +783,10 @@ struct b2NormalResult
 	bool converged;
 };
 
+// - add support point to simplex
+// - reduce simplex
+// - compute direction and distance from simplex to target
+// - detect convergence
 struct b2NormalResult b2ComputeNextNormal(b2Simplex* simplex, const struct b2Support* support, b2Vec2 normal,
 												  float separation)
 {
@@ -867,22 +794,11 @@ struct b2NormalResult b2ComputeNextNormal(b2Simplex* simplex, const struct b2Sup
 	// otherwise the search target is the origin (same as GJK).
 	b2Vec2 target = b2MulSV(b2MaxFloat(0.0f, -separation), normal);
 
-	if (support != NULL)
-	{
-		// add support point to simplex
-		B2_ASSERT(simplex->count < 3);
-		b2SimplexVertex v = {support->pointA, support->pointB, support->point, 1.0f, support->indexA, support->indexB};
-		(&simplex->v1)[simplex->count] = v;
-		simplex->count += 1;
-	}
-
-	// reduce simplex
-	// dot(origin + b * normal - points[index], normal) = 0
-	// b = dot(points[index], normal)
-	// tb = b * normal
-	// vector from simplex vertex to tootBird
-	// d = tb - points[index]
-	//   = dot(points[index], normal) * normal - points[index]
+	// add support point to simplex
+	B2_ASSERT(simplex->count < 3);
+	b2SimplexVertex v = {support->pointA, support->pointB, support->point, 1.0f, support->indexA, support->indexB};
+	(&simplex->v1)[simplex->count] = v;
+	simplex->count += 1;
 
 	// Reduce simplex
 	if (simplex->count == 2)
@@ -901,23 +817,22 @@ struct b2NormalResult b2ComputeNextNormal(b2Simplex* simplex, const struct b2Sup
 	}
 
 	// Search direction is from current simplex to target
-	b2Vec2 closestPoint;
+	b2Vec2 direction;
+	float distanceSqr;
 	if (simplex->count == 1)
 	{
-		closestPoint = simplex->v1.w;
+		direction = b2Sub(target, simplex->v1.w);
+		distanceSqr = b2LengthSquared(direction);
 	}
 	else
 	{
 		B2_ASSERT(simplex->count == 2);
 		// todo could this be the segment normal?
-		closestPoint = b2ClosestPointOnSegment(target, simplex->v1.w, simplex->v2.w);
+		direction = b2DirectionSegmentToTarget(target, simplex->v1.w, simplex->v2.w, &distanceSqr);
 	}
-
-	b2Vec2 simplexToTarget = b2Sub(target, closestPoint);
-
+	
 	// Termination condition
-	float distanceSqr = b2LengthSquared(simplexToTarget);
-	float tolerance = 1e-6f;
+	float tolerance = FLT_EPSILON;
 	bool converged;
 	if (separation > 0.0f)
 	{
@@ -930,7 +845,7 @@ struct b2NormalResult b2ComputeNextNormal(b2Simplex* simplex, const struct b2Sup
 		converged = distanceSqr < tolerance * tolerance;
 	}
 
-	b2Vec2 nextNormal = b2Normalize(simplexToTarget);
+	b2Vec2 nextNormal = b2Normalize(direction);
 	return (struct b2NormalResult){nextNormal, converged};
 }
 
@@ -987,7 +902,7 @@ b2SeparationOutput b2ShapeSeparation(const b2SeparationInput* input, b2Simplex* 
 
 	struct b2NormalResult directionResult = b2ComputeNextNormal(&simplex, &support, normal, separation);
 
-	int maximumIterations = 20;
+	int maximumIterations = input->maxIterations;
 	int iteration = 0;
 	for (; iteration < maximumIterations; ++iteration)
 	{
@@ -1050,7 +965,6 @@ b2SeparationOutput b2ShapeSeparation(const b2SeparationInput* input, b2Simplex* 
 
 	return output;
 }
-#endif
 
 // GJK-raycast
 // Algorithm by Gino van den Bergen.
@@ -1181,6 +1095,7 @@ b2CastOutput b2ShapeCast(const b2ShapeCastPairInput* input)
 		}
 
 		// Get search direction.
+		// todo use more accurate segment perpendicular
 		v = b2ComputeSimplexClosestPoint(&simplex);
 
 		// Iteration count is equated to the number of support point calls.

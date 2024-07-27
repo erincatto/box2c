@@ -394,7 +394,7 @@ B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2Distance
 typedef struct b2SeparationProxy
 {
 	/// The point cloud
-	b2Vec2 points[b2_maxPolygonVertices];
+	b2Vec2* points;
 
 	/// The centroid of the point cloud
 	b2Vec2 centroid;
@@ -411,6 +411,8 @@ typedef struct b2SeparationInput
 
 	/// The proxy for shape B
 	b2SeparationProxy proxyB;
+
+	int32_t maxIterations;
 } b2SeparationInput;
 
 /// Output for b2ShapeSeparation
@@ -580,6 +582,7 @@ B2_API b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transf
 /// Compute the contact manifold between two polygons
 B2_API b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB,
 									b2DistanceCache* cache);
+//B2_API b2Manifold b2CollidePolygonsNEW(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB);
 
 /// Compute the contact manifold between an segment and a polygon
 B2_API b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
