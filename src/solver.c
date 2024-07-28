@@ -64,7 +64,7 @@ static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContex
 		float linearDamping = 1.0f / (1.0f + h * sim->linearDamping);
 		float angularDamping = 1.0f / (1.0f + h * sim->angularDamping);
 		b2Vec2 linearVelocityDelta = b2MulSV(h * sim->invMass, b2MulAdd(sim->force, sim->mass * sim->gravityScale, gravity));
-		float angularVelocityDelta = h * sim->invI * sim->torque;
+		float angularVelocityDelta = h * sim->invInertia * sim->torque;
 
 		v = b2MulAdd(linearVelocityDelta, linearDamping, v);
 		w = angularVelocityDelta + angularDamping * w;

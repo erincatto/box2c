@@ -390,45 +390,6 @@ typedef struct b2Simplex
 ///	The underlying GJK algorithm may be debugged by passing in debug simplexes and capacity. You may pass in NULL and 0 for these.
 B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes, int simplexCapacity);
 
-/// A separation proxy is used by the b2ShapeSeparation.
-typedef struct b2SeparationProxy
-{
-	/// The point cloud
-	b2Vec2* points;
-
-	/// The centroid of the point cloud
-	b2Vec2 centroid;
-
-	/// The number of points
-	int32_t count;
-} b2SeparationProxy;
-
-/// Input for b2ShapeSeparation
-typedef struct b2SeparationInput
-{
-	/// The proxy for shape A
-	b2SeparationProxy proxyA;
-
-	/// The proxy for shape B
-	b2SeparationProxy proxyB;
-
-	int32_t maxIterations;
-} b2SeparationInput;
-
-/// Output for b2ShapeSeparation
-typedef struct b2SeparationOutput
-{
-	float separation;		///< The final separation, negative if overlapped
-	int32_t iterations;		///< Number of iterations used
-	uint16_t simplexCount;	///< The number of simplexes stored in the simplex array
-	int8_t witnessA[2];		///< Indices of witness points on proxyA
-	uint8_t countA;			///< Number of witness points on proxyA (1 or 2)
-	int8_t witnessB[2];		///< Indices of witness points on proxyB
-	uint8_t countB;			///< Number of witness points on proxyB (1 or 2)
-} b2SeparationOutput;
-
-B2_API b2SeparationOutput b2ShapeSeparation(const b2SeparationInput* input, b2Simplex* simplexes, int simplexCapacity);
-
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastPairInput
 {

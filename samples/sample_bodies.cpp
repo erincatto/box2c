@@ -507,14 +507,14 @@ public:
 			b2CreateCapsuleShape(m_weebleId, &shapeDef, &capsule);
 
 			float mass = b2Body_GetMass(m_weebleId);
-			float I = b2Body_GetInertiaTensor(m_weebleId);
+			float inertiaTensor = b2Body_GetInertiaTensor(m_weebleId);
 			
 			float offset = 1.5f;
 
 			// See: https://en.wikipedia.org/wiki/Parallel_axis_theorem
-			I += mass * offset * offset;
+			inertiaTensor += mass * offset * offset;
 
-			b2MassData massData = {mass, {0.0f, -offset}, I};
+			b2MassData massData = {mass, {0.0f, -offset}, inertiaTensor};
 			b2Body_SetMassData(m_weebleId, massData);
 		}
 

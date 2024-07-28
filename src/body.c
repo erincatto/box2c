@@ -245,8 +245,8 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	bodySim->torque = 0.0f;
 	bodySim->mass = 0.0f;
 	bodySim->invMass = 0.0f;
-	bodySim->I = 0.0f;
-	bodySim->invI = 0.0f;
+	bodySim->inertia = 0.0f;
+	bodySim->invInertia = 0.0f;
 	bodySim->minExtent = b2_huge;
 	bodySim->maxExtent = 0.0f;
 	bodySim->linearDamping = def->linearDamping;
@@ -520,8 +520,8 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 	// Compute mass data from shapes. Each shape has its own density.
 	bodySim->mass = 0.0f;
 	bodySim->invMass = 0.0f;
-	bodySim->I = 0.0f;
-	bodySim->invI = 0.0f;
+	bodySim->inertia = 0.0f;
+	bodySim->invInertia = 0.0f;
 	bodySim->localCenter = b2Vec2_zero;
 	bodySim->minExtent = b2_huge;
 	bodySim->maxExtent = 0.0f;
@@ -566,7 +566,7 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		b2MassData massData = b2ComputeShapeMass(s);
 		bodySim->mass += massData.mass;
 		localCenter = b2MulAdd(localCenter, massData.mass, massData.center);
-		bodySim->I += massData.rotationalInertia;
+		bodySim->inertia += massData.rotationalInertia;
 
 	}
 
@@ -577,17 +577,17 @@ void b2UpdateBodyMassData(b2World* world, b2Body* body)
 		localCenter = b2MulSV(bodySim->invMass, localCenter);
 	}
 
-	if (bodySim->I > 0.0f && body->fixedRotation == false)
+	if (bodySim->inertia > 0.0f && body->fixedRotation == false)
 	{
 		// Center the inertia about the center of mass.
-		bodySim->I -= bodySim->mass * b2Dot(localCenter, localCenter);
-		B2_ASSERT(bodySim->I > 0.0f);
-		bodySim->invI = 1.0f / bodySim->I;
+		bodySim->inertia -= bodySim->mass * b2Dot(localCenter, localCenter);
+		B2_ASSERT(bodySim->inertia > 0.0f);
+		bodySim->invInertia = 1.0f / bodySim->inertia;
 	}
 	else
 	{
-		bodySim->I = 0.0f;
-		bodySim->invI = 0.0f;
+		bodySim->inertia = 0.0f;
+		bodySim->invInertia = 0.0f;
 	}
 
 	// Move center of mass.
@@ -861,7 +861,7 @@ void b2Body_ApplyLinearImpulse(b2BodyId bodyId, b2Vec2 impulse, b2Vec2 point, bo
 		b2BodyState* state = set->states.data + localIndex;
 		b2BodySim* bodySim = set->sims.data + localIndex;
 		state->linearVelocity = b2MulAdd(state->linearVelocity, bodySim->invMass, impulse);
-		state->angularVelocity += bodySim->invI * b2Cross(b2Sub(point, bodySim->center), impulse);
+		state->angularVelocity += bodySim->invInertia * b2Cross(b2Sub(point, bodySim->center), impulse);
 	}
 }
 
@@ -909,7 +909,7 @@ void b2Body_ApplyAngularImpulse(b2BodyId bodyId, float impulse, bool wake)
 		B2_ASSERT(0 <= localIndex && localIndex < set->states.count);
 		b2BodyState* state = set->states.data + localIndex;
 		b2BodySim* sim = set->sims.data + localIndex;
-		state->angularVelocity += sim->invI * impulse;
+		state->angularVelocity += sim->invInertia * impulse;
 	}
 }
 
@@ -1201,7 +1201,7 @@ float b2Body_GetInertiaTensor(b2BodyId bodyId)
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
 	b2BodySim* bodySim = b2GetBodySim(world, body);
-	return bodySim->I;
+	return bodySim->inertia;
 }
 
 b2Vec2 b2Body_GetLocalCenterOfMass(b2BodyId bodyId)
@@ -1236,7 +1236,7 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	b2BodySim* bodySim = b2GetBodySim(world, body);
 
 	bodySim->mass = massData.mass;
-	bodySim->I = massData.rotationalInertia;
+	bodySim->inertia = massData.rotationalInertia;
 	bodySim->localCenter = massData.center;
 
 	b2Vec2 center = b2TransformPoint(bodySim->transform, massData.center);
@@ -1244,7 +1244,7 @@ void b2Body_SetMassData(b2BodyId bodyId, b2MassData massData)
 	bodySim->center0 = center;
 
 	bodySim->invMass = bodySim->mass > 0.0f ? 1.0f / bodySim->mass : 0.0f;
-	bodySim->invI = bodySim->I > 0.0f ? 1.0f / bodySim->I : 0.0f;
+	bodySim->invInertia = bodySim->inertia > 0.0f ? 1.0f / bodySim->inertia : 0.0f;
 }
 
 b2MassData b2Body_GetMassData(b2BodyId bodyId)
@@ -1252,7 +1252,7 @@ b2MassData b2Body_GetMassData(b2BodyId bodyId)
 	b2World* world = b2GetWorld(bodyId.world0);
 	b2Body* body = b2GetBodyFullId(world, bodyId);
 	b2BodySim* bodySim = b2GetBodySim(world, body);
-	b2MassData massData = {bodySim->mass, bodySim->localCenter, bodySim->I};
+	b2MassData massData = {bodySim->mass, bodySim->localCenter, bodySim->inertia};
 	return massData;
 }
 

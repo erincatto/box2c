@@ -308,7 +308,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 
 	b2Vec2 center = {0.0f, 0.0f};
 	float area = 0.0f;
-	float I = 0.0f;
+	float rotationalInertia = 0.0f;
 
 	// Get a reference point for forming triangles.
 	// Use the first vertex to reduce round-off errors.
@@ -336,7 +336,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 		float intx2 = ex1 * ex1 + ex2 * ex1 + ex2 * ex2;
 		float inty2 = ey1 * ey1 + ey2 * ey1 + ey2 * ey2;
 
-		I += (0.25f * inv3 * D) * (intx2 + inty2);
+		rotationalInertia += (0.25f * inv3 * D) * (intx2 + inty2);
 	}
 
 	b2MassData massData;
@@ -352,7 +352,7 @@ b2MassData b2ComputePolygonMass(const b2Polygon* shape, float density)
 	massData.center = b2Add(r, center);
 
 	// Inertia tensor relative to the local origin (point s).
-	massData.rotationalInertia = density * I;
+	massData.rotationalInertia = density * rotationalInertia;
 
 	// Shift to center of mass then to original body origin.
 	massData.rotationalInertia += massData.mass * (b2Dot(massData.center, massData.center) - b2Dot(center, center));

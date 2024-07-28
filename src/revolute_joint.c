@@ -231,9 +231,9 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
 
 	float mA = bodySimA->invMass;
-	float iA = bodySimA->invI;
+	float iA = bodySimA->invInertia;
 	float mB = bodySimB->invMass;
-	float iB = bodySimB->invI;
+	float iB = bodySimB->invInertia;
 
 	base->invMassA = mA;
 	base->invMassB = mB;

@@ -99,7 +99,7 @@ void b2PrepareMouseJoint(b2JointSim* base, b2StepContext* context)
 	b2BodySim* bodySimB = setB->sims.data + localIndexB;
 
 	base->invMassB = bodySimB->invMass;
-	base->invIB = bodySimB->invI;
+	base->invIB = bodySimB->invInertia;
 
 	b2MouseJoint* joint = &base->mouseJoint;
 	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
@@ -113,7 +113,7 @@ void b2PrepareMouseJoint(b2JointSim* base, b2StepContext* context)
 
 	b2Vec2 rB = joint->anchorB;
 	float mB = bodySimB->invMass;
-	float iB = bodySimB->invI;
+	float iB = bodySimB->invInertia;
 
 	// K = [(1/m1 + 1/m2) * eye(2) - skew(r1) * invI1 * skew(r1) - skew(r2) * invI2 * skew(r2)]
 	//   = [1/m1+1/m2     0    ] + invI1 * [r1.y*r1.y -r1.x*r1.y] + invI2 * [r1.y*r1.y -r1.x*r1.y]
