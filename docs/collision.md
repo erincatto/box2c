@@ -261,7 +261,7 @@ This is called the *time of impact* (TOI). The main purpose of `b2TimeOfImpact()
 tunnel prevention. Box2D uses this internally to prevent moving objects from tunneling through
 static shapes.
 
-The `b2TimeOfImpact()` identities an initial separating axis and
+The `b2TimeOfImpact()` identifies an initial separating axis and
 ensures the shapes do not cross on that axis. This process is repeated
 as shapes are moved closer together, until they touch or pass by each other.
 
