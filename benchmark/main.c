@@ -11,12 +11,12 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if defined(_WIN64)
 	#include <windows.h>
 #elif defined(__APPLE__)
-	// #include <sys/param.h>
-	// #include <sys/sysctl.h>
 	#include <unistd.h>
 #elif defined(__linux__)
 	#include <unistd.h>
@@ -60,27 +60,9 @@ int GetNumberOfCores()
 	GetSystemInfo(&sysinfo);
 	return sysinfo.dwNumberOfProcessors;
 #elif defined(__APPLE__)
-	// int nm[2];
-	// size_t len = 4;
-	// uint32_t count;
-
-	// nm[0] = CTL_HW;
-	// nm[1] = HW_AVAILCPU;
-	// sysctl(nm, 2, &count, &len, NULL, 0);
-
-	// if (count < 1)
-	//{
-	//	nm[1] = HW_NCPU;
-	//	sysctl(nm, 2, &count, &len, NULL, 0);
-	//	if (count < 1)
-	//	{
-	//		count = 1;
-	//	}
-	// }
-	// return count;
-	return sysconf(_SC_NPROCESSORS_ONLN);
+	return (int)sysconf(_SC_NPROCESSORS_ONLN);
 #elif defined(__linux__)
-	return sysconf(_SC_NPROCESSORS_ONLN);
+	(int)return sysconf(_SC_NPROCESSORS_ONLN);
 #else
 	return 1;
 #endif
