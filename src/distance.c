@@ -8,8 +8,7 @@
 #include "box2d/math_functions.h"
 
 #include <float.h>
-
-#define B2_RESTRICT
+#include <stddef.h>
 
 b2Transform b2GetSweepTransform(const b2Sweep* sweep, float time)
 {
@@ -314,7 +313,7 @@ void b2ComputeSimplexWitnessPoints(b2Vec2* a, b2Vec2* b, const b2Simplex* s)
 // Solution
 // a1 = d12_1 / d12
 // a2 = d12_2 / d12
-void b2SolveSimplex2(b2Simplex* B2_RESTRICT s)
+void b2SolveSimplex2(b2Simplex* s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
@@ -348,7 +347,7 @@ void b2SolveSimplex2(b2Simplex* B2_RESTRICT s)
 	s->count = 2;
 }
 
-void b2SolveSimplex3(b2Simplex* B2_RESTRICT s)
+void b2SolveSimplex3(b2Simplex* s)
 {
 	b2Vec2 w1 = s->v1.w;
 	b2Vec2 w2 = s->v2.w;
