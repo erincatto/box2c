@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 
+<!--
+SPDX-FileCopyrightText: 2024 Erin Catto
+SPDX-License-Identifier: MIT -->
+
 <!-- https://cdn.jsdelivr.net/gh/erincatto/box2c@main/benchmark/amd7950x/joint_grid.csv -->
 
 <head>
@@ -28,7 +32,6 @@
     <canvas id="tumbler"></canvas>
 
     <script>
-        // Replace 'your_username' and 'your_repository' with your GitHub username and repository name
         const repoUrl = 'https://raw.githubusercontent.com/erincatto/box2c/main/benchmark';
         const repoBaseUrl = 'https://raw.githubusercontent.com/erincatto/box2c';
 
@@ -37,35 +40,30 @@
                 label: 'Joint Grid',
                 id: 'joint_grid',
                 description: '10k Circles, 19800 Revolute Joints',
-                chartData: null,
                 chart: null
             },
             {
                 label: 'Large Pyramid',
                 id: 'large_pyramid',
                 description: '5050 boxes',
-                csvData: null,
                 chart: null
             },
             {
                 label: 'Many Pyramids',
                 id: 'many_pyramids',
                 description: '400 x 55 boxes',
-                csvData: null,
                 chart: null
             },
             {
                 label: 'Smash',
                 id: 'smash',
                 description: 'Large Box Colliding with 9600 Small Boxes',
-                csvData: null,
                 chart: null
             },
             {
                 label: 'Tumbler',
                 id: 'tumbler',
                 description: '2026 Small Boxes Tumbling in a Large Hollow Box',
-                csvData: null,
                 chart: null
             }
         ];
@@ -92,7 +90,9 @@
         async function populateBranches() {
             try {
                 const branches = await fetchBranches();
-                branchSelect.innerHTML = ''; // Clear existing options
+
+                // Clear existing options
+                branchSelect.innerHTML = ''; 
 
                 branches.forEach(branch => {
                     if (branch.name != 'main')
@@ -109,11 +109,6 @@
                     }
                 });
 
-                // Select the first branch by default
-                // if (branches.length > 0) {
-                //     currentBranch = branches[0].name;
-                //     branchSelect.value = currentBranch;
-                // }
             } catch (error) {
                 console.error('Error fetching branches:', error);
                 branchSelect.innerHTML = '<option value="">Error loading branches</option>';
@@ -132,21 +127,17 @@
                 {
                     const csvUrl = repoBaseUrl + '/' + branch + '/benchmark/' + processor + '/' + file;
 
-                    //console.log(csvUrl);
-
                     try 
                     {
                         const csv = await fetchCSV(csvUrl);
                         const csvResult = Papa.parse(csv, {header: true, skipEmptyLines: true});
                         const data = csvResult.data;
 
-                        //console.log('data here:');
-                        //console.log(data);
-
                         if (data != null)
                         {
                             datasets.push({
                                 label: processor + '-' + branch,
+
                                 // convert the csv data into chart ready data
                                 data: data.map(row => ({ x: row.threads, y: row.fps })),
                                 fill: false
@@ -168,19 +159,17 @@
             // get the document element for this benchmark
             const ctx = document.getElementById(benchmark.id).getContext('2d');
 
-            //console.log(benchmark);
-
             if (benchmark.chart)
             {
-                benchmark.chart.destroy(); // Destroy the previous chart if it exists
+                // Destroy the previous chart if it exists
+                benchmark.chart.destroy(); 
+                benchmark.chart = null;
             }
 
             if (datasets == null)
             {
                 return;
             }
-
-            //console.log(datasets);
 
             benchmark.chart = new Chart(ctx,
                 {
@@ -224,11 +213,13 @@
 
         // connect button listener
         loadButton.addEventListener('click', async () => {
-            console.log(branchSelect.value);
-            if (branchSelect.value == null) {
+            
+            if (branchSelect.value == null)
+            {
                 alert('No branch selected');
             }
-            else {
+            else
+            {
                 try {
                     currentBranch = branchSelect.value;
                     await createCharts();
