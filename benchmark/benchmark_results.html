@@ -13,6 +13,37 @@ SPDX-License-Identifier: MIT -->
     <title>Box2D Benchmarks</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+        }
+        select, button {
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            margin: 5px;
+        }
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .chart-item {
+            width: 100%;
+            height: 500px; /* Fixed height for each chart */
+        }
+        canvas {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+        }
+    </style>
 </head>
 
 <body>
@@ -25,11 +56,23 @@ SPDX-License-Identifier: MIT -->
 
     <button id="loadButton">Load Data</button>
     
-    <canvas id="joint_grid"></canvas>
-    <canvas id="large_pyramid"></canvas>
-    <canvas id="many_pyramids"></canvas>
-    <canvas id="smash"></canvas>
-    <canvas id="tumbler"></canvas>
+    <div class="chart-container">
+        <div class="chart-item">
+            <canvas id="joint_grid"></canvas>
+        </div>
+        <div class="chart-item">
+            <canvas id="large_pyramid"></canvas>
+        </div>
+        <div class="chart-item">
+            <canvas id="many_pyramids"></canvas>
+        </div>
+        <div class="chart-item">
+            <canvas id="smash"></canvas>
+        </div>
+        <div class="chart-item">
+            <canvas id="tumbler"></canvas>
+        </div>
+    </div>
 
     <script>
         const repoUrl = 'https://raw.githubusercontent.com/erincatto/box2c/main/benchmark';
@@ -176,19 +219,59 @@ SPDX-License-Identifier: MIT -->
                     type: 'line',
                     data: { datasets },
                     options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: {
+                                left: 10,
+                                right: 20,
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
                         plugins: {
                             title: {
                                 display: true,
                                 text: benchmark.label + ': ' + benchmark.description,
+                                color: '#e0e0e0'
                             },
                             legend: {
-                                display: true
+                                display: true,
+                                labels: {
+                                    color: '#e0e0e0'
+                                }
                             },
                         },
                         scales: {
                             x: {
+                                title:
+                                {
+                                    display: true,
+                                    text: 'threads',
+                                    color: '#e0e0e0'
+                                },
                                 type: 'linear',
-                                position: 'bottom'
+                                position: 'bottom',
+                                grid: {
+                                    color: '#333'
+                                },
+                                ticks: {
+                                    color: '#e0e0e0'
+                                }
+                            },
+                            y: {
+                                title:
+                                {
+                                    display: true,
+                                    text: 'threads',
+                                    color: '#e0e0e0'
+                                },
+                                grid: {
+                                    color: '#333'
+                                },
+                                ticks: {
+                                    color: '#e0e0e0'
+                                }
                             }
                         }
                     }
@@ -239,6 +322,7 @@ SPDX-License-Identifier: MIT -->
             }
         });
 
+        Chart.defaults.font.size = 14;
         createCharts().then(populateBranches());
 
     </script>
