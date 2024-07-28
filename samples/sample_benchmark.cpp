@@ -18,9 +18,10 @@ class BenchmarkBarrel : public Sample
 public:
 	enum ShapeType
 	{
-		e_mixShape = 0,
-		e_compoundShape = 1,
-		e_humanShape = 2,
+		e_caspuleShape = 0,
+		e_mixShape,
+		e_compoundShape,
+		e_humanShape,
 	};
 
 	enum
@@ -65,7 +66,7 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_humanShape;
+		m_shapeType = e_caspuleShape;
 
 		CreateScene();
 	}
@@ -180,7 +181,16 @@ public:
 				bodyDef.position = {x + side, y};
 				side = -side;
 
-				if (m_shapeType == e_mixShape)
+				if (m_shapeType == e_caspuleShape)
+				{
+					m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
+					capsule.radius = RandomFloat(0.25f, 0.5f);
+					float length = RandomFloat(0.25f, 1.0f);
+					capsule.center1 = {0.0f, -0.5f * length};
+					capsule.center2 = {0.0f, 0.5f * length};
+					b2CreateCapsuleShape(m_bodies[index], &shapeDef, &capsule);
+				}
+				else if (m_shapeType == e_mixShape)
 				{
 					m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
 
@@ -243,7 +253,7 @@ public:
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		const char* shapeTypes[] = {"Mix", "Compound", "Human"};
+		const char* shapeTypes[] = {"Capsule", "Mix", "Compound", "Human"};
 
 		int shapeType = int(m_shapeType);
 		changed = changed || ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));

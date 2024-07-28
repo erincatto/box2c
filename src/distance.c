@@ -106,7 +106,6 @@ b2SegmentDistanceResult b2SegmentDistance(b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec
 }
 
 // GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
-
 // todo try not copying
 b2DistanceProxy b2MakeProxy(const b2Vec2* vertices, int count, float radius)
 {

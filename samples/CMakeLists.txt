@@ -79,7 +79,6 @@ add_executable(samples
 	sample_robustness.cpp
 	sample_shapes.cpp
 	sample_stacking.cpp
-	sample_tootbird.cpp
 	sample_world.cpp
 	settings.cpp
 	settings.h

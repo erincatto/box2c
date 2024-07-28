@@ -2226,14 +2226,6 @@ public:
 			g_camera.m_zoom = 25.0f * 0.45f;
 		}
 
-		m_capcapCache = b2_emptyDistanceCache;
-		m_capboxCache = b2_emptyDistanceCache;
-		m_boxboxCache = b2_emptyDistanceCache;
-		m_boxroxCache = b2_emptyDistanceCache;
-		m_roxroxCache = b2_emptyDistanceCache;
-		m_segroxCache = b2_emptyDistanceCache;
-		m_segcapCache = b2_emptyDistanceCache;
-		m_woxwoxCache = b2_emptyDistanceCache;
 		m_smgroxCache1 = b2_emptyDistanceCache;
 		m_smgroxCache2 = b2_emptyDistanceCache;
 		m_smgcapCache1 = b2_emptyDistanceCache;
@@ -2383,14 +2375,6 @@ public:
 
 		if (m_enableCaching == false)
 		{
-			m_capcapCache = b2_emptyDistanceCache;
-			m_capboxCache = b2_emptyDistanceCache;
-			m_segcapCache = b2_emptyDistanceCache;
-			m_boxboxCache = b2_emptyDistanceCache;
-			m_boxroxCache = b2_emptyDistanceCache;
-			m_roxroxCache = b2_emptyDistanceCache;
-			m_segroxCache = b2_emptyDistanceCache;
-			m_woxwoxCache = b2_emptyDistanceCache;
 			m_smgroxCache1 = b2_emptyDistanceCache;
 			m_smgroxCache2 = b2_emptyDistanceCache;
 			m_smgcapCache1 = b2_emptyDistanceCache;
@@ -2483,12 +2467,7 @@ public:
 			b2Transform transform1 = {offset, b2Rot_identity};
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			if (m_enableCaching == false)
-			{
-				m_capcapCache = b2_emptyDistanceCache;
-			}
-
-			b2Manifold m = b2CollideCapsules(&capsule, transform1, &capsule, transform2, &m_capcapCache);
+			b2Manifold m = b2CollideCapsules(&capsule, transform1, &capsule, transform2);
 
 			b2Vec2 v1 = b2TransformPoint(transform1, capsule.center1);
 			b2Vec2 v2 = b2TransformPoint(transform1, capsule.center2);
@@ -2511,8 +2490,7 @@ public:
 			b2Transform transform1 = {offset, b2Rot_identity};
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2DistanceCache cache = b2_emptyDistanceCache;
-			b2Manifold m = b2CollidePolygonAndCapsule(&box, transform1, &capsule, transform2, &cache);
+			b2Manifold m = b2CollidePolygonAndCapsule(&box, transform1, &capsule, transform2);
 
 			g_draw.DrawSolidPolygon(transform1, box.vertices, box.count, box.radius, color1);
 
@@ -2533,7 +2511,7 @@ public:
 			b2Transform transform1 = {offset, b2Rot_identity};
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 
-			b2Manifold m = b2CollideSegmentAndCapsule(&segment, transform1, &capsule, transform2, &m_segcapCache);
+			b2Manifold m = b2CollideSegmentAndCapsule(&segment, transform1, &capsule, transform2);
 
 			b2Vec2 p1 = b2TransformPoint(transform1, segment.point1);
 			b2Vec2 p2 = b2TransformPoint(transform1, segment.point2);
@@ -2559,7 +2537,7 @@ public:
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform transform2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&box1, transform1, &box, transform2, &m_boxboxCache);
+			b2Manifold m = b2CollidePolygons(&box1, transform1, &box, transform2);
 
 			g_draw.DrawSolidPolygon(transform1, box1.vertices, box1.count, box1.radius, color1);
 			g_draw.DrawSolidPolygon(transform2, box.vertices, box.count, box.radius, color2);
@@ -2579,7 +2557,7 @@ public:
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform transform2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&box, transform1, &rox, transform2, &m_boxroxCache);
+			b2Manifold m = b2CollidePolygons(&box, transform1, &rox, transform2);
 
 			g_draw.DrawSolidPolygon(transform1, box.vertices, box.count, box.radius, color1);
 			g_draw.DrawSolidPolygon(transform2, rox.vertices, rox.count, rox.radius, color2);
@@ -2599,7 +2577,7 @@ public:
 			// b2Transform transform1 = {{6.48024225f, 2.07872653f}, {-0.938356698f, 0.345668465f}};
 			// b2Transform transform2 = {{5.52862263f, 2.51146317f}, {-0.859374702f, -0.511346340f}};
 
-			b2Manifold m = b2CollidePolygons(&rox, transform1, &rox, transform2, &m_roxroxCache);
+			b2Manifold m = b2CollidePolygons(&rox, transform1, &rox, transform2);
 
 			g_draw.DrawSolidPolygon(transform1, rox.vertices, rox.count, rox.radius, color1);
 			g_draw.DrawSolidPolygon(transform2, rox.vertices, rox.count, rox.radius, color2);
@@ -2619,7 +2597,7 @@ public:
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform transform2 = {b2Add({-1.44583416f, 0.397352695f}, offset), m_transform.q};
 
-			b2Manifold m = b2CollideSegmentAndPolygon(&segment, transform1, &rox, transform2, &m_segroxCache);
+			b2Manifold m = b2CollideSegmentAndPolygon(&segment, transform1, &rox, transform2);
 
 			b2Vec2 p1 = b2TransformPoint(transform1, segment.point1);
 			b2Vec2 p2 = b2TransformPoint(transform1, segment.point2);
@@ -2631,7 +2609,6 @@ public:
 			offset = b2Add(offset, increment);
 		}
 
-		#if 0
 		// wox-wox
 		{
 			b2Polygon wox = b2MakePolygon(&m_wedge, m_round);
@@ -2640,16 +2617,17 @@ public:
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform transform2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&wox, transform1, &wox, transform2, &m_woxwoxCache);
+			b2Manifold m = b2CollidePolygons(&wox, transform1, &wox, transform2);
 
 			g_draw.DrawSolidPolygon(transform1, wox.vertices, wox.count, wox.radius, color1);
+			g_draw.DrawSolidPolygon(transform1, wox.vertices, wox.count, 0.0f, color1);
 			g_draw.DrawSolidPolygon(transform2, wox.vertices, wox.count, wox.radius, color2);
+			g_draw.DrawSolidPolygon(transform2, wox.vertices, wox.count, 0.0f, color2);
 
 			DrawManifold(&m, transform1.p, transform2.p);
 
 			offset = b2Add(offset, increment);
 		}
-		#else
 
 		// wox-wox
 		{
@@ -2665,7 +2643,7 @@ public:
 			b2Transform transform2 = {b2Add(m_transform.p, offset), m_transform.q};
 			// b2Transform transform2 = {b2Add({0.0f, -0.1f}, offset), {0.0f, 1.0f}};
 
-			b2Manifold m = b2CollidePolygons(&w1, transform1, &w2, transform2, &m_woxwoxCache);
+			b2Manifold m = b2CollidePolygons(&w1, transform1, &w2, transform2);
 
 			g_draw.DrawSolidPolygon(transform1, w1.vertices, w1.count, w1.radius, color1);
 			g_draw.DrawSolidPolygon(transform1, w1.vertices, w1.count, 0.0f, color1);
@@ -2676,9 +2654,6 @@ public:
 
 			offset = b2Add(offset, increment);
 		}
-
-		#endif
-
 
 		offset = {-10.0f, 5.0f};
 
@@ -2808,14 +2783,6 @@ public:
 		return new Manifold(settings);
 	}
 
-	b2DistanceCache m_capcapCache;
-	b2DistanceCache m_capboxCache;
-	b2DistanceCache m_boxboxCache;
-	b2DistanceCache m_boxroxCache;
-	b2DistanceCache m_roxroxCache;
-	b2DistanceCache m_segcapCache;
-	b2DistanceCache m_segroxCache;
-	b2DistanceCache m_woxwoxCache;
 	b2DistanceCache m_smgroxCache1;
 	b2DistanceCache m_smgroxCache2;
 	b2DistanceCache m_smgcapCache1;
