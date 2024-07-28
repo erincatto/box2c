@@ -151,7 +151,7 @@ SPDX-License-Identifier: MIT -->
                 }
             }
 
-            return datasets;
+            return {datasets: datasets, benchmark: benchmark};
         }
 
         async function createChart(datasets, benchmark)
@@ -204,11 +204,19 @@ SPDX-License-Identifier: MIT -->
                 branches.push(currentBranch);
             }
 
+            const dataPromises = [];
             for (const benchmark of benchmarks)
             {
-                const datasets = await loadData(branches, benchmark);
-                createChart(datasets, benchmark);
+                dataPromises.push(loadData(branches, benchmark));
             }
+
+            Promise.all(dataPromises).then((values) =>
+            {
+                for (value of values)
+                {
+                    createChart(value.datasets, value.benchmark);
+                }
+            });
         }
 
         // connect button listener
