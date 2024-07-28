@@ -715,8 +715,8 @@ public:
 			return true;
 		}
 
-		int indexA = reinterpret_cast<intptr_t>(userDataA);
-		int indexB = reinterpret_cast<intptr_t>(userDataB);
+		int indexA = static_cast<int>(reinterpret_cast<intptr_t>(userDataA));
+		int indexB = static_cast<int>(reinterpret_cast<intptr_t>(userDataB));
 
 		return ((indexA & 1) + (indexB & 1)) != 1;
 	}
