@@ -9,6 +9,7 @@
 #include "box2d/math_functions.h"
 
 #include <float.h>
+#include <stddef.h>
 
 _Static_assert(b2_maxPolygonVertices > 2, "must be 3 or more");
 

@@ -18,7 +18,8 @@ class BenchmarkBarrel : public Sample
 public:
 	enum ShapeType
 	{
-		e_caspuleShape = 0,
+		e_circleShape = 0,
+		e_caspuleShape,
 		e_mixShape,
 		e_compoundShape,
 		e_humanShape,
@@ -66,7 +67,7 @@ public:
 			m_bodies[i] = b2_nullBodyId;
 		}
 
-		m_shapeType = e_caspuleShape;
+		m_shapeType = e_circleShape;
 
 		CreateScene();
 	}
@@ -181,7 +182,13 @@ public:
 				bodyDef.position = {x + side, y};
 				side = -side;
 
-				if (m_shapeType == e_caspuleShape)
+				if (m_shapeType == e_circleShape)
+				{
+					m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
+					circle.radius = RandomFloat(0.25f, 0.75f);
+					b2CreateCircleShape(m_bodies[index], &shapeDef, &circle);
+				}
+				else if (m_shapeType == e_caspuleShape)
 				{
 					m_bodies[index] = b2CreateBody(m_worldId, &bodyDef);
 					capsule.radius = RandomFloat(0.25f, 0.5f);
@@ -253,7 +260,7 @@ public:
 		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
-		const char* shapeTypes[] = {"Capsule", "Mix", "Compound", "Human"};
+		const char* shapeTypes[] = {"Circle", "Capsule", "Mix", "Compound", "Human"};
 
 		int shapeType = int(m_shapeType);
 		changed = changed || ImGui::Combo("Shape", &shapeType, shapeTypes, IM_ARRAYSIZE(shapeTypes));
