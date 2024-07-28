@@ -158,7 +158,7 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 
 		b2BodySim* bodySimA = awakeSet->sims.data + localIndex;
 		newContact->invMassA = bodySimA->invMass;
-		newContact->invIA = bodySimA->invI;
+		newContact->invIA = bodySimA->invInertia;
 	}
 
 	if (staticB)
@@ -178,7 +178,7 @@ void b2AddContactToGraph(b2World* world, b2ContactSim* contactSim, b2Contact* co
 
 		b2BodySim* bodySimB = awakeSet->sims.data + localIndex;
 		newContact->invMassB = bodySimB->invMass;
-		newContact->invIB = bodySimB->invI;
+		newContact->invIB = bodySimB->invInertia;
 	}
 }
 

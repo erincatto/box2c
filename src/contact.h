@@ -125,8 +125,6 @@ typedef struct b2ContactSim
 	float invMassB;
 	float invIB;
 
-	b2DistanceCache cache;
-
 	b2Manifold manifold;
 
 	// Mixed friction and restitution
@@ -138,6 +136,8 @@ typedef struct b2ContactSim
 
 	// b2ContactSimFlags
 	uint32_t simFlags;
+
+	b2DistanceCache cache;
 } b2ContactSim;
 
 void b2InitializeContactRegisters(void);

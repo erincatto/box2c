@@ -114,7 +114,7 @@ typedef struct b2BodySim
 	float mass, invMass;
 
 	// Rotational inertia about the center of mass.
-	float I, invI;
+	float inertia, invInertia;
 
 	float minExtent;
 	float maxExtent;

@@ -1315,7 +1315,7 @@ int b2Shape_GetContactData(b2ShapeId shapeId, b2ContactData* contactData, int ca
 
 b2AABB b2Shape_GetAABB(b2ShapeId shapeId)
 {
-	b2World* world = b2GetWorldLocked(shapeId.world0);
+	b2World* world = b2GetWorld(shapeId.world0);
 	if (world == NULL)
 	{
 		return (b2AABB){0};
@@ -1327,7 +1327,7 @@ b2AABB b2Shape_GetAABB(b2ShapeId shapeId)
 
 b2Vec2 b2Shape_GetClosestPoint(b2ShapeId shapeId, b2Vec2 target)
 {
-	b2World* world = b2GetWorldLocked(shapeId.world0);
+	b2World* world = b2GetWorld(shapeId.world0);
 	if (world == NULL)
 	{
 		return (b2Vec2){0};
@@ -1345,7 +1345,7 @@ b2Vec2 b2Shape_GetClosestPoint(b2ShapeId shapeId, b2Vec2 target)
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	return output.pointA;
 }

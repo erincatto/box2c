@@ -26,3 +26,6 @@ Box2D is developed by Erin Catto, and uses the [MIT license](https://en.wikipedi
 ## Sponsorship
 Support development of Box2D through [Github Sponsors](https://github.com/sponsors/erincatto)
 
+## Ports, wrappers, and Bindings
+- https://github.com/EnokViking/Box2DBeef
+- https://github.com/HolyBlackCat/box2cpp

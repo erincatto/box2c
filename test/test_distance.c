@@ -48,7 +48,7 @@ static int ShapeDistanceTest(void)
 	input.useRadii = false;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	ENSURE_SMALL(output.distance - 1.0f, FLT_EPSILON);
 

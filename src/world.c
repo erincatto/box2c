@@ -331,11 +331,11 @@ static void b2CollideTask(int startIndex, int endIndex, uint32_t threadIndex, vo
 			// avoid cache misses in b2PrepareContactsTask
 			contactSim->bodySimIndexA = bodyA->setIndex == b2_awakeSet ? bodyA->localIndex : B2_NULL_INDEX;
 			contactSim->invMassA = bodySimA->invMass;
-			contactSim->invIA = bodySimA->invI;
+			contactSim->invIA = bodySimA->invInertia;
 
 			contactSim->bodySimIndexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 			contactSim->invMassB = bodySimB->invMass;
-			contactSim->invIB = bodySimB->invI;
+			contactSim->invIB = bodySimB->invInertia;
 
 			b2Transform transformA = bodySimA->transform;
 			b2Transform transformB = bodySimB->transform;
@@ -1873,7 +1873,7 @@ static bool TreeOverlapCallback(int proxyId, int shapeId, void* context)
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	if (output.distance > 0.0f)
 	{
@@ -2374,7 +2374,7 @@ static bool ExplosionCallback(int proxyId, int shapeId, void* context)
 	input.useRadii = true;
 
 	b2DistanceCache cache = {0};
-	b2DistanceOutput output = b2ShapeDistance(&cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
 	if (output.distance > explosionContext->radius)
 	{
@@ -2402,7 +2402,7 @@ static bool ExplosionCallback(int proxyId, int shapeId, void* context)
 	b2BodyState* state = set->states.data + localIndex;
 	b2BodySim* bodySim = set->sims.data + localIndex;
 	state->linearVelocity = b2MulAdd(state->linearVelocity, bodySim->invMass, impulse);
-	state->angularVelocity += bodySim->invI * b2Cross(b2Sub(closestPoint, bodySim->center), impulse);
+	state->angularVelocity += bodySim->invInertia * b2Cross(b2Sub(closestPoint, bodySim->center), impulse);
 
 	return true;
 }

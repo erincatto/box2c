@@ -82,7 +82,8 @@ static b2Manifold b2CapsuleAndCircleManifold(const b2Shape* shapeA, b2Transform 
 static b2Manifold b2CapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 									b2DistanceCache* cache)
 {
-	return b2CollideCapsules(&shapeA->capsule, xfA, &shapeB->capsule, xfB, cache);
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideCapsules(&shapeA->capsule, xfA, &shapeB->capsule, xfB);
 }
 
 static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
@@ -95,13 +96,15 @@ static b2Manifold b2PolygonAndCircleManifold(const b2Shape* shapeA, b2Transform 
 static b2Manifold b2PolygonAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 											  b2DistanceCache* cache)
 {
-	return b2CollidePolygonAndCapsule(&shapeA->polygon, xfA, &shapeB->capsule, xfB, cache);
+	B2_MAYBE_UNUSED(cache);
+	return b2CollidePolygonAndCapsule(&shapeA->polygon, xfA, &shapeB->capsule, xfB);
 }
 
 static b2Manifold b2PolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 									b2DistanceCache* cache)
 {
-	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB, cache);
+	B2_MAYBE_UNUSED(cache);
+	return b2CollidePolygons(&shapeA->polygon, xfA, &shapeB->polygon, xfB);
 }
 
 static b2Manifold b2SegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
@@ -114,13 +117,15 @@ static b2Manifold b2SegmentAndCircleManifold(const b2Shape* shapeA, b2Transform 
 static b2Manifold b2SegmentAndCapsuleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 											  b2DistanceCache* cache)
 {
-	return b2CollideSegmentAndCapsule(&shapeA->segment, xfA, &shapeB->capsule, xfB, cache);
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideSegmentAndCapsule(&shapeA->segment, xfA, &shapeB->capsule, xfB);
 }
 
 static b2Manifold b2SegmentAndPolygonManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
 											  b2DistanceCache* cache)
 {
-	return b2CollideSegmentAndPolygon(&shapeA->segment, xfA, &shapeB->polygon, xfB, cache);
+	B2_MAYBE_UNUSED(cache);
+	return b2CollideSegmentAndPolygon(&shapeA->segment, xfA, &shapeB->polygon, xfB);
 }
 
 static b2Manifold b2SmoothSegmentAndCircleManifold(const b2Shape* shapeA, b2Transform xfA, const b2Shape* shapeB, b2Transform xfB,
@@ -477,7 +482,7 @@ static bool b2TestShapeOverlap(const b2Shape* shapeA, b2Transform xfA, const b2S
 	input.transformB = xfB;
 	input.useRadii = true;
 
-	b2DistanceOutput output = b2ShapeDistance(cache, &input);
+	b2DistanceOutput output = b2ShapeDistance(cache, &input, NULL, 0);
 
 	return output.distance < 10.0f * FLT_EPSILON;
 }

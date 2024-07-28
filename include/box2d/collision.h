@@ -92,7 +92,7 @@ typedef struct b2MassData
 	b2Vec2 center;
 
 	/// The rotational inertia of the shape about the local origin.
-	float I;
+	float rotationalInertia;
 } b2MassData;
 
 /// A solid circle
@@ -299,7 +299,7 @@ typedef struct b2SegmentDistanceResult
 	/// The barycentric coordinate on the first segment
 	float fraction1;
 
-	/// The barycentric coordinate on the first segment
+	/// The barycentric coordinate on the second segment
 	float fraction2;
 
 	/// The squared distance between the closest points
@@ -326,9 +326,6 @@ typedef struct b2DistanceProxy
 ///	use zero initialization.
 typedef struct b2DistanceCache
 {
-	/// Length or area
-	float metric; 
-
 	/// The number of stored simplex points
 	uint16_t count;
 
@@ -341,7 +338,7 @@ typedef struct b2DistanceCache
 
 static const b2DistanceCache b2_emptyDistanceCache = B2_ZERO_INIT;
 
-/// Input for b2Distance
+/// Input for b2ShapeDistance
 typedef struct b2DistanceInput
 {
 	/// The proxy for shape A
@@ -360,19 +357,38 @@ typedef struct b2DistanceInput
 	bool useRadii;
 } b2DistanceInput;
 
-/// Output for b2Distance
+/// Output for b2ShapeDistance
 typedef struct b2DistanceOutput
 {
 	b2Vec2 pointA; ///< Closest point on shapeA
 	b2Vec2 pointB; ///< Closest point on shapeB
 	float distance;	///< The final distance, zero if overlapped
 	int32_t iterations; ///< Number of GJK iterations used
+	int32_t simplexCount; ///< The number of simplexes stored in the simplex array
 } b2DistanceOutput;
 
-/// Compute the closest points between two shapes. Supports any combination of:
-/// b2Circle, b2Polygon, b2EdgeShape. The simplex cache is input/output.
-/// On the first call set b2SimplexCache.count to zero.
-B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input);
+/// Simplex vertex for debugging the GJK algorithm
+typedef struct b2SimplexVertex
+{
+	b2Vec2 wA;	///< support point in proxyA
+	b2Vec2 wB;	///< support point in proxyB
+	b2Vec2 w;	///< wB - wA
+	float a;	///< barycentric coordinate for closest point
+	int32_t indexA; ///< wA index
+	int32_t indexB; ///< wB index
+} b2SimplexVertex;
+
+/// Simplex from the GJK algorithm
+typedef struct b2Simplex
+{
+	b2SimplexVertex v1, v2, v3; ///< vertices
+	int32_t count; ///< number of valid vertices
+} b2Simplex;
+
+/// Compute the closest points between two shapes represented as point clouds.
+/// b2DistanceCache cache is input/output. On the first call set b2DistanceCache.count to zero.
+///	The underlying GJK algorithm may be debugged by passing in debug simplexes and capacity. You may pass in NULL and 0 for these.
+B2_API b2DistanceOutput b2ShapeDistance(b2DistanceCache* cache, const b2DistanceInput* input, b2Simplex* simplexes, int simplexCapacity);
 
 /// Input parameters for b2ShapeCast
 typedef struct b2ShapeCastPairInput
@@ -513,24 +529,19 @@ B2_API b2Manifold b2CollideSegmentAndCircle(const b2Segment* segmentA, b2Transfo
 B2_API b2Manifold b2CollidePolygonAndCircle(const b2Polygon* polygonA, b2Transform xfA, const b2Circle* circleB, b2Transform xfB);
 
 /// Compute the contact manifold between a capsule and circle
-B2_API b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB,
-									b2DistanceCache* cache);
+B2_API b2Manifold b2CollideCapsules(const b2Capsule* capsuleA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB);
 
 /// Compute the contact manifold between an segment and a capsule
-B2_API b2Manifold b2CollideSegmentAndCapsule(const b2Segment* segmentA, b2Transform xfA, const b2Capsule* capsuleB,
-											 b2Transform xfB, b2DistanceCache* cache);
+B2_API b2Manifold b2CollideSegmentAndCapsule(const b2Segment* segmentA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB);
 
 /// Compute the contact manifold between a polygon and capsule
-B2_API b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA, const b2Capsule* capsuleB,
-											 b2Transform xfB, b2DistanceCache* cache);
+B2_API b2Manifold b2CollidePolygonAndCapsule(const b2Polygon* polygonA, b2Transform xfA, const b2Capsule* capsuleB, b2Transform xfB);
 
 /// Compute the contact manifold between two polygons
-B2_API b2Manifold b2CollidePolygons(const b2Polygon* polyA, b2Transform xfA, const b2Polygon* polyB, b2Transform xfB,
-									b2DistanceCache* cache);
+B2_API b2Manifold b2CollidePolygons(const b2Polygon* polygonA, b2Transform xfA, const b2Polygon* polygonB, b2Transform xfB);
 
 /// Compute the contact manifold between an segment and a polygon
-B2_API b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB,
-											 b2Transform xfB, b2DistanceCache* cache);
+B2_API b2Manifold b2CollideSegmentAndPolygon(const b2Segment* segmentA, b2Transform xfA, const b2Polygon* polygonB, b2Transform xfB);
 
 /// Compute the contact manifold between a smooth segment and a circle
 B2_API b2Manifold b2CollideSmoothSegmentAndCircle(const b2SmoothSegment* smoothSegmentA, b2Transform xfA, const b2Circle* circleB,

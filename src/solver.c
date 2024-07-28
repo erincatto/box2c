@@ -64,7 +64,7 @@ static void b2IntegrateVelocitiesTask(int startIndex, int endIndex, b2StepContex
 		float linearDamping = 1.0f / (1.0f + h * sim->linearDamping);
 		float angularDamping = 1.0f / (1.0f + h * sim->angularDamping);
 		b2Vec2 linearVelocityDelta = b2MulSV(h * sim->invMass, b2MulAdd(sim->force, sim->mass * sim->gravityScale, gravity));
-		float angularVelocityDelta = h * sim->invI * sim->torque;
+		float angularVelocityDelta = h * sim->invInertia * sim->torque;
 
 		v = b2MulAdd(linearVelocityDelta, linearDamping, v);
 		w = angularVelocityDelta + angularDamping * w;
@@ -1669,8 +1669,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 	// Report hit events
 	// todo perhaps optimize this with a bitset
 	{
-		b2ContactHitEvent* events = world->contactHitArray;
-		B2_ASSERT(b2Array(events).count == 0);
+		B2_ASSERT(b2Array(world->contactHitArray).count == 0);
 
 		float threshold = world->hitEventThreshold;
 		b2GraphColor* colors = world->constraintGraph.colors;
@@ -1716,7 +1715,7 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 					event.shapeIdA = (b2ShapeId){shapeA->id + 1, world->worldId, shapeA->revision};
 					event.shapeIdB = (b2ShapeId){shapeB->id + 1, world->worldId, shapeB->revision};
 
-					b2Array_Push(events, event);
+					b2Array_Push(world->contactHitArray, event);
 				}
 			}
 		}
@@ -1819,19 +1818,8 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 		}
 	}
 
-	{
-		// bullet bodies
-		int minRange = 8;
-		void* userBulletBodyTask =
-			world->enqueueTaskFcn(&b2BulletBodyTask, stepContext->bulletBodyCount, minRange, stepContext, world->userTaskContext);
-		world->taskCount += 1;
-		if (userBulletBodyTask != NULL)
-		{
-			world->finishTaskFcn(userBulletBodyTask, world->userTaskContext);
-		}
-	}
-
 	// Serially enlarge broad-phase proxies for fast shapes
+	// Doing this here so that bullet shapes see them
 	{
 		b2BroadPhase* broadPhase = &world->broadPhase;
 		b2DynamicTree* dynamicTree = broadPhase->trees + b2_dynamicBody;
@@ -1882,6 +1870,26 @@ void b2Solve(b2World* world, b2StepContext* stepContext)
 				shapeId = shape->nextShapeId;
 			}
 		}
+	}
+
+	{
+		// bullet bodies
+		int minRange = 8;
+		void* userBulletBodyTask =
+			world->enqueueTaskFcn(&b2BulletBodyTask, stepContext->bulletBodyCount, minRange, stepContext, world->userTaskContext);
+		world->taskCount += 1;
+		if (userBulletBodyTask != NULL)
+		{
+			world->finishTaskFcn(userBulletBodyTask, world->userTaskContext);
+		}
+	}
+
+	// Serially enlarge broad-phase proxies for bullet shapes
+	{
+		b2BroadPhase* broadPhase = &world->broadPhase;
+		b2DynamicTree* dynamicTree = broadPhase->trees + b2_dynamicBody;
+		b2Body* bodies = world->bodyArray;
+		b2Shape* shapes = world->shapeArray;
 
 		// Serially enlarge broad-phase proxies for bullet shapes
 		int* bulletBodies = stepContext->bulletBodies;
