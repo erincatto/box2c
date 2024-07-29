@@ -16,7 +16,7 @@
 
 #include <stddef.h>
 
-b2DistanceJointDef b2DefaultDistanceJointDef()
+b2DistanceJointDef b2DefaultDistanceJointDef(void)
 {
 	b2DistanceJointDef def = {0};
 	def.length = 1.0f;
@@ -25,7 +25,7 @@ b2DistanceJointDef b2DefaultDistanceJointDef()
 	return def;
 }
 
-b2MotorJointDef b2DefaultMotorJointDef()
+b2MotorJointDef b2DefaultMotorJointDef(void)
 {
 	b2MotorJointDef def = {0};
 	def.maxForce = 1.0f;
@@ -35,7 +35,7 @@ b2MotorJointDef b2DefaultMotorJointDef()
 	return def;
 }
 
-b2MouseJointDef b2DefaultMouseJointDef()
+b2MouseJointDef b2DefaultMouseJointDef(void)
 {
 	b2MouseJointDef def = {0};
 	def.hertz = 4.0f;
@@ -45,7 +45,7 @@ b2MouseJointDef b2DefaultMouseJointDef()
 	return def;
 }
 
-b2PrismaticJointDef b2DefaultPrismaticJointDef()
+b2PrismaticJointDef b2DefaultPrismaticJointDef(void)
 {
 	b2PrismaticJointDef def = {0};
 	def.localAxisA = (b2Vec2){1.0f, 0.0f};
@@ -53,7 +53,7 @@ b2PrismaticJointDef b2DefaultPrismaticJointDef()
 	return def;
 }
 
-b2RevoluteJointDef b2DefaultRevoluteJointDef()
+b2RevoluteJointDef b2DefaultRevoluteJointDef(void)
 {
 	b2RevoluteJointDef def = {0};
 	def.drawSize = 0.25f;
@@ -61,14 +61,14 @@ b2RevoluteJointDef b2DefaultRevoluteJointDef()
 	return def;
 }
 
-b2WeldJointDef b2DefaultWeldJointDef()
+b2WeldJointDef b2DefaultWeldJointDef(void)
 {
 	b2WeldJointDef def = {0};
 	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
 
-b2WheelJointDef b2DefaultWheelJointDef()
+b2WheelJointDef b2DefaultWheelJointDef(void)
 {
 	b2WheelJointDef def = {0};
 	def.localAxisA.y = 1.0f;

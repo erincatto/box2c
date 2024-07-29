@@ -251,6 +251,7 @@ B2_API b2CastOutput b2ShapeCastSegment(const b2ShapeCastInput* input, const b2Se
 B2_API b2CastOutput b2ShapeCastPolygon(const b2ShapeCastInput* input, const b2Polygon* shape);
 
 /// A convex hull. Used to create convex polygons.
+///	@warning Do not modify these values directly, instead use b2ComputeHull()
 typedef struct b2Hull
 {
 	/// The final points of the hull
@@ -267,6 +268,7 @@ typedef struct b2Hull
 /// - less than 3 points
 /// - more than b2_maxPolygonVertices points
 /// This welds close points and removes collinear points.
+///	@warning Do not modify a hull once it has been computed
 B2_API b2Hull b2ComputeHull(const b2Vec2* points, int32_t count);
 
 /// This determines if a hull is valid. Checks for:
