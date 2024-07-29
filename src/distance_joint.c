@@ -40,6 +40,12 @@ void b2DistanceJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 	joint->enableLimit = enableLimit;
 }
 
+bool b2DistanceJoint_IsLimitEnabled(b2JointId jointId)
+{
+	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	return joint->distanceJoint.enableLimit;
+}
+
 void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength)
 {
 	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
