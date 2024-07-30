@@ -254,10 +254,10 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 100.0f;
+		float height = 80.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(220.0f, height));
+		ImGui::Begin("Benchmark: Barrel", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool changed = false;
 		const char* shapeTypes[] = {"Circle", "Capsule", "Mix", "Compound", "Human"};
@@ -372,10 +372,11 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 100.0f;
+		float height = 60.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-		ImGui::Begin("Tumbler", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
+		ImGui::Begin("Benchmark: Tumbler", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(120.0f);
 
 		if (ImGui::SliderFloat("Speed", &m_motorSpeed, 0.0f, 100.0f, "%.f"))
 		{
@@ -387,6 +388,7 @@ public:
 			}
 		}
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
@@ -515,10 +517,11 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 120.0f;
+		float height = 110.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-		ImGui::Begin("Many Tumblers", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
+		ImGui::Begin("Benchmark: Many Tumblers", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(100.0f);
 
 		bool changed = false;
 		changed = changed || ImGui::SliderInt("Row Count", &m_rowCount, 1, 32);
@@ -538,6 +541,7 @@ public:
 			}
 		}
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
@@ -770,8 +774,9 @@ public:
 	{
 		float height = 160.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
+		ImGui::Begin("Benchmark: Many Pyramids", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(100.0f);
 
 		bool changed = false;
 		changed = changed || ImGui::SliderInt("Row Count", &m_rowCount, 1, 32);
@@ -786,6 +791,7 @@ public:
 			CreateScene();
 		}
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
@@ -1152,10 +1158,10 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 100.0f;
+		float height = 60.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-		ImGui::Begin("Joint Grid", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Benchmark: Joint Grid", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::SliderFloat("gravity", &m_gravity, 0.0f, 20.0f, "%.1f"))
 		{

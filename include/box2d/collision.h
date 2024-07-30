@@ -175,9 +175,11 @@ typedef struct b2SmoothSegment
 B2_API bool b2IsValidRay(const b2RayCastInput* input);
 
 /// Make a convex polygon from a convex hull. This will assert if the hull is not valid.
+/// @warning Do not manually fill in the hull data, it must come directly from b2ComputeHull
 B2_API b2Polygon b2MakePolygon(const b2Hull* hull, float radius);
 
 /// Make an offset convex polygon from a convex hull. This will assert if the hull is not valid.
+/// @warning Do not manually fill in the hull data, it must come directly from b2ComputeHull
 B2_API b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform transform);
 
 /// Make a square polygon, bypassing the need for a convex hull.

@@ -153,11 +153,11 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 125.0f;
+		float height = 135.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Chain Shape", nullptr, ImGuiWindowFlags_NoResize);
 
 		const char* shapeTypes[] = {"Circle", "Capsule", "Box"};
 		int shapeType = int(m_shapeType);
@@ -383,7 +383,7 @@ public:
 	{
 		float height = 100.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(180.0f, height));
 
 		ImGui::Begin("Compound Shapes", nullptr, ImGuiWindowFlags_NoResize);
 
