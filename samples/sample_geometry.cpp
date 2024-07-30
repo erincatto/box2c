@@ -45,6 +45,24 @@ public:
 		m_points[7] = {1.33504069f, -4.43795443f };
 
 		m_count = e_count;
+#elif 0
+		m_points[0] = {-0.328125, 0.179688};
+		m_points[1] = {-0.203125, 0.304688};
+		m_points[2] = {0.171875, 0.304688};
+		m_points[3] = {0.359375, 0.117188};
+		m_points[4] = {0.359375, -0.195313};
+		m_points[5] = {0.234375, -0.320313};
+		m_points[6] = {-0.265625, -0.257813};
+		m_points[7] = {-0.328125, -0.132813};
+
+		b2Hull hull = b2ComputeHull(m_points, 8);
+		bool valid = b2ValidateHull(&hull);
+		if (valid == false)
+		{
+			assert(valid);
+		}
+
+		m_count = e_count;
 #else
 
 		float angle = b2_pi * RandomFloat();
@@ -53,7 +71,7 @@ public:
 		b2Vec2 lowerBound = {-4.0f, -4.0f};
 		b2Vec2 upperBound = {4.0f, 4.0f};
 
-		for (int32_t i = 0; i < e_count; ++i)
+		for (int i = 0; i < e_count; ++i)
 		{
 			float x = 10.0f * RandomFloat();
 			float y = 10.0f * RandomFloat();
@@ -85,6 +103,9 @@ public:
 		case GLFW_KEY_G:
 			Generate();
 			break;
+			
+		default:
+			break;
 		}
 	}
 
@@ -103,7 +124,7 @@ public:
 		{
 #if 1
 			// defect hunting
-			for (int32_t i = 0; i < 10000; ++i)
+			for (int i = 0; i < 10000; ++i)
 			{
 				Generate();
 				hull = b2ComputeHull(m_points, m_count);
@@ -125,7 +146,7 @@ public:
 			// performance
 			Generate();
 			b2Timer timer;
-			for (int32_t i = 0; i < 1000000; ++i)
+			for (int i = 0; i < 1000000; ++i)
 			{
 				hull = b2ComputeHull(m_points, m_count);
 			}

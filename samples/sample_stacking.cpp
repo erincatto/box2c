@@ -323,7 +323,7 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Stacks", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Vertical Stack", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::PushItemWidth(120.0f);
 

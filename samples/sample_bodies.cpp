@@ -185,10 +185,10 @@ class BodyType : public Sample
 
 	void UpdateUI() override
 	{
-		float height = 150.0f;
+		float height = 140.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
-		ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::SetNextWindowSize(ImVec2(180.0f, height));
+		ImGui::Begin("Body Type", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::RadioButton("Static", m_type == b2_staticBody))
 		{
@@ -525,11 +525,10 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 160.0f;
+		float height = 120.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
 		ImGui::Begin("Weeble", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-
 		if (ImGui::Button("Teleport"))
 		{
 			b2Body_SetTransform(m_weebleId, {0.0f, 5.0f}, 0.95 * b2_pi);
@@ -539,9 +538,11 @@ public:
 		{
 			b2World_Explode(m_worldId, m_explosionPosition, m_explosionRadius, m_explosionMagnitude);
 		}
+		ImGui::PushItemWidth(100.0f);
 
 		ImGui::SliderFloat("Magnitude", &m_explosionMagnitude, -100.0f, 100.0f, "%.1f");
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
@@ -679,7 +680,7 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 		ImGui::Begin("Sleep", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		ImGui::PushItemWidth(140.0f);
+		ImGui::PushItemWidth(120.0f);
 
 		ImGui::Text("Pendulum Tuning");
 

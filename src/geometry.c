@@ -56,7 +56,13 @@ static b2Vec2 b2ComputePolygonCentroid(const b2Vec2* vertices, int32_t count)
 
 b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 {
-	B2_ASSERT(hull->count >= 3);
+	B2_ASSERT(b2ValidateHull(hull));
+
+	if (hull->count < 3)
+	{
+		// Handle a bad hull when assertions are disabled
+		return b2MakeSquare(0.5f);
+	}
 
 	b2Polygon shape = {0};
 	shape.count = hull->count;
@@ -85,7 +91,13 @@ b2Polygon b2MakePolygon(const b2Hull* hull, float radius)
 
 b2Polygon b2MakeOffsetPolygon(const b2Hull* hull, float radius, b2Transform transform)
 {
-	B2_ASSERT(hull->count >= 3);
+	B2_ASSERT(b2ValidateHull(hull));
+
+	if (hull->count < 3)
+	{
+		// Handle a bad hull when assertions are disabled
+		return b2MakeSquare(0.5f);
+	}
 
 	b2Polygon shape = {0};
 	shape.count = hull->count;

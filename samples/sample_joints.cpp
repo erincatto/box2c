@@ -113,13 +113,14 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 220.0f;
+		float height = 140.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(180.0f, height));
 
 		ImGui::Begin("Distance Joint", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(100.0f);
 
-		if (ImGui::SliderFloat("length", &m_length, 0.1f, 4.0f, "%3.1f"))
+		if (ImGui::SliderFloat("Length", &m_length, 0.1f, 4.0f, "%3.1f"))
 		{
 			for (int i = 0; i < m_count; ++i)
 			{
@@ -128,7 +129,7 @@ public:
 			}
 		}
 
-		if (ImGui::Checkbox("spring", &m_enableSpring))
+		if (ImGui::Checkbox("Spring", &m_enableSpring))
 		{
 			for (int i = 0; i < m_count; ++i)
 			{
@@ -139,7 +140,7 @@ public:
 
 		if (m_enableSpring)
 		{
-			if (ImGui::SliderFloat("hertz", &m_hertz, 0.0f, 15.0f, "%3.1f"))
+			if (ImGui::SliderFloat("Hertz", &m_hertz, 0.0f, 15.0f, "%3.1f"))
 			{
 				for (int i = 0; i < m_count; ++i)
 				{
@@ -148,7 +149,7 @@ public:
 				}
 			}
 
-			if (ImGui::SliderFloat("damping", &m_dampingRatio, 0.0f, 4.0f, "%3.1f"))
+			if (ImGui::SliderFloat("Damping", &m_dampingRatio, 0.0f, 4.0f, "%3.1f"))
 			{
 				for (int i = 0; i < m_count; ++i)
 				{
@@ -158,7 +159,7 @@ public:
 			}
 		}
 
-		if (ImGui::Checkbox("limit", &m_enableLimit))
+		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
 			for (int i = 0; i < m_count; ++i)
 			{
@@ -169,7 +170,7 @@ public:
 
 		if (m_enableLimit)
 		{
-			if (ImGui::SliderFloat("min length", &m_minLength, 0.1f, 4.0f, "%3.1f"))
+			if (ImGui::SliderFloat("Min Length", &m_minLength, 0.1f, 4.0f, "%3.1f"))
 			{
 				for (int i = 0; i < m_count; ++i)
 				{
@@ -178,7 +179,7 @@ public:
 				}
 			}
 
-			if (ImGui::SliderFloat("max length", &m_maxLength, 0.1f, 4.0f, "%3.1f"))
+			if (ImGui::SliderFloat("Max Length", &m_maxLength, 0.1f, 4.0f, "%3.1f"))
 			{
 				for (int i = 0; i < m_count; ++i)
 				{
@@ -189,11 +190,12 @@ public:
 		}
 
 		int count = m_count;
-		if (ImGui::SliderInt("count", &count, 1, e_maxCount))
+		if (ImGui::SliderInt("Count", &count, 1, e_maxCount))
 		{
 			CreateScene(count);
 		}
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
@@ -613,7 +615,7 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Joint Controls", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Prismatic Joint", nullptr, ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Checkbox("Limit", &m_enableLimit))
 		{
@@ -950,7 +952,7 @@ public:
 			}
 		}
 
-		if (ImGui::SliderFloat("gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
+		if (ImGui::SliderFloat("Gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1058,7 +1060,7 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Ball and Chain", nullptr, ImGuiWindowFlags_NoResize);
 
 		bool updateFriction = ImGui::SliderFloat("Joint Friction", &m_frictionTorque, 0.0f, 1000.0f, "%2.f");
 		if (updateFriction)
@@ -1160,8 +1162,9 @@ public:
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
 		ImGui::Begin("Cantilever", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(100.0f);
 
-		if (ImGui::SliderFloat("linear Hertz", &m_linearHertz, 0.0f, 20.0f, "%.0f"))
+		if (ImGui::SliderFloat("Linear Hertz", &m_linearHertz, 0.0f, 20.0f, "%.0f"))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1169,7 +1172,7 @@ public:
 			}
 		}
 
-		if (ImGui::SliderFloat("linear damping ratio", &m_linearDampingRatio, 0.0f, 10.0f, "%.1f"))
+		if (ImGui::SliderFloat("Linear Damping Ratio", &m_linearDampingRatio, 0.0f, 10.0f, "%.1f"))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1177,7 +1180,7 @@ public:
 			}
 		}
 
-		if (ImGui::SliderFloat("angular Hertz", &m_angularHertz, 0.0f, 20.0f, "%.0f"))
+		if (ImGui::SliderFloat("Angular Hertz", &m_angularHertz, 0.0f, 20.0f, "%.0f"))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1185,7 +1188,7 @@ public:
 			}
 		}
 
-		if (ImGui::SliderFloat("angular damping ratio", &m_angularDampingRatio, 0.0f, 10.0f, "%.1f"))
+		if (ImGui::SliderFloat("Angular Damping Ratio", &m_angularDampingRatio, 0.0f, 10.0f, "%.1f"))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1193,7 +1196,7 @@ public:
 			}
 		}
 
-		if (ImGui::Checkbox("collide connected", &m_collideConnected))
+		if (ImGui::Checkbox("Collide Connected", &m_collideConnected))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1201,7 +1204,7 @@ public:
 			}
 		}
 
-		if (ImGui::SliderFloat("gravity scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
+		if (ImGui::SliderFloat("Gravity Scale", &m_gravityScale, -1.0f, 1.0f, "%.1f"))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1209,6 +1212,7 @@ public:
 			}
 		}
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
@@ -1444,11 +1448,11 @@ public:
 	{
 		float height = 60.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(180.0f, height));
 
 		ImGui::Begin("Fixed Rotation", nullptr, ImGuiWindowFlags_NoResize);
 
-		if (ImGui::Checkbox("fixed rotation", &m_fixedRotation))
+		if (ImGui::Checkbox("Fixed Rotation", &m_fixedRotation))
 		{
 			for (int i = 0; i < e_count; ++i)
 			{
@@ -1662,7 +1666,7 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Reaction Force", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Breakable Joint", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("break force", &m_breakForce, 0.0f, 10000.0f, "%.1f");
 
@@ -2019,27 +2023,27 @@ public:
 	{
 		float height = 140.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
 
-		ImGui::Begin("Car", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Driving", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::PushItemWidth(100.0f);
-		if (ImGui::SliderFloat("spring Hertz", &m_hertz, 0.0f, 20.0f, "%.0f"))
+		if (ImGui::SliderFloat("Spring Hertz", &m_hertz, 0.0f, 20.0f, "%.0f"))
 		{
 			m_car.SetHertz(m_hertz);
 		}
 
-		if (ImGui::SliderFloat("damping ratio", &m_dampingRatio, 0.0f, 10.0f, "%.1f"))
+		if (ImGui::SliderFloat("Damping Ratio", &m_dampingRatio, 0.0f, 10.0f, "%.1f"))
 		{
 			m_car.SetDampingRadio(m_dampingRatio);
 		}
 
-		if (ImGui::SliderFloat("speed", &m_speed, 0.0f, 50.0f, "%.0f"))
+		if (ImGui::SliderFloat("Speed", &m_speed, 0.0f, 50.0f, "%.0f"))
 		{
 			m_car.SetSpeed(m_throttle * m_speed);
 		}
 
-		if (ImGui::SliderFloat("torque", &m_torque, 0.0f, 5.0f, "%.1f"))
+		if (ImGui::SliderFloat("Torque", &m_torque, 0.0f, 5.0f, "%.1f"))
 		{
 			m_car.SetTorque(m_torque);
 		}

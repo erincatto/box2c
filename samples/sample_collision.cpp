@@ -569,11 +569,13 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 340.0f;
+		float height = 320.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
 
-		ImGui::Begin("Tree Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Dynamic Tree", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+
+		ImGui::PushItemWidth(100.0f);
 
 		bool changed = false;
 		if (ImGui::SliderInt("rows", &m_rowCount, 0, 1000, "%d"))
@@ -632,6 +634,7 @@ public:
 		ImGui::Text("mouse button 1: ray cast");
 		ImGui::Text("mouse button 1 + shift: query");
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 
 		if (changed)
@@ -910,17 +913,14 @@ public:
 	{
 		float height = 230.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
 
-		ImGui::Begin("RayCast Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Ray-cast", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-		if (ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f"))
-		{
-		}
+		ImGui::PushItemWidth(100.0f);
 
-		if (ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f"))
-		{
-		}
+		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
 
 		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
 		{
@@ -931,9 +931,8 @@ public:
 		//{
 		// }
 
-		if (ImGui::Checkbox("show fraction", &m_showFraction))
-		{
-		}
+		ImGui::Checkbox("show fraction", &m_showFraction);
+
 
 		if (ImGui::Button("Reset"))
 		{
@@ -946,6 +945,8 @@ public:
 		ImGui::Text("mouse btn 1: ray cast");
 		ImGui::Text("mouse btn 1 + shft: translate");
 		ImGui::Text("mouse btn 1 + ctrl: rotate");
+
+		ImGui::PopItemWidth();
 
 		ImGui::End();
 	}
@@ -1566,9 +1567,9 @@ public:
 	{
 		float height = 300.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(200.0f, height));
 
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Ray-cast World", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::Checkbox("Simple", &m_simple);
 
@@ -2051,9 +2052,9 @@ public:
 	{
 		float height = 330.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(140.0f, height));
 
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Overlap World", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		if (ImGui::Button("Polygon 1"))
 			Create(0);
@@ -2256,7 +2257,7 @@ public:
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
 
-		ImGui::Begin("Manifold Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Manifold", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
 		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
 		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
@@ -2907,11 +2908,12 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 270.0f;
+		float height = 290.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(180.0f, height));
 
 		ImGui::Begin("Smooth Manifold", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(100.0f);
 
 		{
 			const char* shapeTypes[] = {"Circle", "Box"};
@@ -2920,18 +2922,18 @@ public:
 			m_shapeType = ShapeType(shapeType);
 		}
 
-		ImGui::SliderFloat("x offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
-		ImGui::SliderFloat("y offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("x Offset", &m_transform.p.x, -2.0f, 2.0f, "%.2f");
+		ImGui::SliderFloat("y Offset", &m_transform.p.y, -2.0f, 2.0f, "%.2f");
 
-		if (ImGui::SliderFloat("angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
+		if (ImGui::SliderFloat("Angle", &m_angle, -b2_pi, b2_pi, "%.2f"))
 		{
 			m_transform.q = b2MakeRot(m_angle);
 		}
 
-		ImGui::SliderFloat("round", &m_round, 0.0f, 0.4f, "%.1f");
-		ImGui::Checkbox("show ids", &m_showIds);
-		ImGui::Checkbox("show separation", &m_showSeparation);
-		ImGui::Checkbox("show anchors", &m_showAnchors);
+		ImGui::SliderFloat("Round", &m_round, 0.0f, 0.4f, "%.1f");
+		ImGui::Checkbox("Show Ids", &m_showIds);
+		ImGui::Checkbox("Show Separation", &m_showSeparation);
+		ImGui::Checkbox("Show Anchors", &m_showAnchors);
 
 		if (ImGui::Button("Reset"))
 		{
@@ -2944,6 +2946,7 @@ public:
 		ImGui::Text("mouse button 1: drag");
 		ImGui::Text("mouse button 1 + shift: rotate");
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 

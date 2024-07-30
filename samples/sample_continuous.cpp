@@ -340,11 +340,11 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 130.0f;
+		float height = 110.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(140.0f, height));
 
-		ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Skinny Box", nullptr, ImGuiWindowFlags_NoResize);
 
 		ImGui::Checkbox("Capsule", &m_capsule);
 
@@ -603,11 +603,12 @@ public:
 
 	void UpdateUI() override
 	{
-		float height = 160.0f;
+		float height = 140.0f;
 		ImGui::SetNextWindowPos(ImVec2(10.0f, g_camera.m_height - height - 50.0f), ImGuiCond_Once);
-		ImGui::SetNextWindowSize(ImVec2(240.0f, height));
+		ImGui::SetNextWindowSize(ImVec2(180.0f, height));
 
 		ImGui::Begin("Ghost Collision", nullptr, ImGuiWindowFlags_NoResize);
+		ImGui::PushItemWidth(100.0f);
 
 		if (ImGui::Checkbox("Chain", &m_useChain))
 		{
@@ -649,6 +650,7 @@ public:
 			Launch();
 		}
 
+		ImGui::PopItemWidth();
 		ImGui::End();
 	}
 
