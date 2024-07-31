@@ -633,14 +633,6 @@ b2Rot b2Body_GetRotation(b2BodyId bodyId)
 	return transform.q;
 }
 
-float b2Body_GetAngle(b2BodyId bodyId)
-{
-	b2World* world = b2GetWorld(bodyId.world0);
-	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2Transform transform = b2GetBodyTransformQuick(world, body);
-	return b2Rot_GetAngle(transform.q);
-}
-
 b2Transform b2Body_GetTransform(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);

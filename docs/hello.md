@@ -226,8 +226,8 @@ for (int i = 0; i < 90; ++i)
 {
 	b2World_Step(worldId, timeStep, subStepCount);
     b2Vec2 position = b2Body_GetPosition(bodyId);
-    float angle = b2Body_GetAngle(bodyId);
-    printf("%4.2f %4.2f %4.2f\n", position.x, position.y, angle);
+    b2Rot rotation = b2Body_GetRot(bodyId);
+    printf("%4.2f %4.2f %4.2f\n", position.x, position.y, b2Rot_GetAngle(rotation));
 }
 ```
 
