@@ -179,7 +179,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 {
 	b2CheckDef(def);
 	B2_ASSERT(b2Vec2_IsValid(def->position));
-	B2_ASSERT(b2IsValid(def->angle));
+	B2_ASSERT(b2Rot_IsValid(def->rotation));
 	B2_ASSERT(b2Vec2_IsValid(def->linearVelocity));
 	B2_ASSERT(b2IsValid(def->angularVelocity));
 	B2_ASSERT(b2IsValid(def->linearDamping) && def->linearDamping >= 0.0f);
@@ -236,7 +236,7 @@ b2BodyId b2CreateBody(b2WorldId worldId, const b2BodyDef* def)
 	b2BodySim* bodySim = b2AddBodySim(&set->sims);
 	*bodySim = (b2BodySim){0};
 	bodySim->transform.p = def->position;
-	bodySim->transform.q = b2MakeRot(def->angle);
+	bodySim->transform.q = def->rotation;
 	bodySim->center = def->position;
 	bodySim->rotation0 = bodySim->transform.q;
 	bodySim->center0 = bodySim->center;
@@ -633,14 +633,6 @@ b2Rot b2Body_GetRotation(b2BodyId bodyId)
 	return transform.q;
 }
 
-float b2Body_GetAngle(b2BodyId bodyId)
-{
-	b2World* world = b2GetWorld(bodyId.world0);
-	b2Body* body = b2GetBodyFullId(world, bodyId);
-	b2Transform transform = b2GetBodyTransformQuick(world, body);
-	return b2Rot_GetAngle(transform.q);
-}
-
 b2Transform b2Body_GetTransform(b2BodyId bodyId)
 {
 	b2World* world = b2GetWorld(bodyId.world0);
@@ -680,8 +672,10 @@ b2Vec2 b2Body_GetWorldVector(b2BodyId bodyId, b2Vec2 localVector)
 	return b2RotateVector(transform.q, localVector);
 }
 
-void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
+void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, b2Rot rotation)
 {
+	B2_ASSERT(b2Vec2_IsValid(position));
+	B2_ASSERT(b2Rot_IsValid(rotation));
 	B2_ASSERT(b2Body_IsValid(bodyId));
 	b2World* world = b2GetWorld(bodyId.world0);
 	B2_ASSERT(world->locked == false);
@@ -690,7 +684,7 @@ void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle)
 	b2BodySim* bodySim = b2GetBodySim(world, body);
 
 	bodySim->transform.p = position;
-	bodySim->transform.q = b2MakeRot(angle);
+	bodySim->transform.q = rotation;
 	bodySim->center = b2TransformPoint(bodySim->transform, bodySim->localCenter);
 
 	bodySim->rotation0 = bodySim->transform.q;

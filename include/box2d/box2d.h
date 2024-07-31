@@ -200,16 +200,13 @@ B2_API b2Vec2 b2Body_GetPosition(b2BodyId bodyId);
 /// Get the world rotation of a body as a cosine/sine pair (complex number)
 B2_API b2Rot b2Body_GetRotation(b2BodyId bodyId);
 
-/// Get the body angle in radians in the range [-pi, pi]
-B2_API float b2Body_GetAngle(b2BodyId bodyId);
-
 /// Get the world transform of a body.
 B2_API b2Transform b2Body_GetTransform(b2BodyId bodyId);
 
 /// Set the world transform of a body. This acts as a teleport and is fairly expensive.
 /// @note Generally you should create a body with then intended transform.
 ///	@see b2BodyDef::position and b2BodyDef::angle
-B2_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, float angle);
+B2_API void b2Body_SetTransform(b2BodyId bodyId, b2Vec2 position, b2Rot rotation);
 
 /// Get a local point on a body given a world point
 B2_API b2Vec2 b2Body_GetLocalPoint(b2BodyId bodyId, b2Vec2 worldPoint);

@@ -854,20 +854,20 @@ public:
 				if (i != Nb - 1)
 				{
 					bodyDef.position = {z + 0.25f, y + cardHeight - 0.015f};
-					bodyDef.angle = angle2;
+					bodyDef.rotation = b2MakeRot(angle2);
 					b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 					b2CreatePolygonShape(bodyId, &shapeDef, &cardBox);
 				}
 
 				bodyDef.position = {z, y};
-				bodyDef.angle = angle1;
+				bodyDef.rotation = b2MakeRot(angle1);
 				b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 				b2CreatePolygonShape(bodyId, &shapeDef, &cardBox);
 
 				z += 0.175f;
 
 				bodyDef.position = {z, y};
-				bodyDef.angle = angle0;
+				bodyDef.rotation = b2MakeRot(angle0);
 				bodyId = b2CreateBody(m_worldId, &bodyDef);
 				b2CreatePolygonShape(bodyId, &shapeDef, &cardBox);
 

@@ -149,8 +149,8 @@ typedef struct b2BodyDef
 	///	if the body is moved after shapes have been added.
 	b2Vec2 position;
 
-	/// The initial world angle of the body in radians.
-	float angle;
+	/// The initial world rotation of the body. Use b2MakeRot() if you have an angle.
+	b2Rot rotation;
 
 	/// The initial linear velocity of the body's origin. Typically in meters per second.
 	b2Vec2 linearVelocity;

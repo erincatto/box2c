@@ -506,11 +506,11 @@ simulate movement.
 Keep in mind that the Box2D interface uses *radians*.
 
 ```c
-b2Body_SetTransform(myBodyId, position, angleInRadians);
+b2Body_SetTransform(myBodyId, position, rotation);
 b2Transform transform = b2Body_GetTransform(myBodyId);
 b2Vec2 position = b2Body_GetPosition(myBodyId);
 b2Rot rotation = b2Body_GetRotation(myBodyId);
-float angleInRadians = b2Body_GetAngle(myBodyId);
+float angleInRadians = b2Rot_GetAngle(rotation);
 ```
 
 You can access the center of mass position in local and world

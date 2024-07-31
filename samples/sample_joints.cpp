@@ -2259,12 +2259,12 @@ public:
 		for (int i = 0; i < N; ++i)
 		{
 			bodyDef.position = {0.0f, y};
-			bodyDef.angle = 0.15f;
+			bodyDef.rotation = b2MakeRot(0.15f);
 			b2BodyId bodyId1 = b2CreateBody(m_worldId, &bodyDef);
 			b2CreateCapsuleShape(bodyId1, &shapeDef, &capsule);
 
 			bodyDef.position = {0.0f, y};
-			bodyDef.angle = -0.15f;
+			bodyDef.rotation = b2MakeRot(-0.15f);
 
 			b2BodyId bodyId2 = b2CreateBody(m_worldId, &bodyDef);
 			b2CreateCapsuleShape(bodyId2, &shapeDef, &capsule);
@@ -2333,7 +2333,7 @@ public:
 		}
 
 		bodyDef.position = {0.0f, y};
-		bodyDef.angle = 0.0f;
+		bodyDef.rotation = b2Rot_identity;
 		b2BodyId platformId = b2CreateBody(m_worldId, &bodyDef);
 
 		b2Polygon box = b2MakeBox(3.0f, 0.2f);

@@ -68,7 +68,7 @@ int HelloWorld(void)
 	int subStepCount = 4;
 
 	b2Vec2 position = b2Body_GetPosition(bodyId);
-	float angle = b2Body_GetAngle(bodyId);
+	b2Rot rotation = b2Body_GetRotation(bodyId);
 
 	// This is our little game loop.
 	for (int i = 0; i < 90; ++i)
@@ -79,9 +79,9 @@ int HelloWorld(void)
 
 		// Now print the position and angle of the body.
 		position = b2Body_GetPosition(bodyId);
-		angle = b2Body_GetAngle(bodyId);
+		rotation = b2Body_GetRotation(bodyId);
 
-		//printf("%4.2f %4.2f %4.2f\n", position.x, position.y, angle);
+		//printf("%4.2f %4.2f %4.2f\n", position.x, position.y, b2Rot_GetAngle(rotation));
 	}
 
 	// When the world destructor is called, all bodies and joints are freed. This can
@@ -90,7 +90,7 @@ int HelloWorld(void)
 
 	ENSURE(b2AbsFloat(position.x) < 0.01f);
 	ENSURE(b2AbsFloat(position.y - 1.00f) < 0.01f);
-	ENSURE(b2AbsFloat(angle) < 0.01f);
+	ENSURE(b2AbsFloat(b2Rot_GetAngle(rotation)) < 0.01f);
 
 	return 0;
 }

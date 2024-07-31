@@ -329,7 +329,7 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Body_GetPosition(m_table1Id);
-			bodyDef.angle = b2Body_GetAngle(m_table1Id);
+			bodyDef.rotation = b2Body_GetRotation(m_table1Id);
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -342,7 +342,7 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Body_GetPosition(m_table2Id);
-			bodyDef.angle = b2Body_GetAngle(m_table2Id);
+			bodyDef.rotation = b2Body_GetRotation(m_table2Id);
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -355,7 +355,7 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Body_GetPosition(m_ship1Id);
-			bodyDef.angle = b2Body_GetAngle(m_ship1Id);
+			bodyDef.rotation = b2Body_GetRotation(m_ship1Id);
 			// bodyDef.gravityScale = 0.0f;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -369,7 +369,7 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Body_GetPosition(m_ship2Id);
-			bodyDef.angle = b2Body_GetAngle(m_ship2Id);
+			bodyDef.rotation = b2Body_GetRotation(m_ship2Id);
 			// bodyDef.gravityScale = 0.0f;
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 

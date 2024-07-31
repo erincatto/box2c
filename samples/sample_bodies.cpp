@@ -334,7 +334,7 @@ public:
 		// Chain shape
 		{
 			b2BodyDef bodyDef = b2DefaultBodyDef();
-			bodyDef.angle = 0.25f * b2_pi;
+			bodyDef.rotation = b2MakeRot(0.25f * b2_pi);
 			b2BodyId groundId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Vec2 points[4] = {{8.0f, 7.0f}, {7.0f, 8.0f}, {6.0f, 8.0f}, {5.0f, 7.0f}};
@@ -498,7 +498,7 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 3.0f};
-			bodyDef.angle = 0.25f * b2_pi;
+			bodyDef.rotation = b2MakeRot(0.25f * b2_pi);
 			m_weebleId = b2CreateBody(m_worldId, &bodyDef);
 
 			b2Capsule capsule = {{0.0f, -1.0f}, {0.0f, 1.0f}, 1.0f};
@@ -531,7 +531,7 @@ public:
 		ImGui::Begin("Weeble", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 		if (ImGui::Button("Teleport"))
 		{
-			b2Body_SetTransform(m_weebleId, {0.0f, 5.0f}, 0.95 * b2_pi);
+			b2Body_SetTransform(m_weebleId, {0.0f, 5.0f}, b2MakeRot(0.95 * b2_pi));
 		}
 
 		if (ImGui::Button("Explode"))
@@ -789,7 +789,7 @@ public:
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {0.0f, 3.0f};
 			bodyDef.angularVelocity = 0.2f;
-			bodyDef.angle = 0.25f * b2_pi;
+			bodyDef.rotation = b2MakeRot(0.25f * b2_pi);
 
 			m_badBodyId = b2CreateBody(m_worldId, &bodyDef);
 
@@ -806,7 +806,7 @@ public:
 			b2BodyDef bodyDef = b2DefaultBodyDef();
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = {2.0f, 3.0f};
-			bodyDef.angle = 0.25f * b2_pi;
+			bodyDef.rotation = b2MakeRot(0.25f * b2_pi);
 
 			b2BodyId bodyId = b2CreateBody(m_worldId, &bodyDef);
 
