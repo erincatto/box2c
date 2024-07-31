@@ -262,7 +262,7 @@ B2_INLINE float b2DistanceSquared(b2Vec2 a, b2Vec2 b)
 	return c.x * c.x + c.y * c.y;
 }
 
-/// Set using an angle in radians
+/// Make a rotation using an angle in radians
 B2_INLINE b2Rot b2MakeRot(float angle)
 {
 	// todo determinism
@@ -336,7 +336,7 @@ B2_INLINE float b2ComputeAngularVelocity(b2Rot q1, b2Rot q2, float inv_h)
 	return omega;
 }
 
-/// Get the angle in radians
+/// Get the angle in radians in the range [-pi, pi]
 B2_INLINE float b2Rot_GetAngle(b2Rot q)
 {
 	// todo determinism

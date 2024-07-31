@@ -1469,7 +1469,7 @@ public:
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = {x, y};
-		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
+		bodyDef.rotation = b2MakeRot(RandomFloat(-b2_pi, b2_pi));
 
 		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 
@@ -1954,7 +1954,7 @@ public:
 
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = {x, y};
-		bodyDef.angle = RandomFloat(-b2_pi, b2_pi);
+		bodyDef.rotation = b2MakeRot(RandomFloat(-b2_pi, b2_pi));
 
 		m_bodyIds[m_bodyIndex] = b2CreateBody(m_worldId, &bodyDef);
 

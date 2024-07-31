@@ -51,7 +51,7 @@ void Donut::Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupInde
 	for (int i = 0; i < e_sides; ++i)
 	{
 		bodyDef.position = {radius * cosf(angle) + center.x, radius * sinf(angle) + center.y};
-		bodyDef.angle = angle;
+		bodyDef.rotation = b2MakeRot(angle);
 
 		m_bodyIds[i] = b2CreateBody(worldId, &bodyDef);
 		b2CreateCapsuleShape(m_bodyIds[i], &shapeDef, &capsule);
