@@ -28,6 +28,7 @@ typedef struct b2Shape
 
 	b2Filter filter;
 	void* userData;
+	uint32_t customColor;
 
 	union
 	{

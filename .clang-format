@@ -39,3 +39,8 @@ AccessModifierOffset: -4
 
 # AlignArrayOfStructures: Left
 # AlignAfterOpenBracket: BlockIndent
+
+SpacesInParens: Custom
+SpacesInParensOptions:
+  Other: true
+  

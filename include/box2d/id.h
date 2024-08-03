@@ -80,12 +80,12 @@ static const b2JointId b2_nullJointId = B2_ZERO_INIT;
 static const b2ChainId b2_nullChainId = B2_ZERO_INIT;
 
 /// Macro to determine if any id is null.
-#define B2_IS_NULL(id) (id.index1 == 0)
+#define B2_IS_NULL( id ) ( id.index1 == 0 )
 
 /// Macro to determine if any id is non-null.
-#define B2_IS_NON_NULL(id) (id.index1 != 0)
+#define B2_IS_NON_NULL( id ) ( id.index1 != 0 )
 
 /// Compare two ids for equality. Doesn't work for b2WorldId.
-#define B2_ID_EQUALS(id1, id2) (id1.index1 == id2.index1 && id1.world0 == id2.world0 && id1.revision == id2.revision)
+#define B2_ID_EQUALS( id1, id2 ) ( id1.index1 == id2.index1 && id1.world0 == id2.world0 && id1.revision == id2.revision )
 
 /**@}*/

@@ -114,6 +114,7 @@ static b2Shape* b2CreateShapeInternal(b2World* world, b2Body* body, b2Transform 
 	shape->restitution = def->restitution;
 	shape->filter = def->filter;
 	shape->userData = def->userData;
+	shape->customColor = def->customColor;
 	shape->isSensor = def->isSensor;
 	shape->enlargedAABB = false;
 	shape->enableSensorEvents = def->enableSensorEvents;
