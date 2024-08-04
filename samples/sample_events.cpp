@@ -175,7 +175,7 @@ public:
 		else
 		{
 			Human* human = m_humans + index;
-			human->Spawn( m_worldId, center, 2.0f, index + 1, human, false );
+			human->Spawn( m_worldId, center, 2.0f, 0.05f, 0.0f, 0.0f, index + 1, human, false );
 		}
 
 		m_isSpawned[index] = true;

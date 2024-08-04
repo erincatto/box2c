@@ -2122,8 +2122,41 @@ public:
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		m_human.Spawn( m_worldId, { 0.0f, 5.0f }, 1.0f, 1, nullptr, true );
+		m_jointFrictionTorque = 0.05f;
+		m_jointHertz = 0.0f;
+		m_jointDampingRatio = 0.5f;
+
+		m_human.Spawn( m_worldId, { 0.0f, 5.0f }, 1.0f, m_jointFrictionTorque, m_jointHertz, m_jointDampingRatio, 1, nullptr,
+					   true );
 		m_human.ApplyRandomAngularImpulse( 10.0f );
+	}
+
+	void UpdateUI() override
+	{
+		float height = 140.0f;
+		ImGui::SetNextWindowPos( ImVec2( 10.0f, g_camera.m_height - height - 50.0f ), ImGuiCond_Once );
+		ImGui::SetNextWindowSize( ImVec2( 180.0f, height ) );
+
+		ImGui::Begin( "Ragdoll", nullptr, ImGuiWindowFlags_NoResize );
+		ImGui::PushItemWidth( 100.0f );
+
+		if ( ImGui::SliderFloat( "Friction", &m_jointFrictionTorque, 0.0f, 1.0f, "%3.2f" ) )
+		{
+			m_human.SetJointFrictionTorque( m_jointFrictionTorque );
+		}
+
+		if ( ImGui::SliderFloat( "Hertz", &m_jointHertz, 0.0f, 10.0f, "%3.1f" ) )
+		{
+			m_human.SetJointSpringHertz( m_jointHertz );
+		}
+
+		if ( ImGui::SliderFloat( "Damping", &m_jointDampingRatio, 0.0f, 4.0f, "%3.1f" ) )
+		{
+			m_human.SetJointDampingRatio( m_jointDampingRatio );
+		}
+
+		ImGui::PopItemWidth();
+		ImGui::End();
 	}
 
 	static Sample* Create(Settings& settings)
@@ -2132,6 +2165,9 @@ public:
 	}
 
 	Human m_human;
+	float m_jointFrictionTorque;
+	float m_jointHertz;
+	float m_jointDampingRatio;
 };
 
 static int sampleRagdoll = RegisterSample("Joints", "Ragdoll", Ragdoll::Create);

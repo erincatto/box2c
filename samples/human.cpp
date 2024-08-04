@@ -16,13 +16,16 @@ Human::Human()
 	{
 		m_bones[i].bodyId = b2_nullBodyId;
 		m_bones[i].jointId = b2_nullJointId;
+		m_bones[i].frictionScale = 1.0f;
 		m_bones[i].parentIndex = -1;
 	}
 
+	m_scale = 1.0f;
 	m_isSpawned = false;
 }
 
-void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData, bool colorize )
+void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float frictionTorque, float hertz, float dampingRatio,
+				   int groupIndex, void* userData, bool colorize )
 {
 	assert( m_isSpawned == false );
 
@@ -44,8 +47,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		footShapeDef.customColor = b2_colorSaddleBrown;
 	}
 
+	m_scale = scale;
 	float s = scale;
-	float maxTorque = 0.05f * s;
+	float maxTorque = frictionTorque * s;
 	bool enableMotor = true;
 	bool enableLimit = true;
 	float drawSize = 0.05f;
@@ -62,9 +66,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = -1;
 
 		bodyDef.position = b2Add( { 0.0f, 0.95f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
 
-		if (colorize)
+		if ( colorize )
 		{
 			shapeDef.customColor = pantColor;
 		}
@@ -79,8 +84,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_hip;
 
 		bodyDef.position = b2Add( { 0.0f, 1.2f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		// bodyDef.type = b2_staticBody;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.5f;
 		bodyDef.type = b2_dynamicBody;
 
 		if ( colorize )
@@ -101,7 +108,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = -0.25f * b2_pi;
 		jointDef.upperAngle = 0.0f;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.5f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -113,7 +123,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_torso;
 
 		bodyDef.position = b2Add( { 0.0f * s, 1.5f * s }, position );
+		bodyDef.linearDamping = 0.1f;
+
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.25f;
 
 		if ( colorize )
 		{
@@ -137,7 +150,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = -0.3f * b2_pi;
 		jointDef.upperAngle = 0.1f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.25f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -149,7 +165,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_hip;
 
 		bodyDef.position = b2Add( { 0.0f, 0.775f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 1.0f;
 
 		if ( colorize )
 		{
@@ -169,7 +187,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = -0.05f * b2_pi;
 		jointDef.upperAngle = 0.4f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -181,7 +202,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_upperLeftLeg;
 
 		bodyDef.position = b2Add( { 0.0f, 0.475f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.5f;
 
 		if ( colorize )
 		{
@@ -207,7 +230,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = -0.5f * b2_pi;
 		jointDef.upperAngle = -0.02f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.5f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -219,7 +245,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_hip;
 
 		bodyDef.position = b2Add( { 0.0f, 0.775f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 1.0f;
 
 		if ( colorize )
 		{
@@ -239,7 +267,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = -0.05f * b2_pi;
 		jointDef.upperAngle = 0.4f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -251,7 +282,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_upperRightLeg;
 
 		bodyDef.position = b2Add( { 0.0f, 0.475f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.5f;
 
 		if ( colorize )
 		{
@@ -277,7 +310,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = -0.5f * b2_pi;
 		jointDef.upperAngle = -0.02f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.5f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -287,8 +323,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 	{
 		Bone* bone = m_bones + Bone::e_upperLeftArm;
 		bone->parentIndex = Bone::e_torso;
+		bone->frictionScale = 0.5f;
 
 		bodyDef.position = b2Add( { 0.0f, 1.225f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
 
 		if ( colorize )
@@ -309,7 +347,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = 0.05f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.5f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -321,7 +362,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_upperLeftArm;
 
 		bodyDef.position = b2Add( { 0.0f, 0.975f * s }, position );
+		bodyDef.linearDamping = 0.1f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.1f;
 
 		if ( colorize )
 		{
@@ -341,7 +384,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = 0.01f * b2_pi;
 		jointDef.upperAngle = 0.5f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.1f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -353,7 +399,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_torso;
 
 		bodyDef.position = b2Add( { 0.0f, 1.225f * s }, position );
+		bodyDef.linearDamping = 0.0f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.5f;
 
 		if ( colorize )
 		{
@@ -373,7 +421,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = 0.05f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.5f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -385,7 +436,9 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		bone->parentIndex = Bone::e_upperRightArm;
 
 		bodyDef.position = b2Add( { 0.0f, 0.975f * s }, position );
+		bodyDef.linearDamping = 0.1f;
 		bone->bodyId = b2CreateBody( worldId, &bodyDef );
+		bone->frictionScale = 0.1f;
 
 		if ( colorize )
 		{
@@ -405,7 +458,10 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 		jointDef.lowerAngle = 0.01f * b2_pi;
 		jointDef.upperAngle = 0.5f * b2_pi;
 		jointDef.enableMotor = enableMotor;
-		jointDef.maxMotorTorque = 0.1f * maxTorque;
+		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
+		jointDef.enableSpring = hertz > 0.0f;
+		jointDef.hertz = hertz;
+		jointDef.dampingRatio = dampingRatio;
 		jointDef.drawSize = drawSize;
 
 		bone->jointId = b2CreateRevoluteJoint( worldId, &jointDef );
@@ -452,4 +508,66 @@ void Human::ApplyRandomAngularImpulse( float magnitude )
 
 	float impulse = RandomFloat( -magnitude, magnitude );
 	b2Body_ApplyAngularImpulse( m_bones[Bone::e_torso].bodyId, impulse, true );
+}
+
+void Human::SetJointFrictionTorque( float torque )
+{
+	if ( m_isSpawned == false )
+	{
+		return;
+	}
+
+	if ( torque == 0.0f )
+	{
+		for ( int i = 1; i < Bone::e_count; ++i )
+		{
+			b2RevoluteJoint_EnableMotor( m_bones[i].jointId, false );
+		}
+	}
+	else
+	{
+		for ( int i = 1; i < Bone::e_count; ++i )
+		{
+			b2RevoluteJoint_EnableMotor( m_bones[i].jointId, true );
+			float scale = m_scale * m_bones[i].frictionScale;
+			b2RevoluteJoint_SetMaxMotorTorque( m_bones[i].jointId, scale * torque );
+		}
+	}
+}
+
+void Human::SetJointSpringHertz( float hertz )
+{
+	if ( m_isSpawned == false )
+	{
+		return;
+	}
+
+	if ( hertz == 0.0f )
+	{
+		for ( int i = 1; i < Bone::e_count; ++i )
+		{
+			b2RevoluteJoint_EnableSpring( m_bones[i].jointId, false );
+		}
+	}
+	else
+	{
+		for ( int i = 1; i < Bone::e_count; ++i )
+		{
+			b2RevoluteJoint_EnableSpring( m_bones[i].jointId, true );
+			b2RevoluteJoint_SetSpringHertz( m_bones[i].jointId, hertz );
+		}
+	}
+}
+
+void Human::SetJointDampingRatio( float dampingRatio )
+{
+	if ( m_isSpawned == false )
+	{
+		return;
+	}
+
+	for ( int i = 1; i < Bone::e_count; ++i )
+	{
+		b2RevoluteJoint_SetSpringDampingRatio( m_bones[i].jointId, dampingRatio );
+	}
 }

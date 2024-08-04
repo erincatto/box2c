@@ -255,6 +255,8 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	float k = iA + iB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
+	joint->springSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
+
 	if (context->enableWarmStarting == false)
 	{
 		joint->linearImpulse = b2Vec2_zero;
@@ -286,8 +288,6 @@ void b2WarmStartRevoluteJoint(b2JointSim* base, b2StepContext* context)
 
 	float axialImpulse = joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-	joint->springSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
-	
 	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, joint->linearImpulse);
 	stateA->angularVelocity -= iA * (b2Cross(rA, joint->linearImpulse) + axialImpulse);
 

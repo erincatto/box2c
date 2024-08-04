@@ -9,7 +9,7 @@ Here are the highlights that affect the API:
 - multithreading support
 - fewer callbacks
 - more features (such as capsules and shape casts)
-- new sub-stepping solver
+- new sub-stepping solver (*Soft Step*)
 
 However, the scope of what Box2D does has not changed much. It is still a 2D rigid body engine. It is just faster and more robust (hopefully). And hopefully it is easier to work with and port/wrap for other languages/platforms.
 
