@@ -1069,6 +1069,7 @@ typedef bool b2OverlapResultFcn( b2ShapeId shapeId, void* context );
 typedef float b2CastResultFcn( b2ShapeId shapeId, b2Vec2 point, b2Vec2 normal, float fraction, void* context );
 
 /// These colors are used for debug draw.
+///	See https://www.rapidtables.com/web/color/index.html
 typedef enum b2HexColor
 {
 	b2_colorAliceBlue = 0xf0f8ff,

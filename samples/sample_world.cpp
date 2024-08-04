@@ -116,7 +116,6 @@ public:
 				b2Vec2 position = {xbase - 2.0f, 10.0f};
 				for (int i = 0; i < 5; ++i)
 				{
-					// Abusing this class a bit since it doesn't allocate memory
 					Human human;
 					human.Spawn( m_worldId, position, 1.5f, humanIndex + 1, NULL, false );
 					humanIndex += 1;
@@ -205,7 +204,7 @@ public:
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_A) == GLFW_PRESS)
 		{
-			m_car.SetSpeed(5.0f);
+			m_car.SetSpeed(20.0f);
 		}
 
 		if (glfwGetKey(g_mainWindow, GLFW_KEY_S) == GLFW_PRESS)

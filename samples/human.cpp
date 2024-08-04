@@ -34,6 +34,7 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 	shapeDef.friction = 0.2f;
 	shapeDef.filter.groupIndex = -groupIndex;
+	shapeDef.filter.maskBits = 1;
 
 	b2ShapeDef footShapeDef = shapeDef;
 	footShapeDef.friction = 0.05f;
@@ -52,7 +53,7 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupInd
 	b2HexColor shirtColor = b2_colorMediumTurquoise;
 	b2HexColor pantColor = b2_colorDodgerBlue;
 
-	b2HexColor skinColors[4] = { b2_colorPeachPuff, b2_colorLightYellow, b2_colorBurlywood, b2_colorTan };
+	b2HexColor skinColors[4] = { b2_colorNavajoWhite, b2_colorLightYellow, b2_colorPeru, b2_colorTan };
 	b2HexColor skinColor = skinColors[groupIndex % 4];
 
 	// hip
