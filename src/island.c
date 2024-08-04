@@ -21,7 +21,8 @@ b2Island* b2CreateIsland(b2World* world, int setIndex)
 
 	if (islandId == b2Array(world->islandArray).count)
 	{
-		b2Array_Push(world->islandArray, (b2Island){0});
+		b2Island emptyIsland = { 0 };
+		b2Array_Push( world->islandArray, emptyIsland );
 	}
 	else
 	{

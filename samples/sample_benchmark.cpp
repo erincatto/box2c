@@ -244,7 +244,7 @@ public:
 				}
 				else if (m_shapeType == e_humanShape)
 				{
-					m_humans[index].Spawn(m_worldId, bodyDef.position, 3.5f, index + 1, nullptr);
+					m_humans[index].Spawn(m_worldId, bodyDef.position, 3.5f, index + 1, nullptr, false);
 				}
 
 				index += 1;

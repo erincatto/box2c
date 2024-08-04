@@ -118,7 +118,7 @@ public:
 				{
 					// Abusing this class a bit since it doesn't allocate memory
 					Human human;
-					human.Spawn(m_worldId, position, 1.5f, humanIndex + 1, NULL);
+					human.Spawn( m_worldId, position, 1.5f, humanIndex + 1, NULL, false );
 					humanIndex += 1;
 					position.x += 1.0f;
 				}

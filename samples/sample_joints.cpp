@@ -2122,7 +2122,8 @@ public:
 			b2CreateSegmentShape(groundId, &shapeDef, &segment);
 		}
 
-		m_human.Spawn(m_worldId, {0.0f, 5.0f}, 1.0f, 1, nullptr);
+		m_human.Spawn( m_worldId, { 0.0f, 5.0f }, 1.0f, 1, nullptr, true );
+		m_human.ApplyRandomAngularImpulse( 10.0f );
 	}
 
 	static Sample* Create(Settings& settings)

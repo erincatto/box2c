@@ -1225,6 +1225,9 @@ typedef enum b2HexColor
 	b2_colorWhiteSmoke = 0xf5f5f5,
 	b2_colorYellow = 0xffff00,
 	b2_colorYellowGreen = 0x9acd32,
+	b2_colorBox2DRed = 0xdc3132,
+	b2_colorBox2DBlue = 0x30aebf,
+	b2_colorBox2DGreen = 0x8cc924,
 } b2HexColor;
 
 /// This struct holds callbacks you can implement to draw a Box2D world.

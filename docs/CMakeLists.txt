@@ -32,7 +32,7 @@ set(DOXYGEN_FULL_SIDEBAR NO)
 # force dark mode to work with extra.css
 set(DOXYGEN_HTML_COLORSTYLE DARK)
 
-# this tells doxygen to label structs as structs intead of classes
+# this tells doxygen to label structs as structs instead of classes
 set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
 set(DOXYGEN_WARN_IF_INCOMPLETE_DOC NO)
 

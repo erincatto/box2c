@@ -33,8 +33,10 @@ class Human
   public:
 	Human();
 
-	void Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData);
+	void Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData, bool colorize);
 	void Despawn();
+
+	void ApplyRandomAngularImpulse( float magnitude );
 
 	Bone m_bones[Bone::e_count];
 	bool m_isSpawned;
