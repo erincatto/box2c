@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2022 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "draw.h"
+#include "car.h"
 #include "donut.h"
+#include "draw.h"
 #include "human.h"
 #include "sample.h"
 #include "settings.h"
@@ -108,8 +109,8 @@ public:
 			x += 2.0f * zoom * scale * glyph->AdvanceX;
 		}
 
-		//float newX = position.x - 0.5f * ( upper - lower ) - lower;
-		//printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
+		float newX = position.x - 0.5f * ( upper - lower ) - lower;
+		printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
 	}
 
 	b2BodyId CreateTextBody( b2Vec2 position, float scale, float gravityScale, const char* text, b2HexColor color )
@@ -597,8 +598,8 @@ public:
 	explicit Demo02( Settings& settings )
 		: DemoBase( settings )
 	{
-		m_centerStart = { 0.0f, 50.0f };
-		m_zoomStart = 4.0f;
+		m_centerStart = { 0.0f, 30.0f };
+		m_zoomStart = 27.0f;
 
 		if ( settings.restart == false )
 		{
@@ -609,14 +610,36 @@ public:
 		}
 
 		m_stage = 0;
-		m_base = 0.0f;
+		m_baseZoom = g_camera.m_zoom;
+		m_baseY = g_camera.m_center.y;
 		m_fraction = 0.0f;
 
-		float scale = 0.6f;
-		float gravityScale = 0.0f;
-		CreateTextBodies( b2Vec2{ -96.2f, 160.0f }, scale, gravityScale, "Stronger", b2_colorAzure );
-		CreateTextBodies( b2Vec2{ -69.5f, 80.0f }, scale, gravityScale, "Faster", b2_colorAzure );
-		CreateTextBodies( b2Vec2{ -97.1f, 0.0f }, scale, gravityScale, "Rounder", b2_colorAzure );
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			bodyDef.position.y = -100.0f;
+			b2BodyId groundId = b2CreateBody( m_worldId, &bodyDef );
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+
+			shapeDef.friction = 0.0f;
+			b2Capsule capsule = { { -20.0f, -140.0f }, { -100.0f, 40.0f }, 2.0f };
+			b2CreateCapsuleShape( groundId, &shapeDef, &capsule );
+
+			capsule = { { 20.0f, -140.0f }, { 100.0f, 40.0f }, 2.0f };
+			b2CreateCapsuleShape( groundId, &shapeDef, &capsule );
+			
+			shapeDef.friction = 0.8f;
+			b2Polygon box = b2MakeOffsetBox( 1000.0f, 5.0f, { 0.0f, -250.0f }, 0.0f );
+			b2CreatePolygonShape( groundId, &shapeDef, &box );
+		}
+
+		m_truck.Spawn( m_worldId, { 50.0f, -340.0f }, 50.0f, 2.0f, 0.7f, 10000000.0f, nullptr );
+
+		float scale = 0.4f;
+		float gravityScale = 1.0f;
+		CreateTextBodies( b2Vec2{ -64.1f, 100.0f }, scale, gravityScale, "Stronger", b2_colorAzure );
+		CreateTextBodies( b2Vec2{ -46.3f, 50.0f }, scale, gravityScale, "Faster", b2_colorAzure );
+		CreateTextBodies( b2Vec2{ -64.8f, 0.0f }, scale, gravityScale, "Rounder", b2_colorAzure );
 	}
 
 	void CreateRagdolls()
@@ -624,21 +647,21 @@ public:
 		constexpr int count = 8;
 
 		int index = 1;
-		float y = 240.0f;
-		for ( int j = 0; j < 4; ++j )
+		float y = 120.0f;
+		for ( int j = 0; j < 10; ++j )
 		{
-			float x = -10.0f * ( count - 1.0f );
+			float x = -8.0f * ( count - 1.0f );
 			for ( int i = 0; i < count; ++i )
 			{
 				Human human;
-				human.Spawn( m_worldId, { x, y }, 20.0f, 0.01f, 0.5f, 0.1f, index, nullptr, true );
+				human.Spawn( m_worldId, { x, RandomFloat(-10.0f, 10.0f) + y }, 10.0f, 0.01f, 0.5f, 0.1f, index, nullptr, true );
 				human.ApplyRandomAngularImpulse( 1000000.0f );
 
-				x += 20.0f;
+				x += 16.0f;
 				index += 1;
 			}
 
-			y += 80.0f;
+			y += 25.0f;
 		}
 	}
 
@@ -657,12 +680,14 @@ public:
 
 			case 1:
 			{
+				// zoom out
 				m_fraction += 0.2f * timeStep;
 				m_fraction = b2MinFloat( m_fraction, 1.0f );
-				g_camera.m_zoom = m_base + ( 200.0f - m_base ) * EaseInOutQuad( m_fraction );
+				g_camera.m_zoom = m_baseZoom + ( 80.0f - m_baseZoom ) * EaseInOutQuad( m_fraction );
 				if ( m_fraction == 1.0f )
 				{
-					m_base = 0.0f;
+					m_baseZoom = g_camera.m_zoom;
+					m_baseY = g_camera.m_center.y;
 					m_fraction = 0.0f;
 					m_stage += 1;
 				}
@@ -671,8 +696,71 @@ public:
 
 			case 2:
 			{
+				// create ragdolls
 				CreateRagdolls();
+				m_baseZoom = g_camera.m_zoom;
+				m_baseY = g_camera.m_center.y;
+				m_fraction = 0.0f;
 				m_stage += 1;
+			}
+			break;
+
+			case 3:
+			{
+				// pause
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				if ( m_fraction == 1.0f )
+				{
+					m_baseZoom = g_camera.m_zoom;
+					m_baseY = g_camera.m_center.y;
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 4:
+			{
+				// zoom out and scroll down
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				g_camera.m_zoom = m_baseZoom + ( 225.0f - m_baseZoom ) * EaseInOutQuad( m_fraction );
+				g_camera.m_center.y = m_baseY + ( -125.0f - m_baseY ) * EaseInOutQuad( m_fraction );
+				if ( m_fraction == 1.0f )
+				{
+					m_fraction = 0.0f;
+					m_baseZoom = g_camera.m_zoom;
+					m_baseY = g_camera.m_center.y;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 5:
+			{
+				// pause
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				if ( m_fraction == 1.0f )
+				{
+					m_fraction = 0.0f;
+					m_baseZoom = 0.0f;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 6:
+			{
+				// accelerate truck
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				m_truck.SetSpeed( -2.0f * EaseInOutQuad(m_fraction) );
+				if ( m_fraction == 1.0f )
+				{
+					m_stage += 1;
+				}
 			}
 			break;
 
@@ -685,7 +773,8 @@ public:
 			g_camera.m_center = m_centerStart;
 			g_camera.m_zoom = m_zoomStart;
 			m_stage = 1;
-			m_base = g_camera.m_zoom;
+			m_baseZoom = g_camera.m_zoom;
+			m_baseY = g_camera.m_center.y;
 			m_fraction = 0.0f;
 		}
 	}
@@ -695,10 +784,12 @@ public:
 		return new Demo02( settings );
 	}
 
+	Truck m_truck;
 	b2Vec2 m_centerStart;
 	float m_zoomStart;
 	float m_fraction;
-	float m_base;
+	float m_baseZoom;
+	float m_baseY;
 	int m_stage;
 };
 
