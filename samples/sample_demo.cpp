@@ -109,8 +109,8 @@ public:
 			x += 2.0f * zoom * scale * glyph->AdvanceX;
 		}
 
-		float newX = position.x - 0.5f * ( upper - lower ) - lower;
-		printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
+		//float newX = position.x - 0.5f * ( upper - lower ) - lower;
+		//printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
 	}
 
 	b2BodyId CreateTextBody( b2Vec2 position, float scale, float gravityScale, const char* text, b2HexColor color )
@@ -622,18 +622,20 @@ public:
 			b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 			shapeDef.friction = 0.0f;
+			shapeDef.customColor = b2_colorSilver;
 			b2Capsule capsule = { { -20.0f, -140.0f }, { -100.0f, 40.0f }, 2.0f };
 			b2CreateCapsuleShape( groundId, &shapeDef, &capsule );
 
 			capsule = { { 20.0f, -140.0f }, { 100.0f, 40.0f }, 2.0f };
 			b2CreateCapsuleShape( groundId, &shapeDef, &capsule );
 			
+			shapeDef.customColor = 0;
 			shapeDef.friction = 0.8f;
 			b2Polygon box = b2MakeOffsetBox( 1000.0f, 5.0f, { 0.0f, -250.0f }, 0.0f );
 			b2CreatePolygonShape( groundId, &shapeDef, &box );
 		}
 
-		m_truck.Spawn( m_worldId, { 50.0f, -340.0f }, 50.0f, 2.0f, 0.7f, 10000000.0f, nullptr );
+		m_truck.Spawn( m_worldId, { 50.0f, -340.0f }, 50.0f, 2.0f, 0.7f, 10000000.0f, 0.5f, nullptr );
 
 		float scale = 0.4f;
 		float gravityScale = 1.0f;

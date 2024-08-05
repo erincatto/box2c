@@ -154,7 +154,7 @@ Truck::Truck()
 }
 
 void Truck::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float hertz, float dampingRatio, float torque,
-				   void* userData )
+				   float density, void* userData )
 {
 	assert( m_isSpawned == false );
 
@@ -180,8 +180,9 @@ void Truck::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float hertz,
 	b2Polygon chassis = b2MakePolygon( &hull, 0.15f * scale );
 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
-	shapeDef.density = 16.0f / scale;
+	shapeDef.density = density;
 	shapeDef.friction = 0.2f;
+	shapeDef.customColor = b2_colorHotPink;
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
@@ -197,8 +198,9 @@ void Truck::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float hertz,
 	box.radius = 0.1f * scale;
 	b2CreatePolygonShape( m_chassisId, &shapeDef, &box );
 
-	shapeDef.density = 32.0f / scale;
+	shapeDef.density = 2.0f * density;
 	shapeDef.friction = 2.5f;
+	shapeDef.customColor = b2_colorSilver;
 
 	b2Circle circle = { { 0.0f, 0.0f }, 0.4f * scale };
 	bodyDef.position = b2Add( { -2.75f * scale, 0.3f * scale }, position );

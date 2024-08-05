@@ -289,7 +289,7 @@ void b2DestroyWorld( b2WorldId worldId )
 
 static void b2CollideTask( int startIndex, int endIndex, uint32_t threadIndex, void* context )
 {
-	b2TracyCZoneNC( collide_task, "Collide Task", b2_colorDodgerBlue1, true );
+	b2TracyCZoneNC( collide_task, "Collide Task", b2_colorDodgerBlue, true );
 
 	b2StepContext* stepContext = context;
 	b2World* world = stepContext->world;
@@ -370,7 +370,7 @@ static void b2UpdateTreesTask( int startIndex, int endIndex, uint32_t threadInde
 	B2_MAYBE_UNUSED( endIndex );
 	B2_MAYBE_UNUSED( threadIndex );
 
-	b2TracyCZoneNC( tree_task, "Rebuild Trees", b2_colorSnow1, true );
+	b2TracyCZoneNC( tree_task, "Rebuild Trees", b2_colorSnow, true );
 
 	b2World* world = context;
 	b2BroadPhase_RebuildTrees( &world->broadPhase );

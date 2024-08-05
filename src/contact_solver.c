@@ -148,7 +148,7 @@ void b2PrepareOverflowContacts(b2StepContext* context)
 
 void b2WarmStartOverflowContacts(b2StepContext* context)
 {
-	b2TracyCZoneNC(warmstart_overflow_contact, "WarmStart Overflow Contact", b2_colorDarkOrange2, true);
+	b2TracyCZoneNC(warmstart_overflow_contact, "WarmStart Overflow Contact", b2_colorDarkOrange, true);
 
 	b2ConstraintGraph* graph = context->graph;
 	b2GraphColor* color = graph->colors + b2_overflowIndex;
@@ -809,7 +809,7 @@ void b2PrepareContactsTask(int startIndex, int endIndex, b2StepContext* context)
 
 void b2WarmStartContactsTask(int startIndex, int endIndex, b2StepContext* context, int colorIndex)
 {
-	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen1, true);
+	b2TracyCZoneNC(warm_start_contact, "Warm Start", b2_colorGreen, true);
 
 	b2BodyState* states = context->states;
 	b2ContactConstraintSIMD* constraints = context->graph->colors[colorIndex].simdConstraints;
