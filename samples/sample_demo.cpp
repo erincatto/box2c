@@ -14,6 +14,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <stdio.h>
+#include <vector>
 
 static inline float Square( float x )
 {
@@ -109,10 +110,114 @@ public:
 			x += 2.0f * zoom * scale * glyph->AdvanceX;
 		}
 
+		// float newX = position.x - 0.5f * ( upper - lower ) - lower;
+		// printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
+	}
+
+	// Connect contiguous vertical pixels by soft weld joints
+	void CreateTextWeld( b2Vec2 position, float scale, float gravityScale, const char* text, b2HexColor color,
+						 std::vector<b2BodyId>& bodyIds )
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		if ( io.Fonts->Fonts.size() == 0 )
+		{
+			return;
+		}
+
+		const ImFont* font = io.Fonts->Fonts.back();
+		const unsigned char* pixels = font->ContainerAtlas->TexPixelsAlpha8;
+		int width = font->ContainerAtlas->TexWidth;
+		int height = font->ContainerAtlas->TexHeight;
+
+		b2BodyDef bodyDef = b2DefaultBodyDef();
+		bodyDef.type = b2_dynamicBody;
+		bodyDef.gravityScale = gravityScale;
+		bodyDef.isAwake = false;
+
+		b2ShapeDef shapeDef = b2DefaultShapeDef();
+		shapeDef.customColor = color;
+
+		int n = (int)strlen( text );
+
+		float lower = FLT_MAX;
+		float upper = -FLT_MAX;
+
+		b2WeldJointDef jointDef = b2DefaultWeldJointDef();
+		jointDef.angularHertz = 2.0f;
+		jointDef.angularDampingRatio = 0.7f;
+		//jointDef.linearHertz = 2.0f;
+		//jointDef.linearDampingRatio = 0.7f;
+		jointDef.localAnchorA = { 0.0f, -scale };
+		jointDef.localAnchorB = { 0.0f, scale };
+
+		float x = position.x;
+		for ( int k = 0; k < n; ++k )
+		{
+			const ImFontGlyph* glyph = font->FindGlyph( text[k] );
+			float x1 = glyph->X0;
+			float x2 = glyph->X1;
+			float y1 = glyph->Y0;
+			float y2 = glyph->Y1;
+			float u1 = glyph->U0;
+			float v1 = glyph->V0;
+			float u2 = glyph->U1;
+			float v2 = glyph->V1;
+
+			float w = x2 - x1;
+			float h = y2 - y1;
+
+			int gridx = int( w );
+			int gridy = int( h );
+			for ( int j = 0; j < gridx; ++j )
+			{
+				float u = u1 + j / w * ( u2 - u1 );
+				int ix = int( u * width );
+
+				b2BodyId prevBodyId = b2_nullBodyId;
+				bodyDef.position.x = x + 2.0f * ( x1 + j ) * scale;
+
+				for ( int i = 0; i < gridy; ++i )
+				{
+					float v = v1 + i / h * ( v2 - v1 );
+					int iy = int( v * height );
+
+					unsigned char value = pixels[iy * width + ix];
+					if ( value > 50 )
+					{
+						b2Polygon square = b2MakeSquare( 0.9f * scale * value / 255.0f );
+						bodyDef.position.y = position.y - 2.0f * ( y1 + i ) * scale;
+						b2BodyId bodyId = b2CreateBody( m_worldId, &bodyDef );
+						bodyIds.push_back( bodyId );
+
+						b2CreatePolygonShape( bodyId, &shapeDef, &square );
+
+						if ( B2_IS_NON_NULL( prevBodyId ) )
+						{
+							jointDef.bodyIdA = prevBodyId;
+							jointDef.bodyIdB = bodyId;
+							b2CreateWeldJoint( m_worldId, &jointDef );
+						}
+
+						prevBodyId = bodyId;
+
+						lower = b2MinFloat( lower, bodyDef.position.x );
+						upper = b2MaxFloat( upper, bodyDef.position.x );
+					}
+					else
+					{
+						prevBodyId = b2_nullBodyId;
+					}
+				}
+			}
+
+			x += 2.0f * scale * glyph->AdvanceX;
+		}
+
 		//float newX = position.x - 0.5f * ( upper - lower ) - lower;
 		//printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
 	}
 
+	// single rigid body, but this will tunnel
 	b2BodyId CreateTextBody( b2Vec2 position, float scale, float gravityScale, const char* text, b2HexColor color )
 	{
 		ImGuiIO& io = ImGui::GetIO();
@@ -628,7 +733,7 @@ public:
 
 			capsule = { { 20.0f, -140.0f }, { 100.0f, 40.0f }, 2.0f };
 			b2CreateCapsuleShape( groundId, &shapeDef, &capsule );
-			
+
 			shapeDef.customColor = 0;
 			shapeDef.friction = 0.8f;
 			b2Polygon box = b2MakeOffsetBox( 1000.0f, 5.0f, { 0.0f, -250.0f }, 0.0f );
@@ -656,7 +761,7 @@ public:
 			for ( int i = 0; i < count; ++i )
 			{
 				Human human;
-				human.Spawn( m_worldId, { x, RandomFloat(-10.0f, 10.0f) + y }, 10.0f, 0.01f, 0.5f, 0.1f, index, nullptr, true );
+				human.Spawn( m_worldId, { x, RandomFloat( -10.0f, 10.0f ) + y }, 10.0f, 0.01f, 0.5f, 0.1f, index, nullptr, true );
 				human.ApplyRandomAngularImpulse( 1000000.0f );
 
 				x += 16.0f;
@@ -758,7 +863,7 @@ public:
 				// accelerate truck
 				m_fraction += 0.2f * timeStep;
 				m_fraction = b2MinFloat( m_fraction, 1.0f );
-				m_truck.SetSpeed( -2.0f * EaseInOutQuad(m_fraction) );
+				m_truck.SetSpeed( -2.0f * EaseInOutQuad( m_fraction ) );
 				if ( m_fraction == 1.0f )
 				{
 					m_stage += 1;
@@ -1211,7 +1316,7 @@ public:
 			case 1:
 				m_fraction += 0.14f * timeStep;
 				m_fraction = b2MinFloat( m_fraction, 1.0f );
-				if (m_fraction == 1.0f)
+				if ( m_fraction == 1.0f )
 				{
 					m_fraction = 0.0f;
 					b2World_Explode( m_worldId, b2Vec2_zero, 15.0f, 1000.0f );
@@ -1240,7 +1345,6 @@ public:
 			default:
 				break;
 		}
-
 
 		if ( glfwGetKey( g_mainWindow, GLFW_KEY_G ) == GLFW_PRESS && m_stage == 0 )
 		{
@@ -1555,13 +1659,13 @@ public:
 			float xShape = xStart;
 
 			float textScale = 0.05f;
-			CreateTextBodies( b2Vec2{xShape, 30.0f }, textScale, 1.0f, "Larger Worlds", b2_colorAqua );
+			CreateTextBodies( b2Vec2{ xShape, 30.0f }, textScale, 1.0f, "Larger Worlds", b2_colorAqua );
 
 			char buffer[32] = { 0 };
-			for (int i = 0; i <= 24; ++i)
+			for ( int i = 0; i <= 24; ++i )
 			{
 				snprintf( buffer, 32, "%d km", i );
-				CreateTextBodies( b2Vec2{xStart + 1000.0f * i, 25.0f }, textScale, 1.0f, buffer, b2_colorWhite );
+				CreateTextBodies( b2Vec2{ xStart + 1000.0f * i, 25.0f }, textScale, 1.0f, buffer, b2_colorWhite );
 			}
 
 			b2BodyId groundId;
@@ -1668,7 +1772,7 @@ public:
 				m_fraction += 0.01f * timeStep;
 				m_fraction = b2MinFloat( m_fraction, 1.0f );
 				float easedFraction = EaseInOutQuad( m_fraction );
-				g_camera.m_center.x = m_baseX + ( m_gridCount * m_gridSize - 100.0f) * easedFraction;
+				g_camera.m_center.x = m_baseX + ( m_gridCount * m_gridSize - 100.0f ) * easedFraction;
 
 				if ( m_fraction == 1.0f )
 				{
@@ -1777,8 +1881,8 @@ public:
 	{
 		Sample::Step( settings );
 
-		//float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
-		//g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
+		// float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
+		// g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
 
 		switch ( m_stage )
 		{
@@ -1821,5 +1925,236 @@ public:
 };
 
 static int sampleDemo08 = RegisterSample( "Demo", "08", Demo08::Create );
+
+class Demo09 : public DemoBase
+{
+public:
+	explicit Demo09( Settings& settings )
+		: DemoBase( settings )
+	{
+		m_centerStart = { 0.0f, 170.0f };
+		m_zoomStart = 40.0f;
+
+		if ( settings.restart == false )
+		{
+			g_camera.m_center = m_centerStart;
+			g_camera.m_zoom = m_zoomStart;
+			g_draw.m_showUI = false;
+			settings.drawJoints = false;
+		}
+
+		m_stage = 0;
+		m_baseZoom = g_camera.m_zoom;
+		m_baseX = g_camera.m_center.x;
+		m_baseY = g_camera.m_center.y;
+		m_fraction = 0.0f;
+
+		float scale = 0.2f;
+		float gravityScale = 1.0f;
+		CreateTextWeld( b2Vec2{ -47.6f, 210.0f }, scale, gravityScale, "Open Source", b2_colorBox2DRed, m_bodyIds );
+		CreateTextWeld( b2Vec2{ -66.2f, 180.0f }, scale, gravityScale, "2D Physics Engine", b2_colorBox2DBlue, m_bodyIds );
+		CreateTextWeld( b2Vec2{ -40.1f, 150.0f }, scale, gravityScale, "For Games", b2_colorBox2DGreen, m_bodyIds );
+
+		b2BodyId groundId;
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody( m_worldId, &bodyDef );
+		}
+
+		{
+			// start as static for continuous collision to work
+			float h = 40.0f;
+			float r = 1.0f;
+			b2Vec2 offset = { 0.75f * h, -0.25f * h };
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			//bodyDef.type = b2_dynamicBody;
+			bodyDef.enableSleep = true;
+			bodyDef.position = offset;
+			m_bodyId1 = b2CreateBody( m_worldId, &bodyDef );
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.density = 1.0f;
+			shapeDef.friction = 0.2f;
+			shapeDef.customColor = b2_colorWhite;
+
+			b2Capsule capsule;
+			capsule = { { -h, -h }, { -h, h }, r };
+			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
+
+			capsule = { { h, -h }, { h, h }, r };
+			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
+
+			capsule = { { -h, -h }, { h, -h }, r };
+			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
+
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			jd.bodyIdA = groundId;
+			jd.bodyIdB = m_bodyId1;
+			jd.localAnchorA = offset;
+			jd.localAnchorB = { 0.0f, 0.0f };
+			jd.referenceAngle = 0.0f;
+			jd.motorSpeed = 0.0f;
+			jd.maxMotorTorque = 1e6f;
+			jd.enableMotor = true;
+
+			m_jointId1 = b2CreateRevoluteJoint( m_worldId, &jd );
+
+			float cos45 = 1.0f / sqrt( 2.0f );
+			bodyDef.position = { -( 1.0f + cos45 ) * h + offset.x, ( 1.0f + cos45 ) * h + offset.y };
+			bodyDef.rotation = b2MakeRot( -0.25f * b2_pi );
+
+			//bodyDef.type = b2_dynamicBody;
+			m_bodyId2 = b2CreateBody( m_worldId, &bodyDef );
+
+			shapeDef.customColor = b2_colorGray6;
+			capsule = { { -h, 0.0f }, { h, 0.0f }, r };
+			b2CreateCapsuleShape( m_bodyId2, &shapeDef, &capsule );
+
+			jd.bodyIdA = m_bodyId1;
+			jd.bodyIdB = m_bodyId2;
+			jd.localAnchorA = { -h, h };
+			jd.localAnchorB = { h, 0.0f };
+			jd.referenceAngle = 0.0f;
+			jd.motorSpeed = 0.0f;
+			jd.maxMotorTorque = 1e6f;
+			jd.enableMotor = true;
+			jd.referenceAngle = -0.25f * b2_pi;
+			jd.lowerAngle = -0.75f * b2_pi;
+			jd.upperAngle = 0.0f * b2_pi;
+			jd.enableLimit = true;
+
+			m_jointId2 = b2CreateRevoluteJoint( m_worldId, &jd );
+		}
+	}
+
+	void Step( Settings& settings ) override
+	{
+		Sample::Step( settings );
+
+		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
+		// g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
+
+		switch ( m_stage )
+		{
+			case 0:
+				break;
+
+			case 1:
+			{
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				float eased = EaseInOutQuad( m_fraction );
+				g_camera.m_zoom = m_baseZoom + ( 145.0f - m_baseZoom ) * eased;
+				g_camera.m_center.x = m_baseX + ( 30.0f - m_baseX ) * eased;
+				g_camera.m_center.y = m_baseY + ( 75.0f - m_baseY ) * eased;
+
+				if ( m_fraction == 1.0f )
+				{
+					m_baseZoom = g_camera.m_zoom;
+					m_baseX = g_camera.m_center.x;
+					m_baseY = g_camera.m_center.y;
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 2:
+			{
+				int count = int( m_bodyIds.size() );
+				if ( count > 0 )
+				{
+					for ( int i = count - 1; i >= 0; --i )
+					{
+						int r = RandomInt( 0, 128 );
+						if ( r == 1 || count < 128 )
+						{
+							b2Body_SetAwake( m_bodyIds[i], true );
+							m_bodyIds[i] = m_bodyIds[count - 1];
+							m_bodyIds.pop_back();
+							count -= 1;
+						}
+					}
+				}
+				else
+				{
+					b2Body_SetType( m_bodyId1, b2_dynamicBody );
+					b2Body_SetType( m_bodyId2, b2_dynamicBody );
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 3:
+			{
+				m_fraction += 0.5f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				float eased = EaseInOutQuad( m_fraction );
+				b2RevoluteJoint_SetMotorSpeed( m_jointId1, 0.25f * eased );
+				b2RevoluteJoint_SetMotorSpeed( m_jointId2, -0.5f * eased );
+
+				if ( m_fraction == 1.0f )
+				{
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 4:
+			{
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				float eased = EaseInOutQuad( m_fraction );
+				g_camera.m_zoom = m_baseZoom + ( 60.0f - m_baseZoom ) * eased;
+				g_camera.m_center.x = m_baseX + ( 30.0f - m_baseX ) * eased;
+				g_camera.m_center.y = m_baseY + ( -10.0f - m_baseY ) * eased;
+
+				if ( m_fraction == 1.0f )
+				{
+					m_baseZoom = g_camera.m_zoom;
+					m_baseX = g_camera.m_center.x;
+					m_baseY = g_camera.m_center.y;
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+
+			default:
+				break;
+		}
+
+		if ( glfwGetKey( g_mainWindow, GLFW_KEY_G ) == GLFW_PRESS && m_stage == 0 )
+		{
+			g_camera.m_center = m_centerStart;
+			g_camera.m_zoom = m_zoomStart;
+			m_baseZoom = g_camera.m_zoom;
+			m_baseX = g_camera.m_center.x;
+			m_baseY = g_camera.m_center.y;
+			m_fraction = 0.0f;
+			m_stage = 1;
+		}
+	}
+
+	static Sample* Create( Settings& settings )
+	{
+		return new Demo09( settings );
+	}
+
+	std::vector<b2BodyId> m_bodyIds;
+	b2BodyId m_bodyId1;
+	b2BodyId m_bodyId2;
+	b2JointId m_jointId1;
+	b2JointId m_jointId2;
+	b2Vec2 m_centerStart;
+	float m_zoomStart;
+	float m_fraction;
+	float m_baseZoom;
+	float m_baseX;
+	float m_baseY;
+	int m_stage;
+};
+
+static int sampleDemo09 = RegisterSample( "Demo", "09", Demo09::Create );
 
 #endif

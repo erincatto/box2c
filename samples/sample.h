@@ -114,6 +114,12 @@ extern int g_sampleCount;
 
 #define RAND_LIMIT 32767
 
+/// Random integer in range [lo, hi)
+inline float RandomInt(int lo, int hi)
+{
+	return lo + rand() % (hi - lo);
+}
+
 /// Random number in range [-1,1]
 inline float RandomFloat()
 {
