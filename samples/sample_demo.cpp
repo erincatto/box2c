@@ -110,8 +110,8 @@ public:
 			x += 2.0f * zoom * scale * glyph->AdvanceX;
 		}
 
-		// float newX = position.x - 0.5f * ( upper - lower ) - lower;
-		// printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
+		 //float newX = position.x - 0.5f * ( upper - lower ) - lower;
+		 //printf( "lower = %g, upper = %g, new x = %g\n", lower, upper, newX );
 	}
 
 	// Connect contiguous vertical pixels by soft weld joints
@@ -291,7 +291,7 @@ public:
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.friction = 0.1f;
 		shapeDef.filter = { 0, 0, 0 };
-		shapeDef.customColor = b2_colorWhite;
+		shapeDef.customColor = b2_colorGray8;
 
 		float h = 1.0f * scale;
 		b2Capsule stringCapsule = { { 0.0f, -h }, { 0.0f, h }, 0.05f * scale };
@@ -327,6 +327,14 @@ public:
 		bodyDef.position = { x, y + 11.0f * h };
 		b2BodyId stringId6 = b2CreateBody( m_worldId, &bodyDef );
 		b2CreateCapsuleShape( stringId6, &shapeDef, &stringCapsule );
+
+		bodyDef.position = { x, y + 13.0f * h };
+		b2BodyId stringId7 = b2CreateBody( m_worldId, &bodyDef );
+		b2CreateCapsuleShape( stringId7, &shapeDef, &stringCapsule );
+
+		bodyDef.position = { x, y + 15.0f * h };
+		b2BodyId stringId8 = b2CreateBody( m_worldId, &bodyDef );
+		b2CreateCapsuleShape( stringId8, &shapeDef, &stringCapsule );
 
 		float radius = 2.0f * scale;
 		b2Capsule mainCapsule = { { 0.0f, -0.1f * scale }, { 0.0f, 0.1f * scale }, radius };
@@ -376,6 +384,18 @@ public:
 		b2CreateWeldJoint( m_worldId, &weldDef );
 
 		weldDef.bodyIdA = stringId6;
+		weldDef.bodyIdB = stringId7;
+		weldDef.localAnchorA = { 0.0f, h };
+		weldDef.localAnchorB = { 0.0f, -h };
+		b2CreateWeldJoint( m_worldId, &weldDef );
+
+		weldDef.bodyIdA = stringId7;
+		weldDef.bodyIdB = stringId8;
+		weldDef.localAnchorA = { 0.0f, h };
+		weldDef.localAnchorB = { 0.0f, -h };
+		b2CreateWeldJoint( m_worldId, &weldDef );
+
+		weldDef.bodyIdA = stringId8;
 		weldDef.bodyIdB = mainId;
 		weldDef.localAnchorA = { 0.0f, h };
 		weldDef.localAnchorB = { 0.0f, -radius };
@@ -411,9 +431,9 @@ public:
 
 		float scale = 0.6f;
 		float gravityScale = 1.0f;
-		CreateTextBodies( b2Vec2{ -72.7f, 340.0f }, scale, gravityScale, "Box2D", b2_colorAzure );
-		CreateTextBodies( b2Vec2{ -122.9f, 220.0f }, scale, gravityScale, "Version 3.0", b2_colorAzure );
-		CreateTextBodies( b2Vec2{ -106.1f, 100.0f }, scale, gravityScale, "Released!", b2_colorAzure );
+		CreateTextBodies( b2Vec2{ -72.7f, 340.0f }, scale, gravityScale, "Box2D", b2_colorGray8 );
+		CreateTextBodies( b2Vec2{ -122.9f, 220.0f }, scale, gravityScale, "Version 3.0", b2_colorGray8 );
+		CreateTextBodies( b2Vec2{ -106.1f, 100.0f }, scale, gravityScale, "Released!", b2_colorGray8 );
 	}
 
 	void CreateBridge()
@@ -423,7 +443,7 @@ public:
 
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 5.0f;
-		shapeDef.customColor = b2_colorSlateGray;
+		shapeDef.customColor = b2_colorGray8;
 
 		b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
 		float frictionTorque = 100.0f;
@@ -703,6 +723,237 @@ public:
 	explicit Demo02( Settings& settings )
 		: DemoBase( settings )
 	{
+		m_centerStart = { 0.0f, 170.0f };
+		m_zoomStart = 45.0f;
+
+		if ( settings.restart == false )
+		{
+			g_camera.m_center = m_centerStart;
+			g_camera.m_zoom = m_zoomStart;
+			g_draw.m_showUI = false;
+			settings.drawJoints = false;
+		}
+
+		m_stage = 0;
+		m_baseZoom = g_camera.m_zoom;
+		m_baseX = g_camera.m_center.x;
+		m_baseY = g_camera.m_center.y;
+		m_fraction = 0.0f;
+
+		float scale = 0.2f;
+		float gravityScale = 1.0f;
+		CreateTextWeld( b2Vec2{ -47.6f, 210.0f }, scale, gravityScale, "Open Source", b2_colorBox2DRed, m_bodyIds );
+		CreateTextWeld( b2Vec2{ -66.2f, 180.0f }, scale, gravityScale, "2D Physics Engine", b2_colorBox2DBlue, m_bodyIds );
+		CreateTextWeld( b2Vec2{ -40.1f, 150.0f }, scale, gravityScale, "For Games", b2_colorBox2DGreen, m_bodyIds );
+
+		b2BodyId groundId;
+		{
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			groundId = b2CreateBody( m_worldId, &bodyDef );
+		}
+
+		{
+			// start as static for continuous collision to work
+			float h = 40.0f;
+			float r = 1.0f;
+			b2Vec2 offset = { 0.75f * h, -0.25f * h };
+			b2BodyDef bodyDef = b2DefaultBodyDef();
+			// bodyDef.type = b2_dynamicBody;
+			bodyDef.enableSleep = true;
+			bodyDef.position = offset;
+			m_bodyId1 = b2CreateBody( m_worldId, &bodyDef );
+
+			b2ShapeDef shapeDef = b2DefaultShapeDef();
+			shapeDef.density = 1.0f;
+			shapeDef.friction = 0.2f;
+			shapeDef.customColor = b2_colorWhite;
+
+			b2Capsule capsule;
+			capsule = { { -h, -h }, { -h, h }, r };
+			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
+
+			capsule = { { h, -h }, { h, h }, r };
+			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
+
+			capsule = { { -h, -h }, { h, -h }, r };
+			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
+
+			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
+			jd.bodyIdA = groundId;
+			jd.bodyIdB = m_bodyId1;
+			jd.localAnchorA = offset;
+			jd.localAnchorB = { 0.0f, 0.0f };
+			jd.referenceAngle = 0.0f;
+			jd.motorSpeed = 0.0f;
+			jd.maxMotorTorque = 1e6f;
+			jd.enableMotor = true;
+
+			m_jointId1 = b2CreateRevoluteJoint( m_worldId, &jd );
+
+			float cos45 = 1.0f / sqrt( 2.0f );
+			bodyDef.position = { -( 1.0f + cos45 ) * h + offset.x, ( 1.0f + cos45 ) * h + offset.y };
+			bodyDef.rotation = b2MakeRot( -0.25f * b2_pi );
+
+			// bodyDef.type = b2_dynamicBody;
+			m_bodyId2 = b2CreateBody( m_worldId, &bodyDef );
+
+			shapeDef.customColor = b2_colorGray6;
+			capsule = { { -h, 0.0f }, { h, 0.0f }, r };
+			b2CreateCapsuleShape( m_bodyId2, &shapeDef, &capsule );
+
+			jd.bodyIdA = m_bodyId1;
+			jd.bodyIdB = m_bodyId2;
+			jd.localAnchorA = { -h, h };
+			jd.localAnchorB = { h, 0.0f };
+			jd.referenceAngle = 0.0f;
+			jd.motorSpeed = 0.0f;
+			jd.maxMotorTorque = 1e6f;
+			jd.enableMotor = true;
+			jd.referenceAngle = -0.25f * b2_pi;
+			jd.lowerAngle = -0.75f * b2_pi;
+			jd.upperAngle = 0.0f * b2_pi;
+			jd.enableLimit = true;
+
+			m_jointId2 = b2CreateRevoluteJoint( m_worldId, &jd );
+		}
+	}
+
+	void Step( Settings& settings ) override
+	{
+		Sample::Step( settings );
+
+		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
+		// g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
+
+		switch ( m_stage )
+		{
+			case 0:
+				break;
+
+			case 1:
+			{
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				float eased = EaseInOutQuad( m_fraction );
+				g_camera.m_zoom = m_baseZoom + ( 145.0f - m_baseZoom ) * eased;
+				g_camera.m_center.x = m_baseX + ( 30.0f - m_baseX ) * eased;
+				g_camera.m_center.y = m_baseY + ( 75.0f - m_baseY ) * eased;
+
+				if ( m_fraction == 1.0f )
+				{
+					m_baseZoom = g_camera.m_zoom;
+					m_baseX = g_camera.m_center.x;
+					m_baseY = g_camera.m_center.y;
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 2:
+			{
+				int count = int( m_bodyIds.size() );
+				if ( count > 0 )
+				{
+					for ( int i = count - 1; i >= 0; --i )
+					{
+						int r = RandomInt( 0, 128 );
+						if ( r == 1 || count < 128 )
+						{
+							b2Body_SetAwake( m_bodyIds[i], true );
+							m_bodyIds[i] = m_bodyIds[count - 1];
+							m_bodyIds.pop_back();
+							count -= 1;
+						}
+					}
+				}
+				else
+				{
+					b2Body_SetType( m_bodyId1, b2_dynamicBody );
+					b2Body_SetType( m_bodyId2, b2_dynamicBody );
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 3:
+			{
+				m_fraction += 0.5f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				float eased = EaseInOutQuad( m_fraction );
+				b2RevoluteJoint_SetMotorSpeed( m_jointId1, 0.25f * eased );
+				b2RevoluteJoint_SetMotorSpeed( m_jointId2, -0.5f * eased );
+
+				if ( m_fraction == 1.0f )
+				{
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+			break;
+
+			case 4:
+			{
+				m_fraction += 0.2f * timeStep;
+				m_fraction = b2MinFloat( m_fraction, 1.0f );
+				float eased = EaseInOutQuad( m_fraction );
+				g_camera.m_zoom = m_baseZoom + ( 60.0f - m_baseZoom ) * eased;
+				g_camera.m_center.x = m_baseX + ( 30.0f - m_baseX ) * eased;
+				g_camera.m_center.y = m_baseY + ( -10.0f - m_baseY ) * eased;
+
+				if ( m_fraction == 1.0f )
+				{
+					m_baseZoom = g_camera.m_zoom;
+					m_baseX = g_camera.m_center.x;
+					m_baseY = g_camera.m_center.y;
+					m_fraction = 0.0f;
+					m_stage += 1;
+				}
+			}
+
+			default:
+				break;
+		}
+
+		if ( glfwGetKey( g_mainWindow, GLFW_KEY_G ) == GLFW_PRESS && m_stage == 0 )
+		{
+			g_camera.m_center = m_centerStart;
+			g_camera.m_zoom = m_zoomStart;
+			m_baseZoom = g_camera.m_zoom;
+			m_baseX = g_camera.m_center.x;
+			m_baseY = g_camera.m_center.y;
+			m_fraction = 0.0f;
+			m_stage = 1;
+		}
+	}
+
+	static Sample* Create( Settings& settings )
+	{
+		return new Demo02( settings );
+	}
+
+	std::vector<b2BodyId> m_bodyIds;
+	b2BodyId m_bodyId1;
+	b2BodyId m_bodyId2;
+	b2JointId m_jointId1;
+	b2JointId m_jointId2;
+	b2Vec2 m_centerStart;
+	float m_zoomStart;
+	float m_fraction;
+	float m_baseZoom;
+	float m_baseX;
+	float m_baseY;
+	int m_stage;
+};
+
+static int sampleDemo02 = RegisterSample( "Demo", "02", Demo02::Create );
+
+class Demo03 : public DemoBase
+{
+public:
+	explicit Demo03( Settings& settings )
+		: DemoBase( settings )
+	{
 		m_centerStart = { 0.0f, 30.0f };
 		m_zoomStart = 27.0f;
 
@@ -736,7 +987,7 @@ public:
 
 			shapeDef.customColor = 0;
 			shapeDef.friction = 0.8f;
-			b2Polygon box = b2MakeOffsetBox( 1000.0f, 5.0f, { 0.0f, -250.0f }, 0.0f );
+			b2Polygon box = b2MakeOffsetBox( 1000.0f, 10.0f, { 0.0f, -255.0f }, 0.0f );
 			b2CreatePolygonShape( groundId, &shapeDef, &box );
 		}
 
@@ -788,7 +1039,7 @@ public:
 			case 1:
 			{
 				// zoom out
-				m_fraction += 0.2f * timeStep;
+				m_fraction += 0.4f * timeStep;
 				m_fraction = b2MinFloat( m_fraction, 1.0f );
 				g_camera.m_zoom = m_baseZoom + ( 80.0f - m_baseZoom ) * EaseInOutQuad( m_fraction );
 				if ( m_fraction == 1.0f )
@@ -833,7 +1084,7 @@ public:
 				m_fraction += 0.2f * timeStep;
 				m_fraction = b2MinFloat( m_fraction, 1.0f );
 				g_camera.m_zoom = m_baseZoom + ( 225.0f - m_baseZoom ) * EaseInOutQuad( m_fraction );
-				g_camera.m_center.y = m_baseY + ( -125.0f - m_baseY ) * EaseInOutQuad( m_fraction );
+				g_camera.m_center.y = m_baseY + ( -130.0f - m_baseY ) * EaseInOutQuad( m_fraction );
 				if ( m_fraction == 1.0f )
 				{
 					m_fraction = 0.0f;
@@ -888,7 +1139,7 @@ public:
 
 	static Sample* Create( Settings& settings )
 	{
-		return new Demo02( settings );
+		return new Demo03( settings );
 	}
 
 	Truck m_truck;
@@ -900,12 +1151,12 @@ public:
 	int m_stage;
 };
 
-static int sampleDemo02 = RegisterSample( "Demo", "02", Demo02::Create );
+static int sampleDemo03 = RegisterSample( "Demo", "03", Demo03::Create );
 
-class Demo03 : public DemoBase
+class Demo04 : public DemoBase
 {
 public:
-	explicit Demo03( Settings& settings )
+	explicit Demo04( Settings& settings )
 		: DemoBase( settings )
 	{
 		m_centerStart = { 0.0f, 50.0f };
@@ -922,6 +1173,8 @@ public:
 		m_stage = 0;
 		m_base = 0.0f;
 		m_fraction = 0.0f;
+		m_rowY = 260.0f;
+		m_rowCounter = 0;
 
 		float scale = 0.6f;
 		float gravityScale = 0.0f;
@@ -957,14 +1210,15 @@ public:
 		int colorCount = 5;
 
 		int index = 0;
-		float y = 260.0f;
-		for ( int j = 0; j < 30; ++j )
+		float y = m_rowY;
+		//for ( int j = 0; j < 30; ++j )
 		{
 			float x = -RandomFloat( 10.0f, 20.0f ) * ( count - 1.0f );
 			for ( int i = 0; i < count; ++i )
 			{
 				bodyDef.position.x = x;
 				bodyDef.position.y = RandomFloat( y - 10.0f, y + 10.0f );
+				bodyDef.linearVelocity.x = RandomFloat( -5.0f, 5.0f );
 				bodyDef.linearVelocity.y = RandomFloat( -80.0f, -160.0f );
 
 				b2BodyId bodyId = b2CreateBody( m_worldId, &bodyDef );
@@ -1004,7 +1258,8 @@ public:
 				x += RandomFloat( 30.0f, 40.0f );
 			}
 
-			y += 40.0f;
+			y += 5.0f;
+			m_rowY = y;
 		}
 	}
 
@@ -1022,17 +1277,15 @@ public:
 				break;
 
 			case 1:
-			case 2:
-			case 3:
-			case 4:
-			case 5:
-			case 6:
-			case 7:
-				// case 8:
-				// case 9:
-				// case 10:
-				CreateBits();
-				m_stage += 1;
+				if (m_rowCounter < 200)
+				{
+					CreateBits();
+					m_rowCounter += 1;
+				}
+				else
+				{
+					m_stage += 1;
+				}
 				break;
 
 			default:
@@ -1049,22 +1302,24 @@ public:
 
 	static Sample* Create( Settings& settings )
 	{
-		return new Demo03( settings );
+		return new Demo04( settings );
 	}
 
 	b2Vec2 m_centerStart;
 	float m_zoomStart;
 	float m_fraction;
 	float m_base;
+	float m_rowY;
+	int m_rowCounter;
 	int m_stage;
 };
 
-static int sampleDemo03 = RegisterSample( "Demo", "03", Demo03::Create );
+static int sampleDemo04 = RegisterSample( "Demo", "04", Demo04::Create );
 
-class Demo04 : public DemoBase
+class Demo05 : public DemoBase
 {
 public:
-	explicit Demo04( Settings& settings )
+	explicit Demo05( Settings& settings )
 		: DemoBase( settings )
 	{
 		m_centerStart = { 0.0f, 15.0f };
@@ -1086,7 +1341,7 @@ public:
 		float scale = 0.3f;
 		float gravityScale = 0.0f;
 		CreateTextBodies( b2Vec2{ -39.4f, 60.0f }, scale, gravityScale, "Robust", b2_colorBox2DRed );
-		CreateTextBodies( b2Vec2{ -46.1f, 30.0f }, scale, gravityScale, "Soft Step", b2_colorBox2DBlue );
+		CreateTextBodies( b2Vec2{ -49.2f, 30.0f }, scale, gravityScale, "Soft Step", b2_colorBox2DBlue );
 		CreateTextBodies( b2Vec2{ -34.4f, 0.0f }, scale, gravityScale, "Solver", b2_colorBox2DGreen );
 	}
 
@@ -1144,7 +1399,7 @@ public:
 			bodyDef.type = b2_dynamicBody;
 			bodyDef.position = b2Vec2{ sign * ( ( 1.0f + 2.0f * count ) * hx + circle.radius - hx ), count * hx } + position;
 
-			shapeDef.customColor = b2_colorSlateGray;
+			shapeDef.customColor = b2_colorGray1;
 			shapeDef.restitution = 0.25f;
 			shapeDef.friction = 0.2f;
 			shapeDef.filter.maskBits = ~0u;
@@ -1215,7 +1470,7 @@ public:
 
 	static Sample* Create( Settings& settings )
 	{
-		return new Demo04( settings );
+		return new Demo05( settings );
 	}
 
 	b2Vec2 m_centerStart;
@@ -1226,12 +1481,12 @@ public:
 	int m_stage;
 };
 
-static int sampleDemo04 = RegisterSample( "Demo", "04", Demo04::Create );
+static int sampleDemo05 = RegisterSample( "Demo", "05", Demo05::Create );
 
-class Demo05 : public DemoBase
+class Demo06 : public DemoBase
 {
 public:
-	explicit Demo05( Settings& settings )
+	explicit Demo06( Settings& settings )
 		: DemoBase( settings )
 	{
 		m_centerStart = { 0.0f, 0.0f };
@@ -1359,7 +1614,7 @@ public:
 
 	static Sample* Create( Settings& settings )
 	{
-		return new Demo05( settings );
+		return new Demo06( settings );
 	}
 
 	static constexpr int k_count = 400;
@@ -1372,12 +1627,12 @@ public:
 	int m_stage;
 };
 
-static int sampleDemo05 = RegisterSample( "Demo", "05", Demo05::Create );
+static int sampleDemo06 = RegisterSample( "Demo", "06", Demo06::Create );
 
-class Demo06 : public DemoBase
+class Demo07 : public DemoBase
 {
 public:
-	explicit Demo06( Settings& settings )
+	explicit Demo07( Settings& settings )
 		: DemoBase( settings )
 	{
 		m_centerStart = { 0.0f, 65.0f };
@@ -1602,7 +1857,7 @@ public:
 
 	static Sample* Create( Settings& settings )
 	{
-		return new Demo06( settings );
+		return new Demo07( settings );
 	}
 
 	b2Vec2 m_centerStart;
@@ -1614,13 +1869,119 @@ public:
 	int m_stage;
 };
 
-static int sampleDemo06 = RegisterSample( "Demo", "06", Demo06::Create );
+static int sampleDemo07 = RegisterSample( "Demo", "07", Demo07::Create );
 
-// skip this, hard to show a large world nicely in a video
-class Demo07 : public DemoBase
+class Demo08 : public DemoBase
 {
 public:
-	explicit Demo07( Settings& settings )
+	explicit Demo08( Settings& settings )
+		: DemoBase( settings )
+	{
+		m_centerStart = { 0.0f, 0.0f };
+		m_zoomStart = 40.0f;
+
+		if ( settings.restart == false )
+		{
+			g_camera.m_center = m_centerStart;
+			g_camera.m_zoom = m_zoomStart;
+			g_draw.m_showUI = false;
+			settings.drawJoints = false;
+			//settings.subStepCount = 8;
+		}
+
+		m_stage = 0;
+		m_baseZoom = g_camera.m_zoom;
+		m_baseY = g_camera.m_center.y;
+		m_fraction = 0.0f;
+
+		float scale = 0.3f;
+		float gravityScale = 1.0f;
+		CreateTextBodies( b2Vec2{ -54.9f, 20.0f }, scale, gravityScale, "Have Fun!", b2_colorWhiteSmoke );
+	}
+
+	void CreateFloater( b2Vec2 position, int index )
+	{
+		float balloonScale = 1.0f;
+
+		b2BodyId stringId1 = CreateBalloon( position - b2Vec2{ 0.2f, 0.0f }, 0.9f * balloonScale, b2_colorBox2DBlue );
+		b2BodyId stringId2 = CreateBalloon( position, balloonScale, b2_colorBox2DRed );
+		b2BodyId stringId3 = CreateBalloon( position + b2Vec2{ 0.2f, 0.0f }, 0.95f * balloonScale, b2_colorBox2DGreen );
+
+		float humanScale = 6.0f;
+		Human human;
+		human.Spawn( m_worldId, { position.x - 0.5f, position.y - 5.5f }, humanScale, 0.02f, 1.0f, 0.1f, index, nullptr, true );
+
+		b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
+		revoluteDef.bodyIdA = human.m_bones[Bone::e_lowerLeftArm].bodyId;
+		revoluteDef.localAnchorA = { 0.0f, -0.125f * humanScale };
+
+		revoluteDef.bodyIdB = stringId1;
+		revoluteDef.localAnchorB = { 0.0f, -balloonScale };
+		b2CreateRevoluteJoint( m_worldId, &revoluteDef );
+
+		revoluteDef.bodyIdB = stringId2;
+		revoluteDef.localAnchorB = { 0.0f, -balloonScale };
+		b2CreateRevoluteJoint( m_worldId, &revoluteDef );
+
+		revoluteDef.bodyIdB = stringId3;
+		revoluteDef.localAnchorB = { 0.0f, -balloonScale };
+		b2CreateRevoluteJoint( m_worldId, &revoluteDef );
+	}
+
+	void Step( Settings& settings ) override
+	{
+		Sample::Step( settings );
+
+		// float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
+		// g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
+
+		switch ( m_stage )
+		{
+			case 0:
+				break;
+
+			case 1:
+				CreateFloater( { 0.0f, -60.0f }, 2 );
+				CreateFloater( { -40.0f, -80.0f }, 3 );
+				CreateFloater( { 30.0f, -90.0f }, 4 );
+				m_stage += 1;
+				break;
+
+			default:
+				break;
+		}
+
+		if ( glfwGetKey( g_mainWindow, GLFW_KEY_G ) == GLFW_PRESS && m_stage == 0 )
+		{
+			g_camera.m_center = m_centerStart;
+			g_camera.m_zoom = m_zoomStart;
+			m_baseZoom = g_camera.m_zoom;
+			m_baseY = g_camera.m_center.y;
+			m_fraction = 0.0f;
+			m_stage = 1;
+		}
+	}
+
+	static Sample* Create( Settings& settings )
+	{
+		return new Demo08( settings );
+	}
+
+	b2Vec2 m_centerStart;
+	float m_zoomStart;
+	float m_fraction;
+	float m_baseZoom;
+	float m_baseY;
+	int m_stage;
+};
+
+static int sampleDemo08 = RegisterSample( "Demo", "08", Demo08::Create );
+
+// skip this, hard to show a large world nicely in a video
+class DemoLarge : public DemoBase
+{
+public:
+	explicit DemoLarge( Settings& settings )
 		: DemoBase( settings )
 	{
 		m_period = 40.0f;
@@ -1801,7 +2162,7 @@ public:
 
 	static Sample* Create( Settings& settings )
 	{
-		return new Demo07( settings );
+		return new DemoLarge( settings );
 	}
 
 	float m_period;
@@ -1818,343 +2179,6 @@ public:
 	int m_stage;
 };
 
-static int sampleDemo07 = RegisterSample( "Demo", "07", Demo07::Create );
-
-class Demo08 : public DemoBase
-{
-public:
-	explicit Demo08( Settings& settings )
-		: DemoBase( settings )
-	{
-		m_centerStart = { 0.0f, 0.0f };
-		m_zoomStart = 40.0f;
-
-		if ( settings.restart == false )
-		{
-			g_camera.m_center = m_centerStart;
-			g_camera.m_zoom = m_zoomStart;
-			g_draw.m_showUI = false;
-			settings.drawJoints = true;
-			settings.subStepCount = 8;
-		}
-
-		m_stage = 0;
-		m_baseZoom = g_camera.m_zoom;
-		m_baseY = g_camera.m_center.y;
-		m_fraction = 0.0f;
-
-		float scale = 0.3f;
-		float gravityScale = 1.0f;
-		CreateTextBodies( b2Vec2{ -54.9f, 20.0f }, scale, gravityScale, "Have Fun!", b2_colorWhiteSmoke );
-	}
-
-	void CreateFloater( b2Vec2 position, int index )
-	{
-		float balloonScale = 1.0f;
-
-		b2BodyId stringId1 = CreateBalloon( position - b2Vec2{ 0.2f, 0.0f }, 0.9f * balloonScale, b2_colorBox2DBlue );
-		b2BodyId stringId2 = CreateBalloon( position, balloonScale, b2_colorBox2DRed );
-		b2BodyId stringId3 = CreateBalloon( position + b2Vec2{ 0.2f, 0.0f }, 0.95f * balloonScale, b2_colorBox2DGreen );
-
-		float humanScale = 6.0f;
-		Human human;
-		human.Spawn( m_worldId, { position.x - 0.5f, position.y - 5.5f }, humanScale, 0.02f, 1.0f, 0.1f, index, nullptr, true );
-
-		b2RevoluteJointDef revoluteDef = b2DefaultRevoluteJointDef();
-		revoluteDef.bodyIdA = human.m_bones[Bone::e_lowerLeftArm].bodyId;
-		revoluteDef.localAnchorA = { 0.0f, -0.125f * humanScale };
-
-		revoluteDef.bodyIdB = stringId1;
-		revoluteDef.localAnchorB = { 0.0f, -balloonScale };
-		b2CreateRevoluteJoint( m_worldId, &revoluteDef );
-
-		revoluteDef.bodyIdB = stringId2;
-		revoluteDef.localAnchorB = { 0.0f, -balloonScale };
-		b2CreateRevoluteJoint( m_worldId, &revoluteDef );
-
-		revoluteDef.bodyIdB = stringId3;
-		revoluteDef.localAnchorB = { 0.0f, -balloonScale };
-		b2CreateRevoluteJoint( m_worldId, &revoluteDef );
-	}
-
-	void Step( Settings& settings ) override
-	{
-		Sample::Step( settings );
-
-		// float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
-		// g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
-
-		switch ( m_stage )
-		{
-			case 0:
-				break;
-
-			case 1:
-				CreateFloater( { 0.0f, -60.0f }, 2 );
-				CreateFloater( { -40.0f, -80.0f }, 3 );
-				CreateFloater( { 30.0f, -90.0f }, 4 );
-				m_stage += 1;
-				break;
-
-			default:
-				break;
-		}
-
-		if ( glfwGetKey( g_mainWindow, GLFW_KEY_G ) == GLFW_PRESS && m_stage == 0 )
-		{
-			g_camera.m_center = m_centerStart;
-			g_camera.m_zoom = m_zoomStart;
-			m_baseZoom = g_camera.m_zoom;
-			m_baseY = g_camera.m_center.y;
-			m_fraction = 0.0f;
-			m_stage = 1;
-		}
-	}
-
-	static Sample* Create( Settings& settings )
-	{
-		return new Demo08( settings );
-	}
-
-	b2Vec2 m_centerStart;
-	float m_zoomStart;
-	float m_fraction;
-	float m_baseZoom;
-	float m_baseY;
-	int m_stage;
-};
-
-static int sampleDemo08 = RegisterSample( "Demo", "08", Demo08::Create );
-
-class Demo09 : public DemoBase
-{
-public:
-	explicit Demo09( Settings& settings )
-		: DemoBase( settings )
-	{
-		m_centerStart = { 0.0f, 170.0f };
-		m_zoomStart = 40.0f;
-
-		if ( settings.restart == false )
-		{
-			g_camera.m_center = m_centerStart;
-			g_camera.m_zoom = m_zoomStart;
-			g_draw.m_showUI = false;
-			settings.drawJoints = false;
-		}
-
-		m_stage = 0;
-		m_baseZoom = g_camera.m_zoom;
-		m_baseX = g_camera.m_center.x;
-		m_baseY = g_camera.m_center.y;
-		m_fraction = 0.0f;
-
-		float scale = 0.2f;
-		float gravityScale = 1.0f;
-		CreateTextWeld( b2Vec2{ -47.6f, 210.0f }, scale, gravityScale, "Open Source", b2_colorBox2DRed, m_bodyIds );
-		CreateTextWeld( b2Vec2{ -66.2f, 180.0f }, scale, gravityScale, "2D Physics Engine", b2_colorBox2DBlue, m_bodyIds );
-		CreateTextWeld( b2Vec2{ -40.1f, 150.0f }, scale, gravityScale, "For Games", b2_colorBox2DGreen, m_bodyIds );
-
-		b2BodyId groundId;
-		{
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			groundId = b2CreateBody( m_worldId, &bodyDef );
-		}
-
-		{
-			// start as static for continuous collision to work
-			float h = 40.0f;
-			float r = 1.0f;
-			b2Vec2 offset = { 0.75f * h, -0.25f * h };
-			b2BodyDef bodyDef = b2DefaultBodyDef();
-			//bodyDef.type = b2_dynamicBody;
-			bodyDef.enableSleep = true;
-			bodyDef.position = offset;
-			m_bodyId1 = b2CreateBody( m_worldId, &bodyDef );
-
-			b2ShapeDef shapeDef = b2DefaultShapeDef();
-			shapeDef.density = 1.0f;
-			shapeDef.friction = 0.2f;
-			shapeDef.customColor = b2_colorWhite;
-
-			b2Capsule capsule;
-			capsule = { { -h, -h }, { -h, h }, r };
-			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
-
-			capsule = { { h, -h }, { h, h }, r };
-			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
-
-			capsule = { { -h, -h }, { h, -h }, r };
-			b2CreateCapsuleShape( m_bodyId1, &shapeDef, &capsule );
-
-			b2RevoluteJointDef jd = b2DefaultRevoluteJointDef();
-			jd.bodyIdA = groundId;
-			jd.bodyIdB = m_bodyId1;
-			jd.localAnchorA = offset;
-			jd.localAnchorB = { 0.0f, 0.0f };
-			jd.referenceAngle = 0.0f;
-			jd.motorSpeed = 0.0f;
-			jd.maxMotorTorque = 1e6f;
-			jd.enableMotor = true;
-
-			m_jointId1 = b2CreateRevoluteJoint( m_worldId, &jd );
-
-			float cos45 = 1.0f / sqrt( 2.0f );
-			bodyDef.position = { -( 1.0f + cos45 ) * h + offset.x, ( 1.0f + cos45 ) * h + offset.y };
-			bodyDef.rotation = b2MakeRot( -0.25f * b2_pi );
-
-			//bodyDef.type = b2_dynamicBody;
-			m_bodyId2 = b2CreateBody( m_worldId, &bodyDef );
-
-			shapeDef.customColor = b2_colorGray6;
-			capsule = { { -h, 0.0f }, { h, 0.0f }, r };
-			b2CreateCapsuleShape( m_bodyId2, &shapeDef, &capsule );
-
-			jd.bodyIdA = m_bodyId1;
-			jd.bodyIdB = m_bodyId2;
-			jd.localAnchorA = { -h, h };
-			jd.localAnchorB = { h, 0.0f };
-			jd.referenceAngle = 0.0f;
-			jd.motorSpeed = 0.0f;
-			jd.maxMotorTorque = 1e6f;
-			jd.enableMotor = true;
-			jd.referenceAngle = -0.25f * b2_pi;
-			jd.lowerAngle = -0.75f * b2_pi;
-			jd.upperAngle = 0.0f * b2_pi;
-			jd.enableLimit = true;
-
-			m_jointId2 = b2CreateRevoluteJoint( m_worldId, &jd );
-		}
-	}
-
-	void Step( Settings& settings ) override
-	{
-		Sample::Step( settings );
-
-		float timeStep = settings.hertz > 0.0f ? 1.0f / settings.hertz : 0.0f;
-		// g_draw.DrawSolidCircle( b2Transform_identity, b2Vec2{ 0.0f, 0.0f }, 2.0f, b2_colorChocolate );
-
-		switch ( m_stage )
-		{
-			case 0:
-				break;
-
-			case 1:
-			{
-				m_fraction += 0.2f * timeStep;
-				m_fraction = b2MinFloat( m_fraction, 1.0f );
-				float eased = EaseInOutQuad( m_fraction );
-				g_camera.m_zoom = m_baseZoom + ( 145.0f - m_baseZoom ) * eased;
-				g_camera.m_center.x = m_baseX + ( 30.0f - m_baseX ) * eased;
-				g_camera.m_center.y = m_baseY + ( 75.0f - m_baseY ) * eased;
-
-				if ( m_fraction == 1.0f )
-				{
-					m_baseZoom = g_camera.m_zoom;
-					m_baseX = g_camera.m_center.x;
-					m_baseY = g_camera.m_center.y;
-					m_fraction = 0.0f;
-					m_stage += 1;
-				}
-			}
-			break;
-
-			case 2:
-			{
-				int count = int( m_bodyIds.size() );
-				if ( count > 0 )
-				{
-					for ( int i = count - 1; i >= 0; --i )
-					{
-						int r = RandomInt( 0, 128 );
-						if ( r == 1 || count < 128 )
-						{
-							b2Body_SetAwake( m_bodyIds[i], true );
-							m_bodyIds[i] = m_bodyIds[count - 1];
-							m_bodyIds.pop_back();
-							count -= 1;
-						}
-					}
-				}
-				else
-				{
-					b2Body_SetType( m_bodyId1, b2_dynamicBody );
-					b2Body_SetType( m_bodyId2, b2_dynamicBody );
-					m_stage += 1;
-				}
-			}
-			break;
-
-			case 3:
-			{
-				m_fraction += 0.5f * timeStep;
-				m_fraction = b2MinFloat( m_fraction, 1.0f );
-				float eased = EaseInOutQuad( m_fraction );
-				b2RevoluteJoint_SetMotorSpeed( m_jointId1, 0.25f * eased );
-				b2RevoluteJoint_SetMotorSpeed( m_jointId2, -0.5f * eased );
-
-				if ( m_fraction == 1.0f )
-				{
-					m_fraction = 0.0f;
-					m_stage += 1;
-				}
-			}
-			break;
-
-			case 4:
-			{
-				m_fraction += 0.2f * timeStep;
-				m_fraction = b2MinFloat( m_fraction, 1.0f );
-				float eased = EaseInOutQuad( m_fraction );
-				g_camera.m_zoom = m_baseZoom + ( 60.0f - m_baseZoom ) * eased;
-				g_camera.m_center.x = m_baseX + ( 30.0f - m_baseX ) * eased;
-				g_camera.m_center.y = m_baseY + ( -10.0f - m_baseY ) * eased;
-
-				if ( m_fraction == 1.0f )
-				{
-					m_baseZoom = g_camera.m_zoom;
-					m_baseX = g_camera.m_center.x;
-					m_baseY = g_camera.m_center.y;
-					m_fraction = 0.0f;
-					m_stage += 1;
-				}
-			}
-
-			default:
-				break;
-		}
-
-		if ( glfwGetKey( g_mainWindow, GLFW_KEY_G ) == GLFW_PRESS && m_stage == 0 )
-		{
-			g_camera.m_center = m_centerStart;
-			g_camera.m_zoom = m_zoomStart;
-			m_baseZoom = g_camera.m_zoom;
-			m_baseX = g_camera.m_center.x;
-			m_baseY = g_camera.m_center.y;
-			m_fraction = 0.0f;
-			m_stage = 1;
-		}
-	}
-
-	static Sample* Create( Settings& settings )
-	{
-		return new Demo09( settings );
-	}
-
-	std::vector<b2BodyId> m_bodyIds;
-	b2BodyId m_bodyId1;
-	b2BodyId m_bodyId2;
-	b2JointId m_jointId1;
-	b2JointId m_jointId2;
-	b2Vec2 m_centerStart;
-	float m_zoomStart;
-	float m_fraction;
-	float m_baseZoom;
-	float m_baseX;
-	float m_baseY;
-	int m_stage;
-};
-
-static int sampleDemo09 = RegisterSample( "Demo", "09", Demo09::Create );
+static int sampleDemoLarge = RegisterSample( "Demo", "Large", DemoLarge::Create );
 
 #endif

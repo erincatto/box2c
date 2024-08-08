@@ -661,6 +661,8 @@ int main( int, char** )
 
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+		g_draw.DrawBackground();
+
 		double cursorPosX = 0, cursorPosY = 0;
 		glfwGetCursorPos( g_mainWindow, &cursorPosX, &cursorPosY );
 		ImGui_ImplGlfw_CursorPosCallback( g_mainWindow, cursorPosX / s_windowScale, cursorPosY / s_windowScale );
@@ -707,8 +709,9 @@ int main( int, char** )
 
 		// if (g_draw.m_showUI)
 		{
-			snprintf( buffer, 128, "%.1f ms - step %d - camera (%g, %g, %g)", 1000.0f * frameTime, s_sample->m_stepCount,
-					  g_camera.m_center.x, g_camera.m_center.y, g_camera.m_zoom );
+			//snprintf( buffer, 128, "%.1f ms - step %d - camera (%g, %g, %g)", 1000.0f * frameTime, s_sample->m_stepCount,
+			//		  g_camera.m_center.x, g_camera.m_center.y, g_camera.m_zoom );
+			snprintf( buffer, 128, "%.1f ms", 1000.0f * frameTime );
 
 			ImGui::Begin( "Overlay", nullptr,
 						  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
@@ -723,6 +726,7 @@ int main( int, char** )
 
 		glfwSwapBuffers( g_mainWindow );
 
+		// For the Tracy profiler
 		FrameMark;
 
 		if ( s_selection != s_settings.sampleIndex )

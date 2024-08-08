@@ -54,8 +54,10 @@ public:
 	void DrawAABB(b2AABB aabb, b2HexColor color);
 
 	void Flush();
+	void DrawBackground();
 
 	bool m_showUI;
+	struct GLBackground* m_background;
 	struct GLPoints* m_points;
 	struct GLLines* m_lines;
 	struct GLTriangles* m_triangles;

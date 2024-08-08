@@ -19,6 +19,9 @@
 #endif
 
 #include <glad/glad.h>
+// Keep glad.h before glfw3.h
+#include <GLFW/glfw3.h>
+
 #include <imgui.h>
 
 #define BUFFER_OFFSET(x) ((const void*)(x))
@@ -127,6 +130,82 @@ b2AABB Camera::GetViewBounds()
 	bounds.upperBound = ConvertScreenToWorld({(float)m_width, 0.0f});
 	return bounds;
 }
+
+struct GLBackground
+{
+	void Create()
+	{
+		m_programId = CreateProgramFromFiles( "samples/data/background.vs", "samples/data/background.fs" );
+		m_timeUniform = glGetUniformLocation( m_programId, "time" );
+		m_resolutionUniform = glGetUniformLocation( m_programId, "resolution" );
+		m_baseColorUniform = glGetUniformLocation( m_programId, "baseColor" );
+		int vertexAttribute = 0;
+
+		// Generate
+		glGenVertexArrays( 1, &m_vaoId );
+		glGenBuffers( 1, &m_vboId );
+
+		glBindVertexArray( m_vaoId );
+		glEnableVertexAttribArray( vertexAttribute );
+
+		// Single quad
+		b2Vec2 vertices[] = { { -1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f,  1.0f}, { 1.0f, -1.0f }};
+		glBindBuffer( GL_ARRAY_BUFFER, m_vboId );
+		glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+		glVertexAttribPointer( vertexAttribute, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET( 0 ) );
+
+		CheckErrorGL();
+
+		// Cleanup
+		glBindBuffer( GL_ARRAY_BUFFER, 0 );
+		glBindVertexArray( 0 );
+	}
+
+	void Destroy()
+	{
+		if ( m_vaoId )
+		{
+			glDeleteVertexArrays( 1, &m_vaoId );
+			glDeleteBuffers( 1, &m_vboId );
+			m_vaoId = 0;
+			m_vboId = 0;
+		}
+
+		if ( m_programId )
+		{
+			glDeleteProgram( m_programId );
+			m_programId = 0;
+		}
+	}
+
+	void Draw()
+	{
+		glUseProgram( m_programId );
+
+		float time = (float)glfwGetTime();
+		glUniform1f( m_timeUniform, time );
+		glUniform2f( m_resolutionUniform, (float)g_camera.m_width,  (float)g_camera.m_height );
+
+		//struct RGBA8 c8 = MakeRGBA8( b2_colorGray2, 1.0f );
+		//glUniform3f(m_baseColorUniform, c8.r/255.0f, c8.g/255.0f, c8.b/255.0f);
+		glUniform3f(m_baseColorUniform, 0.2f, 0.2f, 0.2f);
+
+		glBindVertexArray( m_vaoId );
+
+		glBindBuffer( GL_ARRAY_BUFFER, m_vboId );
+		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+		glBindBuffer( GL_ARRAY_BUFFER, 0 );
+		glBindVertexArray( 0 );
+		glUseProgram( 0 );
+	}
+
+	GLuint m_vaoId;
+	GLuint m_vboId;
+	GLuint m_programId;
+	GLint m_timeUniform;
+	GLint m_resolutionUniform;
+	GLint m_baseColorUniform;
+};
 
 struct PointData
 {
@@ -1253,6 +1332,8 @@ Draw::~Draw()
 
 void Draw::Create()
 {
+	m_background = new GLBackground;
+	m_background->Create();
 	m_points = new GLPoints;
 	m_points->Create();
 	m_lines = new GLLines;
@@ -1297,6 +1378,10 @@ void Draw::Create()
 
 void Draw::Destroy()
 {
+	m_background->Destroy();
+	delete m_background;
+	m_background = nullptr;
+
 	m_points->Destroy();
 	delete m_points;
 	m_points = nullptr;
@@ -1489,4 +1574,9 @@ void Draw::Flush()
 	m_lines->Flush();
 	m_points->Flush();
 	CheckErrorGL();
+}
+
+void Draw::DrawBackground()
+{
+	m_background->Draw();
 }
