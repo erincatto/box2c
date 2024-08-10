@@ -344,7 +344,7 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float fricti
 		jointDef.localAnchorA = b2Body_GetLocalPoint( jointDef.bodyIdA, pivot );
 		jointDef.localAnchorB = b2Body_GetLocalPoint( jointDef.bodyIdB, pivot );
 		jointDef.enableLimit = enableLimit;
-		jointDef.lowerAngle = 0.05f * b2_pi;
+		jointDef.lowerAngle = -0.1f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
 		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;
@@ -418,7 +418,7 @@ void Human::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float fricti
 		jointDef.localAnchorA = b2Body_GetLocalPoint( jointDef.bodyIdA, pivot );
 		jointDef.localAnchorB = b2Body_GetLocalPoint( jointDef.bodyIdB, pivot );
 		jointDef.enableLimit = enableLimit;
-		jointDef.lowerAngle = 0.05f * b2_pi;
+		jointDef.lowerAngle = -0.1f * b2_pi;
 		jointDef.upperAngle = 0.8f * b2_pi;
 		jointDef.enableMotor = enableMotor;
 		jointDef.maxMotorTorque = bone->frictionScale * maxTorque;

@@ -15,7 +15,7 @@ class Donut
 public:
 	Donut();
 
-	void Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData);
+	void Spawn( b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData );
 	void Despawn();
 
 	b2BodyId m_bodyIds[e_sides];

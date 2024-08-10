@@ -15,184 +15,184 @@
 
 #include <stdio.h>
 
-void b2DistanceJoint_SetLength(b2JointId jointId, float length)
+void b2DistanceJoint_SetLength( b2JointId jointId, float length )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	joint->length = b2ClampFloat(length, b2_linearSlop, b2_huge);
+	joint->length = b2ClampFloat( length, b2_linearSlop, b2_huge );
 	joint->impulse = 0.0f;
 	joint->lowerImpulse = 0.0f;
 	joint->upperImpulse = 0.0f;
 }
 
-float b2DistanceJoint_GetLength(b2JointId jointId)
+float b2DistanceJoint_GetLength( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->length;
 }
 
-void b2DistanceJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+void b2DistanceJoint_EnableLimit( b2JointId jointId, bool enableLimit )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	joint->enableLimit = enableLimit;
 }
 
-bool b2DistanceJoint_IsLimitEnabled(b2JointId jointId)
+bool b2DistanceJoint_IsLimitEnabled( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return joint->distanceJoint.enableLimit;
 }
 
-void b2DistanceJoint_SetLengthRange(b2JointId jointId, float minLength, float maxLength)
+void b2DistanceJoint_SetLengthRange( b2JointId jointId, float minLength, float maxLength )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	minLength = b2ClampFloat(minLength, b2_linearSlop, b2_huge);
-	maxLength = b2ClampFloat(maxLength, b2_linearSlop, b2_huge);
-	joint->minLength = b2MinFloat(minLength, maxLength);
-	joint->maxLength = b2MaxFloat(minLength, maxLength);
+	minLength = b2ClampFloat( minLength, b2_linearSlop, b2_huge );
+	maxLength = b2ClampFloat( maxLength, b2_linearSlop, b2_huge );
+	joint->minLength = b2MinFloat( minLength, maxLength );
+	joint->maxLength = b2MaxFloat( minLength, maxLength );
 	joint->impulse = 0.0f;
 	joint->lowerImpulse = 0.0f;
 	joint->upperImpulse = 0.0f;
 }
 
-float b2DistanceJoint_GetMinLength(b2JointId jointId)
+float b2DistanceJoint_GetMinLength( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->minLength;
 }
 
-float b2DistanceJoint_GetMaxLength(b2JointId jointId)
+float b2DistanceJoint_GetMaxLength( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->maxLength;
 }
 
-float b2DistanceJoint_GetCurrentLength(b2JointId jointId)
+float b2DistanceJoint_GetCurrentLength( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 
-	b2World* world = b2GetWorld(jointId.world0);
-	B2_ASSERT(world->locked == false);
-	if (world->locked)
+	b2World* world = b2GetWorld( jointId.world0 );
+	B2_ASSERT( world->locked == false );
+	if ( world->locked )
 	{
 		return 0.0f;
 	}
 
-	b2Transform transformA = b2GetBodyTransform(world, base->bodyIdA);
-	b2Transform transformB = b2GetBodyTransform(world, base->bodyIdB);
+	b2Transform transformA = b2GetBodyTransform( world, base->bodyIdA );
+	b2Transform transformB = b2GetBodyTransform( world, base->bodyIdB );
 
-	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
-	b2Vec2 d = b2Sub(pB, pA);
-	float length = b2Length(d);
+	b2Vec2 pA = b2TransformPoint( transformA, base->localOriginAnchorA );
+	b2Vec2 pB = b2TransformPoint( transformB, base->localOriginAnchorB );
+	b2Vec2 d = b2Sub( pB, pA );
+	float length = b2Length( d );
 	return length;
 }
 
-void b2DistanceJoint_EnableSpring(b2JointId jointId, bool enableSpring)
+void b2DistanceJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.enableSpring = enableSpring;
 }
 
-bool b2DistanceJoint_IsSpringEnabled(b2JointId jointId)
+bool b2DistanceJoint_IsSpringEnabled( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return base->distanceJoint.enableSpring;
 }
 
-void b2DistanceJoint_SetSpringHertz(b2JointId jointId, float hertz)
+void b2DistanceJoint_SetSpringHertz( b2JointId jointId, float hertz )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.hertz = hertz;
 }
 
-void b2DistanceJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
+void b2DistanceJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.dampingRatio = dampingRatio;
 }
 
-float b2DistanceJoint_GetHertz(b2JointId jointId)
+float b2DistanceJoint_GetHertz( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->hertz;
 }
 
-float b2DistanceJoint_GetDampingRatio(b2JointId jointId)
+float b2DistanceJoint_GetDampingRatio( b2JointId jointId )
 {
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	return joint->dampingRatio;
 }
 
-void b2DistanceJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+void b2DistanceJoint_EnableMotor( b2JointId jointId, bool enableMotor )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
-	if (enableMotor != joint->distanceJoint.enableMotor)
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	if ( enableMotor != joint->distanceJoint.enableMotor )
 	{
 		joint->distanceJoint.enableMotor = enableMotor;
 		joint->distanceJoint.motorImpulse = 0.0f;
 	}
 }
 
-bool b2DistanceJoint_IsMotorEnabled(b2JointId jointId)
+bool b2DistanceJoint_IsMotorEnabled( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return joint->distanceJoint.enableMotor;
 }
 
-void b2DistanceJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+void b2DistanceJoint_SetMotorSpeed( b2JointId jointId, float motorSpeed )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	joint->distanceJoint.motorSpeed = motorSpeed;
 }
 
-float b2DistanceJoint_GetMotorSpeed(b2JointId jointId)
+float b2DistanceJoint_GetMotorSpeed( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return joint->distanceJoint.motorSpeed;
 }
 
-float b2DistanceJoint_GetMotorForce(b2JointId jointId)
+float b2DistanceJoint_GetMotorForce( b2JointId jointId )
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* base = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2World* world = b2GetWorld( jointId.world0 );
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return world->inv_h * base->distanceJoint.motorImpulse;
 }
 
-void b2DistanceJoint_SetMaxMotorForce(b2JointId jointId, float force)
+void b2DistanceJoint_SetMaxMotorForce( b2JointId jointId, float force )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	joint->distanceJoint.maxMotorForce = force;
 }
 
-float b2DistanceJoint_GetMaxMotorForce(b2JointId jointId)
+float b2DistanceJoint_GetMaxMotorForce( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_distanceJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return joint->distanceJoint.maxMotorForce;
 }
 
-b2Vec2 b2GetDistanceJointForce(b2World* world, b2JointSim* base)
+b2Vec2 b2GetDistanceJointForce( b2World* world, b2JointSim* base )
 {
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Transform transformA = b2GetBodyTransform(world, base->bodyIdA);
-	b2Transform transformB = b2GetBodyTransform(world, base->bodyIdB);
+	b2Transform transformA = b2GetBodyTransform( world, base->bodyIdA );
+	b2Transform transformB = b2GetBodyTransform( world, base->bodyIdB );
 
-	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
-	b2Vec2 d = b2Sub(pB, pA);
-	b2Vec2 axis = b2Normalize(d);
-	float force = (joint->impulse + joint->lowerImpulse - joint->upperImpulse + joint->motorImpulse) * world->inv_h;
-	return b2MulSV(force, axis);
+	b2Vec2 pA = b2TransformPoint( transformA, base->localOriginAnchorA );
+	b2Vec2 pB = b2TransformPoint( transformB, base->localOriginAnchorB );
+	b2Vec2 d = b2Sub( pB, pA );
+	b2Vec2 axis = b2Normalize( d );
+	float force = ( joint->impulse + joint->lowerImpulse - joint->upperImpulse + joint->motorImpulse ) * world->inv_h;
+	return b2MulSV( force, axis );
 }
 
 // 1-D constrained system
@@ -210,9 +210,9 @@ b2Vec2 b2GetDistanceJointForce(b2World* world, b2JointSim* base)
 // K = J * invM * JT
 //   = invMass1 + invI1 * cross(r1, u)^2 + invMass2 + invI2 * cross(r2, u)^2
 
-void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
+void b2PrepareDistanceJoint( b2JointSim* base, b2StepContext* context )
 {
-	B2_ASSERT(base->type == b2_distanceJoint);
+	B2_ASSERT( base->type == b2_distanceJoint );
 
 	// chase body id to the solver set where the body lives
 	int idA = base->bodyIdA;
@@ -221,21 +221,21 @@ void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
 	b2World* world = context->world;
 	b2Body* bodies = world->bodyArray;
 
-	b2CheckIndex(bodies, idA);
-	b2CheckIndex(bodies, idB);
+	b2CheckIndex( bodies, idA );
+	b2CheckIndex( bodies, idB );
 
 	b2Body* bodyA = bodies + idA;
 	b2Body* bodyB = bodies + idB;
 
-	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
-	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
-	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
+	B2_ASSERT( bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet );
+	b2CheckIndex( world->solverSetArray, bodyA->setIndex );
+	b2CheckIndex( world->solverSetArray, bodyB->setIndex );
 
 	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
 	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
 
-	B2_ASSERT(0 <= bodyA->localIndex && bodyA->localIndex <= setA->sims.count);
-	B2_ASSERT(0 <= bodyB->localIndex && bodyB->localIndex <= setB->sims.count);
+	B2_ASSERT( 0 <= bodyA->localIndex && bodyA->localIndex <= setA->sims.count );
+	B2_ASSERT( 0 <= bodyB->localIndex && bodyB->localIndex <= setB->sims.count );
 
 	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
 	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
@@ -256,24 +256,24 @@ void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
 	joint->indexB = bodyB->setIndex == b2_awakeSet ? bodyB->localIndex : B2_NULL_INDEX;
 
 	// initial anchors in world space
-	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
-	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
-	joint->deltaCenter = b2Sub(bodySimB->center, bodySimA->center);
+	joint->anchorA = b2RotateVector( bodySimA->transform.q, b2Sub( base->localOriginAnchorA, bodySimA->localCenter ) );
+	joint->anchorB = b2RotateVector( bodySimB->transform.q, b2Sub( base->localOriginAnchorB, bodySimB->localCenter ) );
+	joint->deltaCenter = b2Sub( bodySimB->center, bodySimA->center );
 
 	b2Vec2 rA = joint->anchorA;
 	b2Vec2 rB = joint->anchorB;
-	b2Vec2 separation = b2Add(b2Sub(rB, rA), joint->deltaCenter);
-	b2Vec2 axis = b2Normalize(separation);
+	b2Vec2 separation = b2Add( b2Sub( rB, rA ), joint->deltaCenter );
+	b2Vec2 axis = b2Normalize( separation );
 
 	// compute effective mass
-	float crA = b2Cross(rA, axis);
-	float crB = b2Cross(rB, axis);
+	float crA = b2Cross( rA, axis );
+	float crB = b2Cross( rB, axis );
 	float k = mA + mB + iA * crA * crA + iB * crB * crB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
-	joint->distanceSoftness = b2MakeSoft(joint->hertz, joint->dampingRatio, context->h);
+	joint->distanceSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
 
-	if (context->enableWarmStarting == false)
+	if ( context->enableWarmStarting == false )
 	{
 		joint->impulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
@@ -282,9 +282,9 @@ void b2PrepareDistanceJoint(b2JointSim* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartDistanceJoint(b2JointSim* base, b2StepContext* context)
+void b2WarmStartDistanceJoint( b2JointSim* base, b2StepContext* context )
 {
-	B2_ASSERT(base->type == b2_distanceJoint);
+	B2_ASSERT( base->type == b2_distanceJoint );
 
 	float mA = base->invMassA;
 	float mB = base->invMassB;
@@ -298,25 +298,25 @@ void b2WarmStartDistanceJoint(b2JointSim* base, b2StepContext* context)
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
-	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
+	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->anchorA );
+	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->anchorB );
 
-	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));
-	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
-	b2Vec2 axis = b2Normalize(separation);
+	b2Vec2 ds = b2Add( b2Sub( stateB->deltaPosition, stateA->deltaPosition ), b2Sub( rB, rA ) );
+	b2Vec2 separation = b2Add( joint->deltaCenter, ds );
+	b2Vec2 axis = b2Normalize( separation );
 
 	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse + joint->motorImpulse;
-	b2Vec2 P = b2MulSV(axialImpulse, axis);
+	b2Vec2 P = b2MulSV( axialImpulse, axis );
 
-	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, P);
-	stateA->angularVelocity -= iA * b2Cross(rA, P);
-	stateB->linearVelocity = b2MulAdd(stateB->linearVelocity, mB, P);
-	stateB->angularVelocity += iB * b2Cross(rB, P);
+	stateA->linearVelocity = b2MulSub( stateA->linearVelocity, mA, P );
+	stateA->angularVelocity -= iA * b2Cross( rA, P );
+	stateB->linearVelocity = b2MulAdd( stateB->linearVelocity, mB, P );
+	stateB->angularVelocity += iB * b2Cross( rB, P );
 }
 
-void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias)
+void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBias )
 {
-	B2_ASSERT(base->type == b2_distanceJoint);
+	B2_ASSERT( base->type == b2_distanceJoint );
 
 	float mA = base->invMassA;
 	float mB = base->invMassB;
@@ -329,162 +329,162 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	b2DistanceJoint* joint = &base->distanceJoint;
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
-	
+
 	b2Vec2 vA = stateA->linearVelocity;
 	float wA = stateA->angularVelocity;
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
 	// current anchors
-	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
-	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
+	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->anchorA );
+	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->anchorB );
 
 	// current separation
-	b2Vec2 ds = b2Add(b2Sub(stateB->deltaPosition, stateA->deltaPosition), b2Sub(rB, rA));
-	b2Vec2 separation = b2Add(joint->deltaCenter, ds);
+	b2Vec2 ds = b2Add( b2Sub( stateB->deltaPosition, stateA->deltaPosition ), b2Sub( rB, rA ) );
+	b2Vec2 separation = b2Add( joint->deltaCenter, ds );
 
-	float length = b2Length(separation);
-	b2Vec2 axis = b2Normalize(separation);
+	float length = b2Length( separation );
+	b2Vec2 axis = b2Normalize( separation );
 
 	// joint is soft if
 	// - spring is enabled
 	// - and (joint limit is disabled or limits are not equal)
-	if (joint->enableSpring && (joint->minLength < joint->maxLength || joint->enableLimit == false))
+	if ( joint->enableSpring && ( joint->minLength < joint->maxLength || joint->enableLimit == false ) )
 	{
 		// spring
-		if (joint->hertz > 0.0f)
+		if ( joint->hertz > 0.0f )
 		{
 			// Cdot = dot(u, v + cross(w, r))
-			b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
-			float Cdot = b2Dot(axis, vr);
+			b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
+			float Cdot = b2Dot( axis, vr );
 			float C = length - joint->length;
 			float bias = joint->distanceSoftness.biasRate * C;
 
 			float m = joint->distanceSoftness.massScale * joint->axialMass;
-			float impulse = -m * (Cdot + bias) - joint->distanceSoftness.impulseScale * joint->impulse;
+			float impulse = -m * ( Cdot + bias ) - joint->distanceSoftness.impulseScale * joint->impulse;
 			joint->impulse += impulse;
 
-			b2Vec2 P = b2MulSV(impulse, axis);
-			vA = b2MulSub(vA, mA,  P);
-			wA -= iA * b2Cross(rA, P);
-			vB = b2MulAdd(vB, mB, P);
-			wB += iB * b2Cross(rB, P);
+			b2Vec2 P = b2MulSV( impulse, axis );
+			vA = b2MulSub( vA, mA, P );
+			wA -= iA * b2Cross( rA, P );
+			vB = b2MulAdd( vB, mB, P );
+			wB += iB * b2Cross( rB, P );
 		}
 
-		if (joint->enableLimit)
+		if ( joint->enableLimit )
 		{
 			// lower limit
 			{
-				b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
-				float Cdot = b2Dot(axis, vr);
+				b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
+				float Cdot = b2Dot( axis, vr );
 
 				float C = length - joint->minLength;
 
 				float bias = 0.0f;
 				float massCoeff = 1.0f;
 				float impulseCoeff = 0.0f;
-				if (C > 0.0f)
+				if ( C > 0.0f )
 				{
 					// speculative
 					bias = C * context->inv_h;
 				}
-				else if (useBias)
+				else if ( useBias )
 				{
 					bias = context->jointSoftness.biasRate * C;
 					massCoeff = context->jointSoftness.massScale;
 					impulseCoeff = context->jointSoftness.impulseScale;
 				}
 
-				float impulse = -massCoeff * joint->axialMass * (Cdot + bias) - impulseCoeff * joint->lowerImpulse;
-				float newImpulse = b2MaxFloat(0.0f, joint->lowerImpulse + impulse);
+				float impulse = -massCoeff * joint->axialMass * ( Cdot + bias ) - impulseCoeff * joint->lowerImpulse;
+				float newImpulse = b2MaxFloat( 0.0f, joint->lowerImpulse + impulse );
 				impulse = newImpulse - joint->lowerImpulse;
 				joint->lowerImpulse = newImpulse;
 
-				b2Vec2 P = b2MulSV(impulse, axis);
-				vA = b2MulSub(vA, mA, P);
-				wA -= iA * b2Cross(rA, P);
-				vB = b2MulAdd(vB, mB, P);
-				wB += iB * b2Cross(rB, P);
+				b2Vec2 P = b2MulSV( impulse, axis );
+				vA = b2MulSub( vA, mA, P );
+				wA -= iA * b2Cross( rA, P );
+				vB = b2MulAdd( vB, mB, P );
+				wB += iB * b2Cross( rB, P );
 			}
 
 			// upper
 			{
-				b2Vec2 vr = b2Add(b2Sub(vA, vB), b2Sub(b2CrossSV(wA, rA), b2CrossSV(wB, rB)));
-				float Cdot = b2Dot(axis, vr);
+				b2Vec2 vr = b2Add( b2Sub( vA, vB ), b2Sub( b2CrossSV( wA, rA ), b2CrossSV( wB, rB ) ) );
+				float Cdot = b2Dot( axis, vr );
 
 				float C = joint->maxLength - length;
 
 				float bias = 0.0f;
 				float massScale = 1.0f;
 				float impulseScale = 0.0f;
-				if (C > 0.0f)
+				if ( C > 0.0f )
 				{
 					// speculative
 					bias = C * context->inv_h;
 				}
-				else if (useBias)
+				else if ( useBias )
 				{
 					bias = context->jointSoftness.biasRate * C;
 					massScale = context->jointSoftness.massScale;
 					impulseScale = context->jointSoftness.impulseScale;
 				}
 
-				float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->upperImpulse;
-				float newImpulse = b2MaxFloat(0.0f, joint->upperImpulse + impulse);
+				float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->upperImpulse;
+				float newImpulse = b2MaxFloat( 0.0f, joint->upperImpulse + impulse );
 				impulse = newImpulse - joint->upperImpulse;
 				joint->upperImpulse = newImpulse;
 
-				b2Vec2 P = b2MulSV(-impulse, axis);
-				vA = b2MulSub(vA, mA, P);
-				wA -= iA * b2Cross(rA, P);
-				vB = b2MulAdd(vB, mB, P);
-				wB += iB * b2Cross(rB, P);
-			}		
+				b2Vec2 P = b2MulSV( -impulse, axis );
+				vA = b2MulSub( vA, mA, P );
+				wA -= iA * b2Cross( rA, P );
+				vB = b2MulAdd( vB, mB, P );
+				wB += iB * b2Cross( rB, P );
+			}
 		}
 
-		if (joint->enableMotor)
+		if ( joint->enableMotor )
 		{
-			b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
-			float Cdot = b2Dot(axis, vr);
-			float impulse = joint->axialMass * (joint->motorSpeed - Cdot);
+			b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
+			float Cdot = b2Dot( axis, vr );
+			float impulse = joint->axialMass * ( joint->motorSpeed - Cdot );
 			float oldImpulse = joint->motorImpulse;
 			float maxImpulse = context->h * joint->maxMotorForce;
-			joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+			joint->motorImpulse = b2ClampFloat( joint->motorImpulse + impulse, -maxImpulse, maxImpulse );
 			impulse = joint->motorImpulse - oldImpulse;
 
-			b2Vec2 P = b2MulSV(impulse, axis);
-			vA = b2MulSub(vA, mA, P);
-			wA -= iA * b2Cross(rA, P);
-			vB = b2MulAdd(vB, mB, P);
-			wB += iB * b2Cross(rB, P);
+			b2Vec2 P = b2MulSV( impulse, axis );
+			vA = b2MulSub( vA, mA, P );
+			wA -= iA * b2Cross( rA, P );
+			vB = b2MulAdd( vB, mB, P );
+			wB += iB * b2Cross( rB, P );
 		}
 	}
 	else
 	{
 		// rigid constraint
-		b2Vec2 vr = b2Add(b2Sub(vB, vA), b2Sub(b2CrossSV(wB, rB), b2CrossSV(wA, rA)));
-		float Cdot = b2Dot(axis, vr);
+		b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
+		float Cdot = b2Dot( axis, vr );
 
 		float C = length - joint->length;
 
 		float bias = 0.0f;
 		float massScale = 1.0f;
 		float impulseScale = 0.0f;
-		if (useBias)
+		if ( useBias )
 		{
 			bias = context->jointSoftness.biasRate * C;
 			massScale = context->jointSoftness.massScale;
 			impulseScale = context->jointSoftness.impulseScale;
 		}
 
-		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->impulse;
+		float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->impulse;
 		joint->impulse += impulse;
 
-		b2Vec2 P = b2MulSV(impulse, axis);
-		vA = b2MulSub(vA, mA, P);
-		wA -= iA * b2Cross(rA, P);
-		vB = b2MulAdd(vB, mB, P);
-		wB += iB * b2Cross(rB, P);
+		b2Vec2 P = b2MulSV( impulse, axis );
+		vA = b2MulSub( vA, mA, P );
+		wA -= iA * b2Cross( rA, P );
+		vB = b2MulAdd( vB, mB, P );
+		wB += iB * b2Cross( rB, P );
 	}
 
 	stateA->linearVelocity = vA;
@@ -492,9 +492,6 @@ void b2SolveDistanceJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	stateB->linearVelocity = vB;
 	stateB->angularVelocity = wB;
 }
-
-
-
 
 #if 0
 void b2DistanceJoint::Dump()
@@ -517,48 +514,48 @@ void b2DistanceJoint::Dump()
 }
 #endif
 
-void b2DrawDistanceJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transformA, b2Transform transformB)
+void b2DrawDistanceJoint( b2DebugDraw* draw, b2JointSim* base, b2Transform transformA, b2Transform transformB )
 {
-	B2_ASSERT(base->type == b2_distanceJoint);
+	B2_ASSERT( base->type == b2_distanceJoint );
 
 	b2DistanceJoint* joint = &base->distanceJoint;
 
-	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
+	b2Vec2 pA = b2TransformPoint( transformA, base->localOriginAnchorA );
+	b2Vec2 pB = b2TransformPoint( transformB, base->localOriginAnchorB );
 
-	b2Vec2 axis = b2Normalize(b2Sub(pB, pA));
+	b2Vec2 axis = b2Normalize( b2Sub( pB, pA ) );
 
-	if (joint->minLength < joint->maxLength && joint->enableLimit)
+	if ( joint->minLength < joint->maxLength && joint->enableLimit )
 	{
-		b2Vec2 pMin = b2MulAdd(pA, joint->minLength, axis);
-		b2Vec2 pMax = b2MulAdd(pA, joint->maxLength, axis);
-		b2Vec2 offset = b2MulSV(0.05f * b2_lengthUnitsPerMeter, b2RightPerp(axis));
+		b2Vec2 pMin = b2MulAdd( pA, joint->minLength, axis );
+		b2Vec2 pMax = b2MulAdd( pA, joint->maxLength, axis );
+		b2Vec2 offset = b2MulSV( 0.05f * b2_lengthUnitsPerMeter, b2RightPerp( axis ) );
 
-		if (joint->minLength > b2_linearSlop)
+		if ( joint->minLength > b2_linearSlop )
 		{
-			//draw->DrawPoint(pMin, 4.0f, c2, draw->context);
-			draw->DrawSegment(b2Sub(pMin, offset), b2Add(pMin, offset), b2_colorLightGreen, draw->context);
+			// draw->DrawPoint(pMin, 4.0f, c2, draw->context);
+			draw->DrawSegment( b2Sub( pMin, offset ), b2Add( pMin, offset ), b2_colorLightGreen, draw->context );
 		}
 
-		if (joint->maxLength < b2_huge)
+		if ( joint->maxLength < b2_huge )
 		{
-			//draw->DrawPoint(pMax, 4.0f, c3, draw->context);
-			draw->DrawSegment(b2Sub(pMax, offset), b2Add(pMax, offset), b2_colorRed, draw->context);
+			// draw->DrawPoint(pMax, 4.0f, c3, draw->context);
+			draw->DrawSegment( b2Sub( pMax, offset ), b2Add( pMax, offset ), b2_colorRed, draw->context );
 		}
 
-		if (joint->minLength > b2_linearSlop && joint->maxLength < b2_huge)
+		if ( joint->minLength > b2_linearSlop && joint->maxLength < b2_huge )
 		{
-			draw->DrawSegment(pMin, pMax, b2_colorGray, draw->context);
+			draw->DrawSegment( pMin, pMax, b2_colorGray, draw->context );
 		}
 	}
 
-	draw->DrawSegment(pA, pB, b2_colorWhite, draw->context);
-	draw->DrawPoint(pA, 4.0f, b2_colorWhite, draw->context);
-	draw->DrawPoint(pB, 4.0f, b2_colorWhite, draw->context);
+	draw->DrawSegment( pA, pB, b2_colorWhite, draw->context );
+	draw->DrawPoint( pA, 4.0f, b2_colorWhite, draw->context );
+	draw->DrawPoint( pB, 4.0f, b2_colorWhite, draw->context );
 
-	if (joint->hertz > 0.0f && joint->enableSpring)
+	if ( joint->hertz > 0.0f && joint->enableSpring )
 	{
-		b2Vec2 pRest = b2MulAdd(pA, joint->length, axis);
-		draw->DrawPoint(pRest, 4.0f, b2_colorBlue, draw->context);
+		b2Vec2 pRest = b2MulAdd( pA, joint->length, axis );
+		draw->DrawPoint( pRest, 4.0f, b2_colorBlue, draw->context );
 	}
 }

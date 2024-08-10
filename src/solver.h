@@ -141,18 +141,18 @@ typedef struct b2StepContext
 
 } b2StepContext;
 
-static inline b2Softness b2MakeSoft(float hertz, float zeta, float h)
+static inline b2Softness b2MakeSoft( float hertz, float zeta, float h )
 {
-	if (hertz == 0.0f)
+	if ( hertz == 0.0f )
 	{
-		return (b2Softness){0.0f, 1.0f, 0.0f};
+		return ( b2Softness ){ 0.0f, 1.0f, 0.0f };
 	}
 
 	float omega = 2.0f * b2_pi * hertz;
 	float a1 = 2.0f * zeta + h * omega;
 	float a2 = h * omega * a1;
-	float a3 = 1.0f / (1.0f + a2);
-	return (b2Softness){omega / a1, a2 * a3, a3};
+	float a3 = 1.0f / ( 1.0f + a2 );
+	return ( b2Softness ){ omega / a1, a2 * a3, a3 };
 }
 
-void b2Solve(b2World* world, b2StepContext* stepContext);
+void b2Solve( b2World* world, b2StepContext* stepContext );

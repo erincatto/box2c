@@ -73,7 +73,6 @@ add_executable(samples
 	sample_bodies.cpp
 	sample_collision.cpp
 	sample_continuous.cpp
-	sample_demo.cpp
 	sample_events.cpp
 	sample_geometry.cpp
 	sample_joints.cpp

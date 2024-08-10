@@ -28,6 +28,7 @@
  *
  * These are both considered null.
  *
+ * @warning Do not use the internals of these ids. They are subject to change. Ids should be treated as opaque objects.
  * @warning You should use ids to access objects in Box2D. Do not access files within the src folder. Such usage is unsupported.
  * @{
  */

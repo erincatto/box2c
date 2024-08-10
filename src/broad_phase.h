@@ -16,9 +16,9 @@ typedef struct b2StackAllocator b2StackAllocator;
 typedef struct b2World b2World;
 
 // Store the proxy type in the lower 2 bits of the proxy key. This leaves 30 bits for the id.
-#define B2_PROXY_TYPE(KEY) ((b2BodyType)((KEY) & 3))
-#define B2_PROXY_ID(KEY) ((KEY) >> 2)
-#define B2_PROXY_KEY(ID, TYPE) (((ID) << 2) | (TYPE))
+#define B2_PROXY_TYPE( KEY ) ( (b2BodyType)( ( KEY ) & 3 ) )
+#define B2_PROXY_ID( KEY ) ( ( KEY ) >> 2 )
+#define B2_PROXY_KEY( ID, TYPE ) ( ( ( ID ) << 2 ) | ( TYPE ) )
 
 /// The broad-phase is used for computing pairs and performing volume queries and ray casts.
 /// This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
@@ -50,33 +50,34 @@ typedef struct b2BroadPhase
 
 } b2BroadPhase;
 
-void b2CreateBroadPhase(b2BroadPhase* bp);
-void b2DestroyBroadPhase(b2BroadPhase* bp);
+void b2CreateBroadPhase( b2BroadPhase* bp );
+void b2DestroyBroadPhase( b2BroadPhase* bp );
 
-int b2BroadPhase_CreateProxy(b2BroadPhase* bp, b2BodyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex, bool forcePairCreation);
-void b2BroadPhase_DestroyProxy(b2BroadPhase* bp, int proxyKey);
+int b2BroadPhase_CreateProxy( b2BroadPhase* bp, b2BodyType proxyType, b2AABB aabb, uint32_t categoryBits, int shapeIndex,
+							  bool forcePairCreation );
+void b2BroadPhase_DestroyProxy( b2BroadPhase* bp, int proxyKey );
 
-void b2BroadPhase_MoveProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb);
-void b2BroadPhase_EnlargeProxy(b2BroadPhase* bp, int proxyKey, b2AABB aabb);
+void b2BroadPhase_MoveProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb );
+void b2BroadPhase_EnlargeProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb );
 
-void b2BroadPhase_RebuildTrees(b2BroadPhase* bp);
+void b2BroadPhase_RebuildTrees( b2BroadPhase* bp );
 
-int b2BroadPhase_GetShapeIndex(b2BroadPhase* bp, int proxyKey);
+int b2BroadPhase_GetShapeIndex( b2BroadPhase* bp, int proxyKey );
 
-void b2UpdateBroadPhasePairs(b2World* world);
-bool b2BroadPhase_TestOverlap(const b2BroadPhase* bp, int proxyKeyA, int proxyKeyB);
+void b2UpdateBroadPhasePairs( b2World* world );
+bool b2BroadPhase_TestOverlap( const b2BroadPhase* bp, int proxyKeyA, int proxyKeyB );
 
-void b2ValidateBroadphase(const b2BroadPhase* bp);
-void b2ValidateNoEnlarged(const b2BroadPhase* bp);
+void b2ValidateBroadphase( const b2BroadPhase* bp );
+void b2ValidateNoEnlarged( const b2BroadPhase* bp );
 
 // This is what triggers new contact pairs to be created
 // Warning: this must be called in deterministic order
-static inline void b2BufferMove(b2BroadPhase* bp, int queryProxy)
+static inline void b2BufferMove( b2BroadPhase* bp, int queryProxy )
 {
 	// Adding 1 because 0 is the sentinel
-	bool alreadyAdded = b2AddKey(&bp->moveSet, queryProxy + 1);
-	if (alreadyAdded == false)
+	bool alreadyAdded = b2AddKey( &bp->moveSet, queryProxy + 1 );
+	if ( alreadyAdded == false )
 	{
-		b2Array_Push(bp->moveArray, queryProxy);
+		b2Array_Push( bp->moveArray, queryProxy );
 	}
 }

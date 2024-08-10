@@ -153,8 +153,8 @@ Truck::Truck()
 	m_isSpawned = false;
 }
 
-void Truck::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float hertz, float dampingRatio, float torque,
-				   float density, void* userData )
+void Truck::Spawn( b2WorldId worldId, b2Vec2 position, float scale, float hertz, float dampingRatio, float torque, float density,
+				   void* userData )
 {
 	assert( m_isSpawned == false );
 

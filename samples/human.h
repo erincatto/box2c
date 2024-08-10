@@ -31,7 +31,7 @@ struct Bone
 
 class Human
 {
-  public:
+public:
 	Human();
 
 	void Spawn( b2WorldId worldId, b2Vec2 position, float scale, float frictionTorque, float hertz, float dampingRatio,

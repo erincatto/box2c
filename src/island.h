@@ -62,26 +62,26 @@ typedef struct b2IslandSim
 
 } b2IslandSim;
 
-b2Island* b2CreateIsland(b2World* world, int setIndex);
-void b2DestroyIsland(b2World* world, int islandId);
+b2Island* b2CreateIsland( b2World* world, int setIndex );
+void b2DestroyIsland( b2World* world, int islandId );
 
-b2Island* b2GetIsland(b2World* world, int islandId);
+b2Island* b2GetIsland( b2World* world, int islandId );
 
 // Link contacts into the island graph when it starts having contact points
-void b2LinkContact(b2World* world, b2Contact* contact);
+void b2LinkContact( b2World* world, b2Contact* contact );
 
 // Unlink contact from the island graph when it stops having contact points
-void b2UnlinkContact(b2World* world, b2Contact* contact);
+void b2UnlinkContact( b2World* world, b2Contact* contact );
 
 // Link a joint into the island graph when it is created
-void b2LinkJoint(b2World* world, b2Joint* joint);
+void b2LinkJoint( b2World* world, b2Joint* joint );
 
 // Unlink a joint from the island graph when it is destroyed
-void b2UnlinkJoint(b2World* world, b2Joint* joint);
+void b2UnlinkJoint( b2World* world, b2Joint* joint );
 
-void b2MergeAwakeIslands(b2World* world);
+void b2MergeAwakeIslands( b2World* world );
 
-void b2SplitIsland(b2World* world, int baseId);
-void b2SplitIslandTask(int startIndex, int endIndex, uint32_t threadIndex, void* context);
+void b2SplitIsland( b2World* world, int baseId );
+void b2SplitIslandTask( int startIndex, int endIndex, uint32_t threadIndex, void* context );
 
-void b2ValidateIsland(b2World* world, int islandId);
+void b2ValidateIsland( b2World* world, int islandId );

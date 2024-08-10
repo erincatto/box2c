@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "core.h"
-
 #include "box2d/types.h"
 
-b2WorldDef b2DefaultWorldDef(void)
+#include "core.h"
+
+b2WorldDef b2DefaultWorldDef( void )
 {
-	b2WorldDef def = {0};
+	b2WorldDef def = { 0 };
 	def.gravity.x = 0.0f;
 	def.gravity.y = -10.0f;
 	def.hitEventThreshold = 1.0f * b2_lengthUnitsPerMeter;
@@ -23,9 +23,9 @@ b2WorldDef b2DefaultWorldDef(void)
 	return def;
 }
 
-b2BodyDef b2DefaultBodyDef(void)
+b2BodyDef b2DefaultBodyDef( void )
 {
-	b2BodyDef def = {0};
+	b2BodyDef def = { 0 };
 	def.type = b2_staticBody;
 	def.rotation = b2Rot_identity;
 	def.sleepThreshold = 0.05f * b2_lengthUnitsPerMeter;
@@ -38,21 +38,21 @@ b2BodyDef b2DefaultBodyDef(void)
 	return def;
 }
 
-b2Filter b2DefaultFilter(void)
+b2Filter b2DefaultFilter( void )
 {
-	b2Filter filter = {0x00000001, 0xFFFFFFFF, 0};
+	b2Filter filter = { 0x00000001, 0xFFFFFFFF, 0 };
 	return filter;
 }
 
-b2QueryFilter b2DefaultQueryFilter(void)
+b2QueryFilter b2DefaultQueryFilter( void )
 {
-	b2QueryFilter filter = {0x00000001, 0xFFFFFFFF};
+	b2QueryFilter filter = { 0x00000001, 0xFFFFFFFF };
 	return filter;
 }
 
-b2ShapeDef b2DefaultShapeDef(void)
+b2ShapeDef b2DefaultShapeDef( void )
 {
-	b2ShapeDef def = {0};
+	b2ShapeDef def = { 0 };
 	def.friction = 0.6f;
 	def.density = 1.0f;
 	def.filter = b2DefaultFilter();
@@ -62,9 +62,9 @@ b2ShapeDef b2DefaultShapeDef(void)
 	return def;
 }
 
-b2ChainDef b2DefaultChainDef(void)
+b2ChainDef b2DefaultChainDef( void )
 {
-	b2ChainDef def = {0};
+	b2ChainDef def = { 0 };
 	def.friction = 0.6f;
 	def.filter = b2DefaultFilter();
 	def.internalValue = B2_SECRET_COOKIE;

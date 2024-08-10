@@ -316,7 +316,7 @@ typedef struct b2ShapeDef
 
 	/// Custom debug draw color.
 	uint32_t customColor;
-	
+
 	/// A sensor shape generates overlap events but never generates a collision response.
 	bool isSensor;
 
@@ -1035,7 +1035,7 @@ typedef bool b2CustomFilterFcn( b2ShapeId shapeIdA, b2ShapeId shapeIdB, void* co
 /// contact manifold (e.g. modify the normal).
 /// Notes:
 ///	- this function must be thread-safe
-///	- this is only called if the shape has enabled presolve events
+///	- this is only called if the shape has enabled pre-solve events
 /// - this is called only for awake dynamic bodies
 /// - this is not called for sensors
 /// - the supplied manifold has impulse values from the previous step
@@ -1229,6 +1229,7 @@ typedef enum b2HexColor
 	b2_colorBox2DRed = 0xdc3132,
 	b2_colorBox2DBlue = 0x30aebf,
 	b2_colorBox2DGreen = 0x8cc924,
+	b2_colorBox2DYellow = 0xffee8c
 } b2HexColor;
 
 /// This struct holds callbacks you can implement to draw a Box2D world.

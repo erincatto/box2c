@@ -20,15 +20,15 @@ typedef struct b2StackAllocator
 	struct b2StackEntry* entries;
 } b2StackAllocator;
 
-b2StackAllocator b2CreateStackAllocator(int capacity);
-void b2DestroyStackAllocator(b2StackAllocator* allocator);
+b2StackAllocator b2CreateStackAllocator( int capacity );
+void b2DestroyStackAllocator( b2StackAllocator* allocator );
 
-void* b2AllocateStackItem(b2StackAllocator* alloc, int size, const char* name);
-void b2FreeStackItem(b2StackAllocator* alloc, void* mem);
+void* b2AllocateStackItem( b2StackAllocator* alloc, int size, const char* name );
+void b2FreeStackItem( b2StackAllocator* alloc, void* mem );
 
 // Grow the stack based on usage
-void b2GrowStack(b2StackAllocator* alloc);
+void b2GrowStack( b2StackAllocator* alloc );
 
-int b2GetStackCapacity(b2StackAllocator* alloc);
-int b2GetStackAllocation(b2StackAllocator* alloc);
-int b2GetMaxStackAllocation(b2StackAllocator* alloc);
+int b2GetStackCapacity( b2StackAllocator* alloc );
+int b2GetStackAllocation( b2StackAllocator* alloc );
+int b2GetMaxStackAllocation( b2StackAllocator* alloc );

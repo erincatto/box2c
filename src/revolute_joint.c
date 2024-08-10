@@ -15,62 +15,62 @@
 
 #include <stdio.h>
 
-void b2RevoluteJoint_EnableSpring(b2JointId jointId, bool enableSpring)
+void b2RevoluteJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	if (enableSpring != joint->revoluteJoint.enableSpring)
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	if ( enableSpring != joint->revoluteJoint.enableSpring )
 	{
 		joint->revoluteJoint.enableSpring = enableSpring;
 		joint->revoluteJoint.springImpulse = 0.0f;
 	}
 }
 
-bool b2RevoluteJoint_IsSpringEnabled(b2JointId jointId)
+bool b2RevoluteJoint_IsSpringEnabled( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.enableSpring;
 }
 
-void b2RevoluteJoint_SetSpringHertz(b2JointId jointId, float hertz)
+void b2RevoluteJoint_SetSpringHertz( b2JointId jointId, float hertz )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.hertz = hertz;
 }
 
-float b2RevoluteJoint_GetSpringHertz(b2JointId jointId)
+float b2RevoluteJoint_GetSpringHertz( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.hertz;
 }
 
-void b2RevoluteJoint_SetSpringDampingRatio(b2JointId jointId, float dampingRatio)
+void b2RevoluteJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.dampingRatio = dampingRatio;
 }
 
-float b2RevoluteJoint_GetSpringDampingRatio(b2JointId jointId)
+float b2RevoluteJoint_GetSpringDampingRatio( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.dampingRatio;
 }
 
-float b2RevoluteJoint_GetAngle(b2JointId jointId)
+float b2RevoluteJoint_GetAngle( b2JointId jointId )
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* jointSim = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	b2Transform transformA = b2GetBodyTransform(world, jointSim->bodyIdA);
-	b2Transform transformB = b2GetBodyTransform(world, jointSim->bodyIdB);
+	b2World* world = b2GetWorld( jointId.world0 );
+	b2JointSim* jointSim = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	b2Transform transformA = b2GetBodyTransform( world, jointSim->bodyIdA );
+	b2Transform transformB = b2GetBodyTransform( world, jointSim->bodyIdB );
 
-	float angle = b2RelativeAngle(transformB.q, transformA.q) - jointSim->revoluteJoint.referenceAngle;
-	angle = b2UnwindAngle(angle);
+	float angle = b2RelativeAngle( transformB.q, transformA.q ) - jointSim->revoluteJoint.referenceAngle;
+	angle = b2UnwindAngle( angle );
 	return angle;
 }
 
-void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
+void b2RevoluteJoint_EnableLimit( b2JointId jointId, bool enableLimit )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	if (enableLimit != joint->revoluteJoint.enableLimit)
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	if ( enableLimit != joint->revoluteJoint.enableLimit )
 	{
 		joint->revoluteJoint.enableLimit = enableLimit;
 		joint->revoluteJoint.lowerImpulse = 0.0f;
@@ -78,93 +78,93 @@ void b2RevoluteJoint_EnableLimit(b2JointId jointId, bool enableLimit)
 	}
 }
 
-bool b2RevoluteJoint_IsLimitEnabled(b2JointId jointId)
+bool b2RevoluteJoint_IsLimitEnabled( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.enableLimit;
 }
 
-float b2RevoluteJoint_GetLowerLimit(b2JointId jointId)
+float b2RevoluteJoint_GetLowerLimit( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.lowerAngle;
 }
 
-float b2RevoluteJoint_GetUpperLimit(b2JointId jointId)
+float b2RevoluteJoint_GetUpperLimit( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.upperAngle;
 }
 
-void b2RevoluteJoint_SetLimits(b2JointId jointId, float lower, float upper)
+void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	if (lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle)
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	if ( lower != joint->revoluteJoint.lowerAngle || upper != joint->revoluteJoint.upperAngle )
 	{
-		joint->revoluteJoint.lowerAngle = b2MinFloat(lower, upper);
-		joint->revoluteJoint.upperAngle = b2MaxFloat(lower, upper);
+		joint->revoluteJoint.lowerAngle = b2MinFloat( lower, upper );
+		joint->revoluteJoint.upperAngle = b2MaxFloat( lower, upper );
 		joint->revoluteJoint.lowerImpulse = 0.0f;
 		joint->revoluteJoint.upperImpulse = 0.0f;
 	}
 }
 
-void b2RevoluteJoint_EnableMotor(b2JointId jointId, bool enableMotor)
+void b2RevoluteJoint_EnableMotor( b2JointId jointId, bool enableMotor )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
-	if (enableMotor != joint->revoluteJoint.enableMotor)
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	if ( enableMotor != joint->revoluteJoint.enableMotor )
 	{
 		joint->revoluteJoint.enableMotor = enableMotor;
 		joint->revoluteJoint.motorImpulse = 0.0f;
 	}
 }
 
-bool b2RevoluteJoint_IsMotorEnabled(b2JointId jointId)
+bool b2RevoluteJoint_IsMotorEnabled( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.enableMotor;
 }
 
-void b2RevoluteJoint_SetMotorSpeed(b2JointId jointId, float motorSpeed)
+void b2RevoluteJoint_SetMotorSpeed( b2JointId jointId, float motorSpeed )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.motorSpeed = motorSpeed;
 }
 
-float b2RevoluteJoint_GetMotorSpeed(b2JointId jointId)
+float b2RevoluteJoint_GetMotorSpeed( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.motorSpeed;
 }
 
-float b2RevoluteJoint_GetMotorTorque(b2JointId jointId)
+float b2RevoluteJoint_GetMotorTorque( b2JointId jointId )
 {
-	b2World* world = b2GetWorld(jointId.world0);
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2World* world = b2GetWorld( jointId.world0 );
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return world->inv_h * joint->revoluteJoint.motorImpulse;
 }
 
-void b2RevoluteJoint_SetMaxMotorTorque(b2JointId jointId, float torque)
+void b2RevoluteJoint_SetMaxMotorTorque( b2JointId jointId, float torque )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.maxMotorTorque = torque;
 }
 
-float b2RevoluteJoint_GetMaxMotorTorque(b2JointId jointId)
+float b2RevoluteJoint_GetMaxMotorTorque( b2JointId jointId )
 {
-	b2JointSim* joint = b2GetJointSimCheckType(jointId, b2_revoluteJoint);
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.maxMotorTorque;
 }
 
-b2Vec2 b2GetRevoluteJointForce(b2World* world, b2JointSim* base)
+b2Vec2 b2GetRevoluteJointForce( b2World* world, b2JointSim* base )
 {
-	b2Vec2 force = b2MulSV(world->inv_h, base->revoluteJoint.linearImpulse);
+	b2Vec2 force = b2MulSV( world->inv_h, base->revoluteJoint.linearImpulse );
 	return force;
 }
 
-float b2GetRevoluteJointTorque(b2World* world, b2JointSim* base)
+float b2GetRevoluteJointTorque( b2World* world, b2JointSim* base )
 {
 	const b2RevoluteJoint* revolute = &base->revoluteJoint;
-	float torque = world->inv_h * (revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse);
+	float torque = world->inv_h * ( revolute->motorImpulse + revolute->lowerImpulse - revolute->upperImpulse );
 	return torque;
 }
 
@@ -188,18 +188,19 @@ float b2GetRevoluteJointTorque(b2World* world, b2JointSim* base)
 // This causes some trouble when computing anchors. I rotate the anchors using the body rotation every sub-step. For static
 // bodies the anchor doesn't rotate. Body A or B could be static and this can lead to lots of branching. This branching
 // should be minimized.
-// 
+//
 // Solution 1:
-// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static bodies will be identity.
-// Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if bodies move fast.
+// Use delta rotations. This means anchors need to be prepared in world space. The delta rotation for static bodies will be
+// identity. Base separation and angles need to be computed. Manifolds will be behind a frame, but that is probably best if bodies
+// move fast.
 //
 // Solution 2:
-// Use full rotation. The anchors for static bodies will be in world space while the anchors for dynamic bodies will be in local space.
-// Potentially confusing and bug prone.
+// Use full rotation. The anchors for static bodies will be in world space while the anchors for dynamic bodies will be in local
+// space. Potentially confusing and bug prone.
 
-void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
+void b2PrepareRevoluteJoint( b2JointSim* base, b2StepContext* context )
 {
-	B2_ASSERT(base->type == b2_revoluteJoint);
+	B2_ASSERT( base->type == b2_revoluteJoint );
 
 	// chase body id to the solver set where the body lives
 	int idA = base->bodyIdA;
@@ -208,15 +209,15 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	b2World* world = context->world;
 	b2Body* bodies = world->bodyArray;
 
-	b2CheckIndex(bodies, idA);
-	b2CheckIndex(bodies, idB);
+	b2CheckIndex( bodies, idA );
+	b2CheckIndex( bodies, idB );
 
 	b2Body* bodyA = bodies + idA;
 	b2Body* bodyB = bodies + idB;
 
-	B2_ASSERT(bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet);
-	b2CheckIndex(world->solverSetArray, bodyA->setIndex);
-	b2CheckIndex(world->solverSetArray, bodyB->setIndex);
+	B2_ASSERT( bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet );
+	b2CheckIndex( world->solverSetArray, bodyA->setIndex );
+	b2CheckIndex( world->solverSetArray, bodyB->setIndex );
 
 	b2SolverSet* setA = world->solverSetArray + bodyA->setIndex;
 	b2SolverSet* setB = world->solverSetArray + bodyB->setIndex;
@@ -224,8 +225,8 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	int localIndexA = bodyA->localIndex;
 	int localIndexB = bodyB->localIndex;
 
-	B2_ASSERT(0 <= localIndexA && localIndexA <= setA->sims.count);
-	B2_ASSERT(0 <= localIndexB && localIndexB <= setB->sims.count);
+	B2_ASSERT( 0 <= localIndexA && localIndexA <= setA->sims.count );
+	B2_ASSERT( 0 <= localIndexB && localIndexB <= setB->sims.count );
 
 	b2BodySim* bodySimA = setA->sims.data + bodyA->localIndex;
 	b2BodySim* bodySimB = setB->sims.data + bodyB->localIndex;
@@ -246,18 +247,18 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
 
 	// initial anchors in world space
-	joint->anchorA = b2RotateVector(bodySimA->transform.q, b2Sub(base->localOriginAnchorA, bodySimA->localCenter));
-	joint->anchorB = b2RotateVector(bodySimB->transform.q, b2Sub(base->localOriginAnchorB, bodySimB->localCenter));
-	joint->deltaCenter = b2Sub(bodySimB->center, bodySimA->center);
-	joint->deltaAngle = b2RelativeAngle(bodySimB->transform.q, bodySimA->transform.q) - joint->referenceAngle;
-	joint->deltaAngle = b2UnwindAngle(joint->deltaAngle);
+	joint->anchorA = b2RotateVector( bodySimA->transform.q, b2Sub( base->localOriginAnchorA, bodySimA->localCenter ) );
+	joint->anchorB = b2RotateVector( bodySimB->transform.q, b2Sub( base->localOriginAnchorB, bodySimB->localCenter ) );
+	joint->deltaCenter = b2Sub( bodySimB->center, bodySimA->center );
+	joint->deltaAngle = b2RelativeAngle( bodySimB->transform.q, bodySimA->transform.q ) - joint->referenceAngle;
+	joint->deltaAngle = b2UnwindAngle( joint->deltaAngle );
 
 	float k = iA + iB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
 	joint->springSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
 
-	if (context->enableWarmStarting == false)
+	if ( context->enableWarmStarting == false )
 	{
 		joint->linearImpulse = b2Vec2_zero;
 		joint->springImpulse = 0.0f;
@@ -267,9 +268,9 @@ void b2PrepareRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	}
 }
 
-void b2WarmStartRevoluteJoint(b2JointSim* base, b2StepContext* context)
+void b2WarmStartRevoluteJoint( b2JointSim* base, b2StepContext* context )
 {
-	B2_ASSERT(base->type == b2_revoluteJoint);
+	B2_ASSERT( base->type == b2_revoluteJoint );
 
 	float mA = base->invMassA;
 	float mB = base->invMassB;
@@ -283,21 +284,21 @@ void b2WarmStartRevoluteJoint(b2JointSim* base, b2StepContext* context)
 	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
 	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
 
-	b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
-	b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
+	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->anchorA );
+	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->anchorB );
 
 	float axialImpulse = joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
-	stateA->linearVelocity = b2MulSub(stateA->linearVelocity, mA, joint->linearImpulse);
-	stateA->angularVelocity -= iA * (b2Cross(rA, joint->linearImpulse) + axialImpulse);
+	stateA->linearVelocity = b2MulSub( stateA->linearVelocity, mA, joint->linearImpulse );
+	stateA->angularVelocity -= iA * ( b2Cross( rA, joint->linearImpulse ) + axialImpulse );
 
-	stateB->linearVelocity = b2MulAdd(stateB->linearVelocity, mB, joint->linearImpulse);
-	stateB->angularVelocity += iB * (b2Cross(rB, joint->linearImpulse) + axialImpulse);
+	stateB->linearVelocity = b2MulAdd( stateB->linearVelocity, mB, joint->linearImpulse );
+	stateB->angularVelocity += iB * ( b2Cross( rB, joint->linearImpulse ) + axialImpulse );
 }
 
-void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias)
+void b2SolveRevoluteJoint( b2JointSim* base, b2StepContext* context, bool useBias )
 {
-	B2_ASSERT(base->type == b2_revoluteJoint);
+	B2_ASSERT( base->type == b2_revoluteJoint );
 
 	float mA = base->invMassA;
 	float mB = base->invMassB;
@@ -317,43 +318,43 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
-	bool fixedRotation = (iA + iB == 0.0f);
-	//const float maxBias = context->maxBiasVelocity;
+	bool fixedRotation = ( iA + iB == 0.0f );
+	// const float maxBias = context->maxBiasVelocity;
 
 	// Solve spring.
-	if (joint->enableSpring && fixedRotation == false)
+	if ( joint->enableSpring && fixedRotation == false )
 	{
-		float C = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
+		float C = b2RelativeAngle( stateB->deltaRotation, stateA->deltaRotation ) + joint->deltaAngle;
 		float bias = joint->springSoftness.biasRate * C;
 		float massScale = joint->springSoftness.massScale;
 		float impulseScale = joint->springSoftness.impulseScale;
 
 		float Cdot = wB - wA;
-		float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->springImpulse;
+		float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->springImpulse;
 		joint->springImpulse += impulse;
 
 		wA -= iA * impulse;
 		wB += iB * impulse;
 	}
-	
+
 	// Solve motor constraint.
-	if (joint->enableMotor && fixedRotation == false)
+	if ( joint->enableMotor && fixedRotation == false )
 	{
 		float Cdot = wB - wA - joint->motorSpeed;
 		float impulse = -joint->axialMass * Cdot;
 		float oldImpulse = joint->motorImpulse;
 		float maxImpulse = context->h * joint->maxMotorTorque;
-		joint->motorImpulse = b2ClampFloat(joint->motorImpulse + impulse, -maxImpulse, maxImpulse);
+		joint->motorImpulse = b2ClampFloat( joint->motorImpulse + impulse, -maxImpulse, maxImpulse );
 		impulse = joint->motorImpulse - oldImpulse;
 
 		wA -= iA * impulse;
 		wB += iB * impulse;
 	}
 
-	if (joint->enableLimit && fixedRotation == false)
+	if ( joint->enableLimit && fixedRotation == false )
 	{
-		float jointAngle = b2RelativeAngle(stateB->deltaRotation, stateA->deltaRotation) + joint->deltaAngle;
-		jointAngle = b2UnwindAngle(jointAngle);
+		float jointAngle = b2RelativeAngle( stateB->deltaRotation, stateA->deltaRotation ) + joint->deltaAngle;
+		jointAngle = b2UnwindAngle( jointAngle );
 
 		// Lower limit
 		{
@@ -361,12 +362,12 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 			float bias = 0.0f;
 			float massScale = 1.0f;
 			float impulseScale = 0.0f;
-			if (C > 0.0f)
+			if ( C > 0.0f )
 			{
 				// speculation
 				bias = C * context->inv_h;
 			}
-			else if (useBias)
+			else if ( useBias )
 			{
 				bias = context->jointSoftness.biasRate * C;
 				massScale = context->jointSoftness.massScale;
@@ -374,9 +375,9 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 			}
 
 			float Cdot = wB - wA;
-			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
+			float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->lowerImpulse;
-			joint->lowerImpulse = b2MaxFloat(joint->lowerImpulse + impulse, 0.0f);
+			joint->lowerImpulse = b2MaxFloat( joint->lowerImpulse + impulse, 0.0f );
 			impulse = joint->lowerImpulse - oldImpulse;
 
 			wA -= iA * impulse;
@@ -391,12 +392,12 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 			float bias = 0.0f;
 			float massScale = 1.0f;
 			float impulseScale = 0.0f;
-			if (C > 0.0f)
+			if ( C > 0.0f )
 			{
 				// speculation
 				bias = C * context->inv_h;
 			}
-			else if (useBias)
+			else if ( useBias )
 			{
 				bias = context->jointSoftness.biasRate * C;
 				massScale = context->jointSoftness.massScale;
@@ -405,9 +406,9 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 
 			// sign flipped on Cdot
 			float Cdot = wA - wB;
-			float impulse = -massScale * joint->axialMass * (Cdot + bias) - impulseScale * joint->lowerImpulse;
+			float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->lowerImpulse;
 			float oldImpulse = joint->upperImpulse;
-			joint->upperImpulse = b2MaxFloat(joint->upperImpulse + impulse, 0.0f);
+			joint->upperImpulse = b2MaxFloat( joint->upperImpulse + impulse, 0.0f );
 			impulse = joint->upperImpulse - oldImpulse;
 
 			// sign flipped on applied impulse
@@ -424,21 +425,21 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 		//     [  -r1y*iA*r1x-r2y*iB*r2x, mA+r1x^2*iA+mB+r2x^2*iB]
 
 		// current anchors
-		b2Vec2 rA = b2RotateVector(stateA->deltaRotation, joint->anchorA);
-		b2Vec2 rB = b2RotateVector(stateB->deltaRotation, joint->anchorB);
+		b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->anchorA );
+		b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->anchorB );
 
-		b2Vec2 Cdot = b2Sub(b2Add(vB, b2CrossSV(wB, rB)), b2Add(vA, b2CrossSV(wA, rA)));
+		b2Vec2 Cdot = b2Sub( b2Add( vB, b2CrossSV( wB, rB ) ), b2Add( vA, b2CrossSV( wA, rA ) ) );
 
 		b2Vec2 bias = b2Vec2_zero;
 		float massScale = 1.0f;
 		float impulseScale = 0.0f;
-		if (useBias)
+		if ( useBias )
 		{
 			b2Vec2 dcA = stateA->deltaPosition;
 			b2Vec2 dcB = stateB->deltaPosition;
 
-			b2Vec2 separation = b2Add(b2Add(b2Sub(dcB, dcA), b2Sub(rB, rA)), joint->deltaCenter);
-			bias = b2MulSV(context->jointSoftness.biasRate, separation);
+			b2Vec2 separation = b2Add( b2Add( b2Sub( dcB, dcA ), b2Sub( rB, rA ) ), joint->deltaCenter );
+			bias = b2MulSV( context->jointSoftness.biasRate, separation );
 			massScale = context->jointSoftness.massScale;
 			impulseScale = context->jointSoftness.impulseScale;
 		}
@@ -448,18 +449,18 @@ void b2SolveRevoluteJoint(b2JointSim* base, b2StepContext* context, bool useBias
 		K.cy.x = -rA.y * rA.x * iA - rB.y * rB.x * iB;
 		K.cx.y = K.cy.x;
 		K.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
-		b2Vec2 b = b2Solve22(K, b2Add(Cdot, bias));
-		
+		b2Vec2 b = b2Solve22( K, b2Add( Cdot, bias ) );
+
 		b2Vec2 impulse;
 		impulse.x = -massScale * b.x - impulseScale * joint->linearImpulse.x;
 		impulse.y = -massScale * b.y - impulseScale * joint->linearImpulse.y;
 		joint->linearImpulse.x += impulse.x;
 		joint->linearImpulse.y += impulse.y;
-		
-		vA = b2MulSub(vA, mA, impulse);
-		wA -= iA * b2Cross(rA, impulse);
-		vB = b2MulAdd(vB, mB, impulse);
-		wB += iB * b2Cross(rB, impulse);
+
+		vA = b2MulSub( vA, mA, impulse );
+		wA -= iA * b2Cross( rA, impulse );
+		vB = b2MulAdd( vB, mB, impulse );
+		wB += iB * b2Cross( rB, impulse );
 	}
 
 	stateA->linearVelocity = vA;
@@ -491,57 +492,57 @@ void b2RevoluteJoint::Dump()
 }
 #endif
 
-void b2DrawRevoluteJoint(b2DebugDraw* draw, b2JointSim* base, b2Transform transformA, b2Transform transformB, float drawSize)
+void b2DrawRevoluteJoint( b2DebugDraw* draw, b2JointSim* base, b2Transform transformA, b2Transform transformB, float drawSize )
 {
-	B2_ASSERT(base->type == b2_revoluteJoint);
+	B2_ASSERT( base->type == b2_revoluteJoint );
 
 	b2RevoluteJoint* joint = &base->revoluteJoint;
 
-	b2Vec2 pA = b2TransformPoint(transformA, base->localOriginAnchorA);
-	b2Vec2 pB = b2TransformPoint(transformB, base->localOriginAnchorB);
+	b2Vec2 pA = b2TransformPoint( transformA, base->localOriginAnchorA );
+	b2Vec2 pB = b2TransformPoint( transformB, base->localOriginAnchorB );
 
 	b2HexColor c1 = b2_colorGray7;
 	b2HexColor c2 = b2_colorGreen;
 	b2HexColor c3 = b2_colorRed;
 
 	const float L = drawSize;
-	//draw->DrawPoint(pA, 3.0f, b2_colorGray40, draw->context);
-	//draw->DrawPoint(pB, 3.0f, b2_colorLightBlue, draw->context);
-	draw->DrawCircle(pB, L, c1, draw->context);
+	// draw->DrawPoint(pA, 3.0f, b2_colorGray40, draw->context);
+	// draw->DrawPoint(pB, 3.0f, b2_colorLightBlue, draw->context);
+	draw->DrawCircle( pB, L, c1, draw->context );
 
-	float angle = b2RelativeAngle(transformB.q, transformA.q);
+	float angle = b2RelativeAngle( transformB.q, transformA.q );
 
-	b2Vec2 r = {L * cosf(angle), L * sinf(angle)};
-	b2Vec2 pC = b2Add(pB, r);
-	draw->DrawSegment(pB, pC, c1, draw->context);
+	b2Vec2 r = { L * cosf( angle ), L * sinf( angle ) };
+	b2Vec2 pC = b2Add( pB, r );
+	draw->DrawSegment( pB, pC, c1, draw->context );
 
-	if (draw->drawJointExtras)
+	if ( draw->drawJointExtras )
 	{
-		float jointAngle = b2UnwindAngle(angle - joint->referenceAngle);
+		float jointAngle = b2UnwindAngle( angle - joint->referenceAngle );
 		char buffer[32];
-		snprintf(buffer, 32, " %.1f deg", 180.0f * jointAngle / b2_pi);
-		draw->DrawString(pC, buffer, draw->context);
+		snprintf( buffer, 32, " %.1f deg", 180.0f * jointAngle / b2_pi );
+		draw->DrawString( pC, buffer, draw->context );
 	}
 
 	float lowerAngle = joint->lowerAngle + joint->referenceAngle;
 	float upperAngle = joint->upperAngle + joint->referenceAngle;
 
-	if (joint->enableLimit)
+	if ( joint->enableLimit )
 	{
-		b2Vec2 rlo = {L * cosf(lowerAngle), L * sinf(lowerAngle)};
-		b2Vec2 rhi = {L * cosf(upperAngle), L * sinf(upperAngle)};
+		b2Vec2 rlo = { L * cosf( lowerAngle ), L * sinf( lowerAngle ) };
+		b2Vec2 rhi = { L * cosf( upperAngle ), L * sinf( upperAngle ) };
 
-		draw->DrawSegment(pB, b2Add(pB, rlo), c2, draw->context);
-		draw->DrawSegment(pB, b2Add(pB, rhi), c3, draw->context);
+		draw->DrawSegment( pB, b2Add( pB, rlo ), c2, draw->context );
+		draw->DrawSegment( pB, b2Add( pB, rhi ), c3, draw->context );
 
-		b2Vec2 ref = (b2Vec2){L * cosf(joint->referenceAngle), L * sinf(joint->referenceAngle)};
-		draw->DrawSegment(pB, b2Add(pB, ref), b2_colorBlue, draw->context);
+		b2Vec2 ref = ( b2Vec2 ){ L * cosf( joint->referenceAngle ), L * sinf( joint->referenceAngle ) };
+		draw->DrawSegment( pB, b2Add( pB, ref ), b2_colorBlue, draw->context );
 	}
 
 	b2HexColor color = b2_colorGold;
-	draw->DrawSegment(transformA.p, pA, color, draw->context);
-	draw->DrawSegment(pA, pB, color, draw->context);
-	draw->DrawSegment(transformB.p, pB, color, draw->context);
+	draw->DrawSegment( transformA.p, pA, color, draw->context );
+	draw->DrawSegment( pA, pB, color, draw->context );
+	draw->DrawSegment( transformB.p, pB, color, draw->context );
 
 	// char buffer[32];
 	// sprintf(buffer, "%.1f", b2Length(joint->impulse));
