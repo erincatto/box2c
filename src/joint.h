@@ -38,7 +38,7 @@ typedef struct b2Joint
 	// joint index within set or graph color
 	// B2_NULL_INDEX when slot is free
 	int localIndex;
-	
+
 	b2JointEdge edges[2];
 
 	int jointId;
@@ -150,7 +150,7 @@ typedef struct b2PrismaticJoint
 	float deltaAngle;
 	float axialMass;
 	b2Softness springSoftness;
-	
+
 	bool enableSpring;
 	bool enableLimit;
 	bool enableMotor;
@@ -179,7 +179,7 @@ typedef struct b2RevoluteJoint
 	float deltaAngle;
 	float axialMass;
 	b2Softness springSoftness;
-	
+
 	bool enableSpring;
 	bool enableMotor;
 	bool enableLimit;
@@ -268,18 +268,18 @@ typedef struct b2JointSim
 	};
 } b2JointSim;
 
-b2Joint* b2GetJoint(b2World* world, int jointId);
-void b2DestroyJointInternal(b2World* world, b2Joint* joint, bool wakeBodies);
+b2Joint* b2GetJoint( b2World* world, int jointId );
+void b2DestroyJointInternal( b2World* world, b2Joint* joint, bool wakeBodies );
 
-b2JointSim* b2GetJointSim(b2World* world, b2Joint* joint);
-b2JointSim* b2GetJointSimCheckType(b2JointId jointId, b2JointType type);
+b2JointSim* b2GetJointSim( b2World* world, b2Joint* joint );
+b2JointSim* b2GetJointSimCheckType( b2JointId jointId, b2JointType type );
 
-void b2PrepareJoint(b2JointSim* joint, b2StepContext* context);
-void b2WarmStartJoint(b2JointSim* joint, b2StepContext* context);
-void b2SolveJoint(b2JointSim* joint, b2StepContext* context, bool useBias);
+void b2PrepareJoint( b2JointSim* joint, b2StepContext* context );
+void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context );
+void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias );
 
-void b2PrepareOverflowJoints(b2StepContext* context);
-void b2WarmStartOverflowJoints(b2StepContext* context);
-void b2SolveOverflowJoints(b2StepContext* context, bool useBias);
+void b2PrepareOverflowJoints( b2StepContext* context );
+void b2WarmStartOverflowJoints( b2StepContext* context );
+void b2SolveOverflowJoints( b2StepContext* context, bool useBias );
 
-void b2DrawJoint(b2DebugDraw* draw, b2World* world, b2Joint* joint);
+void b2DrawJoint( b2DebugDraw* draw, b2World* world, b2Joint* joint );

@@ -9,11 +9,12 @@ Here are the highlights that affect the API:
 - multithreading support
 - fewer callbacks
 - more features (such as capsules and shape casts)
-- new sub-stepping solver
+- new sub-stepping solver (*Soft Step*)
+- gear and pulley joint removed (temporarily)
 
 However, the scope of what Box2D does has not changed much. It is still a 2D rigid body engine. It is just faster and more robust (hopefully). And hopefully it is easier to work with and port/wrap for other languages/platforms.
 
-I'm going to describe migration by comparing code snippets between 2.4 and 3.0. These should give you and idea of the sort of transformations you need to make to your code to migrate to v3.0.
+I'm going to describe migration by comparing code snippets between 2.4 and 3.0. These should give you and idea of the sort of transformations you need to make to your code to migrate to v3.0. These snippets are written in C and may need some small adjustments to work with C++.
 
 I'm not going to cover all the details of v3.0 in this guide. That is the job of the manual, the doxygen reference, and the samples.
 
@@ -57,7 +58,7 @@ Version 3.0:
 ```c
 b2BodyDef bodyDef = b2DefaultBodyDef();
 bodyDef.type = b2_dynamicBody;
-bodyDef.position = {0.0f, 4.0f};
+bodyDef.position = (b2Vec2){0.0f, 4.0f};
 b2BodyId bodyId = b2CreateBody(worldId, &bodyDef);
 ```
 Body creation is very similar in v3.0. In this case there is a definition initialization function `b2DefaultBodyDef()`. This can help save a bit of typing in some cases. In v3.0 I recommend getting comfortable with curly brace initialization for initializing vectors. There are no member functions in C. Notice that the body is created using a loose function and providing the `b2WorldId` as an argument. Basically what you would expect going from C++ to C.
@@ -73,7 +74,7 @@ Version 3.0:
 b2DestroyBody(bodyId);
 bodyId = b2_nullBodyId;
 ```
-Notice there is a little magic here in Version 3.0. `b2BodyId` knows what world it comes from. So you do not need to provide `worldId` when destroying the body. Version 3.0 supports up to 128 worlds. This may increased or be overridden in the future.
+Notice there is a little magic here in Version 3.0. `b2BodyId` knows what world it comes from. So you do not need to provide `worldId` when destroying the body. Version 3.0 supports up to 128 worlds. This may be increased or be overridden in the future.
 
 Shapes and joints are still destroyed automatically. However, `b2DestructionListener` is gone. This holds to the theme of fewer callbacks. However, you can now use 
 `b2Shape_IsValid()` and `b2Joint_IsValid()`.
@@ -105,7 +106,7 @@ shapeDef.friction = 0.3f;
 b2ShapeId shapeId = b2CreatePolygonShape(bodyId, &shapeDef, &box);
 ```
 
-So basically v2.4 shapes are no longer shapes, they are *primitives* with no inheritance (of course). This freed the term _shape_ to be used where _fixture_ was used before. In v3.0 the shape definition is generic and there are different functions for creating each shape type, such as `b2CreateCircleShape` or `b2CreateSegmentShape`.
+So basically v2.4 shapes are no longer shapes, they are *primitives* or *geometry* with no inheritance (of course). This freed the term _shape_ to be used where _fixture_ was used before. In v3.0 the shape definition is generic and there are different functions for creating each shape type, such as `b2CreateCircleShape` or `b2CreateSegmentShape`.
 
 Again notice the structure initialization with `b2DefaultShapeDef()`. Unfortunately we cannot have meaningful definitions with zero initialization. You must initialize your structures.
 
@@ -126,7 +127,7 @@ shapeId = b2_nullShapeId;
 ```
 
 ### Chains
-In Version 2.4 chains are a type of shape. In Version 3.0 they are a separate concept. This lead to significant simplifications internally. In Version 2.4 all shapes had to support the notion of child shapes. This is gone.
+In Version 2.4 chains are a type of shape. In Version 3.0 they are a separate concept. This leads to significant simplifications internally. In Version 2.4 all shapes had to support the notion of child shapes. This is gone.
 
 Version 2.4:
 ```cpp
@@ -161,7 +162,7 @@ chainDef.loop = true;
 b2ChainId chainId = b2CreateChain(bodyId, &chainDef);
 ```
 
-Since chains are their own concept now, they get their own identifier, `b2ChainId`. You can view chains as macro objects, they create many `b2SmoothSegment` shapes internally. Normally you don't interact with these. However they are returned from queries. I may need to write an API to allow you to get the `b2ChainId` for a smooth segment that you get from a query.
+Since chains are their own concept now, they get their own identifier, `b2ChainId`. You can view chains as macro objects, they create many `b2SmoothSegment` shapes internally. Normally you don't interact with these. However they are returned from queries. You can use `b2Shape_GetParentChain()` to get the `b2ChainId` for a smooth segment that you get from a query.
 
 > DO NOT destroy or modify a `b2SmoothSegment` that belongs to a chain shape directly
 
@@ -201,10 +202,10 @@ Some of the joints have more options now. Check the code comments and samples fo
 
 The friction joint has been removed since it is a subset of the motor joint.
 
-The pulley and gear joints have been removed. I'm not quite happy with how they work and plan to implement improved versions in the future.
+The pulley and gear joints have been removed. I'm not satisfied with how they work in 2.4 and plan to implement improved versions in the future.
 
 ### New solver
-There is a new solver that uses sub-stepping. Instead of specifying velocity iterations or position iterations, you now specify the number of sub-steps.
+There is a new solver that uses sub-stepping called *Soft Step*. Instead of specifying velocity iterations or position iterations, you now specify the number of sub-steps.
 ```c
 void b2World_Step(b2WorldId worldId, float timeStep, int32_t subStepCount);
 ```

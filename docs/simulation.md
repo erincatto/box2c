@@ -1089,7 +1089,7 @@ for (int i = 0; i < contactEvents.hitCount; ++i)
 Shapes only generate hit events if `b2ShapeDef::enableHitEvents` is true.
 I recommend you only enable this for shapes that need hit events because
 it creates some overhead. Box2D also only reports hit events that have an
-approach speed is larger than `b2WorldDef::hitEventThreshold`.
+approach speed larger than `b2WorldDef::hitEventThreshold`.
 
 ### Contact Filtering
 Often in a game you don't want all objects to collide. For example, you

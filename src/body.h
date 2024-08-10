@@ -88,7 +88,7 @@ typedef struct b2BodyState
 } b2BodyState;
 
 // Identity body state, notice the deltaRotation is {1, 0}
-static const b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {1.0f, 0.0f}};
+static const b2BodyState b2_identityBodyState = { { 0.0f, 0.0f }, 0.0f, 0, { 0.0f, 0.0f }, { 1.0f, 0.0f } };
 
 // Body simulation data used for integration of position and velocity
 // Transform data used for collision and solver preparation.
@@ -132,31 +132,31 @@ typedef struct b2BodySim
 	bool enlargeAABB;
 } b2BodySim;
 
-b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
+b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId );
 
-b2Body* b2GetBody(b2World* world, int bodyId);
+b2Body* b2GetBody( b2World* world, int bodyId );
 
 // Get a validated body from a world using an id.
-b2Body* b2GetBodyFullId(b2World* world, b2BodyId bodyId);
+b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId );
 
-b2Transform b2GetBodyTransformQuick(b2World* world, b2Body* body);
-b2Transform b2GetBodyTransform(b2World* world, int bodyId);
+b2Transform b2GetBodyTransformQuick( b2World* world, b2Body* body );
+b2Transform b2GetBodyTransform( b2World* world, int bodyId );
 
 // Create a b2BodyId from a raw id.
-b2BodyId b2MakeBodyId(b2World* world, int bodyId);
+b2BodyId b2MakeBodyId( b2World* world, int bodyId );
 
-bool b2ShouldBodiesCollide(b2World* world, b2Body* bodyA, b2Body* bodyB);
-bool b2IsBodyAwake(b2World* world, b2Body* body);
+bool b2ShouldBodiesCollide( b2World* world, b2Body* bodyA, b2Body* bodyB );
+bool b2IsBodyAwake( b2World* world, b2Body* body );
 
-b2BodySim* b2GetBodySim(b2World* world, b2Body* body);
-b2BodyState* b2GetBodyState(b2World* world, b2Body* body);
+b2BodySim* b2GetBodySim( b2World* world, b2Body* body );
+b2BodyState* b2GetBodyState( b2World* world, b2Body* body );
 
 // careful calling this because it can invalidate body, state, joint, and contact pointers
-bool b2WakeBody(b2World* world, b2Body* body);
+bool b2WakeBody( b2World* world, b2Body* body );
 
-void b2UpdateBodyMassData(b2World* world, b2Body* body);
+void b2UpdateBodyMassData( b2World* world, b2Body* body );
 
-static inline b2Sweep b2MakeSweep(const b2BodySim* bodySim)
+static inline b2Sweep b2MakeSweep( const b2BodySim* bodySim )
 {
 	b2Sweep s;
 	s.c1 = bodySim->center0;

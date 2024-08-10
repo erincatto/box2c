@@ -7,34 +7,34 @@
 
 #include <float.h>
 
-bool b2AABB_IsValid(b2AABB a)
+bool b2AABB_IsValid( b2AABB a )
 {
-	b2Vec2 d = b2Sub(a.upperBound, a.lowerBound);
+	b2Vec2 d = b2Sub( a.upperBound, a.lowerBound );
 	bool valid = d.x >= 0.0f && d.y >= 0.0f;
-	valid = valid && b2Vec2_IsValid(a.lowerBound) && b2Vec2_IsValid(a.upperBound);
+	valid = valid && b2Vec2_IsValid( a.lowerBound ) && b2Vec2_IsValid( a.upperBound );
 	return valid;
 }
 
 // From Real-time Collision Detection, p179.
-b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
+b2CastOutput b2AABB_RayCast( b2AABB a, b2Vec2 p1, b2Vec2 p2 )
 {
 	// Radius not handled
-	b2CastOutput output = {0};
+	b2CastOutput output = { 0 };
 
 	float tmin = -FLT_MAX;
 	float tmax = FLT_MAX;
 
 	b2Vec2 p = p1;
-	b2Vec2 d = b2Sub(p2, p1);
-	b2Vec2 absD = b2Abs(d);
+	b2Vec2 d = b2Sub( p2, p1 );
+	b2Vec2 absD = b2Abs( d );
 
 	b2Vec2 normal = b2Vec2_zero;
 
 	// x-coordinate
-	if (absD.x < FLT_EPSILON)
+	if ( absD.x < FLT_EPSILON )
 	{
 		// parallel
-		if (p.x < a.lowerBound.x || a.upperBound.x < p.x)
+		if ( p.x < a.lowerBound.x || a.upperBound.x < p.x )
 		{
 			return output;
 		}
@@ -42,13 +42,13 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 	else
 	{
 		float inv_d = 1.0f / d.x;
-		float t1 = (a.lowerBound.x - p.x) * inv_d;
-		float t2 = (a.upperBound.x - p.x) * inv_d;
+		float t1 = ( a.lowerBound.x - p.x ) * inv_d;
+		float t2 = ( a.upperBound.x - p.x ) * inv_d;
 
 		// Sign of the normal vector.
 		float s = -1.0f;
 
-		if (t1 > t2)
+		if ( t1 > t2 )
 		{
 			float tmp = t1;
 			t1 = t2;
@@ -57,7 +57,7 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 		}
 
 		// Push the min up
-		if (t1 > tmin)
+		if ( t1 > tmin )
 		{
 			normal.y = 0.0f;
 			normal.x = s;
@@ -65,19 +65,19 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 		}
 
 		// Pull the max down
-		tmax = b2MinFloat(tmax, t2);
+		tmax = b2MinFloat( tmax, t2 );
 
-		if (tmin > tmax)
+		if ( tmin > tmax )
 		{
 			return output;
 		}
 	}
 
 	// y-coordinate
-	if (absD.y < FLT_EPSILON)
+	if ( absD.y < FLT_EPSILON )
 	{
 		// parallel
-		if (p.y < a.lowerBound.y || a.upperBound.y < p.y)
+		if ( p.y < a.lowerBound.y || a.upperBound.y < p.y )
 		{
 			return output;
 		}
@@ -85,13 +85,13 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 	else
 	{
 		float inv_d = 1.0f / d.y;
-		float t1 = (a.lowerBound.y - p.y) * inv_d;
-		float t2 = (a.upperBound.y - p.y) * inv_d;
+		float t1 = ( a.lowerBound.y - p.y ) * inv_d;
+		float t2 = ( a.upperBound.y - p.y ) * inv_d;
 
 		// Sign of the normal vector.
 		float s = -1.0f;
 
-		if (t1 > t2)
+		if ( t1 > t2 )
 		{
 			float tmp = t1;
 			t1 = t2;
@@ -100,7 +100,7 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 		}
 
 		// Push the min up
-		if (t1 > tmin)
+		if ( t1 > tmin )
 		{
 			normal.x = 0.0f;
 			normal.y = s;
@@ -108,9 +108,9 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 		}
 
 		// Pull the max down
-		tmax = b2MinFloat(tmax, t2);
+		tmax = b2MinFloat( tmax, t2 );
 
-		if (tmin > tmax)
+		if ( tmin > tmax )
 		{
 			return output;
 		}
@@ -118,7 +118,7 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 
 	// Does the ray start inside the box?
 	// Does the ray intersect beyond the max fraction?
-	if (tmin < 0.0f || 1.0f < tmin)
+	if ( tmin < 0.0f || 1.0f < tmin )
 	{
 		return output;
 	}
@@ -126,7 +126,7 @@ b2CastOutput b2AABB_RayCast(b2AABB a, b2Vec2 p1, b2Vec2 p2)
 	// Intersection.
 	output.fraction = tmin;
 	output.normal = normal;
-	output.point = b2Lerp(p1, p2, tmin);
+	output.point = b2Lerp( p1, p2, tmin );
 	output.hit = true;
 	return output;
 }

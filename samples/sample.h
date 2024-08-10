@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "box2d/id.h"
 #include "box2d/collision.h"
+#include "box2d/id.h"
 #include "box2d/types.h"
 
 // todo this include is slow
@@ -12,7 +12,7 @@
 
 #include <stdlib.h>
 
-#define ARRAY_COUNT(A) (int)(sizeof(A) / sizeof(A[0]))
+#define ARRAY_COUNT( A ) (int)( sizeof( A ) / sizeof( A[0] ) )
 
 struct Settings;
 
@@ -40,12 +40,12 @@ struct ContactPoint
 
 class SampleTask : public enki::ITaskSet
 {
-  public:
+public:
 	SampleTask() = default;
 
-	void ExecuteRange(enki::TaskSetPartition range, uint32_t threadIndex) override
+	void ExecuteRange( enki::TaskSetPartition range, uint32_t threadIndex ) override
 	{
-		m_task(range.start, range.end, threadIndex, m_taskContext);
+		m_task( range.start, range.end, threadIndex, m_taskContext );
 	}
 
 	b2TaskCallback* m_task = nullptr;
@@ -57,24 +57,24 @@ constexpr int32_t maxThreads = 64;
 
 class Sample
 {
-  public:
-	explicit Sample(Settings& settings);
+public:
+	explicit Sample( Settings& settings );
 	virtual ~Sample();
 
-	void DrawTitle(const char* string);
-	virtual void Step(Settings& settings);
+	void DrawTitle( const char* string );
+	virtual void Step( Settings& settings );
 	virtual void UpdateUI()
 	{
 	}
-	virtual void Keyboard(int)
+	virtual void Keyboard( int )
 	{
 	}
-	virtual void MouseDown(b2Vec2 p, int button, int mod);
-	virtual void MouseUp(b2Vec2 p, int button);
-	virtual void MouseMove(b2Vec2 p);
+	virtual void MouseDown( b2Vec2 p, int button, int mod );
+	virtual void MouseUp( b2Vec2 p, int button );
+	virtual void MouseMove( b2Vec2 p );
 
 	void ResetProfile();
-	void ShiftOrigin(b2Vec2 newOrigin);
+	void ShiftOrigin( b2Vec2 newOrigin );
 
 	friend class DestructionListener;
 	friend class BoundaryListener;
@@ -97,9 +97,9 @@ class Sample
 	b2Profile m_totalProfile;
 };
 
-typedef Sample* SampleCreateFcn(Settings& settings);
+typedef Sample* SampleCreateFcn( Settings& settings );
 
-int RegisterSample(const char* category, const char* name, SampleCreateFcn* fcn);
+int RegisterSample( const char* category, const char* name, SampleCreateFcn* fcn );
 
 struct SampleEntry
 {
@@ -114,31 +114,37 @@ extern int g_sampleCount;
 
 #define RAND_LIMIT 32767
 
+/// Random integer in range [lo, hi)
+inline float RandomInt( int lo, int hi )
+{
+	return lo + rand() % ( hi - lo );
+}
+
 /// Random number in range [-1,1]
 inline float RandomFloat()
 {
-	float r = (float)(rand() & (RAND_LIMIT));
+	float r = (float)( rand() & ( RAND_LIMIT ) );
 	r /= RAND_LIMIT;
 	r = 2.0f * r - 1.0f;
 	return r;
 }
 
 /// Random floating point number in range [lo, hi]
-inline float RandomFloat(float lo, float hi)
+inline float RandomFloat( float lo, float hi )
 {
-	float r = (float)(rand() & (RAND_LIMIT));
+	float r = (float)( rand() & ( RAND_LIMIT ) );
 	r /= RAND_LIMIT;
-	r = (hi - lo) * r + lo;
+	r = ( hi - lo ) * r + lo;
 	return r;
 }
 
 /// Random vector with coordinates in range [lo, hi]
-inline b2Vec2 RandomVec2(float lo, float hi)
+inline b2Vec2 RandomVec2( float lo, float hi )
 {
 	b2Vec2 v;
-	v.x = RandomFloat(lo, hi);
-	v.y = RandomFloat(lo, hi);
+	v.x = RandomFloat( lo, hi );
+	v.y = RandomFloat( lo, hi );
 	return v;
 }
 
-b2Polygon RandomPolygon(float extent);
+b2Polygon RandomPolygon( float extent );

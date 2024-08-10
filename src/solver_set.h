@@ -42,14 +42,14 @@ typedef struct b2SolverSet
 	int setIndex;
 } b2SolverSet;
 
-void b2DestroySolverSet(b2World* world, int setIndex);
+void b2DestroySolverSet( b2World* world, int setIndex );
 
-void b2WakeSolverSet(b2World* world, int setIndex);
-void b2TrySleepIsland(b2World* world, int islandId);
+void b2WakeSolverSet( b2World* world, int setIndex );
+void b2TrySleepIsland( b2World* world, int islandId );
 
 // Merge set 2 into set 1 then destroy set 2.
 // Warning: any pointers into these sets will be orphaned.
-void b2MergeSolverSets(b2World* world, int setIndex1, int setIndex2);
+void b2MergeSolverSets( b2World* world, int setIndex1, int setIndex2 );
 
-void b2TransferBody(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body);
-void b2TransferJoint(b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Joint* joint);
+void b2TransferBody( b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Body* body );
+void b2TransferJoint( b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Joint* joint );

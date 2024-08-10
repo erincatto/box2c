@@ -25,17 +25,25 @@ struct Bone
 
 	b2BodyId bodyId;
 	b2JointId jointId;
+	float frictionScale;
 	int parentIndex;
 };
 
 class Human
 {
-  public:
+public:
 	Human();
 
-	void Spawn(b2WorldId worldId, b2Vec2 position, float scale, int groupIndex, void* userData);
+	void Spawn( b2WorldId worldId, b2Vec2 position, float scale, float frictionTorque, float hertz, float dampingRatio,
+				int groupIndex, void* userData, bool colorize );
 	void Despawn();
 
+	void ApplyRandomAngularImpulse( float magnitude );
+	void SetJointFrictionTorque( float torque );
+	void SetJointSpringHertz( float hertz );
+	void SetJointDampingRatio( float dampingRatio );
+
 	Bone m_bones[Bone::e_count];
+	float m_scale;
 	bool m_isSpawned;
 };
